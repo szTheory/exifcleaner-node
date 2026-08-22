@@ -38,6 +38,7 @@ jobs:
       - run: npm test
       - run: npm run check:cycles
       - run: npm run build
+      - run: npm run check:dist
       - name: Validate release version and exact tag
         env:
           EVENT_NAME: ${{ github.event_name }}

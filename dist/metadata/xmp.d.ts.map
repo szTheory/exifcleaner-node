@@ -1,0 +1,1 @@
+{"version":3,"file":"xmp.d.ts","sourceRoot":"","sources":["../../src/metadata/xmp.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,aAAa,EAAE,eAAe,EAAE,MAAM,aAAa,CAAC;AAElE,MAAM,WAAW,SAAS;IACxB,QAAQ,CAAC,OAAO,EAAE,SAAS,aAAa,EAAE,CAAC;IAC3C,QAAQ,CAAC,QAAQ,EAAE,SAAS,eAAe,EAAE,CAAC;CAC/C;AA0FD,wBAAgB,QAAQ,CAAC,OAAO,EAAE,MAAM,GAAG,SAAS,CAwFnD"}
