@@ -12,16 +12,15 @@ Never create false confidence: either produce a verified sanitized artifact whil
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Pinned WebP evidence and adversarial fixtures detect metadata leaks and payload drift.
+- [x] The typed WebP-only API sanitizes to a new path or refuses without damaging the source.
+- [x] CI verifies source, packed consumers, and Node 22/24 on Linux, macOS, and Windows.
+- [x] v0.1.1 was published by repository-bound trusted automation with provenance.
+- [x] ExifCleaner consumes exact v0.1.1 behind a bounded native WebP pilot with ExifTool fallback.
 
 ### Active
 
-- [ ] Establish pinned, reproducible evidence from ExifCleaner and the WebP specification.
-- [ ] Expose typed `inspectFile`, `sanitizeFile`, and `getCapabilities` APIs for WebP.
-- [ ] Remove WebP metadata under an explicit preservation policy while preserving image and animation payload bytes.
-- [ ] Fail closed on ambiguity, malformed input, unsupported features, and resource-limit violations.
-- [ ] Automate a provenance-bearing npm release only after verification succeeds.
-- [ ] Document the narrow support contract honestly enough for an early consumer to integrate safely.
+None. The next format remains intentionally unselected.
 
 ### Out of Scope
 
@@ -51,15 +50,15 @@ Never create false confidence: either produce a verified sanitized artifact whil
 
 ## Key Decisions
 
-| Decision                                              | Rationale                                                                                                                | Outcome   |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------- |
-| Start with WebP                                       | RIFF has a bounded, specified chunk structure and exercises still, lossless, alpha, ICC, EXIF, XMP, and animation cases. | — Pending |
-| Use `Result` and discriminated `MetadataError` values | Expected failures are part of the public contract and must be exhaustively handleable.                                   | — Pending |
-| Refuse unknown chunks and trailers in v0.1            | Copying an unclassified payload could preserve private metadata while implying it was cleaned.                           | — Pending |
-| Never overwrite the source                            | A privacy tool must not turn a parser or I/O defect into data loss.                                                      | — Pending |
-| Preserve payload bytes instead of transcoding         | Sanitization should change metadata policy, not image pixels, frames, timing, or compression.                            | — Pending |
-| Keep ExifTool as the app fallback                     | One format slice is not evidence for removing a mature multi-format engine.                                              | — Pending |
-| Publish through trusted automation                    | OIDC and provenance avoid long-lived npm write tokens and connect package bytes to the public repository workflow.       | — Pending |
+| Decision                                              | Rationale                                                                                                                | Outcome     |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| Start with WebP                                       | RIFF has a bounded, specified chunk structure and exercises still, lossless, alpha, ICC, EXIF, XMP, and animation cases. | ✓ Validated |
+| Use `Result` and discriminated `MetadataError` values | Expected failures are part of the public contract and must be exhaustively handleable.                                   | ✓ Validated |
+| Refuse unknown chunks and trailers in v0.1            | Copying an unclassified payload could preserve private metadata while implying it was cleaned.                           | ✓ Validated |
+| Never overwrite the source                            | A privacy tool must not turn a parser or I/O defect into data loss.                                                      | ✓ Validated |
+| Preserve payload bytes instead of transcoding         | Sanitization should change metadata policy, not image pixels, frames, timing, or compression.                            | ✓ Validated |
+| Keep ExifTool as the app fallback                     | One format slice is not evidence for removing a mature multi-format engine.                                              | ✓ Validated |
+| Publish through trusted automation                    | OIDC and provenance avoid long-lived npm write tokens and connect package bytes to the public repository workflow.       | ✓ Validated |
 
 ## Evolution
 
@@ -80,4 +79,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-08-22 after initialization_
+_Last updated: 2026-08-22 after v0.1.1 release and ExifCleaner pilot verification_
