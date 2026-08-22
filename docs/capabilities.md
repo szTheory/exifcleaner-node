@@ -43,17 +43,17 @@ The `refuses` array machine-reports the stable refusal classes. Consumers should
 
 ## Safety Guarantees
 
-| Guarantee                 | Consequence                                                                                                                      |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Source never overwritten  | `sourcePath` remains unchanged on success and failure.                                                                           |
-| Distinct paths            | Equal or aliased source/destination paths are refused.                                                                           |
-| Exclusive destination     | A pre-existing destination is never replaced.                                                                                    |
-| Owned cleanup             | Cleanup verifies the destination inode before pathname removal. A replacement is never removed and yields `destination-changed`. |
-| Full classification first | Unknown/unsupported content is refused before output is accepted as sanitized.                                                   |
-| Reopen verification       | A write is not success until the destination reparses and satisfies removal, preservation, structure, and payload checks.        |
-| Payload identity          | Image and animation payload chunks are copied without decode/re-encode and compared byte-for-byte.                               |
-| Local operation           | No network calls, telemetry, subprocesses, or native-code loading occur in runtime inspection/sanitization.                      |
-| Total expected failures   | Consumers branch on `Result.ok` and `MetadataError.code`, not thrown message strings.                                            |
+| Guarantee                 | Consequence                                                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Source never overwritten  | `sourcePath` remains unchanged on success and failure.                                                                       |
+| Distinct paths            | Equal or aliased source/destination paths are refused.                                                                       |
+| Exclusive destination     | A pre-existing destination is never replaced.                                                                                |
+| Owned cleanup             | Cleanup verifies the destination inode immediately before pathname removal; detected replacements are retained and reported. |
+| Full classification first | Unknown/unsupported content is refused before output is accepted as sanitized.                                               |
+| Reopen verification       | A write is not success until the destination reparses and satisfies removal, preservation, structure, and payload checks.    |
+| Payload identity          | Image and animation payload chunks are copied without decode/re-encode and compared byte-for-byte.                           |
+| Local operation           | No network calls, telemetry, subprocesses, or native-code loading occur in runtime inspection/sanitization.                  |
+| Total expected failures   | Consumers branch on `Result.ok` and `MetadataError.code`, not thrown message strings.                                        |
 
 ## Fail-Closed Refusals
 
@@ -67,6 +67,8 @@ The `refuses` array machine-reports the stable refusal classes. Consumers should
 - Destination pathname replacement during writing, verification, timestamp preservation, or cleanup.
 
 Warnings never convert an unsafe or unknown condition into success.
+
+Portable Node does not expose an atomic unlink-if-inode-matches primitive. The engine closes the practical race with identity checks and refuses detected replacements, but applications facing actively hostile concurrent directory writers should supply a destination directory those writers cannot modify.
 
 ## Explicit Non-Capabilities
 

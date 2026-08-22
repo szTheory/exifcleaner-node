@@ -415,12 +415,23 @@ async function verifyOutput(
 ): Promise<Result<void>> {
   let destinationHandle: FileHandle | undefined;
   try {
-    destinationHandle = await open(destinationPath, fsConstants.O_RDONLY);
-    const destinationStats = await destinationHandle.stat();
     const destinationPathStats = await lstat(destinationPath);
+    if (!identityMatches(ownedDestination, destinationPathStats)) {
+      return err({
+        code: "destination-changed",
+        detail:
+          "Destination path no longer names the file created by this operation.",
+        path: destinationPath,
+      });
+    }
+    destinationHandle = await open(
+      destinationPath,
+      fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW,
+    );
+    const destinationStats = await destinationHandle.stat();
     if (
       !identityMatches(ownedDestination, destinationStats) ||
-      !identityMatches(ownedDestination, destinationPathStats)
+      !identityMatches(ownedDestination, await lstat(destinationPath))
     ) {
       return err({
         code: "destination-changed",
