@@ -1,0 +1,54 @@
+{
+  "name": "exifcleaner-node",
+  "version": "0.1.0",
+  "description": "A small, typed metadata inspection and sanitization engine for Node.js",
+  "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "szTheory",
+    "url": "https://exifcleaner.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/szTheory/exifcleaner-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/szTheory/exifcleaner-node/issues"
+  },
+  "homepage": "https://github.com/szTheory/exifcleaner-node#readme",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "lint": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:cycles": "madge --circular --extensions ts src/index.ts",
+    "check:pack": "npm pack --dry-run",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run check:cycles && npm run build && npm run check:pack"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "fast-check": "4.9.0",
+    "madge": "8.0.0",
+    "prettier": "3.9.6",
+    "tsx": "4.23.12",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
