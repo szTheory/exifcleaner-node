@@ -44,7 +44,7 @@
 
 - [x] **REL-01**: Pull-request and main-branch automation runs the repository's defined verification command on the supported Node version before release work can proceed.
 - [x] **REL-02**: Tag-driven release automation builds and inspects the npm package contents before attempting publication.
-- [ ] **REL-03**: npm publication uses a repository-bound OIDC trusted publisher with provenance and no long-lived npm write token.
+- [x] **REL-03**: npm publication uses a repository-bound OIDC trusted publisher with provenance and no long-lived npm write token.
 - [x] **REL-04**: Release automation refuses a version/tag mismatch or failed verification and cannot publish from an untrusted event.
 
 ### Consumer Readiness
@@ -107,7 +107,7 @@
 | SAFE-07     | Phase 2 | Complete |
 | REL-01      | Phase 3 | Complete |
 | REL-02      | Phase 3 | Complete |
-| REL-03      | Phase 3 | Pending  |
+| REL-03      | Phase 3 | Complete |
 | REL-04      | Phase 3 | Complete |
 | CONS-01     | Phase 4 | Complete |
 | CONS-02     | Phase 4 | Complete |

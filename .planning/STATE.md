@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: WebP Proof
-status: Preparing provenance release
-last_updated: "2026-08-22T20:17:00.000Z"
+status: Milestone complete
+last_updated: "2026-08-22T21:29:40.000Z"
 last_activity: 2026-08-22
-last_activity_desc: npm bootstrap and trusted-publisher binding verified
+last_activity_desc: v0.1.1 published with trusted provenance and consumed by ExifCleaner
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 0
   completed_plans: 0
-  percent: 97
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See `.planning/PROJECT.md` (updated 2026-08-22), `.planning/REQUIREMENTS.md`, and `.planning/ROADMAP.md`.
 
 **Core value:** Either produce a verified sanitized artifact while preserving image data, or refuse without changing the source or leaving a partial destination.  
-**Current focus:** Phase 3 — publish v0.1.1 through the bound trusted workflow
+**Current focus:** v0.1 milestone complete; select the next format only from measured need
 
 ## Current Position
 
-- Phase: 3 of 4 — Automated Release
+- Phase: 4 of 4 — Consumer Readiness
 - Plan: WebP proof implemented
-- Status: Bootstrap complete; preparing first provenance-bearing release
-- Last activity: 2026-08-22 — npm 0.1.0 bootstrap and trusted-publisher binding verified
+- Status: Milestone complete
+- Last activity: 2026-08-22 — v0.1.1 trusted release and ExifCleaner pilot evidence passed
 
-Progress: █████████▓ 97% (29/30 requirements)
+Progress: ██████████ 100% (30/30 requirements)
 
 ## Accumulated Context
 
@@ -57,6 +57,9 @@ Progress: █████████▓ 97% (29/30 requirements)
 - Release dry-run: 19/19 steps passed, including audit, package smoke, checksum, SBOM, and build attestation.
 - Bootstrap package: npm 0.1.0, 39 files, shasum `b71b6e6eb61ae59ff7db04126b3567c3446369a5`.
 - Trusted publisher: `szTheory/exifcleaner-node`, `release.yml`, environment `npm`, publish permission.
+- Provenance release: `v0.1.1` at `411fdbdad3faa2e5dd5033bea5def435b4d03323`; protected run [32596327463, attempt 2](https://github.com/szTheory/exifcleaner-node/actions/runs/32596327463/attempts/2) passed.
+- Registry v0.1.1: published `2026-08-22T20:21:25.035Z`; shasum `a1280ed9afb1d5863c58b6559e01549df64a1cdd`; integrity `sha512-9SkTOLaJBphb/YBo3JkwJ9ShunLbKzUIsgCTxG5k9UnN1SWb3tFD0IjUr4Yo3P7tEyWH4rnrUUkdo8fPVvDT6g==`.
+- ExifCleaner exact-head pilot: five required jobs and three installed-artifact evidence records passed in [run 32599227236](https://github.com/szTheory/exifcleaner/actions/runs/32599227236).
 
 ### Deferred
 
@@ -67,10 +70,11 @@ Progress: █████████▓ 97% (29/30 requirements)
 
 ## Next Action
 
-Verify v0.1.1, commit it, and create protected tag `v0.1.1`. The trusted workflow must publish it with npm and GitHub provenance before REL-03 can close.
+Keep v0.1.1 stable. Graduate another format only after measured demand, its own specification,
+corpus, adversarial tests, differential oracle, and bounded fallback plan justify the work.
 
 ## Operator Notes
 
 - Do not mark requirements complete from implementation alone; verification evidence and repository state must agree.
-- Do not describe npm publication until registry evidence exists.
+- Registry and provenance claims must stay bound to the exact v0.1.1 evidence above.
 - Re-read `.planning/research/PITFALLS.md` before changing parser or writer policy.

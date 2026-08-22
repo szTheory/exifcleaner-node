@@ -88,14 +88,14 @@ Removing ExifTool is a separate, late decision. It requires equivalent-or-better
 
 ## Progress
 
-| Phase                  | Status      | Requirements | Progress |
-| ---------------------- | ----------- | ------------ | -------- |
-| 1. Evidence Foundation | Complete    | 3            | 100%     |
-| 2. WebP Vertical Slice | Complete    | 19           | 100%     |
-| 3. Automated Release   | In progress | 4            | 75%      |
-| 4. Consumer Readiness  | Complete    | 4            | 100%     |
+| Phase                  | Status   | Requirements | Progress |
+| ---------------------- | -------- | ------------ | -------- |
+| 1. Evidence Foundation | Complete | 3            | 100%     |
+| 2. WebP Vertical Slice | Complete | 19           | 100%     |
+| 3. Automated Release   | Complete | 4            | 100%     |
+| 4. Consumer Readiness  | Complete | 4            | 100%     |
 
 ---
 
 _Created: 2026-08-22_  
-_Last updated: 2026-08-22 after implementation and hosted verification_
+_Last updated: 2026-08-22 after the provenance-bearing v0.1.1 release_

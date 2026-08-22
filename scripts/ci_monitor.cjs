@@ -11,6 +11,7 @@ Commands:
   runs [--branch <name>]                 List recent workflow runs
   watch <run-id>                         Watch a run and exit with its status
   fail-fast <run-id>                     Watch a run and exit on failure
+  rerun-failed <run-id>                  Rerun only failed jobs
   log-failed <run-id>                    Print failed job logs
   test-summary <run-id>                  Summarize job and step conclusions
   check-actions [file-or-directory]      Validate immutable action pins
@@ -187,6 +188,10 @@ async function main() {
   if (command === "fail-fast") {
     if (!args[0]) throw new Error("fail-fast requires a run id");
     return failFast(args[0]);
+  }
+  if (command === "rerun-failed") {
+    if (!args[0]) throw new Error("rerun-failed requires a run id");
+    return runGh(["run", "rerun", args[0], "--failed"]);
   }
   if (command === "log-failed") {
     if (!args[0]) throw new Error("log-failed requires a run id");
