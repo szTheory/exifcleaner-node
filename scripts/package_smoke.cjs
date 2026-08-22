@@ -10,14 +10,28 @@ const {
   writeFileSync,
 } = require("node:fs");
 const { tmpdir } = require("node:os");
-const { basename, isAbsolute, join, resolve } = require("node:path");
+const { basename, dirname, isAbsolute, join, resolve } = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const args = process.argv.slice(2);
 const keep = args.includes("--keep");
 const suppliedPath = args.find((arg) => arg !== "--keep");
 const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmInvocation =
+  process.platform === "win32"
+    ? {
+        command: process.execPath,
+        prefix: [
+          join(
+            dirname(process.execPath),
+            "node_modules",
+            "npm",
+            "bin",
+            "npm-cli.js",
+          ),
+        ],
+      }
+    : { command: "npm", prefix: [] };
 let createdTarball = false;
 let tarball;
 
@@ -53,7 +67,11 @@ function resolveTarball(input) {
 if (suppliedPath) {
   tarball = resolveTarball(suppliedPath);
 } else {
-  const packOutput = run(npmCommand, ["pack", "--json"], { capture: true });
+  const packOutput = run(
+    npmInvocation.command,
+    [...npmInvocation.prefix, "pack", "--json"],
+    { capture: true },
+  );
   const packResult = JSON.parse(packOutput);
   if (
     !Array.isArray(packResult) ||
@@ -103,8 +121,15 @@ try {
     }),
   );
   run(
-    npmCommand,
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund", copiedTarball],
+    npmInvocation.command,
+    [
+      ...npmInvocation.prefix,
+      "install",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+      copiedTarball,
+    ],
     {
       cwd: sandbox,
     },
