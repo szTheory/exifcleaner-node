@@ -4,6 +4,12 @@ A small, typed metadata inspection and sanitization engine for Node.js.
 
 This project is pre-1.0 and supports **WebP only**. It is an evidence-led experiment related to [ExifCleaner issue #303](https://github.com/szTheory/exifcleaner/issues/303), not a complete ExifTool replacement. ExifCleaner should retain ExifTool as the fallback for unsupported formats, features, and refused inputs.
 
+## Install
+
+```sh
+npm install exifcleaner-node
+```
+
 ## Public API
 
 ```ts
@@ -79,7 +85,7 @@ npm ci
 npm run verify
 ```
 
-Useful focused commands are `npm run typecheck`, `npm test`, `npm run build`, and `npm run check:pack`. Their presence describes the development workflow; it is not a claim that a release has been published.
+Useful focused commands are `npm run typecheck`, `npm test`, `npm run build`, and `npm run check:pack`. Protected releases run the same checks before publishing through npm trusted publishing.
 
 ## License
 
