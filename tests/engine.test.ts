@@ -125,6 +125,8 @@ describe("getCapabilities", () => {
     });
     expect(Object.isFrozen(capabilities)).toBe(true);
     expect(Object.isFrozen(capabilities.formats[0]?.preserves)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0]?.colorProfile)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0]?.colorProfile.versions)).toBe(true);
   });
 });
 

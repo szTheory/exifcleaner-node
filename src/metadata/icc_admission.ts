@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ColorProfileAdmissionReason } from "../types.js";
 
 export const ICC_PRESERVATION_POLICY_ID = "icc-structural-v0.2";
@@ -55,6 +56,15 @@ function allZero(payload: Buffer, start: number, end: number): boolean {
   return true;
 }
 
+function profileIdMatches(payload: Buffer): boolean {
+  if (allZero(payload, 84, 100)) return true;
+  const digestInput = Buffer.from(payload);
+  digestInput.fill(0, 44, 48);
+  digestInput.fill(0, 64, 68);
+  digestInput.fill(0, 84, 100);
+  return createHash("md5").update(digestInput).digest().equals(payload.subarray(84, 100));
+}
+
 /**
  * Bounded structural admission only. It does not evaluate ICC semantics, CMM safety,
  * or color correctness, and never transforms or returns payload bytes.
@@ -100,6 +110,7 @@ export function validateIccForPreservation(payload: Buffer): IccAdmissionResult 
     (payload.readUInt32BE(68) !== D50[0] ||
       payload.readUInt32BE(72) !== D50[1] ||
       payload.readUInt32BE(76) !== D50[2] ||
+      !profileIdMatches(payload) ||
       !allZero(payload, 100, 128))
   )
     return rejected("invalid", "ICC v4 required header fields are invalid.");

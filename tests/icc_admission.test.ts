@@ -96,7 +96,7 @@ describe("validateIccForPreservation", () => {
     expect(validateIccForPreservation(iccProfileV4())).toEqual({ ok: true });
     const correct = withProfileId(iccProfileV4());
     expect(validateIccForPreservation(correct)).toEqual({ ok: true });
-    correct[84] ^= 1;
+    correct[84] = (correct[84] ?? 0) ^ 1;
     expectRejected(correct, "invalid");
   });
 
