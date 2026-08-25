@@ -148,6 +148,25 @@ const allUnsupportedFeaturesAreClassified: MissingUnsupportedFeature extends nev
   : never = true;
 
 describe("classifyFallback", () => {
+  it("keeps every finalization residue terminal and pure", async () => {
+    const terminalErrors = [
+      metadataError({ code: "write-failed", detail: "Write failed.", path: "/tmp/clean.webp", phase: "transaction", nativeWrite: "started", finalization: { state: "owned-partial-removed" } }),
+      metadataError({ code: "write-failed", detail: "Write failed.", path: "/tmp/clean.webp", phase: "transaction", nativeWrite: "started", finalization: { state: "already-missing" } }),
+      metadataError({ code: "write-failed", detail: "Write failed.", path: "/tmp/clean.webp", phase: "transaction", nativeWrite: "started", finalization: { state: "replaced-and-left-untouched" } }),
+      metadataError({ code: "write-failed", detail: "Write failed.", path: "/tmp/clean.webp", phase: "transaction", nativeWrite: "started", finalization: { state: "owned-partial-remains", cause: { code: "EPERM", message: "denied" } } }),
+    ] as const;
+    const snapshots = terminalErrors.map((error) => JSON.stringify(error));
+
+    const dispositions = await Promise.all(
+      Array.from({ length: 16 }, () =>
+        Promise.all(terminalErrors.map(classifyFallback)),
+      ),
+    );
+
+    expect(dispositions.flat()).toEqual(Array(64).fill("do-not-fallback"));
+    expect(terminalErrors.map((error) => JSON.stringify(error))).toEqual(snapshots);
+  });
+
   it("classifies every current MetadataError variant and every public proof pairing", () => {
     expect(allMetadataErrorCodesAreClassified).toBe(true);
     expect(allUnsupportedFeaturesAreClassified).toBe(true);

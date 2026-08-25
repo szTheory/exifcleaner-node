@@ -144,6 +144,45 @@ describe("safe transaction file operations", () => {
     await expect(stat(destinationPath)).resolves.toBeDefined();
   });
 
+  it("cancels after creation through exactly one cleanup path", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    const controller = new AbortController();
+    let writerStarts = 0;
+    let cleanupAttempts = 0;
+    const fileOps: FileOps = {
+      ...NODE_FILE_OPS,
+      open: async (path, flags, mode) => {
+        if ((flags & fsConstants.O_EXCL) !== 0) writerStarts += 1;
+        return NODE_FILE_OPS.open(path, flags, mode);
+      },
+      remove: async (path) => {
+        cleanupAttempts += 1;
+        await NODE_FILE_OPS.remove(path);
+      },
+    };
+    const handler = {
+      ...webpHandler,
+      writeOutput: async () => {
+        controller.abort();
+        throw new DOMException("Aborted", "AbortError");
+      },
+    };
+
+    const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false, signal: controller.signal }, fileOps });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "aborted", phase: "transaction", nativeWrite: "started", finalization: { state: "owned-partial-removed" } } });
+    expect(writerStarts).toBe(1);
+    expect(cleanupAttempts).toBe(1);
+  });
+
   it("fails closed when an identity or source snapshot cannot be proven", async () => {
     const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
     directories.push(directory);
