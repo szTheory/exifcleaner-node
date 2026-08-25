@@ -28,16 +28,25 @@ const SINGLETON_CHUNKS = new Set([
   "XMP ",
 ]);
 
+export interface WebpMetadataLimitContext {
+  readonly fourCc: "ICCP" | "EXIF" | "XMP ";
+  readonly size: number;
+  readonly limit: number;
+}
+
 export class WebpStructureError extends Error {
   readonly kind: "unsupported-format" | "malformed-file" | "unsafe-structure";
+  readonly metadataLimit?: WebpMetadataLimitContext;
 
   constructor(
     kind: "unsupported-format" | "malformed-file" | "unsafe-structure",
     message: string,
+    metadataLimit?: WebpMetadataLimitContext,
   ) {
     super(message);
     this.name = "WebpStructureError";
     this.kind = kind;
+    this.metadataLimit = metadataLimit;
   }
 }
 
@@ -413,6 +422,11 @@ export async function parseWebp(
       throw new WebpStructureError(
         "unsafe-structure",
         `${fourCc.trim()} metadata exceeds the ${MAX_BUFFERED_METADATA_BYTES}-byte inspection limit.`,
+        {
+          fourCc: fourCc as WebpMetadataLimitContext["fourCc"],
+          size,
+          limit: MAX_BUFFERED_METADATA_BYTES,
+        },
       );
     }
     seen.add(fourCc);

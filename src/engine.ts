@@ -791,6 +791,19 @@ export async function sanitizeFile(
   } catch (cause) {
     if (failure === undefined) {
       if (isAborted(signal)) failure = aborted(sourcePath);
+      else if (
+        cause instanceof WebpStructureError &&
+        options.preserveColorProfile &&
+        !destinationCreated &&
+        cause.metadataLimit?.fourCc === "ICCP"
+      )
+        failure = {
+          code: "unsupported-feature",
+          detail: `ICC profile size ${cause.metadataLimit.size} exceeds the ${cause.metadataLimit.limit}-byte policy limit.`,
+          path: sourcePath,
+          feature: "color-profile-preservation",
+          reason: "policy-limit",
+        };
       else if (cause instanceof WebpStructureError)
         failure = structureError(sourcePath, cause);
       else if (sourceHandle === undefined)
