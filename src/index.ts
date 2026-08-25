@@ -2,6 +2,7 @@ export { getCapabilities, inspectFile, sanitizeFile } from "./engine.js";
 export { err, ok } from "./result.js";
 export type {
   Capabilities,
+  FormatCapabilities,
   Inspection,
   InspectOptions,
   JsonSafeCause,
@@ -9,6 +10,7 @@ export type {
   MetadataError,
   MetadataValue,
   MetadataWarning,
+  NativeFormat,
   Result,
   SanitizeOptions,
   SanitizeResult,

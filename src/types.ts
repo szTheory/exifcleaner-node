@@ -2,6 +2,8 @@ export type Result<T, E = MetadataError> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: E };
 
+export type NativeFormat = "webp";
+
 export type MetadataValue =
   | string
   | number
@@ -23,7 +25,7 @@ export interface MetadataWarning {
 }
 
 export interface Inspection {
-  readonly format: "webp";
+  readonly format: NativeFormat;
   readonly entries: readonly MetadataEntry[];
   readonly warnings: readonly MetadataWarning[];
 }
@@ -42,7 +44,7 @@ export interface SanitizeOptions {
 }
 
 export interface SanitizeResult {
-  readonly format: "webp";
+  readonly format: NativeFormat;
   readonly destinationPath: string;
   readonly removedNamespaces: readonly ("EXIF" | "XMP" | "ICC")[];
   readonly preserved: {
@@ -101,8 +103,10 @@ export interface WebpCapabilities {
 }
 
 export interface Capabilities {
-  readonly formats: readonly [WebpCapabilities];
+  readonly formats: readonly [FormatCapabilities, ...FormatCapabilities[]];
 }
+
+export type FormatCapabilities = WebpCapabilities;
 
 export type ColorProfileAdmissionReason =
   "invalid" | "unsupported" | "policy-limit";

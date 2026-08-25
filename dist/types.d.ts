@@ -5,6 +5,7 @@ export type Result<T, E = MetadataError> = {
     readonly ok: false;
     readonly error: E;
 };
+export type NativeFormat = "webp";
 export type MetadataValue = string | number | boolean | null | readonly MetadataValue[] | {
     readonly [key: string]: MetadataValue;
 };
@@ -18,7 +19,7 @@ export interface MetadataWarning {
     readonly detail: string;
 }
 export interface Inspection {
-    readonly format: "webp";
+    readonly format: NativeFormat;
     readonly entries: readonly MetadataEntry[];
     readonly warnings: readonly MetadataWarning[];
 }
@@ -34,7 +35,7 @@ export interface SanitizeOptions {
     readonly signal?: AbortSignal;
 }
 export interface SanitizeResult {
-    readonly format: "webp";
+    readonly format: NativeFormat;
     readonly destinationPath: string;
     readonly removedNamespaces: readonly ("EXIF" | "XMP" | "ICC")[];
     readonly preserved: {
@@ -91,8 +92,9 @@ export interface WebpCapabilities {
     readonly detection: "magic";
 }
 export interface Capabilities {
-    readonly formats: readonly [WebpCapabilities];
+    readonly formats: readonly [FormatCapabilities, ...FormatCapabilities[]];
 }
+export type FormatCapabilities = WebpCapabilities;
 export type ColorProfileAdmissionReason = "invalid" | "unsupported" | "policy-limit";
 export type MetadataError = {
     readonly code: "aborted";
