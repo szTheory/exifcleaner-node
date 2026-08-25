@@ -111,7 +111,22 @@ export type FormatCapabilities = WebpCapabilities;
 export type ColorProfileAdmissionReason =
   "invalid" | "unsupported" | "policy-limit";
 
-export type MetadataError =
+export type FallbackDisposition = "safe-to-fallback" | "do-not-fallback";
+
+export type MetadataErrorPhase =
+  | "request"
+  | "source-open"
+  | "admission"
+  | "transaction";
+
+export type NativeWriteState = "not-started" | "started";
+
+export interface FallbackProof {
+  readonly phase?: MetadataErrorPhase;
+  readonly nativeWrite?: NativeWriteState;
+}
+
+type MetadataErrorDetails =
   | {
       readonly code: "aborted";
       readonly detail: string;
@@ -184,6 +199,8 @@ export type MetadataError =
       readonly path: string;
       readonly cause?: JsonSafeCause;
     };
+
+export type MetadataError = MetadataErrorDetails & FallbackProof;
 
 export interface JsonSafeCause {
   readonly code?: string;

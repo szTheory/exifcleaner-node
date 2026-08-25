@@ -1,0 +1,1 @@
+{"version":3,"file":"fallback.js","sourceRoot":"","sources":["../src/fallback.ts"],"names":[],"mappings":"AAEA,MAAM,UAAU,gBAAgB,CAAC,KAAoB;IACnD,OAAO,KAAK,CAAC,KAAK,KAAK,WAAW,IAAI,KAAK,CAAC,WAAW,KAAK,aAAa;QACvE,CAAC,CAAC,kBAAkB;QACpB,CAAC,CAAC,iBAAiB,CAAC;AACxB,CAAC"}
