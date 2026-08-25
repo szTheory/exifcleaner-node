@@ -66,6 +66,16 @@ Use `getCapabilities()` as the machine-readable support contract; do not infer s
 - Runtime processing makes no network request and launches no subprocess.
 - Expected failures are returned as typed values.
 
+When `preserveColorProfile` is requested, a WebP ICCP profile is retained only
+when it matches the bounded `icc-structural-v0.2` preservation policy. An absent
+profile succeeds with `preserved.colorProfile: false`; an admitted profile is
+retained byte-for-byte and verified after reopening the destination. Consumers
+can switch on the typed refusal fields `code: "unsupported-feature"`,
+`feature: "color-profile-preservation"`, and
+`reason: "invalid" | "unsupported" | "policy-limit"`. Do not parse diagnostic
+`detail` text. This is a structural byte-preservation guarantee, not a claim
+about color correctness, transform quality, or full ICC semantic conformance.
+
 ## Refusals
 
 The engine fails closed on malformed or truncated containers, unknown chunks, trailing data, unsupported formats or WebP features, ambiguous preservation requests, resource-limit violations, aliased source/destination paths, existing or replaced destinations, cancellation, and I/O failures. Orientation preservation accepts only a single TIFF `SHORT` value from 1 through 8; malformed or unsupported representations return `unsupported-feature` before a destination is created.
@@ -74,7 +84,9 @@ Node has no portable atomic “unlink only if this inode still matches” operat
 
 `getCapabilities()` reports the enforced limits: 16 MiB per metadata chunk, 10,000 aggregate RIFF chunks including nested animation chunks, and WebP's 4 GiB-minus-2-byte size ceiling. It also states that compressed codec validation is header-only: the engine preserves VP8/VP8L bytes but is not an image decoder. Animation support means structurally validated `ANIM`/`ANMF` containers whose nested image payloads can be preserved byte-for-byte; it is not an unlimited frame-count claim.
 
-See [capabilities](docs/capabilities.md) for the detailed matrix and [fixture provenance](docs/fixture-provenance.md) for the evidence chain.
+See the [ICC structural policy and complete capability contract](docs/capabilities.md)
+for the detailed rule table and [fixture provenance](docs/fixture-provenance.md)
+for the evidence chain.
 
 ## Development
 
