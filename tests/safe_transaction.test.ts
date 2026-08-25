@@ -78,4 +78,21 @@ describe("safe transaction file operations", () => {
     expect(sourceSnapshotMatches(snapshot, { ...aliasedStats, ino: undefined } as never)).toBe(false);
     expect(identityMatches({ dev: sourceStats.dev, ino: undefined as never }, aliasedStats)).toBe(false);
   });
+
+  it("captures independent requested timestamps before any package reads", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const sourceStats = await stat(sourcePath);
+    const snapshot = snapshotSource(sourceStats);
+    const expectedAtime = snapshot.atime.getTime();
+    const expectedMtime = snapshot.mtime.getTime();
+
+    sourceStats.atime.setTime(expectedAtime + 1_000);
+    sourceStats.mtime.setTime(expectedMtime + 1_000);
+
+    expect(snapshot.atime.getTime()).toBe(expectedAtime);
+    expect(snapshot.mtime.getTime()).toBe(expectedMtime);
+  });
 });
