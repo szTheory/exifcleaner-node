@@ -8,7 +8,9 @@ import { describe, expect, it } from "vitest";
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const rootDeclaration = join(packageRoot, "dist", "index.d.ts");
 
-async function compileConsumer(source: string): Promise<readonly ts.Diagnostic[]> {
+async function compileConsumer(
+  source: string,
+): Promise<readonly ts.Diagnostic[]> {
   const directory = await mkdtemp(join(tmpdir(), "exifcleaner-contract-"));
   const consumer = join(directory, "consumer.ts");
   await writeFile(
@@ -201,7 +203,13 @@ describe("published format-neutral declaration contract", () => {
 
     for (const statement of source.statements) {
       if (!ts.isExportDeclaration(statement)) continue;
-      for (const element of statement.exportClause?.elements ?? []) {
+      if (
+        !statement.exportClause ||
+        !ts.isNamedExports(statement.exportClause)
+      ) {
+        continue;
+      }
+      for (const element of statement.exportClause.elements) {
         (statement.isTypeOnly ? types : values).add(element.name.text);
       }
     }
