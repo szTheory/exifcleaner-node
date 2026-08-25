@@ -1,5 +1,5 @@
 import { constants as fsConstants } from "node:fs";
-import { mkdtemp, open, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, stat, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -57,9 +57,91 @@ describe("safe transaction file operations", () => {
 
     const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler: webpHandler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false }, fileOps });
 
-    expect(result).toMatchObject({ ok: false, error: { code: "write-failed", nativeWrite: "started", phase: "transaction" } });
+    expect(result).toMatchObject({ ok: false, error: { code: "write-failed", nativeWrite: "started", phase: "transaction", finalization: { state: "owned-partial-removed" } } });
     expect(writerStarts).toBe(1);
     expect(operations).toEqual(["create", "sync", "close", "close", "remove"]);
+  });
+
+  it("reports an already missing owned destination without recreating it", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    let cleanupAttempts = 0;
+    const fileOps: FileOps = {
+      ...NODE_FILE_OPS,
+      sync: async () => { throw new Error("injected sync failure"); },
+      lstatPath: async () => {
+        cleanupAttempts += 1;
+        await unlink(destinationPath);
+        const error = Object.assign(new Error("missing"), { code: "ENOENT" });
+        throw error;
+      },
+    };
+
+    const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler: webpHandler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false }, fileOps });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "write-failed", finalization: { state: "already-missing" } } });
+    await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(cleanupAttempts).toBe(1);
+  });
+
+  it("leaves a replacement untouched when cleanup no longer owns the path", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    const replacement = Buffer.from("replacement bytes");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    let cleanupAttempts = 0;
+    const fileOps: FileOps = {
+      ...NODE_FILE_OPS,
+      sync: async () => { throw new Error("injected sync failure"); },
+      lstatPath: async (path) => {
+        cleanupAttempts += 1;
+        await unlink(destinationPath);
+        await writeFile(destinationPath, replacement);
+        return NODE_FILE_OPS.lstatPath(path);
+      },
+      remove: async () => { throw new Error("replacement must not be removed"); },
+    };
+
+    const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler: webpHandler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false }, fileOps });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "write-failed", finalization: { state: "replaced-and-left-untouched" } } });
+    await expect(readFile(destinationPath)).resolves.toEqual(replacement);
+    expect(cleanupAttempts).toBe(1);
+  });
+
+  it("reports a bounded residue cause when owned cleanup fails", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    const fileOps: FileOps = {
+      ...NODE_FILE_OPS,
+      sync: async () => { throw new Error("injected sync failure"); },
+      remove: async () => { throw Object.assign(new Error("denied"), { code: "EPERM" }); },
+    };
+
+    const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler: webpHandler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false }, fileOps });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "write-failed", finalization: { state: "owned-partial-remains", cause: { code: "EPERM", message: "denied" } } } });
+    await expect(stat(destinationPath)).resolves.toBeDefined();
   });
 
   it("fails closed when an identity or source snapshot cannot be proven", async () => {

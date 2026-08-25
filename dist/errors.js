@@ -36,4 +36,7 @@ export function admissionDecline(error) {
 export function executionError(error, nativeWrite) {
     return withProof(error, "transaction", nativeWrite);
 }
+export function withDestinationFinalization(error, finalization) {
+    return { ...error, finalization };
+}
 //# sourceMappingURL=errors.js.map

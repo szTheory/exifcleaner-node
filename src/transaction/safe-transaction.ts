@@ -1,7 +1,7 @@
 import type { FileHandle } from "node:fs/promises";
-import { executionError, isNodeErrorCode, jsonSafeCause } from "../errors.js";
+import { executionError, isNodeErrorCode, jsonSafeCause, withDestinationFinalization } from "../errors.js";
 import { err, ok } from "../result.js";
-import type { MetadataError, Result, SanitizeOptions, SanitizeResult } from "../types.js";
+import type { DestinationFinalization, MetadataError, Result, SanitizeOptions, SanitizeResult } from "../types.js";
 import type { RegisteredHandler } from "../admission/registry.js";
 import type { WebpAdmission, WebpOutputChunk } from "../admission/webp-handler.js";
 import { DIRECT_FINAL_FLAGS, REOPEN_FLAGS, type FileOps } from "./file-ops.js";
@@ -92,9 +92,25 @@ export async function runSafeTransaction(input: SafeTransactionInput): Promise<R
     await fileOps.close(sourceHandle).catch(() => undefined);
   }
   if (started && owned !== undefined) {
+    let finalization: DestinationFinalization;
     try {
-      if (destinationPathMatchesIdentity(owned, await fileOps.lstatPath(destinationPath))) await fileOps.remove(destinationPath);
-    } catch { /* Root failure remains authoritative; cleanup is bounded. */ }
+      const current = await fileOps.lstatPath(destinationPath);
+      if (!destinationPathMatchesIdentity(owned, current)) {
+        finalization = { state: "replaced-and-left-untouched" };
+      } else {
+        try {
+          await fileOps.remove(destinationPath);
+          finalization = { state: "owned-partial-removed" };
+        } catch (cause) {
+          finalization = { state: "owned-partial-remains", cause: jsonSafeCause(cause) };
+        }
+      }
+    } catch (cause) {
+      finalization = isNodeErrorCode(cause, "ENOENT")
+        ? { state: "already-missing" }
+        : { state: "owned-partial-remains", cause: jsonSafeCause(cause) };
+    }
+    failure = withDestinationFinalization(failure!, finalization);
   }
   return err(failure!);
 }

@@ -1,4 +1,4 @@
-import { executionError, isNodeErrorCode, jsonSafeCause } from "../errors.js";
+import { executionError, isNodeErrorCode, jsonSafeCause, withDestinationFinalization } from "../errors.js";
 import { err, ok } from "../result.js";
 import { DIRECT_FINAL_FLAGS, REOPEN_FLAGS } from "./file-ops.js";
 import { destinationPathMatchesIdentity, identitiesDistinct, identityOf, sourcePathMatchesSnapshot, timestampsMatchAtMillisecondPrecision, } from "./identity.js";
@@ -74,11 +74,28 @@ export async function runSafeTransaction(input) {
         await fileOps.close(sourceHandle).catch(() => undefined);
     }
     if (started && owned !== undefined) {
+        let finalization;
         try {
-            if (destinationPathMatchesIdentity(owned, await fileOps.lstatPath(destinationPath)))
-                await fileOps.remove(destinationPath);
+            const current = await fileOps.lstatPath(destinationPath);
+            if (!destinationPathMatchesIdentity(owned, current)) {
+                finalization = { state: "replaced-and-left-untouched" };
+            }
+            else {
+                try {
+                    await fileOps.remove(destinationPath);
+                    finalization = { state: "owned-partial-removed" };
+                }
+                catch (cause) {
+                    finalization = { state: "owned-partial-remains", cause: jsonSafeCause(cause) };
+                }
+            }
         }
-        catch { /* Root failure remains authoritative; cleanup is bounded. */ }
+        catch (cause) {
+            finalization = isNodeErrorCode(cause, "ENOENT")
+                ? { state: "already-missing" }
+                : { state: "owned-partial-remains", cause: jsonSafeCause(cause) };
+        }
+        failure = withDestinationFinalization(failure, finalization);
     }
     return err(failure);
 }

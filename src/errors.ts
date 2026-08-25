@@ -1,4 +1,5 @@
 import type {
+  DestinationFinalization,
   JsonSafeCause,
   MetadataError,
   MetadataErrorDetails,
@@ -72,4 +73,11 @@ export function executionError<T extends MetadataErrorDetails>(
   nativeWrite: NativeWriteState,
 ): T & FallbackProof {
   return withProof(error, "transaction", nativeWrite);
+}
+
+export function withDestinationFinalization<T extends MetadataError>(
+  error: T,
+  finalization: DestinationFinalization,
+): T & { readonly finalization: DestinationFinalization } {
+  return { ...error, finalization };
 }

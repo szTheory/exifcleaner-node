@@ -103,7 +103,7 @@ export interface FallbackProof {
     readonly phase: MetadataErrorPhase;
     readonly nativeWrite: NativeWriteState;
 }
-export type MetadataErrorDetails = {
+export type PreCreateMetadataErrorDetails = {
     readonly code: "aborted";
     readonly detail: string;
     readonly path?: string;
@@ -148,7 +148,8 @@ export type MetadataErrorDetails = {
     readonly detail: string;
     readonly path: string;
     readonly cause?: JsonSafeCause;
-} | {
+};
+export type PostCreateMetadataErrorDetails = {
     readonly code: "destination-changed";
     readonly detail: string;
     readonly path: string;
@@ -163,9 +164,22 @@ export type MetadataErrorDetails = {
     readonly path: string;
     readonly cause?: JsonSafeCause;
 };
-export type MetadataError = MetadataErrorDetails & FallbackProof;
+export type MetadataErrorDetails = PreCreateMetadataErrorDetails | PostCreateMetadataErrorDetails;
+export type MetadataError = (PreCreateMetadataErrorDetails & FallbackProof) | (PostCreateMetadataErrorDetails & FallbackProof & {
+    readonly finalization?: DestinationFinalization;
+});
 export interface JsonSafeCause {
     readonly code?: string;
     readonly message: string;
 }
+export type DestinationFinalization = {
+    readonly state: "owned-partial-removed";
+} | {
+    readonly state: "already-missing";
+} | {
+    readonly state: "replaced-and-left-untouched";
+} | {
+    readonly state: "owned-partial-remains";
+    readonly cause: JsonSafeCause;
+};
 //# sourceMappingURL=types.d.ts.map

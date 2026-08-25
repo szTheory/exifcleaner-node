@@ -1,4 +1,4 @@
-import type { JsonSafeCause, MetadataError, MetadataErrorDetails, NativeWriteState, FallbackProof } from "./types.js";
+import type { DestinationFinalization, JsonSafeCause, MetadataError, MetadataErrorDetails, NativeWriteState, FallbackProof } from "./types.js";
 export declare function jsonSafeCause(cause: unknown): JsonSafeCause;
 export declare function isNodeErrorCode(cause: unknown, code: string): boolean;
 export declare function aborted(path?: string): MetadataError;
@@ -6,4 +6,7 @@ export declare function requestError<T extends MetadataErrorDetails>(error: T): 
 export declare function sourceOpenError<T extends MetadataErrorDetails>(error: T): T & FallbackProof;
 export declare function admissionDecline<T extends MetadataErrorDetails>(error: T): T & FallbackProof;
 export declare function executionError<T extends MetadataErrorDetails>(error: T, nativeWrite: NativeWriteState): T & FallbackProof;
+export declare function withDestinationFinalization<T extends MetadataError>(error: T, finalization: DestinationFinalization): T & {
+    readonly finalization: DestinationFinalization;
+};
 //# sourceMappingURL=errors.d.ts.map
