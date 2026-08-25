@@ -1274,7 +1274,10 @@ describe("format-neutral admission boundary", () => {
 
     for (const capability of capabilities.formats) {
       const sourcePath = join(directory, `renamed-${capability.format}.input`);
-      const destinationPath = join(directory, `clean-${capability.format}.webp`);
+      const destinationPath = join(
+        directory,
+        `clean-${capability.format}.webp`,
+      );
       await writeFile(sourcePath, fixtures[capability.format]);
 
       const inspected = await inspectFile(sourcePath);
