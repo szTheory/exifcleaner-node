@@ -7,7 +7,7 @@ export interface FileOps {
     readonly statHandle: (handle: FileHandle) => Promise<Stats>;
     readonly sync: (handle: FileHandle) => Promise<void>;
     readonly close: (handle: FileHandle) => Promise<void>;
-    readonly utimes: (path: string, atime: Date, mtime: Date) => Promise<void>;
+    readonly utimes: (handle: FileHandle, atime: Date, mtime: Date) => Promise<void>;
     readonly remove: (path: string) => Promise<void>;
 }
 export declare const NODE_FILE_OPS: FileOps;

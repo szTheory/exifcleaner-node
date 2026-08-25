@@ -13,7 +13,11 @@ export interface FileIdentity {
     readonly ino: number;
 }
 export declare function snapshotSource(stats: Stats): SourceSnapshot;
-export declare function identityOf(stats: Stats): FileIdentity;
+export declare function identityOf(stats: Stats): FileIdentity | undefined;
 export declare function identityMatches(expected: FileIdentity, actual: Stats): boolean;
 export declare function sourceSnapshotMatches(expected: SourceSnapshot, actual: Stats): boolean;
+export declare function sourcePathMatchesSnapshot(snapshot: SourceSnapshot, stats: Stats): boolean;
+export declare function destinationPathMatchesIdentity(identity: FileIdentity, stats: Stats): boolean;
+export declare function identitiesDistinct(source: FileIdentity, destination: Stats): boolean;
+export declare function timestampsMatchAtMillisecondPrecision(expected: SourceSnapshot, actual: Stats): boolean;
 //# sourceMappingURL=identity.d.ts.map

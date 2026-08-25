@@ -1,5 +1,5 @@
 import { constants as fsConstants } from "node:fs";
-import { lstat, open, rm, stat, utimes } from "node:fs/promises";
+import { lstat, open, rm, stat } from "node:fs/promises";
 export const NODE_FILE_OPS = Object.freeze({
     open,
     statPath: stat,
@@ -7,7 +7,7 @@ export const NODE_FILE_OPS = Object.freeze({
     statHandle: (handle) => handle.stat(),
     sync: (handle) => handle.sync(),
     close: (handle) => handle.close(),
-    utimes,
+    utimes: (handle, atime, mtime) => handle.utimes(atime, mtime),
     remove: (path) => rm(path, { force: true }),
 });
 export const DIRECT_FINAL_FLAGS = fsConstants.O_RDWR | fsConstants.O_CREAT | fsConstants.O_EXCL;
