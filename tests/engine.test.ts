@@ -1,6 +1,7 @@
 import {
   access,
   mkdtemp,
+  open,
   readFile,
   readdir,
   rm,
@@ -29,6 +30,27 @@ import {
   webp,
   xmpPacket,
 } from "./fixtures.js";
+
+async function writeOversizedIccpWebp(path: string): Promise<void> {
+  const metadataSize = 16 * 1024 * 1024 + 1;
+  const fileSize = 12 + 18 + 8 + metadataSize + (metadataSize & 1) + 18;
+  const header = Buffer.alloc(38);
+  header.write("RIFF", 0, 4, "ascii");
+  header.writeUInt32LE(fileSize - 8, 4);
+  header.write("WEBP", 8, 4, "ascii");
+  header.write("VP8X", 12, 4, "ascii");
+  header.writeUInt32LE(10, 16);
+  header[20] = 0x20;
+  header.write("ICCP", 30, 4, "ascii");
+  header.writeUInt32LE(metadataSize, 34);
+  const handle = await open(path, "w+");
+  try {
+    await handle.write(header);
+    await handle.truncate(fileSize);
+  } finally {
+    await handle.close();
+  }
+}
 
 const directories: string[] = [];
 const UPSTREAM_SAMPLE = Buffer.from(
@@ -346,6 +368,33 @@ describe("inspectFile", () => {
 });
 
 describe("sanitizeFile", () => {
+  it("maps an oversized requested ICCP to a typed pre-write policy-limit refusal", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    await writeOversizedIccpWebp(sourcePath);
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: true,
+      preserveTimestamps: false,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "unsupported-feature",
+        feature: "color-profile-preservation",
+        reason: "policy-limit",
+      },
+    });
+    await expect(access(destinationPath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
   it("strips EXIF, XMP, and ICC; updates VP8X flags; preserves image bytes; and leaves source untouched", async () => {
     const directory = await workspace();
     const sourcePath = join(directory, "source.webp");

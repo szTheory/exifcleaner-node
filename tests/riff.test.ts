@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  MAX_BUFFERED_METADATA_BYTES,
   MAX_CHUNK_COUNT,
   WebpStructureError,
   parseWebp,
@@ -43,7 +44,46 @@ async function expectStructureError(
   await expect(parseFixture(fixture)).rejects.toMatchObject({ kind });
 }
 
+async function parseOversizedIccp(): Promise<void> {
+  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-riff-"));
+  const path = join(directory, "input.webp");
+  const metadataSize = MAX_BUFFERED_METADATA_BYTES + 1;
+  const fileSize = 12 + 18 + 8 + metadataSize + (metadataSize & 1) + 18;
+  const header = Buffer.alloc(38);
+  header.write("RIFF", 0, 4, "ascii");
+  header.writeUInt32LE(fileSize - 8, 4);
+  header.write("WEBP", 8, 4, "ascii");
+  header.write("VP8X", 12, 4, "ascii");
+  header.writeUInt32LE(10, 16);
+  header[20] = 0x20;
+  header.write("ICCP", 30, 4, "ascii");
+  header.writeUInt32LE(metadataSize, 34);
+  try {
+    const handle = await open(path, "w+");
+    try {
+      await handle.write(header);
+      await handle.truncate(fileSize);
+      await parseWebp(handle, fileSize);
+    } finally {
+      await handle.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
 describe("parseWebp structural validation", () => {
+  it("reports typed metadata-limit context for an oversized ICCP without buffering it", async () => {
+    await expect(parseOversizedIccp()).rejects.toMatchObject({
+      kind: "unsafe-structure",
+      metadataLimit: {
+        fourCc: "ICCP",
+        size: MAX_BUFFERED_METADATA_BYTES + 1,
+        limit: MAX_BUFFERED_METADATA_BYTES,
+      },
+    });
+  });
+
   it("accepts valid VP8 and VP8L headers with matching VP8X canvases", async () => {
     await parseFixture(
       webp([
