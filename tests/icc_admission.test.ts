@@ -207,9 +207,11 @@ describe("validateIccForPreservation", () => {
       { signature: "gTRC", offset: 164 },
     ]);
     expect(validateIccForPreservation(touching)).toEqual({ ok: true });
-    const nonzeroPadding = iccProfileV4({}, [{ signature: "rTRC", size: 9 }]);
-    nonzeroPadding[153] = 1;
-    expectRejected(nonzeroPadding, "invalid");
+    for (const size of [9, 10, 11]) {
+      const nonzeroPadding = iccProfileV4({}, [{ signature: "rTRC", size }]);
+      nonzeroPadding[144 + size] = 1;
+      expectRejected(nonzeroPadding, "invalid");
+    }
     const leadingGap = iccProfileV4({}, [{ signature: "rTRC", offset: 148 }]);
     expectRejected(leadingGap, "invalid");
     const gap = iccProfileV4({}, [
