@@ -5,7 +5,7 @@ function isTimestampFact(value) {
     return typeof value === "number" && Number.isFinite(value);
 }
 export function snapshotSource(stats) {
-    return { dev: stats.dev, ino: stats.ino, size: stats.size, mtimeMs: stats.mtimeMs, ctimeMs: stats.ctimeMs, atime: stats.atime, mtime: stats.mtime };
+    return { dev: stats.dev, ino: stats.ino, size: stats.size, mtimeMs: stats.mtimeMs, ctimeMs: stats.ctimeMs, atime: new Date(stats.atime.getTime()), mtime: new Date(stats.mtime.getTime()) };
 }
 export function identityOf(stats) {
     return isIdentityFact(stats.dev) && isIdentityFact(stats.ino) ? { dev: stats.dev, ino: stats.ino } : undefined;

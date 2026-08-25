@@ -24,7 +24,7 @@ function isTimestampFact(value: unknown): value is number {
 }
 
 export function snapshotSource(stats: Stats): SourceSnapshot {
-  return { dev: stats.dev, ino: stats.ino, size: stats.size, mtimeMs: stats.mtimeMs, ctimeMs: stats.ctimeMs, atime: stats.atime, mtime: stats.mtime };
+  return { dev: stats.dev, ino: stats.ino, size: stats.size, mtimeMs: stats.mtimeMs, ctimeMs: stats.ctimeMs, atime: new Date(stats.atime.getTime()), mtime: new Date(stats.mtime.getTime()) };
 }
 
 export function identityOf(stats: Stats): FileIdentity | undefined {
