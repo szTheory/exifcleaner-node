@@ -4,9 +4,15 @@ export declare const MAX_BUFFERED_METADATA_BYTES: number;
 export declare const MAX_CHUNK_COUNT = 10000;
 export declare const MAX_RIFF_BYTES = 4294967294;
 export declare const COPY_BLOCK_BYTES: number;
+export interface WebpMetadataLimitContext {
+    readonly fourCc: "ICCP" | "EXIF" | "XMP ";
+    readonly size: number;
+    readonly limit: number;
+}
 export declare class WebpStructureError extends Error {
     readonly kind: "unsupported-format" | "malformed-file" | "unsafe-structure";
-    constructor(kind: "unsupported-format" | "malformed-file" | "unsafe-structure", message: string);
+    readonly metadataLimit?: WebpMetadataLimitContext;
+    constructor(kind: "unsupported-format" | "malformed-file" | "unsafe-structure", message: string, metadataLimit?: WebpMetadataLimitContext);
 }
 export interface WebpChunk {
     readonly fourCc: string;

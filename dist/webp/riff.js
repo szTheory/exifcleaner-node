@@ -26,10 +26,13 @@ const SINGLETON_CHUNKS = new Set([
 ]);
 export class WebpStructureError extends Error {
     kind;
-    constructor(kind, message) {
+    metadataLimit;
+    constructor(kind, message, metadataLimit) {
         super(message);
         this.name = "WebpStructureError";
         this.kind = kind;
+        if (metadataLimit !== undefined)
+            this.metadataLimit = metadataLimit;
     }
 }
 function isAborted(signal) {
@@ -245,7 +248,11 @@ export async function parseWebp(handle, fileSize, signal) {
             throw new WebpStructureError("unsafe-structure", `Duplicate ${fourCc.trim()} chunk is ambiguous.`);
         }
         if (metadataFlag(fourCc) !== 0 && size > MAX_BUFFERED_METADATA_BYTES) {
-            throw new WebpStructureError("unsafe-structure", `${fourCc.trim()} metadata exceeds the ${MAX_BUFFERED_METADATA_BYTES}-byte inspection limit.`);
+            throw new WebpStructureError("unsafe-structure", `${fourCc.trim()} metadata exceeds the ${MAX_BUFFERED_METADATA_BYTES}-byte inspection limit.`, {
+                fourCc: fourCc,
+                size,
+                limit: MAX_BUFFERED_METADATA_BYTES,
+            });
         }
         seen.add(fourCc);
         const paddedSize = size + (size & 1);
