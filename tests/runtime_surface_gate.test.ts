@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,9 +40,10 @@ async function createFixture(
 
 async function runGate(
   root: string,
+  gatePath = gate,
 ): Promise<{ exitCode: number; output: string }> {
   try {
-    const result = await execFileAsync(process.execPath, [gate, root]);
+    const result = await execFileAsync(process.execPath, [gatePath, root]);
     return { exitCode: 0, output: `${result.stdout}${result.stderr}` };
   } catch (error) {
     const failure = error as {
@@ -92,6 +93,30 @@ describe("runtime surface gate", () => {
       exitCode: 1,
       output: expect.stringContaining(
         "package.json: export subpath ./internal is forbidden",
+      ),
+    });
+  });
+
+  it("rejects an invalid package when directly invoked from a path containing spaces", async () => {
+    const gateDirectory = await mkdtemp(
+      join(tmpdir(), "exifcleaner runtime surface-"),
+    );
+    fixtureRoots.push(gateDirectory);
+    const copiedGate = join(gateDirectory, "runtime surface gate.mjs");
+    await copyFile(gate, copiedGate);
+    const invalidPackage = await createFixture({
+      dependencies: { telemetry: "1.0.0" },
+    });
+
+    const result = await runGate(invalidPackage, copiedGate);
+
+    expect(result).toEqual({
+      exitCode: 1,
+      output: expect.stringContaining("Runtime surface gate failed:"),
+    });
+    expect(result).toMatchObject({
+      output: expect.stringContaining(
+        "package.json: runtime dependency section dependencies is forbidden",
       ),
     });
   });

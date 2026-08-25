@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const forbiddenDependencySections = [
   "dependencies",
@@ -199,7 +201,7 @@ async function main() {
 
 if (
   process.argv[1] &&
-  resolve(process.argv[1]) === new URL(import.meta.url).pathname
+  realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)
 ) {
   await main();
 }
