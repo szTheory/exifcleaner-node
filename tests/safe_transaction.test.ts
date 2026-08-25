@@ -1,11 +1,16 @@
 import { constants as fsConstants } from "node:fs";
-import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { webpHandler } from "../src/admission/webp-handler.js";
 import { NODE_FILE_OPS, type FileOps } from "../src/transaction/file-ops.js";
-import { snapshotSource } from "../src/transaction/identity.js";
+import {
+  identitiesDistinct,
+  identityMatches,
+  snapshotSource,
+  sourceSnapshotMatches,
+} from "../src/transaction/identity.js";
 import { runSafeTransaction } from "../src/transaction/safe-transaction.js";
 import { metadataWebp } from "./fixtures.js";
 
@@ -55,5 +60,22 @@ describe("safe transaction file operations", () => {
     expect(result).toMatchObject({ ok: false, error: { code: "write-failed", nativeWrite: "started", phase: "transaction" } });
     expect(writerStarts).toBe(1);
     expect(operations).toEqual(["create", "sync", "close", "close", "remove"]);
+  });
+
+  it("fails closed when an identity or source snapshot cannot be proven", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const aliasPath = join(directory, "source-alias.webp");
+    await writeFile(sourcePath, metadataWebp());
+    await symlink(sourcePath, aliasPath);
+    const sourceStats = await stat(sourcePath);
+    const aliasedStats = await stat(aliasPath);
+    const snapshot = snapshotSource(sourceStats);
+
+    expect(identityMatches({ dev: sourceStats.dev, ino: sourceStats.ino }, aliasedStats)).toBe(true);
+    expect(identitiesDistinct({ dev: sourceStats.dev, ino: sourceStats.ino }, aliasedStats)).toBe(false);
+    expect(sourceSnapshotMatches(snapshot, { ...aliasedStats, ino: undefined } as never)).toBe(false);
+    expect(identityMatches({ dev: sourceStats.dev, ino: undefined as never }, aliasedStats)).toBe(false);
   });
 });
