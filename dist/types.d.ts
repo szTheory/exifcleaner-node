@@ -100,10 +100,10 @@ export type FallbackDisposition = "safe-to-fallback" | "do-not-fallback";
 export type MetadataErrorPhase = "request" | "source-open" | "admission" | "transaction";
 export type NativeWriteState = "not-started" | "started";
 export interface FallbackProof {
-    readonly phase?: MetadataErrorPhase;
-    readonly nativeWrite?: NativeWriteState;
+    readonly phase: MetadataErrorPhase;
+    readonly nativeWrite: NativeWriteState;
 }
-type MetadataErrorDetails = {
+export type MetadataErrorDetails = {
     readonly code: "aborted";
     readonly detail: string;
     readonly path?: string;
@@ -168,5 +168,4 @@ export interface JsonSafeCause {
     readonly code?: string;
     readonly message: string;
 }
-export {};
 //# sourceMappingURL=types.d.ts.map

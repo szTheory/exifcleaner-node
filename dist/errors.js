@@ -16,8 +16,24 @@ export function isNodeErrorCode(cause, code) {
         cause.code === code);
 }
 export function aborted(path) {
-    return path === undefined
+    const error = path === undefined
         ? { code: "aborted", detail: "The operation was aborted." }
         : { code: "aborted", detail: "The operation was aborted.", path };
+    return requestError(error);
+}
+function withProof(error, phase, nativeWrite) {
+    return { ...error, phase, nativeWrite };
+}
+export function requestError(error) {
+    return withProof(error, "request", "not-started");
+}
+export function sourceOpenError(error) {
+    return withProof(error, "source-open", "not-started");
+}
+export function admissionDecline(error) {
+    return withProof(error, "admission", "not-started");
+}
+export function executionError(error, nativeWrite) {
+    return withProof(error, "transaction", nativeWrite);
 }
 //# sourceMappingURL=errors.js.map

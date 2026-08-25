@@ -1,4 +1,10 @@
-import type { JsonSafeCause, MetadataError } from "./types.js";
+import type {
+  JsonSafeCause,
+  MetadataError,
+  MetadataErrorDetails,
+  NativeWriteState,
+  FallbackProof,
+} from "./types.js";
 
 interface NodeErrorLike {
   readonly code?: unknown;
@@ -28,7 +34,42 @@ export function isNodeErrorCode(cause: unknown, code: string): boolean {
 }
 
 export function aborted(path?: string): MetadataError {
-  return path === undefined
-    ? { code: "aborted", detail: "The operation was aborted." }
-    : { code: "aborted", detail: "The operation was aborted.", path };
+  const error: MetadataErrorDetails =
+    path === undefined
+      ? { code: "aborted", detail: "The operation was aborted." }
+      : { code: "aborted", detail: "The operation was aborted.", path };
+  return requestError(error);
+}
+
+function withProof<T extends MetadataErrorDetails>(
+  error: T,
+  phase: MetadataError["phase"],
+  nativeWrite: NativeWriteState,
+): T & FallbackProof {
+  return { ...error, phase, nativeWrite };
+}
+
+export function requestError<T extends MetadataErrorDetails>(
+  error: T,
+): T & FallbackProof {
+  return withProof(error, "request", "not-started");
+}
+
+export function sourceOpenError<T extends MetadataErrorDetails>(
+  error: T,
+): T & FallbackProof {
+  return withProof(error, "source-open", "not-started");
+}
+
+export function admissionDecline<T extends MetadataErrorDetails>(
+  error: T,
+): T & FallbackProof {
+  return withProof(error, "admission", "not-started");
+}
+
+export function executionError<T extends MetadataErrorDetails>(
+  error: T,
+  nativeWrite: NativeWriteState,
+): T & FallbackProof {
+  return withProof(error, "transaction", nativeWrite);
 }

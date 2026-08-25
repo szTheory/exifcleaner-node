@@ -3,6 +3,7 @@ import { parseExif, createOrientationExif } from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
 import { parseXmp } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
+import { executionError } from "../errors.js";
 import type {
   Inspection,
   MetadataEntry,
@@ -196,6 +197,20 @@ async function chunksEqual(
 
 const PAYLOAD_CHUNKS = new Set(["VP8 ", "VP8L", "ALPH", "ANIM", "ANMF"]);
 
+function verificationError(detail: string, path: string): MetadataError {
+  return executionError(
+    { code: "verification-failed", detail, path },
+    "started",
+  );
+}
+
+function verificationAborted(path: string): MetadataError {
+  return executionError(
+    { code: "aborted", detail: "Operation was aborted.", path },
+    "started",
+  );
+}
+
 async function verifyOutput(
   sourceHandle: FileHandle,
   source: ParsedWebp,
@@ -214,11 +229,9 @@ async function verifyOutput(
       signal,
     );
     if (destination.chunks.some((chunk) => chunk.fourCc === "XMP "))
-      return err({
-        code: "verification-failed",
-        detail: "XMP remained after sanitization.",
-        path: destinationPath,
-      });
+      return err(
+        verificationError("XMP remained after sanitization.", destinationPath),
+      );
     const sourceIcc = source.chunks.find((chunk) => chunk.fourCc === "ICCP");
     const destinationIcc = destination.chunks.find(
       (chunk) => chunk.fourCc === "ICCP",
@@ -234,17 +247,19 @@ async function verifyOutput(
           signal,
         ))
       )
-        return err({
-          code: "verification-failed",
-          detail: "ICC color profile was not preserved byte-for-byte.",
-          path: destinationPath,
-        });
+        return err(
+          verificationError(
+            "ICC color profile was not preserved byte-for-byte.",
+            destinationPath,
+          ),
+        );
     } else if (destinationIcc !== undefined)
-      return err({
-        code: "verification-failed",
-        detail: "ICC metadata remained after sanitization.",
-        path: destinationPath,
-      });
+      return err(
+        verificationError(
+          "ICC metadata remained after sanitization.",
+          destinationPath,
+        ),
+      );
     const destinationExif = destination.chunks.find(
       (chunk) => chunk.fourCc === "EXIF",
     );
@@ -258,17 +273,19 @@ async function verifyOutput(
         parsedExif.orientation.value !== expectedOrientation ||
         parsedExif.entries.length !== 1
       )
-        return err({
-          code: "verification-failed",
-          detail: "EXIF Orientation was not preserved.",
-          path: destinationPath,
-        });
+        return err(
+          verificationError(
+            "EXIF Orientation was not preserved.",
+            destinationPath,
+          ),
+        );
     } else if (destinationExif !== undefined)
-      return err({
-        code: "verification-failed",
-        detail: "EXIF metadata remained after sanitization.",
-        path: destinationPath,
-      });
+      return err(
+        verificationError(
+          "EXIF metadata remained after sanitization.",
+          destinationPath,
+        ),
+      );
     const sourcePayload = source.chunks.filter((chunk) =>
       PAYLOAD_CHUNKS.has(chunk.fourCc),
     );
@@ -276,11 +293,12 @@ async function verifyOutput(
       PAYLOAD_CHUNKS.has(chunk.fourCc),
     );
     if (sourcePayload.length !== destinationPayload.length)
-      return err({
-        code: "verification-failed",
-        detail: "Image or animation chunk count changed.",
-        path: destinationPath,
-      });
+      return err(
+        verificationError(
+          "Image or animation chunk count changed.",
+          destinationPath,
+        ),
+      );
     for (let index = 0; index < sourcePayload.length; index += 1) {
       const left = sourcePayload[index];
       const right = destinationPayload[index];
@@ -296,28 +314,24 @@ async function verifyOutput(
           signal,
         ))
       )
-        return err({
-          code: "verification-failed",
-          detail: "Image or animation payload bytes changed.",
-          path: destinationPath,
-        });
+        return err(
+          verificationError(
+            "Image or animation payload bytes changed.",
+            destinationPath,
+          ),
+        );
     }
     return ok(undefined);
   } catch (cause) {
-    if (isAborted(signal))
-      return err({
-        code: "aborted",
-        detail: "Operation was aborted.",
-        path: destinationPath,
-      });
-    return err({
-      code: "verification-failed",
-      detail:
+    if (isAborted(signal)) return err(verificationAborted(destinationPath));
+    return err(
+      verificationError(
         cause instanceof WebpStructureError
           ? cause.message
           : "Could not reopen and verify the destination.",
-      path: destinationPath,
-    });
+        destinationPath,
+      ),
+    );
   }
 }
 

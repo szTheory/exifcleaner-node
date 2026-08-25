@@ -7,7 +7,15 @@ import {
   selectHandler,
   getRegisteredCapabilities,
 } from "./admission/registry.js";
-import { aborted, isNodeErrorCode, jsonSafeCause } from "./errors.js";
+import {
+  aborted,
+  admissionDecline,
+  executionError,
+  isNodeErrorCode,
+  jsonSafeCause,
+  requestError,
+  sourceOpenError,
+} from "./errors.js";
 import { validateIccForPreservation } from "./metadata/icc_admission.js";
 import { err, ok } from "./result.js";
 import type {
@@ -62,40 +70,46 @@ function snapshotsEqual(left: SourceSnapshot, right: Stats): boolean {
 }
 function invalidOptions(detail: string, path?: string): Result<never> {
   return err(
-    path === undefined
-      ? { code: "invalid-options", detail }
-      : { code: "invalid-options", detail, path },
+    requestError(
+      path === undefined
+        ? { code: "invalid-options", detail }
+        : { code: "invalid-options", detail, path },
+    ),
   );
 }
 function structureError(
   path: string,
   cause: WebpStructureError,
 ): MetadataError {
-  return { code: cause.kind, detail: cause.message, path };
+  return admissionDecline({ code: cause.kind, detail: cause.message, path });
 }
 function readError(path: string, cause: unknown): MetadataError {
-  return isNodeErrorCode(cause, "ENOENT")
-    ? {
-        code: "not-found",
-        detail: "Source file does not exist.",
-        path,
-        cause: jsonSafeCause(cause),
-      }
-    : {
-        code: "read-failed",
-        detail: "Could not read the source file.",
-        path,
-        cause: jsonSafeCause(cause),
-      };
+  return sourceOpenError(
+    isNodeErrorCode(cause, "ENOENT")
+      ? {
+          code: "not-found",
+          detail: "Source file does not exist.",
+          path,
+          cause: jsonSafeCause(cause),
+        }
+      : {
+          code: "read-failed",
+          detail: "Could not read the source file.",
+          path,
+          cause: jsonSafeCause(cause),
+        },
+  );
 }
 function validateRegularFile(stats: Stats, path: string): Result<void> {
   return stats.isFile()
     ? ok(undefined)
-    : err({
-        code: "read-failed",
-        detail: "Source path is not a regular file.",
-        path,
-      });
+    : err(
+        sourceOpenError({
+          code: "read-failed",
+          detail: "Source path is not a regular file.",
+          path,
+        }),
+      );
 }
 
 export function getCapabilities(): Capabilities {
@@ -119,18 +133,30 @@ export async function inspectFile(
     if (!regular.ok) return regular;
     const handler = await selectHandler(handle);
     if (handler === undefined)
-      return err({
-        code: "unsupported-format",
-        detail: "Source file is not a supported native format.",
-        path: filePath,
-      });
+      return err(
+        admissionDecline({
+          code: "unsupported-format",
+          detail: "Source file is not a supported native format.",
+          path: filePath,
+        }),
+      );
     return ok(
       handler.inspect(
         await handler.admit(handle, sourceStats.size, options.signal),
       ),
     );
   } catch (cause) {
-    if (isAborted(options.signal)) return err(aborted(filePath));
+    if (isAborted(options.signal))
+      return err(
+        executionError(
+          {
+            code: "aborted",
+            detail: "The operation was aborted.",
+            path: filePath,
+          },
+          "not-started",
+        ),
+      );
     return cause instanceof WebpStructureError
       ? err(structureError(filePath, cause))
       : err(readError(filePath, cause));
@@ -145,23 +171,33 @@ async function cleanupDestination(
 ): Promise<Result<void>> {
   try {
     if (!identityMatches(ownedDestination, await lstat(path)))
-      return err({
-        code: "destination-changed",
-        detail:
-          "Destination path was replaced; the replacement was left untouched.",
-        path,
-      });
+      return err(
+        executionError(
+          {
+            code: "destination-changed",
+            detail:
+              "Destination path was replaced; the replacement was left untouched.",
+            path,
+          },
+          "started",
+        ),
+      );
     await rm(path, { force: true });
     return ok(undefined);
   } catch (cause) {
     if (isNodeErrorCode(cause, "ENOENT")) return ok(undefined);
-    return err({
-      code: "cleanup-failed",
-      detail:
-        "Sanitization failed and the incomplete destination could not be removed.",
-      path,
-      cause: jsonSafeCause(cause),
-    });
+    return err(
+      executionError(
+        {
+          code: "cleanup-failed",
+          detail:
+            "Sanitization failed and the incomplete destination could not be removed.",
+          path,
+          cause: jsonSafeCause(cause),
+        },
+        "started",
+      ),
+    );
   }
 }
 
@@ -203,11 +239,13 @@ export async function sanitizeFile(
     const original = snapshot(sourceStats);
     const handler = await selectHandler(sourceHandle);
     if (handler === undefined)
-      return err({
-        code: "unsupported-format",
-        detail: "Source file is not a supported native format.",
-        path: sourcePath,
-      });
+      return err(
+        admissionDecline({
+          code: "unsupported-format",
+          detail: "Source file is not a supported native format.",
+          path: sourcePath,
+        }),
+      );
     const admission = await handler.admit(
       sourceHandle,
       sourceStats.size,
@@ -219,25 +257,29 @@ export async function sanitizeFile(
     if (options.preserveColorProfile && colorProfile?.metadata !== undefined) {
       const checked = validateIccForPreservation(colorProfile.metadata);
       if (!checked.ok)
-        return err({
-          code: "unsupported-feature",
-          detail: checked.detail,
-          path: sourcePath,
-          feature: "color-profile-preservation",
-          reason: checked.reason,
-        });
+        return err(
+          admissionDecline({
+            code: "unsupported-feature",
+            detail: checked.detail,
+            path: sourcePath,
+            feature: "color-profile-preservation",
+            reason: checked.reason,
+          }),
+        );
     }
     if (
       options.preserveOrientation &&
       (admission.orientation.status === "malformed" ||
         admission.orientation.status === "unsupported")
     )
-      return err({
-        code: "unsupported-feature",
-        detail: admission.orientation.detail,
-        path: sourcePath,
-        feature: "orientation-preservation",
-      });
+      return err(
+        admissionDecline({
+          code: "unsupported-feature",
+          detail: admission.orientation.detail,
+          path: sourcePath,
+          feature: "orientation-preservation",
+        }),
+      );
     const orientation =
       admission.orientation.status === "valid"
         ? admission.orientation.value
@@ -255,11 +297,13 @@ export async function sanitizeFile(
       plan.reduce((sum, chunk) => sum + 8 + chunk.size + (chunk.size & 1), 12) >
         MAX_RIFF_BYTES
     )
-      return err({
-        code: "unsafe-structure",
-        detail: "Sanitized output exceeds RIFF limits.",
-        path: sourcePath,
-      });
+      return err(
+        admissionDecline({
+          code: "unsafe-structure",
+          detail: "Sanitized output exceeds RIFF limits.",
+          path: sourcePath,
+        }),
+      );
     try {
       destinationHandle = await open(
         destinationPath,
@@ -269,30 +313,43 @@ export async function sanitizeFile(
       destinationCreated = true;
     } catch (cause) {
       return isNodeErrorCode(cause, "EEXIST")
-        ? err({
-            code: "destination-exists",
-            detail: "Destination already exists.",
-            path: destinationPath,
-            cause: jsonSafeCause(cause),
-          })
-        : err({
-            code: "write-failed",
-            detail: "Could not create the destination exclusively.",
-            path: destinationPath,
-            cause: jsonSafeCause(cause),
-          });
+        ? err(
+            executionError(
+              {
+                code: "destination-exists",
+                detail: "Destination already exists.",
+                path: destinationPath,
+                cause: jsonSafeCause(cause),
+              },
+              "not-started",
+            ),
+          )
+        : err(
+            executionError(
+              {
+                code: "write-failed",
+                detail: "Could not create the destination exclusively.",
+                path: destinationPath,
+                cause: jsonSafeCause(cause),
+              },
+              "not-started",
+            ),
+          );
     }
     ownedDestination = identity(await destinationHandle.stat());
     await handler.writeOutput(sourceHandle, destinationHandle, plan, signal);
     await destinationHandle.close();
     destinationHandle = undefined;
     if (!identityMatches(ownedDestination, await lstat(destinationPath))) {
-      failure = {
-        code: "destination-changed",
-        detail:
-          "Destination path no longer names the file created by this operation.",
-        path: destinationPath,
-      };
+      failure = executionError(
+        {
+          code: "destination-changed",
+          detail:
+            "Destination path no longer names the file created by this operation.",
+          path: destinationPath,
+        },
+        "started",
+      );
       throw new Error("Destination changed.");
     }
     destinationHandle = await open(
@@ -304,12 +361,15 @@ export async function sanitizeFile(
       !identityMatches(ownedDestination, destinationStats) ||
       !identityMatches(ownedDestination, await lstat(destinationPath))
     ) {
-      failure = {
-        code: "destination-changed",
-        detail:
-          "Destination path no longer names the file created by this operation.",
-        path: destinationPath,
-      };
+      failure = executionError(
+        {
+          code: "destination-changed",
+          detail:
+            "Destination path no longer names the file created by this operation.",
+          path: destinationPath,
+        },
+        "started",
+      );
       throw new Error("Destination changed.");
     }
     const verified = await handler.verifyOutput(
@@ -330,21 +390,28 @@ export async function sanitizeFile(
     await destinationHandle.close();
     destinationHandle = undefined;
     if (!snapshotsEqual(original, await stat(sourcePath))) {
-      failure = {
-        code: "source-changed",
-        detail: "Source changed during sanitization; output was discarded.",
-        path: sourcePath,
-      };
+      failure = executionError(
+        {
+          code: "source-changed",
+          detail: "Source changed during sanitization; output was discarded.",
+          path: sourcePath,
+        },
+        "started",
+      );
       throw new Error("Source changed.");
     }
     if (options.preserveTimestamps)
       await utimes(destinationPath, sourceStats.atime, sourceStats.mtime);
     if (!identityMatches(ownedDestination, await lstat(destinationPath))) {
-      failure = {
-        code: "destination-changed",
-        detail: "Destination path was replaced before sanitization completed.",
-        path: destinationPath,
-      };
+      failure = executionError(
+        {
+          code: "destination-changed",
+          detail:
+            "Destination path was replaced before sanitization completed.",
+          path: destinationPath,
+        },
+        "started",
+      );
       throw new Error("Destination changed.");
     }
     const namespaces = new Set(
@@ -382,30 +449,40 @@ export async function sanitizeFile(
   } catch (cause) {
     if (failure === undefined)
       failure = isAborted(signal)
-        ? aborted(sourcePath)
+        ? executionError(
+            {
+              code: "aborted",
+              detail: "The operation was aborted.",
+              path: sourcePath,
+            },
+            destinationCreated ? "started" : "not-started",
+          )
         : cause instanceof WebpStructureError &&
             options.preserveColorProfile &&
             !destinationCreated &&
             cause.metadataLimit?.fourCc === "ICCP"
-          ? {
+          ? admissionDecline({
               code: "unsupported-feature",
               detail: `ICC profile size ${cause.metadataLimit.size} exceeds the ${cause.metadataLimit.limit}-byte policy limit.`,
               path: sourcePath,
               feature: "color-profile-preservation",
               reason: "policy-limit",
-            }
+            })
           : cause instanceof WebpStructureError
             ? structureError(sourcePath, cause)
             : sourceHandle === undefined
               ? readError(sourcePath, cause)
-              : {
-                  code: destinationCreated ? "write-failed" : "read-failed",
-                  detail: destinationCreated
-                    ? "Could not write the sanitized destination."
-                    : "Could not read the source file.",
-                  path: destinationCreated ? destinationPath : sourcePath,
-                  cause: jsonSafeCause(cause),
-                };
+              : executionError(
+                  {
+                    code: destinationCreated ? "write-failed" : "read-failed",
+                    detail: destinationCreated
+                      ? "Could not write the sanitized destination."
+                      : "Could not read the source file.",
+                    path: destinationCreated ? destinationPath : sourcePath,
+                    cause: jsonSafeCause(cause),
+                  },
+                  destinationCreated ? "started" : "not-started",
+                );
   } finally {
     await destinationHandle?.close().catch(() => undefined);
     await sourceHandle?.close().catch(() => undefined);
@@ -415,10 +492,14 @@ export async function sanitizeFile(
     if (!cleaned.ok) return cleaned;
   }
   return err(
-    failure ?? {
-      code: "write-failed",
-      detail: "Sanitization failed.",
-      path: destinationPath,
-    },
+    failure ??
+      executionError(
+        {
+          code: "write-failed",
+          detail: "Sanitization failed.",
+          path: destinationPath,
+        },
+        destinationCreated ? "started" : "not-started",
+      ),
   );
 }

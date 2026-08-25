@@ -2,6 +2,7 @@ import { parseExif, createOrientationExif } from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
 import { parseXmp } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
+import { executionError } from "../errors.js";
 import { COPY_BLOCK_BYTES, MAX_BUFFERED_METADATA_BYTES, MAX_CHUNK_COUNT, MAX_RIFF_BYTES, encodeChunkHeader, encodeRiffHeader, parseWebp, readExactly, WebpStructureError, } from "../webp/riff.js";
 import { ICC_PRESERVATION_POLICY_ID } from "../metadata/icc_admission.js";
 function isAborted(signal) {
@@ -114,32 +115,26 @@ async function chunksEqual(sourceHandle, source, destinationHandle, destination,
     return true;
 }
 const PAYLOAD_CHUNKS = new Set(["VP8 ", "VP8L", "ALPH", "ANIM", "ANMF"]);
+function verificationError(detail, path) {
+    return executionError({ code: "verification-failed", detail, path }, "started");
+}
+function verificationAborted(path) {
+    return executionError({ code: "aborted", detail: "Operation was aborted.", path }, "started");
+}
 async function verifyOutput(sourceHandle, source, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, expectedOrientation, signal) {
     try {
         const destination = await parseWebp(destinationHandle, destinationSize, signal);
         if (destination.chunks.some((chunk) => chunk.fourCc === "XMP "))
-            return err({
-                code: "verification-failed",
-                detail: "XMP remained after sanitization.",
-                path: destinationPath,
-            });
+            return err(verificationError("XMP remained after sanitization.", destinationPath));
         const sourceIcc = source.chunks.find((chunk) => chunk.fourCc === "ICCP");
         const destinationIcc = destination.chunks.find((chunk) => chunk.fourCc === "ICCP");
         if (preserveColorProfile && sourceIcc !== undefined) {
             if (destinationIcc === undefined ||
                 !(await chunksEqual(sourceHandle, sourceIcc, destinationHandle, destinationIcc, signal)))
-                return err({
-                    code: "verification-failed",
-                    detail: "ICC color profile was not preserved byte-for-byte.",
-                    path: destinationPath,
-                });
+                return err(verificationError("ICC color profile was not preserved byte-for-byte.", destinationPath));
         }
         else if (destinationIcc !== undefined)
-            return err({
-                code: "verification-failed",
-                detail: "ICC metadata remained after sanitization.",
-                path: destinationPath,
-            });
+            return err(verificationError("ICC metadata remained after sanitization.", destinationPath));
         const destinationExif = destination.chunks.find((chunk) => chunk.fourCc === "EXIF");
         if (preserveOrientation && expectedOrientation !== undefined) {
             const parsedExif = destinationExif?.metadata === undefined
@@ -148,26 +143,14 @@ async function verifyOutput(sourceHandle, source, destinationHandle, destination
             if (parsedExif?.orientation.status !== "valid" ||
                 parsedExif.orientation.value !== expectedOrientation ||
                 parsedExif.entries.length !== 1)
-                return err({
-                    code: "verification-failed",
-                    detail: "EXIF Orientation was not preserved.",
-                    path: destinationPath,
-                });
+                return err(verificationError("EXIF Orientation was not preserved.", destinationPath));
         }
         else if (destinationExif !== undefined)
-            return err({
-                code: "verification-failed",
-                detail: "EXIF metadata remained after sanitization.",
-                path: destinationPath,
-            });
+            return err(verificationError("EXIF metadata remained after sanitization.", destinationPath));
         const sourcePayload = source.chunks.filter((chunk) => PAYLOAD_CHUNKS.has(chunk.fourCc));
         const destinationPayload = destination.chunks.filter((chunk) => PAYLOAD_CHUNKS.has(chunk.fourCc));
         if (sourcePayload.length !== destinationPayload.length)
-            return err({
-                code: "verification-failed",
-                detail: "Image or animation chunk count changed.",
-                path: destinationPath,
-            });
+            return err(verificationError("Image or animation chunk count changed.", destinationPath));
         for (let index = 0; index < sourcePayload.length; index += 1) {
             const left = sourcePayload[index];
             const right = destinationPayload[index];
@@ -175,28 +158,16 @@ async function verifyOutput(sourceHandle, source, destinationHandle, destination
                 right === undefined ||
                 left.fourCc !== right.fourCc ||
                 !(await chunksEqual(sourceHandle, left, destinationHandle, right, signal)))
-                return err({
-                    code: "verification-failed",
-                    detail: "Image or animation payload bytes changed.",
-                    path: destinationPath,
-                });
+                return err(verificationError("Image or animation payload bytes changed.", destinationPath));
         }
         return ok(undefined);
     }
     catch (cause) {
         if (isAborted(signal))
-            return err({
-                code: "aborted",
-                detail: "Operation was aborted.",
-                path: destinationPath,
-            });
-        return err({
-            code: "verification-failed",
-            detail: cause instanceof WebpStructureError
-                ? cause.message
-                : "Could not reopen and verify the destination.",
-            path: destinationPath,
-        });
+            return err(verificationAborted(destinationPath));
+        return err(verificationError(cause instanceof WebpStructureError
+            ? cause.message
+            : "Could not reopen and verify the destination.", destinationPath));
     }
 }
 const capability = Object.freeze({

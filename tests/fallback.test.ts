@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { classifyFallback, sanitizeFile } from "../src/index.js";
 import type { MetadataError } from "../src/index.js";
+import { metadataWebp } from "./fixtures.js";
 
 const admissionDecline = Object.freeze({
   code: "unsupported-format" as const,
@@ -24,7 +25,8 @@ describe("classifyFallback", () => {
       {
         ...admissionDecline,
         code: "unsafe-structure" as const,
-        detail: "Unrelated warning text and an extension cannot decide fallback.",
+        detail:
+          "Unrelated warning text and an extension cannot decide fallback.",
         path: "/tmp/source.any-extension",
       },
       {
@@ -46,7 +48,12 @@ describe("classifyFallback", () => {
     const errors = [
       { ...admissionDecline, phase: "request" as const },
       { ...admissionDecline, nativeWrite: "started" as const },
-      { code: "invalid-options" as const, detail: "Invalid request." },
+      {
+        code: "invalid-options" as const,
+        detail: "Invalid request.",
+        phase: "request" as const,
+        nativeWrite: "not-started" as const,
+      },
       {
         ...admissionDecline,
         phase: "future" as never,
@@ -104,6 +111,61 @@ describe("classifyFallback", () => {
       if (!invalidRequest.ok)
         expect(classifyFallback(invalidRequest.error)).toBe("do-not-fallback");
       expect(await readdir(directory)).toEqual(["source.data"]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed for source, cancellation, and destination collision terminals", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-fallback-"));
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    const missingPath = join(directory, "missing.webp");
+    await writeFile(sourcePath, metadataWebp());
+
+    try {
+      const missing = await sanitizeFile({
+        sourcePath: missingPath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      });
+      const controller = new AbortController();
+      controller.abort();
+      const cancelled = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        signal: controller.signal,
+      });
+      await writeFile(destinationPath, "pre-existing destination");
+      const collision = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      });
+
+      expect(missing).toMatchObject({
+        ok: false,
+        error: { phase: "source-open", nativeWrite: "not-started" },
+      });
+      expect(cancelled).toMatchObject({
+        ok: false,
+        error: { phase: "request", nativeWrite: "not-started" },
+      });
+      expect(collision).toMatchObject({
+        ok: false,
+        error: { phase: "transaction", nativeWrite: "not-started" },
+      });
+      for (const result of [missing, cancelled, collision]) {
+        if (!result.ok)
+          expect(classifyFallback(result.error)).toBe("do-not-fallback");
+      }
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
