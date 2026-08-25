@@ -121,8 +121,8 @@ describe("validateIccForPreservation", () => {
     expect(
       validateIccForPreservation(
         iccProfileV4({}, [
-          { signature: "bTRC", offset: 176 },
-          { signature: "rTRC", offset: 168 },
+          { signature: "bTRC", offset: 164 },
+          { signature: "rTRC", offset: 156 },
         ]),
       ),
     ).toEqual({ ok: true });
@@ -155,6 +155,13 @@ describe("validateIccForPreservation", () => {
     const overLimit = iccProfileV4();
     overLimit.writeUInt32BE(4_097, 128);
     expectRejected(overLimit, "policy-limit");
+    const atLimit = iccProfileV4(
+      {},
+      Array.from({ length: 4_096 }, (_, index) => ({
+        signature: index.toString(36).padStart(4, "0"),
+      })),
+    );
+    expect(validateIccForPreservation(atLimit)).toEqual({ ok: true });
   });
 
   it("requires canonical zero-padded layout through EOF", () => {
@@ -163,6 +170,9 @@ describe("validateIccForPreservation", () => {
       { signature: "gTRC", offset: 164 },
     ]);
     expect(validateIccForPreservation(touching)).toEqual({ ok: true });
+    const nonzeroPadding = iccProfileV4({}, [{ signature: "rTRC", size: 9 }]);
+    nonzeroPadding[153] = 1;
+    expectRejected(nonzeroPadding, "invalid");
     const leadingGap = iccProfileV4({}, [{ signature: "rTRC", offset: 148 }]);
     expectRejected(leadingGap, "invalid");
     const gap = iccProfileV4({}, [

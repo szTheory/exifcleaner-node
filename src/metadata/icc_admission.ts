@@ -155,28 +155,52 @@ export function validateIccForPreservation(
   if (tableEnd > payload.length)
     return rejected("invalid", "ICC profile tag table is truncated.");
 
-  // The tracer intentionally admits the one-record canonical layout; Plan 02 expands
-  // this seam to the complete bounded tag-table policy.
-  if (tagCount !== 1)
-    return rejected(
-      "unsupported",
-      "ICC profile tag table is not admitted by this policy path.",
-    );
-  const signature = payload.readUInt32BE(132);
-  const offset = payload.readUInt32BE(136);
-  const size = payload.readUInt32BE(140);
-  if (
-    signature === 0 ||
-    offset !== tableEnd ||
-    offset % 4 !== 0 ||
-    size < 8 ||
-    offset + size !== payload.length
-  )
-    return rejected("invalid", "ICC profile tag range is invalid.");
-  if (payload.readUInt32BE(offset + 4) !== 0)
-    return rejected(
-      "invalid",
-      "ICC profile tag type reserved bytes are nonzero.",
-    );
+  const signatures = new Set<number>();
+  const physicalRanges = new Map<string, IccTagRange>();
+  for (let index = 0; index < tagCount; index += 1) {
+    const recordOffset = ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES + index * ICC_TAG_RECORD_BYTES;
+    const signature = payload.readUInt32BE(recordOffset);
+    const offset = payload.readUInt32BE(recordOffset + 4);
+    const size = payload.readUInt32BE(recordOffset + 8);
+    if (signature === 0 || signatures.has(signature))
+      return rejected("invalid", "ICC profile tag signatures must be unique and nonzero.");
+    signatures.add(signature);
+    if (
+      offset < tableEnd ||
+      offset % 4 !== 0 ||
+      size < 8 ||
+      offset > payload.length ||
+      size > payload.length - offset
+    )
+      return rejected("invalid", "ICC profile tag range is invalid.");
+    if (payload.readUInt32BE(offset + 4) !== 0)
+      return rejected(
+        "invalid",
+        "ICC profile tag type reserved bytes are nonzero.",
+      );
+    const range = { signature, offset, size };
+    const key = `${offset}:${size}`;
+    if (!physicalRanges.has(key)) physicalRanges.set(key, range);
+  }
+
+  const ranges = [...physicalRanges.values()].sort(
+    (left, right) => left.offset - right.offset,
+  );
+  let expectedOffset = tableEnd;
+  for (const range of ranges) {
+    if (range.offset !== expectedOffset)
+      return rejected(
+        "invalid",
+        "ICC profile tag payloads are not canonical contiguous ranges.",
+      );
+    const payloadEnd = range.offset + range.size;
+    const paddedEnd = payloadEnd + ((4 - (range.size % 4)) % 4);
+    for (let offset = payloadEnd; offset < paddedEnd; offset += 1)
+      if (payload[offset] !== 0)
+        return rejected("invalid", "ICC profile tag padding is nonzero.");
+    expectedOffset = paddedEnd;
+  }
+  if (expectedOffset !== payload.length)
+    return rejected("invalid", "ICC profile has tag trailer bytes.");
   return { ok: true };
 }
