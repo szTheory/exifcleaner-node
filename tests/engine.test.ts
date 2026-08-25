@@ -15,6 +15,12 @@ import { join } from "node:path";
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import { getCapabilities, inspectFile, sanitizeFile } from "../src/index.js";
+import type {
+  FormatCapabilities,
+  NativeFormat,
+  SanitizeResult,
+  WebpCapabilities,
+} from "../src/index.js";
 import {
   chunk,
   anim,
@@ -1255,5 +1261,75 @@ describe("pinned upstream ExifCleaner fixture", () => {
         (item) => item.fourCc === "VP8 ",
       )?.data,
     ).toEqual(originalPayload);
+  });
+});
+
+describe("format-neutral admission boundary", () => {
+  it("round-trips every advertised format through the three semantic roots", async () => {
+    const fixtures: Record<NativeFormat, Buffer> = {
+      webp: metadataWebp(),
+    };
+    const directory = await workspace();
+    const capabilities = getCapabilities();
+
+    for (const capability of capabilities.formats) {
+      const sourcePath = join(directory, `renamed-${capability.format}.input`);
+      const destinationPath = join(directory, `clean-${capability.format}.webp`);
+      await writeFile(sourcePath, fixtures[capability.format]);
+
+      const inspected = await inspectFile(sourcePath);
+      const sanitized = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      });
+
+      expect(inspected).toMatchObject({
+        ok: true,
+        value: { format: capability.format },
+      });
+      expect(sanitized).toMatchObject({
+        ok: true,
+        value: { format: capability.format },
+      });
+      expect(await inspectFile(destinationPath)).toMatchObject({
+        ok: true,
+        value: { format: capability.format },
+      });
+    }
+  });
+
+  it("exposes a nonempty, immutable WebP capability refinement", async () => {
+    const capabilities = getCapabilities();
+    const [webp] = capabilities.formats;
+    expect(webp).toBeDefined();
+    if (webp === undefined) return;
+    const formatCapability: FormatCapabilities = webp;
+    const webpCapability: WebpCapabilities = formatCapability;
+    const result: SanitizeResult = {
+      format: webpCapability.format,
+      destinationPath: "result.webp",
+      removedNamespaces: [],
+      preserved: {
+        orientation: false,
+        colorProfile: false,
+        timestamps: false,
+      },
+      warnings: [],
+    };
+
+    expect(result.format).toBe("webp");
+    expect(Object.isFrozen(capabilities)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats)).toBe(true);
+    expect(Object.isFrozen(webp)).toBe(true);
+    await expect(
+      Promise.all(
+        Array.from({ length: 12 }, () =>
+          Promise.resolve(getCapabilities().formats[0]?.format),
+        ),
+      ),
+    ).resolves.toEqual(Array(12).fill("webp"));
   });
 });
