@@ -97,6 +97,15 @@ describe("getCapabilities", () => {
             container: "full",
             codecBitstream: "header-only",
           },
+          colorProfile: {
+            policy: "icc-structural-v0.2",
+            preservation: "preserve-if-present",
+            versions: ["v2.0-v2.4", "v4.0-v4.4"],
+            classes: ["scnr", "mntr"],
+            spaces: ["RGB /XYZ ", "RGB /Lab "],
+            maxProfileBytes: 16 * 1024 * 1024,
+            maxTagCount: 4_096,
+          },
           limits: {
             maxMetadataBytesPerChunk: 16 * 1024 * 1024,
             maxChunkCount: 10_000,
