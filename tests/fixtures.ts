@@ -189,6 +189,14 @@ export function iccProfileV4({
   return profile;
 }
 
+export function iccProfileV2(): Buffer {
+  const profile = iccProfileV4();
+  profile[8] = 2;
+  profile[9] = 0x40;
+  profile.fill(0, 84, 128);
+  return profile;
+}
+
 export function mutateIccProfile(
   profile: Buffer,
   mutation: IccProfileMutation,
