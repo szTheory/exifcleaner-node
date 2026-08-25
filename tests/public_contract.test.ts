@@ -134,6 +134,66 @@ describe("published ICC preservation contract", () => {
   });
 });
 
+describe("published generic transaction contract", () => {
+  it("pins the single-request, exact-once fallback consumer flow", async () => {
+    const readme = await readFile(join(packageRoot, "README.md"), "utf8");
+
+    for (const rootName of [
+      "getCapabilities",
+      "inspectFile",
+      "sanitizeFile",
+      "classifyFallback",
+      '"safe-to-fallback"',
+      '"do-not-fallback"',
+    ]) {
+      expect(readme).toContain(rootName);
+    }
+    expect(readme).toContain("Call `sanitizeFile` once");
+    expect(readme).toContain("Call `classifyFallback` once");
+    expect(readme).toContain("at most one ExifTool substitute");
+    expect(readme).toContain("preserve the original terminal result");
+    expect(readme).toContain("only completion signal");
+  });
+
+  it("states bounded publication, finalization, attribute, and filesystem guarantees", async () => {
+    const capabilities = await readFile(
+      join(packageRoot, "docs/capabilities.md"),
+      "utf8",
+    );
+
+    for (const concept of [
+      "NativeFormat",
+      "FormatCapabilities",
+      "WebpCapabilities",
+      "magic admission",
+      "O_EXCL",
+      "owned-partial-removed",
+      "already-missing",
+      "replaced-and-left-untouched",
+      "owned-partial-remains",
+      "atime and mtime only",
+      "non-executable",
+      "provisional pathname is not completion",
+      "process crash or power loss may leave residue",
+      "directory durability",
+      "locking",
+      "no-replace staged publication",
+      "unlink-if-identity-matches",
+      "hostile concurrently writable directories",
+      "birth time",
+      "owner/group",
+      "ACLs",
+      "xattrs",
+      "quarantine/SELinux labels",
+      "hard-link topology",
+      "sparse allocation",
+      "source atime",
+    ]) {
+      expect(capabilities).toContain(concept);
+    }
+  });
+});
+
 describe("published format-neutral declaration contract", () => {
   const rootImport = 'from "PACKAGE_ROOT/dist/index.js"';
 

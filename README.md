@@ -13,7 +13,12 @@ npm install exifcleaner-node
 ## Public API
 
 ```ts
-import { getCapabilities, inspectFile, sanitizeFile } from "exifcleaner-node";
+import {
+  classifyFallback,
+  getCapabilities,
+  inspectFile,
+  sanitizeFile,
+} from "exifcleaner-node";
 
 const capabilities = getCapabilities();
 
@@ -36,10 +41,13 @@ const sanitized = await sanitizeFile({
   preserveTimestamps: true,
 });
 
-if (!sanitized.ok) {
-  console.error(sanitized.error);
-} else {
+if (sanitized.ok) {
   console.log(sanitized.value.removedNamespaces);
+} else if (classifyFallback(sanitized.error) === "safe-to-fallback") {
+  // A caller may use one qualified substitute writer here.
+  console.error("Use the existing ExifTool substitute once.");
+} else {
+  console.error(sanitized.error);
 }
 ```
 
@@ -52,6 +60,17 @@ The public contracts are:
 - `Result<T, MetadataError>`: a discriminated success/failure union
 - `MetadataError`: a discriminated expected-failure union
 
+## Consumer Flow
+
+Call `sanitizeFile` once for one semantic request. A returned successful
+`SanitizeResult` is the only completion signal; do not treat a destination
+pathname observed during the call as a completed output. On a returned error,
+Call `classifyFallback` once. Its only results are `"safe-to-fallback"` and
+`"do-not-fallback"`: only the former authorizes at most one ExifTool substitute.
+For every other disposition, preserve the original terminal result. Do not retry
+the native operation, start a fallback loop, or run another writer after any
+uncertainty.
+
 Use `getCapabilities()` as the machine-readable support contract; do not infer support from a filename extension.
 
 ## Guarantees
@@ -59,7 +78,9 @@ Use `getCapabilities()` as the machine-readable support contract; do not infer s
 - WebP is detected from file magic, not its extension.
 - The source is never overwritten.
 - The destination is created exclusively; an existing path is not replaced.
-- A partial destination created by a failed or cancelled call is cleaned up.
+- A failed or cancelled post-create operation retains its structured root error
+  and reports whether an owned partial was removed, already missing, replaced
+  and left untouched, or may remain after cleanup failed.
 - Cleanup and timestamp operations identity-check the exclusively created destination; a detected replacement path is left untouched and reported as `destination-changed`.
 - Successful output is synced, independently reopened, parsed, and checked before success is returned.
 - Image and animation payload bytes are copied without decoding or re-encoding.
@@ -97,7 +118,9 @@ npm ci
 npm run verify
 ```
 
-Useful focused commands are `npm run typecheck`, `npm test`, `npm run build`, and `npm run check:pack`. Protected releases run the same checks before publishing through npm trusted publishing.
+Useful focused commands are `npm run typecheck`, `npm test`, `npm run build`,
+`npm run check:runtime`, and `npm run check:pack`. Protected releases run the
+same checks before publishing through npm trusted publishing.
 
 ## License
 

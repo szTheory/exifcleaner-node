@@ -8,13 +8,42 @@
 | ------------ | -------------------------------------------------------------------------------------------------- |
 | Runtime      | Node.js 22+, ESM                                                                                   |
 | Formats      | WebP only, detected by `RIFF` + `WEBP` magic                                                       |
-| Operations   | `inspectFile`, `sanitizeFile`, `getCapabilities`                                                   |
+| Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                               |
 | Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                       |
 | Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable |
 | Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract                       |
 | Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized        |
 | Cancellation | Optional `AbortSignal` on inspection and sanitization                                              |
 | Failures     | Discriminated `MetadataError` returned through `Result`                                            |
+
+`NativeFormat` is the format-neutral discriminant (currently `"webp"`).
+`FormatCapabilities` is the format-neutral capability union, currently refined
+by the supported `WebpCapabilities` shape. Admission is by magic admission:
+the already-open source must begin with `RIFF` + `WEBP`, never merely carry a
+matching extension. The private registry is frozen and contains only that
+qualified WebP handler; this package exposes no handler registration API.
+
+## Consumer and Publication Contract
+
+A consumer submits one semantic request through `sanitizeFile` and receives one
+verified `SanitizeResult` or one structured terminal/non-admission
+`MetadataError`. On an error, call `classifyFallback` once: only
+`phase: "admission"` with `nativeWrite: "not-started"` yields
+`"safe-to-fallback"`; every other error yields `"do-not-fallback"`. The safe
+disposition permits at most one ExifTool substitute, never another native write,
+a retry loop, or a second writer after uncertainty.
+
+The transaction completes all admission before directly creating the final path
+with `O_EXCL`. It syncs, reopens, verifies, rechecks the source, applies requested
+timestamps, and proves destination identity before returning. A successful result
+is the only completion signal: a provisional pathname is not completion and must
+not be revealed or reported as a completed output during the call.
+
+Post-create errors retain their root cause and may attach exactly one finalization
+state: `owned-partial-removed`, `already-missing`,
+`replaced-and-left-untouched`, or `owned-partial-remains`. All are terminal and
+`"do-not-fallback"`; normal diagnostics remain concise and do not expose inode
+values, payload bytes, registry internals, or backend-routing details.
 
 ## ICC Structural Preservation Policy
 
@@ -69,7 +98,11 @@ All three preservation booleans are explicit:
 
 - `preserveOrientation`: preserve only a supported orientation value. The original EXIF block is not retained merely to keep orientation. If a minimal safe representation cannot be proven, the request is refused.
 - `preserveColorProfile`: apply the structural policy above when an `ICCP` chunk is present; otherwise report requested-but-absent preservation truthfully.
-- `preserveTimestamps`: apply source filesystem timestamps to the verified destination. This does not preserve embedded metadata dates.
+- `preserveTimestamps`: apply source filesystem `atime and mtime only` to the
+  verified destination, then verify the safely representable precision. This
+  does not preserve embedded metadata dates, birth time, change time, or source
+  atime. The package never restores source atime because doing so would mutate
+  the source after a read.
 
 Orientation is supported only when IFD0 contains one TIFF `SHORT`, count 1, with a value from 1 through 8. A malformed EXIF structure, duplicate tag, different TIFF type/count, or out-of-range value returns `unsupported-feature` when preservation is requested. An absent Orientation is not an error.
 
@@ -105,6 +138,21 @@ The `refuses` array machine-reports stable container refusal classes. Consumers 
 | Payload identity          | Image, animation, and admitted ICC payload chunks are copied without decode/re-encode and compared byte-for-byte where retained. |
 | Local operation           | No network calls, telemetry, subprocesses, or native-code loading occur in runtime inspection/sanitization.                      |
 | Total expected failures   | Consumers branch on `Result.ok` and `MetadataError.code`, not thrown message strings.                                            |
+| Output mode               | Output is created with non-executable ordinary permission bits no more permissive than the source, subject to umask.             |
+
+## Filesystem Boundaries and Non-Guarantees
+
+The direct-final `O_EXCL` policy prevents replacement of a pre-existing
+destination but intentionally does not claim atomic rollback or in-place
+overwrite. A process crash or power loss may leave residue at a final pathname.
+Portable Node cannot promise universal directory durability, locking, no-replace staged publication, or atomic unlink-if-identity-matches. Identity checks bound cleanup to the object created by this transaction, but hostile concurrently writable directories exceed the package guarantee.
+
+The package does not promise or copy birth time, change time, owner/group, ACLs,
+xattrs, quarantine/SELinux labels, hard-link topology, sparse allocation, or
+other broad filesystem attributes. It does not reproduce exact POSIX modes,
+setuid, setgid, sticky, executable bits, ownership, or ACL policy across
+platforms. Electron's separately qualified macOS xattr handling is outside this
+package.
 
 ## Explicit Non-Capabilities
 
