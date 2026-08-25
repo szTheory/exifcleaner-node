@@ -117,7 +117,9 @@ describe("validateIccForPreservation", () => {
       signature,
       offset: 168,
     }));
-    expect(validateIccForPreservation(iccProfileV4({}, tags))).toEqual({ ok: true });
+    expect(validateIccForPreservation(iccProfileV4({}, tags))).toEqual({
+      ok: true,
+    });
     expect(
       validateIccForPreservation(
         iccProfileV4({}, [
@@ -130,15 +132,50 @@ describe("validateIccForPreservation", () => {
 
   it("rejects malformed or ambiguous tag records without unchecked reads", () => {
     const cases: readonly [string, Buffer, "invalid" | "policy-limit"][] = [
-      ["zero signature", iccProfileV4({}, [{ signature: "\0\0\0\0" }]), "invalid"],
-      ["duplicate signature", iccProfileV4({}, [{ signature: "rTRC" }, { signature: "rTRC" }]), "invalid"],
-      ["unaligned range", iccProfileV4({}, [{ signature: "rTRC", offset: 145 }]), "invalid"],
-      ["short type header", iccProfileV4({}, [{ signature: "rTRC", size: 7 }]), "invalid"],
-      ["nonzero reserved type word", iccProfileV4({}, [{ signature: "rTRC", reserved: 1 }]), "invalid"],
-      ["same offset different size", iccProfileV4({}, [{ signature: "rTRC", offset: 156 }, { signature: "gTRC", offset: 156, size: 12 }]), "invalid"],
-      ["partial overlap", iccProfileV4({}, [{ signature: "rTRC", offset: 156, size: 12 }, { signature: "gTRC", offset: 164 }]), "invalid"],
+      [
+        "zero signature",
+        iccProfileV4({}, [{ signature: "\0\0\0\0" }]),
+        "invalid",
+      ],
+      [
+        "duplicate signature",
+        iccProfileV4({}, [{ signature: "rTRC" }, { signature: "rTRC" }]),
+        "invalid",
+      ],
+      [
+        "unaligned range",
+        iccProfileV4({}, [{ signature: "rTRC", offset: 145 }]),
+        "invalid",
+      ],
+      [
+        "short type header",
+        iccProfileV4({}, [{ signature: "rTRC", size: 7 }]),
+        "invalid",
+      ],
+      [
+        "nonzero reserved type word",
+        iccProfileV4({}, [{ signature: "rTRC", reserved: 1 }]),
+        "invalid",
+      ],
+      [
+        "same offset different size",
+        iccProfileV4({}, [
+          { signature: "rTRC", offset: 156 },
+          { signature: "gTRC", offset: 156, size: 12 },
+        ]),
+        "invalid",
+      ],
+      [
+        "partial overlap",
+        iccProfileV4({}, [
+          { signature: "rTRC", offset: 156, size: 12 },
+          { signature: "gTRC", offset: 164 },
+        ]),
+        "invalid",
+      ],
     ];
-    for (const [_name, profile, reason] of cases) expectRejected(profile, reason);
+    for (const [_name, profile, reason] of cases)
+      expectRejected(profile, reason);
 
     const zero = iccProfileV4();
     zero.writeUInt32BE(0, 140);

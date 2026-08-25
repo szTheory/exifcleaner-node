@@ -158,12 +158,16 @@ export function validateIccForPreservation(
   const signatures = new Set<number>();
   const physicalRanges = new Map<string, IccTagRange>();
   for (let index = 0; index < tagCount; index += 1) {
-    const recordOffset = ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES + index * ICC_TAG_RECORD_BYTES;
+    const recordOffset =
+      ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES + index * ICC_TAG_RECORD_BYTES;
     const signature = payload.readUInt32BE(recordOffset);
     const offset = payload.readUInt32BE(recordOffset + 4);
     const size = payload.readUInt32BE(recordOffset + 8);
     if (signature === 0 || signatures.has(signature))
-      return rejected("invalid", "ICC profile tag signatures must be unique and nonzero.");
+      return rejected(
+        "invalid",
+        "ICC profile tag signatures must be unique and nonzero.",
+      );
     signatures.add(signature);
     if (
       offset < tableEnd ||

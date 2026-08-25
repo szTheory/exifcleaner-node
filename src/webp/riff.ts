@@ -46,7 +46,7 @@ export class WebpStructureError extends Error {
     super(message);
     this.name = "WebpStructureError";
     this.kind = kind;
-    this.metadataLimit = metadataLimit;
+    if (metadataLimit !== undefined) this.metadataLimit = metadataLimit;
   }
 }
 

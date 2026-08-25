@@ -164,10 +164,10 @@ export type IccProfileMutation = "signature";
 
 export function iccProfileV4(
   {
-  deviceClass = "mntr",
-  colorSpace = "RGB ",
-  pcs = "XYZ ",
-}: IccProfileFixtureOptions = {},
+    deviceClass = "mntr",
+    colorSpace = "RGB ",
+    pcs = "XYZ ",
+  }: IccProfileFixtureOptions = {},
   tags: readonly IccTagFixture[] = [{ signature: "rTRC" }],
 ): Buffer {
   const tableEnd = 132 + tags.length * 12;
@@ -178,7 +178,9 @@ export function iccProfileV4(
   const profile = Buffer.alloc(
     Math.max(
       tableEnd,
-      ...ranges.map((range) => range.offset + range.size + ((4 - (range.size % 4)) % 4)),
+      ...ranges.map(
+        (range) => range.offset + range.size + ((4 - (range.size % 4)) % 4),
+      ),
     ),
   );
   profile.writeUInt32BE(profile.length, 0);
@@ -209,7 +211,10 @@ export function iccProfileV4(
     profile.write(tag.signature, recordOffset, 4, "ascii");
     profile.writeUInt32BE(range.offset, recordOffset + 4);
     profile.writeUInt32BE(range.size, recordOffset + 8);
-    if (range.offset >= tableEnd && range.offset + range.size <= profile.length) {
+    if (
+      range.offset >= tableEnd &&
+      range.offset + range.size <= profile.length
+    ) {
       profile.write(tag.type ?? "curv", range.offset, 4, "ascii");
       profile.writeUInt32BE(tag.reserved ?? 0, range.offset + 4);
     }
