@@ -152,14 +152,35 @@ export interface IccProfileFixtureOptions {
   readonly pcs?: "XYZ " | "Lab ";
 }
 
+export interface IccTagFixture {
+  readonly signature: string;
+  readonly offset?: number;
+  readonly size?: number;
+  readonly type?: string;
+  readonly reserved?: number;
+}
+
 export type IccProfileMutation = "signature";
 
-export function iccProfileV4({
+export function iccProfileV4(
+  {
   deviceClass = "mntr",
   colorSpace = "RGB ",
   pcs = "XYZ ",
-}: IccProfileFixtureOptions = {}): Buffer {
-  const profile = Buffer.alloc(152);
+}: IccProfileFixtureOptions = {},
+  tags: readonly IccTagFixture[] = [{ signature: "rTRC" }],
+): Buffer {
+  const tableEnd = 132 + tags.length * 12;
+  const ranges = tags.map((tag, index) => ({
+    offset: tag.offset ?? tableEnd + index * 8,
+    size: tag.size ?? 8,
+  }));
+  const profile = Buffer.alloc(
+    Math.max(
+      tableEnd,
+      ...ranges.map((range) => range.offset + range.size + ((4 - (range.size % 4)) % 4)),
+    ),
+  );
   profile.writeUInt32BE(profile.length, 0);
   profile.write("TEST", 4, 4, "ascii");
   profile[8] = 4;
@@ -181,11 +202,19 @@ export function iccProfileV4({
   profile.writeUInt32BE(0x0000_f6d6, 68);
   profile.writeUInt32BE(0x0001_0000, 72);
   profile.writeUInt32BE(0x0000_d32d, 76);
-  profile.writeUInt32BE(1, 128);
-  profile.write("rTRC", 132, 4, "ascii");
-  profile.writeUInt32BE(144, 136);
-  profile.writeUInt32BE(8, 140);
-  profile.write("curv", 144, 4, "ascii");
+  profile.writeUInt32BE(tags.length, 128);
+  for (const [index, tag] of tags.entries()) {
+    const recordOffset = 132 + index * 12;
+    const range = ranges[index]!;
+    profile.write(tag.signature, recordOffset, 4, "ascii");
+    profile.writeUInt32BE(range.offset, recordOffset + 4);
+    profile.writeUInt32BE(range.size, recordOffset + 8);
+    if (range.offset >= tableEnd && range.offset + range.size <= profile.length) {
+      profile.write(tag.type ?? "curv", range.offset, 4, "ascii");
+      profile.writeUInt32BE(tag.reserved ?? 0, range.offset + 4);
+    }
+  }
+  profile.writeUInt32BE(profile.length, 0);
   return profile;
 }
 

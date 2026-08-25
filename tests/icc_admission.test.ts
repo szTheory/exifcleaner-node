@@ -111,4 +111,67 @@ describe("validateIccForPreservation", () => {
     expect(validateIccForPreservation(iccProfileV2())).toEqual({ ok: true });
     expect(validateIccForPreservation(iccProfileV4())).toEqual({ ok: true });
   });
+
+  it("admits exact three-signature aliases and a reversed canonical table", () => {
+    const tags = ["rTRC", "gTRC", "bTRC"].map((signature) => ({
+      signature,
+      offset: 168,
+    }));
+    expect(validateIccForPreservation(iccProfileV4({}, tags))).toEqual({ ok: true });
+    expect(
+      validateIccForPreservation(
+        iccProfileV4({}, [
+          { signature: "bTRC", offset: 176 },
+          { signature: "rTRC", offset: 168 },
+        ]),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it("rejects malformed or ambiguous tag records without unchecked reads", () => {
+    const cases: readonly [string, Buffer, "invalid" | "policy-limit"][] = [
+      ["zero signature", iccProfileV4({}, [{ signature: "\0\0\0\0" }]), "invalid"],
+      ["duplicate signature", iccProfileV4({}, [{ signature: "rTRC" }, { signature: "rTRC" }]), "invalid"],
+      ["unaligned range", iccProfileV4({}, [{ signature: "rTRC", offset: 145 }]), "invalid"],
+      ["short type header", iccProfileV4({}, [{ signature: "rTRC", size: 7 }]), "invalid"],
+      ["nonzero reserved type word", iccProfileV4({}, [{ signature: "rTRC", reserved: 1 }]), "invalid"],
+      ["same offset different size", iccProfileV4({}, [{ signature: "rTRC", offset: 156 }, { signature: "gTRC", offset: 156, size: 12 }]), "invalid"],
+      ["partial overlap", iccProfileV4({}, [{ signature: "rTRC", offset: 156, size: 12 }, { signature: "gTRC", offset: 164 }]), "invalid"],
+    ];
+    for (const [_name, profile, reason] of cases) expectRejected(profile, reason);
+
+    const zero = iccProfileV4();
+    zero.writeUInt32BE(0, 140);
+    expectRejected(zero, "invalid");
+    const pastEof = iccProfileV4();
+    pastEof.writeUInt32BE(pastEof.length + 4, 140);
+    expectRejected(pastEof, "invalid");
+    const selfReference = iccProfileV4();
+    selfReference.writeUInt32BE(132, 136);
+    expectRejected(selfReference, "invalid");
+    const truncatedTable = iccProfileV4();
+    truncatedTable.writeUInt32BE(2, 128);
+    expectRejected(truncatedTable, "invalid");
+    const overLimit = iccProfileV4();
+    overLimit.writeUInt32BE(4_097, 128);
+    expectRejected(overLimit, "policy-limit");
+  });
+
+  it("requires canonical zero-padded layout through EOF", () => {
+    const touching = iccProfileV4({}, [
+      { signature: "rTRC", offset: 156 },
+      { signature: "gTRC", offset: 164 },
+    ]);
+    expect(validateIccForPreservation(touching)).toEqual({ ok: true });
+    const leadingGap = iccProfileV4({}, [{ signature: "rTRC", offset: 148 }]);
+    expectRejected(leadingGap, "invalid");
+    const gap = iccProfileV4({}, [
+      { signature: "rTRC", offset: 156 },
+      { signature: "gTRC", offset: 168 },
+    ]);
+    expectRejected(gap, "invalid");
+    const trailer = Buffer.concat([iccProfileV4(), Buffer.alloc(4)]);
+    trailer.writeUInt32BE(trailer.length, 0);
+    expectRejected(trailer, "invalid");
+  });
 });
