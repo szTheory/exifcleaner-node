@@ -1,20 +1,203 @@
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { classifyFallback, sanitizeFile } from "../src/index.js";
-import type { MetadataError } from "../src/index.js";
+import type { FallbackDisposition, MetadataError } from "../src/index.js";
 import { metadataWebp } from "./fixtures.js";
 
-const admissionDecline = Object.freeze({
-  code: "unsupported-format" as const,
-  detail: "The source is not supported natively.",
-  path: "/tmp/source.webp",
-  phase: "admission" as const,
-  nativeWrite: "not-started" as const,
-}) satisfies MetadataError;
+function metadataError<T extends MetadataError>(error: T): T {
+  return error;
+}
+
+const admissionDecline = Object.freeze(
+  metadataError({
+    code: "unsupported-format",
+    detail: "The source is not supported natively.",
+    path: "/tmp/source.webp",
+    phase: "admission",
+    nativeWrite: "not-started",
+  }),
+);
+
+const allMetadataErrors = [
+  metadataError({
+    code: "aborted",
+    detail: "Cancelled.",
+    phase: "request",
+    nativeWrite: "not-started",
+  }),
+  metadataError({
+    code: "invalid-options",
+    detail: "Invalid request.",
+    phase: "request",
+    nativeWrite: "not-started",
+  }),
+  metadataError({
+    code: "not-found",
+    detail: "Missing source.",
+    path: "/tmp/missing.webp",
+    cause: { code: "ENOENT", message: "missing" },
+    phase: "source-open",
+    nativeWrite: "not-started",
+  }),
+  admissionDecline,
+  metadataError({
+    code: "malformed-file",
+    detail: "Malformed source.",
+    path: "/tmp/source.weird",
+    phase: "admission",
+    nativeWrite: "not-started",
+  }),
+  metadataError({
+    code: "unsafe-structure",
+    detail: "Unsafe source.",
+    path: "/tmp/source.webp",
+    phase: "admission",
+    nativeWrite: "not-started",
+  }),
+  metadataError({
+    code: "unsupported-feature",
+    detail: "Orientation cannot be retained.",
+    path: "/tmp/source.webp",
+    feature: "orientation-preservation",
+    phase: "admission",
+    nativeWrite: "not-started",
+  }),
+  metadataError({
+    code: "unsupported-feature",
+    detail: "Color profile cannot be retained.",
+    path: "/tmp/source.webp",
+    feature: "color-profile-preservation",
+    reason: "policy-limit",
+    phase: "admission",
+    nativeWrite: "not-started",
+  }),
+  metadataError({
+    code: "source-changed",
+    detail: "Source changed.",
+    path: "/tmp/source.webp",
+    phase: "transaction",
+    nativeWrite: "started",
+  }),
+  metadataError({
+    code: "destination-exists",
+    detail: "Destination exists.",
+    path: "/tmp/clean.webp",
+    cause: { message: "EEXIST" },
+    phase: "transaction",
+    nativeWrite: "not-started",
+  }),
+  metadataError({
+    code: "destination-changed",
+    detail: "Destination changed.",
+    path: "/tmp/clean.webp",
+    phase: "transaction",
+    nativeWrite: "started",
+  }),
+  metadataError({
+    code: "read-failed",
+    detail: "Read failed.",
+    path: "/tmp/source.webp",
+    cause: { message: "EIO" },
+    phase: "transaction",
+    nativeWrite: "started",
+  }),
+  metadataError({
+    code: "write-failed",
+    detail: "Write failed.",
+    path: "/tmp/clean.webp",
+    cause: { message: "ENOSPC" },
+    phase: "transaction",
+    nativeWrite: "started",
+  }),
+  metadataError({
+    code: "verification-failed",
+    detail: "Verification failed.",
+    path: "/tmp/clean.webp",
+    cause: { message: "mismatch" },
+    phase: "transaction",
+    nativeWrite: "started",
+  }),
+  metadataError({
+    code: "cleanup-failed",
+    detail: "Cleanup failed.",
+    path: "/tmp/clean.webp",
+    cause: { message: "EPERM" },
+    phase: "transaction",
+    nativeWrite: "started",
+  }),
+] as const;
+
+type ListedCode = (typeof allMetadataErrors)[number]["code"];
+type MissingMetadataErrorCode = Exclude<MetadataError["code"], ListedCode>;
+const allMetadataErrorCodesAreClassified: MissingMetadataErrorCode extends never
+  ? true
+  : never = true;
+
+type ListedUnsupportedFeature = Extract<
+  (typeof allMetadataErrors)[number],
+  { readonly code: "unsupported-feature" }
+>["feature"];
+type MissingUnsupportedFeature = Exclude<
+  Extract<MetadataError, { readonly code: "unsupported-feature" }>["feature"],
+  ListedUnsupportedFeature
+>;
+const allUnsupportedFeaturesAreClassified: MissingUnsupportedFeature extends never
+  ? true
+  : never = true;
 
 describe("classifyFallback", () => {
+  it("classifies every current MetadataError variant and every public proof pairing", () => {
+    expect(allMetadataErrorCodesAreClassified).toBe(true);
+    expect(allUnsupportedFeaturesAreClassified).toBe(true);
+    expect(
+      allMetadataErrors.map((error) => ({
+        code: error.code,
+        disposition: classifyFallback(error),
+      })),
+    ).toEqual([
+      { code: "aborted", disposition: "do-not-fallback" },
+      { code: "invalid-options", disposition: "do-not-fallback" },
+      { code: "not-found", disposition: "do-not-fallback" },
+      { code: "unsupported-format", disposition: "safe-to-fallback" },
+      { code: "malformed-file", disposition: "safe-to-fallback" },
+      { code: "unsafe-structure", disposition: "safe-to-fallback" },
+      { code: "unsupported-feature", disposition: "safe-to-fallback" },
+      { code: "unsupported-feature", disposition: "safe-to-fallback" },
+      { code: "source-changed", disposition: "do-not-fallback" },
+      { code: "destination-exists", disposition: "do-not-fallback" },
+      { code: "destination-changed", disposition: "do-not-fallback" },
+      { code: "read-failed", disposition: "do-not-fallback" },
+      { code: "write-failed", disposition: "do-not-fallback" },
+      { code: "verification-failed", disposition: "do-not-fallback" },
+      { code: "cleanup-failed", disposition: "do-not-fallback" },
+    ]);
+
+    const proofVariants = [
+      ["request", "not-started", "do-not-fallback"],
+      ["request", "started", "do-not-fallback"],
+      ["source-open", "not-started", "do-not-fallback"],
+      ["source-open", "started", "do-not-fallback"],
+      ["admission", "not-started", "safe-to-fallback"],
+      ["admission", "started", "do-not-fallback"],
+      ["transaction", "not-started", "do-not-fallback"],
+      ["transaction", "started", "do-not-fallback"],
+    ] as const satisfies readonly (readonly [
+      MetadataError["phase"],
+      MetadataError["nativeWrite"],
+      FallbackDisposition,
+    ])[];
+
+    for (const [phase, nativeWrite, disposition] of proofVariants) {
+      expect(
+        classifyFallback(
+          metadataError({ ...admissionDecline, phase, nativeWrite }),
+        ),
+      ).toBe(disposition);
+    }
+  });
+
   it("authorizes only a deliberate pre-write admission decline", () => {
     expect(classifyFallback(admissionDecline)).toBe("safe-to-fallback");
   });
@@ -22,20 +205,20 @@ describe("classifyFallback", () => {
   it("derives authority from proof fields rather than diagnostics", () => {
     const diagnostics = [
       admissionDecline,
-      {
+      metadataError({
         ...admissionDecline,
-        code: "unsafe-structure" as const,
+        code: "unsafe-structure",
         detail:
           "Unrelated warning text and an extension cannot decide fallback.",
         path: "/tmp/source.any-extension",
-      },
-      {
+      }),
+      metadataError({
         ...admissionDecline,
-        code: "unsupported-feature" as const,
-        feature: "color-profile-preservation" as const,
-        reason: "invalid" as const,
-      },
-    ] satisfies readonly MetadataError[];
+        code: "unsupported-feature",
+        feature: "color-profile-preservation",
+        reason: "invalid",
+      }),
+    ] as const satisfies readonly MetadataError[];
 
     expect(diagnostics.map(classifyFallback)).toEqual([
       "safe-to-fallback",
@@ -46,20 +229,20 @@ describe("classifyFallback", () => {
 
   it("fails closed for incomplete, terminal, and future proof combinations", () => {
     const errors = [
-      { ...admissionDecline, phase: "request" as const },
-      { ...admissionDecline, nativeWrite: "started" as const },
-      {
-        code: "invalid-options" as const,
+      metadataError({ ...admissionDecline, phase: "request" }),
+      metadataError({ ...admissionDecline, nativeWrite: "started" }),
+      metadataError({
+        code: "invalid-options",
         detail: "Invalid request.",
-        phase: "request" as const,
-        nativeWrite: "not-started" as const,
-      },
+        phase: "request",
+        nativeWrite: "not-started",
+      }),
       {
         ...admissionDecline,
         phase: "future" as never,
         nativeWrite: "unknown" as never,
       },
-    ] satisfies readonly MetadataError[];
+    ] as const satisfies readonly MetadataError[];
 
     expect(errors.map(classifyFallback)).toEqual([
       "do-not-fallback",
@@ -80,6 +263,51 @@ describe("classifyFallback", () => {
     expect(dispositions).toEqual(Array(32).fill("safe-to-fallback"));
     expect(JSON.stringify(admissionDecline)).toBe(snapshot);
     expect(Object.isFrozen(admissionDecline)).toBe(true);
+  });
+
+  it("ignores code-compatible diagnostics and exposes only the locked binary vocabulary", async () => {
+    const variants = [
+      metadataError({
+        ...admissionDecline,
+        detail: "Different detail.",
+        path: "/tmp/renamed.data",
+      }),
+      metadataError({
+        ...admissionDecline,
+        detail: "Different detail.",
+        path: "/tmp/renamed.data",
+        code: "malformed-file",
+      }),
+      metadataError({
+        ...admissionDecline,
+        detail: "Different detail.",
+        path: "/tmp/renamed.data",
+        code: "unsupported-feature",
+        feature: "orientation-preservation",
+      }),
+    ].map((error) => Object.freeze(error));
+    const snapshots = variants.map((error) => JSON.stringify(error));
+    const outcomes = await Promise.all(
+      Array.from({ length: 16 }, () =>
+        Promise.all(variants.map(classifyFallback)),
+      ),
+    );
+    const [declaration, readme, capabilities] = await Promise.all([
+      readFile(new URL("../dist/types.d.ts", import.meta.url), "utf8"),
+      readFile(new URL("../README.md", import.meta.url), "utf8"),
+      readFile(new URL("../docs/capabilities.md", import.meta.url), "utf8"),
+    ]);
+
+    expect(outcomes.flat()).toEqual(Array(48).fill("safe-to-fallback"));
+    expect(variants.map((error) => JSON.stringify(error))).toEqual(snapshots);
+    expect(variants.every(Object.isFrozen)).toBe(true);
+    expect(`${declaration}\n${readme}\n${capabilities}`).not.toMatch(
+      /retryable/i,
+    );
+    expect([
+      "safe-to-fallback",
+      "do-not-fallback",
+    ] satisfies FallbackDisposition[]).toHaveLength(2);
   });
 
   it("records fallback proof truthfully before and after native admission", async () => {
