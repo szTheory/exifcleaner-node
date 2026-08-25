@@ -200,8 +200,7 @@ export type PostCreateMetadataErrorDetails =
     };
 
 export type MetadataErrorDetails =
-  | PreCreateMetadataErrorDetails
-  | PostCreateMetadataErrorDetails;
+  PreCreateMetadataErrorDetails | PostCreateMetadataErrorDetails;
 
 export type MetadataError =
   | (PreCreateMetadataErrorDetails & FallbackProof)

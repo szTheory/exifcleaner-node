@@ -1,5 +1,14 @@
 import { constants as fsConstants } from "node:fs";
-import { mkdtemp, open, readFile, rm, stat, symlink, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  open,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -15,7 +24,13 @@ import { runSafeTransaction } from "../src/transaction/safe-transaction.js";
 import { metadataWebp } from "./fixtures.js";
 
 const directories: string[] = [];
-afterEach(async () => Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true }))));
+afterEach(async () =>
+  Promise.all(
+    directories
+      .splice(0)
+      .map((path) => rm(path, { recursive: true, force: true })),
+  ),
+);
 
 describe("safe transaction file operations", () => {
   it("keeps the Node adapter private to the transaction layer", () => {
@@ -31,14 +46,21 @@ describe("safe transaction file operations", () => {
     const source = await open(sourcePath, fsConstants.O_RDONLY);
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
-    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
     let writerStarts = 0;
     const operations: string[] = [];
     const fileOps: FileOps = {
       ...NODE_FILE_OPS,
       open: async (path, flags, mode) => {
         if ((flags & fsConstants.O_EXCL) !== 0) writerStarts += 1;
-        operations.push((flags & fsConstants.O_EXCL) !== 0 ? "create" : "reopen");
+        operations.push(
+          (flags & fsConstants.O_EXCL) !== 0 ? "create" : "reopen",
+        );
         return NODE_FILE_OPS.open(path, flags, mode);
       },
       sync: async () => {
@@ -55,9 +77,33 @@ describe("safe transaction file operations", () => {
       },
     };
 
-    const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler: webpHandler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false }, fileOps });
+    const result = await runSafeTransaction({
+      sourceHandle: source,
+      sourceSnapshot: snapshotSource(stats),
+      sourceMode: stats.mode,
+      handler: webpHandler,
+      admission,
+      plan,
+      orientation: undefined,
+      options: {
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      },
+      fileOps,
+    });
 
-    expect(result).toMatchObject({ ok: false, error: { code: "write-failed", nativeWrite: "started", phase: "transaction", finalization: { state: "owned-partial-removed" } } });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "write-failed",
+        nativeWrite: "started",
+        phase: "transaction",
+        finalization: { state: "owned-partial-removed" },
+      },
+    });
     expect(writerStarts).toBe(1);
     expect(operations).toEqual(["create", "sync", "close", "close", "remove"]);
   });
@@ -71,11 +117,18 @@ describe("safe transaction file operations", () => {
     const source = await open(sourcePath, fsConstants.O_RDONLY);
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
-    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
     let cleanupAttempts = 0;
     const fileOps: FileOps = {
       ...NODE_FILE_OPS,
-      sync: async () => { throw new Error("injected sync failure"); },
+      sync: async () => {
+        throw new Error("injected sync failure");
+      },
       lstatPath: async () => {
         cleanupAttempts += 1;
         await unlink(destinationPath);
@@ -84,10 +137,34 @@ describe("safe transaction file operations", () => {
       },
     };
 
-    const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler: webpHandler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false }, fileOps });
+    const result = await runSafeTransaction({
+      sourceHandle: source,
+      sourceSnapshot: snapshotSource(stats),
+      sourceMode: stats.mode,
+      handler: webpHandler,
+      admission,
+      plan,
+      orientation: undefined,
+      options: {
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      },
+      fileOps,
+    });
 
-    expect(result).toMatchObject({ ok: false, error: { code: "write-failed", finalization: { state: "already-missing" } } });
-    await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "write-failed",
+        finalization: { state: "already-missing" },
+      },
+    });
+    await expect(stat(destinationPath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
     expect(cleanupAttempts).toBe(1);
   });
 
@@ -101,23 +178,54 @@ describe("safe transaction file operations", () => {
     const source = await open(sourcePath, fsConstants.O_RDONLY);
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
-    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
     let cleanupAttempts = 0;
     const fileOps: FileOps = {
       ...NODE_FILE_OPS,
-      sync: async () => { throw new Error("injected sync failure"); },
+      sync: async () => {
+        throw new Error("injected sync failure");
+      },
       lstatPath: async (path) => {
         cleanupAttempts += 1;
         await unlink(destinationPath);
         await writeFile(destinationPath, replacement);
         return NODE_FILE_OPS.lstatPath(path);
       },
-      remove: async () => { throw new Error("replacement must not be removed"); },
+      remove: async () => {
+        throw new Error("replacement must not be removed");
+      },
     };
 
-    const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler: webpHandler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false }, fileOps });
+    const result = await runSafeTransaction({
+      sourceHandle: source,
+      sourceSnapshot: snapshotSource(stats),
+      sourceMode: stats.mode,
+      handler: webpHandler,
+      admission,
+      plan,
+      orientation: undefined,
+      options: {
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      },
+      fileOps,
+    });
 
-    expect(result).toMatchObject({ ok: false, error: { code: "write-failed", finalization: { state: "replaced-and-left-untouched" } } });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "write-failed",
+        finalization: { state: "replaced-and-left-untouched" },
+      },
+    });
     await expect(readFile(destinationPath)).resolves.toEqual(replacement);
     expect(cleanupAttempts).toBe(1);
   });
@@ -131,16 +239,50 @@ describe("safe transaction file operations", () => {
     const source = await open(sourcePath, fsConstants.O_RDONLY);
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
-    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
     const fileOps: FileOps = {
       ...NODE_FILE_OPS,
-      sync: async () => { throw new Error("injected sync failure"); },
-      remove: async () => { throw Object.assign(new Error("denied"), { code: "EPERM" }); },
+      sync: async () => {
+        throw new Error("injected sync failure");
+      },
+      remove: async () => {
+        throw Object.assign(new Error("denied"), { code: "EPERM" });
+      },
     };
 
-    const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler: webpHandler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false }, fileOps });
+    const result = await runSafeTransaction({
+      sourceHandle: source,
+      sourceSnapshot: snapshotSource(stats),
+      sourceMode: stats.mode,
+      handler: webpHandler,
+      admission,
+      plan,
+      orientation: undefined,
+      options: {
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      },
+      fileOps,
+    });
 
-    expect(result).toMatchObject({ ok: false, error: { code: "write-failed", finalization: { state: "owned-partial-remains", cause: { code: "EPERM", message: "denied" } } } });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "write-failed",
+        finalization: {
+          state: "owned-partial-remains",
+          cause: { code: "EPERM", message: "denied" },
+        },
+      },
+    });
     await expect(stat(destinationPath)).resolves.toBeDefined();
   });
 
@@ -153,7 +295,12 @@ describe("safe transaction file operations", () => {
     const source = await open(sourcePath, fsConstants.O_RDONLY);
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
-    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
     const controller = new AbortController();
     let writerStarts = 0;
     let cleanupAttempts = 0;
@@ -176,9 +323,34 @@ describe("safe transaction file operations", () => {
       },
     };
 
-    const result = await runSafeTransaction({ sourceHandle: source, sourceSnapshot: snapshotSource(stats), sourceMode: stats.mode, handler, admission, plan, orientation: undefined, options: { sourcePath, destinationPath, preserveOrientation: false, preserveColorProfile: false, preserveTimestamps: false, signal: controller.signal }, fileOps });
+    const result = await runSafeTransaction({
+      sourceHandle: source,
+      sourceSnapshot: snapshotSource(stats),
+      sourceMode: stats.mode,
+      handler,
+      admission,
+      plan,
+      orientation: undefined,
+      options: {
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        signal: controller.signal,
+      },
+      fileOps,
+    });
 
-    expect(result).toMatchObject({ ok: false, error: { code: "aborted", phase: "transaction", nativeWrite: "started", finalization: { state: "owned-partial-removed" } } });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "aborted",
+        phase: "transaction",
+        nativeWrite: "started",
+        finalization: { state: "owned-partial-removed" },
+      },
+    });
     expect(writerStarts).toBe(1);
     expect(cleanupAttempts).toBe(1);
   });
@@ -194,10 +366,30 @@ describe("safe transaction file operations", () => {
     const aliasedStats = await stat(aliasPath);
     const snapshot = snapshotSource(sourceStats);
 
-    expect(identityMatches({ dev: sourceStats.dev, ino: sourceStats.ino }, aliasedStats)).toBe(true);
-    expect(identitiesDistinct({ dev: sourceStats.dev, ino: sourceStats.ino }, aliasedStats)).toBe(false);
-    expect(sourceSnapshotMatches(snapshot, { ...aliasedStats, ino: undefined } as never)).toBe(false);
-    expect(identityMatches({ dev: sourceStats.dev, ino: undefined as never }, aliasedStats)).toBe(false);
+    expect(
+      identityMatches(
+        { dev: sourceStats.dev, ino: sourceStats.ino },
+        aliasedStats,
+      ),
+    ).toBe(true);
+    expect(
+      identitiesDistinct(
+        { dev: sourceStats.dev, ino: sourceStats.ino },
+        aliasedStats,
+      ),
+    ).toBe(false);
+    expect(
+      sourceSnapshotMatches(snapshot, {
+        ...aliasedStats,
+        ino: undefined,
+      } as never),
+    ).toBe(false);
+    expect(
+      identityMatches(
+        { dev: sourceStats.dev, ino: undefined as never },
+        aliasedStats,
+      ),
+    ).toBe(false);
   });
 
   it("captures independent requested timestamps before any package reads", async () => {
