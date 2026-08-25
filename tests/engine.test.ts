@@ -21,6 +21,7 @@ import {
   animationFrame,
   exifWithOrientation,
   iccProfile,
+  iccProfileV2,
   iccProfileV4,
   metadataWebp,
   mutateIccProfile,
@@ -76,6 +77,17 @@ function orientationVariant(
   exif.writeUInt32LE(count, 14);
   exif.writeUInt32LE(value, 18);
   return exif;
+}
+
+function withValidV4ProfileId(profile: Buffer): Buffer {
+  const result = Buffer.from(profile);
+  result.fill(0, 84, 100);
+  const fingerprint = Buffer.from(result);
+  fingerprint.fill(0, 44, 48);
+  fingerprint.fill(0, 64, 68);
+  fingerprint.fill(0, 84, 100);
+  createHash("md5").update(fingerprint).digest().copy(result, 84);
+  return result;
 }
 
 async function workspace(): Promise<string> {
@@ -146,11 +158,26 @@ describe("getCapabilities", () => {
       ],
     });
     expect(Object.isFrozen(capabilities)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0])).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0]?.mimeTypes)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0]?.extensions)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0]?.animation)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0]?.validation)).toBe(true);
     expect(Object.isFrozen(capabilities.formats[0]?.preserves)).toBe(true);
     expect(Object.isFrozen(capabilities.formats[0]?.colorProfile)).toBe(true);
     expect(
       Object.isFrozen(capabilities.formats[0]?.colorProfile.versions),
     ).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0]?.colorProfile.classes)).toBe(
+      true,
+    );
+    expect(Object.isFrozen(capabilities.formats[0]?.colorProfile.spaces)).toBe(
+      true,
+    );
+    expect(Object.isFrozen(capabilities.formats[0]?.limits)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0]?.refuses)).toBe(true);
+    expect(Object.isFrozen(capabilities.formats[0]?.removes)).toBe(true);
   });
 });
 
@@ -395,6 +422,35 @@ describe("sanitizeFile", () => {
     });
   });
 
+  it("treats requested ICC preservation as preserve-if-present when ICCP is absent", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    await writeFile(
+      sourcePath,
+      webp([
+        { fourCc: "VP8X", data: vp8x(0) },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+    );
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: true,
+      preserveTimestamps: false,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { preserved: { colorProfile: false } },
+    });
+    expect(readChunks(await readFile(destinationPath))).not.toContainEqual(
+      expect.objectContaining({ fourCc: "ICCP" }),
+    );
+  });
+
   it("strips EXIF, XMP, and ICC; updates VP8X flags; preserves image bytes; and leaves source untouched", async () => {
     const directory = await workspace();
     const sourcePath = join(directory, "source.webp");
@@ -512,6 +568,53 @@ describe("sanitizeFile", () => {
     ).toEqual(profile);
   });
 
+  it.each([
+    {
+      name: "v2 profile",
+      profile: iccProfileV2(),
+    },
+    {
+      name: "v4 profile with a conforming nonzero Profile ID and exact aliases",
+      profile: withValidV4ProfileId(
+        iccProfileV4({}, [
+          { signature: "rTRC" },
+          { signature: "gTRC", offset: 168, size: 8 },
+          { signature: "bTRC", offset: 168, size: 8 },
+        ]),
+      ),
+    },
+  ])("preserves admitted $name byte-for-byte", async ({ profile }) => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    await writeFile(
+      sourcePath,
+      webp([
+        { fourCc: "VP8X", data: vp8x(0x20) },
+        { fourCc: "ICCP", data: profile },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+    );
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: true,
+      preserveTimestamps: false,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { preserved: { colorProfile: true } },
+    });
+    expect(
+      readChunks(await readFile(destinationPath)).find(
+        (item) => item.fourCc === "ICCP",
+      )?.data,
+    ).toEqual(profile);
+  });
+
   it("refuses an invalid requested ICC profile before creating the destination", async () => {
     const directory = await workspace();
     const sourcePath = join(directory, "source.webp");
@@ -587,6 +690,118 @@ describe("sanitizeFile", () => {
       code: "ENOENT",
     });
   });
+
+  it.each([
+    {
+      name: "invalid",
+      profile: mutateIccProfile(iccProfileV4(), "signature"),
+      reason: "invalid",
+    },
+    {
+      name: "unsupported",
+      profile: iccProfileV4(),
+      reason: "unsupported",
+    },
+  ] as const)(
+    "returns a typed pre-write refusal for $name ICC preservation",
+    async ({ name, profile, reason }) => {
+      const directory = await workspace();
+      const sourcePath = join(directory, `${name}.webp`);
+      const destinationPath = join(directory, `${name}-clean.webp`);
+      if (name === "unsupported") profile.write("prtr", 12, 4, "ascii");
+      await writeFile(
+        sourcePath,
+        webp([
+          { fourCc: "VP8X", data: vp8x(0x20) },
+          { fourCc: "ICCP", data: profile },
+          { fourCc: "VP8 ", data: vp8() },
+        ]),
+      );
+
+      const result = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: true,
+        preserveTimestamps: false,
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: {
+          code: "unsupported-feature",
+          feature: "color-profile-preservation",
+          reason,
+        },
+      });
+      await expect(access(destinationPath)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    },
+  );
+
+  it.each([
+    ["invalid", mutateIccProfile(iccProfileV4(), "signature")],
+    [
+      "unsupported",
+      (() => {
+        const profile = iccProfileV4();
+        profile.write("prtr", 12, 4, "ascii");
+        return profile;
+      })(),
+    ],
+  ] as const)(
+    "removes a diagnostic %s ICC profile without requiring admission",
+    async (name, profile) => {
+      const directory = await workspace();
+      const sourcePath = join(directory, "source.webp");
+      const destinationPath = join(directory, "clean.webp");
+      await writeFile(
+        sourcePath,
+        webp([
+          { fourCc: "VP8X", data: vp8x(0x20) },
+          { fourCc: "ICCP", data: profile },
+          { fourCc: "VP8 ", data: vp8() },
+        ]),
+      );
+
+      const inspection = await inspectFile(sourcePath);
+      expect(inspection).toMatchObject({ ok: true });
+      if (name === "invalid") {
+        expect(inspection).toMatchObject({
+          ok: true,
+          value: {
+            warnings: expect.arrayContaining([
+              expect.objectContaining({ code: "metadata-invalid" }),
+            ]),
+          },
+        });
+      }
+
+      const result = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: {
+          removedNamespaces: ["ICC"],
+          preserved: { colorProfile: false },
+        },
+      });
+      const chunks = readChunks(await readFile(destinationPath));
+      expect(chunks).not.toContainEqual(
+        expect.objectContaining({ fourCc: "ICCP" }),
+      );
+      expect(
+        chunks.find((chunk) => chunk.fourCc === "VP8X")?.data[0] ?? 0,
+      ).toBe(0);
+    },
+  );
 
   it("preserves animation chunk ordering and every animation payload byte", async () => {
     const directory = await workspace();
