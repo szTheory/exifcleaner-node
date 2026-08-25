@@ -146,22 +146,60 @@ export function xmpPacket(value = "private workflow"): Buffer {
   );
 }
 
-export function iccProfile(): Buffer {
-  const profile = Buffer.alloc(132);
+export interface IccProfileFixtureOptions {
+  readonly deviceClass?: "scnr" | "mntr";
+  readonly colorSpace?: "RGB ";
+  readonly pcs?: "XYZ " | "Lab ";
+}
+
+export type IccProfileMutation = "signature";
+
+export function iccProfileV4({
+  deviceClass = "mntr",
+  colorSpace = "RGB ",
+  pcs = "XYZ ",
+}: IccProfileFixtureOptions = {}): Buffer {
+  const profile = Buffer.alloc(152);
   profile.writeUInt32BE(profile.length, 0);
   profile.write("TEST", 4, 4, "ascii");
   profile[8] = 4;
-  profile[9] = 0x30;
-  profile.write("mntr", 12, 4, "ascii");
-  profile.write("RGB ", 16, 4, "ascii");
-  profile.write("XYZ ", 20, 4, "ascii");
+  profile[9] = 0x40;
+  profile.write(deviceClass, 12, 4, "ascii");
+  profile.write(colorSpace, 16, 4, "ascii");
+  profile.write(pcs, 20, 4, "ascii");
+  profile.writeUInt16BE(2024, 24);
+  profile.writeUInt16BE(2, 26);
+  profile.writeUInt16BE(29, 28);
+  profile.writeUInt16BE(12, 30);
+  profile.writeUInt16BE(34, 32);
+  profile.writeUInt16BE(56, 34);
   profile.write("acsp", 36, 4, "ascii");
   profile.write("APPL", 40, 4, "ascii");
   profile.write("TEST", 48, 4, "ascii");
   profile.write("MODL", 52, 4, "ascii");
-  profile.writeUInt32BE(1, 64);
-  profile.writeUInt32BE(0, 128);
+  profile.writeUInt32BE(0, 64);
+  profile.writeUInt32BE(0x0000_f6d6, 68);
+  profile.writeUInt32BE(0x0001_0000, 72);
+  profile.writeUInt32BE(0x0000_d32d, 76);
+  profile.writeUInt32BE(1, 128);
+  profile.write("rTRC", 132, 4, "ascii");
+  profile.writeUInt32BE(144, 136);
+  profile.writeUInt32BE(8, 140);
+  profile.write("curv", 144, 4, "ascii");
   return profile;
+}
+
+export function mutateIccProfile(
+  profile: Buffer,
+  mutation: IccProfileMutation,
+): Buffer {
+  const result = Buffer.from(profile);
+  if (mutation === "signature") result.write("nope", 36, 4, "ascii");
+  return result;
+}
+
+export function iccProfile(): Buffer {
+  return iccProfileV4();
 }
 
 export function metadataWebp(imagePayload = vp8()): Buffer {

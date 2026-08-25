@@ -20,7 +20,9 @@ import {
   animationFrame,
   exifWithOrientation,
   iccProfile,
+  iccProfileV4,
   metadataWebp,
+  mutateIccProfile,
   readChunks,
   vp8,
   vp8x,
@@ -135,7 +137,7 @@ describe("inspectFile", () => {
         { namespace: "XMP", name: "dc:format", value: "image/webp" },
         { namespace: "XMP", name: "dc:description", value: "private workflow" },
         { namespace: "ICC", name: "ColorSpace", value: "RGB " },
-        { namespace: "ICC", name: "RenderingIntent", value: 1 },
+        { namespace: "ICC", name: "RenderingIntent", value: 0 },
       ]),
     );
     expect(result.value.warnings).toEqual([]);
@@ -413,6 +415,108 @@ describe("sanitizeFile", () => {
     expect(chunks.find((item) => item.fourCc === "ICCP")?.data).toEqual(
       iccProfile(),
     );
+  });
+
+  it("preserves an admitted ICC profile byte-for-byte after reopening the destination", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    const profile = iccProfileV4();
+    await writeFile(
+      sourcePath,
+      webp([
+        { fourCc: "VP8X", data: vp8x(0x20) },
+        { fourCc: "ICCP", data: profile },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+    );
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: true,
+      preserveTimestamps: false,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { preserved: { colorProfile: true } },
+    });
+    expect(
+      readChunks(await readFile(destinationPath)).find(
+        (item) => item.fourCc === "ICCP",
+      )?.data,
+    ).toEqual(profile);
+  });
+
+  it("refuses an invalid requested ICC profile before creating the destination", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    await writeFile(
+      sourcePath,
+      webp([
+        { fourCc: "VP8X", data: vp8x(0x20) },
+        { fourCc: "ICCP", data: mutateIccProfile(iccProfileV4(), "signature") },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+    );
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: true,
+      preserveTimestamps: false,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "unsupported-feature",
+        feature: "color-profile-preservation",
+        reason: "invalid",
+      },
+    });
+    await expect(access(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("concurrently refuses the same invalid ICC profile without creating a destination", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    await writeFile(
+      sourcePath,
+      webp([
+        { fourCc: "VP8X", data: vp8x(0x20) },
+        { fourCc: "ICCP", data: mutateIccProfile(iccProfileV4(), "signature") },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+    );
+    const options = {
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: true,
+      preserveTimestamps: false,
+    } as const;
+
+    const results = await Promise.all([sanitizeFile(options), sanitizeFile(options)]);
+
+    expect(results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ok: false,
+          error: expect.objectContaining({
+            code: "unsupported-feature",
+            feature: "color-profile-preservation",
+            reason: "invalid",
+          }),
+        }),
+      ]),
+    );
+    await expect(access(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("preserves animation chunk ordering and every animation payload byte", async () => {
