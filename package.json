@@ -40,8 +40,9 @@
     "test:watch": "vitest",
     "check:cycles": "madge --circular --extensions ts src/index.ts",
     "check:dist": "git diff --exit-code -- dist",
+    "check:runtime": "node scripts/runtime_surface_gate.mjs .",
     "check:pack": "npm pack --dry-run",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run check:cycles && npm run build && npm run check:dist && npm run check:pack"
+    "verify": "npm run lint && npm run typecheck && npm test && npm run check:cycles && npm run build && npm run check:runtime && npm run check:dist && npm run check:pack"
   },
   "devDependencies": {
     "@types/node": "22.20.1",
