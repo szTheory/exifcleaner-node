@@ -1,5 +1,8 @@
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { classifyFallback } from "../src/index.js";
+import { classifyFallback, sanitizeFile } from "../src/index.js";
 import type { MetadataError } from "../src/index.js";
 
 const admissionDecline = Object.freeze({
@@ -70,5 +73,39 @@ describe("classifyFallback", () => {
     expect(dispositions).toEqual(Array(32).fill("safe-to-fallback"));
     expect(JSON.stringify(admissionDecline)).toBe(snapshot);
     expect(Object.isFrozen(admissionDecline)).toBe(true);
+  });
+
+  it("records fallback proof truthfully before and after native admission", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-fallback-"));
+    const sourcePath = join(directory, "source.data");
+    const destinationPath = join(directory, "clean.webp");
+    await writeFile(sourcePath, "not a WebP file");
+
+    try {
+      const admission = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      });
+      const invalidRequest = await sanitizeFile(null as never);
+
+      expect(admission).toMatchObject({
+        ok: false,
+        error: { phase: "admission", nativeWrite: "not-started" },
+      });
+      expect(invalidRequest).toMatchObject({
+        ok: false,
+        error: { phase: "request", nativeWrite: "not-started" },
+      });
+      if (!admission.ok)
+        expect(classifyFallback(admission.error)).toBe("safe-to-fallback");
+      if (!invalidRequest.ok)
+        expect(classifyFallback(invalidRequest.error)).toBe("do-not-fallback");
+      expect(await readdir(directory)).toEqual(["source.data"]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });
