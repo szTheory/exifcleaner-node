@@ -9,7 +9,12 @@ const forbiddenDependencySections = [
   "optionalDependencies",
   "peerDependencies",
 ];
-const forbiddenLifecycleScripts = ["preinstall", "install", "postinstall", "prepare"];
+const forbiddenLifecycleScripts = [
+  "preinstall",
+  "install",
+  "postinstall",
+  "prepare",
+];
 const forbiddenRuntimeModules = new Set([
   "http",
   "https",
@@ -29,7 +34,8 @@ function diagnostic(path, reason) {
 
 function importSpecifiers(source) {
   const specifiers = [];
-  const staticImport = /\b(?:import|export)\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/gu;
+  const staticImport =
+    /\b(?:import|export)\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/gu;
   const dynamicImport = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/gu;
   for (const pattern of [staticImport, dynamicImport]) {
     for (const match of source.matchAll(pattern)) specifiers.push(match[1]);
@@ -59,13 +65,21 @@ async function javascriptFiles(root) {
 
 function packedFiles(root) {
   const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  const output = execFileSync(npm, ["pack", "--dry-run", "--json", "--ignore-scripts"], {
-    cwd: root,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const output = execFileSync(
+    npm,
+    ["pack", "--dry-run", "--json", "--ignore-scripts"],
+    {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   const packed = JSON.parse(output);
-  if (!Array.isArray(packed) || packed.length !== 1 || !Array.isArray(packed[0]?.files)) {
+  if (
+    !Array.isArray(packed) ||
+    packed.length !== 1 ||
+    !Array.isArray(packed[0]?.files)
+  ) {
     throw new Error("npm pack --dry-run did not return one file manifest");
   }
   return packed[0].files.map((file) => file.path).sort();
@@ -85,28 +99,46 @@ export async function checkRuntimeSurface(packageRoot) {
   const diagnostics = [];
   let manifest;
   try {
-    manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
+    manifest = JSON.parse(
+      await readFile(resolve(root, "package.json"), "utf8"),
+    );
   } catch (error) {
-    return [diagnostic("package.json", `cannot parse manifest: ${String(error)}`)];
+    return [
+      diagnostic("package.json", `cannot parse manifest: ${String(error)}`),
+    ];
   }
 
   for (const section of forbiddenDependencySections) {
     if (Object.hasOwn(manifest, section)) {
-      diagnostics.push(diagnostic("package.json", `runtime dependency section ${section} is forbidden`));
+      diagnostics.push(
+        diagnostic(
+          "package.json",
+          `runtime dependency section ${section} is forbidden`,
+        ),
+      );
     }
   }
   for (const lifecycle of forbiddenLifecycleScripts) {
     if (Object.hasOwn(manifest.scripts ?? {}, lifecycle)) {
-      diagnostics.push(diagnostic("package.json", `lifecycle script ${lifecycle} is forbidden`));
+      diagnostics.push(
+        diagnostic(
+          "package.json",
+          `lifecycle script ${lifecycle} is forbidden`,
+        ),
+      );
     }
   }
   const exports = manifest.exports;
   if (!exports || typeof exports !== "object" || Array.isArray(exports)) {
-    diagnostics.push(diagnostic("package.json", "exports must expose only the root subpath"));
+    diagnostics.push(
+      diagnostic("package.json", "exports must expose only the root subpath"),
+    );
   } else {
     for (const subpath of Object.keys(exports).sort()) {
       if (subpath !== ".") {
-        diagnostics.push(diagnostic("package.json", `export subpath ${subpath} is forbidden`));
+        diagnostics.push(
+          diagnostic("package.json", `export subpath ${subpath} is forbidden`),
+        );
       }
     }
   }
@@ -118,12 +150,19 @@ export async function checkRuntimeSurface(packageRoot) {
       const displayPath = relative(root, file).replaceAll("\\", "/");
       for (const specifier of importSpecifiers(await readFile(file, "utf8"))) {
         if (isForbiddenRuntimeModule(specifier)) {
-          diagnostics.push(diagnostic(displayPath, `forbidden runtime import ${JSON.stringify(specifier)}`));
+          diagnostics.push(
+            diagnostic(
+              displayPath,
+              `forbidden runtime import ${JSON.stringify(specifier)}`,
+            ),
+          );
         }
       }
     }
   } catch (error) {
-    diagnostics.push(diagnostic("dist", `cannot inspect built runtime: ${String(error)}`));
+    diagnostics.push(
+      diagnostic("dist", `cannot inspect built runtime: ${String(error)}`),
+    );
   }
 
   if (diagnostics.length === 0) {
@@ -149,13 +188,18 @@ async function main() {
   }
   const diagnostics = await checkRuntimeSurface(packageRoot);
   if (diagnostics.length > 0) {
-    console.error(`Runtime surface gate failed:\n${diagnostics.map((item) => `- ${item}`).join("\n")}`);
+    console.error(
+      `Runtime surface gate failed:\n${diagnostics.map((item) => `- ${item}`).join("\n")}`,
+    );
     process.exitCode = 1;
     return;
   }
   console.log("Runtime surface gate passed");
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === new URL(import.meta.url).pathname) {
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === new URL(import.meta.url).pathname
+) {
   await main();
 }
