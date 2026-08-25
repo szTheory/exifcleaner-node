@@ -126,7 +126,9 @@ describe("getCapabilities", () => {
     expect(Object.isFrozen(capabilities)).toBe(true);
     expect(Object.isFrozen(capabilities.formats[0]?.preserves)).toBe(true);
     expect(Object.isFrozen(capabilities.formats[0]?.colorProfile)).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.colorProfile.versions)).toBe(true);
+    expect(
+      Object.isFrozen(capabilities.formats[0]?.colorProfile.versions),
+    ).toBe(true);
   });
 });
 
@@ -490,7 +492,9 @@ describe("sanitizeFile", () => {
         reason: "invalid",
       },
     });
-    await expect(access(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(access(destinationPath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("concurrently refuses the same invalid ICC profile without creating a destination", async () => {
@@ -513,7 +517,10 @@ describe("sanitizeFile", () => {
       preserveTimestamps: false,
     } as const;
 
-    const results = await Promise.all([sanitizeFile(options), sanitizeFile(options)]);
+    const results = await Promise.all([
+      sanitizeFile(options),
+      sanitizeFile(options),
+    ]);
 
     expect(results).toEqual(
       expect.arrayContaining([
@@ -527,7 +534,9 @@ describe("sanitizeFile", () => {
         }),
       ]),
     );
-    await expect(access(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(access(destinationPath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("preserves animation chunk ordering and every animation payload byte", async () => {

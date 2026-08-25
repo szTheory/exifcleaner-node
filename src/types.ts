@@ -104,7 +104,8 @@ export interface Capabilities {
   readonly formats: readonly [WebpCapabilities];
 }
 
-export type ColorProfileAdmissionReason = "invalid" | "unsupported" | "policy-limit";
+export type ColorProfileAdmissionReason =
+  "invalid" | "unsupported" | "policy-limit";
 
 export type MetadataError =
   | {

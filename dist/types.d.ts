@@ -66,6 +66,15 @@ export interface WebpCapabilities {
         readonly container: "full";
         readonly codecBitstream: "header-only";
     };
+    readonly colorProfile: {
+        readonly policy: "icc-structural-v0.2";
+        readonly preservation: "preserve-if-present";
+        readonly versions: readonly ["v2.0-v2.4", "v4.0-v4.4"];
+        readonly classes: readonly ["scnr", "mntr"];
+        readonly spaces: readonly ["RGB /XYZ ", "RGB /Lab "];
+        readonly maxProfileBytes: number;
+        readonly maxTagCount: number;
+    };
     readonly limits: {
         readonly maxMetadataBytesPerChunk: number;
         readonly maxChunkCount: number;
@@ -84,6 +93,7 @@ export interface WebpCapabilities {
 export interface Capabilities {
     readonly formats: readonly [WebpCapabilities];
 }
+export type ColorProfileAdmissionReason = "invalid" | "unsupported" | "policy-limit";
 export type MetadataError = {
     readonly code: "aborted";
     readonly detail: string;
@@ -114,6 +124,12 @@ export type MetadataError = {
     readonly detail: string;
     readonly path: string;
     readonly feature: "orientation-preservation";
+} | {
+    readonly code: "unsupported-feature";
+    readonly detail: string;
+    readonly path: string;
+    readonly feature: "color-profile-preservation";
+    readonly reason: ColorProfileAdmissionReason;
 } | {
     readonly code: "source-changed";
     readonly detail: string;

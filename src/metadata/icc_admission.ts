@@ -38,7 +38,14 @@ function validDate(payload: Buffer): boolean {
   const hour = payload.readUInt16BE(30);
   const minute = payload.readUInt16BE(32);
   const second = payload.readUInt16BE(34);
-  if (year === 0 || month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59)
+  if (
+    year === 0 ||
+    month < 1 ||
+    month > 12 ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  )
     return false;
   const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return day >= 1 && day <= days;
@@ -62,22 +69,33 @@ function profileIdMatches(payload: Buffer): boolean {
   digestInput.fill(0, 44, 48);
   digestInput.fill(0, 64, 68);
   digestInput.fill(0, 84, 100);
-  return createHash("md5").update(digestInput).digest().equals(payload.subarray(84, 100));
+  return createHash("md5")
+    .update(digestInput)
+    .digest()
+    .equals(payload.subarray(84, 100));
 }
 
 /**
  * Bounded structural admission only. It does not evaluate ICC semantics, CMM safety,
  * or color correctness, and never transforms or returns payload bytes.
  */
-export function validateIccForPreservation(payload: Buffer): IccAdmissionResult {
+export function validateIccForPreservation(
+  payload: Buffer,
+): IccAdmissionResult {
   if (payload.length > MAX_PROFILE_BYTES)
-    return rejected("policy-limit", "ICC profile exceeds the policy size limit.");
+    return rejected(
+      "policy-limit",
+      "ICC profile exceeds the policy size limit.",
+    );
   if (payload.length < ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES)
     return rejected("invalid", "ICC profile header is truncated.");
   if (payload.length % 4 !== 0)
     return rejected("invalid", "ICC profile length is not four-byte aligned.");
   if (payload.readUInt32BE(0) !== payload.length)
-    return rejected("invalid", "ICC profile declared size does not match its bytes.");
+    return rejected(
+      "invalid",
+      "ICC profile declared size does not match its bytes.",
+    );
   if (payload.toString("ascii", 36, 40) !== "acsp")
     return rejected("invalid", "ICC profile signature is invalid.");
 
@@ -86,11 +104,20 @@ export function validateIccForPreservation(payload: Buffer): IccAdmissionResult 
   if (minor === undefined || bugFix === undefined)
     return rejected("invalid", "ICC profile version uses non-decimal BCD.");
   if (payload[8] !== 2 && payload[8] !== 4)
-    return rejected("unsupported", "ICC profile major version is not admitted.");
+    return rejected(
+      "unsupported",
+      "ICC profile major version is not admitted.",
+    );
   if (minor > 4)
-    return rejected("unsupported", "ICC profile minor version is not admitted.");
+    return rejected(
+      "unsupported",
+      "ICC profile minor version is not admitted.",
+    );
   if (!allZero(payload, 10, 12))
-    return rejected("invalid", "ICC profile version-reserved bytes are nonzero.");
+    return rejected(
+      "invalid",
+      "ICC profile version-reserved bytes are nonzero.",
+    );
   if (!validDate(payload))
     return rejected("invalid", "ICC profile creation date is invalid.");
   if (payload.readUInt32BE(64) > 3)
@@ -119,21 +146,37 @@ export function validateIccForPreservation(payload: Buffer): IccAdmissionResult 
   if (tagCount === 0)
     return rejected("invalid", "ICC profile has no tag records.");
   if (tagCount > MAX_TAG_COUNT)
-    return rejected("policy-limit", "ICC profile tag count exceeds the policy limit.");
-  const tableEnd = ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES + tagCount * ICC_TAG_RECORD_BYTES;
+    return rejected(
+      "policy-limit",
+      "ICC profile tag count exceeds the policy limit.",
+    );
+  const tableEnd =
+    ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES + tagCount * ICC_TAG_RECORD_BYTES;
   if (tableEnd > payload.length)
     return rejected("invalid", "ICC profile tag table is truncated.");
 
   // The tracer intentionally admits the one-record canonical layout; Plan 02 expands
   // this seam to the complete bounded tag-table policy.
   if (tagCount !== 1)
-    return rejected("unsupported", "ICC profile tag table is not admitted by this policy path.");
+    return rejected(
+      "unsupported",
+      "ICC profile tag table is not admitted by this policy path.",
+    );
   const signature = payload.readUInt32BE(132);
   const offset = payload.readUInt32BE(136);
   const size = payload.readUInt32BE(140);
-  if (signature === 0 || offset !== tableEnd || offset % 4 !== 0 || size < 8 || offset + size !== payload.length)
+  if (
+    signature === 0 ||
+    offset !== tableEnd ||
+    offset % 4 !== 0 ||
+    size < 8 ||
+    offset + size !== payload.length
+  )
     return rejected("invalid", "ICC profile tag range is invalid.");
   if (payload.readUInt32BE(offset + 4) !== 0)
-    return rejected("invalid", "ICC profile tag type reserved bytes are nonzero.");
+    return rejected(
+      "invalid",
+      "ICC profile tag type reserved bytes are nonzero.",
+    );
   return { ok: true };
 }

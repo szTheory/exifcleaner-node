@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { aborted, isNodeErrorCode, jsonSafeCause } from "./errors.js";
 import { parseExif, createOrientationExif } from "./metadata/exif.js";
 import { parseIcc } from "./metadata/icc.js";
+import { ICC_PRESERVATION_POLICY_ID, validateIccForPreservation, } from "./metadata/icc_admission.js";
 import { parseXmp } from "./metadata/xmp.js";
 import { err, ok } from "./result.js";
 import { COPY_BLOCK_BYTES, MAX_BUFFERED_METADATA_BYTES, MAX_CHUNK_COUNT, MAX_RIFF_BYTES, encodeChunkHeader, encodeRiffHeader, parseWebp, readExactly, WebpStructureError, } from "./webp/riff.js";
@@ -30,6 +31,15 @@ const CAPABILITIES = Object.freeze({
             validation: Object.freeze({
                 container: "full",
                 codecBitstream: "header-only",
+            }),
+            colorProfile: Object.freeze({
+                policy: ICC_PRESERVATION_POLICY_ID,
+                preservation: "preserve-if-present",
+                versions: Object.freeze(["v2.0-v2.4", "v4.0-v4.4"]),
+                classes: Object.freeze(["scnr", "mntr"]),
+                spaces: Object.freeze(["RGB /XYZ ", "RGB /Lab "]),
+                maxProfileBytes: MAX_BUFFERED_METADATA_BYTES,
+                maxTagCount: 4_096,
             }),
             limits: Object.freeze({
                 maxMetadataBytesPerChunk: MAX_BUFFERED_METADATA_BYTES,
@@ -451,6 +461,19 @@ export async function sanitizeFile(options) {
         const original = snapshot(sourceStats);
         const parsed = await parseWebp(sourceHandle, sourceStats.size, signal);
         const metadata = collectMetadata(parsed);
+        const colorProfile = parsed.chunks.find((chunk) => chunk.fourCc === "ICCP" && chunk.metadata !== undefined);
+        if (options.preserveColorProfile && colorProfile?.metadata !== undefined) {
+            const admission = validateIccForPreservation(colorProfile.metadata);
+            if (!admission.ok) {
+                return err({
+                    code: "unsupported-feature",
+                    detail: admission.detail,
+                    path: sourcePath,
+                    feature: "color-profile-preservation",
+                    reason: admission.reason,
+                });
+            }
+        }
         if (options.preserveOrientation &&
             (metadata.orientation.status === "malformed" ||
                 metadata.orientation.status === "unsupported")) {

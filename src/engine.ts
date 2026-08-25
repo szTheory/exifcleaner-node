@@ -6,7 +6,10 @@ import { resolve } from "node:path";
 import { aborted, isNodeErrorCode, jsonSafeCause } from "./errors.js";
 import { parseExif, createOrientationExif } from "./metadata/exif.js";
 import { parseIcc } from "./metadata/icc.js";
-import { ICC_PRESERVATION_POLICY_ID, validateIccForPreservation } from "./metadata/icc_admission.js";
+import {
+  ICC_PRESERVATION_POLICY_ID,
+  validateIccForPreservation,
+} from "./metadata/icc_admission.js";
 import { parseXmp } from "./metadata/xmp.js";
 import { err, ok } from "./result.js";
 import type {

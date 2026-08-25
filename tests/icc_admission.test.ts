@@ -41,7 +41,9 @@ describe("validateIccForPreservation", () => {
   it("admits both classes and PCS values", () => {
     for (const deviceClass of ["scnr", "mntr"] as const)
       for (const pcs of ["XYZ ", "Lab "] as const)
-        expect(validateIccForPreservation(iccProfileV4({ deviceClass, pcs }))).toEqual({ ok: true });
+        expect(
+          validateIccForPreservation(iccProfileV4({ deviceClass, pcs })),
+        ).toEqual({ ok: true });
   });
 
   it("classifies out-of-policy versions and signatures as unsupported", () => {
