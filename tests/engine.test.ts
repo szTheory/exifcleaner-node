@@ -674,8 +674,9 @@ describe("sanitizeFile", () => {
       sanitizeFile(options),
     ]);
 
-    expect(results).toEqual(
-      expect.arrayContaining([
+    expect(results).toHaveLength(2);
+    for (const result of results) {
+      expect(result).toEqual(
         expect.objectContaining({
           ok: false,
           error: expect.objectContaining({
@@ -684,8 +685,8 @@ describe("sanitizeFile", () => {
             reason: "invalid",
           }),
         }),
-      ]),
-    );
+      );
+    }
     await expect(access(destinationPath)).rejects.toMatchObject({
       code: "ENOENT",
     });
