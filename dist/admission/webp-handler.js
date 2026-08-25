@@ -255,7 +255,6 @@ export const webpHandler = Object.freeze({
         }
         if (position !== size)
             throw new Error("Output size did not match its RIFF declaration.");
-        await destination.sync();
     },
     verifyOutput,
 });
