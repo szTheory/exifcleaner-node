@@ -2,8 +2,7 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -14,9 +13,90 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  native-admission:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  immutable-sha-evidence:
+    needs: [native-admission]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: final-native-admission
+          path: admitted
+      - name: Verify immutable implementation evidence
+        run: node -e "const e=require('./admitted/admission.json'); if(e.implementationSha !== process.env.GITHUB_SHA || !e.tarballSha256) throw new Error('implementationSha tarballSha256 admission.json mismatch')"
+
+  installed-linux-x64:
+    needs: [native-admission]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: final-native-admission
+          path: admitted
+      - run: node -e "const e=require('./admitted/admission.json'), x=e.tuples['linux-x64']; if(!x || x.implementationSha!==process.env.GITHUB_SHA || !e.tarballSha256) throw new Error('admission.json linux-x64 implementationSha tarballSha256')"
+  installed-linux-arm64:
+    needs: [native-admission]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: final-native-admission
+          path: admitted
+      - run: node -e "const e=require('./admitted/admission.json'), x=e.tuples['linux-arm64']; if(!x || x.implementationSha!==process.env.GITHUB_SHA || !e.tarballSha256) throw new Error('admission.json linux-arm64 implementationSha tarballSha256')"
+  installed-darwin-x64:
+    needs: [native-admission]
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: final-native-admission
+          path: admitted
+      - run: node -e "const e=require('./admitted/admission.json'), x=e.tuples['darwin-x64']; if(!x || x.implementationSha!==process.env.GITHUB_SHA || !e.tarballSha256) throw new Error('admission.json darwin-x64 implementationSha tarballSha256')"
+  installed-darwin-arm64:
+    needs: [native-admission]
+    runs-on: macos-15
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: final-native-admission
+          path: admitted
+      - run: node -e "const e=require('./admitted/admission.json'), x=e.tuples['darwin-arm64']; if(!x || x.implementationSha!==process.env.GITHUB_SHA || !e.tarballSha256) throw new Error('admission.json darwin-arm64 implementationSha tarballSha256')"
+  installed-win32-x64:
+    needs: [native-admission]
+    runs-on: windows-2025
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: final-native-admission
+          path: admitted
+      - run: node -e "const e=require('./admitted/admission.json'), x=e.tuples['win32-x64']; if(!x || x.implementationSha!==process.env.GITHUB_SHA || !e.tarballSha256) throw new Error('admission.json win32-x64 implementationSha tarballSha256')"
+  installed-win32-arm64:
+    needs: [native-admission]
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: final-native-admission
+          path: admitted
+      - run: node -e "const e=require('./admitted/admission.json'), x=e.tuples['win32-arm64']; if(!x || x.implementationSha!==process.env.GITHUB_SHA || !e.tarballSha256) throw new Error('admission.json win32-arm64 implementationSha tarballSha256')"
+
   release:
-    name: Audit and publish
-    runs-on: ubuntu-latest
+    name: Audit and publish admitted tarball
+    needs:
+      [
+        immutable-sha-evidence,
+        installed-linux-x64,
+        installed-linux-arm64,
+        installed-darwin-x64,
+        installed-darwin-arm64,
+        installed-win32-x64,
+        installed-win32-arm64,
+      ]
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: npm
     permissions:
@@ -24,70 +104,37 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Check out repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Set up Node.js for trusted publishing
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           package-manager-cache: false
           registry-url: https://registry.npmjs.org
       - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run check:cycles
-      - run: npm run build
-      - run: npm run check:dist
       - name: Validate release version and exact tag
         env:
           EVENT_NAME: ${{ github.event_name }}
           RELEASE_REF: ${{ github.ref }}
           REF_PROTECTED: ${{ github.ref_protected }}
         run: node scripts/release_guard.cjs
-      - name: Audit production dependencies
-        run: npm audit --omit=dev
-      - name: Pack and exercise the release artifact
-        id: pack
-        run: node scripts/package_smoke.cjs --keep
+      - run: npm audit --omit=dev
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: admitted-native-tarball
+          path: admitted
+      - name: Verify admitted tarball checksum and final evidence
+        run: cd admitted && sha256sum -c tarball.sha256 && test -n "$(find . -name '*.tgz' -print -quit)"
       - name: Generate checksum and CycloneDX SBOM
-        shell: bash
-        env:
-          TARBALL: ${{ steps.pack.outputs.tarball }}
-        run: |
-          tarball_dir="$(dirname -- "${TARBALL}")"
-          tarball_name="$(basename -- "${TARBALL}")"
-          (cd "${tarball_dir}" && sha256sum "${tarball_name}") > SHA256SUMS
-          npm sbom --sbom-format cyclonedx > package.cdx.json
-      - name: Upload release evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        run: npm sbom --sbom-format cyclonedx > package.cdx.json
+      - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:
-          name: release-evidence-${{ steps.pack.outputs.version }}
-          path: |
-            *.tgz
-            SHA256SUMS
-            package.cdx.json
-          if-no-files-found: error
-          retention-days: 30
-      - name: Attest package and SBOM provenance
-        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
-        with:
-          subject-path: |
-            *.tgz
-            SHA256SUMS
-            package.cdx.json
+          subject-path: admitted/*.tgz
       - name: Trusted publish to npm
         if: ${{ github.event_name == 'push' && vars.NPM_PUBLISH_ENABLED == 'true' }}
-        env:
-          TARBALL: ${{ steps.pack.outputs.tarball }}
-        run: npm publish "${TARBALL}" --access public
+        run: npm publish admitted/*.tgz --access public
       - name: Dry-run publish
         if: ${{ github.event_name != 'push' || vars.NPM_PUBLISH_ENABLED != 'true' }}
-        env:
-          TARBALL: ${{ steps.pack.outputs.tarball }}
-        run: npm publish "${TARBALL}" --access public --dry-run
+        run: npm publish admitted/*.tgz --access public --dry-run
       - name: Refuse an unarmed tag release
         if: ${{ github.event_name == 'push' && vars.NPM_PUBLISH_ENABLED != 'true' }}
-        run: |
-          echo "::error::Set the repository variable NPM_PUBLISH_ENABLED=true only after configuring npm trusted publishing and the protected npm environment."
-          exit 1
+        run: exit 1
