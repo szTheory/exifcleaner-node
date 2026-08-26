@@ -306,6 +306,7 @@ static BOOL verify_private_stage_directory(HANDLE handle, HANDLE token,
                                            PSID token_user) {
   PSECURITY_DESCRIPTOR descriptor = NULL;
   PSID owner = NULL;
+  PSID group = NULL;
   PACL dacl = NULL;
   ACL_SIZE_INFORMATION acl_information;
   ACCESS_ALLOWED_ACE *ace;
@@ -325,9 +326,10 @@ static BOOL verify_private_stage_directory(HANDLE handle, HANDLE token,
   SECURITY_DESCRIPTOR_CONTROL control;
   DWORD revision;
   DWORD status = GetSecurityInfo(handle, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION |
-      DACL_SECURITY_INFORMATION, &owner, NULL, &dacl, NULL, &descriptor);
-  BOOL valid = status == ERROR_SUCCESS && owner != NULL && token_user != NULL &&
-      EqualSid(owner, token_user) && dacl != NULL &&
+      GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &owner, &group, &dacl,
+      NULL, &descriptor);
+  BOOL valid = status == ERROR_SUCCESS && owner != NULL && group != NULL &&
+      token_user != NULL && EqualSid(owner, token_user) && dacl != NULL &&
       GetSecurityDescriptorControl(descriptor, &control, &revision) &&
       (control & SE_DACL_PROTECTED) != 0 &&
       CreateWellKnownSid(WinLocalSystemSid, NULL, system_sid, &system_sid_size) &&
