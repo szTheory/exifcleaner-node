@@ -401,6 +401,34 @@ describe("inspectFile", () => {
 });
 
 describe("sanitizeFile", () => {
+  it("publishes a fully verified private stage and reports its bounded residue", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    await writeFile(sourcePath, metadataWebp());
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    expect(await readFile(destinationPath)).toEqual(
+      expect.any(Buffer),
+    );
+    expect(result.value.postCommitResidue).toEqual({
+      state: "private-empty-stage-directory-remains",
+      cause: {
+        code: "ENOTSUP",
+        message: "identity-bound directory cleanup unavailable",
+      },
+    });
+  });
+
   it("maps an oversized requested ICCP to a typed pre-write policy-limit refusal", async () => {
     const directory = await workspace();
     const sourcePath = join(directory, "source.webp");
