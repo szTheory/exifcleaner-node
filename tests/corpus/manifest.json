@@ -102,5 +102,107 @@
         }
       }
     }
-  ]
+  ],
+  "benchmarks": {
+    "schemaVersion": 1,
+    "seed": 460070,
+    "fixtures": [
+      {
+        "id": "still-64k",
+        "kind": "still",
+        "seed": 460071,
+        "targetBytes": 65536,
+        "sha256": "cd7b613297fc4422f0165a50d1a5f534fba54357c59168e3a2550fd78c891f88",
+        "expected": "success"
+      },
+      {
+        "id": "still-1m",
+        "kind": "still",
+        "seed": 460072,
+        "targetBytes": 1048576,
+        "sha256": "b20c0d57acd4a641b835e09c204891ed75d78ddc57edb33e140f4f015e7fb97c",
+        "expected": "success"
+      },
+      {
+        "id": "still-16m",
+        "kind": "still",
+        "seed": 460073,
+        "targetBytes": 16777216,
+        "sha256": "69b687581351c11df99dee55e27d256502cdec1f6fa07df75c644940be0a3004",
+        "expected": "success"
+      },
+      {
+        "id": "still-64m",
+        "kind": "still",
+        "seed": 460074,
+        "targetBytes": 67108864,
+        "sha256": "707228e2e4ec4a0b10b536c0bef8ed709b13f472709c11bae0e8a68876eb0d7b",
+        "expected": "success"
+      },
+      {
+        "id": "metadata-still-64k",
+        "kind": "metadata-still",
+        "seed": 460075,
+        "targetBytes": 65536,
+        "sha256": "d1a78c8e711d4b05cc420837a281196607bcb6e9ed0e5c48a8d10b3b77393e70",
+        "expected": "success"
+      },
+      {
+        "id": "metadata-still-1m",
+        "kind": "metadata-still",
+        "seed": 460076,
+        "targetBytes": 1048576,
+        "sha256": "6a8fb164f2c2fd110aa3d6a030eb6f037c89548a55d864eea30413ba45b68d99",
+        "expected": "success"
+      },
+      {
+        "id": "metadata-still-16m",
+        "kind": "metadata-still",
+        "seed": 460077,
+        "targetBytes": 16777216,
+        "sha256": "92cbf3a5ac06db54b2fac001f8f80e6c06cd1b1f8be08b01ae866345b9fd2297",
+        "expected": "success"
+      },
+      {
+        "id": "animation-alpha-1m",
+        "kind": "animation-alpha",
+        "seed": 460078,
+        "targetBytes": 1048576,
+        "sha256": "a585d603ff577398c3ac8adaf6c0a5f8fca13019dd07c82eb8de4bdc92927dfc",
+        "expected": "success"
+      },
+      {
+        "id": "animation-alpha-16m",
+        "kind": "animation-alpha",
+        "seed": 460079,
+        "targetBytes": 16777216,
+        "sha256": "73fc89a949c4632c4797d10fd10ef7abeec1f35e7ba5959918bd4d580fba5908",
+        "expected": "success"
+      },
+      {
+        "id": "cancellation-64m",
+        "kind": "cancellation",
+        "seed": 460080,
+        "targetBytes": 67108864,
+        "sha256": "498a70a59c6425371bc7e76fba35f04ff687981367c8b6329fb79a0e5803ea67",
+        "expected": "aborted"
+      },
+      {
+        "id": "malformed-tiny",
+        "kind": "malformed",
+        "seed": 460081,
+        "targetBytes": 13,
+        "sha256": "d4ac4bb5a69108199b82613b5a58d7e5c1cbf609ae638c28cbe52f01a4b90121",
+        "expected": "refused"
+      },
+      {
+        "id": "metadata-sentinel-16m-plus-one",
+        "kind": "metadata-sentinel",
+        "seed": 460082,
+        "targetBytes": 16777274,
+        "sha256": "4151084a870458425ca1bbdb086f1d53f6157b8f8d218ab3c8147e01369f8f4a",
+        "expected": "refused"
+      }
+    ]
+  }
 }

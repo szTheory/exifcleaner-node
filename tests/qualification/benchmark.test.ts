@@ -28,6 +28,10 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
     version: string;
   }[];
   percentile(values: readonly number[], quantile: number): number;
+  rssSlope(
+    aggregates: ReadonlyMap<string, { medianMaxRSSKiB: number }>,
+    prefix: string,
+  ): number;
   evaluatePair(input: {
     baseline: Record<string, number | string>;
     candidate: Record<string, number | string>;
@@ -40,7 +44,10 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
   generateFixture(record: Record<string, unknown>): Buffer;
   loadBenchmarkManifest(): {
     seed: number;
-    fixtures: readonly Record<string, unknown>[];
+    fixtures: readonly (Record<string, unknown> & {
+      targetBytes: number;
+      sha256: string;
+    })[];
   };
   renderSummary(report: Record<string, unknown>): string;
   parseArguments(args: readonly string[]): Record<string, unknown>;
@@ -67,6 +74,19 @@ describe("paired benchmark admission", () => {
   it("calculates locked nearest-rank percentiles", () => {
     expect(benchmark.percentile([5, 1, 4, 2, 3], 0.5)).toBe(3);
     expect(benchmark.percentile([5, 1, 4, 2, 3], 0.95)).toBe(5);
+  });
+
+  it("calculates byte-per-byte RSS slope after the locked 4 MiB tolerance", () => {
+    const mib = 1024 * 1024;
+    const slope = benchmark.rssSlope(
+      new Map([
+        ["still-1m", { medianMaxRSSKiB: (100 * mib) / 1024 }],
+        ["still-16m", { medianMaxRSSKiB: (105 * mib) / 1024 }],
+        ["still-64m", { medianMaxRSSKiB: (110 * mib) / 1024 }],
+      ]),
+      "still",
+    );
+    expect(slope).toBe((6 * mib) / (63 * mib));
   });
 
   it("passes exact performance boundaries and fails one-unit exceedance", () => {
