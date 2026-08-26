@@ -121,18 +121,44 @@ describe("runtime surface gate", () => {
     });
   });
 
-  it("rejects a forbidden built runtime import with its path and module", async () => {
-    const root = await createFixture();
-    await writeFile(
-      join(root, "dist", "index.js"),
-      'import "node:http";\nexport const fixture = true;\n',
-    );
+  it.each([
+    "node:http",
+    "node:child_process",
+    "node:http/promises",
+    "node:child_process/promises",
+    "http/promises",
+    "child_process/promises",
+  ])(
+    "rejects forbidden built runtime import %s with its path and module",
+    async (specifier) => {
+      const root = await createFixture();
+      await writeFile(
+        join(root, "dist", "index.js"),
+        `import ${JSON.stringify(specifier)};\nexport const fixture = true;\n`,
+      );
 
-    await expect(runGate(root)).resolves.toMatchObject({
-      exitCode: 1,
-      output: expect.stringContaining(
-        'dist/index.js: forbidden runtime import "node:http"',
-      ),
-    });
-  });
+      await expect(runGate(root)).resolves.toMatchObject({
+        exitCode: 1,
+        output: expect.stringContaining(
+          `dist/index.js: forbidden runtime import ${JSON.stringify(specifier)}`,
+        ),
+      });
+    },
+  );
+
+  it.each(["http2-extra", "child_processes", "node:fs/promises"])(
+    "accepts allowed built runtime import %s without prefix matching",
+    async (specifier) => {
+      const root = await createFixture();
+      await writeFile(
+        join(root, "dist", "index.js"),
+        `import ${JSON.stringify(specifier)};\nexport const fixture = true;\n`,
+      );
+
+      await expect(runGate(root)).resolves.toEqual({
+        exitCode: 0,
+        output: expect.stringContaining("Runtime surface gate passed"),
+      });
+    },
+  );
 });
