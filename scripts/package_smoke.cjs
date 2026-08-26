@@ -87,7 +87,11 @@ function parseArguments(args) {
 }
 
 function assertArchiveShape(tarball) {
-  const listing = run("tar", ["-tf", tarball]).split(/\r?\n/u).filter(Boolean);
+  const listing = run("tar", ["-tf", basename(tarball)], {
+    cwd: dirname(tarball),
+  })
+    .split(/\r?\n/u)
+    .filter(Boolean);
   for (const required of [
     "package/package.json",
     "package/LICENSE",
