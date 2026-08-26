@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "exifcleaner-sample",
+      "role": "differential",
+      "localPath": "sample.webp",
+      "provenance": {
+        "revision": "ba365b3459b0d87ce255124a5eef819aca603efd",
+        "url": "https://github.com/szTheory/exifcleaner/blob/ba365b3459b0d87ce255124a5eef819aca603efd/tests/e2e/fixtures/sample.webp",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
+      "bytes": 152,
+      "topology": ["VP8X", "VP8 ", "EXIF"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["EXIF", "XMP", "ICC"]
+      },
+      "retainedPayloads": [
+        {
+          "fourCc": "VP8 ",
+          "sha256": "1300ec4f408f0960b09a5265851b14e81ac0c120fae6c3d555306df849235697"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "declared-size-plus-one",
+      "role": "negative-control",
+      "generator": {
+        "kind": "riff-declared-size-plus-one",
+        "seed": 46001,
+        "sourceCase": "exifcleaner-sample"
+      },
+      "provenance": {
+        "revision": "ba365b3459b0d87ce255124a5eef819aca603efd",
+        "url": "https://github.com/szTheory/exifcleaner/blob/ba365b3459b0d87ce255124a5eef819aca603efd/tests/e2e/fixtures/sample.webp",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "3ee4a9b0ec4d85737e56b0054961e5827db1cf0451a9be212c2a03b5255f8a6c",
+      "bytes": 152,
+      "topology": ["VP8X", "VP8 ", "EXIF"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    }
+  ]
+}

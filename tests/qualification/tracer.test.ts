@@ -21,7 +21,8 @@ describe("WebP qualification tracer", () => {
       source: {
         relativePath: "sample.webp",
         unchanged: true,
-        sha256: "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
+        sha256:
+          "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
       },
       destination: { state: "created" },
       reopened: {
@@ -29,9 +30,9 @@ describe("WebP qualification tracer", () => {
         namespaces: { EXIF: 0, XMP: 0, ICC: 0 },
       },
     });
-    expect(transcript.status === "success" && transcript.retainedPayloads).toEqual([
-      expect.objectContaining({ fourCc: "VP8 " }),
-    ]);
+    expect(
+      transcript.status === "success" && transcript.retainedPayloads,
+    ).toEqual([expect.objectContaining({ fourCc: "VP8 " })]);
     expect(JSON.stringify(transcript)).not.toMatch(/\/(?:Users|home|tmp)\//);
   });
 
@@ -55,13 +56,47 @@ describe("WebP qualification tracer", () => {
     await expect(materializeCorpusRecord("../sample.webp")).rejects.toThrow(
       "Unknown corpus case",
     );
-    expect(() =>
-      assertCorpusRecord({
-        id: "unreviewed",
-        role: "decode",
-        path: "sample.webp",
-      }),
-    ).toThrow("Invalid corpus record");
-    await expect(readFile(new URL("manifest.json", `file://${corpusRoot}`))).resolves.toBeDefined();
+    const validRecord = {
+      id: "reviewed",
+      role: "decode",
+      localPath: "sample.webp",
+      provenance: {
+        revision: "ba365b3459b0d87ce255124a5eef819aca603efd",
+        url: "https://example.test/sample.webp",
+        license: "MIT",
+        licenseStatus: "approved",
+      },
+      sha256:
+        "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
+      bytes: 152,
+      topology: ["VP8X", "VP8 ", "EXIF"],
+      outcome: { status: "success", removedNamespaces: ["EXIF", "XMP", "ICC"] },
+      retainedPayloads: [],
+      permittedDifferences: [],
+    };
+    for (const malformed of [
+      { ...validRecord, id: "Bad ID" },
+      { ...validRecord, role: "unclassified" },
+      { ...validRecord, localPath: "../sample.webp" },
+      {
+        ...validRecord,
+        provenance: { ...validRecord.provenance, licenseStatus: "unknown" },
+      },
+      { ...validRecord, sha256: "digest-drift" },
+      { ...validRecord, bytes: 0 },
+      { ...validRecord, topology: [] },
+      { ...validRecord, outcome: { status: "success" } },
+      {
+        ...validRecord,
+        retainedPayloads: [{ fourCc: "JUNK", sha256: validRecord.sha256 }],
+      },
+      { ...validRecord, permittedDifferences: [false] },
+    ])
+      expect(() => assertCorpusRecord(malformed)).toThrow(
+        "Invalid corpus record",
+      );
+    await expect(
+      readFile(new URL("manifest.json", `file://${corpusRoot}`)),
+    ).resolves.toBeDefined();
   });
 });
