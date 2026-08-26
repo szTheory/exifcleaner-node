@@ -23,9 +23,9 @@ const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      rm(directory, { force: true, recursive: true }),
-    ),
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { force: true, recursive: true })),
   );
 });
 
@@ -42,18 +42,24 @@ describe("current-host native publication addon", () => {
       "publishNoReplace",
     ]);
 
-    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-native-publication-"));
+    const directory = await mkdtemp(
+      join(tmpdir(), "exifcleaner-native-publication-"),
+    );
     temporaryDirectories.push(directory);
     const stage = join(directory, "stage.webp");
     const destination = join(directory, "destination.webp");
     await writeFile(stage, "verified stage");
 
     expect(binding.publishNoReplace(stage, destination)).toBe("published");
-    await expect(cp(destination, join(directory, "published-copy.webp"))).resolves.toBeUndefined();
+    await expect(
+      cp(destination, join(directory, "published-copy.webp")),
+    ).resolves.toBeUndefined();
 
     const collisionStage = join(directory, "collision-stage.webp");
     await writeFile(collisionStage, "must stay staged");
-    expect(binding.publishNoReplace(collisionStage, destination)).toBe("collision");
+    expect(binding.publishNoReplace(collisionStage, destination)).toBe(
+      "collision",
+    );
   });
 });
 
@@ -65,19 +71,26 @@ describe("private native publication loader", () => {
     ["darwin", "arm64", "../../prebuilds/darwin-arm64/publication.node"],
     ["win32", "x64", "../../prebuilds/win32-x64/publication.node"],
     ["win32", "arm64", "../../prebuilds/win32-arm64/publication.node"],
-  ])("selects only the literal %s-%s addon path", (platform, architecture, path) => {
-    const binding = {
-      publishNoReplace: () => "published",
-      createPrivateStageDirectory: () => undefined,
-      disposePrivateStageDirectory: () => "unsupported",
-    };
-    expect(
-      loadNativePublicationBindingForTests(platform, architecture, (specifier) => {
-        expect(specifier).toBe(path);
-        return binding;
-      }),
-    ).toBe(binding);
-  });
+  ])(
+    "selects only the literal %s-%s addon path",
+    (platform, architecture, path) => {
+      const binding = {
+        publishNoReplace: () => "published",
+        createPrivateStageDirectory: () => undefined,
+        disposePrivateStageDirectory: () => "unsupported",
+      };
+      expect(
+        loadNativePublicationBindingForTests(
+          platform,
+          architecture,
+          (specifier) => {
+            expect(specifier).toBe(path);
+            return binding;
+          },
+        ),
+      ).toBe(binding);
+    },
+  );
 
   it("rejects unsupported tuples and malformed exports before destination work", () => {
     expect(() =>
@@ -91,7 +104,9 @@ describe("private native publication loader", () => {
   });
 
   it("maps publication and private-directory outcomes as disjoint bounded results", () => {
-    expect(mapNativePublicationCode("published")).toEqual({ state: "published" });
+    expect(mapNativePublicationCode("published")).toEqual({
+      state: "published",
+    });
     expect(mapNativePublicationCode("collision")).toEqual({
       state: "destination-exists",
     });

@@ -1,0 +1,35 @@
+type NativePublicationCode = "published" | "collision" | "unsupported" | "failed";
+export interface NativePublicationBinding {
+    readonly publishNoReplace: (stagePath: string, destinationPath: string) => NativePublicationCode;
+    readonly createPrivateStageDirectory: () => unknown;
+    readonly disposePrivateStageDirectory: (capability: NativeStageDirectoryCapability) => NativePublicationCode;
+}
+declare const nativeStageDirectoryCapability: unique symbol;
+export type NativeStageDirectoryCapability = {
+    readonly [nativeStageDirectoryCapability]: never;
+};
+export type NativePublicationResult = {
+    readonly state: "published";
+} | {
+    readonly state: "destination-exists";
+} | {
+    readonly state: "publication-unsupported";
+} | {
+    readonly state: "publication-failed";
+};
+export type NativeStageDirectoryDisposition = {
+    readonly state: "disposed";
+} | {
+    readonly state: "disposition-unsupported";
+} | {
+    readonly state: "disposition-failed";
+};
+type AddonLoader = (specifier: string) => unknown;
+export declare function loadNativePublicationBindingForTests(platform: string, architecture: string, loadAddon: AddonLoader): NativePublicationBinding;
+export declare function setNativePublicationBindingForTests(binding: NativePublicationBinding): () => void;
+export declare function mapNativePublicationCode(code: unknown): NativePublicationResult;
+export declare function mapNativeStageDirectoryCode(code: unknown): NativeStageDirectoryDisposition;
+export declare function publishNoReplace(stagePath: string, destinationPath: string): NativePublicationResult;
+export declare function disposePrivateStageDirectory(capability: NativeStageDirectoryCapability): NativeStageDirectoryDisposition;
+export {};
+//# sourceMappingURL=native-publication.d.ts.map
