@@ -1,4 +1,6 @@
-import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +12,9 @@ const execFileAsync = promisify(execFile);
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const gate = join(packageRoot, "scripts", "runtime_surface_gate.mjs");
 const fixtureRoots: string[] = [];
+const require = createRequire(import.meta.url);
+const artifacts = require("../scripts/native_artifacts.cjs");
+const audit = require("../scripts/audit_native_artifact.cjs");
 
 afterEach(async () => {
   await Promise.all(
@@ -55,6 +60,68 @@ async function runGate(
       exitCode: failure.code ?? 1,
       output: `${failure.stdout ?? ""}${failure.stderr ?? ""}`,
     };
+  }
+}
+
+function fixtureBinary(format: string, machine: string): Buffer {
+  if (format === "elf") {
+    const output = Buffer.alloc(20);
+    output.write("\u007fELF", 0, "ascii");
+    output.writeUInt16LE(machine === "x64" ? 62 : 183, 18);
+    return output;
+  }
+  if (format === "macho") {
+    const output = Buffer.alloc(8);
+    output.writeUInt32BE(0xcffaedfe, 0);
+    output.writeUInt32LE(machine === "x64" ? 0x01000007 : 0x0100000c, 4);
+    return output;
+  }
+  const output = Buffer.alloc(128);
+  output.write("MZ", 0, "ascii");
+  output.writeUInt32LE(64, 60);
+  output.write("PE\0\0", 64, "ascii");
+  output.writeUInt16LE(machine === "x64" ? 0x8664 : 0xaa64, 68);
+  return output;
+}
+
+function fixtureReport(tuple: string): string {
+  const report = tuple.startsWith("linux")
+    ? audit.auditLinux(
+        "Shared library: [libc.so.6]",
+        " UND napi_create_string_utf8\n UND renameat2",
+      )
+    : tuple.startsWith("darwin")
+      ? audit.auditDarwin("\t/usr/lib/libSystem.B.dylib", " U _renamex_np")
+      : audit.auditWindows("KERNEL32.dll", "    CreateFileW\n    HeapAlloc");
+  return JSON.stringify({ ...JSON.parse(report), evidenceScope: "test-fixture" });
+}
+
+async function createAssembly(): Promise<{ root: string; manifest: string; reports: string }> {
+  const root = await mkdtemp(join(tmpdir(), "exifcleaner-exact-six-"));
+  fixtureRoots.push(root);
+  const reports = join(root, "audit-reports");
+  await mkdir(reports);
+  const reportRecords: Record<string, string> = {};
+  for (const record of artifacts.EXACT_ARTIFACTS) {
+    const target = join(root, record.path);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, fixtureBinary(record.binaryFormat, record.machine));
+    reportRecords[record.tuple] = fixtureReport(record.tuple);
+    await writeFile(join(reports, `${record.tuple}.json`), reportRecords[record.tuple]);
+  }
+  const manifest = await artifacts.createManifest(root, reportRecords);
+  const manifestPath = join(root, "native-manifest.json");
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  return { root, manifest: manifestPath, reports };
+}
+
+async function runArgs(args: string[]): Promise<{ exitCode: number; output: string }> {
+  try {
+    const result = await execFileAsync(process.execPath, [gate, ...args]);
+    return { exitCode: 0, output: `${result.stdout}${result.stderr}` };
+  } catch (error) {
+    const failure = error as { code?: number; stdout?: string; stderr?: string };
+    return { exitCode: failure.code ?? 1, output: `${failure.stdout ?? ""}${failure.stderr ?? ""}` };
   }
 }
 
@@ -161,4 +228,41 @@ describe("runtime surface gate", () => {
       });
     },
   );
+
+  it("accepts deterministic exact-six fixtures only through the explicit test seam", async () => {
+    const assembly = await createAssembly();
+
+    await expect(
+      runArgs([
+        "--assembly-root", assembly.root,
+        "--manifest", assembly.manifest,
+        "--reports-dir", assembly.reports,
+        "--evidence-scope", "test-fixture",
+      ]),
+    ).resolves.toMatchObject({ exitCode: 0, output: expect.stringContaining("assembly gate passed") });
+    await expect(
+      runArgs([
+        "--assembly-root", assembly.root,
+        "--manifest", assembly.manifest,
+        "--reports-dir", assembly.reports,
+        "--evidence-scope", "final-release",
+      ]),
+    ).resolves.toMatchObject({ exitCode: 1, output: expect.stringContaining("fixture evidence") });
+  });
+
+  it("rejects stale manifests, extra native files, and packed-listing drift", async () => {
+    const assembly = await createAssembly();
+    const manifest = JSON.parse(await (await import("node:fs/promises")).readFile(assembly.manifest, "utf8"));
+    manifest[0].sha256 = createHash("sha256").update("stale").digest("hex");
+    const stale = join(assembly.root, "stale-manifest.json");
+    await writeFile(stale, JSON.stringify(manifest));
+    await expect(runArgs(["--assembly-root", assembly.root, "--manifest", stale, "--reports-dir", assembly.reports, "--evidence-scope", "test-fixture"])).resolves.toMatchObject({ exitCode: 1, output: expect.stringContaining("hash is stale") });
+
+    await writeFile(join(assembly.root, "prebuilds", "linux-x64", "extra.node"), "fixture");
+    await expect(runArgs(["--assembly-root", assembly.root, "--manifest", assembly.manifest, "--reports-dir", assembly.reports, "--evidence-scope", "test-fixture"])).resolves.toMatchObject({ exitCode: 1, output: expect.stringContaining("extra native") });
+
+    const listing = join(assembly.root, "packed-files.json");
+    await writeFile(listing, JSON.stringify(["package.json", "dist/index.js", "prebuilds/linux-x64/publication.node"]));
+    await expect(runArgs(["--packed-listing", listing])).resolves.toMatchObject({ exitCode: 1, output: expect.stringContaining("packed native path set") });
+  });
 });
