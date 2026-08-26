@@ -3,6 +3,9 @@
  * publication authority: no pathname observation or fallback is a success
  * condition.  The standalone entrypoint is compiled only by the test harness.
  */
+#include <node_api.h>
+#include <stdlib.h>
+
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -30,6 +33,81 @@ typedef enum publication_result {
   PUBLICATION_UNSUPPORTED = 2,
   PUBLICATION_FAILED = 3,
 } publication_result;
+
+#if !defined(_WIN32)
+static publication_result publish_no_replace(const char *stage, const char *destination);
+#endif
+
+static const char *publication_result_name(publication_result result) {
+  switch (result) {
+    case PUBLICATION_PUBLISHED: return "published";
+    case PUBLICATION_COLLISION: return "collision";
+    case PUBLICATION_UNSUPPORTED: return "unsupported";
+    default: return "failed";
+  }
+}
+
+static napi_value publication_result_value(napi_env env, publication_result result) {
+  napi_value value;
+  napi_create_string_utf8(env, publication_result_name(result), NAPI_AUTO_LENGTH, &value);
+  return value;
+}
+
+static napi_value publish_no_replace_binding(napi_env env, napi_callback_info info) {
+  size_t argc = 2;
+  napi_value args[2];
+  size_t stage_length;
+  size_t destination_length;
+  char *stage;
+  char *destination;
+  publication_result result = PUBLICATION_FAILED;
+  if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc != 2 ||
+      napi_get_value_string_utf8(env, args[0], NULL, 0, &stage_length) != napi_ok ||
+      napi_get_value_string_utf8(env, args[1], NULL, 0, &destination_length) != napi_ok) {
+    napi_throw_type_error(env, NULL, "publishNoReplace requires two path strings");
+    return NULL;
+  }
+  stage = malloc(stage_length + 1);
+  destination = malloc(destination_length + 1);
+  if (stage == NULL || destination == NULL ||
+      napi_get_value_string_utf8(env, args[0], stage, stage_length + 1, NULL) != napi_ok ||
+      napi_get_value_string_utf8(env, args[1], destination, destination_length + 1, NULL) != napi_ok) {
+    free(stage);
+    free(destination);
+    napi_throw_error(env, NULL, "could not read publication paths");
+    return NULL;
+  }
+#if defined(_WIN32)
+  result = PUBLICATION_UNSUPPORTED;
+#else
+  result = publish_no_replace(stage, destination);
+#endif
+  free(stage);
+  free(destination);
+  return publication_result_value(env, result);
+}
+
+static napi_value unsupported_stage_directory_binding(napi_env env, napi_callback_info info) {
+  napi_value value;
+  (void)info;
+  napi_get_undefined(env, &value);
+  return value;
+}
+
+static napi_value unsupported_dispose_stage_directory_binding(napi_env env, napi_callback_info info) {
+  (void)info;
+  return publication_result_value(env, PUBLICATION_UNSUPPORTED);
+}
+
+NAPI_MODULE_INIT() {
+  napi_property_descriptor properties[] = {
+    { "publishNoReplace", NULL, publish_no_replace_binding, NULL, NULL, NULL, napi_default, NULL },
+    { "createPrivateStageDirectory", NULL, unsupported_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
+    { "disposePrivateStageDirectory", NULL, unsupported_dispose_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
+  };
+  napi_define_properties(env, exports, sizeof(properties) / sizeof(properties[0]), properties);
+  return exports;
+}
 
 #if defined(_WIN32)
 typedef struct private_stage_directory {

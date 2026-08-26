@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { cp, mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -18,7 +18,7 @@ const temporaryDirectories: string[] = [];
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories.splice(0).map((directory) =>
-      import("node:fs/promises").then(({ rm }) => rm(directory, { force: true, recursive: true })),
+      rm(directory, { force: true, recursive: true }),
     ),
   );
 });
@@ -30,7 +30,7 @@ describe("current-host native publication addon", () => {
       createPrivateStageDirectory(): unknown;
       disposePrivateStageDirectory(capability: unknown): string;
     };
-    expect(Object.keys(binding).sort()).toEqual([
+    expect(Object.getOwnPropertyNames(binding).sort()).toEqual([
       "createPrivateStageDirectory",
       "disposePrivateStageDirectory",
       "publishNoReplace",

@@ -95,6 +95,9 @@ function isApprovedPackedFile(path) {
     path === "package.json" ||
     path === "LICENSE" ||
     path === "README.md" ||
+    /^prebuilds\/(?:linux|darwin|win32)-(?:x64|arm64)\/publication\.node$/u.test(
+      path,
+    ) ||
     /^dist\/.+\.(?:js|d\.ts|js\.map|d\.ts\.map)$/u.test(path)
   );
 }

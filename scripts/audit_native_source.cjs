@@ -7,6 +7,7 @@ const sourcePath = resolve(
   process.argv[2] || resolve(__dirname, "..", "native", "publication.c"),
 );
 const allowedHeaders = new Set([
+  "node_api.h",
   "windows.h",
   "aclapi.h",
   "sddl.h",
@@ -16,6 +17,7 @@ const allowedHeaders = new Set([
   "sys/attr.h",
   "unistd.h",
   "wchar.h",
+  "stdlib.h",
   "sys/syscall.h",
 ]);
 const allowedCalls = new Set([
@@ -38,8 +40,25 @@ const allowedCalls = new Set([
   "syscall",
   "wcschr",
   "wcslen",
+  "malloc",
+  "free",
+  "napi_create_string_utf8",
+  "napi_define_properties",
+  "napi_get_cb_info",
+  "napi_get_undefined",
+  "napi_get_value_string_utf8",
+  "napi_throw_error",
+  "napi_throw_type_error",
+  "publication_result_name",
 ]);
-const languageCalls = new Set(["defined", "if", "sizeof", "while", "switch"]);
+const languageCalls = new Set([
+  "defined",
+  "if",
+  "sizeof",
+  "while",
+  "switch",
+  "NAPI_MODULE_INIT",
+]);
 const forbiddenFamilies = [
   [
     "network",
