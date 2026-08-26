@@ -417,9 +417,7 @@ describe("sanitizeFile", () => {
 
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) return;
-    expect(await readFile(destinationPath)).toEqual(
-      expect.any(Buffer),
-    );
+    expect(await readFile(destinationPath)).toEqual(expect.any(Buffer));
     expect(result.value.postCommitResidue).toEqual({
       state: "private-empty-stage-directory-remains",
       cause: {
