@@ -64,6 +64,12 @@ describe("native source capability audit", () => {
     ["dynamic-loader", "LoadLibraryW()"],
     ["replacing-publication", 'rename("a", "b")'],
     ["pathname-cleanup", 'unlink("a")'],
+    ["pathname-cleanup", 'unlinkat(0, "a", 0)'],
+    ["pathname-cleanup", 'remove("a")'],
+    ["pathname-cleanup", 'rm("a")'],
+    ["pathname-cleanup", 'rmdir("a")'],
+    ["pathname-cleanup", 'RemoveFile(L"a")'],
+    ["pathname-cleanup", 'DeleteFileW(L"a")'],
     ["pathname-cleanup", 'RemoveDirectoryW(L"a")'],
   ])("rejects %s capability fixtures", async (category, forbidden) => {
     const path = await fixture(
