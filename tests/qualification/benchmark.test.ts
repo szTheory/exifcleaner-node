@@ -218,4 +218,25 @@ describe("paired benchmark admission", () => {
     expect(summary).toContain("median threshold");
     expect(summary).not.toMatch(/awesome|celebrat|blazing/iu);
   });
+
+  it("publishes the locked baseline, formulas, replay, and bounded claims", async () => {
+    const documentation = await readFile(
+      join(projectRoot, "docs", "benchmark-admission.md"),
+      "utf8",
+    );
+    const normalized = documentation.replace(/\s+/gu, " ");
+    for (const claim of [
+      "packed `v0.1.1` baseline",
+      "fifteen measurements",
+      "baseline median × 1.20",
+      "baseline p95 × 1.35",
+      "16 MiB",
+      "250 ms",
+      "2 seconds",
+      "--fixture still-64k",
+      "Node.js 22 and 24",
+      "does not prove decoder or color correctness",
+    ])
+      expect(normalized).toContain(claim);
+  });
 });
