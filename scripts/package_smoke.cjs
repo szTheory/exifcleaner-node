@@ -1,24 +1,33 @@
 #!/usr/bin/env node
+"use strict";
 
+const { createHash } = require("node:crypto");
 const {
-  appendFileSync,
+  accessSync,
   copyFileSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } = require("node:fs");
 const { tmpdir } = require("node:os");
-const { basename, dirname, isAbsolute, join, resolve } = require("node:path");
+const { basename, dirname, join, resolve } = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { pathToFileURL } = require("node:url");
 
-const args = process.argv.slice(2);
-const keep = args.includes("--keep");
-const suppliedPath = args.find((arg) => arg !== "--keep");
-const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
-const npmInvocation =
-  process.platform === "win32"
+const DEVELOPMENT_SCOPE = "development-current-host";
+const FINAL_SCOPE = "final-matching-host";
+const FORBIDDEN_SCOPE = "final-release";
+
+function hostTuple() {
+  return `${process.platform}-${process.arch}`;
+}
+
+function npmInvocation() {
+  return process.platform === "win32"
     ? {
         command: process.execPath,
         prefix: [
@@ -32,127 +41,282 @@ const npmInvocation =
         ],
       }
     : { command: "npm", prefix: [] };
-let createdTarball = false;
-let tarball;
+}
 
-function run(command, commandArgs, options = {}) {
-  const result = spawnSync(command, commandArgs, {
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, {
     encoding: "utf8",
-    stdio: options.capture ? "pipe" : "inherit",
+    stdio: "pipe",
     ...options,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(
-      `${command} ${commandArgs.join(" ")} exited with status ${result.status}`,
-    );
+    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    throw new Error(`${command} ${args.join(" ")} failed: ${output.trim()}`);
   }
-  return result.stdout;
+  return `${result.stdout ?? ""}${result.stderr ?? ""}`;
 }
 
-function resolveTarball(input) {
-  const candidate = resolve(input);
-  if (candidate.endsWith(".tgz")) return candidate;
-  const archives = readdirSync(candidate)
-    .filter((entry) => entry.endsWith(".tgz"))
-    .sort();
-  if (archives.length !== 1) {
-    throw new Error(
-      `Expected exactly one .tgz in ${candidate}; found ${archives.length}`,
-    );
-  }
-  return join(candidate, archives[0]);
+function sha256(path) {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-if (suppliedPath) {
-  tarball = resolveTarball(suppliedPath);
-} else {
-  const packOutput = run(
-    npmInvocation.command,
-    [...npmInvocation.prefix, "pack", "--json"],
-    { capture: true },
+function parseArguments(args) {
+  const values = {};
+  for (let index = 0; index < args.length; index += 2) {
+    const flag = args[index];
+    const value = args[index + 1];
+    if (!flag?.startsWith("--") || !value)
+      throw new Error("--tarball is required");
+    if (Object.hasOwn(values, flag))
+      throw new Error(`Duplicate option ${flag}`);
+    values[flag] = value;
+  }
+  if (typeof values["--tarball"] !== "string")
+    throw new Error("--tarball is required");
+  const evidenceScope = values["--evidence-scope"] ?? DEVELOPMENT_SCOPE;
+  if (evidenceScope === FORBIDDEN_SCOPE)
+    throw new Error(
+      "final-release evidence is owned by Plan 45-16 and cannot be claimed here",
+    );
+  if (evidenceScope !== DEVELOPMENT_SCOPE && evidenceScope !== FINAL_SCOPE)
+    throw new Error(
+      "--evidence-scope must be development-current-host or final-matching-host",
+    );
+  return { tarball: resolve(values["--tarball"]), evidenceScope };
+}
+
+function assertArchiveShape(tarball) {
+  const listing = run("tar", ["-tf", tarball]).split(/\r?\n/u).filter(Boolean);
+  for (const required of [
+    "package/package.json",
+    "package/LICENSE",
+    "package/README.md",
+    "package/dist/index.js",
+    "package/dist/index.d.ts",
+  ]) {
+    if (!listing.includes(required))
+      throw new Error(`Packed archive is missing ${required}`);
+  }
+  for (const forbiddenPrefix of [
+    "package/src/",
+    "package/test/",
+    "package/tests/",
+  ]) {
+    if (listing.some((entry) => entry.startsWith(forbiddenPrefix)))
+      throw new Error(
+        `Packed archive unexpectedly includes ${forbiddenPrefix}`,
+      );
+  }
+}
+
+function assertLiteralHostArtifact(packageRoot) {
+  const literal = join(
+    packageRoot,
+    "prebuilds",
+    hostTuple(),
+    "publication.node",
   );
-  const packResult = JSON.parse(packOutput);
+  try {
+    if (!statSync(literal).isFile()) throw new Error("not a file");
+  } catch {
+    throw new Error(
+      `Installed package is missing literal host artifact ${hostTuple()}`,
+    );
+  }
+  const loader = readFileSync(
+    join(packageRoot, "dist", "transaction", "native-publication.js"),
+    "utf8",
+  );
+  const literalSpecifier = `../../prebuilds/${process.platform}-${process.arch}/publication.node`;
   if (
-    !Array.isArray(packResult) ||
-    packResult.length !== 1 ||
-    !packResult[0].filename
-  ) {
-    throw new Error("npm pack did not return exactly one package archive");
-  }
-  tarball = resolve(packResult[0].filename);
-  createdTarball = true;
+    !loader.includes(literalSpecifier) ||
+    /\b(?:readdir|glob)\b/u.test(loader)
+  )
+    throw new Error(
+      "Installed native loader does not select the literal host tuple",
+    );
+  return literal;
 }
 
-const archiveListing = run("tar", ["-tf", tarball], { capture: true })
-  .split(/\r?\n/u)
-  .filter(Boolean);
-for (const required of [
-  "package/package.json",
-  "package/LICENSE",
-  "package/README.md",
-  "package/dist/index.js",
-  "package/dist/index.d.ts",
-]) {
-  if (!archiveListing.includes(required)) {
-    throw new Error(`Packed archive is missing ${required}`);
-  }
-}
-for (const forbiddenPrefix of [
-  "package/src/",
-  "package/test/",
-  "package/tests/",
-]) {
-  if (archiveListing.some((entry) => entry.startsWith(forbiddenPrefix))) {
-    throw new Error(`Packed archive unexpectedly includes ${forbiddenPrefix}`);
-  }
+function chunk(fourCc, data) {
+  const header = Buffer.alloc(8);
+  header.write(fourCc, 0, 4, "ascii");
+  header.writeUInt32LE(data.length, 4);
+  return Buffer.concat([
+    header,
+    data,
+    ...(data.length % 2 ? [Buffer.alloc(1)] : []),
+  ]);
 }
 
-const sandbox = mkdtempSync(join(tmpdir(), "exifcleaner package smoke ü-"));
-try {
-  const copiedTarball = join(sandbox, basename(tarball));
-  copyFileSync(tarball, copiedTarball);
-  writeFileSync(
-    join(sandbox, "package.json"),
-    JSON.stringify({
-      name: "exifcleaner-consumer-smoke",
-      private: true,
-      type: "module",
-    }),
+function sourceWebp() {
+  const vp8x = Buffer.alloc(10);
+  vp8x[0] = 0x08;
+  const vp8 = Buffer.from([0x10, 0, 0, 0x9d, 0x01, 0x2a, 1, 0, 1, 0]);
+  const exif = Buffer.from("II*\0\b\0\0\0\0\0\0\0", "binary");
+  const body = Buffer.concat([
+    chunk("VP8X", vp8x),
+    chunk("VP8 ", vp8),
+    chunk("EXIF", exif),
+  ]);
+  const header = Buffer.alloc(12);
+  header.write("RIFF", 0, 4, "ascii");
+  header.writeUInt32LE(body.length + 4, 4);
+  header.write("WEBP", 8, 4, "ascii");
+  return Buffer.concat([header, body]);
+}
+
+async function runTransactions(packageRoot, sandbox) {
+  const api = await import(
+    pathToFileURL(join(packageRoot, "dist", "index.js")).href
   );
-  run(
-    npmInvocation.command,
-    [
-      ...npmInvocation.prefix,
+  const sourcePath = join(sandbox, "source.webp");
+  const destinationPath = join(sandbox, "sanitized.webp");
+  const source = sourceWebp();
+  writeFileSync(sourcePath, source);
+  const options = {
+    sourcePath,
+    destinationPath,
+    preserveOrientation: false,
+    preserveColorProfile: false,
+    preserveTimestamps: false,
+  };
+  const published = await api.sanitizeFile(options);
+  if (!published.ok)
+    throw new Error(
+      `Installed transaction did not publish: ${published.error.code}`,
+    );
+  if (!readFileSync(sourcePath).equals(source))
+    throw new Error("Installed transaction changed source bytes");
+  if (!readFileSync(destinationPath).length)
+    throw new Error("Installed transaction did not write destination");
+
+  const competitorPath = join(sandbox, "competitor.webp");
+  const competitor = Buffer.from("competitor survives", "utf8");
+  writeFileSync(competitorPath, competitor);
+  const collision = await api.sanitizeFile({
+    ...options,
+    destinationPath: competitorPath,
+  });
+  if (collision.ok || collision.error.code !== "destination-exists")
+    throw new Error(
+      "Installed transaction did not refuse competing destination",
+    );
+  if (!readFileSync(competitorPath).equals(competitor))
+    throw new Error("Installed transaction replaced competing destination");
+  const finalization = collision.error.finalization;
+  if (finalization?.state !== "owned-partial-remains")
+    throw new Error(
+      "Installed collision did not preserve bounded D-52 residue truth",
+    );
+  return {
+    sourcePreserved: true,
+    published: true,
+    collisionPreserved: true,
+    postCommitResidue: published.value.postCommitResidue.state,
+    collisionFinalization: finalization.state,
+  };
+}
+
+async function runSmoke({ tarball, evidenceScope }) {
+  assertArchiveShape(tarball);
+  const sandbox = mkdtempSync(join(tmpdir(), "exifcleaner-package-smoke-"));
+  try {
+    const copiedTarball = join(sandbox, basename(tarball));
+    copyFileSync(tarball, copiedTarball);
+    writeFileSync(
+      join(sandbox, "package.json"),
+      JSON.stringify({
+        name: "exifcleaner-consumer-smoke",
+        private: true,
+        type: "module",
+      }),
+    );
+    const npm = npmInvocation();
+    const installArgs = [
+      ...npm.prefix,
       "install",
       "--ignore-scripts",
       "--no-audit",
       "--no-fund",
       copiedTarball,
-    ],
-    {
-      cwd: sandbox,
-    },
-  );
-  writeFileSync(
-    join(sandbox, "smoke.mjs"),
-    "const loaded = await import('exifcleaner-node');\nif (!loaded || typeof loaded !== 'object') throw new Error('Package import failed');\n",
-  );
-  run(process.execPath, ["smoke.mjs"], { cwd: sandbox });
-} finally {
-  rmSync(sandbox, { recursive: true, force: true });
-  if (createdTarball && !keep) rmSync(tarball, { force: true });
+    ];
+    const installOutput = run(npm.command, installArgs, { cwd: sandbox });
+    if (/\b(?:node-gyp|prebuild-install|download)\b/iu.test(installOutput))
+      throw new Error(
+        "scripts-disabled install reported build or download output",
+      );
+    const installedRoot = join(sandbox, "node_modules", "exifcleaner-node");
+    const literalArtifact = assertLiteralHostArtifact(installedRoot);
+    const cases = await runTransactions(installedRoot, sandbox);
+    return {
+      evidenceScope,
+      hostTuple: hostTuple(),
+      nodeVersion: process.version,
+      tarball: { path: tarball, sha256: sha256(tarball) },
+      install: {
+        command: "npm install --ignore-scripts",
+        arguments: installArgs.slice(npm.prefix.length),
+      },
+      selectedArtifact: literalArtifact
+        .slice(installedRoot.length + 1)
+        .replaceAll("\\", "/"),
+      cases,
+    };
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
 }
 
-if (keep && process.env.GITHUB_OUTPUT) {
-  appendFileSync(
-    process.env.GITHUB_OUTPUT,
-    `tarball=${isAbsolute(tarball) ? tarball : resolve(tarball)}\n`,
+function createDevelopmentTarballForTests({ packageRoot, tarball }) {
+  const destination = resolve(tarball);
+  const destinationDirectory = dirname(destination);
+  const packDirectory = mkdtempSync(
+    join(destinationDirectory, "exifcleaner-pack-"),
   );
-  appendFileSync(process.env.GITHUB_OUTPUT, `name=${packageJson.name}\n`);
-  appendFileSync(process.env.GITHUB_OUTPUT, `version=${packageJson.version}\n`);
+  const npm = npmInvocation();
+  try {
+    const output = run(
+      npm.command,
+      [
+        ...npm.prefix,
+        "pack",
+        "--ignore-scripts",
+        "--json",
+        "--pack-destination",
+        packDirectory,
+      ],
+      { cwd: resolve(packageRoot) },
+    );
+    const packed = JSON.parse(output);
+    if (
+      !Array.isArray(packed) ||
+      packed.length !== 1 ||
+      typeof packed[0]?.filename !== "string"
+    )
+      throw new Error(
+        "Test helper could not create exactly one current-host development tarball",
+      );
+    renameSync(join(packDirectory, packed[0].filename), destination);
+    return { tarball: destination, evidenceScope: DEVELOPMENT_SCOPE };
+  } finally {
+    rmSync(packDirectory, { recursive: true, force: true });
+  }
 }
 
-console.log(
-  `Package smoke passed for ${packageJson.name}@${packageJson.version}`,
-);
+module.exports = {
+  assertLiteralHostArtifact,
+  createDevelopmentTarballForTests,
+  parseArguments,
+  runSmoke,
+};
+
+if (require.main === module) {
+  runSmoke(parseArguments(process.argv.slice(2)))
+    .then((evidence) => console.log(JSON.stringify(evidence)))
+    .catch((error) => {
+      console.error(String(error.message ?? error));
+      process.exitCode = 1;
+    });
+}
