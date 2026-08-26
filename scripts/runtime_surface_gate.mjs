@@ -49,7 +49,10 @@ function isForbiddenRuntimeModule(specifier) {
   const bareSpecifier = specifier.startsWith("node:")
     ? specifier.slice("node:".length)
     : specifier;
-  return forbiddenRuntimeModules.has(bareSpecifier);
+  return [...forbiddenRuntimeModules].some(
+    (forbidden) =>
+      bareSpecifier === forbidden || bareSpecifier.startsWith(`${forbidden}/`),
+  );
 }
 
 async function javascriptFiles(root) {
