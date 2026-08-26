@@ -63,6 +63,7 @@ describe("safe transaction file operations", () => {
       undefined,
     );
     const capability: { path?: string } = {};
+    let reopenFlags: number | undefined;
     const restore = setNativePublicationBindingForTests({
       publishNoReplace(stagePath, finalPath) {
         renameSync(stagePath, finalPath);
@@ -81,6 +82,13 @@ describe("safe transaction file operations", () => {
     });
 
     try {
+      const fileOps: FileOps = {
+        ...NODE_FILE_OPS,
+        open: async (path, flags, mode) => {
+          if ((flags & fsConstants.O_EXCL) === 0) reopenFlags = flags;
+          return NODE_FILE_OPS.open(path, flags, mode);
+        },
+      };
       const result = await runSafeTransaction({
         sourceHandle: source,
         sourceSnapshot: snapshotSource(stats),
@@ -96,7 +104,7 @@ describe("safe transaction file operations", () => {
           preserveColorProfile: false,
           preserveTimestamps: false,
         },
-        fileOps: NODE_FILE_OPS,
+        fileOps,
         platform: "win32",
       });
 
@@ -104,6 +112,7 @@ describe("safe transaction file operations", () => {
         ok: true,
         value: { postCommitResidue: { state: "none" } },
       });
+      expect(reopenFlags! & fsConstants.O_RDWR).toBe(fsConstants.O_RDWR);
       await expect(readFile(destinationPath)).resolves.toBeInstanceOf(Buffer);
       await expect(stat(capability.path!)).rejects.toMatchObject({
         code: "ENOENT",

@@ -25,6 +25,7 @@ import {
   DIRECT_FINAL_FLAGS,
   REOPEN_FLAGS,
   STAGE_DIRECTORY_FLAGS,
+  WINDOWS_REOPEN_FLAGS,
   type FileOps,
 } from "./file-ops.js";
 import {
@@ -188,7 +189,10 @@ export async function runSafeTransaction(
     await handler.writeOutput(sourceHandle, stageFile, plan, signal);
     await fileOps.sync(stageFile);
     await fileOps.close(stageFile);
-    stageFile = await fileOps.open(stagePath, REOPEN_FLAGS);
+    stageFile = await fileOps.open(
+      stagePath,
+      platform === "win32" ? WINDOWS_REOPEN_FLAGS : REOPEN_FLAGS,
+    );
     const stageStats = await fileOps.statHandle(stageFile);
     if (identityOf(stageStats) === undefined) {
       failure = executionError(
