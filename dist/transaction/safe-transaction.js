@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { executionError, jsonSafeCause, withDestinationFinalization, } from "../errors.js";
 import { err, ok } from "../result.js";
-import { DIRECT_FINAL_FLAGS, REOPEN_FLAGS, STAGE_DIRECTORY_FLAGS, WINDOWS_REOPEN_FLAGS, } from "./file-ops.js";
-import { identitiesDistinct, identityOf, sourcePathMatchesSnapshot, timestampsMatchAtMillisecondPrecision, } from "./identity.js";
+import { DIRECT_FINAL_FLAGS, DESTINATION_DIRECTORY_FLAGS, REOPEN_FLAGS, STAGE_DIRECTORY_FLAGS, WINDOWS_REOPEN_FLAGS, } from "./file-ops.js";
+import { identitiesDistinct, identityMatches, identityOf, sourcePathMatchesSnapshot, timestampsMatchAtMillisecondPrecision, } from "./identity.js";
 import { createPrivateStageDirectory, disposePrivateStageDirectory, publishNoReplace, } from "./native-publication.js";
 function aborted(signal) {
     return signal?.aborted ?? false;
@@ -27,11 +27,13 @@ export async function runSafeTransaction(input) {
     const stageDirectoryPath = join(dirname(destinationPath), `.exifcleaner-stage-${randomUUID()}`);
     const stagePath = join(stageDirectoryPath, "output.webp");
     let stageDirectory;
+    let destinationDirectory;
     let stageFile;
     let directoryCreated = false;
     let directoryCapability;
     let fileCreated = false;
     let fileIdentity;
+    let stageDirectoryIdentity;
     let failure;
     try {
         if (aborted(signal))
@@ -56,8 +58,8 @@ export async function runSafeTransaction(input) {
             directoryCreated = true;
             stageDirectory = await fileOps.open(stageDirectoryPath, STAGE_DIRECTORY_FLAGS);
             const directoryStats = await fileOps.statHandle(stageDirectory);
-            const directoryIdentity = identityOf(directoryStats);
-            if (directoryIdentity === undefined ||
+            stageDirectoryIdentity = identityOf(directoryStats);
+            if (stageDirectoryIdentity === undefined ||
                 !isVerifiedPosixStageDirectory(directoryStats)) {
                 failure = executionError({
                     code: "write-failed",
@@ -84,7 +86,9 @@ export async function runSafeTransaction(input) {
         await fileOps.close(stageFile);
         stageFile = await fileOps.open(stagePath, platform === "win32" ? WINDOWS_REOPEN_FLAGS : REOPEN_FLAGS);
         const stageStats = await fileOps.statHandle(stageFile);
-        if (identityOf(stageStats) === undefined) {
+        if (fileIdentity === undefined ||
+            identityOf(stageStats)?.dev !== fileIdentity.dev ||
+            identityOf(stageStats)?.ino !== fileIdentity.ino) {
             failure = executionError({
                 code: "write-failed",
                 detail: "Could not reopen the staged output by its owned identity.",
@@ -117,10 +121,21 @@ export async function runSafeTransaction(input) {
             }
         }
         await fileOps.sync(stageFile);
-        await fileOps.close(stageFile);
-        stageFile = undefined;
-        await beforePublish?.();
-        const publication = publishNoReplace(stagePath, destinationPath);
+        if (platform !== "win32") {
+            destinationDirectory = await fileOps.open(dirname(destinationPath), DESTINATION_DIRECTORY_FLAGS);
+        }
+        await beforePublish?.({ stageDirectoryPath, stagePath });
+        if (platform !== "win32" &&
+            (stageDirectoryIdentity === undefined ||
+                !identityMatches(stageDirectoryIdentity, await fileOps.statPath(stageDirectoryPath)))) {
+            failure = executionError({
+                code: "write-failed",
+                detail: "The private staging directory changed before capability publication.",
+                path: destinationPath,
+            }, "started");
+            throw new Error("Private stage directory changed.");
+        }
+        const publication = publishNoReplace(stageFile.fd, stageDirectory?.fd, destinationDirectory?.fd, "output.webp", destinationPath, basename(destinationPath), platform);
         if (publication.state !== "published") {
             failure = executionError({
                 code: publication.state === "destination-exists"
@@ -137,6 +152,12 @@ export async function runSafeTransaction(input) {
             await fileOps.close(stageDirectory);
             stageDirectory = undefined;
         }
+        if (destinationDirectory !== undefined) {
+            await fileOps.close(destinationDirectory);
+            destinationDirectory = undefined;
+        }
+        await fileOps.close(stageFile);
+        stageFile = undefined;
         await fileOps.close(sourceHandle);
         const postCommitResidue = platform === "win32" &&
             directoryCapability !== undefined &&
@@ -190,6 +211,8 @@ export async function runSafeTransaction(input) {
             await fileOps.close(stageFile).catch(() => undefined);
         if (stageDirectory !== undefined)
             await fileOps.close(stageDirectory).catch(() => undefined);
+        if (destinationDirectory !== undefined)
+            await fileOps.close(destinationDirectory).catch(() => undefined);
         await fileOps.close(sourceHandle).catch(() => undefined);
     }
     await Promise.resolve(beforeStageFinalization?.({ stageDirectoryPath, stagePath })).catch(() => undefined);

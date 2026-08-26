@@ -14,6 +14,7 @@
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <io.h>
 #include <aclapi.h>
 #include <sddl.h>
 #elif defined(__APPLE__)
@@ -52,13 +53,15 @@ typedef struct private_stage_directory {
   FILE_ID_INFO identity;
 } private_stage_directory;
 
-static publication_result publish_no_replace(const WCHAR *stage,
+static publication_result publish_no_replace(HANDLE stage,
                                              const WCHAR *destination);
 static private_stage_directory *create_private_stage_directory(const WCHAR *path);
 static publication_result dispose_private_stage_directory(
     private_stage_directory *capability);
 #else
-static publication_result publish_no_replace(const char *stage, const char *destination);
+static publication_result publish_no_replace(int stage_directory, const char *stage_entry,
+                                             int destination_directory,
+                                             const char *destination_entry);
 #endif
 
 #ifndef PUBLICATION_STANDALONE_TEST
@@ -122,54 +125,79 @@ static void finalize_stage_directory(napi_env env, void *data, void *hint) {
 #endif
 
 static napi_value publish_no_replace_binding(napi_env env, napi_callback_info info) {
-  size_t argc = 2;
-  napi_value args[2];
+  size_t argc =
 #if defined(_WIN32)
-  WCHAR *stage;
+      2;
+#else
+      4;
+#endif
+  napi_value args[4];
+#if defined(_WIN32)
+  int32_t stage_descriptor;
+  intptr_t raw_handle;
+  HANDLE stage_handle;
   WCHAR *destination;
 #else
-  size_t stage_length;
-  size_t destination_length;
-  char *stage;
-  char *destination;
+  size_t stage_entry_length;
+  size_t destination_entry_length;
+  int32_t stage_directory;
+  int32_t destination_directory;
+  char *stage_entry;
+  char *destination_entry;
 #endif
   publication_result result = PUBLICATION_FAILED;
-  if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc != 2) {
-    napi_throw_type_error(env, NULL, "publishNoReplace requires two path strings");
+  if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc !=
+#if defined(_WIN32)
+      2
+#else
+      4
+#endif
+      ) {
+    napi_throw_type_error(env, NULL, "publishNoReplace requires native capabilities");
     return NULL;
   }
 #if defined(_WIN32)
-  stage = read_path(env, args[0]);
-  destination = read_path(env, args[1]);
-  if (stage == NULL || destination == NULL) {
-    publication_free(stage);
-    publication_free(destination);
-    napi_throw_error(env, NULL, "could not read publication paths");
+  if (napi_get_value_int32(env, args[0], &stage_descriptor) != napi_ok) {
+    napi_throw_type_error(env, NULL, "publishNoReplace requires an open stage descriptor");
     return NULL;
   }
-  result = publish_no_replace(stage, destination);
-  publication_free(stage);
+  destination = read_path(env, args[1]);
+  if (destination == NULL) {
+    publication_free(destination);
+    napi_throw_error(env, NULL, "could not read destination path");
+    return NULL;
+  }
+  raw_handle = _get_osfhandle(stage_descriptor);
+  if (raw_handle == -1) {
+    publication_free(destination);
+    return publication_result_value(env, PUBLICATION_FAILED);
+  }
+  stage_handle = (HANDLE)raw_handle;
+  result = publish_no_replace(stage_handle, destination);
   publication_free(destination);
 #else
   if (
-      napi_get_value_string_utf8(env, args[0], NULL, 0, &stage_length) != napi_ok ||
-      napi_get_value_string_utf8(env, args[1], NULL, 0, &destination_length) != napi_ok) {
-    napi_throw_type_error(env, NULL, "publishNoReplace requires two path strings");
+      napi_get_value_int32(env, args[0], &stage_directory) != napi_ok ||
+      napi_get_value_string_utf8(env, args[1], NULL, 0, &stage_entry_length) != napi_ok ||
+      napi_get_value_int32(env, args[2], &destination_directory) != napi_ok ||
+      napi_get_value_string_utf8(env, args[3], NULL, 0, &destination_entry_length) != napi_ok) {
+    napi_throw_type_error(env, NULL, "publishNoReplace requires directory descriptors and entry names");
     return NULL;
   }
-  stage = malloc(stage_length + 1);
-  destination = malloc(destination_length + 1);
-  if (stage == NULL || destination == NULL ||
-      napi_get_value_string_utf8(env, args[0], stage, stage_length + 1, NULL) != napi_ok ||
-      napi_get_value_string_utf8(env, args[1], destination, destination_length + 1, NULL) != napi_ok) {
-    free(stage);
-    free(destination);
-    napi_throw_error(env, NULL, "could not read publication paths");
+  stage_entry = malloc(stage_entry_length + 1);
+  destination_entry = malloc(destination_entry_length + 1);
+  if (stage_entry == NULL || destination_entry == NULL ||
+      napi_get_value_string_utf8(env, args[1], stage_entry, stage_entry_length + 1, NULL) != napi_ok ||
+      napi_get_value_string_utf8(env, args[3], destination_entry, destination_entry_length + 1, NULL) != napi_ok) {
+    free(stage_entry);
+    free(destination_entry);
+    napi_throw_error(env, NULL, "could not read publication entry names");
     return NULL;
   }
-  result = publish_no_replace(stage, destination);
-  free(stage);
-  free(destination);
+  result = publish_no_replace(stage_directory, stage_entry, destination_directory,
+                              destination_entry);
+  free(stage_entry);
+  free(destination_entry);
 #endif
   return publication_result_value(env, result);
 }
@@ -259,9 +287,8 @@ static void copy_bytes(BYTE *destination, const BYTE *source, size_t length) {
   for (index = 0; index < length; index += 1) destination[index] = source[index];
 }
 
-static publication_result publish_no_replace(const wchar_t *stage,
+static publication_result publish_no_replace(HANDLE stage_handle,
                                              const wchar_t *destination) {
-  HANDLE stage_handle;
   FILE_RENAME_INFO *rename_info;
   size_t destination_bytes;
   DWORD allocation_size;
@@ -274,17 +301,11 @@ static publication_result publish_no_replace(const wchar_t *stage,
   if (destination_bytes > MAXDWORD - FIELD_OFFSET(FILE_RENAME_INFO, FileName)) {
     return PUBLICATION_FAILED;
   }
-  stage_handle = CreateFileW(stage, DELETE | SYNCHRONIZE,
-                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                             NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-  if (stage_handle == INVALID_HANDLE_VALUE) {
-    return map_windows_error(GetLastError());
-  }
+  if (stage_handle == INVALID_HANDLE_VALUE || stage_handle == NULL) return PUBLICATION_FAILED;
   allocation_size = (DWORD)(FIELD_OFFSET(FILE_RENAME_INFO, FileName) + destination_bytes);
   rename_info = (FILE_RENAME_INFO *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
                                                allocation_size);
   if (rename_info == NULL) {
-    CloseHandle(stage_handle);
     return PUBLICATION_FAILED;
   }
   rename_info->Flags = 0;
@@ -297,7 +318,6 @@ static publication_result publish_no_replace(const wchar_t *stage,
                ? PUBLICATION_PUBLISHED
                : map_windows_error(GetLastError());
   HeapFree(GetProcessHeap(), 0, rename_info);
-  CloseHandle(stage_handle);
   return result;
 }
 
@@ -455,25 +475,32 @@ static publication_result dispose_private_stage_directory(private_stage_director
   return map_windows_error(GetLastError());
 }
 #elif defined(__APPLE__)
-static publication_result publish_no_replace(const char *stage, const char *destination) {
-  if (renamex_np(stage, destination, RENAME_EXCL) == 0) return PUBLICATION_PUBLISHED;
+static publication_result publish_no_replace(int stage_directory, const char *stage_entry,
+                                             int destination_directory,
+                                             const char *destination_entry) {
+  if (renameatx_np(stage_directory, stage_entry, destination_directory,
+                   destination_entry, RENAME_EXCL) == 0) return PUBLICATION_PUBLISHED;
   if (errno == EEXIST) return PUBLICATION_COLLISION;
   if (errno == ENOTSUP || errno == EINVAL || errno == EXDEV) return PUBLICATION_UNSUPPORTED;
   return PUBLICATION_FAILED;
 }
 #else
-static publication_result publish_no_replace(const char *stage, const char *destination) {
+static publication_result publish_no_replace(int stage_directory, const char *stage_entry,
+                                             int destination_directory,
+                                             const char *destination_entry) {
 #ifdef SYS_renameat2
-  long operation = syscall(SYS_renameat2, AT_FDCWD, stage, AT_FDCWD, destination,
-                           RENAME_NOREPLACE);
+  long operation = syscall(SYS_renameat2, stage_directory, stage_entry,
+                           destination_directory, destination_entry, RENAME_NOREPLACE);
   if (operation == 0) return PUBLICATION_PUBLISHED;
   if (errno == EEXIST) return PUBLICATION_COLLISION;
   if (errno == ENOSYS || errno == EINVAL || errno == ENOTSUP || errno == EOPNOTSUPP ||
       errno == EXDEV) return PUBLICATION_UNSUPPORTED;
   return PUBLICATION_FAILED;
 #else
-  (void)stage;
-  (void)destination;
+  (void)stage_directory;
+  (void)stage_entry;
+  (void)destination_directory;
+  (void)destination_entry;
   return PUBLICATION_UNSUPPORTED;
 #endif
 }
@@ -486,7 +513,7 @@ int main(int argc, char **argv) {
 #if defined(_WIN32)
   return 65;
 #else
-  result = publish_no_replace(argv[1], argv[2]);
+  result = publish_no_replace(AT_FDCWD, argv[1], AT_FDCWD, argv[2]);
   if (result == PUBLICATION_PUBLISHED) {
     puts("published");
     return 0;

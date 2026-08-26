@@ -44,3 +44,4 @@ export const WINDOWS_REOPEN_FLAGS =
   fsConstants.O_RDWR | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW;
 export const STAGE_DIRECTORY_FLAGS =
   fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW;
+export const DESTINATION_DIRECTORY_FLAGS = STAGE_DIRECTORY_FLAGS;

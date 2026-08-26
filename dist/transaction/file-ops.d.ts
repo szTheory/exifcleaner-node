@@ -16,4 +16,5 @@ export declare const DIRECT_FINAL_FLAGS: number;
 export declare const REOPEN_FLAGS: number;
 export declare const WINDOWS_REOPEN_FLAGS: number;
 export declare const STAGE_DIRECTORY_FLAGS: number;
+export declare const DESTINATION_DIRECTORY_FLAGS: number;
 //# sourceMappingURL=file-ops.d.ts.map

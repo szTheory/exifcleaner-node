@@ -9,6 +9,7 @@ const sourcePath = resolve(
 const allowedHeaders = new Set([
   "node_api.h",
   "windows.h",
+  "io.h",
   "aclapi.h",
   "sddl.h",
   "stdio.h",
@@ -54,7 +55,7 @@ const allowedCalls = new Set([
   "memcpy",
   "puts",
   "renameat2",
-  "renamex_np",
+  "renameatx_np",
   "syscall",
   "wcschr",
   "wcslen",
@@ -66,6 +67,7 @@ const allowedCalls = new Set([
   "napi_get_cb_info",
   "napi_get_undefined",
   "napi_get_value_external",
+  "napi_get_value_int32",
   "napi_get_value_string_utf16",
   "napi_get_value_string_utf8",
   "napi_throw_error",
@@ -74,6 +76,7 @@ const allowedCalls = new Set([
   "create_private_stage_directory",
   "publication_allocate",
   "read_path",
+  "_get_osfhandle",
 ]);
 const languageCalls = new Set([
   "defined",

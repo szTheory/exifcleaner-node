@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
-import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { cp, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -32,7 +33,7 @@ afterEach(async () => {
 describe("current-host native publication addon", () => {
   it("loads the canonical artifact and publishes without replacing a collision", async () => {
     const binding = require(hostArtifact) as {
-      publishNoReplace(stagePath: string, destinationPath: string): string;
+      publishNoReplace(...args: readonly unknown[]): string;
       createPrivateStageDirectory(): unknown;
       disposePrivateStageDirectory(capability: unknown): string;
     };
@@ -50,16 +51,38 @@ describe("current-host native publication addon", () => {
     const destination = join(directory, "destination.webp");
     await writeFile(stage, "verified stage");
 
-    expect(binding.publishNoReplace(stage, destination)).toBe("published");
+    const stageDirectory = await open(
+      directory,
+      fsConstants.O_RDONLY | fsConstants.O_DIRECTORY,
+    );
+    const destinationDirectory = await open(
+      directory,
+      fsConstants.O_RDONLY | fsConstants.O_DIRECTORY,
+    );
+    const stageHandle = await open(stage, fsConstants.O_RDWR);
+    const publish = (stageEntry: string, destinationEntry: string) =>
+      process.platform === "win32"
+        ? binding.publishNoReplace(stageHandle.fd, destination)
+        : binding.publishNoReplace(
+            stageDirectory.fd,
+            stageEntry,
+            destinationDirectory.fd,
+            destinationEntry,
+          );
+
+    expect(publish("stage.webp", "destination.webp")).toBe("published");
     await expect(
       cp(destination, join(directory, "published-copy.webp")),
     ).resolves.toBeUndefined();
 
     const collisionStage = join(directory, "collision-stage.webp");
     await writeFile(collisionStage, "must stay staged");
-    expect(binding.publishNoReplace(collisionStage, destination)).toBe(
+    expect(publish("collision-stage.webp", "destination.webp")).toBe(
       "collision",
     );
+    await stageHandle.close();
+    await stageDirectory.close();
+    await destinationDirectory.close();
   });
 
   it.runIf(process.platform === "win32")(

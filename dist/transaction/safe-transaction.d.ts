@@ -15,7 +15,10 @@ export interface SafeTransactionInput {
     readonly options: SanitizeOptions;
     readonly fileOps: FileOps;
     /** Private test-only scheduling seam immediately before the one native call. */
-    readonly beforePublish?: () => void | Promise<void>;
+    readonly beforePublish?: (paths: {
+        readonly stageDirectoryPath: string;
+        readonly stagePath: string;
+    }) => void | Promise<void>;
     /** Private test-only seam before bounded terminal-stage finalization. */
     readonly beforeStageFinalization?: (paths: {
         readonly stageDirectoryPath: string;

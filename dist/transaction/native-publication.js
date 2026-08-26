@@ -69,9 +69,17 @@ export function mapNativeStageDirectoryCode(code) {
             return { state: "disposition-failed" };
     }
 }
-export function publishNoReplace(stagePath, destinationPath) {
+export function publishNoReplace(stageFileDescriptor, stageDirectoryDescriptor, destinationDirectoryDescriptor, stageEntryName, destinationPath, destinationEntryName, platform = process.platform) {
     try {
-        return mapNativePublicationCode(nativeBinding().publishNoReplace(stagePath, destinationPath));
+        const args = platform === "win32"
+            ? [stageFileDescriptor, destinationPath]
+            : [
+                stageDirectoryDescriptor,
+                stageEntryName,
+                destinationDirectoryDescriptor,
+                destinationEntryName,
+            ];
+        return mapNativePublicationCode(nativeBinding().publishNoReplace(...args));
     }
     catch {
         return { state: "publication-failed" };
