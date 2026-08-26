@@ -94,8 +94,10 @@ function parseArgs(args) {
 function runMain() {
   const raw = process.argv.slice(2);
   const watchIndex = raw.indexOf("--watch");
-  if (watchIndex !== -1) raw.splice(watchIndex, 1);
+  const watch = watchIndex !== -1;
+  if (watch) raw.splice(watchIndex, 1);
   const values = parseArgs(raw);
+  values.watch = watch;
   const sha = exact(values.sha, "implementation SHA", SHA).toLowerCase();
   if (!values.workflow || !values.validation || !values.watch)
     throw new Error(
