@@ -159,13 +159,63 @@ describe("installed package smoke", () => {
       nodeVersion: process.version,
       install: { command: "npm install --ignore-scripts" },
       tarball: { sha256: expect.stringMatching(/^[a-f0-9]{64}$/u) },
+      manifestSha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      propertySeed: 460_046,
+      propertyRuns: 25,
+      corpusCases: [
+        {
+          id: "exifcleaner-sample",
+          magicAdmission: true,
+          sourceSha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+          outputSha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+          payloadDigests: expect.any(Array),
+        },
+        {
+          id: "derived-two-frame-animation",
+          magicAdmission: true,
+          sourceSha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+          outputSha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+          payloadDigests: expect.any(Array),
+        },
+      ],
       cases: {
         sourcePreserved: true,
         published: true,
         collisionPreserved: true,
+        cancellation: {
+          code: "aborted",
+          nativeWrite: "started",
+          fallback: "do-not-fallback",
+        },
         postCommitResidue: expect.any(String),
       },
     });
+    expect(JSON.stringify(evidence)).not.toMatch(/\/(?:Users|home|tmp)\//u);
+  });
+
+  it("rejects wrong tarball or manifest identity before installation", async () => {
+    const temporary = await mkdtemp(
+      join(tmpdir(), "exifcleaner-package-identity-"),
+    );
+    temporaryDirectories.push(temporary);
+    const tarball = join(temporary, "current-host.tgz");
+    await helper.createDevelopmentTarballForTests({ packageRoot, tarball });
+
+    for (const flag of ["--tarball-sha256", "--manifest-sha256"]) {
+      const result = await runSmoke([
+        "--tarball",
+        tarball,
+        flag,
+        "0".repeat(64),
+      ]);
+      expect(result.exitCode).toBe(1);
+      expect(result.output).toContain(
+        flag === "--tarball-sha256"
+          ? "Tarball digest mismatch"
+          : "Corpus manifest digest mismatch",
+      );
+      expect(result.output).not.toContain("npm install");
+    }
   });
 
   it("refuses final-release labeling for a current-host development tarball", async () => {
@@ -239,5 +289,28 @@ describe("installed package smoke", () => {
     expect(() => helper.assertLiteralHostArtifact(root)).toThrow(
       `literal host artifact ${tuple}`,
     );
+  });
+
+  it("declares the complete six-tuple, two-runtime, focused-oracle CI graph", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    for (const tuple of [
+      "linux-x64",
+      "linux-arm64",
+      "darwin-x64",
+      "darwin-arm64",
+      "win32-x64",
+      "win32-arm64",
+    ])
+      expect(workflow).toContain(`tuple: ${tuple}`);
+    expect(workflow).toContain("fail-fast: false");
+    expect(workflow).toContain("node-22.json");
+    expect(workflow).toContain("node-24.json");
+    expect(workflow).toContain("FC_RUNS=200");
+    expect(workflow).toContain("QUALIFICATION_PROPERTY_RUNS=25");
+    expect(workflow).toContain("build-oracles.cjs --verify-authority");
+    expect(workflow).toContain("tests/qualification/oracles.test.ts");
   });
 });
