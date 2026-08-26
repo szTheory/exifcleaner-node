@@ -23,6 +23,9 @@
 #include <stdlib.h>
 #include <sys/attr.h>
 #include <unistd.h>
+#ifndef AT_FDCWD
+#define AT_FDCWD -2
+#endif
 #else
 #include <errno.h>
 #include <fcntl.h>

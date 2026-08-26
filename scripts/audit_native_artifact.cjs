@@ -22,6 +22,7 @@ const LINUX_IMPORTS = new Set([
 ]);
 const DARWIN_LIBRARIES = new Set(["/usr/lib/libSystem.B.dylib"]);
 const DARWIN_IMPORTS = new Set([
+  "_renameatx_np",
   "_renamex_np",
   "___error",
   "_malloc",
