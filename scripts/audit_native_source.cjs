@@ -6,7 +6,12 @@ const { resolve } = require("node:path");
 const sourcePath = resolve(
   process.argv[2] || resolve(__dirname, "..", "native", "publication.c"),
 );
-const productionSourcePath = resolve(__dirname, "..", "native", "publication.c");
+const productionSourcePath = resolve(
+  __dirname,
+  "..",
+  "native",
+  "publication.c",
+);
 const bindingPath = resolve(__dirname, "..", "binding.gyp");
 const allowedHeaders = new Set([
   "node_api.h",
