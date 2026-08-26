@@ -119,19 +119,24 @@ jobs:
         run: |
           node - <<'NODE'
           const fs = require('node:fs'); const path = require('node:path'); const crypto = require('node:crypto');
-          const tuples = ['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64']; const sha = process.env.GITHUB_SHA;
-          const root = '.native-input'; const dirs = fs.readdirSync(root).sort(); if (dirs.join(',') !== tuples.map(t => `native-${t}`).sort().join(',')) throw new Error('artifact upload set is not exact');
-          fs.mkdirSync('.native-reports'); for (const tuple of tuples) { const dir = path.join(root, `native-${tuple}`); if (fs.readFileSync(path.join(dir,'tuple.txt'),'utf8').trim() !== tuple || fs.readFileSync(path.join(dir,'implementation.sha'),'utf8').trim() !== sha) throw new Error(`identity mismatch for ${tuple}`); const bin=path.join(dir,'prebuilds',tuple,'publication.node'); const report=path.join(dir,`${tuple}.json`); for (const [file,sum] of [[bin,`${tuple}.binary.sha256`],[report,`${tuple}.report.sha256`]]) { const expected=fs.readFileSync(path.join(dir,sum),'utf8').trim().split(/\s+/)[0]; const actual=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); if (expected !== actual) throw new Error(`stale ${sum}`); } fs.mkdirSync(path.join('prebuilds',tuple),{recursive:true}); fs.copyFileSync(bin,path.join('prebuilds',tuple,'publication.node')); fs.copyFileSync(report,path.join('.native-reports',`${tuple}.json`)); }
-          const artifacts=require('./scripts/native_artifacts.cjs'); (async()=>fs.writeFileSync('native-manifest.json',JSON.stringify(await artifacts.createManifest('.',Object.fromEntries(tuples.map(t=>[t,fs.readFileSync(`.native-reports/${t}.json`,'utf8')]))),null,2)))().catch(error=>{throw error});
-          fs.rmSync(root, { recursive: true, force: true });
+          (async () => {
+            const tuples = ['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64']; const sha = process.env.GITHUB_SHA;
+            const inputRoot = '.native-input'; const assemblyRoot = '.native-assembly'; const dirs = fs.readdirSync(inputRoot).sort(); if (dirs.join(',') !== tuples.map(t => `native-${t}`).sort().join(',')) throw new Error('artifact upload set is not exact');
+            fs.mkdirSync('.native-reports'); for (const tuple of tuples) { const dir = path.join(inputRoot, `native-${tuple}`); if (fs.readFileSync(path.join(dir,'tuple.txt'),'utf8').trim() !== tuple || fs.readFileSync(path.join(dir,'implementation.sha'),'utf8').trim() !== sha) throw new Error(`identity mismatch for ${tuple}`); const bin=path.join(dir,'prebuilds',tuple,'publication.node'); const report=path.join(dir,`${tuple}.json`); for (const [file,sum] of [[bin,`${tuple}.binary.sha256`],[report,`${tuple}.report.sha256`]]) { const expected=fs.readFileSync(path.join(dir,sum),'utf8').trim().split(/\s+/)[0]; const actual=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); if (expected !== actual) throw new Error(`stale ${sum}`); } fs.mkdirSync(path.join(assemblyRoot,'prebuilds',tuple),{recursive:true}); fs.copyFileSync(bin,path.join(assemblyRoot,'prebuilds',tuple,'publication.node')); fs.copyFileSync(report,path.join('.native-reports',`${tuple}.json`)); }
+            const artifacts=require('./scripts/native_artifacts.cjs'); const reports=Object.fromEntries(tuples.map(t=>[t,fs.readFileSync(`.native-reports/${t}.json`,'utf8')])); const manifest=await artifacts.createManifest(assemblyRoot,reports); fs.writeFileSync('native-manifest.json',JSON.stringify(manifest,null,2));
+            fs.rmSync(inputRoot, { recursive: true, force: true });
+          })().catch(error => { console.error(error); process.exitCode = 1; });
           NODE
-          node scripts/runtime_surface_gate.mjs --assembly-root . --manifest native-manifest.json --reports-dir .native-reports --evidence-scope final-release
+          node scripts/runtime_surface_gate.mjs --assembly-root .native-assembly --manifest native-manifest.json --reports-dir .native-reports --evidence-scope final-release
+          node - <<'NODE'
+          const fs=require('node:fs'); const path=require('node:path'); const tuples=['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64']; fs.rmSync('prebuilds',{recursive:true,force:true}); for(const tuple of tuples){const target=path.join('prebuilds',tuple); fs.mkdirSync(target,{recursive:true}); fs.copyFileSync(path.join('.native-assembly',target,'publication.node'),path.join(target,'publication.node'));}
+          NODE
       - name: Pack exactly the admitted bytes
         shell: bash
         run: |
           npm pack --json > pack.json
           tarball="$(node -p "require('./pack.json')[0].filename")"
-          tar -tf "$tarball" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.stringify(d.trim().split(/\\r?\\n/))))" > packed-listing.json
+          tar -tf "$tarball" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.stringify(d.trim().split(/\\r?\\n/).map(p=>p.replace(/^package\\//,'')))))" > packed-listing.json
           node scripts/runtime_surface_gate.mjs --packed-listing packed-listing.json
           sha256sum "$tarball" > tarball.sha256
       - id: identity
