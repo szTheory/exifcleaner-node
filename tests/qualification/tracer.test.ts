@@ -58,7 +58,7 @@ describe("WebP qualification tracer", () => {
     );
     const validRecord = {
       id: "reviewed",
-      role: "decode",
+      roles: ["decode"],
       localPath: "sample.webp",
       provenance: {
         revision: "ba365b3459b0d87ce255124a5eef819aca603efd",
@@ -76,7 +76,8 @@ describe("WebP qualification tracer", () => {
     };
     for (const malformed of [
       { ...validRecord, id: "Bad ID" },
-      { ...validRecord, role: "unclassified" },
+      { ...validRecord, roles: ["unclassified"] },
+      { ...validRecord, roles: [] },
       { ...validRecord, localPath: "../sample.webp" },
       {
         ...validRecord,
@@ -98,5 +99,29 @@ describe("WebP qualification tracer", () => {
     await expect(
       readFile(new URL("manifest.json", `file://${corpusRoot}`)),
     ).resolves.toBeDefined();
+  });
+
+  it("admits the immutable BSD libwebp fixture with all oracle roles", async () => {
+    const record = await loadCorpusRecord("libwebp-1.5.0-example");
+    expect(record).toMatchObject({
+      roles: ["decode", "differential", "structural"],
+      localPath: "upstream/libwebp-1.5.0-example.webp",
+      provenance: {
+        revision: "a4d7a715337ded4451fec90ff8ce79728e04126c",
+        license: "BSD-3-Clause",
+        licenseStatus: "approved",
+      },
+      bytes: 4_880,
+      retainedPayloads: [
+        {
+          fourCc: "VP8 ",
+          sha256:
+            "89c641e38f1b10766880e7c81e3ca69246836fdb81100c39cd39881513b9dd36",
+        },
+      ],
+    });
+    await expect(materializeCorpusRecord(record.id)).resolves.toHaveLength(
+      4_880,
+    );
   });
 });
