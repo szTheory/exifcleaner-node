@@ -75,6 +75,28 @@ async function main() {
       cwd: packageRoot,
       stdio: "inherit",
     });
+    if (process.platform === "darwin") {
+      execFileSync(
+        "xcrun",
+        [
+          "clang",
+          "-bundle",
+          "-undefined",
+          "dynamic_lookup",
+          join(
+            buildDirectory,
+            "Release",
+            "obj.target",
+            "publication",
+            "native",
+            "publication.o",
+          ),
+          "-o",
+          output,
+        ],
+        { cwd: packageRoot, stdio: "inherit" },
+      );
+    }
     validateBinary(await readFile(output));
     await mkdir(dirname(destination), { recursive: true });
     await copyFile(output, destination);

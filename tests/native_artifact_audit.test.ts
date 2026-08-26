@@ -1,17 +1,21 @@
 import { createHash } from "node:crypto";
-import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const audit = await import("../scripts/audit_native_artifact.cjs");
-const artifacts = await import("../scripts/native_artifacts.cjs");
+const require = createRequire(import.meta.url);
+const audit = require("../scripts/audit_native_artifact.cjs");
+const artifacts = require("../scripts/native_artifacts.cjs");
 const roots: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  await Promise.all(
+    roots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+  );
 });
 
 function digest(value: string | Uint8Array): string {
@@ -68,7 +72,9 @@ async function cleanManifest(root: string) {
   const reports: Record<string, string> = {};
   for (const record of artifacts.EXACT_ARTIFACTS) {
     const target = join(root, record.path);
-    await (await import("node:fs/promises")).mkdir(dirname(target), { recursive: true });
+    await (
+      await import("node:fs/promises")
+    ).mkdir(dirname(target), { recursive: true });
     await writeFile(target, binary(record.binaryFormat, record.machine));
     reports[record.tuple] = cleanReport(record.tuple);
   }
@@ -76,6 +82,17 @@ async function cleanManifest(root: string) {
 }
 
 describe("native compiled artifact audits", () => {
+  it.runIf(process.platform === "darwin")(
+    "accepts the compiled matching-host artifact",
+    () => {
+      expect(
+        audit.auditHostArtifact(
+          join(packageRoot, "prebuilds", "darwin-arm64", "publication.node"),
+        ),
+      ).toContain('"auditTool":"otool-nm"');
+    },
+  );
+
   it("accepts clean readelf, otool/nm, and dumpbin parser fixtures", () => {
     expect(cleanReport("linux-x64")).toContain('"auditTool":"readelf"');
     expect(cleanReport("darwin-arm64")).toContain('"auditTool":"otool-nm"');
@@ -83,12 +100,27 @@ describe("native compiled artifact audits", () => {
   });
 
   it.each([
-    ["linux dependency", () => audit.auditLinux("Shared library: [libcurl.so.4]", "")],
-    ["linux import", () => audit.auditLinux("Shared library: [libc.so.6]", " UND socket")],
-    ["darwin dependency", () => audit.auditDarwin("\t/usr/lib/libobjc.A.dylib", "")],
-    ["darwin import", () => audit.auditDarwin("\t/usr/lib/libSystem.B.dylib", " U _dlopen")],
+    [
+      "linux dependency",
+      () => audit.auditLinux("Shared library: [libcurl.so.4]", ""),
+    ],
+    [
+      "linux import",
+      () => audit.auditLinux("Shared library: [libc.so.6]", " UND socket"),
+    ],
+    [
+      "darwin dependency",
+      () => audit.auditDarwin("\t/usr/lib/libobjc.A.dylib", ""),
+    ],
+    [
+      "darwin import",
+      () => audit.auditDarwin("\t/usr/lib/libSystem.B.dylib", " U _dlopen"),
+    ],
     ["windows dependency", () => audit.auditWindows("WS2_32.dll", "")],
-    ["windows import", () => audit.auditWindows("KERNEL32.dll", "LoadLibraryW")],
+    [
+      "windows import",
+      () => audit.auditWindows("KERNEL32.dll", "    LoadLibraryW"),
+    ],
   ])("rejects forbidden %s", (_name, run) => {
     expect(run).toThrow(/not allowlisted|forbidden/i);
   });
@@ -101,27 +133,52 @@ describe("native compiled artifact audits", () => {
     expect(manifest.map((record: { path: string }) => record.path)).toEqual(
       artifacts.EXACT_ARTIFACTS.map((record: { path: string }) => record.path),
     );
-    expect(manifest.every((record: { sha256: string; auditReportSha256: string }) => /^[a-f0-9]{64}$/.test(record.sha256) && /^[a-f0-9]{64}$/.test(record.auditReportSha256))).toBe(true);
+    expect(
+      manifest.every(
+        (record: { sha256: string; auditReportSha256: string }) =>
+          /^[a-f0-9]{64}$/.test(record.sha256) &&
+          /^[a-f0-9]{64}$/.test(record.auditReportSha256),
+      ),
+    ).toBe(true);
   });
 
   it("rejects missing, duplicate, unexpected, mislabeled, stale, and wrong-machine artifacts", async () => {
     const root = await fixtureRoot();
     const manifest = await cleanManifest(root);
     const missing = manifest.slice(1);
-    expect(() => artifacts.validateManifest(root, missing)).toThrow(/exactly six/i);
-    expect(() => artifacts.validateManifest(root, [...manifest, manifest[0]])).toThrow(/duplicate|exactly six/i);
+    await expect(artifacts.validateManifest(root, missing)).rejects.toThrow(
+      /exactly six/i,
+    );
+    await expect(
+      artifacts.validateManifest(root, [...manifest, manifest[0]]),
+    ).rejects.toThrow(/duplicate|exactly six/i);
 
-    const unexpected = join(root, "prebuilds", "linux-ppc64", "publication.node");
-    await (await import("node:fs/promises")).mkdir(dirname(unexpected), { recursive: true });
+    const unexpected = join(
+      root,
+      "prebuilds",
+      "linux-ppc64",
+      "publication.node",
+    );
+    await (
+      await import("node:fs/promises")
+    ).mkdir(dirname(unexpected), { recursive: true });
     await writeFile(unexpected, binary("elf", "x64"));
-    await expect(artifacts.validateManifest(root, manifest)).rejects.toThrow(/unexpected/i);
+    await expect(artifacts.validateManifest(root, manifest)).rejects.toThrow(
+      /unexpected/i,
+    );
     await rm(unexpected);
 
     const wrongMachine = { ...manifest[0], machine: "arm64" };
-    await expect(artifacts.validateManifest(root, [wrongMachine, ...manifest.slice(1)])).rejects.toThrow(/machine/i);
+    await expect(
+      artifacts.validateManifest(root, [wrongMachine, ...manifest.slice(1)]),
+    ).rejects.toThrow(/machine/i);
     const staleHash = { ...manifest[0], sha256: digest("stale") };
-    await expect(artifacts.validateManifest(root, [staleHash, ...manifest.slice(1)])).rejects.toThrow(/hash/i);
+    await expect(
+      artifacts.validateManifest(root, [staleHash, ...manifest.slice(1)]),
+    ).rejects.toThrow(/hash/i);
     const staleReport = { ...manifest[0], auditReportSha256: digest("stale") };
-    await expect(artifacts.validateManifest(root, [staleReport, ...manifest.slice(1)])).rejects.toThrow(/audit report/i);
+    await expect(
+      artifacts.validateManifest(root, [staleReport, ...manifest.slice(1)]),
+    ).rejects.toThrow(/audit report/i);
   });
 });

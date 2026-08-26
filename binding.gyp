@@ -14,7 +14,9 @@
         }],
         ["OS=='mac'", {
           "xcode_settings": {
-            "CLANG_C_LANGUAGE_STANDARD": "c11"
+            "CLANG_C_LANGUAGE_STANDARD": "c11",
+            "GCC_ENABLE_STACK_PROTECTOR": "NO",
+            "OTHER_CFLAGS": ["-fno-stack-protector"]
           }
         }]
       ]
