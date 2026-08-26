@@ -26,6 +26,37 @@ jobs:
       - run: npm ci
       - run: npm run lint && npm run typecheck && npm run check:cycles && npm run build && npm run check:runtime
 
+  qualification-linux:
+    needs: quality
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: "${{ github.sha }}"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build && npm run build:native
+      - name: Admit committed offline oracle authority
+        run: node scripts/qualification/build-oracles.cjs --verify-authority > oracle-authority.json
+      - name: Run complete property, transaction, and external-oracle corpus
+        run: FC_SEED=460046 FC_RUNS=200 npm test -- tests/qualification/property.test.ts tests/qualification/transaction.test.ts tests/qualification/oracles.test.ts
+      - name: Record focused qualification conclusion
+        if: always()
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'); const crypto=require('node:crypto'); const manifest=fs.readFileSync('tests/corpus/manifest.json'); const authority=fs.existsSync('oracle-authority.json')?JSON.parse(fs.readFileSync('oracle-authority.json','utf8')):null; fs.writeFileSync('qualification-linux.json',JSON.stringify({version:1,tuple:`${process.platform}-${process.arch}`,nodeVersion:process.version,seed:460046,propertyRuns:200,manifestSha256:crypto.createHash('sha256').update(manifest).digest('hex'),authority},null,2));
+          NODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: qualification-linux-x64-node24
+          path: qualification-linux.json
+          if-no-files-found: error
+
   build-audit-native:
     name: build-audit-${{ matrix.tuple }}
     needs: quality
@@ -197,13 +228,17 @@ jobs:
           node-version: 22
       - name: Smoke unchanged admitted tarball on Node 22
         shell: bash
-        run: node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --evidence-scope final-matching-host > node-22.json
+        run: |
+          manifest_sha="$(node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'))")"
+          QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host > node-22.json
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
       - name: Smoke unchanged admitted tarball on Node 24
         shell: bash
-        run: node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --evidence-scope final-matching-host > node-24.json
+        run: |
+          manifest_sha="$(node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'))")"
+          QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host > node-24.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: "installed-${{ matrix.tuple }}"
