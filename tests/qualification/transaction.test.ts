@@ -159,7 +159,8 @@ describe("deterministic transaction qualification", () => {
         phase: "transaction",
         nativeWrite:
           operation === "stage-directory-create" ||
-          operation === "stage-directory-verify"
+          operation === "stage-directory-verify" ||
+          operation === "stage-open"
             ? "not-started"
             : "started",
         finalization: { state: "owned-partial-remains" },
@@ -202,7 +203,10 @@ describe("deterministic transaction qualification", () => {
         mkdirSync(stageDirectoryPath, { mode: 0o700 });
         return capability;
       },
-      publishNoReplace(_descriptor, destinationPath) {
+      publishNoReplace(...args) {
+        const destinationPath = args[1];
+        if (typeof destinationPath !== "string")
+          throw new Error("Expected Windows publication arguments");
         renameSync(join(capability.path!, "output.webp"), destinationPath);
         return "published";
       },
@@ -267,9 +271,25 @@ describe("deterministic transaction qualification", () => {
     };
     const handler: RegisteredHandler = {
       ...controller.wrapHandler(webpHandler),
-      writeOutput: async (...args) => {
-        if (point === "during-bounded-copy") await barrier.pause();
-        return controller.wrapHandler(webpHandler).writeOutput(...args);
+      writeOutput: async (source, destination, plan, signal) => {
+        if (point !== "during-bounded-copy")
+          return controller
+            .wrapHandler(webpHandler)
+            .writeOutput(source, destination, plan, signal);
+        let paused = false;
+        const wrappedDestination = {
+          write: async (...args: Parameters<typeof destination.write>) => {
+            const result = await destination.write(...args);
+            if (!paused) {
+              paused = true;
+              await barrier.pause();
+            }
+            return result;
+          },
+        } as unknown as typeof destination;
+        return controller
+          .wrapHandler(webpHandler)
+          .writeOutput(source, wrappedDestination, plan, signal);
       },
       verifyOutput: async (...args) => {
         const result = await controller

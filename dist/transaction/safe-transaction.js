@@ -101,6 +101,8 @@ export async function runSafeTransaction(input) {
             failure = verified.error;
             throw new Error("Staged output verification failed.");
         }
+        if (aborted(signal))
+            throw new DOMException("Aborted", "AbortError");
         if (!sourcePathMatchesSnapshot(sourceSnapshot, await fileOps.statPath(sourcePath))) {
             failure = executionError({
                 code: "source-changed",
@@ -125,6 +127,8 @@ export async function runSafeTransaction(input) {
             destinationDirectory = await fileOps.open(dirname(destinationPath), DESTINATION_DIRECTORY_FLAGS);
         }
         await beforePublish?.({ stageDirectoryPath, stagePath });
+        if (aborted(signal))
+            throw new DOMException("Aborted", "AbortError");
         if (platform !== "win32" &&
             (stageDirectoryIdentity === undefined ||
                 !identityMatches(stageDirectoryIdentity, await fileOps.statPath(stageDirectoryPath)))) {
