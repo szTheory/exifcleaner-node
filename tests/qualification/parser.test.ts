@@ -14,11 +14,7 @@ import {
 
 async function withMaterializedCase<T>(
   id: string,
-  callback: (
-    path: string,
-    fileSize: number,
-    directory: string,
-  ) => Promise<T>,
+  callback: (path: string, fileSize: number, directory: string) => Promise<T>,
 ): Promise<T> {
   const materialized = materializeMutationCase(id);
   const directory = await mkdtemp(join(tmpdir(), "webp-parser-case-"));
@@ -48,24 +44,27 @@ async function parsePath(path: string, fileSize: number) {
 }
 
 describe("grammar-aware WebP qualification cases", () => {
-  it.each(validGrammarCases)("parses $id with distinct ordered chunk boundaries", async ({ id, bytes }) => {
-    const directory = await mkdtemp(join(tmpdir(), "webp-valid-case-"));
-    const path = join(directory, "source.webp");
-    try {
-      await writeFile(path, bytes);
-      const parsed = await parsePath(path, bytes.length);
-      expect(parsed.chunks.length).toBeGreaterThan(0);
-      for (let index = 1; index < parsed.chunks.length; index += 1) {
-        const previous = parsed.chunks[index - 1]!;
-        const current = parsed.chunks[index]!;
-        expect(previous.dataOffset + previous.paddedSize).toBe(
-          current.headerOffset,
-        );
+  it.each(validGrammarCases)(
+    "parses $id with distinct ordered chunk boundaries",
+    async ({ id, bytes }) => {
+      const directory = await mkdtemp(join(tmpdir(), "webp-valid-case-"));
+      const path = join(directory, "source.webp");
+      try {
+        await writeFile(path, bytes);
+        const parsed = await parsePath(path, bytes.length);
+        expect(parsed.chunks.length).toBeGreaterThan(0);
+        for (let index = 1; index < parsed.chunks.length; index += 1) {
+          const previous = parsed.chunks[index - 1]!;
+          const current = parsed.chunks[index]!;
+          expect(previous.dataOffset + previous.paddedSize).toBe(
+            current.headerOffset,
+          );
+        }
+      } finally {
+        await rm(directory, { recursive: true, force: true });
       }
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
-  });
+    },
+  );
 
   it("replays the same valid grammar sample from the same seed", () => {
     const first = fc.sample(webpArbitrary(), { seed: 460046, numRuns: 8 });
