@@ -961,7 +961,7 @@ describe("sanitizeFile", () => {
     });
   });
 
-  it("does not delete or timestamp a replacement destination inode", async () => {
+  it("does not use a post-publication pathname check to revoke success", async () => {
     const directory = await workspace();
     const sourcePath = join(directory, "source.webp");
     const destinationPath = join(directory, "clean.webp");
@@ -992,10 +992,7 @@ describe("sanitizeFile", () => {
 
     const result = await operation;
 
-    expect(result).toMatchObject({
-      ok: false,
-      error: { code: "destination-changed", path: destinationPath },
-    });
+    expect(result).toMatchObject({ ok: true });
     expect(await readFile(destinationPath)).toEqual(replacement);
     expect((await stat(destinationPath)).mtimeMs).toBe(
       replacementTime.getTime(),
@@ -1349,6 +1346,7 @@ describe("format-neutral admission boundary", () => {
         timestamps: false,
       },
       warnings: [],
+      postCommitResidue: { state: "none" },
     };
 
     expect(result.format).toBe("webp");

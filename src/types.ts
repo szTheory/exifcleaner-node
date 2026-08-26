@@ -53,7 +53,15 @@ export interface SanitizeResult {
     readonly timestamps: boolean;
   };
   readonly warnings: readonly MetadataWarning[];
+  readonly postCommitResidue: PostCommitResidue;
 }
+
+export type PostCommitResidue =
+  | { readonly state: "none" }
+  | {
+      readonly state: "private-empty-stage-directory-remains";
+      readonly cause: JsonSafeCause;
+    };
 
 export interface WebpCapabilities {
   readonly format: "webp";

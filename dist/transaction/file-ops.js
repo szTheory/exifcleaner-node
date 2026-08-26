@@ -1,6 +1,7 @@
 import { constants as fsConstants } from "node:fs";
-import { lstat, open, rm, stat } from "node:fs/promises";
+import { lstat, mkdir, open, rm, stat } from "node:fs/promises";
 export const NODE_FILE_OPS = Object.freeze({
+    createDirectory: (path, mode) => mkdir(path, { mode }),
     open,
     statPath: stat,
     lstatPath: lstat,
@@ -12,4 +13,5 @@ export const NODE_FILE_OPS = Object.freeze({
 });
 export const DIRECT_FINAL_FLAGS = fsConstants.O_RDWR | fsConstants.O_CREAT | fsConstants.O_EXCL;
 export const REOPEN_FLAGS = fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW;
+export const STAGE_DIRECTORY_FLAGS = fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW;
 //# sourceMappingURL=file-ops.js.map

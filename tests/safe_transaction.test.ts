@@ -3,6 +3,7 @@ import {
   mkdtemp,
   open,
   readFile,
+  readdir,
   rm,
   stat,
   symlink,
@@ -35,6 +36,66 @@ afterEach(async () =>
 describe("safe transaction file operations", () => {
   it("keeps the Node adapter private to the transaction layer", () => {
     expect(NODE_FILE_OPS).toBeDefined();
+  });
+
+  it("keeps all work in a verified private stage until the native collision", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    const competitor = Buffer.from("competitor owns this destination");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
+    let pathnameRemovals = 0;
+    const result = await runSafeTransaction({
+      sourceHandle: source,
+      sourceSnapshot: snapshotSource(stats),
+      sourceMode: stats.mode,
+      handler: webpHandler,
+      admission,
+      plan,
+      orientation: undefined,
+      options: {
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      },
+      fileOps: {
+        ...NODE_FILE_OPS,
+        remove: async () => {
+          pathnameRemovals += 1;
+          throw new Error("private stages must not use pathname cleanup");
+        },
+      },
+      beforePublish: async () => writeFile(destinationPath, competitor),
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "destination-exists",
+        phase: "transaction",
+        nativeWrite: "started",
+        finalization: { state: "owned-partial-remains" },
+      },
+    });
+    expect(await readFile(destinationPath)).toEqual(competitor);
+    expect(pathnameRemovals).toBe(0);
+    const stageName = (await readdir(directory)).find((entry) =>
+      entry.startsWith(".exifcleaner-stage-"),
+    );
+    expect(stageName).toBeDefined();
+    expect((await stat(join(directory, stageName!))).mode & 0o077).toBe(0);
   });
 
   it("treats a post-create sync fault as terminal without starting a second writer", async () => {
@@ -101,11 +162,11 @@ describe("safe transaction file operations", () => {
         code: "write-failed",
         nativeWrite: "started",
         phase: "transaction",
-        finalization: { state: "owned-partial-removed" },
+        finalization: { state: "owned-partial-remains" },
       },
     });
     expect(writerStarts).toBe(1);
-    expect(operations).toEqual(["create", "sync", "close", "close", "remove"]);
+    expect(operations).not.toContain("remove");
   });
 
   it("reports an already missing owned destination without recreating it", async () => {
@@ -159,16 +220,16 @@ describe("safe transaction file operations", () => {
       ok: false,
       error: {
         code: "write-failed",
-        finalization: { state: "already-missing" },
+        finalization: { state: "owned-partial-remains" },
       },
     });
     await expect(stat(destinationPath)).rejects.toMatchObject({
       code: "ENOENT",
     });
-    expect(cleanupAttempts).toBe(1);
+    expect(cleanupAttempts).toBe(0);
   });
 
-  it("leaves a replacement untouched when cleanup no longer owns the path", async () => {
+  it("does not use pathname observation as an authority after stage failure", async () => {
     const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
     directories.push(directory);
     const sourcePath = join(directory, "source.webp");
@@ -196,9 +257,6 @@ describe("safe transaction file operations", () => {
         await writeFile(destinationPath, replacement);
         return NODE_FILE_OPS.lstatPath(path);
       },
-      remove: async () => {
-        throw new Error("replacement must not be removed");
-      },
     };
 
     const result = await runSafeTransaction({
@@ -223,11 +281,13 @@ describe("safe transaction file operations", () => {
       ok: false,
       error: {
         code: "write-failed",
-        finalization: { state: "replaced-and-left-untouched" },
+        finalization: { state: "owned-partial-remains" },
       },
     });
-    await expect(readFile(destinationPath)).resolves.toEqual(replacement);
-    expect(cleanupAttempts).toBe(1);
+    await expect(readFile(destinationPath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    expect(cleanupAttempts).toBe(0);
   });
 
   it("reports a bounded residue cause when owned cleanup fails", async () => {
@@ -249,9 +309,6 @@ describe("safe transaction file operations", () => {
       ...NODE_FILE_OPS,
       sync: async () => {
         throw new Error("injected sync failure");
-      },
-      remove: async () => {
-        throw Object.assign(new Error("denied"), { code: "EPERM" });
       },
     };
 
@@ -279,11 +336,14 @@ describe("safe transaction file operations", () => {
         code: "write-failed",
         finalization: {
           state: "owned-partial-remains",
-          cause: { code: "EPERM", message: "denied" },
+          cause: {
+            message:
+              "Private staged file remains after terminal publication failure.",
+          },
         },
       },
     });
-    await expect(stat(destinationPath)).resolves.toBeDefined();
+    await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("cancels after creation through exactly one cleanup path", async () => {
@@ -348,11 +408,11 @@ describe("safe transaction file operations", () => {
         code: "aborted",
         phase: "transaction",
         nativeWrite: "started",
-        finalization: { state: "owned-partial-removed" },
+        finalization: { state: "owned-partial-remains" },
       },
     });
     expect(writerStarts).toBe(1);
-    expect(cleanupAttempts).toBe(1);
+    expect(cleanupAttempts).toBe(0);
   });
 
   it("fails closed when an identity or source snapshot cannot be proven", async () => {

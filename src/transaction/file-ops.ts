@@ -1,9 +1,10 @@
 import { constants as fsConstants } from "node:fs";
-import { lstat, open, rm, stat } from "node:fs/promises";
+import { lstat, mkdir, open, rm, stat } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import type { Stats } from "node:fs";
 
 export interface FileOps {
+  readonly createDirectory: (path: string, mode: number) => Promise<void>;
   readonly open: (
     path: string,
     flags: number,
@@ -23,6 +24,7 @@ export interface FileOps {
 }
 
 export const NODE_FILE_OPS: FileOps = Object.freeze({
+  createDirectory: (path: string, mode: number) => mkdir(path, { mode }),
   open,
   statPath: stat,
   lstatPath: lstat,
@@ -38,3 +40,5 @@ export const DIRECT_FINAL_FLAGS =
   fsConstants.O_RDWR | fsConstants.O_CREAT | fsConstants.O_EXCL;
 export const REOPEN_FLAGS =
   fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW;
+export const STAGE_DIRECTORY_FLAGS =
+  fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW;

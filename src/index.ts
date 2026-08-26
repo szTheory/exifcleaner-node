@@ -13,6 +13,7 @@ export type {
   MetadataValue,
   MetadataWarning,
   NativeFormat,
+  PostCommitResidue,
   Result,
   SanitizeOptions,
   SanitizeResult,

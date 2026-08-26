@@ -1,14 +1,17 @@
+import type { Stats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { dirname, join } from "node:path";
 import {
   executionError,
-  isNodeErrorCode,
   jsonSafeCause,
   withDestinationFinalization,
 } from "../errors.js";
 import { err, ok } from "../result.js";
 import type {
-  DestinationFinalization,
+  JsonSafeCause,
   MetadataError,
+  PostCommitResidue,
   Result,
   SanitizeOptions,
   SanitizeResult,
@@ -18,9 +21,13 @@ import type {
   WebpAdmission,
   WebpOutputChunk,
 } from "../admission/webp-handler.js";
-import { DIRECT_FINAL_FLAGS, REOPEN_FLAGS, type FileOps } from "./file-ops.js";
 import {
-  destinationPathMatchesIdentity,
+  DIRECT_FINAL_FLAGS,
+  REOPEN_FLAGS,
+  STAGE_DIRECTORY_FLAGS,
+  type FileOps,
+} from "./file-ops.js";
+import {
   identitiesDistinct,
   identityOf,
   sourcePathMatchesSnapshot,
@@ -28,9 +35,27 @@ import {
   type FileIdentity,
   type SourceSnapshot,
 } from "./identity.js";
+import { publishNoReplace } from "./native-publication.js";
 
 function aborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
+}
+
+function stageResidue(cause: JsonSafeCause): PostCommitResidue {
+  return {
+    state: "private-empty-stage-directory-remains",
+    cause,
+  };
+}
+
+function isVerifiedPosixStageDirectory(stats: Stats): boolean {
+  const euid = process.geteuid?.();
+  return (
+    stats.isDirectory() &&
+    euid !== undefined &&
+    stats.uid === euid &&
+    (stats.mode & 0o077) === 0
+  );
 }
 
 export interface SafeTransactionInput {
@@ -43,6 +68,8 @@ export interface SafeTransactionInput {
   readonly orientation: number | undefined;
   readonly options: SanitizeOptions;
   readonly fileOps: FileOps;
+  /** Private test-only scheduling seam immediately before the one native call. */
+  readonly beforePublish?: () => void | Promise<void>;
 }
 
 export async function runSafeTransaction(
@@ -58,103 +85,90 @@ export async function runSafeTransaction(
     orientation,
     options,
     fileOps,
+    beforePublish,
   } = input;
   const { sourcePath, destinationPath, signal } = options;
-  let destination: FileHandle | undefined;
-  let owned: FileIdentity | undefined;
-  let started = false;
+  const stageDirectoryPath = join(
+    dirname(destinationPath),
+    `.exifcleaner-stage-${randomUUID()}`,
+  );
+  const stagePath = join(stageDirectoryPath, "output.webp");
+  let stageDirectory: FileHandle | undefined;
+  let stageFile: FileHandle | undefined;
+  let directoryCreated = false;
+  let directoryIdentity: FileIdentity | undefined;
+  let fileCreated = false;
+  let fileIdentity: FileIdentity | undefined;
   let failure: MetadataError | undefined;
+
   try {
     if (aborted(signal)) throw new DOMException("Aborted", "AbortError");
-    try {
-      destination = await fileOps.open(
-        destinationPath,
-        DIRECT_FINAL_FLAGS,
-        sourceMode & 0o666,
-      );
-    } catch (cause) {
-      return err(
-        executionError(
-          {
-            code: isNodeErrorCode(cause, "EEXIST")
-              ? "destination-exists"
-              : "write-failed",
-            detail: isNodeErrorCode(cause, "EEXIST")
-              ? "Destination already exists."
-              : "Could not create the destination exclusively.",
-            path: destinationPath,
-            cause: jsonSafeCause(cause),
-          },
-          "not-started",
-        ),
-      );
-    }
-    started = true;
-    owned = identityOf(await fileOps.statHandle(destination));
+    await fileOps.createDirectory(stageDirectoryPath, 0o700);
+    directoryCreated = true;
+    stageDirectory = await fileOps.open(stageDirectoryPath, STAGE_DIRECTORY_FLAGS);
+    const directoryStats = await fileOps.statHandle(stageDirectory);
+    directoryIdentity = identityOf(directoryStats);
     if (
-      owned === undefined ||
-      !identitiesDistinct(
-        { dev: sourceSnapshot.dev, ino: sourceSnapshot.ino },
-        await fileOps.statHandle(destination),
-      )
+      directoryIdentity === undefined ||
+      process.platform === "win32" ||
+      !isVerifiedPosixStageDirectory(directoryStats)
     ) {
       failure = executionError(
         {
           code: "write-failed",
           detail:
-            "Could not prove that the destination is a distinct filesystem object.",
+            "Could not verify a private owner-controlled staging directory.",
           path: destinationPath,
         },
-        "started",
+        "not-started",
       );
-      throw new Error("Destination identity unavailable or aliases source.");
+      throw new Error("Private stage verification failed.");
     }
-    await handler.writeOutput(sourceHandle, destination, plan, signal);
-    await fileOps.sync(destination);
-    await fileOps.close(destination);
-    destination = undefined;
+    stageFile = await fileOps.open(
+      stagePath,
+      DIRECT_FINAL_FLAGS,
+      sourceMode & 0o666,
+    );
+    fileCreated = true;
+    fileIdentity = identityOf(await fileOps.statHandle(stageFile));
     if (
-      !destinationPathMatchesIdentity(
-        owned,
-        await fileOps.lstatPath(destinationPath),
+      fileIdentity === undefined ||
+      !identitiesDistinct(
+        { dev: sourceSnapshot.dev, ino: sourceSnapshot.ino },
+        await fileOps.statHandle(stageFile),
       )
     ) {
       failure = executionError(
         {
-          code: "destination-changed",
-          detail:
-            "Destination path no longer names the file created by this operation.",
+          code: "write-failed",
+          detail: "Could not prove that the staged output is distinct from source.",
           path: destinationPath,
         },
         "started",
       );
-      throw new Error("Destination changed.");
+      throw new Error("Stage file identity unavailable or aliases source.");
     }
-    destination = await fileOps.open(destinationPath, REOPEN_FLAGS);
-    const destinationStats = await fileOps.statHandle(destination);
-    if (
-      !destinationPathMatchesIdentity(owned, destinationStats) ||
-      !destinationPathMatchesIdentity(
-        owned,
-        await fileOps.lstatPath(destinationPath),
-      )
-    ) {
+    await handler.writeOutput(sourceHandle, stageFile, plan, signal);
+    await fileOps.sync(stageFile);
+    await fileOps.close(stageFile);
+    stageFile = await fileOps.open(stagePath, REOPEN_FLAGS);
+    const stageStats = await fileOps.statHandle(stageFile);
+    if (identityOf(stageStats) === undefined) {
       failure = executionError(
         {
-          code: "destination-changed",
-          detail:
-            "Destination path no longer names the file created by this operation.",
+          code: "write-failed",
+          detail: "Could not reopen the staged output by its owned identity.",
           path: destinationPath,
         },
         "started",
       );
-      throw new Error("Destination changed.");
+      throw new Error("Staged output identity unavailable.");
     }
     const verified = await handler.verifyOutput(
       sourceHandle,
       admission.parsed,
-      destination,
-      destinationStats.size,
+      stageFile,
+      stageStats.size,
       destinationPath,
       options.preserveOrientation,
       options.preserveColorProfile,
@@ -163,7 +177,7 @@ export async function runSafeTransaction(
     );
     if (!verified.ok) {
       failure = verified.error;
-      throw new Error("Destination verification failed.");
+      throw new Error("Staged output verification failed.");
     }
     if (
       !sourcePathMatchesSnapshot(
@@ -174,7 +188,7 @@ export async function runSafeTransaction(
       failure = executionError(
         {
           code: "source-changed",
-          detail: "Source changed during sanitization; output was discarded.",
+          detail: "Source changed during sanitization; staged output was retained.",
           path: sourcePath,
         },
         "started",
@@ -182,47 +196,48 @@ export async function runSafeTransaction(
       throw new Error("Source changed.");
     }
     if (options.preserveTimestamps) {
-      await fileOps.utimes(
-        destination,
-        sourceSnapshot.atime,
-        sourceSnapshot.mtime,
-      );
+      await fileOps.utimes(stageFile, sourceSnapshot.atime, sourceSnapshot.mtime);
       if (
         !timestampsMatchAtMillisecondPrecision(
           sourceSnapshot,
-          await fileOps.statHandle(destination),
+          await fileOps.statHandle(stageFile),
         )
       ) {
         failure = executionError(
           {
             code: "write-failed",
-            detail: "Could not verify requested destination timestamps.",
+            detail: "Could not verify requested staged-output timestamps.",
             path: destinationPath,
           },
           "started",
         );
-        throw new Error("Destination timestamp proof failed.");
+        throw new Error("Staged timestamp proof failed.");
       }
     }
-    if (
-      !destinationPathMatchesIdentity(
-        owned,
-        await fileOps.lstatPath(destinationPath),
-      )
-    ) {
+    await fileOps.sync(stageFile);
+    await fileOps.close(stageFile);
+    stageFile = undefined;
+    await beforePublish?.();
+    const publication = publishNoReplace(stagePath, destinationPath);
+    if (publication.state !== "published") {
       failure = executionError(
         {
-          code: "destination-changed",
+          code:
+            publication.state === "destination-exists"
+              ? "destination-exists"
+              : "write-failed",
           detail:
-            "Destination path was replaced before sanitization completed.",
+            publication.state === "destination-exists"
+              ? "Destination already exists."
+              : "Native no-replace publication could not complete.",
           path: destinationPath,
         },
         "started",
       );
-      throw new Error("Destination changed.");
+      throw new Error("Native publication did not succeed.");
     }
-    await fileOps.close(destination);
-    destination = undefined;
+    await fileOps.close(stageDirectory);
+    stageDirectory = undefined;
     await fileOps.close(sourceHandle);
     const namespaces = new Set(
       admission.parsed.chunks.flatMap((chunk) =>
@@ -254,6 +269,10 @@ export async function runSafeTransaction(
         timestamps: options.preserveTimestamps,
       },
       warnings: admission.warnings,
+      postCommitResidue: stageResidue({
+        code: "ENOTSUP",
+        message: "identity-bound directory cleanup unavailable",
+      }),
     });
   } catch (cause) {
     failure ??= executionError(
@@ -261,40 +280,28 @@ export async function runSafeTransaction(
         code: aborted(signal) ? "aborted" : "write-failed",
         detail: aborted(signal)
           ? "The operation was aborted."
-          : "Could not complete the sanitized destination.",
+          : "Could not complete the private staged destination.",
         path: destinationPath,
         cause: jsonSafeCause(cause),
       },
-      started ? "started" : "not-started",
+      fileCreated ? "started" : "not-started",
     );
   } finally {
-    if (destination !== undefined)
-      await fileOps.close(destination).catch(() => undefined);
+    if (stageFile !== undefined)
+      await fileOps.close(stageFile).catch(() => undefined);
+    if (stageDirectory !== undefined)
+      await fileOps.close(stageDirectory).catch(() => undefined);
     await fileOps.close(sourceHandle).catch(() => undefined);
   }
-  if (started && owned !== undefined) {
-    let finalization: DestinationFinalization;
-    try {
-      const current = await fileOps.lstatPath(destinationPath);
-      if (!destinationPathMatchesIdentity(owned, current)) {
-        finalization = { state: "replaced-and-left-untouched" };
-      } else {
-        try {
-          await fileOps.remove(destinationPath);
-          finalization = { state: "owned-partial-removed" };
-        } catch (cause) {
-          finalization = {
-            state: "owned-partial-remains",
-            cause: jsonSafeCause(cause),
-          };
-        }
-      }
-    } catch (cause) {
-      finalization = isNodeErrorCode(cause, "ENOENT")
-        ? { state: "already-missing" }
-        : { state: "owned-partial-remains", cause: jsonSafeCause(cause) };
-    }
-    failure = withDestinationFinalization(failure!, finalization);
-  }
-  return err(failure!);
+  const residueCause = fileCreated
+    ? { message: "Private staged file remains after terminal publication failure." }
+    : directoryCreated
+      ? { message: "Private staging directory remains after terminal setup failure." }
+      : { message: "Private staging setup did not complete." };
+  return err(
+    withDestinationFinalization(failure!, {
+      state: "owned-partial-remains",
+      cause: residueCause,
+    }),
+  );
 }

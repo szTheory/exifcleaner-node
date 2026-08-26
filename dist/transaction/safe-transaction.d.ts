@@ -14,6 +14,8 @@ export interface SafeTransactionInput {
     readonly orientation: number | undefined;
     readonly options: SanitizeOptions;
     readonly fileOps: FileOps;
+    /** Private test-only scheduling seam immediately before the one native call. */
+    readonly beforePublish?: () => void | Promise<void>;
 }
 export declare function runSafeTransaction(input: SafeTransactionInput): Promise<Result<SanitizeResult>>;
 //# sourceMappingURL=safe-transaction.d.ts.map
