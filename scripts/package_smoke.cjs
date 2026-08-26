@@ -61,6 +61,28 @@ function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+function isLoadedNativeCleanupLock(
+  error,
+  sandbox,
+  platform = process.platform,
+  arch = process.arch,
+) {
+  const expected = resolve(
+    sandbox,
+    "node_modules",
+    "exifcleaner-node",
+    "prebuilds",
+    `${platform}-${arch}`,
+    "publication.node",
+  );
+  return (
+    platform === "win32" &&
+    error?.code === "EPERM" &&
+    typeof error.path === "string" &&
+    resolve(error.path) === expected
+  );
+}
+
 function parseArguments(args) {
   const values = {};
   for (let index = 0; index < args.length; index += 2) {
@@ -269,7 +291,11 @@ async function runSmoke({ tarball, evidenceScope }) {
       cases,
     };
   } finally {
-    rmSync(sandbox, { recursive: true, force: true });
+    try {
+      rmSync(sandbox, { recursive: true, force: true });
+    } catch (error) {
+      if (!isLoadedNativeCleanupLock(error, sandbox)) throw error;
+    }
   }
 }
 
@@ -312,6 +338,7 @@ function createDevelopmentTarballForTests({ packageRoot, tarball }) {
 module.exports = {
   assertLiteralHostArtifact,
   createDevelopmentTarballForTests,
+  isLoadedNativeCleanupLock,
   parseArguments,
   runSmoke,
 };

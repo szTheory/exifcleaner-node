@@ -25,6 +25,12 @@ const helper = require("../scripts/package_smoke.cjs") as {
     tarball: string;
   }): Promise<void>;
   assertLiteralHostArtifact(root: string): string;
+  isLoadedNativeCleanupLock(
+    error: { code?: string; path?: string },
+    sandbox: string,
+    platform?: string,
+    arch?: string,
+  ): boolean;
 };
 
 afterEach(async () => {
@@ -55,6 +61,43 @@ async function runSmoke(
 }
 
 describe("installed package smoke", () => {
+  it("defers only the exact loaded Windows native DLL cleanup lock", () => {
+    const sandbox = join(tmpdir(), "exifcleaner-package-cleanup");
+    const loadedDll = join(
+      sandbox,
+      "node_modules",
+      "exifcleaner-node",
+      "prebuilds",
+      "win32-x64",
+      "publication.node",
+    );
+
+    expect(
+      helper.isLoadedNativeCleanupLock(
+        { code: "EPERM", path: loadedDll },
+        sandbox,
+        "win32",
+        "x64",
+      ),
+    ).toBe(true);
+    expect(
+      helper.isLoadedNativeCleanupLock(
+        { code: "EPERM", path: join(sandbox, "source.webp") },
+        sandbox,
+        "win32",
+        "x64",
+      ),
+    ).toBe(false);
+    expect(
+      helper.isLoadedNativeCleanupLock(
+        { code: "EACCES", path: loadedDll },
+        sandbox,
+        "win32",
+        "x64",
+      ),
+    ).toBe(false);
+  });
+
   it("requires an explicit supplied tarball instead of packing the checkout", async () => {
     await expect(runSmoke([])).resolves.toMatchObject({
       exitCode: 1,
