@@ -46,6 +46,7 @@
     "lint": "prettier --check .",
     "test": "vitest run",
     "qualify": "node scripts/qualification/qualify.cjs",
+    "benchmark:qualify": "node scripts/qualification/benchmark.cjs",
     "test:watch": "vitest",
     "check:cycles": "madge --circular --extensions ts src/index.ts",
     "check:dist": "git diff --exit-code -- dist",
