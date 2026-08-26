@@ -14,6 +14,7 @@ const allowedHeaders = new Set([
   "stdio.h",
   "string.h",
   "errno.h",
+  "fcntl.h",
   "sys/attr.h",
   "unistd.h",
   "wchar.h",
@@ -53,6 +54,7 @@ const allowedCalls = new Set([
 ]);
 const languageCalls = new Set([
   "defined",
+  "else",
   "if",
   "sizeof",
   "while",

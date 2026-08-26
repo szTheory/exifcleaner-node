@@ -2,6 +2,7 @@
 "use strict";
 
 const { execFileSync } = require("node:child_process");
+const { join } = require("node:path");
 
 const LINUX_LIBRARIES = new Set(["libc.so.6"]);
 const LINUX_IMPORTS = new Set([
@@ -146,6 +147,84 @@ function auditWindows(dependentsOutput, importsOutput) {
   return stableReport("dumpbin", libraries, imports);
 }
 
+function nonemptyLines(output) {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function chooseDumpbinPath(paths, arch) {
+  const hostTarget = `host${arch}\\${arch}\\dumpbin.exe`;
+  const preferredFallbacks = [
+    "hostx64\\x64\\dumpbin.exe",
+    "hostarm64\\arm64\\dumpbin.exe",
+  ];
+  return [...paths].sort((left, right) => {
+    const score = (candidate) => {
+      const normalized = candidate.toLowerCase().replaceAll("/", "\\");
+      if (normalized.endsWith(hostTarget)) return 0;
+      const fallback = preferredFallbacks.findIndex((suffix) =>
+        normalized.endsWith(suffix),
+      );
+      return fallback === -1 ? preferredFallbacks.length + 1 : fallback + 1;
+    };
+    return score(left) - score(right) || left.localeCompare(right);
+  })[0];
+}
+
+function resolveDumpbin({
+  arch = process.arch,
+  env = process.env,
+  execFile = execFileSync,
+} = {}) {
+  try {
+    const path = nonemptyLines(
+      execFile("where.exe", ["dumpbin.exe"], { encoding: "utf8" }),
+    )[0];
+    if (path) return path;
+  } catch {
+    // GitHub-hosted runners install dumpbin without adding it to PATH.
+  }
+
+  const vswhere =
+    env.VSWHERE_PATH ||
+    join(
+      env["ProgramFiles(x86)"] || "C:\\Program Files (x86)",
+      "Microsoft Visual Studio",
+      "Installer",
+      "vswhere.exe",
+    );
+  let candidates;
+  try {
+    candidates = nonemptyLines(
+      execFile(
+        vswhere,
+        [
+          "-latest",
+          "-products",
+          "*",
+          "-find",
+          "VC\\Tools\\MSVC\\**\\bin\\Host*\\*\\dumpbin.exe",
+        ],
+        { encoding: "utf8" },
+      ),
+    );
+  } catch (error) {
+    throw new Error(
+      `Could not locate dumpbin via PATH or Visual Studio (${vswhere})`,
+      { cause: error },
+    );
+  }
+  const path = chooseDumpbinPath(candidates, arch);
+  if (!path) {
+    throw new Error(
+      `Visual Studio did not report a dumpbin executable via ${vswhere}`,
+    );
+  }
+  return path;
+}
+
 function auditHostArtifact(path) {
   if (process.platform === "linux") {
     return auditLinux(
@@ -160,9 +239,10 @@ function auditHostArtifact(path) {
     );
   }
   if (process.platform === "win32") {
+    const dumpbin = resolveDumpbin();
     return auditWindows(
-      execFileSync("dumpbin", ["/dependents", path], { encoding: "utf8" }),
-      execFileSync("dumpbin", ["/imports", path], { encoding: "utf8" }),
+      execFileSync(dumpbin, ["/dependents", path], { encoding: "utf8" }),
+      execFileSync(dumpbin, ["/imports", path], { encoding: "utf8" }),
     );
   }
   throw new Error(`Unsupported audit platform: ${process.platform}`);
@@ -177,4 +257,11 @@ if (require.main === module) {
   process.stdout.write(`${auditHostArtifact(path)}\n`);
 }
 
-module.exports = { auditLinux, auditDarwin, auditWindows, auditHostArtifact };
+module.exports = {
+  auditLinux,
+  auditDarwin,
+  auditWindows,
+  auditHostArtifact,
+  chooseDumpbinPath,
+  resolveDumpbin,
+};

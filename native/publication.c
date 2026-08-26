@@ -3,6 +3,10 @@
  * publication authority: no pathname observation or fallback is a success
  * condition.  The standalone entrypoint is compiled only by the test harness.
  */
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
 #ifndef PUBLICATION_STANDALONE_TEST
 #include <node_api.h>
 #endif
@@ -22,11 +26,19 @@
 #include <sys/attr.h>
 #include <unistd.h>
 #else
-#define _GNU_SOURCE
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+/* Keep the raw renameat2 boundary buildable with conservative libc headers. */
+#ifndef AT_FDCWD
+#define AT_FDCWD -100
+#endif
+#ifndef RENAME_NOREPLACE
+#define RENAME_NOREPLACE 1
+#endif
 #endif
 
 typedef enum publication_result {
@@ -216,6 +228,7 @@ static publication_result publish_no_replace(const char *stage, const char *dest
 }
 #else
 static publication_result publish_no_replace(const char *stage, const char *destination) {
+#ifdef SYS_renameat2
   long operation = syscall(SYS_renameat2, AT_FDCWD, stage, AT_FDCWD, destination,
                            RENAME_NOREPLACE);
   if (operation == 0) return PUBLICATION_PUBLISHED;
@@ -223,6 +236,11 @@ static publication_result publish_no_replace(const char *stage, const char *dest
   if (errno == ENOSYS || errno == EINVAL || errno == ENOTSUP || errno == EOPNOTSUPP ||
       errno == EXDEV) return PUBLICATION_UNSUPPORTED;
   return PUBLICATION_FAILED;
+#else
+  (void)stage;
+  (void)destination;
+  return PUBLICATION_UNSUPPORTED;
+#endif
 }
 #endif
 

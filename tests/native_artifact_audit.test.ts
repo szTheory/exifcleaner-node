@@ -99,6 +99,42 @@ describe("native compiled artifact audits", () => {
     expect(cleanReport("win32-x64")).toContain('"auditTool":"dumpbin"');
   });
 
+  it("locates the native-host dumpbin when Visual Studio leaves it off PATH", () => {
+    const x64 =
+      "C:\\VS\\VC\\Tools\\MSVC\\14.50.0\\bin\\Hostx64\\x64\\dumpbin.exe";
+    const arm64 =
+      "C:\\VS\\VC\\Tools\\MSVC\\14.50.0\\bin\\Hostarm64\\arm64\\dumpbin.exe";
+    const commands: string[] = [];
+    const resolved = audit.resolveDumpbin({
+      arch: "arm64",
+      env: { VSWHERE_PATH: "C:\\tools\\vswhere.exe" },
+      execFile(command: string) {
+        commands.push(command);
+        if (command === "where.exe") {
+          const error = new Error("not found") as NodeJS.ErrnoException;
+          error.code = "ENOENT";
+          throw error;
+        }
+        return `${x64}\r\n${arm64}\r\n`;
+      },
+    });
+
+    expect(resolved).toBe(arm64);
+    expect(commands).toEqual(["where.exe", "C:\\tools\\vswhere.exe"]);
+  });
+
+  it("fails closed when no dumpbin executable is discoverable", () => {
+    expect(() =>
+      audit.resolveDumpbin({
+        env: { VSWHERE_PATH: "C:\\tools\\vswhere.exe" },
+        execFile(command: string) {
+          if (command === "where.exe") throw new Error("not found");
+          return "\r\n";
+        },
+      }),
+    ).toThrow(/did not report a dumpbin executable/i);
+  });
+
   it.each([
     [
       "linux dependency",
