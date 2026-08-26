@@ -423,4 +423,56 @@ describe("private automated qualification surface", () => {
     expect(admission).toContain("benchmarkReports.length !== 2");
     expect(workflow).toContain("cancel-in-progress: false");
   });
+
+  it("documents every replay, promotion step, guarantee, and bounded non-guarantee", async () => {
+    const [capabilitiesSource, provenanceSource] = await Promise.all([
+      readFile(join(packageRoot, "docs", "capabilities.md"), "utf8"),
+      readFile(join(packageRoot, "docs", "fixture-provenance.md"), "utf8"),
+    ]);
+    const capabilities = capabilitiesSource.replace(/\s+/gu, " ");
+    const provenance = provenanceSource.replace(/\s+/gu, " ");
+
+    for (const guarantee of [
+      "fail-closed container admission",
+      "reopened to prove metadata removal",
+      "byte-identical retained compressed image/animation payloads",
+      "same canvas, timing, and frame evidence",
+      "scripts disabled",
+      "all twelve installed",
+      "both benchmark conclusions",
+    ])
+      expect(capabilities).toContain(guarantee);
+    for (const nonGuarantee of [
+      "do not convert structural parsing into a decoder",
+      "color correctness or browser parity",
+      "universal WebP conformance",
+      "unknown containers",
+    ])
+      expect(capabilities).toContain(nonGuarantee);
+    for (const replay of [
+      "npm run qualify",
+      "--case exifcleaner-sample --json",
+      "--oracle libwebp-1.5.0-example",
+      "--seed 460046 --path 0",
+      "--fault stage-sync:1:EIO",
+      "--fault during-bounded-copy",
+      "npm run benchmark:qualify",
+      "--fixture still-64k",
+    ])
+      expect(provenance).toContain(replay);
+    for (const governance of [
+      "offline and immutable",
+      "quarantined outside the repository",
+      "Minimize the byte sequence",
+      "review privacy",
+      "stable manifest ID",
+      "focused regression assertion",
+      "never an automatic corpus synchronization",
+      "retainedPayloads",
+      "permittedDifferences",
+      "oracle",
+      "benchmarks.fixtures",
+    ])
+      expect(provenance).toContain(governance);
+  });
 });

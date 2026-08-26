@@ -185,6 +185,39 @@ left untouched with bounded residue rather than treated as removable.
 
 ExifCleaner should consult capabilities and route only verified supported WebP cases to this library. Every other format and any refused WebP remains on the existing ExifTool path. A future adapter and staged rollout require their own evidence; this contract does not silently change the app.
 
+## Automated WebP Qualification
+
+The supported WebP contract is admitted by several independent automated
+authorities. No passing layer substitutes for another:
+
+- deterministic grammar and hostile cases prove fail-closed container
+  admission, including accepting and rejecting directions;
+- transaction fault and barrier cases prove unchanged sources, no-replace
+  destinations, at most one writer, bounded cancellation, and truthful terminal
+  finalization;
+- every successful case is reopened to prove metadata removal or requested
+  preservation and byte-identical retained compressed image/animation payloads;
+- pinned independent decoding proves the bounded still and animation samples
+  remain decodable with the same canvas, timing, and frame evidence;
+- a pinned metadata differential proves the expected namespaces are absent or
+  preserved with no unreviewed difference;
+- the exact packed artifact is installed with scripts disabled and exercised on
+  Linux, macOS, and Windows, on x64 and arm64, under Node.js 22 and 24; and
+- a fresh-process Linux x64 comparison against packed `v0.1.1` admits the locked
+  time, peak-memory, payload-size slope, and cancellation limits documented in
+  [WebP Benchmark Admission](benchmark-admission.md).
+
+The final Phase 46 conclusion exists only when the immutable implementation and
+tarball identities, corpus manifest, oracle authorities, all twelve installed
+platform/runtime conclusions, and both benchmark conclusions agree. Pull
+request benchmark reports remain visible but informational; explicit phase and
+release admission uses the hard verdict.
+
+These checks establish the behaviors named above for the committed bounded
+corpus. They do not convert structural parsing into a decoder, establish color
+correctness or browser parity, prove universal WebP conformance, or admit
+unknown containers. Refusal remains a supported and intentional result.
+
 ## Sources
 
 - [WebP Container Specification](https://developers.google.com/speed/webp/docs/riff_container)
