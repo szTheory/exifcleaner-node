@@ -1,9 +1,11 @@
 import { constants as fsConstants } from "node:fs";
 import {
   mkdtemp,
+  mkdir,
   open,
   readFile,
   readdir,
+  rename,
   rm,
   stat,
   symlink,
@@ -97,6 +99,152 @@ describe("safe transaction file operations", () => {
     );
     expect(stageName).toBeDefined();
     expect((await stat(join(directory, stageName!))).mode & 0o077).toBe(0);
+  });
+
+  it("uses only the opened Windows stage capability after directory identity capture fails", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
+    const capability = {} as never;
+    let dispositionAttempts = 0;
+    let pathnameRemovals = 0;
+    const restore = setNativePublicationBindingForTests({
+      publishNoReplace: () => "failed",
+      createPrivateStageDirectory: () => capability,
+      disposePrivateStageDirectory: (received) => {
+        expect(received).toBe(capability);
+        dispositionAttempts += 1;
+        return "published";
+      },
+    });
+
+    try {
+      const result = await runSafeTransaction({
+        sourceHandle: source,
+        sourceSnapshot: snapshotSource(stats),
+        sourceMode: stats.mode,
+        handler: webpHandler,
+        admission,
+        plan,
+        orientation: undefined,
+        options: {
+          sourcePath,
+          destinationPath,
+          preserveOrientation: false,
+          preserveColorProfile: false,
+          preserveTimestamps: false,
+        },
+        fileOps: {
+          ...NODE_FILE_OPS,
+          statHandle: async () => {
+            throw new Error("injected directory identity failure");
+          },
+          remove: async () => {
+            pathnameRemovals += 1;
+          },
+        },
+        platform: "win32" as never,
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: {
+          code: "write-failed",
+          nativeWrite: "not-started",
+          finalization: { state: "owned-partial-removed" },
+        },
+      });
+      expect(dispositionAttempts).toBe(1);
+      expect(pathnameRemovals).toBe(0);
+      await expect(readFile(sourcePath)).resolves.toEqual(metadataWebp());
+      await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      restore();
+    }
+  });
+
+  it("retains file and directory replacements on every file-present finalization", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    const replacementDirectory = join(directory, "replacement-stage");
+    const replacementFile = Buffer.from("replacement stage file");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
+    let pathnameRemovals = 0;
+    let observedStageDirectory = "";
+    const result = await runSafeTransaction({
+      sourceHandle: source,
+      sourceSnapshot: snapshotSource(stats),
+      sourceMode: stats.mode,
+      handler: webpHandler,
+      admission,
+      plan,
+      orientation: undefined,
+      options: {
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      },
+      fileOps: {
+        ...NODE_FILE_OPS,
+        sync: async () => {
+          throw new Error("injected file-present failure");
+        },
+        remove: async () => {
+          pathnameRemovals += 1;
+        },
+      },
+      platform: "linux" as never,
+      beforeStageFinalization: async ({
+        stageDirectoryPath,
+        stagePath,
+      }: {
+        readonly stageDirectoryPath: string;
+        readonly stagePath: string;
+      }) => {
+        observedStageDirectory = stageDirectoryPath;
+        await rename(stageDirectoryPath, replacementDirectory);
+        await mkdir(stageDirectoryPath, { mode: 0o700 });
+        await writeFile(stagePath, replacementFile);
+      },
+    } as never);
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "write-failed",
+        finalization: { state: "owned-partial-remains" },
+      },
+    });
+    expect(pathnameRemovals).toBe(0);
+    await expect(readFile(join(observedStageDirectory, "output.webp"))).resolves.toEqual(
+      replacementFile,
+    );
+    await expect(readFile(sourcePath)).resolves.toEqual(metadataWebp());
+    await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it.each(["unsupported", "failed"] as const)(
