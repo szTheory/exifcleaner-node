@@ -303,7 +303,7 @@ static publication_result publish_no_replace(HANDLE stage_handle,
   publication_handle = ReOpenFile(
       stage_handle, DELETE | SYNCHRONIZE,
       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-      FILE_ATTRIBUTE_NORMAL);
+      0);
   if (publication_handle == INVALID_HANDLE_VALUE) {
     return map_windows_error(GetLastError());
   }

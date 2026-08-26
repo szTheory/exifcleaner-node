@@ -58,6 +58,7 @@ describe("native source capability audit", () => {
 
     expect(source).toContain("uv_get_osfhandle");
     expect(source).toContain("ReOpenFile");
+    expect(source).toMatch(/FILE_SHARE_DELETE,\s+0\);/);
     expect(source).not.toMatch(/\b_get_osfhandle\b/);
     expect(configuration).not.toContain('"ucrt.lib"');
   });
