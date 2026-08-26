@@ -1,7 +1,7 @@
 type NativePublicationCode = "published" | "collision" | "unsupported" | "failed";
 export interface NativePublicationBinding {
     readonly publishNoReplace: (stagePath: string, destinationPath: string) => NativePublicationCode;
-    readonly createPrivateStageDirectory: () => unknown;
+    readonly createPrivateStageDirectory: (stageDirectoryPath: string) => unknown;
     readonly disposePrivateStageDirectory: (capability: NativeStageDirectoryCapability) => NativePublicationCode;
 }
 declare const nativeStageDirectoryCapability: unique symbol;
@@ -30,7 +30,7 @@ export declare function setNativePublicationBindingForTests(binding: NativePubli
 export declare function mapNativePublicationCode(code: unknown): NativePublicationResult;
 export declare function mapNativeStageDirectoryCode(code: unknown): NativeStageDirectoryDisposition;
 export declare function publishNoReplace(stagePath: string, destinationPath: string): NativePublicationResult;
-export declare function createPrivateStageDirectory(): unknown;
+export declare function createPrivateStageDirectory(stageDirectoryPath: string): unknown;
 export declare function disposePrivateStageDirectory(capability: NativeStageDirectoryCapability): NativeStageDirectoryDisposition;
 export {};
 //# sourceMappingURL=native-publication.d.ts.map

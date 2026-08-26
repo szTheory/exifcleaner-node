@@ -77,9 +77,9 @@ export function publishNoReplace(stagePath, destinationPath) {
         return { state: "publication-failed" };
     }
 }
-export function createPrivateStageDirectory() {
+export function createPrivateStageDirectory(stageDirectoryPath) {
     try {
-        return nativeBinding().createPrivateStageDirectory();
+        return nativeBinding().createPrivateStageDirectory(stageDirectoryPath);
     }
     catch {
         return undefined;

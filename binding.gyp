@@ -6,11 +6,23 @@
       "defines": ["NAPI_VERSION=8"],
       "conditions": [
         ["OS=='win'", {
+          "win_delay_load_hook": "false",
           "msvs_settings": {
             "VCCLCompilerTool": {
-              "RuntimeLibrary": 0
+              "RuntimeLibrary": 0,
+              "BufferSecurityCheck": "false",
+              "OmitDefaultLibName": "true",
+              "AdditionalOptions": ["/Oi-"]
+            },
+            "VCLinkerTool": {
+              "IgnoreAllDefaultLibraries": "true",
+              "AdditionalDependencies": ["kernel32.lib", "advapi32.lib"],
+              "AdditionalOptions": ["/NOENTRY"]
             }
           }
+        }],
+        ["OS=='linux'", {
+          "cflags": ["-fno-stack-protector"]
         }],
         ["OS=='mac'", {
           "xcode_settings": {

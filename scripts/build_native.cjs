@@ -96,6 +96,26 @@ async function main() {
         ],
         { cwd: packageRoot, stdio: "inherit" },
       );
+    } else if (process.platform === "linux") {
+      execFileSync(
+        process.env.CC || "cc",
+        [
+          "-shared",
+          "-nostdlib",
+          join(
+            buildDirectory,
+            "Release",
+            "obj.target",
+            "publication",
+            "native",
+            "publication.o",
+          ),
+          "-lc",
+          "-o",
+          output,
+        ],
+        { cwd: packageRoot, stdio: "inherit" },
+      );
     }
     validateBinary(await readFile(output));
     await mkdir(dirname(destination), { recursive: true });

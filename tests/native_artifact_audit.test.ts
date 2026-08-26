@@ -64,7 +64,7 @@ function cleanReport(tuple: string): string {
   }
   return audit.auditWindows(
     "Image has the following dependencies:\n\n    node.exe\n    KERNEL32.dll\n    ADVAPI32.dll",
-    "    KERNEL32.dll\n              CreateFileW\n              HeapAlloc\n    publication.node\n              napi_create_string_utf8",
+    "    KERNEL32.dll\n              2A0 CreateFileW\n              2A1 HeapAlloc\n    publication.node\n              310 napi_create_string_utf8",
   );
 }
 
@@ -115,18 +115,14 @@ describe("native compiled artifact audits", () => {
     expect(windows).not.toContain('"Summary"');
   });
 
-  it("accepts hosted compiler and delay-load support imports", () => {
-    const linux = audit.auditLinux(
-      "Shared library: [libc.so.6]",
-      "1: 0000000000000000 0 NOTYPE WEAK DEFAULT UND _ITM_deregisterTMCloneTable\n2: 0000000000000000 0 NOTYPE WEAK DEFAULT UND _ITM_registerTMCloneTable",
-    );
+  it("ignores dumpbin headings that are not ordinal import records", () => {
     const windows = audit.auditWindows(
       "KERNEL32.dll",
-      "    KERNEL32.dll\n                         2A0 GetModuleHandleA",
+      "    KERNEL32.dll\n                         2A0 CreateFileW\n    Characteristics",
     );
 
-    expect(linux).toContain('"_ITM_deregisterTMCloneTable"');
-    expect(windows).toContain('"GetModuleHandleA"');
+    expect(windows).toContain('"CreateFileW"');
+    expect(windows).not.toContain('"Characteristics"');
   });
 
   it("locates the native-host dumpbin when Visual Studio leaves it off PATH", () => {
@@ -185,7 +181,7 @@ describe("native compiled artifact audits", () => {
     ["windows dependency", () => audit.auditWindows("WS2_32.dll", "")],
     [
       "windows import",
-      () => audit.auditWindows("KERNEL32.dll", "    LoadLibraryW"),
+      () => audit.auditWindows("KERNEL32.dll", "    2A0 LoadLibraryW"),
     ],
   ])("rejects forbidden %s", (_name, run) => {
     expect(run).toThrow(/not allowlisted|forbidden/i);

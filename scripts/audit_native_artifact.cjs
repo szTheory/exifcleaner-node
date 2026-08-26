@@ -11,8 +11,6 @@ const LINUX_LIBRARIES = new Set([
 ]);
 const LINUX_IMPORTS = new Set([
   "renameat2",
-  "_ITM_deregisterTMCloneTable",
-  "_ITM_registerTMCloneTable",
   "__errno_location",
   "malloc",
   "free",
@@ -40,7 +38,6 @@ const WINDOWS_IMPORTS = new Set([
   "GetFileInformationByHandleEx",
   "CloseHandle",
   "GetLastError",
-  "GetModuleHandleA",
   "GetCurrentProcess",
   "GetProcessHeap",
   "HeapAlloc",
@@ -139,7 +136,7 @@ function auditWindows(dependentsOutput, importsOutput) {
   const importsSection = importsOutput.split(/^\s*Summary\s*$/im)[0];
   const imports = [
     ...importsSection.matchAll(
-      /^\s+(?:[0-9A-Fa-f]+\s+)?([A-Za-z_][A-Za-z0-9_@]*)[ \t]*$/gm,
+      /^\s+[0-9A-Fa-f]+\s+([A-Za-z_][A-Za-z0-9_@]*)[ \t]*$/gm,
     ),
   ]
     .map((match) => match[1])

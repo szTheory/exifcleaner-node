@@ -110,7 +110,6 @@ export async function runSafeTransaction(
   let stageDirectory: FileHandle | undefined;
   let stageFile: FileHandle | undefined;
   let directoryCreated = false;
-  let directoryIdentity: FileIdentity | undefined;
   let directoryCapability: NativeStageDirectoryCapability | undefined;
   let fileCreated = false;
   let fileIdentity: FileIdentity | undefined;
@@ -118,35 +117,48 @@ export async function runSafeTransaction(
 
   try {
     if (aborted(signal)) throw new DOMException("Aborted", "AbortError");
-    await fileOps.createDirectory(stageDirectoryPath, 0o700);
-    directoryCreated = true;
-    stageDirectory = await fileOps.open(
-      stageDirectoryPath,
-      STAGE_DIRECTORY_FLAGS,
-    );
     if (platform === "win32") {
-      const capability = createPrivateStageDirectory();
+      const capability = createPrivateStageDirectory(stageDirectoryPath);
       if (capability !== undefined) {
         directoryCapability = capability as NativeStageDirectoryCapability;
       }
-    }
-    const directoryStats = await fileOps.statHandle(stageDirectory);
-    directoryIdentity = identityOf(directoryStats);
-    if (
-      directoryIdentity === undefined ||
-      platform === "win32" ||
-      !isVerifiedPosixStageDirectory(directoryStats)
-    ) {
-      failure = executionError(
-        {
-          code: "write-failed",
-          detail:
-            "Could not verify a private owner-controlled staging directory.",
-          path: destinationPath,
-        },
-        "not-started",
+      directoryCreated = directoryCapability !== undefined;
+      if (!directoryCreated) {
+        failure = executionError(
+          {
+            code: "write-failed",
+            detail:
+              "Could not create and verify a private owner-controlled staging directory.",
+            path: destinationPath,
+          },
+          "not-started",
+        );
+        throw new Error("Private Windows stage creation failed.");
+      }
+    } else {
+      await fileOps.createDirectory(stageDirectoryPath, 0o700);
+      directoryCreated = true;
+      stageDirectory = await fileOps.open(
+        stageDirectoryPath,
+        STAGE_DIRECTORY_FLAGS,
       );
-      throw new Error("Private stage verification failed.");
+      const directoryStats = await fileOps.statHandle(stageDirectory);
+      const directoryIdentity = identityOf(directoryStats);
+      if (
+        directoryIdentity === undefined ||
+        !isVerifiedPosixStageDirectory(directoryStats)
+      ) {
+        failure = executionError(
+          {
+            code: "write-failed",
+            detail:
+              "Could not verify a private owner-controlled staging directory.",
+            path: destinationPath,
+          },
+          "not-started",
+        );
+        throw new Error("Private stage verification failed.");
+      }
     }
     stageFile = await fileOps.open(
       stagePath,
@@ -266,9 +278,20 @@ export async function runSafeTransaction(
       );
       throw new Error("Native publication did not succeed.");
     }
-    await fileOps.close(stageDirectory);
-    stageDirectory = undefined;
+    if (stageDirectory !== undefined) {
+      await fileOps.close(stageDirectory);
+      stageDirectory = undefined;
+    }
     await fileOps.close(sourceHandle);
+    const postCommitResidue: PostCommitResidue =
+      platform === "win32" &&
+      directoryCapability !== undefined &&
+      disposePrivateStageDirectory(directoryCapability).state === "disposed"
+        ? { state: "none" }
+        : stageResidue({
+            code: "ENOTSUP",
+            message: "identity-bound directory cleanup unavailable",
+          });
     const namespaces = new Set(
       admission.parsed.chunks.flatMap((chunk) =>
         chunk.fourCc === "EXIF"
@@ -299,10 +322,7 @@ export async function runSafeTransaction(
         timestamps: options.preserveTimestamps,
       },
       warnings: admission.warnings,
-      postCommitResidue: stageResidue({
-        code: "ENOTSUP",
-        message: "identity-bound directory cleanup unavailable",
-      }),
+      postCommitResidue,
     });
   } catch (cause) {
     failure ??= executionError(

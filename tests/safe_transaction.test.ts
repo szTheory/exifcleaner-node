@@ -1,4 +1,9 @@
-import { constants as fsConstants } from "node:fs";
+import {
+  constants as fsConstants,
+  mkdirSync,
+  renameSync,
+  rmdirSync,
+} from "node:fs";
 import {
   mkdtemp,
   mkdir,
@@ -40,6 +45,72 @@ afterEach(async () =>
 describe("safe transaction file operations", () => {
   it("keeps the Node adapter private to the transaction layer", () => {
     expect(NODE_FILE_OPS).toBeDefined();
+  });
+
+  it("uses the verified Windows capability for creation, publication, and disposal", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
+    const capability: { path?: string } = {};
+    const restore = setNativePublicationBindingForTests({
+      publishNoReplace(stagePath, finalPath) {
+        renameSync(stagePath, finalPath);
+        return "published";
+      },
+      createPrivateStageDirectory(stageDirectoryPath) {
+        capability.path = stageDirectoryPath;
+        mkdirSync(stageDirectoryPath);
+        return capability;
+      },
+      disposePrivateStageDirectory(received) {
+        expect(received).toBe(capability);
+        rmdirSync(capability.path!);
+        return "published";
+      },
+    });
+
+    try {
+      const result = await runSafeTransaction({
+        sourceHandle: source,
+        sourceSnapshot: snapshotSource(stats),
+        sourceMode: stats.mode,
+        handler: webpHandler,
+        admission,
+        plan,
+        orientation: undefined,
+        options: {
+          sourcePath,
+          destinationPath,
+          preserveOrientation: false,
+          preserveColorProfile: false,
+          preserveTimestamps: false,
+        },
+        fileOps: NODE_FILE_OPS,
+        platform: "win32",
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: { postCommitResidue: { state: "none" } },
+      });
+      await expect(readFile(destinationPath)).resolves.toBeInstanceOf(Buffer);
+      await expect(stat(capability.path!)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      restore();
+    }
   });
 
   it("keeps all work in a verified private stage until the native collision", async () => {

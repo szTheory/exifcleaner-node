@@ -11,7 +11,7 @@ export interface NativePublicationBinding {
     stagePath: string,
     destinationPath: string,
   ) => NativePublicationCode;
-  readonly createPrivateStageDirectory: () => unknown;
+  readonly createPrivateStageDirectory: (stageDirectoryPath: string) => unknown;
   readonly disposePrivateStageDirectory: (
     capability: NativeStageDirectoryCapability,
   ) => NativePublicationCode;
@@ -142,9 +142,11 @@ export function publishNoReplace(
   }
 }
 
-export function createPrivateStageDirectory(): unknown {
+export function createPrivateStageDirectory(
+  stageDirectoryPath: string,
+): unknown {
   try {
-    return nativeBinding().createPrivateStageDirectory();
+    return nativeBinding().createPrivateStageDirectory(stageDirectoryPath);
   } catch {
     return undefined;
   }
