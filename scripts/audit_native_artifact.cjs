@@ -36,7 +36,7 @@ const WINDOWS_LIBRARIES = new Set([
   "node.exe",
   "KERNEL32.dll",
   "ADVAPI32.dll",
-  "api-ms-win-crt-runtime-l1-1-0.dll",
+  "api-ms-win-crt-stdio-l1-1-0.dll",
 ]);
 const WINDOWS_IMPORTS = new Set([
   "CreateFileW",
