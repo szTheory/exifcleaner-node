@@ -115,6 +115,20 @@ describe("native compiled artifact audits", () => {
     expect(windows).not.toContain('"Summary"');
   });
 
+  it("accepts hosted compiler and delay-load support imports", () => {
+    const linux = audit.auditLinux(
+      "Shared library: [libc.so.6]",
+      "1: 0000000000000000 0 NOTYPE WEAK DEFAULT UND _ITM_deregisterTMCloneTable\n2: 0000000000000000 0 NOTYPE WEAK DEFAULT UND _ITM_registerTMCloneTable",
+    );
+    const windows = audit.auditWindows(
+      "KERNEL32.dll",
+      "    KERNEL32.dll\n                         2A0 GetModuleHandleA",
+    );
+
+    expect(linux).toContain('"_ITM_deregisterTMCloneTable"');
+    expect(windows).toContain('"GetModuleHandleA"');
+  });
+
   it("locates the native-host dumpbin when Visual Studio leaves it off PATH", () => {
     const x64 =
       "C:\\VS\\VC\\Tools\\MSVC\\14.50.0\\bin\\Hostx64\\x64\\dumpbin.exe";
@@ -175,6 +189,15 @@ describe("native compiled artifact audits", () => {
     ],
   ])("rejects forbidden %s", (_name, run) => {
     expect(run).toThrow(/not allowlisted|forbidden/i);
+  });
+
+  it("reports every rejected import in one failure", () => {
+    expect(() =>
+      audit.auditLinux(
+        "Shared library: [libc.so.6]",
+        " UND socket\n UND dlopen\n UND socket",
+      ),
+    ).toThrow(/socket, dlopen/);
   });
 
   it("admits exactly six literal paths with hash-bound audit reports", async () => {

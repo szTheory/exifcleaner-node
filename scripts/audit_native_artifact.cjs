@@ -11,6 +11,8 @@ const LINUX_LIBRARIES = new Set([
 ]);
 const LINUX_IMPORTS = new Set([
   "renameat2",
+  "_ITM_deregisterTMCloneTable",
+  "_ITM_registerTMCloneTable",
   "__errno_location",
   "malloc",
   "free",
@@ -38,6 +40,7 @@ const WINDOWS_IMPORTS = new Set([
   "GetFileInformationByHandleEx",
   "CloseHandle",
   "GetLastError",
+  "GetModuleHandleA",
   "GetCurrentProcess",
   "GetProcessHeap",
   "HeapAlloc",
@@ -74,10 +77,11 @@ function stableReport(auditTool, libraries, imports) {
 }
 
 function assertAllowlisted(values, allowlist, predicate, kind) {
-  for (const value of values) {
-    if (!allowlist.has(value) && !predicate(value)) {
-      throw new Error(`${kind} ${value} is not allowlisted`);
-    }
+  const rejected = [...new Set(values)].filter(
+    (value) => !allowlist.has(value) && !predicate(value),
+  );
+  if (rejected.length > 0) {
+    throw new Error(`${kind}s are not allowlisted: ${rejected.join(", ")}`);
   }
 }
 
