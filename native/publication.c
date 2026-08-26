@@ -3,7 +3,9 @@
  * publication authority: no pathname observation or fallback is a success
  * condition.  The standalone entrypoint is compiled only by the test harness.
  */
+#ifndef PUBLICATION_STANDALONE_TEST
 #include <node_api.h>
+#endif
 #include <stdlib.h>
 
 #if defined(_WIN32)
@@ -38,6 +40,7 @@ typedef enum publication_result {
 static publication_result publish_no_replace(const char *stage, const char *destination);
 #endif
 
+#ifndef PUBLICATION_STANDALONE_TEST
 static const char *publication_result_name(publication_result result) {
   switch (result) {
     case PUBLICATION_PUBLISHED: return "published";
@@ -108,6 +111,7 @@ NAPI_MODULE_INIT() {
   napi_define_properties(env, exports, sizeof(properties) / sizeof(properties[0]), properties);
   return exports;
 }
+#endif
 
 #if defined(_WIN32)
 typedef struct private_stage_directory {
