@@ -24,6 +24,19 @@ function digest(value: Buffer): string {
 }
 
 describe("replayable WebP qualification properties", () => {
+  it("defaults focused runs to 200 and exact-path replay to one", () => {
+    expect(resolveReplayConfig({})).toEqual({ seed: 460_046, numRuns: 200 });
+    expect(resolveReplayConfig({ FC_PATH: "0:1" })).toEqual({
+      seed: 460_046,
+      path: "0:1",
+      numRuns: 1,
+    });
+    expect(() => resolveReplayConfig({ FC_PATH: "../../private" })).toThrow(
+      "FC_PATH",
+    );
+    expect(() => resolveReplayConfig({ FC_RUNS: "201" })).toThrow("FC_RUNS");
+  });
+
   it("runs the fixed grammar/mutation corpus with complete replay identity", async () => {
     const config = resolveReplayConfig(process.env);
     let executed = 0;
@@ -108,12 +121,14 @@ describe("replayable WebP qualification properties", () => {
       },
     );
     expect(first.failed).toBe(true);
-    expect(first.counterexamplePath).toBeTypeOf("string");
+    if (!first.failed || first.counterexamplePath === null)
+      throw new Error("Expected an injected shrink failure");
+    const replayPath = first.counterexamplePath;
     const replay = fc.check(
       fc.property(arbitrary, (value) => value < 10),
       {
         seed: 460_046,
-        path: first.counterexamplePath,
+        path: replayPath,
         numRuns: 1,
       },
     );
@@ -122,14 +137,14 @@ describe("replayable WebP qualification properties", () => {
     expect(
       formatReplayRecord({
         seed: 460_046,
-        path: first.counterexamplePath,
+        path: replayPath,
         fixtureSha256: "a".repeat(64),
         faultPlan: { operation: "stage-sync", occurrence: 1, error: "EIO" },
       }),
     ).toMatchObject({
       version: 1,
       seed: 460_046,
-      path: first.counterexamplePath,
+      path: replayPath,
       platform: process.platform,
       architecture: process.arch,
       nodeVersion: process.version,

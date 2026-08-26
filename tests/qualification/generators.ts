@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fc from "fast-check";
 import {
   alpha,
@@ -50,6 +51,19 @@ export interface HostileMutationCase {
 export interface ValidGrammarCase {
   readonly id: string;
   readonly bytes: Buffer;
+}
+
+export interface QualificationSample {
+  readonly id: string;
+  readonly bytes: Buffer;
+  readonly expected: "success" | WebpStructureError["kind"];
+}
+
+export interface ReplayRecordInput {
+  readonly seed: number;
+  readonly path: string | null;
+  readonly fixtureSha256: string;
+  readonly faultPlan: unknown;
 }
 
 const BASE_SEED = 460046;
@@ -342,4 +356,89 @@ export function webpArbitrary(): fc.Arbitrary<Buffer> {
         },
       ]);
     });
+}
+
+export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
+  const bufferedHostile = hostileMutationCases.flatMap((item) => {
+    const materialized = item.materialize();
+    return materialized.fileSize === materialized.prefix.length
+      ? [
+          {
+            id: item.id,
+            bytes: materialized.prefix,
+            expected: item.expectedKind,
+          } satisfies QualificationSample,
+        ]
+      : [];
+  });
+  return fc.oneof(
+    webpArbitrary().map((bytes) => ({
+      id: `generated-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
+      bytes,
+      expected: "success" as const,
+    })),
+    fc.constantFrom(...bufferedHostile),
+  );
+}
+
+function boundedInteger(
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+  label: string,
+): number {
+  if (value === undefined) return fallback;
+  if (!/^\d+$/.test(value)) throw new Error(`${label} must be an integer`);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum)
+    throw new Error(`${label} is outside its admitted range`);
+  return parsed;
+}
+
+export function resolveReplayConfig(environment: NodeJS.ProcessEnv): {
+  readonly seed: number;
+  readonly path?: string;
+  readonly numRuns: number;
+} {
+  const seed = boundedInteger(
+    environment.FC_SEED,
+    BASE_SEED,
+    0,
+    0x7fff_ffff,
+    "FC_SEED",
+  );
+  const numRuns = boundedInteger(
+    environment.FC_RUNS,
+    environment.FC_PATH === undefined ? 200 : 1,
+    1,
+    200,
+    "FC_RUNS",
+  );
+  const path = environment.FC_PATH;
+  if (path !== undefined && !/^\d+(?::\d+)*$/.test(path))
+    throw new Error("FC_PATH is not a bounded fast-check replay path");
+  return { seed, numRuns, ...(path === undefined ? {} : { path }) };
+}
+
+export function formatReplayRecord(input: ReplayRecordInput) {
+  if (
+    !Number.isSafeInteger(input.seed) ||
+    input.seed < 0 ||
+    input.path === null ||
+    !/^\d+(?::\d+)*$/.test(input.path) ||
+    !/^[a-f0-9]{64}$/.test(input.fixtureSha256)
+  )
+    throw new Error("Replay identity is incomplete");
+  return {
+    version: 1 as const,
+    seed: input.seed,
+    path: input.path,
+    nodeVersion: process.version,
+    platform: process.platform,
+    architecture: process.arch,
+    fixtureSha256: input.fixtureSha256,
+    faultPlan: input.faultPlan,
+    replayCommand: `FC_SEED=${input.seed} FC_PATH=${input.path} npm test -- tests/qualification/property.test.ts`,
+  };
 }
