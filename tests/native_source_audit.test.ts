@@ -49,15 +49,17 @@ async function run(path?: string): Promise<{ code: number; output: string }> {
 }
 
 describe("native source capability audit", () => {
-  it("keeps the descriptor-to-handle CRT dependency explicitly linked", async () => {
+  it("bridges descriptors through Node's initialized libuv without a CRT import", async () => {
     const source = await readFile(
       join(packageRoot, "native", "publication.c"),
       "utf8",
     );
     const configuration = await readFile(binding, "utf8");
 
-    expect(source).toContain("_get_osfhandle");
-    expect(configuration).toContain('"ucrt.lib"');
+    expect(source).toContain("uv_get_osfhandle");
+    expect(source).toContain("ReOpenFile");
+    expect(source).not.toMatch(/\b_get_osfhandle\b/);
+    expect(configuration).not.toContain('"ucrt.lib"');
   });
 
   it("accepts the production C source", async () => {

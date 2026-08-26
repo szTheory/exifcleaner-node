@@ -62,9 +62,13 @@ describe("current-host native publication addon", () => {
       fsConstants.O_RDONLY | fsConstants.O_DIRECTORY,
     );
     const stageHandle = await open(stage, fsConstants.O_RDWR);
-    const publish = (stageEntry: string, destinationEntry: string) =>
+    const publish = (
+      stageDescriptor: number,
+      stageEntry: string,
+      destinationEntry: string,
+    ) =>
       process.platform === "win32"
-        ? binding.publishNoReplace(stageHandle.fd, destination)
+        ? binding.publishNoReplace(stageDescriptor, destination)
         : binding.publishNoReplace(
             stageDirectory.fd,
             stageEntry,
@@ -72,16 +76,20 @@ describe("current-host native publication addon", () => {
             destinationEntry,
           );
 
-    expect(publish("stage.webp", "destination.webp")).toBe("published");
+    expect(publish(stageHandle.fd, "stage.webp", "destination.webp")).toBe(
+      "published",
+    );
     await expect(
       cp(destination, join(directory, "published-copy.webp")),
     ).resolves.toBeUndefined();
 
     const collisionStage = join(directory, "collision-stage.webp");
     await writeFile(collisionStage, "must stay staged");
-    expect(publish("collision-stage.webp", "destination.webp")).toBe(
-      "collision",
-    );
+    const collisionHandle = await open(collisionStage, fsConstants.O_RDWR);
+    expect(
+      publish(collisionHandle.fd, "collision-stage.webp", "destination.webp"),
+    ).toBe("collision");
+    await collisionHandle.close();
     await stageHandle.close();
     await stageDirectory.close();
     await destinationDirectory.close();

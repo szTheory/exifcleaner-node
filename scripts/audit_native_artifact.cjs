@@ -32,14 +32,10 @@ const DARWIN_IMPORTS = new Set([
   "_strlen",
   "___stack_chk_fail",
 ]);
-const WINDOWS_LIBRARIES = new Set([
-  "node.exe",
-  "KERNEL32.dll",
-  "ADVAPI32.dll",
-  "api-ms-win-crt-stdio-l1-1-0.dll",
-]);
+const WINDOWS_LIBRARIES = new Set(["node.exe", "KERNEL32.dll", "ADVAPI32.dll"]);
 const WINDOWS_IMPORTS = new Set([
   "CreateFileW",
+  "ReOpenFile",
   "SetFileInformationByHandle",
   "GetFileInformationByHandleEx",
   "CloseHandle",
@@ -69,7 +65,7 @@ const WINDOWS_IMPORTS = new Set([
   "GetSecurityDescriptorControl",
   "MapGenericMask",
   "AccessCheck",
-  "_get_osfhandle",
+  "uv_get_osfhandle",
 ]);
 
 function stableReport(auditTool, libraries, imports) {

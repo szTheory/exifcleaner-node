@@ -14,7 +14,7 @@
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <io.h>
+#include <uv.h>
 #include <aclapi.h>
 #include <sddl.h>
 #elif defined(__APPLE__)
@@ -137,7 +137,6 @@ static napi_value publish_no_replace_binding(napi_env env, napi_callback_info in
   napi_value args[4];
 #if defined(_WIN32)
   int32_t stage_descriptor;
-  intptr_t raw_handle;
   HANDLE stage_handle;
   WCHAR *destination;
 #else
@@ -170,12 +169,11 @@ static napi_value publish_no_replace_binding(napi_env env, napi_callback_info in
     napi_throw_error(env, NULL, "could not read destination path");
     return NULL;
   }
-  raw_handle = _get_osfhandle(stage_descriptor);
-  if (raw_handle == -1) {
+  stage_handle = uv_get_osfhandle(stage_descriptor);
+  if (stage_handle == INVALID_HANDLE_VALUE) {
     publication_free(destination);
     return publication_result_value(env, PUBLICATION_FAILED);
   }
-  stage_handle = (HANDLE)raw_handle;
   result = publish_no_replace(stage_handle, destination);
   publication_free(destination);
 #else
@@ -292,6 +290,7 @@ static void copy_bytes(BYTE *destination, const BYTE *source, size_t length) {
 
 static publication_result publish_no_replace(HANDLE stage_handle,
                                              const wchar_t *destination) {
+  HANDLE publication_handle;
   FILE_RENAME_INFO *rename_info;
   size_t destination_bytes;
   DWORD allocation_size;
@@ -301,14 +300,23 @@ static publication_result publish_no_replace(HANDLE stage_handle,
       destination == NULL) {
     return PUBLICATION_FAILED;
   }
+  publication_handle = ReOpenFile(
+      stage_handle, DELETE | SYNCHRONIZE,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      FILE_ATTRIBUTE_NORMAL);
+  if (publication_handle == INVALID_HANDLE_VALUE) {
+    return map_windows_error(GetLastError());
+  }
   destination_bytes = wide_length(destination) * sizeof(WCHAR);
   if (destination_bytes > MAXDWORD - FIELD_OFFSET(FILE_RENAME_INFO, FileName)) {
+    CloseHandle(publication_handle);
     return PUBLICATION_FAILED;
   }
   allocation_size = (DWORD)(FIELD_OFFSET(FILE_RENAME_INFO, FileName) + destination_bytes);
   rename_info = (FILE_RENAME_INFO *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
                                                allocation_size);
   if (rename_info == NULL) {
+    CloseHandle(publication_handle);
     return PUBLICATION_FAILED;
   }
   rename_info->Flags = 0;
@@ -316,11 +324,12 @@ static publication_result publish_no_replace(HANDLE stage_handle,
   rename_info->FileNameLength = (DWORD)destination_bytes;
   copy_bytes((BYTE *)rename_info->FileName, (const BYTE *)destination,
              destination_bytes);
-  result = SetFileInformationByHandle(stage_handle, FileRenameInfoEx, rename_info,
+  result = SetFileInformationByHandle(publication_handle, FileRenameInfoEx, rename_info,
                                       allocation_size)
                ? PUBLICATION_PUBLISHED
                : map_windows_error(GetLastError());
   HeapFree(GetProcessHeap(), 0, rename_info);
+  CloseHandle(publication_handle);
   return result;
 }
 

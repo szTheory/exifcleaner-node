@@ -125,20 +125,20 @@ describe("native compiled artifact audits", () => {
     expect(windows).not.toContain('"Characteristics"');
   });
 
-  it("admits only the explicit UCRT dependency required for descriptor conversion", () => {
+  it("admits Node's libuv descriptor bridge without a CRT dependency", () => {
     expect(
       audit.auditWindows(
-        "KERNEL32.dll\n    api-ms-win-crt-stdio-l1-1-0.dll",
-        "    KERNEL32.dll\n                         2A0 _get_osfhandle",
+        "node.exe\n    KERNEL32.dll",
+        "    KERNEL32.dll\n                         2A0 ReOpenFile\n    node.exe\n                         2A1 uv_get_osfhandle",
       ),
-    ).toContain('"_get_osfhandle"');
+    ).toContain('"uv_get_osfhandle"');
     expect(() =>
-      audit.auditWindows("ucrtbase.dll", "    2A0 _get_osfhandle"),
+      audit.auditWindows("ucrtbase.dll", "    2A0 uv_get_osfhandle"),
     ).toThrow(/not allowlisted/i);
     expect(() =>
       audit.auditWindows(
-        "api-ms-win-crt-runtime-l1-1-0.dll",
-        "    2A0 _get_osfhandle",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "    2A0 uv_get_osfhandle",
       ),
     ).toThrow(/not allowlisted/i);
   });
