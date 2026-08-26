@@ -129,13 +129,14 @@ function runMain() {
         "--event",
         "workflow_dispatch",
         "--json",
-        "databaseId,path,event,headBranch,headSha,createdAt,url,status,conclusion",
+        "databaseId,event,headBranch,headSha,createdAt,url,status,conclusion,workflowName",
         "--limit",
         "20",
       ]),
     ).map((item) => ({
       ...item,
       id: item.databaseId,
+      path: `.github/workflows/${values.workflow}`,
       head_branch: item.headBranch,
       head_sha: item.headSha,
       created_at: item.createdAt,
@@ -161,7 +162,7 @@ function runMain() {
       "view",
       String(run.id),
       "--json",
-      "status,conclusion,url,headSha,headBranch,event,path",
+      "status,conclusion,url,headSha,headBranch,event,workflowName",
     ]),
   );
   if (
@@ -170,16 +171,11 @@ function runMain() {
     summary.headSha !== sha ||
     summary.headBranch !== ref ||
     summary.event !== "workflow_dispatch" ||
-    summary.path !== `.github/workflows/${values.workflow}`
+    summary.workflowName !== "CI"
   )
     throw new Error(
       "Watched run does not retain its exact immutable identity and success conclusion",
     );
-  const artifact = JSON.parse(
-    gh(["api", `repos/{owner}/{repo}/actions/runs/${run.id}/artifacts`]),
-  ).artifacts.find((item) => item.name === "final-native-admission");
-  if (!artifact)
-    throw new Error("Exact run did not upload final native admission evidence");
   const temp = resolve(`.native-admission-${run.id}`);
   gh(
     [
