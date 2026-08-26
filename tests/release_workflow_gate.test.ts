@@ -19,7 +19,10 @@ const authorities = [
   "installed-win32-arm64",
 ];
 
-function greenGraph() {
+type WorkflowJob = { needs?: string[]; script?: string };
+type WorkflowGraph = { jobs: Record<string, WorkflowJob> };
+
+function greenGraph(): WorkflowGraph {
   return {
     jobs: {
       "native-admission": {
@@ -52,35 +55,34 @@ describe("release workflow authority gate", () => {
 
   it.each(authorities)("rejects missing %s authority", (authority) => {
     const graph = greenGraph();
-    graph.jobs.publish.needs = graph.jobs.publish.needs?.filter(
-      (name) => name !== authority,
-    );
+    const publish = graph.jobs.publish!;
+    publish.needs = (publish.needs ?? []).filter((name) => name !== authority);
     expect(() => gate.validateReleaseGraph(graph)).toThrow(/authority|needs/i);
   });
 
   it("rejects bypass, mutable identity, digest substitution, rebuild, cycles, and unknown needs", () => {
     for (const mutate of [
       (graph: ReturnType<typeof greenGraph>) => {
-        graph.jobs.publish.needs = [];
+        graph.jobs.publish!.needs = [];
       },
       (graph: ReturnType<typeof greenGraph>) => {
-        graph.jobs["immutable-sha-evidence"].script = "latest run";
+        graph.jobs["immutable-sha-evidence"]!.script = "latest run";
       },
       (graph: ReturnType<typeof greenGraph>) => {
-        graph.jobs["installed-linux-x64"].script =
+        graph.jobs["installed-linux-x64"]!.script =
           "admission.json implementationSha otherDigest";
       },
       (graph: ReturnType<typeof greenGraph>) => {
-        graph.jobs["installed-linux-x64"].script += " npm run build";
+        graph.jobs["installed-linux-x64"]!.script += " npm run build";
       },
       (graph: ReturnType<typeof greenGraph>) => {
-        graph.jobs["native-admission"].needs = ["publish"];
+        graph.jobs["native-admission"]!.needs = ["publish"];
       },
       (graph: ReturnType<typeof greenGraph>) => {
-        graph.jobs.publish.needs = ["not-a-job"];
+        graph.jobs.publish!.needs = ["not-a-job"];
       },
       (graph: ReturnType<typeof greenGraph>) => {
-        graph.jobs.publish.script = "npm publish package-local.tgz";
+        graph.jobs.publish!.script = "npm publish package-local.tgz";
       },
     ]) {
       const graph = greenGraph();
