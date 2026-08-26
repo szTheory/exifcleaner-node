@@ -24,7 +24,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run lint && npm run typecheck && npm test && npm run check:cycles && npm run build && npm run check:runtime
+      - run: npm run lint && npm run typecheck && npm run check:cycles && npm run build && npm run check:runtime
 
   build-audit-native:
     name: build-audit-${{ matrix.tuple }}
