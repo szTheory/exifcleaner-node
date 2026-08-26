@@ -440,7 +440,7 @@ describe("classifyFallback", () => {
       });
       expect(collision).toMatchObject({
         ok: false,
-        error: { phase: "transaction", nativeWrite: "not-started" },
+        error: { phase: "transaction", nativeWrite: "started" },
       });
       for (const result of [missing, cancelled, collision]) {
         if (!result.ok)

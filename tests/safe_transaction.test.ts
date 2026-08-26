@@ -22,6 +22,7 @@ import {
   sourceSnapshotMatches,
 } from "../src/transaction/identity.js";
 import { runSafeTransaction } from "../src/transaction/safe-transaction.js";
+import { setNativePublicationBindingForTests } from "../src/transaction/native-publication.js";
 import { metadataWebp } from "./fixtures.js";
 
 const directories: string[] = [];
@@ -97,6 +98,79 @@ describe("safe transaction file operations", () => {
     expect(stageName).toBeDefined();
     expect((await stat(join(directory, stageName!))).mode & 0o077).toBe(0);
   });
+
+  it.each(["unsupported", "failed"] as const)(
+    "treats native publication %s as one terminal attempt without destination cleanup",
+    async (nativeOutcome) => {
+      const directory = await mkdtemp(
+        join(tmpdir(), "exifcleaner-transaction-"),
+      );
+      directories.push(directory);
+      const sourcePath = join(directory, "source.webp");
+      const destinationPath = join(directory, "destination.webp");
+      await writeFile(sourcePath, metadataWebp());
+      const source = await open(sourcePath, fsConstants.O_RDONLY);
+      const stats = await source.stat();
+      const admission = await webpHandler.admit(source, stats.size);
+      const plan = webpHandler.buildOutputPlan(
+        admission.parsed,
+        false,
+        false,
+        undefined,
+      );
+      let nativeAttempts = 0;
+      let pathnameRemovals = 0;
+      const restore = setNativePublicationBindingForTests({
+        publishNoReplace: () => {
+          nativeAttempts += 1;
+          return nativeOutcome;
+        },
+        createPrivateStageDirectory: () => undefined,
+        disposePrivateStageDirectory: () => "unsupported",
+      });
+      try {
+        const result = await runSafeTransaction({
+          sourceHandle: source,
+          sourceSnapshot: snapshotSource(stats),
+          sourceMode: stats.mode,
+          handler: webpHandler,
+          admission,
+          plan,
+          orientation: undefined,
+          options: {
+            sourcePath,
+            destinationPath,
+            preserveOrientation: false,
+            preserveColorProfile: false,
+            preserveTimestamps: false,
+          },
+          fileOps: {
+            ...NODE_FILE_OPS,
+            remove: async () => {
+              pathnameRemovals += 1;
+              throw new Error("publication failures must retain the private stage");
+            },
+          },
+        });
+        expect(result).toMatchObject({
+          ok: false,
+          error: {
+            code: "write-failed",
+            phase: "transaction",
+            nativeWrite: "started",
+            finalization: { state: "owned-partial-remains" },
+          },
+        });
+        expect(nativeAttempts).toBe(1);
+        expect(pathnameRemovals).toBe(0);
+        await expect(stat(destinationPath)).rejects.toMatchObject({
+          code: "ENOENT",
+        });
+      } finally {
+        restore();
+      }
+    },
+  );
 
   it("treats a post-create sync fault as terminal without starting a second writer", async () => {
     const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
