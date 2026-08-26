@@ -4,7 +4,7 @@ import { executionError, jsonSafeCause, withDestinationFinalization, } from "../
 import { err, ok } from "../result.js";
 import { DIRECT_FINAL_FLAGS, REOPEN_FLAGS, STAGE_DIRECTORY_FLAGS, } from "./file-ops.js";
 import { identitiesDistinct, identityOf, sourcePathMatchesSnapshot, timestampsMatchAtMillisecondPrecision, } from "./identity.js";
-import { publishNoReplace } from "./native-publication.js";
+import { createPrivateStageDirectory, disposePrivateStageDirectory, publishNoReplace, } from "./native-publication.js";
 function aborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -22,7 +22,7 @@ function isVerifiedPosixStageDirectory(stats) {
         (stats.mode & 0o077) === 0);
 }
 export async function runSafeTransaction(input) {
-    const { sourceHandle, sourceSnapshot, sourceMode, handler, admission, plan, orientation, options, fileOps, beforePublish, } = input;
+    const { sourceHandle, sourceSnapshot, sourceMode, handler, admission, plan, orientation, options, fileOps, beforePublish, beforeStageFinalization, platform = process.platform, } = input;
     const { sourcePath, destinationPath, signal } = options;
     const stageDirectoryPath = join(dirname(destinationPath), `.exifcleaner-stage-${randomUUID()}`);
     const stagePath = join(stageDirectoryPath, "output.webp");
@@ -30,6 +30,7 @@ export async function runSafeTransaction(input) {
     let stageFile;
     let directoryCreated = false;
     let directoryIdentity;
+    let directoryCapability;
     let fileCreated = false;
     let fileIdentity;
     let failure;
@@ -39,10 +40,16 @@ export async function runSafeTransaction(input) {
         await fileOps.createDirectory(stageDirectoryPath, 0o700);
         directoryCreated = true;
         stageDirectory = await fileOps.open(stageDirectoryPath, STAGE_DIRECTORY_FLAGS);
+        if (platform === "win32") {
+            const capability = createPrivateStageDirectory();
+            if (capability !== undefined) {
+                directoryCapability = capability;
+            }
+        }
         const directoryStats = await fileOps.statHandle(stageDirectory);
         directoryIdentity = identityOf(directoryStats);
         if (directoryIdentity === undefined ||
-            process.platform === "win32" ||
+            platform === "win32" ||
             !isVerifiedPosixStageDirectory(directoryStats)) {
             failure = executionError({
                 code: "write-failed",
@@ -168,6 +175,14 @@ export async function runSafeTransaction(input) {
         if (stageDirectory !== undefined)
             await fileOps.close(stageDirectory).catch(() => undefined);
         await fileOps.close(sourceHandle).catch(() => undefined);
+    }
+    await Promise.resolve(beforeStageFinalization?.({ stageDirectoryPath, stagePath })).catch(() => undefined);
+    if (directoryCreated &&
+        !fileCreated &&
+        platform === "win32" &&
+        directoryCapability !== undefined &&
+        disposePrivateStageDirectory(directoryCapability).state === "disposed") {
+        return err(withDestinationFinalization(failure, { state: "owned-partial-removed" }));
     }
     const residueCause = fileCreated
         ? { message: "Private staged file remains after terminal publication failure." }

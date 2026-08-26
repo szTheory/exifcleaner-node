@@ -30,6 +30,7 @@ export declare function setNativePublicationBindingForTests(binding: NativePubli
 export declare function mapNativePublicationCode(code: unknown): NativePublicationResult;
 export declare function mapNativeStageDirectoryCode(code: unknown): NativeStageDirectoryDisposition;
 export declare function publishNoReplace(stagePath: string, destinationPath: string): NativePublicationResult;
+export declare function createPrivateStageDirectory(): unknown;
 export declare function disposePrivateStageDirectory(capability: NativeStageDirectoryCapability): NativeStageDirectoryDisposition;
 export {};
 //# sourceMappingURL=native-publication.d.ts.map

@@ -35,7 +35,12 @@ import {
   type FileIdentity,
   type SourceSnapshot,
 } from "./identity.js";
-import { publishNoReplace } from "./native-publication.js";
+import {
+  createPrivateStageDirectory,
+  disposePrivateStageDirectory,
+  publishNoReplace,
+  type NativeStageDirectoryCapability,
+} from "./native-publication.js";
 
 function aborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
@@ -70,6 +75,13 @@ export interface SafeTransactionInput {
   readonly fileOps: FileOps;
   /** Private test-only scheduling seam immediately before the one native call. */
   readonly beforePublish?: () => void | Promise<void>;
+  /** Private test-only seam before bounded terminal-stage finalization. */
+  readonly beforeStageFinalization?: (paths: {
+    readonly stageDirectoryPath: string;
+    readonly stagePath: string;
+  }) => void | Promise<void>;
+  /** Private platform seam for deterministic capability-finalization coverage. */
+  readonly platform?: NodeJS.Platform;
 }
 
 export async function runSafeTransaction(
@@ -86,6 +98,8 @@ export async function runSafeTransaction(
     options,
     fileOps,
     beforePublish,
+    beforeStageFinalization,
+    platform = process.platform,
   } = input;
   const { sourcePath, destinationPath, signal } = options;
   const stageDirectoryPath = join(
@@ -97,6 +111,7 @@ export async function runSafeTransaction(
   let stageFile: FileHandle | undefined;
   let directoryCreated = false;
   let directoryIdentity: FileIdentity | undefined;
+  let directoryCapability: NativeStageDirectoryCapability | undefined;
   let fileCreated = false;
   let fileIdentity: FileIdentity | undefined;
   let failure: MetadataError | undefined;
@@ -106,11 +121,17 @@ export async function runSafeTransaction(
     await fileOps.createDirectory(stageDirectoryPath, 0o700);
     directoryCreated = true;
     stageDirectory = await fileOps.open(stageDirectoryPath, STAGE_DIRECTORY_FLAGS);
+    if (platform === "win32") {
+      const capability = createPrivateStageDirectory();
+      if (capability !== undefined) {
+        directoryCapability = capability as NativeStageDirectoryCapability;
+      }
+    }
     const directoryStats = await fileOps.statHandle(stageDirectory);
     directoryIdentity = identityOf(directoryStats);
     if (
       directoryIdentity === undefined ||
-      process.platform === "win32" ||
+      platform === "win32" ||
       !isVerifiedPosixStageDirectory(directoryStats)
     ) {
       failure = executionError(
@@ -292,6 +313,20 @@ export async function runSafeTransaction(
     if (stageDirectory !== undefined)
       await fileOps.close(stageDirectory).catch(() => undefined);
     await fileOps.close(sourceHandle).catch(() => undefined);
+  }
+  await Promise.resolve(
+    beforeStageFinalization?.({ stageDirectoryPath, stagePath }),
+  ).catch(() => undefined);
+  if (
+    directoryCreated &&
+    !fileCreated &&
+    platform === "win32" &&
+    directoryCapability !== undefined &&
+    disposePrivateStageDirectory(directoryCapability).state === "disposed"
+  ) {
+    return err(
+      withDestinationFinalization(failure!, { state: "owned-partial-removed" }),
+    );
   }
   const residueCause = fileCreated
     ? { message: "Private staged file remains after terminal publication failure." }

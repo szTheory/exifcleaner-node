@@ -142,6 +142,14 @@ export function publishNoReplace(
   }
 }
 
+export function createPrivateStageDirectory(): unknown {
+  try {
+    return nativeBinding().createPrivateStageDirectory();
+  } catch {
+    return undefined;
+  }
+}
+
 export function disposePrivateStageDirectory(
   capability: NativeStageDirectoryCapability,
 ): NativeStageDirectoryDisposition {
