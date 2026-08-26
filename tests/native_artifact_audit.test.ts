@@ -99,6 +99,22 @@ describe("native compiled artifact audits", () => {
     expect(cleanReport("win32-x64")).toContain('"auditTool":"dumpbin"');
   });
 
+  it("parses hosted readelf and dumpbin output without crossing records or headings", () => {
+    const linux = audit.auditLinux(
+      "Shared library: [libc.so.6]\nShared library: [ld-linux-aarch64.so.1]",
+      "0: 0000000000000000 0 NOTYPE LOCAL DEFAULT UND\n1: 0000000000000000 0 FUNC GLOBAL DEFAULT UND syscall@GLIBC_2.17 (2)\n2: 0000000000000000 0 FUNC GLOBAL DEFAULT UND napi_create_string_utf8",
+    );
+    const windows = audit.auditWindows(
+      "Image has the following dependencies:\n\n    node.exe\n    KERNEL32.dll",
+      "    KERNEL32.dll\n                         2A0 CreateFileW\n                         2A1 HeapAlloc\n  Summary\n        1000 .data\n        2000 .text",
+    );
+
+    expect(linux).toContain('"syscall"');
+    expect(linux).not.toContain('"1:"');
+    expect(windows).toContain('"CreateFileW"');
+    expect(windows).not.toContain('"Summary"');
+  });
+
   it("locates the native-host dumpbin when Visual Studio leaves it off PATH", () => {
     const x64 =
       "C:\\VS\\VC\\Tools\\MSVC\\14.50.0\\bin\\Hostx64\\x64\\dumpbin.exe";

@@ -4,7 +4,11 @@
 const { execFileSync } = require("node:child_process");
 const { join } = require("node:path");
 
-const LINUX_LIBRARIES = new Set(["libc.so.6"]);
+const LINUX_LIBRARIES = new Set([
+  "libc.so.6",
+  "ld-linux-aarch64.so.1",
+  "ld-linux-x86-64.so.2",
+]);
 const LINUX_IMPORTS = new Set([
   "renameat2",
   "__errno_location",
@@ -13,6 +17,7 @@ const LINUX_IMPORTS = new Set([
   "memcpy",
   "memset",
   "strlen",
+  "syscall",
   "__stack_chk_fail",
 ]);
 const DARWIN_LIBRARIES = new Set(["/usr/lib/libSystem.B.dylib"]);
@@ -81,7 +86,7 @@ function auditLinux(dynamicOutput, symbolsOutput) {
     ...dynamicOutput.matchAll(/Shared library: \[([^\]]+)\]/g),
   ].map((match) => match[1]);
   const imports = [
-    ...symbolsOutput.matchAll(/\bUND\s+([^\s@]+)(?:@[^\s]+)?/g),
+    ...symbolsOutput.matchAll(/\bUND[ \t]+([^\s@]+)(?:@[^\s]+)?/g),
   ].map((match) => match[1]);
   assertAllowlisted(
     libraries,
@@ -127,8 +132,11 @@ function auditWindows(dependentsOutput, importsOutput) {
   const libraries = [
     ...dependentsOutput.matchAll(/^\s*([A-Za-z0-9_.-]+\.dll|node\.exe)\s*$/gim),
   ].map((match) => match[1]);
+  const importsSection = importsOutput.split(/^\s*Summary\s*$/im)[0];
   const imports = [
-    ...importsOutput.matchAll(/^\s{4,}([A-Za-z_][A-Za-z0-9_@]*)\s*$/gm),
+    ...importsSection.matchAll(
+      /^\s+(?:[0-9A-Fa-f]+\s+)?([A-Za-z_][A-Za-z0-9_@]*)[ \t]*$/gm,
+    ),
   ]
     .map((match) => match[1])
     .filter((name) => !/\.dll$/i.test(name));
