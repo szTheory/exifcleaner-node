@@ -4,6 +4,7 @@
 const { createHash } = require("node:crypto");
 const {
   accessSync,
+  constants: fsConstants,
   copyFileSync,
   mkdtempSync,
   readFileSync,
@@ -13,14 +14,22 @@ const {
   statSync,
   writeFileSync,
 } = require("node:fs");
+const { open } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
-const { basename, dirname, join, resolve } = require("node:path");
+const { basename, dirname, join, relative, resolve } = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { pathToFileURL } = require("node:url");
 
 const DEVELOPMENT_SCOPE = "development-current-host";
 const FINAL_SCOPE = "final-matching-host";
 const FORBIDDEN_SCOPE = "final-release";
+const CORPUS_MANIFEST_PATH = resolve(
+  __dirname,
+  "../tests/corpus/manifest.json",
+);
+const SHA256 = /^[a-f0-9]{64}$/;
+const PROPERTY_SEED = 460_046;
+const PROPERTY_RUNS = 25;
 
 function hostTuple() {
   return `${process.platform}-${process.arch}`;
@@ -102,6 +111,15 @@ function parseArguments(args) {
       throw new Error("--tarball is required");
     if (Object.hasOwn(values, flag))
       throw new Error(`Duplicate option ${flag}`);
+    if (
+      !new Set([
+        "--tarball",
+        "--evidence-scope",
+        "--tarball-sha256",
+        "--manifest-sha256",
+      ]).has(flag)
+    )
+      throw new Error(`Unknown option ${flag}`);
     values[flag] = value;
   }
   if (typeof values["--tarball"] !== "string")
@@ -115,7 +133,27 @@ function parseArguments(args) {
     throw new Error(
       "--evidence-scope must be development-current-host or final-matching-host",
     );
-  return { tarball: resolve(values["--tarball"]), evidenceScope };
+  const tarballSha256 = values["--tarball-sha256"];
+  const manifestSha256 = values["--manifest-sha256"];
+  for (const [label, value] of [
+    ["--tarball-sha256", tarballSha256],
+    ["--manifest-sha256", manifestSha256],
+  ])
+    if (value !== undefined && !SHA256.test(value))
+      throw new Error(`${label} must be SHA-256`);
+  if (
+    evidenceScope === FINAL_SCOPE &&
+    (tarballSha256 === undefined || manifestSha256 === undefined)
+  )
+    throw new Error(
+      "final-matching-host evidence requires tarball and manifest SHA-256",
+    );
+  return {
+    tarball: resolve(values["--tarball"]),
+    evidenceScope,
+    tarballSha256,
+    manifestSha256,
+  };
 }
 
 function assertArchiveShape(tarball) {
@@ -186,15 +224,24 @@ function chunk(fourCc, data) {
   ]);
 }
 
-function sourceWebp() {
+function sha256Bytes(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function sourceWebp(width = 1, height = 1, includeExif = true) {
   const vp8x = Buffer.alloc(10);
-  vp8x[0] = 0x08;
-  const vp8 = Buffer.from([0x10, 0, 0, 0x9d, 0x01, 0x2a, 1, 0, 1, 0]);
+  vp8x[0] = includeExif ? 0x08 : 0;
+  vp8x[4] = (width - 1) & 0xff;
+  vp8x[7] = (height - 1) & 0xff;
+  const vp8 = Buffer.alloc(10);
+  vp8.set([0x10, 0, 0, 0x9d, 0x01, 0x2a]);
+  vp8.writeUInt16LE(width, 6);
+  vp8.writeUInt16LE(height, 8);
   const exif = Buffer.from("II*\0\b\0\0\0\0\0\0\0", "binary");
   const body = Buffer.concat([
     chunk("VP8X", vp8x),
     chunk("VP8 ", vp8),
-    chunk("EXIF", exif),
+    ...(includeExif ? [chunk("EXIF", exif)] : []),
   ]);
   const header = Buffer.alloc(12);
   header.write("RIFF", 0, 4, "ascii");
@@ -203,36 +250,287 @@ function sourceWebp() {
   return Buffer.concat([header, body]);
 }
 
-async function runTransactions(packageRoot, sandbox) {
-  const api = await import(
-    pathToFileURL(join(packageRoot, "dist", "index.js")).href
-  );
-  const sourcePath = join(sandbox, "source.webp");
-  const destinationPath = join(sandbox, "sanitized.webp");
-  const source = sourceWebp();
+function readChunks(bytes) {
+  if (
+    bytes.length < 12 ||
+    bytes.toString("ascii", 0, 4) !== "RIFF" ||
+    bytes.toString("ascii", 8, 12) !== "WEBP" ||
+    bytes.readUInt32LE(4) + 8 !== bytes.length
+  )
+    throw new Error("Qualification fixture is not an exact WebP container");
+  const records = [];
+  for (let offset = 12; offset < bytes.length;) {
+    if (offset + 8 > bytes.length)
+      throw new Error("Qualification fixture chunk header is truncated");
+    const fourCc = bytes.toString("ascii", offset, offset + 4);
+    const size = bytes.readUInt32LE(offset + 4);
+    const end = offset + 8 + size;
+    const spanEnd = end + (size & 1);
+    if (spanEnd > bytes.length)
+      throw new Error("Qualification fixture chunk is truncated");
+    records.push({
+      fourCc,
+      payload: bytes.subarray(offset + 8, end),
+      sha256: sha256Bytes(bytes.subarray(offset + 8, end)),
+    });
+    offset = spanEnd;
+  }
+  return records;
+}
+
+function payloadDigests(bytes) {
+  const retained = new Set(["VP8 ", "VP8L", "ALPH", "ANIM", "ANMF"]);
+  const occurrences = new Map();
+  return readChunks(bytes).flatMap((record) => {
+    if (!retained.has(record.fourCc)) return [];
+    const occurrence = occurrences.get(record.fourCc) ?? 0;
+    occurrences.set(record.fourCc, occurrence + 1);
+    return [{ fourCc: record.fourCc, occurrence, sha256: record.sha256 }];
+  });
+}
+
+function uint24(value) {
+  return Buffer.from([value & 0xff, (value >>> 8) & 0xff, value >>> 16]);
+}
+
+function derivedAnimation(still) {
+  const vp8 = readChunks(still).find((record) => record.fourCc === "VP8 ");
+  if (vp8 === undefined)
+    throw new Error("Upstream fixture has no admitted VP8 payload");
+  const vp8x = Buffer.concat([
+    Buffer.from([0x02, 0, 0, 0]),
+    uint24(127),
+    uint24(127),
+  ]);
+  const anim = Buffer.alloc(6);
+  anim.writeUInt32LE(0xff00_00ff, 0);
+  anim.writeUInt16LE(2, 4);
+  const frame = (duration) =>
+    Buffer.concat([
+      uint24(0),
+      uint24(0),
+      uint24(127),
+      uint24(127),
+      uint24(duration),
+      Buffer.from([0]),
+      chunk("VP8 ", vp8.payload),
+    ]);
+  const body = Buffer.concat([
+    chunk("VP8X", vp8x),
+    chunk("ANIM", anim),
+    chunk("ANMF", frame(40)),
+    chunk("ANMF", frame(60)),
+  ]);
+  const header = Buffer.alloc(12);
+  header.write("RIFF", 0, 4, "ascii");
+  header.writeUInt32LE(body.length + 4, 4);
+  header.write("WEBP", 8, 4, "ascii");
+  return Buffer.concat([header, body]);
+}
+
+function loadCorpusAuthority() {
+  const manifestBytes = readFileSync(CORPUS_MANIFEST_PATH);
+  const manifest = JSON.parse(manifestBytes.toString("utf8"));
+  if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.records))
+    throw new Error("Corpus manifest schema is not admitted");
+  const record = (id) => {
+    const found = manifest.records.find((item) => item.id === id);
+    if (
+      found === undefined ||
+      typeof found.localPath !== "string" ||
+      !SHA256.test(found.sha256) ||
+      !Number.isSafeInteger(found.bytes) ||
+      found.bytes <= 0
+    )
+      throw new Error(`Corpus authority is incomplete: ${id}`);
+    const corpusRoot = dirname(CORPUS_MANIFEST_PATH);
+    const filePath = resolve(corpusRoot, found.localPath);
+    const fromRoot = relative(corpusRoot, filePath);
+    if (fromRoot.startsWith("..") || resolve(corpusRoot, fromRoot) !== filePath)
+      throw new Error(`Corpus authority escapes its root: ${id}`);
+    const bytes = readFileSync(filePath);
+    if (bytes.length !== found.bytes || sha256Bytes(bytes) !== found.sha256)
+      throw new Error(`Corpus authority drift: ${id}`);
+    return { id, bytes, sha256: found.sha256 };
+  };
+  return {
+    manifestSha256: sha256Bytes(manifestBytes),
+    sample: record("exifcleaner-sample"),
+    upstream: record("libwebp-1.5.0-example"),
+  };
+}
+
+async function runCorpusCase(api, sandbox, id, source, index) {
+  const sourcePath = join(sandbox, `case-${index}.bin`);
+  const destinationPath = join(sandbox, `case-${index}.webp`);
   writeFileSync(sourcePath, source);
-  const options = {
+  const inspection = await api.inspectFile(sourcePath);
+  if (!inspection.ok || inspection.value.format !== "webp")
+    throw new Error(`Installed magic admission failed: ${id}`);
+  const result = await api.sanitizeFile({
     sourcePath,
     destinationPath,
     preserveOrientation: false,
     preserveColorProfile: false,
     preserveTimestamps: false,
-  };
-  const published = await api.sanitizeFile(options);
-  if (!published.ok)
-    throw new Error(
-      `Installed transaction did not publish: ${JSON.stringify(published.error)}`,
-    );
+  });
+  if (!result.ok)
+    throw new Error(`Installed corpus case failed: ${id}:${result.error.code}`);
+  const output = readFileSync(destinationPath);
+  const expectedPayloads = payloadDigests(source);
+  const actualPayloads = payloadDigests(output);
+  if (JSON.stringify(expectedPayloads) !== JSON.stringify(actualPayloads))
+    throw new Error(`Installed payload identity failed: ${id}`);
   if (!readFileSync(sourcePath).equals(source))
-    throw new Error("Installed transaction changed source bytes");
-  if (!readFileSync(destinationPath).length)
-    throw new Error("Installed transaction did not write destination");
+    throw new Error(`Installed corpus case changed source: ${id}`);
+  const reopened = await api.inspectFile(destinationPath);
+  if (!reopened.ok || reopened.value.format !== "webp")
+    throw new Error(`Installed output reopen failed: ${id}`);
+  return {
+    evidence: {
+      id,
+      magicAdmission: true,
+      sourceSha256: sha256Bytes(source),
+      outputSha256: sha256Bytes(output),
+      payloadDigests: actualPayloads,
+      removedNamespaces: result.value.removedNamespaces,
+      finalization: result.value.postCommitResidue.state,
+    },
+    sourcePath,
+    destinationPath,
+  };
+}
 
-  const competitorPath = destinationPath;
+async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
+  const moduleUrl = (relativePath) =>
+    pathToFileURL(join(packageRoot, "dist", relativePath)).href;
+  const [
+    handlerModule,
+    fileOpsModule,
+    identityModule,
+    transactionModule,
+    fallbackModule,
+  ] = await Promise.all([
+    import(moduleUrl("admission/webp-handler.js")),
+    import(moduleUrl("transaction/file-ops.js")),
+    import(moduleUrl("transaction/identity.js")),
+    import(moduleUrl("transaction/safe-transaction.js")),
+    import(moduleUrl("fallback.js")),
+  ]);
+  const sourcePath = join(sandbox, "cancel-source.bin");
+  const destinationPath = join(sandbox, "cancel-output.webp");
+  writeFileSync(sourcePath, sourceBytes);
+  const source = await open(sourcePath, fsConstants.O_RDONLY);
+  const stats = await source.stat();
+  const admission = await handlerModule.webpHandler.admit(source, stats.size);
+  const plan = handlerModule.webpHandler.buildOutputPlan(
+    admission.parsed,
+    false,
+    false,
+    undefined,
+  );
+  const controller = new AbortController();
+  const result = await transactionModule.runSafeTransaction({
+    sourceHandle: source,
+    sourceSnapshot: identityModule.snapshotSource(stats),
+    sourceMode: stats.mode,
+    handler: handlerModule.webpHandler,
+    admission,
+    plan,
+    orientation: undefined,
+    options: {
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      signal: controller.signal,
+    },
+    fileOps: fileOpsModule.NODE_FILE_OPS,
+    beforePublish: () => controller.abort(),
+  });
+  if (
+    result.ok ||
+    result.error.code !== "aborted" ||
+    result.error.nativeWrite !== "started" ||
+    fallbackModule.classifyFallback(result.error) !== "do-not-fallback" ||
+    result.error.finalization?.state !== "owned-partial-remains"
+  )
+    throw new Error("Installed deterministic cancellation contract failed");
+  try {
+    accessSync(destinationPath);
+    throw new Error("Installed cancellation created a public destination");
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  if (!readFileSync(sourcePath).equals(sourceBytes))
+    throw new Error("Installed cancellation changed source bytes");
+  return {
+    code: result.error.code,
+    nativeWrite: result.error.nativeWrite,
+    fallback: "do-not-fallback",
+    finalization: result.error.finalization.state,
+  };
+}
+
+async function runInstalledProperties(api, sandbox) {
+  const configured = process.env.QUALIFICATION_PROPERTY_RUNS;
+  if (configured !== undefined && configured !== String(PROPERTY_RUNS))
+    throw new Error("QUALIFICATION_PROPERTY_RUNS must be exactly 25");
+  let state = PROPERTY_SEED;
+  const outputDigests = [];
+  for (let index = 0; index < PROPERTY_RUNS; index += 1) {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+    const source = sourceWebp(1 + (state & 7), 1 + ((state >>> 3) & 7), true);
+    const sourcePath = join(sandbox, `property-${index}.bin`);
+    const destinationPath = join(sandbox, `property-${index}.webp`);
+    writeFileSync(sourcePath, source);
+    const result = await api.sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+    });
+    if (!result.ok || !readFileSync(sourcePath).equals(source))
+      throw new Error(`Installed property case failed: ${index}`);
+    const output = readFileSync(destinationPath);
+    if (
+      JSON.stringify(payloadDigests(source)) !==
+      JSON.stringify(payloadDigests(output))
+    )
+      throw new Error(`Installed property payload drift: ${index}`);
+    outputDigests.push(sha256Bytes(output));
+  }
+  return sha256Bytes(Buffer.from(outputDigests.join(""), "ascii"));
+}
+
+async function runTransactions(packageRoot, sandbox, corpus) {
+  const api = await import(
+    pathToFileURL(join(packageRoot, "dist", "index.js")).href
+  );
+  const still = await runCorpusCase(
+    api,
+    sandbox,
+    corpus.sample.id,
+    corpus.sample.bytes,
+    0,
+  );
+  const animation = await runCorpusCase(
+    api,
+    sandbox,
+    "derived-two-frame-animation",
+    derivedAnimation(corpus.upstream.bytes),
+    1,
+  );
+  const competitorPath = still.destinationPath;
   const competitor = readFileSync(competitorPath);
   const collision = await api.sanitizeFile({
-    ...options,
+    sourcePath: still.sourcePath,
     destinationPath: competitorPath,
+    preserveOrientation: false,
+    preserveColorProfile: false,
+    preserveTimestamps: false,
   });
   if (collision.ok || collision.error.code !== "destination-exists")
     throw new Error(
@@ -245,16 +543,38 @@ async function runTransactions(packageRoot, sandbox) {
     throw new Error(
       "Installed collision did not preserve bounded D-52 residue truth",
     );
+  const cancellation = await runDeterministicCancellation(
+    packageRoot,
+    sandbox,
+    corpus.sample.bytes,
+  );
+  const propertyOutputDigest = await runInstalledProperties(api, sandbox);
   return {
-    sourcePreserved: true,
-    published: true,
-    collisionPreserved: true,
-    postCommitResidue: published.value.postCommitResidue.state,
-    collisionFinalization: finalization.state,
+    corpusCases: [still.evidence, animation.evidence],
+    propertyOutputDigest,
+    cases: {
+      sourcePreserved: true,
+      published: true,
+      collisionPreserved: true,
+      cancellation,
+      postCommitResidue: still.evidence.finalization,
+      collisionFinalization: finalization.state,
+    },
   };
 }
 
-async function runSmoke({ tarball, evidenceScope }) {
+async function runSmoke({
+  tarball,
+  evidenceScope,
+  tarballSha256,
+  manifestSha256,
+}) {
+  const corpus = loadCorpusAuthority();
+  const actualTarballSha256 = sha256(tarball);
+  if (tarballSha256 !== undefined && actualTarballSha256 !== tarballSha256)
+    throw new Error("Tarball digest mismatch");
+  if (manifestSha256 !== undefined && corpus.manifestSha256 !== manifestSha256)
+    throw new Error("Corpus manifest digest mismatch");
   assertArchiveShape(tarball);
   const sandbox = mkdtempSync(join(tmpdir(), "exifcleaner-package-smoke-"));
   let loadedNativeArtifact;
@@ -286,20 +606,30 @@ async function runSmoke({ tarball, evidenceScope }) {
     const installedRoot = join(sandbox, "node_modules", "exifcleaner-node");
     const literalArtifact = assertLiteralHostArtifact(installedRoot);
     loadedNativeArtifact = literalArtifact;
-    const cases = await runTransactions(installedRoot, sandbox);
+    const qualification = await runTransactions(installedRoot, sandbox, corpus);
     return {
       evidenceScope,
       hostTuple: hostTuple(),
       nodeVersion: process.version,
-      tarball: { path: tarball, sha256: sha256(tarball) },
+      tarball: { file: basename(tarball), sha256: actualTarballSha256 },
+      manifestSha256: corpus.manifestSha256,
+      propertySeed: PROPERTY_SEED,
+      propertyRuns: PROPERTY_RUNS,
+      propertyOutputDigest: qualification.propertyOutputDigest,
+      corpusCases: qualification.corpusCases,
       install: {
         command: "npm install --ignore-scripts",
-        arguments: installArgs.slice(npm.prefix.length),
+        arguments: [
+          "--ignore-scripts",
+          "--no-audit",
+          "--no-fund",
+          "<admitted-tarball>",
+        ],
       },
       selectedArtifact: literalArtifact
         .slice(installedRoot.length + 1)
         .replaceAll("\\", "/"),
-      cases,
+      cases: qualification.cases,
     };
   } finally {
     try {
