@@ -71,15 +71,14 @@ export function mapNativeStageDirectoryCode(code) {
 }
 export function publishNoReplace(stageFileDescriptor, stageDirectoryDescriptor, destinationDirectoryDescriptor, stageEntryName, destinationPath, destinationEntryName, platform = process.platform) {
     try {
-        const args = platform === "win32"
-            ? [stageFileDescriptor, destinationPath]
-            : [
-                stageDirectoryDescriptor,
-                stageEntryName,
-                destinationDirectoryDescriptor,
-                destinationEntryName,
-            ];
-        return mapNativePublicationCode(nativeBinding().publishNoReplace(...args));
+        if (platform === "win32") {
+            return mapNativePublicationCode(nativeBinding().publishNoReplace(stageFileDescriptor, destinationPath));
+        }
+        if (stageDirectoryDescriptor === undefined ||
+            destinationDirectoryDescriptor === undefined) {
+            return { state: "publication-failed" };
+        }
+        return mapNativePublicationCode(nativeBinding().publishNoReplace(stageDirectoryDescriptor, stageEntryName, destinationDirectoryDescriptor, destinationEntryName));
     }
     catch {
         return { state: "publication-failed" };

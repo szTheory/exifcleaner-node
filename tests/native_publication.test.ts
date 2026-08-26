@@ -9,6 +9,8 @@ import {
   loadNativePublicationBindingForTests,
   mapNativePublicationCode,
   mapNativeStageDirectoryCode,
+  publishNoReplace,
+  type NativePublicationArguments,
   setNativePublicationBindingForTests,
 } from "../src/transaction/native-publication.js";
 
@@ -33,7 +35,7 @@ afterEach(async () => {
 describe("current-host native publication addon", () => {
   it("loads the canonical artifact and publishes without replacing a collision", async () => {
     const binding = require(hostArtifact) as {
-      publishNoReplace(...args: readonly unknown[]): string;
+      publishNoReplace(...args: NativePublicationArguments): string;
       createPrivateStageDirectory(): unknown;
       disposePrivateStageDirectory(capability: unknown): string;
     };
@@ -180,5 +182,59 @@ describe("private native publication loader", () => {
     });
     expect(restore).toBeTypeOf("function");
     restore();
+  });
+
+  it("passes the explicit POSIX directory-capability ABI to the binding", () => {
+    const restore = setNativePublicationBindingForTests({
+      publishNoReplace(...args) {
+        expect(args).toEqual([41, "output.webp", 42, "destination.webp"]);
+        return "published";
+      },
+      createPrivateStageDirectory: () => undefined,
+      disposePrivateStageDirectory: () => "unsupported",
+    });
+
+    try {
+      expect(
+        publishNoReplace(
+          40,
+          41,
+          42,
+          "output.webp",
+          "/safe/destination.webp",
+          "destination.webp",
+          "linux",
+        ),
+      ).toEqual({ state: "published" });
+    } finally {
+      restore();
+    }
+  });
+
+  it("passes the explicit Windows stage-handle ABI to the binding", () => {
+    const restore = setNativePublicationBindingForTests({
+      publishNoReplace(...args) {
+        expect(args).toEqual([40, "C:\\safe\\destination.webp"]);
+        return "published";
+      },
+      createPrivateStageDirectory: () => undefined,
+      disposePrivateStageDirectory: () => "unsupported",
+    });
+
+    try {
+      expect(
+        publishNoReplace(
+          40,
+          undefined,
+          undefined,
+          "output.webp",
+          "C:\\safe\\destination.webp",
+          "destination.webp",
+          "win32",
+        ),
+      ).toEqual({ state: "published" });
+    } finally {
+      restore();
+    }
   });
 });

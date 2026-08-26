@@ -5,9 +5,19 @@ type SupportedArchitecture = "x64" | "arm64";
 type SupportedTuple = `${SupportedPlatform}-${SupportedArchitecture}`;
 type NativePublicationCode =
   "published" | "collision" | "unsupported" | "failed";
+export type NativePublicationArguments =
+  | readonly [stageFileDescriptor: number, destinationPath: string]
+  | readonly [
+      stageDirectoryDescriptor: number,
+      stageEntryName: string,
+      destinationDirectoryDescriptor: number,
+      destinationEntryName: string,
+    ];
 
 export interface NativePublicationBinding {
-  readonly publishNoReplace: (...args: readonly unknown[]) => NativePublicationCode;
+  readonly publishNoReplace: (
+    ...args: NativePublicationArguments
+  ) => NativePublicationCode;
   readonly createPrivateStageDirectory: (stageDirectoryPath: string) => unknown;
   readonly disposePrivateStageDirectory: (
     capability: NativeStageDirectoryCapability,
@@ -136,17 +146,24 @@ export function publishNoReplace(
   platform = process.platform,
 ): NativePublicationResult {
   try {
-    const args =
-      platform === "win32"
-        ? [stageFileDescriptor, destinationPath]
-        : [
-            stageDirectoryDescriptor,
-            stageEntryName,
-            destinationDirectoryDescriptor,
-            destinationEntryName,
-          ];
+    if (platform === "win32") {
+      return mapNativePublicationCode(
+        nativeBinding().publishNoReplace(stageFileDescriptor, destinationPath),
+      );
+    }
+    if (
+      stageDirectoryDescriptor === undefined ||
+      destinationDirectoryDescriptor === undefined
+    ) {
+      return { state: "publication-failed" };
+    }
     return mapNativePublicationCode(
-      nativeBinding().publishNoReplace(...args),
+      nativeBinding().publishNoReplace(
+        stageDirectoryDescriptor,
+        stageEntryName,
+        destinationDirectoryDescriptor,
+        destinationEntryName,
+      ),
     );
   } catch {
     return { state: "publication-failed" };

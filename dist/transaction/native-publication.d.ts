@@ -1,6 +1,12 @@
 type NativePublicationCode = "published" | "collision" | "unsupported" | "failed";
+export type NativePublicationArguments = readonly [stageFileDescriptor: number, destinationPath: string] | readonly [
+    stageDirectoryDescriptor: number,
+    stageEntryName: string,
+    destinationDirectoryDescriptor: number,
+    destinationEntryName: string
+];
 export interface NativePublicationBinding {
-    readonly publishNoReplace: (...args: readonly unknown[]) => NativePublicationCode;
+    readonly publishNoReplace: (...args: NativePublicationArguments) => NativePublicationCode;
     readonly createPrivateStageDirectory: (stageDirectoryPath: string) => unknown;
     readonly disposePrivateStageDirectory: (capability: NativeStageDirectoryCapability) => NativePublicationCode;
 }

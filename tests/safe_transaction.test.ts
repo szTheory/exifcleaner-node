@@ -62,9 +62,10 @@ describe("safe transaction file operations", () => {
       undefined,
     );
     const capability: { path?: string } = {};
-    let reopenFlags: number | undefined;
+    let reopenedStageDescriptor: number | undefined;
     const restore = setNativePublicationBindingForTests({
-      publishNoReplace() {
+      publishNoReplace(...args) {
+        expect(args).toEqual([reopenedStageDescriptor, destinationPath]);
         renameSync(join(capability.path!, "output.webp"), destinationPath);
         return "published";
       },
@@ -84,8 +85,14 @@ describe("safe transaction file operations", () => {
       const fileOps: FileOps = {
         ...NODE_FILE_OPS,
         open: async (path, flags, mode) => {
-          if ((flags & fsConstants.O_EXCL) === 0) reopenFlags = flags;
-          return NODE_FILE_OPS.open(path, flags, mode);
+          const handle = await NODE_FILE_OPS.open(path, flags, mode);
+          if (
+            path.endsWith("output.webp") &&
+            (flags & fsConstants.O_EXCL) === 0
+          ) {
+            reopenedStageDescriptor = handle.fd;
+          }
+          return handle;
         },
       };
       const result = await runSafeTransaction({
@@ -111,7 +118,7 @@ describe("safe transaction file operations", () => {
         ok: true,
         value: { postCommitResidue: { state: "none" } },
       });
-      expect(reopenFlags! & fsConstants.O_RDWR).toBe(fsConstants.O_RDWR);
+      expect(reopenedStageDescriptor).toBeTypeOf("number");
       await expect(readFile(destinationPath)).resolves.toBeInstanceOf(Buffer);
       await expect(stat(capability.path!)).rejects.toMatchObject({
         code: "ENOENT",
