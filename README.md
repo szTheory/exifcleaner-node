@@ -77,11 +77,16 @@ Use `getCapabilities()` as the machine-readable support contract; do not infer s
 
 - WebP is detected from file magic, not its extension.
 - The source is never overwritten.
-- The destination is created exclusively; an existing path is not replaced.
+- Output is written in a private same-parent stage and published once through a
+  native atomic no-replace operation; an existing destination is never replaced.
 - A failed or cancelled post-create operation retains its structured root error
-  and reports whether an owned partial was removed, already missing, replaced
-  and left untouched, or may remain after cleanup failed.
-- Cleanup and timestamp operations identity-check the exclusively created destination; a detected replacement path is left untouched and reported as `destination-changed`.
+  and reports bounded private-stage residue. Pre-publication uncertainty never
+  performs pathname cleanup: Windows may dispose an already-open private
+  directory capability only when no stage file exists; otherwise residue remains.
+- A successful result carries `postCommitResidue`: POSIX retains one empty
+  private stage directory, and Windows may report the same residue if its
+  capability disposition fails. That private path is never exposed and cannot
+  revoke the committed destination.
 - Successful output is synced, independently reopened, parsed, and checked before success is returned.
 - Image and animation payload bytes are copied without decoding or re-encoding.
 - Runtime processing makes no network request and launches no subprocess.
@@ -101,7 +106,8 @@ about color correctness, transform quality, or full ICC semantic conformance.
 
 The engine fails closed on malformed or truncated containers, unknown chunks, trailing data, unsupported formats or WebP features, ambiguous preservation requests, resource-limit violations, aliased source/destination paths, existing or replaced destinations, cancellation, and I/O failures. Orientation preservation accepts only a single TIFF `SHORT` value from 1 through 8; malformed or unsupported representations return `unsupported-feature` before a destination is created.
 
-Node has no portable atomic “unlink only if this inode still matches” operation. Cleanup checks identity immediately before removal, but callers handling actively hostile concurrent writers should use a destination directory those writers cannot modify.
+Pre-publication cleanup never relies on pathname identity comparison: an observed
+stage replacement is retained untouched rather than removed.
 
 `getCapabilities()` reports the enforced limits: 16 MiB per metadata chunk, 10,000 aggregate RIFF chunks including nested animation chunks, and WebP's 4 GiB-minus-2-byte size ceiling. It also states that compressed codec validation is header-only: the engine preserves VP8/VP8L bytes but is not an image decoder. Animation support means structurally validated `ANIM`/`ANMF` containers whose nested image payloads can be preserved byte-for-byte; it is not an unlimited frame-count claim.
 

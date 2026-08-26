@@ -160,26 +160,28 @@ describe("published generic transaction contract", () => {
       join(packageRoot, "docs/capabilities.md"),
       "utf8",
     );
+    const normalizedCapabilities = capabilities.replace(/\s+/g, " ");
 
     for (const concept of [
       "NativeFormat",
       "FormatCapabilities",
       "WebpCapabilities",
       "magic admission",
-      "O_EXCL",
+      "private same-parent stage",
+      "atomic no-replace publication",
+      "postCommitResidue",
+      "POSIX deterministically retains one empty",
+      "Windows may also report",
       "owned-partial-removed",
-      "already-missing",
-      "replaced-and-left-untouched",
       "owned-partial-remains",
       "atime and mtime only",
       "non-executable",
-      "provisional pathname is not completion",
-      "process crash or power loss may leave residue",
+      "private stage path is never exposed",
+      "process crash or power loss may leave private-stage residue",
       "directory durability",
       "locking",
-      "no-replace staged publication",
       "unlink-if-identity-matches",
-      "hostile concurrently writable directories",
+      "never uses identity-check-then-remove cleanup",
       "birth time",
       "owner/group",
       "ACLs",
@@ -189,8 +191,17 @@ describe("published generic transaction contract", () => {
       "sparse allocation",
       "source atime",
     ]) {
-      expect(capabilities).toContain(concept);
+      expect(normalizedCapabilities).toContain(concept);
     }
+    expect(normalizedCapabilities).not.toContain(
+      "directly creating the final path",
+    );
+    expect(normalizedCapabilities).toContain(
+      "No success contract claims that only the destination is created",
+    );
+    expect(normalizedCapabilities).not.toContain(
+      "Identity checks bound cleanup to the object created by this transaction",
+    );
   });
 });
 

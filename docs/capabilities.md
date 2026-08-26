@@ -33,17 +33,26 @@ verified `SanitizeResult` or one structured terminal/non-admission
 disposition permits at most one ExifTool substitute, never another native write,
 a retry loop, or a second writer after uncertainty.
 
-The transaction completes all admission before directly creating the final path
-with `O_EXCL`. It syncs, reopens, verifies, rechecks the source, applies requested
-timestamps, and proves destination identity before returning. A successful result
-is the only completion signal: a provisional pathname is not completion and must
-not be revealed or reported as a completed output during the call.
+The transaction completes admission before creating a randomly named,
+owner-private same-parent stage. It writes, syncs, reopens, verifies, rechecks the
+source, applies requested timestamps, and then performs exactly one platform-native
+atomic no-replace publication. A collision after the native write has started is
+terminal. A successful result is the only completion signal; the private stage path is never exposed.
 
-Post-create errors retain their root cause and may attach exactly one finalization
-state: `owned-partial-removed`, `already-missing`,
-`replaced-and-left-untouched`, or `owned-partial-remains`. All are terminal and
-`"do-not-fallback"`; normal diagnostics remain concise and do not expose inode
-values, payload bytes, registry internals, or backend-routing details.
+Success includes `postCommitResidue`. POSIX deterministically retains one empty
+private stage directory; Windows may also report that residue if its opened-directory
+capability disposition fails. In either case the destination is already committed,
+and the residue cannot revoke success. No success contract claims that only the
+destination is created.
+
+Pre-publication failures retain their root cause and attach one bounded
+`owned-partial-remains` finalization when stage residue is uncertain. They never
+use a pathname identity check followed by pathname removal. Windows may report
+`owned-partial-removed` only after disposing the opaque opened-directory capability
+with no stage file present. All finalization outcomes are terminal and
+`"do-not-fallback"`; normal diagnostics remain concise and do not expose private
+stage paths, inode values, payload bytes, registry internals, or backend-routing
+details.
 
 ## ICC Structural Preservation Policy
 
@@ -131,21 +140,23 @@ The `refuses` array machine-reports stable container refusal classes. Consumers 
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Source never overwritten  | `sourcePath` remains unchanged on success and failure.                                                                           |
 | Distinct paths            | Equal or aliased source/destination paths are refused.                                                                           |
-| Exclusive destination     | A pre-existing destination is never replaced.                                                                                    |
-| Owned cleanup             | Cleanup verifies the destination inode immediately before pathname removal; detected replacements are retained and reported.     |
+| Atomic no-replace publish | A pre-existing destination is never replaced; the native publication call is the single success authority.                       |
+| Stage finalization        | Error cleanup never removes a pathname. Only a Windows opened-directory capability may dispose a directory-only stage.           |
 | Full classification first | Unknown/unsupported content is refused before output is accepted as sanitized.                                                   |
 | Reopen verification       | A write is not success until the destination reparses and satisfies removal, preservation, structure, and payload checks.        |
 | Payload identity          | Image, animation, and admitted ICC payload chunks are copied without decode/re-encode and compared byte-for-byte where retained. |
-| Local operation           | No network calls, telemetry, subprocesses, or native-code loading occur in runtime inspection/sanitization.                      |
+| Local operation           | No network calls, telemetry, or subprocesses occur in runtime inspection/sanitization.                                           |
 | Total expected failures   | Consumers branch on `Result.ok` and `MetadataError.code`, not thrown message strings.                                            |
 | Output mode               | Output is created with non-executable ordinary permission bits no more permissive than the source, subject to umask.             |
 
 ## Filesystem Boundaries and Non-Guarantees
 
-The direct-final `O_EXCL` policy prevents replacement of a pre-existing
-destination but intentionally does not claim atomic rollback or in-place
-overwrite. A process crash or power loss may leave residue at a final pathname.
-Portable Node cannot promise universal directory durability, locking, no-replace staged publication, or atomic unlink-if-identity-matches. Identity checks bound cleanup to the object created by this transaction, but hostile concurrently writable directories exceed the package guarantee.
+The private-stage/native no-replace policy prevents replacement of a pre-existing
+destination but does not claim atomic rollback or in-place overwrite. A process
+crash or power loss may leave private-stage residue. Portable Node cannot promise
+universal directory durability or locking. Pre-publication uncertainty deliberately
+does not attempt pathname removal, so a concurrent replacement cannot gain cleanup
+authority.
 
 The package does not promise or copy birth time, change time, owner/group, ACLs,
 xattrs, quarantine/SELinux labels, hard-link topology, sparse allocation, or
@@ -165,7 +176,10 @@ package.
 - Codec validation is limited to VP8/VP8L headers and structural consistency. The engine preserves compressed payload bytes but is not an image decoder.
 - No claim that ExifCleaner can remove its bundled ExifTool binary.
 
-Warnings never convert an unsafe or unknown condition into success. Portable Node does not expose an atomic unlink-if-inode-matches primitive. The engine closes the practical race with identity checks and refuses detected replacements, but applications facing actively hostile concurrent directory writers should supply a destination directory those writers cannot modify.
+Warnings never convert an unsafe or unknown condition into success. Portable Node
+does not expose an atomic unlink-if-identity-matches primitive, so this contract never
+uses identity-check-then-remove cleanup. Concurrent private-stage replacements are
+left untouched with bounded residue rather than treated as removable.
 
 ## ExifCleaner Integration Boundary
 
