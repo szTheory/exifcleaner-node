@@ -1,10 +1,12 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../dist/index.js";
+import { parseWebp } from "../../src/webp/riff.js";
 import { anim, animationFrame, vp8x, webp } from "../fixtures.js";
 import { materializeCorpusRecord } from "./corpus.js";
+import { materializeMutationCase } from "./generators.js";
 import {
   comparePermittedDifferences,
   normalizeWebpInfo,
@@ -76,11 +78,11 @@ No error detected.
     ).toEqual([]);
     expect(() =>
       comparePermittedDifferences(
+        { warnings: [], namespaces: { EXIF: [], XMP: [], ICC_Profile: [] } },
         {
           warnings: [],
-          namespaces: { EXIF: [{ Orientation: 6 }], XMP: [], ICC_Profile: [] },
+          namespaces: { EXIF: [{ MysteryTag: 1 }], XMP: [], ICC_Profile: [] },
         },
-        { warnings: [], namespaces: { EXIF: [], XMP: [], ICC_Profile: [] } },
         [],
       ),
     ).toThrow("Unpermitted metadata difference");
@@ -94,6 +96,62 @@ No error detected.
         [],
       ),
     ).toThrow("Oracle warning");
+    expect(() =>
+      comparePermittedDifferences(
+        {
+          warnings: [],
+          namespaces: { EXIF: [{ Orientation: 6 }], XMP: [], ICC_Profile: [] },
+        },
+        { warnings: [], namespaces: { EXIF: [], XMP: [], ICC_Profile: [] } },
+        ["EXIF:Orientation=6"],
+      ),
+    ).toThrow("Requested Orientation was not preserved");
+    expect(
+      comparePermittedDifferences(
+        {
+          warnings: [],
+          namespaces: {
+            EXIF: [],
+            XMP: [],
+            ICC_Profile: [{ ProfileDescription: "test" }, { RedTRC: 1 }],
+          },
+          rawIccSha256: "a".repeat(64),
+        },
+        {
+          warnings: [],
+          namespaces: {
+            EXIF: [],
+            XMP: [],
+            ICC_Profile: [{ ProfileDescription: "test" }, { RedTRC: 1 }],
+          },
+          rawIccSha256: "a".repeat(64),
+        },
+        [`ICC_Profile:RawProfile=${"a".repeat(64)}`],
+      ),
+    ).toEqual([]);
+    expect(() =>
+      comparePermittedDifferences(
+        {
+          warnings: [],
+          namespaces: {
+            EXIF: [],
+            XMP: [],
+            ICC_Profile: [{ Duplicate: 1 }, { Duplicate: 1 }],
+          },
+          rawIccSha256: "b".repeat(64),
+        },
+        {
+          warnings: [],
+          namespaces: {
+            EXIF: [],
+            XMP: [],
+            ICC_Profile: [{ Duplicate: 1 }],
+          },
+          rawIccSha256: "b".repeat(64),
+        },
+        [`ICC_Profile:RawProfile=${"b".repeat(64)}`],
+      ),
+    ).toThrow("Requested ICC profile was not preserved");
   });
 
   it.runIf(admittedHost)(
@@ -151,7 +209,7 @@ No error detected.
         },
       });
     },
-    30_000,
+    180_000,
   );
 
   it.runIf(admittedHost)(
@@ -208,13 +266,28 @@ No error detected.
 
   it.runIf(admittedHost)(
     "rejects a shallow VP8 admission that the independent decoder cannot decode",
-    () => {
+    async () => {
       const malformed = webp([
         {
           fourCc: "VP8 ",
           data: Buffer.from([0x10, 0, 0, 0x9d, 1, 0x2a, 1, 0, 1, 0]),
         },
       ]);
+      const directory = await mkdtemp(join(tmpdir(), "exifcleaner-shallow-"));
+      const sourcePath = join(directory, "source.webp");
+      try {
+        await writeFile(sourcePath, malformed);
+        const handle = await open(sourcePath, "r");
+        try {
+          await expect(
+            parseWebp(handle, malformed.length),
+          ).resolves.toBeDefined();
+        } finally {
+          await handle.close();
+        }
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
       expect(() =>
         runLibwebpOracle({
           caseId: "shallow-admission-decode-rejection",
@@ -223,6 +296,27 @@ No error detected.
           output: malformed,
         }),
       ).toThrow("libwebp oracle rejected");
+    },
+    30_000,
+  );
+
+  it.runIf(admittedHost)(
+    "rejects malformed ordering and padding through the structural oracle",
+    () => {
+      for (const caseId of [
+        "nonzero-odd-padding",
+        "ordered-iccp-after-image",
+      ]) {
+        const { prefix } = materializeMutationCase(caseId);
+        expect(() =>
+          runLibwebpOracle({
+            caseId,
+            kind: "still",
+            source: prefix,
+            output: prefix,
+          }),
+        ).toThrow("libwebp oracle rejected");
+      }
     },
     30_000,
   );

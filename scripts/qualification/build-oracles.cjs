@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const projectRoot = path.resolve(__dirname, "../..");
@@ -229,6 +230,25 @@ function readJson(filePath, label) {
   }
 }
 
+function runTool(command, args, options, label) {
+  const result = spawnSync(command, args, {
+    cwd: options.cwd,
+    encoding: "utf8",
+    env: options.env,
+    maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
+    timeout: options.timeout ?? 120_000,
+  });
+  if (result.error !== undefined) fail(`${label}: ${result.error.message}`);
+  if (result.status !== 0) {
+    const detail = `${result.stdout ?? ""}\n${result.stderr ?? ""}`
+      .replaceAll(projectRoot, "<repo>")
+      .replace(/\/(?:home|tmp|Users)\/[^\s:]+/g, "<path>")
+      .trim();
+    fail(`${label}${detail.length > 0 ? `: ${detail.slice(-2_000)}` : ""}`);
+  }
+  return result;
+}
+
 function validateAuthorityBytes(authority) {
   const archivePath = repositoryPath(
     authority.archive.path,
@@ -345,7 +365,7 @@ function runShapeMutationChecks(manifest) {
   }
 }
 
-function loadAndValidateAuthority() {
+function validateAllAuthority() {
   const manifest = validateManifestShape(
     readJson(authorityManifestPath, "authority manifest"),
   );
@@ -355,6 +375,10 @@ function loadAndValidateAuthority() {
     validated.set(authority.id, validateAuthorityBytes(authority));
   for (const fixture of manifest.fixtures)
     validateFixture(fixture, manifest, validated);
+  return { manifest, validated };
+}
+
+function authoritySummary(manifest) {
   return {
     schemaVersion: manifest.schemaVersion,
     authorities: manifest.authorities.map((authority) => ({
@@ -376,7 +400,127 @@ function loadAndValidateAuthority() {
   };
 }
 
-module.exports = { loadAndValidateAuthority, readTarMembers };
+function loadAndValidateAuthority() {
+  return authoritySummary(validateAllAuthority().manifest);
+}
+
+function prepareOracleTools() {
+  const { manifest, validated } = validateAllAuthority();
+  if (process.platform !== "linux" || process.arch !== "x64")
+    fail("oracle execution requires the admitted linux/x64 host");
+
+  const workspace = fs.mkdtempSync(
+    path.join(os.tmpdir(), "exifcleaner-oracles-linux-x64-"),
+  );
+  let complete = false;
+  try {
+    for (const authority of manifest.authorities) {
+      runTool(
+        "tar",
+        ["-xzf", validated.get(authority.id).archivePath, "-C", workspace],
+        {},
+        `${authority.id} extraction failed`,
+      );
+    }
+
+    const libwebp = manifest.authorities[0];
+    const libwebpRoot = path.join(workspace, libwebp.archive.root);
+    runTool(
+      path.join(libwebpRoot, "configure"),
+      ["--disable-shared", "--enable-static", "--disable-dependency-tracking"],
+      { cwd: libwebpRoot },
+      "libwebp configure failed",
+    );
+    runTool("make", ["-j2"], { cwd: libwebpRoot }, "libwebp build failed");
+
+    const dwebpPath = path.join(libwebpRoot, "examples/dwebp");
+    const webpinfoPath = path.join(libwebpRoot, "examples/webpinfo");
+    const exiftoolAuthority = manifest.authorities[1];
+    const exiftoolPath = path.join(
+      workspace,
+      exiftoolAuthority.archive.root,
+      "exiftool",
+    );
+    fs.chmodSync(exiftoolPath, 0o755);
+    const dwebpVersion = runTool(
+      dwebpPath,
+      ["-version"],
+      {},
+      "dwebp version check failed",
+    ).stdout.trim();
+    const webpinfoVersion = runTool(
+      webpinfoPath,
+      ["-version"],
+      {},
+      "webpinfo version check failed",
+    ).stdout.trim();
+    const exiftoolVersion = runTool(
+      exiftoolPath,
+      ["-ver"],
+      {},
+      "ExifTool version check failed",
+    ).stdout.trim();
+    if (
+      dwebpVersion !== libwebp.version ||
+      webpinfoVersion !== `WebP Decoder version: ${libwebp.version}` ||
+      exiftoolVersion !== exiftoolAuthority.version
+    )
+      fail("built oracle version drift");
+
+    const animationSourcePath = path.join(
+      projectRoot,
+      "scripts/qualification/anim_oracle.c",
+    );
+    if (!fs.existsSync(animationSourcePath))
+      fail("animation oracle source is missing");
+    const animationPath = path.join(workspace, "anim-oracle");
+    runTool(
+      "cc",
+      [
+        "-std=c11",
+        "-O2",
+        animationSourcePath,
+        "-I",
+        path.join(libwebpRoot, "src"),
+        "-L",
+        path.join(libwebpRoot, "src/demux/.libs"),
+        "-L",
+        path.join(libwebpRoot, "src/.libs"),
+        "-lwebpdemux",
+        "-lwebp",
+        "-lm",
+        "-o",
+        animationPath,
+      ],
+      {},
+      "animation oracle build failed",
+    );
+
+    const executable = (filePath) => ({
+      path: filePath,
+      sha256: digest(fs.readFileSync(filePath)),
+    });
+    complete = true;
+    return {
+      authority: authoritySummary(manifest),
+      dwebp: executable(dwebpPath),
+      webpinfo: executable(webpinfoPath),
+      animation: executable(animationPath),
+      exiftool: executable(exiftoolPath),
+      dispose() {
+        fs.rmSync(workspace, { recursive: true, force: true });
+      },
+    };
+  } finally {
+    if (!complete) fs.rmSync(workspace, { recursive: true, force: true });
+  }
+}
+
+module.exports = {
+  loadAndValidateAuthority,
+  prepareOracleTools,
+  readTarMembers,
+};
 
 if (require.main === module) {
   if (process.argv.length !== 3 || process.argv[2] !== "--verify-authority") {
