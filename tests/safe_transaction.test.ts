@@ -22,6 +22,7 @@ import {
   identityMatches,
   snapshotSource,
   sourceSnapshotMatches,
+  timestampsMatchAtMillisecondPrecision,
 } from "../src/transaction/identity.js";
 import { runSafeTransaction } from "../src/transaction/safe-transaction.js";
 import { setNativePublicationBindingForTests } from "../src/transaction/native-publication.js";
@@ -697,5 +698,28 @@ describe("safe transaction file operations", () => {
 
     expect(snapshot.atime.getTime()).toBe(expectedAtime);
     expect(snapshot.mtime.getTime()).toBe(expectedMtime);
+  });
+
+  it("compares filesystem timestamps at actual millisecond precision", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const stats = await stat(sourcePath);
+    const snapshot = snapshotSource(stats);
+
+    expect(
+      timestampsMatchAtMillisecondPrecision(snapshot, {
+        ...stats,
+        atimeMs: snapshot.atime.getTime() - 0.001,
+        mtimeMs: snapshot.mtime.getTime() + 0.001,
+      } as never),
+    ).toBe(true);
+    expect(
+      timestampsMatchAtMillisecondPrecision(snapshot, {
+        ...stats,
+        atimeMs: snapshot.atime.getTime() + 1,
+      } as never),
+    ).toBe(false);
   });
 });

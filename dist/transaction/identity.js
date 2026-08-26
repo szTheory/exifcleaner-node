@@ -55,9 +55,9 @@ export function identitiesDistinct(source, destination) {
 export function timestampsMatchAtMillisecondPrecision(expected, actual) {
     return (Number.isInteger(expected.atime.getTime()) &&
         Number.isInteger(expected.mtime.getTime()) &&
-        Number.isInteger(actual.atimeMs) &&
-        Number.isInteger(actual.mtimeMs) &&
-        expected.atime.getTime() === actual.atimeMs &&
-        expected.mtime.getTime() === actual.mtimeMs);
+        isTimestampFact(actual.atimeMs) &&
+        isTimestampFact(actual.mtimeMs) &&
+        expected.atime.getTime() === Math.round(actual.atimeMs) &&
+        expected.mtime.getTime() === Math.round(actual.mtimeMs));
 }
 //# sourceMappingURL=identity.js.map

@@ -974,11 +974,20 @@ describe("sanitizeFile", () => {
       preserveColorProfile: false,
       preserveTimestamps: true,
     });
+    let completed: Awaited<typeof operation> | undefined;
+    void operation.then((result) => {
+      completed = result;
+    });
     while (true) {
       try {
         await access(destinationPath);
         break;
       } catch {
+        if (completed !== undefined) {
+          throw new Error(
+            `sanitize completed before publication was observable: ${JSON.stringify(completed)}`,
+          );
+        }
         await new Promise<void>((resolve) => setImmediate(resolve));
       }
     }
