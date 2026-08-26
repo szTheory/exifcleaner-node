@@ -6,6 +6,8 @@ const { resolve } = require("node:path");
 const sourcePath = resolve(
   process.argv[2] || resolve(__dirname, "..", "native", "publication.c"),
 );
+const productionSourcePath = resolve(__dirname, "..", "native", "publication.c");
+const bindingPath = resolve(__dirname, "..", "binding.gyp");
 const allowedHeaders = new Set([
   "node_api.h",
   "windows.h",
@@ -134,6 +136,15 @@ for (const header of headers) {
 }
 
 const tokens = stripCommentsAndStrings(source);
+if (sourcePath === productionSourcePath && tokens.includes("_get_osfhandle")) {
+  try {
+    if (!/"ucrt\.lib"/i.test(readFileSync(bindingPath, "utf8"))) {
+      fail("_get_osfhandle requires explicit ucrt.lib linkage");
+    }
+  } catch (error) {
+    fail(`cannot verify CRT linkage: ${error.message}`);
+  }
+}
 for (const [category, pattern] of forbiddenFamilies) {
   if (pattern.test(tokens)) fail(`${category} capability is forbidden`);
 }

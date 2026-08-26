@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 const execFileAsync = promisify(execFile);
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const audit = join(packageRoot, "scripts", "audit_native_source.cjs");
+const binding = join(packageRoot, "binding.gyp");
 const fixtures: string[] = [];
 
 afterEach(async () => {
@@ -48,6 +49,17 @@ async function run(path?: string): Promise<{ code: number; output: string }> {
 }
 
 describe("native source capability audit", () => {
+  it("keeps the descriptor-to-handle CRT dependency explicitly linked", async () => {
+    const source = await readFile(
+      join(packageRoot, "native", "publication.c"),
+      "utf8",
+    );
+    const configuration = await readFile(binding, "utf8");
+
+    expect(source).toContain("_get_osfhandle");
+    expect(configuration).toContain('"ucrt.lib"');
+  });
+
   it("accepts the production C source", async () => {
     await expect(run()).resolves.toMatchObject({
       code: 0,

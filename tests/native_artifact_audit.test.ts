@@ -125,6 +125,18 @@ describe("native compiled artifact audits", () => {
     expect(windows).not.toContain('"Characteristics"');
   });
 
+  it("admits only the explicit UCRT dependency required for descriptor conversion", () => {
+    expect(
+      audit.auditWindows(
+        "KERNEL32.dll\n    api-ms-win-crt-runtime-l1-1-0.dll",
+        "    KERNEL32.dll\n                         2A0 _get_osfhandle",
+      ),
+    ).toContain('"_get_osfhandle"');
+    expect(() =>
+      audit.auditWindows("ucrtbase.dll", "    2A0 _get_osfhandle"),
+    ).toThrow(/not allowlisted/i);
+  });
+
   it("locates the native-host dumpbin when Visual Studio leaves it off PATH", () => {
     const x64 =
       "C:\\VS\\VC\\Tools\\MSVC\\14.50.0\\bin\\Hostx64\\x64\\dumpbin.exe";

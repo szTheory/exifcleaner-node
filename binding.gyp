@@ -16,7 +16,7 @@
             },
             "VCLinkerTool": {
               "IgnoreAllDefaultLibraries": "true",
-              "AdditionalDependencies": ["kernel32.lib", "advapi32.lib"],
+              "AdditionalDependencies": ["kernel32.lib", "advapi32.lib", "ucrt.lib"],
               "AdditionalOptions": ["/NOENTRY"]
             }
           }
