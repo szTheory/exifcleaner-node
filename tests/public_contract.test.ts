@@ -319,3 +319,108 @@ describe("published format-neutral declaration contract", () => {
     );
   });
 });
+
+describe("private automated qualification surface", () => {
+  it("exposes one bounded replay command family without widening the package", async () => {
+    const [packageJsonSource, qualifySource] = await Promise.all([
+      readFile(join(packageRoot, "package.json"), "utf8"),
+      readFile(
+        join(packageRoot, "scripts", "qualification", "qualify.cjs"),
+        "utf8",
+      ),
+    ]);
+    const packageJson = JSON.parse(packageJsonSource);
+
+    expect(packageJson.scripts.qualify).toBe(
+      "node scripts/qualification/qualify.cjs",
+    );
+    expect(packageJson.scripts["benchmark:qualify"]).toBe(
+      "node scripts/qualification/benchmark.cjs",
+    );
+    expect(packageJson.dependencies).toBeUndefined();
+    for (const lifecycle of [
+      "preinstall",
+      "install",
+      "postinstall",
+      "prepare",
+      "prepack",
+      "postpack",
+    ])
+      expect(packageJson.scripts[lifecycle]).toBeUndefined();
+    for (const flag of ["--case", "--oracle", "--seed", "--path", "--fault"])
+      expect(qualifySource).toContain(flag);
+    expect(qualifySource).toContain("Reproduce:");
+    expect(qualifySource).toContain("Evidence:");
+  });
+
+  it("keeps qualification code out of production imports, exports, and package files", async () => {
+    const [packageJsonSource, declaration] = await Promise.all([
+      readFile(join(packageRoot, "package.json"), "utf8"),
+      readFile(rootDeclaration, "utf8"),
+    ]);
+    const packageJson = JSON.parse(packageJsonSource);
+    const violations: string[] = [];
+    for (const { path, source } of await productionSources()) {
+      for (const statement of source.statements)
+        if (
+          (ts.isImportDeclaration(statement) ||
+            ts.isExportDeclaration(statement)) &&
+          statement.moduleSpecifier !== undefined &&
+          ts.isStringLiteral(statement.moduleSpecifier) &&
+          /(?:qualification|benchmark|oracle|corpus)/iu.test(
+            statement.moduleSpecifier.text,
+          )
+        )
+          violations.push(path);
+    }
+
+    expect(violations).toEqual([]);
+    expect(declaration).not.toMatch(/qualification|benchmark|oracle|corpus/iu);
+    expect(packageJson.files).not.toContain("scripts");
+    expect(packageJson.files).not.toContain("tests");
+  });
+
+  it("makes final CI admission depend on every independent authority", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const job = (id: string): string => {
+      const match = workflow.match(
+        new RegExp(
+          `^  ${id}:\\n([\\s\\S]*?)(?=^  [a-z][a-z0-9-]+:|(?![\\s\\S]))`,
+          "mu",
+        ),
+      );
+      if (match?.[0] === undefined) throw new Error(`Missing CI job ${id}`);
+      return match[0];
+    };
+    const focused = job("qualification-linux");
+    const benchmarkJob = job("benchmark-linux");
+    const admission = job("phase-46-admission");
+
+    for (const authority of [
+      "tracer.test.ts",
+      "parser.test.ts",
+      "property.test.ts",
+      "transaction.test.ts",
+      "oracles.test.ts",
+    ])
+      expect(focused).toContain(authority);
+    expect(benchmarkJob).toContain("node: [22, 24]");
+    expect(benchmarkJob).toContain("assemble-exact-native");
+    expect(benchmarkJob).toContain("benchmark:qualify");
+    expect(benchmarkJob).toContain("github.event_name == 'pull_request'");
+    expect(benchmarkJob).toContain("if: always()");
+    for (const dependency of [
+      "quality",
+      "qualification-linux",
+      "immutable-sha-evidence",
+      "benchmark-linux",
+    ])
+      expect(admission).toContain(dependency);
+    expect(admission).toContain("reports.length !== 12");
+    expect(admission).toContain("benchmarkReports.length !== 2");
+    expect(workflow).toContain("cancel-in-progress: false");
+  });
+});
