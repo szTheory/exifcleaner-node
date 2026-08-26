@@ -85,13 +85,6 @@ export function sourcePathMatchesSnapshot(
   return sourceSnapshotMatches(snapshot, stats);
 }
 
-export function destinationPathMatchesIdentity(
-  identity: FileIdentity,
-  stats: Stats,
-): boolean {
-  return identityMatches(identity, stats);
-}
-
 export function identitiesDistinct(
   source: FileIdentity,
   destination: Stats,

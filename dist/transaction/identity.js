@@ -46,9 +46,6 @@ export function sourceSnapshotMatches(expected, actual) {
 export function sourcePathMatchesSnapshot(snapshot, stats) {
     return sourceSnapshotMatches(snapshot, stats);
 }
-export function destinationPathMatchesIdentity(identity, stats) {
-    return identityMatches(identity, stats);
-}
 export function identitiesDistinct(source, destination) {
     return !identityMatches(source, destination);
 }

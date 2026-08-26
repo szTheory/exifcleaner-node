@@ -14,7 +14,6 @@ import {
   rm,
   stat,
   symlink,
-  unlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -138,7 +137,6 @@ describe("safe transaction file operations", () => {
       false,
       undefined,
     );
-    let pathnameRemovals = 0;
     const result = await runSafeTransaction({
       sourceHandle: source,
       sourceSnapshot: snapshotSource(stats),
@@ -154,13 +152,7 @@ describe("safe transaction file operations", () => {
         preserveColorProfile: false,
         preserveTimestamps: false,
       },
-      fileOps: {
-        ...NODE_FILE_OPS,
-        remove: async () => {
-          pathnameRemovals += 1;
-          throw new Error("private stages must not use pathname cleanup");
-        },
-      },
+      fileOps: NODE_FILE_OPS,
       beforePublish: async () => writeFile(destinationPath, competitor),
     });
 
@@ -174,7 +166,6 @@ describe("safe transaction file operations", () => {
       },
     });
     expect(await readFile(destinationPath)).toEqual(competitor);
-    expect(pathnameRemovals).toBe(0);
     const stageName = (await readdir(directory)).find((entry) =>
       entry.startsWith(".exifcleaner-stage-"),
     );
@@ -281,7 +272,6 @@ describe("safe transaction file operations", () => {
     );
     const capability = {} as never;
     let dispositionAttempts = 0;
-    let pathnameRemovals = 0;
     const restore = setNativePublicationBindingForTests({
       publishNoReplace: () => "failed",
       createPrivateStageDirectory: () => capability,
@@ -313,9 +303,6 @@ describe("safe transaction file operations", () => {
           statHandle: async () => {
             throw new Error("injected directory identity failure");
           },
-          remove: async () => {
-            pathnameRemovals += 1;
-          },
         },
         platform: "win32" as never,
       });
@@ -329,7 +316,6 @@ describe("safe transaction file operations", () => {
         },
       });
       expect(dispositionAttempts).toBe(1);
-      expect(pathnameRemovals).toBe(0);
       await expect(readFile(sourcePath)).resolves.toEqual(metadataWebp());
       await expect(stat(destinationPath)).rejects.toMatchObject({
         code: "ENOENT",
@@ -356,7 +342,6 @@ describe("safe transaction file operations", () => {
       false,
       undefined,
     );
-    let pathnameRemovals = 0;
     let observedStageDirectory = "";
     const result = await runSafeTransaction({
       sourceHandle: source,
@@ -377,9 +362,6 @@ describe("safe transaction file operations", () => {
         ...NODE_FILE_OPS,
         sync: async () => {
           throw new Error("injected file-present failure");
-        },
-        remove: async () => {
-          pathnameRemovals += 1;
         },
       },
       platform: "linux" as never,
@@ -404,7 +386,6 @@ describe("safe transaction file operations", () => {
         finalization: { state: "owned-partial-remains" },
       },
     });
-    expect(pathnameRemovals).toBe(0);
     await expect(
       readFile(join(observedStageDirectory, "output.webp")),
     ).resolves.toEqual(replacementFile);
@@ -434,7 +415,6 @@ describe("safe transaction file operations", () => {
         undefined,
       );
       let nativeAttempts = 0;
-      let pathnameRemovals = 0;
       const restore = setNativePublicationBindingForTests({
         publishNoReplace: () => {
           nativeAttempts += 1;
@@ -459,15 +439,7 @@ describe("safe transaction file operations", () => {
             preserveColorProfile: false,
             preserveTimestamps: false,
           },
-          fileOps: {
-            ...NODE_FILE_OPS,
-            remove: async () => {
-              pathnameRemovals += 1;
-              throw new Error(
-                "publication failures must retain the private stage",
-              );
-            },
-          },
+          fileOps: NODE_FILE_OPS,
         });
         expect(result).toMatchObject({
           ok: false,
@@ -479,7 +451,6 @@ describe("safe transaction file operations", () => {
           },
         });
         expect(nativeAttempts).toBe(1);
-        expect(pathnameRemovals).toBe(0);
         await expect(stat(destinationPath)).rejects.toMatchObject({
           code: "ENOENT",
         });
@@ -522,10 +493,6 @@ describe("safe transaction file operations", () => {
       close: async (handle) => {
         operations.push("close");
         await NODE_FILE_OPS.close(handle);
-      },
-      remove: async (path) => {
-        operations.push("remove");
-        await NODE_FILE_OPS.remove(path);
       },
     };
 
@@ -575,17 +542,10 @@ describe("safe transaction file operations", () => {
       false,
       undefined,
     );
-    let cleanupAttempts = 0;
     const fileOps: FileOps = {
       ...NODE_FILE_OPS,
       sync: async () => {
         throw new Error("injected sync failure");
-      },
-      lstatPath: async () => {
-        cleanupAttempts += 1;
-        await unlink(destinationPath);
-        const error = Object.assign(new Error("missing"), { code: "ENOENT" });
-        throw error;
       },
     };
 
@@ -617,7 +577,6 @@ describe("safe transaction file operations", () => {
     await expect(stat(destinationPath)).rejects.toMatchObject({
       code: "ENOENT",
     });
-    expect(cleanupAttempts).toBe(0);
   });
 
   it("does not use pathname observation as an authority after stage failure", async () => {
@@ -625,7 +584,6 @@ describe("safe transaction file operations", () => {
     directories.push(directory);
     const sourcePath = join(directory, "source.webp");
     const destinationPath = join(directory, "destination.webp");
-    const replacement = Buffer.from("replacement bytes");
     await writeFile(sourcePath, metadataWebp());
     const source = await open(sourcePath, fsConstants.O_RDONLY);
     const stats = await source.stat();
@@ -636,17 +594,10 @@ describe("safe transaction file operations", () => {
       false,
       undefined,
     );
-    let cleanupAttempts = 0;
     const fileOps: FileOps = {
       ...NODE_FILE_OPS,
       sync: async () => {
         throw new Error("injected sync failure");
-      },
-      lstatPath: async (path) => {
-        cleanupAttempts += 1;
-        await unlink(destinationPath);
-        await writeFile(destinationPath, replacement);
-        return NODE_FILE_OPS.lstatPath(path);
       },
     };
 
@@ -678,7 +629,6 @@ describe("safe transaction file operations", () => {
     await expect(readFile(destinationPath)).rejects.toMatchObject({
       code: "ENOENT",
     });
-    expect(cleanupAttempts).toBe(0);
   });
 
   it("reports a bounded residue cause when owned cleanup fails", async () => {
@@ -756,16 +706,11 @@ describe("safe transaction file operations", () => {
     );
     const controller = new AbortController();
     let writerStarts = 0;
-    let cleanupAttempts = 0;
     const fileOps: FileOps = {
       ...NODE_FILE_OPS,
       open: async (path, flags, mode) => {
         if ((flags & fsConstants.O_EXCL) !== 0) writerStarts += 1;
         return NODE_FILE_OPS.open(path, flags, mode);
-      },
-      remove: async (path) => {
-        cleanupAttempts += 1;
-        await NODE_FILE_OPS.remove(path);
       },
     };
     const handler = {
@@ -805,7 +750,6 @@ describe("safe transaction file operations", () => {
       },
     });
     expect(writerStarts).toBe(1);
-    expect(cleanupAttempts).toBe(0);
   });
 
   it("fails closed when an identity or source snapshot cannot be proven", async () => {

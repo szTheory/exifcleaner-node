@@ -1,5 +1,5 @@
 import { constants as fsConstants } from "node:fs";
-import { lstat, mkdir, open, rm, stat } from "node:fs/promises";
+import { mkdir, open, stat } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import type { Stats } from "node:fs";
 
@@ -11,7 +11,6 @@ export interface FileOps {
     mode?: number,
   ) => Promise<FileHandle>;
   readonly statPath: (path: string) => Promise<Stats>;
-  readonly lstatPath: (path: string) => Promise<Stats>;
   readonly statHandle: (handle: FileHandle) => Promise<Stats>;
   readonly sync: (handle: FileHandle) => Promise<void>;
   readonly close: (handle: FileHandle) => Promise<void>;
@@ -20,20 +19,17 @@ export interface FileOps {
     atime: Date,
     mtime: Date,
   ) => Promise<void>;
-  readonly remove: (path: string) => Promise<void>;
 }
 
 export const NODE_FILE_OPS: FileOps = Object.freeze({
   createDirectory: (path: string, mode: number) => mkdir(path, { mode }),
   open,
   statPath: stat,
-  lstatPath: lstat,
   statHandle: (handle: FileHandle) => handle.stat(),
   sync: (handle: FileHandle) => handle.sync(),
   close: (handle: FileHandle) => handle.close(),
   utimes: (handle: FileHandle, atime: Date, mtime: Date) =>
     handle.utimes(atime, mtime),
-  remove: (path: string) => rm(path, { force: true }),
 });
 
 export const DIRECT_FINAL_FLAGS =
