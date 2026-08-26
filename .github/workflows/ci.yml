@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -16,79 +16,218 @@ concurrency:
 
 jobs:
   quality:
-    name: Quality (Node 24, Linux)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
     steps:
-      - name: Check out repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run check:cycles
-      - run: npm run build
-      - run: npm run check:dist
-      - run: npm run check:pack
-      - name: Create package tarball
-        run: npm pack
-      - name: Upload package tarball
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: npm-package
-          path: "*.tgz"
-          if-no-files-found: error
-          retention-days: 7
+      - run: npm run lint && npm run typecheck && npm test && npm run check:cycles && npm run build && npm run check:runtime
 
-  packed-consumer:
-    name: Packed-tarball consumer
+  build-audit-native:
+    name: build-audit-${{ matrix.tuple }}
     needs: quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-      - name: Download package tarball
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: npm-package
-          path: package
-      - name: Install and import the packed package
-        run: node scripts/package_smoke.cjs package
-
-  platform-smoke:
-    name: Package smoke (${{ matrix.os }}, Node ${{ matrix.node }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-        node:
-          - 22
-          - 24
+        include:
+          - { runner: ubuntu-24.04, tuple: linux-x64, os: linux, arch: x64 }
+          - {
+              runner: ubuntu-24.04-arm,
+              tuple: linux-arm64,
+              os: linux,
+              arch: arm64,
+            }
+          - { runner: macos-15-intel, tuple: darwin-x64, os: darwin, arch: x64 }
+          - { runner: macos-15, tuple: darwin-arm64, os: darwin, arch: arm64 }
+          - { runner: windows-2025, tuple: win32-x64, os: win32, arch: x64 }
+          - {
+              runner: windows-11-arm,
+              tuple: win32-arm64,
+              os: win32,
+              arch: arm64,
+            }
     steps:
-      - name: Check out repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          node-version: ${{ matrix.node }}
+          ref: "${{ github.sha }}"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
-      - run: npm run check:dist
-      - name: Exercise packaging from a filesystem edge-case path
-        run: node scripts/package_smoke.cjs
+      - name: Assert matching runner and submitted SHA
+        shell: bash
+        run: |
+          test "$(node -p process.platform)" = "${{ matrix.os }}"
+          test "$(node -p process.arch)" = "${{ matrix.arch }}"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+      - run: npm run build && npm run build:native
+      - name: Audit the exact compiled binary
+        shell: bash
+        run: |
+          node scripts/audit_native_artifact.cjs "prebuilds/${{ matrix.tuple }}/publication.node" > "${{ matrix.tuple }}.json"
+          sha256sum "prebuilds/${{ matrix.tuple }}/publication.node" > "${{ matrix.tuple }}.binary.sha256"
+          sha256sum "${{ matrix.tuple }}.json" > "${{ matrix.tuple }}.report.sha256"
+          printf '%s\n' '${{ github.sha }}' > implementation.sha
+          printf '%s\n' '${{ matrix.tuple }}' > tuple.txt
+      - name: Test unchanged artifact on Node 22
+        run: npm test -- tests/native_publication.test.ts
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Test unchanged artifact on Node 24
+        run: npm test -- tests/native_publication.test.ts
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-${{ matrix.tuple }}
+          path: |
+            prebuilds/${{ matrix.tuple }}/publication.node
+            ${{ matrix.tuple }}.json
+            ${{ matrix.tuple }}.binary.sha256
+            ${{ matrix.tuple }}.report.sha256
+            implementation.sha
+            tuple.txt
+          if-no-files-found: error
+
+  assemble-exact-native:
+    needs: build-audit-native
+    runs-on: ubuntu-24.04
+    outputs:
+      implementation-sha: ${{ steps.identity.outputs.sha }}
+      tarball-sha256: ${{ steps.identity.outputs.tarball_sha256 }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: "${{ github.sha }}"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci && npm run build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: native-*
+          path: .native-input
+          merge-multiple: false
+      - name: Reject non-exact, stale, duplicate, fixture, or foreign input
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs'); const path = require('node:path'); const crypto = require('node:crypto');
+          const tuples = ['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64']; const sha = process.env.GITHUB_SHA;
+          const root = '.native-input'; const dirs = fs.readdirSync(root).sort(); if (dirs.join(',') !== tuples.map(t => `native-${t}`).sort().join(',')) throw new Error('artifact upload set is not exact');
+          fs.mkdirSync('.native-reports'); for (const tuple of tuples) { const dir = path.join(root, `native-${tuple}`); if (fs.readFileSync(path.join(dir,'tuple.txt'),'utf8').trim() !== tuple || fs.readFileSync(path.join(dir,'implementation.sha'),'utf8').trim() !== sha) throw new Error(`identity mismatch for ${tuple}`); const bin=path.join(dir,'prebuilds',tuple,'publication.node'); const report=path.join(dir,`${tuple}.json`); for (const [file,sum] of [[bin,`${tuple}.binary.sha256`],[report,`${tuple}.report.sha256`]]) { const expected=fs.readFileSync(path.join(dir,sum),'utf8').trim().split(/\s+/)[0]; const actual=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); if (expected !== actual) throw new Error(`stale ${sum}`); } fs.mkdirSync(path.join('prebuilds',tuple),{recursive:true}); fs.copyFileSync(bin,path.join('prebuilds',tuple,'publication.node')); fs.copyFileSync(report,path.join('.native-reports',`${tuple}.json`)); }
+          const artifacts=require('./scripts/native_artifacts.cjs'); (async()=>fs.writeFileSync('native-manifest.json',JSON.stringify(await artifacts.createManifest('.',Object.fromEntries(tuples.map(t=>[t,fs.readFileSync(`.native-reports/${t}.json`,'utf8')]))),null,2)))().catch(error=>{throw error});
+          NODE
+          node scripts/runtime_surface_gate.mjs --assembly-root . --manifest native-manifest.json --reports-dir .native-reports --evidence-scope final-release
+      - name: Pack exactly the admitted bytes
+        shell: bash
+        run: |
+          npm pack --json > pack.json
+          tarball="$(node -p "require('./pack.json')[0].filename")"
+          tar -tf "$tarball" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.stringify(d.trim().split(/\\r?\\n/))))" > packed-listing.json
+          node scripts/runtime_surface_gate.mjs --packed-listing packed-listing.json
+          sha256sum "$tarball" > tarball.sha256
+      - id: identity
+        shell: bash
+        run: |
+          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "tarball_sha256=$(cut -d' ' -f1 tarball.sha256)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: admitted-native-tarball
+          path: |
+            *.tgz
+            tarball.sha256
+            native-manifest.json
+          if-no-files-found: error
+
+  installed-native:
+    name: installed-${{ matrix.tuple }}
+    needs: assemble-exact-native
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, tuple: linux-x64, os: linux, arch: x64 }
+          - {
+              runner: ubuntu-24.04-arm,
+              tuple: linux-arm64,
+              os: linux,
+              arch: arm64,
+            }
+          - { runner: macos-15-intel, tuple: darwin-x64, os: darwin, arch: x64 }
+          - { runner: macos-15, tuple: darwin-arm64, os: darwin, arch: arm64 }
+          - { runner: windows-2025, tuple: win32-x64, os: win32, arch: x64 }
+          - {
+              runner: windows-11-arm,
+              tuple: win32-arm64,
+              os: win32,
+              arch: arm64,
+            }
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: "${{ github.sha }}"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: admitted-native-tarball
+          path: admitted
+      - name: Verify submitted implementation and unchanged tarball
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ needs.assemble-exact-native.outputs.implementation-sha }}"
+          test "$(node -p process.platform)" = "${{ matrix.os }}"
+          test "$(node -p process.arch)" = "${{ matrix.arch }}"
+          cd admitted && sha256sum -c tarball.sha256
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Smoke unchanged admitted tarball on Node 22
+        shell: bash
+        run: node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --evidence-scope final-matching-host > node-22.json
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - name: Smoke unchanged admitted tarball on Node 24
+        shell: bash
+        run: node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --evidence-scope final-matching-host > node-24.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: "installed-${{ matrix.tuple }}"
+          path: node-*.json
+          if-no-files-found: error
+
+  immutable-sha-evidence:
+    needs: installed-native
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: installed-*
+          path: installed
+          merge-multiple: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: admitted-native-tarball
+          path: admitted
+      - name: Record exact final admission evidence
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'), path=require('node:path'); const tuples=['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64']; const tarballSha256=fs.readFileSync('admitted/tarball.sha256','utf8').trim().split(/\s+/)[0]; const manifest=JSON.parse(fs.readFileSync('admitted/native-manifest.json','utf8')); const byTuple=new Map(manifest.map(record=>[record.tuple,record])); const result={implementationSha:process.env.GITHUB_SHA,tarballSha256,tuples:{}};
+          for(const tuple of tuples){const reports=fs.readdirSync(path.join('installed',`installed-${tuple}`)).map(file=>JSON.parse(fs.readFileSync(path.join('installed',`installed-${tuple}`,file),'utf8'))); const record=byTuple.get(tuple); if(reports.length!==2 || !record)throw new Error(`incomplete installed evidence for ${tuple}`); result.tuples[tuple]={binarySha256:record.sha256,reportSha256:record.auditReportSha256,implementationSha:process.env.GITHUB_SHA,runner:tuple,installed:reports.map(report=>({node:Number(report.nodeVersion.match(/^v(\d+)/)[1]),tarballSha256:report.tarball.sha256,conclusion:'pass'}))};}
+          fs.writeFileSync('admission.json',JSON.stringify(result,null,2));
+          NODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: final-native-admission
+          path: admission.json
+          if-no-files-found: error
