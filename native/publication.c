@@ -297,14 +297,14 @@ static publication_result publish_no_replace(HANDLE stage_handle,
   DWORD allocation_size;
   publication_result result;
 
-  if (stage == NULL || destination == NULL) {
+  if (stage_handle == INVALID_HANDLE_VALUE || stage_handle == NULL ||
+      destination == NULL) {
     return PUBLICATION_FAILED;
   }
   destination_bytes = wide_length(destination) * sizeof(WCHAR);
   if (destination_bytes > MAXDWORD - FIELD_OFFSET(FILE_RENAME_INFO, FileName)) {
     return PUBLICATION_FAILED;
   }
-  if (stage_handle == INVALID_HANDLE_VALUE || stage_handle == NULL) return PUBLICATION_FAILED;
   allocation_size = (DWORD)(FIELD_OFFSET(FILE_RENAME_INFO, FileName) + destination_bytes);
   rename_info = (FILE_RENAME_INFO *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
                                                allocation_size);
