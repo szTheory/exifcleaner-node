@@ -76,8 +76,14 @@ function isLoadedNativeCleanupLock(
     `${platform}-${arch}`,
     "publication.node",
   );
+  const comparablePath = (value) => {
+    const withoutExtendedPrefix = value.startsWith("\\\\?\\")
+      ? value.slice(4)
+      : value;
+    return resolve(withoutExtendedPrefix).toLowerCase();
+  };
   const samePath = (left, right) =>
-    resolve(left).toLowerCase() === resolve(right).toLowerCase();
+    comparablePath(left) === comparablePath(right);
   return (
     platform === "win32" &&
     error?.code === "EPERM" &&

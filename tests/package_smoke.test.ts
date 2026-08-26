@@ -93,6 +93,15 @@ describe("installed package smoke", () => {
     ).toBe(true);
     expect(
       helper.isLoadedNativeCleanupLock(
+        { code: "EPERM", path: `\\\\?\\${sandbox}` },
+        sandbox,
+        "win32",
+        "x64",
+        [loadedDll],
+      ),
+    ).toBe(true);
+    expect(
+      helper.isLoadedNativeCleanupLock(
         { code: "EPERM", path: join(sandbox, "source.webp") },
         sandbox,
         "win32",
