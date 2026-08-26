@@ -120,7 +120,10 @@ export async function runSafeTransaction(
     if (aborted(signal)) throw new DOMException("Aborted", "AbortError");
     await fileOps.createDirectory(stageDirectoryPath, 0o700);
     directoryCreated = true;
-    stageDirectory = await fileOps.open(stageDirectoryPath, STAGE_DIRECTORY_FLAGS);
+    stageDirectory = await fileOps.open(
+      stageDirectoryPath,
+      STAGE_DIRECTORY_FLAGS,
+    );
     if (platform === "win32") {
       const capability = createPrivateStageDirectory();
       if (capability !== undefined) {
@@ -162,7 +165,8 @@ export async function runSafeTransaction(
       failure = executionError(
         {
           code: "write-failed",
-          detail: "Could not prove that the staged output is distinct from source.",
+          detail:
+            "Could not prove that the staged output is distinct from source.",
           path: destinationPath,
         },
         "started",
@@ -209,7 +213,8 @@ export async function runSafeTransaction(
       failure = executionError(
         {
           code: "source-changed",
-          detail: "Source changed during sanitization; staged output was retained.",
+          detail:
+            "Source changed during sanitization; staged output was retained.",
           path: sourcePath,
         },
         "started",
@@ -217,7 +222,11 @@ export async function runSafeTransaction(
       throw new Error("Source changed.");
     }
     if (options.preserveTimestamps) {
-      await fileOps.utimes(stageFile, sourceSnapshot.atime, sourceSnapshot.mtime);
+      await fileOps.utimes(
+        stageFile,
+        sourceSnapshot.atime,
+        sourceSnapshot.mtime,
+      );
       if (
         !timestampsMatchAtMillisecondPrecision(
           sourceSnapshot,
@@ -329,9 +338,15 @@ export async function runSafeTransaction(
     );
   }
   const residueCause = fileCreated
-    ? { message: "Private staged file remains after terminal publication failure." }
+    ? {
+        message:
+          "Private staged file remains after terminal publication failure.",
+      }
     : directoryCreated
-      ? { message: "Private staging directory remains after terminal setup failure." }
+      ? {
+          message:
+            "Private staging directory remains after terminal setup failure.",
+        }
       : { message: "Private staging setup did not complete." };
   return err(
     withDestinationFinalization(failure!, {

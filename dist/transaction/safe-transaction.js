@@ -185,9 +185,13 @@ export async function runSafeTransaction(input) {
         return err(withDestinationFinalization(failure, { state: "owned-partial-removed" }));
     }
     const residueCause = fileCreated
-        ? { message: "Private staged file remains after terminal publication failure." }
+        ? {
+            message: "Private staged file remains after terminal publication failure.",
+        }
         : directoryCreated
-            ? { message: "Private staging directory remains after terminal setup failure." }
+            ? {
+                message: "Private staging directory remains after terminal setup failure.",
+            }
             : { message: "Private staging setup did not complete." };
     return err(withDestinationFinalization(failure, {
         state: "owned-partial-remains",

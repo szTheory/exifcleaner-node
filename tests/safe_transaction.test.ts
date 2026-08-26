@@ -168,7 +168,9 @@ describe("safe transaction file operations", () => {
       expect(dispositionAttempts).toBe(1);
       expect(pathnameRemovals).toBe(0);
       await expect(readFile(sourcePath)).resolves.toEqual(metadataWebp());
-      await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(stat(destinationPath)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
     } finally {
       restore();
     }
@@ -240,11 +242,13 @@ describe("safe transaction file operations", () => {
       },
     });
     expect(pathnameRemovals).toBe(0);
-    await expect(readFile(join(observedStageDirectory, "output.webp"))).resolves.toEqual(
-      replacementFile,
-    );
+    await expect(
+      readFile(join(observedStageDirectory, "output.webp")),
+    ).resolves.toEqual(replacementFile);
     await expect(readFile(sourcePath)).resolves.toEqual(metadataWebp());
-    await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(destinationPath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it.each(["unsupported", "failed"] as const)(
@@ -296,7 +300,9 @@ describe("safe transaction file operations", () => {
             ...NODE_FILE_OPS,
             remove: async () => {
               pathnameRemovals += 1;
-              throw new Error("publication failures must retain the private stage");
+              throw new Error(
+                "publication failures must retain the private stage",
+              );
             },
           },
         });
@@ -565,7 +571,9 @@ describe("safe transaction file operations", () => {
         },
       },
     });
-    await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(destinationPath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("cancels after creation through exactly one cleanup path", async () => {
