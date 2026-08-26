@@ -9,6 +9,8 @@
 #include <aclapi.h>
 #include <sddl.h>
 #include <stdio.h>
+#include <string.h>
+#include <wchar.h>
 #elif defined(__APPLE__)
 #include <errno.h>
 #include <stdio.h>

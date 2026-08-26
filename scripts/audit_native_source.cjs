@@ -11,9 +11,11 @@ const allowedHeaders = new Set([
   "aclapi.h",
   "sddl.h",
   "stdio.h",
+  "string.h",
   "errno.h",
   "sys/attr.h",
   "unistd.h",
+  "wchar.h",
   "sys/syscall.h",
 ]);
 const allowedCalls = new Set([
