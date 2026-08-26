@@ -66,6 +66,7 @@ function isLoadedNativeCleanupLock(
   sandbox,
   platform = process.platform,
   arch = process.arch,
+  loadedModulePaths = Object.keys(require.cache),
 ) {
   const expected = resolve(
     sandbox,
@@ -75,11 +76,14 @@ function isLoadedNativeCleanupLock(
     `${platform}-${arch}`,
     "publication.node",
   );
+  const samePath = (left, right) =>
+    resolve(left).toLowerCase() === resolve(right).toLowerCase();
   return (
     platform === "win32" &&
     error?.code === "EPERM" &&
     typeof error.path === "string" &&
-    resolve(error.path) === expected
+    loadedModulePaths.some((path) => samePath(path, expected)) &&
+    (samePath(error.path, expected) || samePath(error.path, sandbox))
   );
 }
 
@@ -227,7 +231,7 @@ async function runTransactions(packageRoot, sandbox) {
   });
   if (collision.ok || collision.error.code !== "destination-exists")
     throw new Error(
-      "Installed transaction did not refuse competing destination",
+      `Installed transaction did not refuse competing destination: ${JSON.stringify(collision)}`,
     );
   if (!readFileSync(competitorPath).equals(competitor))
     throw new Error("Installed transaction replaced competing destination");

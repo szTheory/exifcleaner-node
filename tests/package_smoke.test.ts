@@ -30,6 +30,7 @@ const helper = require("../scripts/package_smoke.cjs") as {
     sandbox: string,
     platform?: string,
     arch?: string,
+    loadedModulePaths?: string[],
   ): boolean;
 };
 
@@ -78,6 +79,16 @@ describe("installed package smoke", () => {
         sandbox,
         "win32",
         "x64",
+        [loadedDll],
+      ),
+    ).toBe(true);
+    expect(
+      helper.isLoadedNativeCleanupLock(
+        { code: "EPERM", path: sandbox },
+        sandbox,
+        "win32",
+        "x64",
+        [loadedDll],
       ),
     ).toBe(true);
     expect(
@@ -86,6 +97,16 @@ describe("installed package smoke", () => {
         sandbox,
         "win32",
         "x64",
+        [loadedDll],
+      ),
+    ).toBe(false);
+    expect(
+      helper.isLoadedNativeCleanupLock(
+        { code: "EPERM", path: sandbox },
+        sandbox,
+        "win32",
+        "x64",
+        [],
       ),
     ).toBe(false);
     expect(
@@ -94,6 +115,7 @@ describe("installed package smoke", () => {
         sandbox,
         "win32",
         "x64",
+        [loadedDll],
       ),
     ).toBe(false);
   });
