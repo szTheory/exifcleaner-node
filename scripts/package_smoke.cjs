@@ -222,9 +222,8 @@ async function runTransactions(packageRoot, sandbox) {
   if (!readFileSync(destinationPath).length)
     throw new Error("Installed transaction did not write destination");
 
-  const competitorPath = join(sandbox, "competitor.webp");
-  const competitor = Buffer.from("competitor survives", "utf8");
-  writeFileSync(competitorPath, competitor);
+  const competitorPath = destinationPath;
+  const competitor = readFileSync(competitorPath);
   const collision = await api.sanitizeFile({
     ...options,
     destinationPath: competitorPath,
@@ -252,6 +251,7 @@ async function runTransactions(packageRoot, sandbox) {
 async function runSmoke({ tarball, evidenceScope }) {
   assertArchiveShape(tarball);
   const sandbox = mkdtempSync(join(tmpdir(), "exifcleaner-package-smoke-"));
+  let loadedNativeArtifact;
   try {
     const copiedTarball = join(sandbox, basename(tarball));
     copyFileSync(tarball, copiedTarball);
@@ -279,6 +279,7 @@ async function runSmoke({ tarball, evidenceScope }) {
       );
     const installedRoot = join(sandbox, "node_modules", "exifcleaner-node");
     const literalArtifact = assertLiteralHostArtifact(installedRoot);
+    loadedNativeArtifact = literalArtifact;
     const cases = await runTransactions(installedRoot, sandbox);
     return {
       evidenceScope,
@@ -298,7 +299,16 @@ async function runSmoke({ tarball, evidenceScope }) {
     try {
       rmSync(sandbox, { recursive: true, force: true });
     } catch (error) {
-      if (!isLoadedNativeCleanupLock(error, sandbox)) throw error;
+      if (
+        !isLoadedNativeCleanupLock(
+          error,
+          sandbox,
+          process.platform,
+          process.arch,
+          loadedNativeArtifact === undefined ? [] : [loadedNativeArtifact],
+        )
+      )
+        throw error;
     }
   }
 }
