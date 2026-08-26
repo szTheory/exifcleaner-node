@@ -183,7 +183,9 @@ describe("safe transaction file operations", () => {
   it.runIf(process.platform !== "win32")(
     "refuses publication when the verified stage directory is swapped before publication",
     async () => {
-      const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+      const directory = await mkdtemp(
+        join(tmpdir(), "exifcleaner-transaction-"),
+      );
       directories.push(directory);
       const sourcePath = join(directory, "source.webp");
       const destinationPath = join(directory, "destination.webp");
@@ -192,7 +194,12 @@ describe("safe transaction file operations", () => {
       const source = await open(sourcePath, fsConstants.O_RDONLY);
       const stats = await source.stat();
       const admission = await webpHandler.admit(source, stats.size);
-      const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+      const plan = webpHandler.buildOutputPlan(
+        admission.parsed,
+        false,
+        false,
+        undefined,
+      );
 
       const result = await runSafeTransaction({
         sourceHandle: source,
@@ -210,18 +217,30 @@ describe("safe transaction file operations", () => {
           preserveTimestamps: false,
         },
         fileOps: NODE_FILE_OPS,
-        beforePublish: async ({ stageDirectoryPath }: { stageDirectoryPath: string }) => {
+        beforePublish: async ({
+          stageDirectoryPath,
+        }: {
+          stageDirectoryPath: string;
+        }) => {
           await rename(stageDirectoryPath, movedStageDirectory);
           await mkdir(stageDirectoryPath, { mode: 0o700 });
-          await writeFile(join(stageDirectoryPath, "output.webp"), "replacement");
+          await writeFile(
+            join(stageDirectoryPath, "output.webp"),
+            "replacement",
+          );
         },
       } as never);
 
       expect(result).toMatchObject({
         ok: false,
-        error: { code: "write-failed", finalization: { state: "owned-partial-remains" } },
+        error: {
+          code: "write-failed",
+          finalization: { state: "owned-partial-remains" },
+        },
       });
-      await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(stat(destinationPath)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
     },
   );
 
@@ -234,7 +253,12 @@ describe("safe transaction file operations", () => {
     const source = await open(sourcePath, fsConstants.O_RDONLY);
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
-    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
 
     const result = await runSafeTransaction({
       sourceHandle: source,
@@ -252,14 +276,20 @@ describe("safe transaction file operations", () => {
         preserveTimestamps: false,
       },
       fileOps: NODE_FILE_OPS,
-      beforePublish: async () => writeFile(sourcePath, Buffer.from("changed source")),
+      beforePublish: async () =>
+        writeFile(sourcePath, Buffer.from("changed source")),
     });
 
     expect(result).toMatchObject({
       ok: false,
-      error: { code: "source-changed", finalization: { state: "owned-partial-remains" } },
+      error: {
+        code: "source-changed",
+        finalization: { state: "owned-partial-remains" },
+      },
     });
-    await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(destinationPath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("uses only the opened Windows stage capability after directory identity capture fails", async () => {
