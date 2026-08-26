@@ -227,6 +227,43 @@ describe("safe transaction file operations", () => {
     },
   );
 
+  it("refuses publication when the source changes after staged-output verification", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(admission.parsed, false, false, undefined);
+
+    const result = await runSafeTransaction({
+      sourceHandle: source,
+      sourceSnapshot: snapshotSource(stats),
+      sourceMode: stats.mode,
+      handler: webpHandler,
+      admission,
+      plan,
+      orientation: undefined,
+      options: {
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      },
+      fileOps: NODE_FILE_OPS,
+      beforePublish: async () => writeFile(sourcePath, Buffer.from("changed source")),
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "source-changed", finalization: { state: "owned-partial-remains" } },
+    });
+    await expect(stat(destinationPath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("uses only the opened Windows stage capability after directory identity capture fails", async () => {
     const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
     directories.push(directory);

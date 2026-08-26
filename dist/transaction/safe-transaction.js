@@ -135,6 +135,14 @@ export async function runSafeTransaction(input) {
             }, "started");
             throw new Error("Private stage directory changed.");
         }
+        if (!sourcePathMatchesSnapshot(sourceSnapshot, await fileOps.statPath(sourcePath))) {
+            failure = executionError({
+                code: "source-changed",
+                detail: "Source changed before publication; staged output was retained.",
+                path: sourcePath,
+            }, "started");
+            throw new Error("Source changed before publication.");
+        }
         const publication = publishNoReplace(stageFile.fd, stageDirectory?.fd, destinationDirectory?.fd, "output.webp", destinationPath, basename(destinationPath), platform);
         if (publication.state !== "published") {
             failure = executionError({
