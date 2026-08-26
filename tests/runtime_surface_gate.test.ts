@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import packageManifest from "../package.json" with { type: "json" };
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
@@ -93,10 +94,17 @@ function fixtureReport(tuple: string): string {
     : tuple.startsWith("darwin")
       ? audit.auditDarwin("\t/usr/lib/libSystem.B.dylib", " U _renamex_np")
       : audit.auditWindows("KERNEL32.dll", "    CreateFileW\n    HeapAlloc");
-  return JSON.stringify({ ...JSON.parse(report), evidenceScope: "test-fixture" });
+  return JSON.stringify({
+    ...JSON.parse(report),
+    evidenceScope: "test-fixture",
+  });
 }
 
-async function createAssembly(): Promise<{ root: string; manifest: string; reports: string }> {
+async function createAssembly(): Promise<{
+  root: string;
+  manifest: string;
+  reports: string;
+}> {
   const root = await mkdtemp(join(tmpdir(), "exifcleaner-exact-six-"));
   fixtureRoots.push(root);
   const reports = join(root, "audit-reports");
@@ -107,7 +115,9 @@ async function createAssembly(): Promise<{ root: string; manifest: string; repor
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, fixtureBinary(record.binaryFormat, record.machine));
     reportRecords[record.tuple] = fixtureReport(record.tuple);
-    await writeFile(join(reports, `${record.tuple}.json`), reportRecords[record.tuple]);
+    const report = reportRecords[record.tuple];
+    if (report === undefined) throw new Error("fixture report was not created");
+    await writeFile(join(reports, `${record.tuple}.json`), report);
   }
   const manifest = await artifacts.createManifest(root, reportRecords);
   const manifestPath = join(root, "native-manifest.json");
@@ -115,13 +125,22 @@ async function createAssembly(): Promise<{ root: string; manifest: string; repor
   return { root, manifest: manifestPath, reports };
 }
 
-async function runArgs(args: string[]): Promise<{ exitCode: number; output: string }> {
+async function runArgs(
+  args: string[],
+): Promise<{ exitCode: number; output: string }> {
   try {
     const result = await execFileAsync(process.execPath, [gate, ...args]);
     return { exitCode: 0, output: `${result.stdout}${result.stderr}` };
   } catch (error) {
-    const failure = error as { code?: number; stdout?: string; stderr?: string };
-    return { exitCode: failure.code ?? 1, output: `${failure.stdout ?? ""}${failure.stderr ?? ""}` };
+    const failure = error as {
+      code?: number;
+      stdout?: string;
+      stderr?: string;
+    };
+    return {
+      exitCode: failure.code ?? 1,
+      output: `${failure.stdout ?? ""}${failure.stderr ?? ""}`,
+    };
   }
 }
 
@@ -229,40 +248,137 @@ describe("runtime surface gate", () => {
     },
   );
 
+  it("rejects runtime directory scanning and implicit build or download markers", async () => {
+    const scanner = await createFixture();
+    await writeFile(
+      join(scanner, "dist", "index.js"),
+      "import { readdir } from 'node:fs/promises';\nexport const fixture = readdir;\n",
+    );
+    const builder = await createFixture();
+    await writeFile(
+      join(builder, "dist", "index.js"),
+      "export const fixture = 'npm install download';\n",
+    );
+
+    await expect(runGate(scanner)).resolves.toMatchObject({
+      exitCode: 1,
+      output: expect.stringContaining("directory scan"),
+    });
+    await expect(runGate(builder)).resolves.toMatchObject({
+      exitCode: 1,
+      output: expect.stringContaining("runtime build or download"),
+    });
+  });
+
   it("accepts deterministic exact-six fixtures only through the explicit test seam", async () => {
     const assembly = await createAssembly();
 
     await expect(
       runArgs([
-        "--assembly-root", assembly.root,
-        "--manifest", assembly.manifest,
-        "--reports-dir", assembly.reports,
-        "--evidence-scope", "test-fixture",
+        "--assembly-root",
+        assembly.root,
+        "--manifest",
+        assembly.manifest,
+        "--reports-dir",
+        assembly.reports,
+        "--evidence-scope",
+        "test-fixture",
       ]),
-    ).resolves.toMatchObject({ exitCode: 0, output: expect.stringContaining("assembly gate passed") });
+    ).resolves.toMatchObject({
+      exitCode: 0,
+      output: expect.stringContaining("assembly gate passed"),
+    });
     await expect(
       runArgs([
-        "--assembly-root", assembly.root,
-        "--manifest", assembly.manifest,
-        "--reports-dir", assembly.reports,
-        "--evidence-scope", "final-release",
+        "--assembly-root",
+        assembly.root,
+        "--manifest",
+        assembly.manifest,
+        "--reports-dir",
+        assembly.reports,
+        "--evidence-scope",
+        "final-release",
       ]),
-    ).resolves.toMatchObject({ exitCode: 1, output: expect.stringContaining("fixture evidence") });
+    ).resolves.toMatchObject({
+      exitCode: 1,
+      output: expect.stringContaining("fixture evidence"),
+    });
   });
 
   it("rejects stale manifests, extra native files, and packed-listing drift", async () => {
     const assembly = await createAssembly();
-    const manifest = JSON.parse(await (await import("node:fs/promises")).readFile(assembly.manifest, "utf8"));
+    const manifest = JSON.parse(
+      await (
+        await import("node:fs/promises")
+      ).readFile(assembly.manifest, "utf8"),
+    );
     manifest[0].sha256 = createHash("sha256").update("stale").digest("hex");
     const stale = join(assembly.root, "stale-manifest.json");
     await writeFile(stale, JSON.stringify(manifest));
-    await expect(runArgs(["--assembly-root", assembly.root, "--manifest", stale, "--reports-dir", assembly.reports, "--evidence-scope", "test-fixture"])).resolves.toMatchObject({ exitCode: 1, output: expect.stringContaining("hash is stale") });
+    await expect(
+      runArgs([
+        "--assembly-root",
+        assembly.root,
+        "--manifest",
+        stale,
+        "--reports-dir",
+        assembly.reports,
+        "--evidence-scope",
+        "test-fixture",
+      ]),
+    ).resolves.toMatchObject({
+      exitCode: 1,
+      output: expect.stringContaining("hash is stale"),
+    });
 
-    await writeFile(join(assembly.root, "prebuilds", "linux-x64", "extra.node"), "fixture");
-    await expect(runArgs(["--assembly-root", assembly.root, "--manifest", assembly.manifest, "--reports-dir", assembly.reports, "--evidence-scope", "test-fixture"])).resolves.toMatchObject({ exitCode: 1, output: expect.stringContaining("extra native") });
+    await writeFile(
+      join(assembly.root, "prebuilds", "linux-x64", "extra.node"),
+      "fixture",
+    );
+    await expect(
+      runArgs([
+        "--assembly-root",
+        assembly.root,
+        "--manifest",
+        assembly.manifest,
+        "--reports-dir",
+        assembly.reports,
+        "--evidence-scope",
+        "test-fixture",
+      ]),
+    ).resolves.toMatchObject({
+      exitCode: 1,
+      output: expect.stringContaining("extra native"),
+    });
 
     const listing = join(assembly.root, "packed-files.json");
-    await writeFile(listing, JSON.stringify(["package.json", "dist/index.js", "prebuilds/linux-x64/publication.node"]));
-    await expect(runArgs(["--packed-listing", listing])).resolves.toMatchObject({ exitCode: 1, output: expect.stringContaining("packed native path set") });
+    await writeFile(
+      listing,
+      JSON.stringify([
+        "package.json",
+        "dist/index.js",
+        "prebuilds/linux-x64/publication.node",
+      ]),
+    );
+    await expect(runArgs(["--packed-listing", listing])).resolves.toMatchObject(
+      {
+        exitCode: 1,
+        output: expect.stringContaining("packed native path set"),
+      },
+    );
+  });
+
+  it("declares only the six literal D-50 artifacts for package packing", () => {
+    expect(packageManifest.files).toEqual([
+      "dist",
+      "prebuilds/linux-x64/publication.node",
+      "prebuilds/linux-arm64/publication.node",
+      "prebuilds/darwin-x64/publication.node",
+      "prebuilds/darwin-arm64/publication.node",
+      "prebuilds/win32-x64/publication.node",
+      "prebuilds/win32-arm64/publication.node",
+      "LICENSE",
+      "README.md",
+    ]);
   });
 });

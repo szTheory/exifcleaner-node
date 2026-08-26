@@ -29,7 +29,12 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "prebuilds",
+    "prebuilds/linux-x64/publication.node",
+    "prebuilds/linux-arm64/publication.node",
+    "prebuilds/darwin-x64/publication.node",
+    "prebuilds/darwin-arm64/publication.node",
+    "prebuilds/win32-x64/publication.node",
+    "prebuilds/win32-arm64/publication.node",
     "LICENSE",
     "README.md"
   ],
