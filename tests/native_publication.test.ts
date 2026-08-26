@@ -61,6 +61,28 @@ describe("current-host native publication addon", () => {
       "collision",
     );
   });
+
+  it.runIf(process.platform === "win32")(
+    "creates, verifies, and disposes an identity-bound private stage directory",
+    async () => {
+      const binding = require(hostArtifact) as {
+        createPrivateStageDirectory(stageDirectoryPath: string): unknown;
+        disposePrivateStageDirectory(capability: unknown): string;
+      };
+      const parent = await mkdtemp(
+        join(tmpdir(), "exifcleaner-native-stage-directory-"),
+      );
+      temporaryDirectories.push(parent);
+      const stageDirectory = join(parent, "stage");
+
+      const capability = binding.createPrivateStageDirectory(stageDirectory);
+
+      expect(capability).toBeDefined();
+      expect(binding.disposePrivateStageDirectory(capability)).toBe(
+        "published",
+      );
+    },
+  );
 });
 
 describe("private native publication loader", () => {

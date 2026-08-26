@@ -211,7 +211,7 @@ async function runTransactions(packageRoot, sandbox) {
   const published = await api.sanitizeFile(options);
   if (!published.ok)
     throw new Error(
-      `Installed transaction did not publish: ${published.error.code}`,
+      `Installed transaction did not publish: ${JSON.stringify(published.error)}`,
     );
   if (!readFileSync(sourcePath).equals(source))
     throw new Error("Installed transaction changed source bytes");
