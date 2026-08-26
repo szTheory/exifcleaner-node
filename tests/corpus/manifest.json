@@ -3,7 +3,7 @@
   "records": [
     {
       "id": "exifcleaner-sample",
-      "role": "differential",
+      "roles": ["differential"],
       "localPath": "sample.webp",
       "provenance": {
         "revision": "ba365b3459b0d87ce255124a5eef819aca603efd",
@@ -28,7 +28,7 @@
     },
     {
       "id": "declared-size-plus-one",
-      "role": "negative-control",
+      "roles": ["negative-control"],
       "generator": {
         "kind": "riff-declared-size-plus-one",
         "seed": 46001,
@@ -50,6 +50,57 @@
       },
       "retainedPayloads": [],
       "permittedDifferences": []
+    },
+    {
+      "id": "libwebp-1.5.0-example",
+      "roles": ["decode", "differential", "structural"],
+      "localPath": "upstream/libwebp-1.5.0-example.webp",
+      "provenance": {
+        "revision": "a4d7a715337ded4451fec90ff8ce79728e04126c",
+        "url": "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0.tar.gz#libwebp-1.5.0/examples/test.webp",
+        "license": "BSD-3-Clause",
+        "licenseStatus": "approved"
+      },
+      "sha256": "1bf9449d529b491c6eb22ec84d42217e43cf9af0ffe391fa7a30b29b037f098a",
+      "bytes": 4880,
+      "topology": ["VP8 "],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["EXIF", "XMP", "ICC"]
+      },
+      "retainedPayloads": [
+        {
+          "fourCc": "VP8 ",
+          "sha256": "89c641e38f1b10766880e7c81e3ca69246836fdb81100c39cd39881513b9dd36"
+        }
+      ],
+      "permittedDifferences": [],
+      "oracle": {
+        "dwebp": {
+          "status": "success",
+          "format": "lossy",
+          "width": 128,
+          "height": 128,
+          "pamSha256": "ff7c5b6f529f2800154e87e3a56f708f9de842cda7ffff2b7284821cc1a9848a"
+        },
+        "webpinfo": {
+          "status": "success",
+          "warnings": [],
+          "chunks": [
+            {
+              "fourCc": "VP8 ",
+              "headerOffset": 12,
+              "payloadBytes": 4860,
+              "spanBytes": 4868
+            }
+          ]
+        },
+        "exiftool": {
+          "warnings": [],
+          "source": { "EXIF": [], "XMP": [], "ICC_Profile": [] },
+          "output": { "EXIF": [], "XMP": [], "ICC_Profile": [] }
+        }
+      }
     }
   ]
 }

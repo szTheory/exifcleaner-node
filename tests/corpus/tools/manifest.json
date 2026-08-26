@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "authorities": [
+    {
+      "id": "libwebp-1.5.0",
+      "kind": "compiled-source",
+      "version": "1.5.0",
+      "revision": "a4d7a715337ded4451fec90ff8ce79728e04126c",
+      "origin": "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0.tar.gz",
+      "archive": {
+        "path": "tests/corpus/tools/archives/libwebp-1.5.0.tar.gz",
+        "sha256": "7d6fab70cf844bf6769077bd5d7a74893f8ffd4dfb42861745750c63c2a5c92c",
+        "root": "libwebp-1.5.0"
+      },
+      "license": {
+        "spdx": "BSD-3-Clause",
+        "path": "tests/corpus/tools/licenses/libwebp-COPYING",
+        "member": "libwebp-1.5.0/COPYING",
+        "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "libwebp-1.5.0/configure",
+        "sha256": "77fd17ae46865852e867e86f8aeef090f9dee5eff86731bfe2fe87684f37fc16",
+        "contains": "PACKAGE_VERSION='1.5.0'"
+      },
+      "entrypoints": [
+        {
+          "id": "dwebp-source",
+          "kind": "c-source",
+          "member": "libwebp-1.5.0/examples/dwebp.c",
+          "bytes": 15572,
+          "sha256": "a18bc6d0c3c6c1c5d75e4aa52feb23ff2547ca102462e0c10868e967a40135b0"
+        },
+        {
+          "id": "webpinfo-source",
+          "kind": "c-source",
+          "member": "libwebp-1.5.0/examples/webpinfo.c",
+          "bytes": 40997,
+          "sha256": "0a796df0f8ae7c1703c642f92eb010c276d5c03c8ea03cb8c032407ad6599675"
+        }
+      ]
+    },
+    {
+      "id": "exiftool-13.59",
+      "kind": "script",
+      "version": "13.59",
+      "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+      "origin": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download",
+      "archive": {
+        "path": "tests/corpus/tools/archives/Image-ExifTool-13.59.tar.gz",
+        "sha256": "668ea3acececb7235fbd0f4900e72d5f12c9b07e5c778fd36cb1e9b5828fd65a",
+        "root": "Image-ExifTool-13.59"
+      },
+      "license": {
+        "spdx": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "path": "tests/corpus/tools/licenses/exiftool-README",
+        "member": "Image-ExifTool-13.59/README",
+        "sha256": "e13005e5431c89910feba2309710d844f1bf4fd97df1236284e6475161bc14da"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "Image-ExifTool-13.59/lib/Image/ExifTool.pm",
+        "sha256": "95fa4ec3cc3603866dd6e37bfe52ad019ff50a23bbd5cc87ce40f949cf49a508",
+        "contains": "$VERSION = '13.59';"
+      },
+      "entrypoints": [
+        {
+          "id": "exiftool-script",
+          "kind": "perl-script",
+          "member": "Image-ExifTool-13.59/exiftool",
+          "bytes": 352399,
+          "sha256": "a6b8018093845ac93011307bac4ab630d6604b2365fc7f66bb88c88d7dedb5ed"
+        }
+      ]
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "libwebp-1.5.0-example",
+      "authority": "libwebp-1.5.0",
+      "member": "libwebp-1.5.0/examples/test.webp",
+      "path": "tests/corpus/upstream/libwebp-1.5.0-example.webp",
+      "bytes": 4880,
+      "sha256": "1bf9449d529b491c6eb22ec84d42217e43cf9af0ffe391fa7a30b29b037f098a",
+      "licenseMember": "libwebp-1.5.0/COPYING"
+    }
+  ]
+}

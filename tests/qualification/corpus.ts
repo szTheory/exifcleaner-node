@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectFile, sanitizeFile } from "../../dist/index.js";
 
@@ -51,7 +51,7 @@ interface RefusalOutcome {
 
 export interface CorpusRecord {
   readonly id: string;
-  readonly role: RecordRole;
+  readonly roles: readonly RecordRole[];
   readonly localPath?: string;
   readonly generator?: {
     readonly kind: "riff-declared-size-plus-one";
@@ -65,6 +65,7 @@ export interface CorpusRecord {
   readonly outcome: SuccessOutcome | RefusalOutcome;
   readonly retainedPayloads: readonly PayloadDigest[];
   readonly permittedDifferences: readonly string[];
+  readonly oracle?: Readonly<Record<string, unknown>>;
 }
 
 interface CorpusManifest {
@@ -124,15 +125,26 @@ export function assertCorpusRecord(
 ): asserts value is CorpusRecord {
   if (!isObject(value)) invalid("record must be an object");
   const id = stringField(value.id, "id");
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) invalid("id");
-  const role = stringField(value.role, "role");
-  if (!ROLES.has(role)) invalid("role");
+  if (!/^[a-z0-9][a-z0-9.-]*$/.test(id)) invalid("id");
+  const roles = arrayField(value.roles, "roles");
+  if (
+    roles.length === 0 ||
+    roles.some((role) => typeof role !== "string" || !ROLES.has(role)) ||
+    new Set(roles).size !== roles.length
+  )
+    invalid("roles");
   const hasLocalPath = typeof value.localPath === "string";
   const hasGenerator = isObject(value.generator);
   if (hasLocalPath === hasGenerator) invalid("exactly one materializer");
   if (hasLocalPath) {
     const localPath = stringField(value.localPath, "localPath");
-    if (basename(localPath) !== localPath || localPath.includes(".."))
+    const resolvedPath = resolve(CORPUS_ROOT, localPath);
+    const fromRoot = relative(CORPUS_ROOT, resolvedPath);
+    if (
+      localPath.startsWith("/") ||
+      fromRoot.startsWith("..") ||
+      resolve(CORPUS_ROOT, fromRoot) !== resolvedPath
+    )
       invalid("localPath");
   }
   if (hasGenerator) {
@@ -150,7 +162,11 @@ export function assertCorpusRecord(
   if (
     !/^[a-f0-9]{40}$/.test(stringField(provenance.revision, "revision")) ||
     !stringField(provenance.url, "url").startsWith("https://") ||
-    stringField(provenance.license, "license") !== "MIT" ||
+    !new Set([
+      "MIT",
+      "BSD-3-Clause",
+      "Artistic-1.0-Perl OR GPL-1.0-or-later",
+    ]).has(stringField(provenance.license, "license")) ||
     provenance.licenseStatus !== "approved"
   )
     invalid("provenance");
@@ -196,6 +212,7 @@ export function assertCorpusRecord(
   );
   if (permitted.some((item) => typeof item !== "string"))
     invalid("permittedDifferences");
+  if (value.oracle !== undefined && !isObject(value.oracle)) invalid("oracle");
 }
 
 function assertManifest(value: unknown): asserts value is CorpusManifest {
