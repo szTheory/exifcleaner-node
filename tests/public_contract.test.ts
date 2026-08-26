@@ -294,6 +294,7 @@ describe("published format-neutral declaration contract", () => {
       "MetadataValue",
       "MetadataWarning",
       "NativeFormat",
+      "PostCommitResidue",
       "Result",
       "SanitizeOptions",
       "SanitizeResult",
