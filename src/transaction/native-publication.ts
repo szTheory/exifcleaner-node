@@ -38,6 +38,14 @@ export type NativeStageDirectoryCapability = {
   readonly [nativeStageDirectoryCapability]: never;
 };
 
+export type NativeStageDirectoryCreation =
+  | {
+      readonly state: "created";
+      readonly capability: NativeStageDirectoryCapability;
+    }
+  | { readonly state: "owned-partial-remains" }
+  | { readonly state: "failed" };
+
 export type NativePublicationResult =
   | { readonly state: "published" }
   | { readonly state: "destination-exists" }
@@ -202,11 +210,18 @@ export function publishNoReplace(
 
 export function createPrivateStageDirectory(
   stageDirectoryPath: string,
-): unknown {
+): NativeStageDirectoryCreation {
   try {
-    return nativeBinding().createPrivateStageDirectory(stageDirectoryPath);
+    const result =
+      nativeBinding().createPrivateStageDirectory(stageDirectoryPath);
+    if (result === true) return { state: "owned-partial-remains" };
+    if (result === undefined) return { state: "failed" };
+    return {
+      state: "created",
+      capability: result as NativeStageDirectoryCapability,
+    };
   } catch {
-    return undefined;
+    return { state: "failed" };
   }
 }
 

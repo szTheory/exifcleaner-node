@@ -20,6 +20,14 @@ declare const nativeStageDirectoryCapability: unique symbol;
 export type NativeStageDirectoryCapability = {
     readonly [nativeStageDirectoryCapability]: never;
 };
+export type NativeStageDirectoryCreation = {
+    readonly state: "created";
+    readonly capability: NativeStageDirectoryCapability;
+} | {
+    readonly state: "owned-partial-remains";
+} | {
+    readonly state: "failed";
+};
 export type NativePublicationResult = {
     readonly state: "published";
 } | {
@@ -48,7 +56,7 @@ export declare function setNativePublicationBindingForTests(binding: NativePubli
 export declare function mapNativePublicationCode(code: unknown): NativePublicationResult;
 export declare function mapNativeStageDirectoryCode(code: unknown): NativeStageDirectoryDisposition;
 export declare function publishNoReplace(stageFileDescriptor: number, stageDirectoryDescriptor: number | undefined, destinationDirectoryDescriptor: number | undefined, stageEntryName: string, destinationPath: string, stagePath: string, stageDirectoryCapability: NativeStageDirectoryCapability | undefined, destinationEntryName: string, platform?: NodeJS.Platform): NativePublicationResult;
-export declare function createPrivateStageDirectory(stageDirectoryPath: string): unknown;
+export declare function createPrivateStageDirectory(stageDirectoryPath: string): NativeStageDirectoryCreation;
 export declare function disposePrivateStageDirectory(capability: NativeStageDirectoryCapability): NativeStageDirectoryDisposition;
 export declare function removePrivateStageFile(capability: NativeStageDirectoryCapability, stagePath: string): NativeStageDirectoryDisposition;
 export {};

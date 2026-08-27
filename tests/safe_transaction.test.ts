@@ -374,6 +374,71 @@ describe("safe transaction file operations", () => {
     }
   });
 
+  it("reports post-create native setup residue instead of claiming the stage is missing", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    const plan = webpHandler.buildOutputPlan(
+      admission.parsed,
+      false,
+      false,
+      undefined,
+    );
+    let createdStageDirectory = "";
+    const restore = setNativePublicationBindingForTests({
+      publishNoReplace: () => "failed",
+      createPrivateStageDirectory(stageDirectoryPath) {
+        createdStageDirectory = stageDirectoryPath;
+        mkdirSync(stageDirectoryPath);
+        return true;
+      },
+      removePrivateStageFile: () => "unsupported",
+      disposePrivateStageDirectory: () => "unsupported",
+    });
+
+    try {
+      const result = await runSafeTransaction({
+        sourceHandle: source,
+        sourceSnapshot: snapshotSource(stats),
+        sourceMode: stats.mode,
+        handler: webpHandler,
+        admission,
+        plan,
+        orientation: undefined,
+        options: {
+          sourcePath,
+          destinationPath,
+          preserveOrientation: false,
+          preserveColorProfile: false,
+          preserveTimestamps: false,
+        },
+        fileOps: NODE_FILE_OPS,
+        platform: "win32" as never,
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: {
+          code: "write-failed",
+          nativeWrite: "not-started",
+          finalization: { state: "owned-partial-remains" },
+        },
+      });
+      expect((await stat(createdStageDirectory)).isDirectory()).toBe(true);
+      await expect(readFile(sourcePath)).resolves.toEqual(metadataWebp());
+      await expect(stat(destinationPath)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      restore();
+    }
+  });
+
   it("retains file and directory replacements on every file-present finalization", async () => {
     const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
     directories.push(directory);

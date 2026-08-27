@@ -63,7 +63,8 @@ static publication_result publish_no_replace(HANDLE stage, const WCHAR *destinat
                                              const WCHAR *stage_path,
                                              private_stage_directory *capability,
                                              DWORD *diagnostic);
-static private_stage_directory *create_private_stage_directory(const WCHAR *path);
+static private_stage_directory *create_private_stage_directory(const WCHAR *path,
+                                                               BOOL *residue_remains);
 static publication_result remove_private_stage_file(
     private_stage_directory *capability, const WCHAR *stage_path);
 static publication_result dispose_private_stage_directory(
@@ -277,22 +278,34 @@ static napi_value create_stage_directory_binding(napi_env env, napi_callback_inf
   napi_value args[1];
   WCHAR *path;
   private_stage_directory *capability;
+  BOOL residue_remains = FALSE;
   if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc != 1 ||
       (path = read_path(env, args[0])) == NULL) {
     napi_throw_type_error(env, NULL, "createPrivateStageDirectory requires one path string");
     return NULL;
   }
-  capability = create_private_stage_directory(path);
+  capability = create_private_stage_directory(path, &residue_remains);
   publication_free(path);
   if (capability == NULL) {
+    if (residue_remains) {
+      /* Boolean needs no allocation, so even low-memory setup failures leave
+       * TypeScript with a conservative, truthful finalization state. */
+      napi_get_boolean(env, TRUE, &value);
+      return value;
+    }
     napi_get_undefined(env, &value);
     return value;
   }
   if (napi_create_external(env, capability, finalize_stage_directory, NULL, &value) !=
       napi_ok) {
+    residue_remains = dispose_private_stage_directory(capability) != PUBLICATION_PUBLISHED;
     finalize_stage_directory(env, capability, NULL);
-    napi_throw_error(env, NULL, "could not create stage capability");
-    return NULL;
+    if (residue_remains) {
+      napi_get_boolean(env, TRUE, &value);
+      return value;
+    }
+    napi_get_undefined(env, &value);
+    return value;
   }
   return value;
 #else
@@ -522,7 +535,23 @@ static BOOL verify_private_stage_directory(HANDLE handle, HANDLE token,
   return valid;
 }
 
-static private_stage_directory *create_private_stage_directory(const WCHAR *path) {
+static BOOL dispose_verified_stage_directory(HANDLE directory) {
+  FILE_DISPOSITION_INFO_EX disposition = {0};
+  FILE_DISPOSITION_INFO legacy = {0};
+  disposition.Flags = FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_POSIX_SEMANTICS;
+  if (!SetFileInformationByHandle(directory, FileDispositionInfoEx, &disposition,
+                                  sizeof(disposition))) {
+    legacy.DeleteFile = TRUE;
+    if (!SetFileInformationByHandle(directory, FileDispositionInfo, &legacy,
+                                    sizeof(legacy))) {
+      return FALSE;
+    }
+  }
+  return CloseHandle(directory);
+}
+
+static private_stage_directory *create_private_stage_directory(const WCHAR *path,
+                                                               BOOL *residue_remains) {
   HANDLE token = NULL;
   DWORD token_size = 0;
   TOKEN_USER *token_user = NULL;
@@ -535,6 +564,8 @@ static private_stage_directory *create_private_stage_directory(const WCHAR *path
   HANDLE parent = INVALID_HANDLE_VALUE;
   WCHAR *parent_name = NULL;
   private_stage_directory *capability = NULL;
+  BOOL directory_created = FALSE;
+  BOOL directory_verified = FALSE;
   DWORD acl_size = sizeof(ACL) + 2 * (sizeof(ACCESS_ALLOWED_ACE) - sizeof(DWORD)) +
                    2 * SECURITY_MAX_SID_SIZE;
 
@@ -564,6 +595,7 @@ static private_stage_directory *create_private_stage_directory(const WCHAR *path
   attributes.lpSecurityDescriptor = &descriptor;
   attributes.bInheritHandle = FALSE;
   if (!CreateDirectoryW(path, &attributes)) goto done;
+  directory_created = TRUE;
   directory = CreateFileW(
       path, READ_CONTROL | FILE_READ_ATTRIBUTES | DELETE | SYNCHRONIZE,
       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
@@ -572,6 +604,7 @@ static private_stage_directory *create_private_stage_directory(const WCHAR *path
       !verify_private_stage_directory(directory, token, token_user->User.Sid)) {
     goto done;
   }
+  directory_verified = TRUE;
   capability = (private_stage_directory *)publication_allocate(sizeof(*capability));
   if (capability == NULL ||
       !GetFileInformationByHandleEx(directory, FileIdInfo, &capability->identity,
@@ -588,6 +621,16 @@ static private_stage_directory *create_private_stage_directory(const WCHAR *path
   parent = INVALID_HANDLE_VALUE;
 
 done:
+  if (capability == NULL && directory_created) {
+    if (directory_verified && directory != INVALID_HANDLE_VALUE &&
+        dispose_verified_stage_directory(directory)) {
+      directory = INVALID_HANDLE_VALUE;
+    } else if (residue_remains != NULL) {
+      /* Never delete by pathname after setup failed: a handle verified as the
+       * just-created private directory is the ownership proof for removal. */
+      *residue_remains = TRUE;
+    }
+  }
   if (directory != INVALID_HANDLE_VALUE) CloseHandle(directory);
   if (parent != INVALID_HANDLE_VALUE) CloseHandle(parent);
   if (token != NULL) CloseHandle(token);

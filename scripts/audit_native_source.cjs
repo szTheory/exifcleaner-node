@@ -66,6 +66,7 @@ const allowedCalls = new Set([
   "napi_create_external",
   "napi_define_properties",
   "napi_get_cb_info",
+  "napi_get_boolean",
   "napi_get_undefined",
   "napi_get_value_external",
   "napi_get_value_int32",

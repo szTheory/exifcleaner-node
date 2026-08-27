@@ -57,6 +57,8 @@ describe("current-host native publication addon", () => {
     expect(source).toContain(
       "if (split == 2 && path[1] == L':') parent_length = split + 1;",
     );
+    expect(source).toContain("dispose_verified_stage_directory(directory)");
+    expect(source).toContain("napi_get_boolean(env, TRUE, &value)");
     expect(source).not.toMatch(
       /FileRenameInfo(?:Ex)?|ReplaceIfExists|ReOpenFile/u,
     );

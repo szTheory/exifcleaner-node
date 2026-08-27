@@ -92,10 +92,18 @@ export function publishNoReplace(stageFileDescriptor, stageDirectoryDescriptor, 
 }
 export function createPrivateStageDirectory(stageDirectoryPath) {
     try {
-        return nativeBinding().createPrivateStageDirectory(stageDirectoryPath);
+        const result = nativeBinding().createPrivateStageDirectory(stageDirectoryPath);
+        if (result === true)
+            return { state: "owned-partial-remains" };
+        if (result === undefined)
+            return { state: "failed" };
+        return {
+            state: "created",
+            capability: result,
+        };
     }
     catch {
-        return undefined;
+        return { state: "failed" };
     }
 }
 export function disposePrivateStageDirectory(capability) {

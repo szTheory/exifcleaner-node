@@ -191,12 +191,13 @@ export async function runSafeTransaction(
   try {
     if (aborted(signal)) throw new DOMException("Aborted", "AbortError");
     if (platform === "win32") {
-      const capability = createPrivateStageDirectory(stageDirectoryPath);
-      if (capability !== undefined) {
-        directoryCapability = capability as NativeStageDirectoryCapability;
+      const stageDirectoryCreation =
+        createPrivateStageDirectory(stageDirectoryPath);
+      directoryCreated = stageDirectoryCreation.state !== "failed";
+      if (stageDirectoryCreation.state === "created") {
+        directoryCapability = stageDirectoryCreation.capability;
       }
-      directoryCreated = directoryCapability !== undefined;
-      if (!directoryCreated) {
+      if (stageDirectoryCreation.state !== "created") {
         failure = executionError(
           {
             code: "write-failed",
