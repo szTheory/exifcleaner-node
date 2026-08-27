@@ -519,13 +519,13 @@ async function installedPropertyFailure(
   sandbox,
 ) {
   if (!result.ok) {
-    const { code, detail, phase, nativeWrite } = result.error;
+    const { code, detail, phase, nativeWrite, cause } = result.error;
     const nativeDiagnostic =
       packageRoot === undefined || sandbox === undefined
         ? undefined
         : await diagnoseWindowsNativePublication(packageRoot, sandbox);
     return new Error(
-      `Installed property case failed: ${index}:${code}:${phase}:${nativeWrite}:${detail}${nativeDiagnostic === undefined ? "" : `:${nativeDiagnostic}`}`,
+      `Installed property case failed: ${index}:${code}:${phase}:${nativeWrite}:${detail}${cause === undefined ? "" : `:cause=${cause.code ?? "unknown"}/${cause.message}`}${nativeDiagnostic === undefined ? "" : `:${nativeDiagnostic}`}`,
     );
   }
   if (!sourcePreserved)

@@ -391,6 +391,15 @@ export async function runSafeTransaction(
               ? "Destination already exists."
               : "Native no-replace publication could not complete.",
           path: destinationPath,
+          ...(publication.state === "publication-failed" &&
+          publication.diagnostic !== undefined
+            ? {
+                cause: {
+                  code: "native-publication",
+                  message: publication.diagnostic,
+                },
+              }
+            : {}),
         },
         "started",
       );
