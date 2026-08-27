@@ -31,6 +31,31 @@ fresh child process. Each fixture alternates baseline-first and candidate-first
 rounds, discards two warmups per version, and retains fifteen measurements per
 version.
 
+## Runner-Speed Calibration
+
+Timing evidence has one package-independent `exifcleaner-run-calibration-v1`
+authority. The parent runs it in a clean temporary directory once before the
+first package child and once after the last package child. Its fixed workload,
+stdout schema, trial count, Node 22/24 reference median, timeout, drift limit,
+workload digest, and authority-script SHA-256 are committed in
+`scripts/qualification/benchmark-calibration-reference.json`. It neither
+imports nor receives a path to either package.
+
+The parent rejects non-finite or zero trials, unexpected output, nonzero exit,
+wrong executable, authority identity mismatch, cleanup failure, or more than
+10% before/after drift. It computes `runScale = referenceMedian /
+sqrt(beforeMedian * afterMedian)` once and applies that same scale to every
+baseline and candidate raw elapsed value. A global positive runner factor
+cancels; candidate-only work remains visible. There is no side-specific,
+fixture-specific, retry-produced, discarded, or package-controlled denominator.
+Raw elapsed values and the original 2-warmup/15-measurement alternating record
+remain evidence.
+
+`benchmark-report.cjs` is the dependency-free fail-closed authority for local
+output, each Node benchmark job, phase admission, and the final hosted ledger.
+It recomputes calibration, scaled distributions, the raw schedule, and all
+unchanged correctness, RSS, cancellation, cleanup, tarball, and fixture gates.
+
 ## Committed Workload
 
 Seed `460070` binds twelve generated records and their exact byte sizes and
@@ -62,11 +87,15 @@ A mismatch cannot be offset by a faster result.
 For every non-cancellation fixture, the candidate must satisfy all of these
 inclusive limits:
 
-- median time ≤ `max(baseline median × 1.20, baseline median + 15 ms)`;
-- p95 time ≤ `max(baseline p95 × 1.35, baseline p95 + 30 ms)`;
+- median time ≤ `Math.max(baseline * 1.20, baseline + 15 ms)`;
+- p95 time ≤ `Math.max(baseline * 1.35, baseline + 30 ms)`;
 - median peak-RSS increase ≤ 16 MiB; and
 - RSS slope across the 1/16/64 MiB no-metadata stills ≤ baseline slope + 0.10
   byte per payload byte.
+
+These are the D-23 factor-or-slack limits formerly described as baseline median
+× 1.20 and baseline p95 × 1.35; the literal `Math.max` expressions above are
+the sole admission implementation.
 
 RSS slope is `(RSS at 64 MiB - RSS at 1 MiB - 4 MiB tolerance) / 63 MiB`,
 clamped at zero. The middle point is retained in the evidence and guards the
@@ -86,6 +115,12 @@ Node.js 22 and 24. Pull-request runs record information; explicit phase and
 release admission hard-fail. Changing the `v0.1.1` baseline, fixture set,
 sampling counts, formula, or threshold requires reviewed rationale and new
 evidence. The runner never refreshes them automatically.
+
+Calibration changes no RSS, memory, cancellation, correctness, output identity,
+finalization, cleanup, or Node 22 animation ceiling. It authorizes no retry,
+raised threshold, cross-run aggregation, runtime export, product route, UI,
+IPC, or setting. D-27 remains focused replay and D-28 remains a bounded
+manifested-workload claim.
 
 This report supports bounded time, memory-growth, output-identity, and
 cancellation claims for the manifested workload. Parser admission, independent

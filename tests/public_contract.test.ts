@@ -410,6 +410,7 @@ describe("private automated qualification surface", () => {
     expect(benchmarkJob).toContain("node: [22, 24]");
     expect(benchmarkJob).toContain("assemble-exact-native");
     expect(benchmarkJob).toContain("benchmark:qualify");
+    expect(benchmarkJob).toContain("benchmark-report.cjs --validate-report");
     expect(benchmarkJob).toContain("github.event_name == 'pull_request'");
     expect(benchmarkJob).toContain("if: always()");
     for (const dependency of [
@@ -421,6 +422,8 @@ describe("private automated qualification surface", () => {
       expect(admission).toContain(dependency);
     expect(admission).toContain("reports.length !== 12");
     expect(admission).toContain("benchmarkReports.length !== 2");
+    expect(admission).toContain("'--phase-admission'");
+    expect(admission).not.toContain("baseline median ×");
     expect(workflow).toContain("cancel-in-progress: false");
   });
 

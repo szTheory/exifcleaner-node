@@ -92,5 +92,19 @@ function validateReport(report) {
   return report;
 }
 function hostedLedger(filePath) { const ledger = JSON.parse(fs.readFileSync(filePath, "utf8")); for (const report of [ledger.node22, ledger.node24]) validateReport(report); return ledger; }
-module.exports = { MEDIAN_RATIO, MEDIAN_SLACK_NS, P95_RATIO, P95_SLACK_NS, deriveRunScale, evaluateTiming, loadReference, validateCalibration, validateReport, hostedLedger };
-if (require.main === module) { try { const [flag, value] = process.argv.slice(2); if (flag !== "--hosted-ledger" || !value || process.argv.length !== 4) throw new Error("usage: --hosted-ledger <file>"); hostedLedger(path.resolve(value)); } catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 2; } }
+function phaseAdmission(paths) {
+  if (paths.length !== 2) throw new Error("both Node benchmark reports are required");
+  const reports = paths.map((file) => validateReport(JSON.parse(fs.readFileSync(file, "utf8"))));
+  const majors = reports.map((report) => Number(report.environment.nodeVersion.match(/^v(\d+)/)[1])).sort().join(",");
+  if (majors !== "22,24" || reports.some((report) => report.mode !== "admit" || report.pass !== true)) throw new Error("Node benchmark admission is incomplete");
+  if (new Set(reports.map((report) => report.candidateSha256)).size !== 1 || new Set(reports.map((report) => report.baselineSha256)).size !== 1) throw new Error("benchmark tarball identities disagree");
+  return reports;
+}
+function main(args) {
+  if (args[0] === "--validate-report" && args.length === 2) return validateReport(JSON.parse(fs.readFileSync(args[1], "utf8")));
+  if (args[0] === "--phase-admission" && args.length === 3) return phaseAdmission(args.slice(1));
+  if (args[0] === "--hosted-ledger" && args.length >= 2) return hostedLedger(args[1]);
+  throw new Error("usage: --validate-report <file> | --phase-admission <node22> <node24> | --hosted-ledger <file>");
+}
+module.exports = { MEDIAN_RATIO, MEDIAN_SLACK_NS, P95_RATIO, P95_SLACK_NS, deriveRunScale, evaluateTiming, loadReference, validateCalibration, validateReport, hostedLedger, phaseAdmission };
+if (require.main === module) { try { main(process.argv.slice(2)); } catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 2; } }
