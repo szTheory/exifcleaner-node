@@ -181,15 +181,32 @@ async function chunksEqual(
   signal?: AbortSignal,
 ): Promise<boolean> {
   if (source.size !== destination.size) return false;
+  const bufferSize = Math.min(COPY_BLOCK_BYTES, Math.max(source.size, 1));
+  const sourceBuffer = Buffer.allocUnsafe(bufferSize);
+  const destinationBuffer = Buffer.allocUnsafe(bufferSize);
   for (let offset = 0; offset < source.size;) {
     if (isAborted(signal))
       throw signal?.reason ?? new DOMException("Aborted", "AbortError");
     const length = Math.min(COPY_BLOCK_BYTES, source.size - offset);
     const [left, right] = await Promise.all([
-      readExactly(sourceHandle, length, source.dataOffset + offset),
-      readExactly(destinationHandle, length, destination.dataOffset + offset),
+      sourceHandle.read(sourceBuffer, 0, length, source.dataOffset + offset),
+      destinationHandle.read(
+        destinationBuffer,
+        0,
+        length,
+        destination.dataOffset + offset,
+      ),
     ]);
-    if (!left.equals(right)) return false;
+    if (left.bytesRead !== length || right.bytesRead !== length)
+      throw new Error(
+        "Source or output changed or became truncated during verification.",
+      );
+    if (
+      !sourceBuffer
+        .subarray(0, length)
+        .equals(destinationBuffer.subarray(0, length))
+    )
+      return false;
     offset += length;
   }
   return true;
