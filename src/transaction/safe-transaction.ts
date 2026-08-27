@@ -99,7 +99,8 @@ async function closePostPublicationResources({
   await close(sourceHandle);
 
   if (platform === "win32" && directoryCapability !== undefined) {
-    const stageDirectoryResult = disposePrivateStageDirectory(directoryCapability);
+    const stageDirectoryResult =
+      disposePrivateStageDirectory(directoryCapability);
     return stageDirectoryResult.state === "disposed"
       ? { state: "none" }
       : stageResidue({
