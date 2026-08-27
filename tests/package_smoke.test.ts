@@ -32,6 +32,16 @@ const helper = require("../scripts/package_smoke.cjs") as {
     arch?: string,
     loadedModulePaths?: string[],
   ): boolean;
+  installedPropertyFailure(
+    index: number,
+    result:
+      | { ok: true }
+      | {
+          ok: false;
+          error: { code: string; phase: string; nativeWrite: string };
+        },
+    sourcePreserved: boolean,
+  ): Error;
 };
 
 afterEach(async () => {
@@ -62,6 +72,28 @@ async function runSmoke(
 }
 
 describe("installed package smoke", () => {
+  it("reports a bounded typed reason when an installed property fails", () => {
+    expect(
+      helper.installedPropertyFailure(
+        0,
+        {
+          ok: false,
+          error: {
+            code: "publication-failed",
+            phase: "execution",
+            nativeWrite: "started",
+          },
+        },
+        true,
+      ).message,
+    ).toBe(
+      "Installed property case failed: 0:publication-failed:execution:started",
+    );
+    expect(
+      helper.installedPropertyFailure(1, { ok: true }, false).message,
+    ).toBe("Installed property source changed: 1");
+  });
+
   it("defers only the exact loaded Windows native DLL cleanup lock", () => {
     const sandbox = join(tmpdir(), "exifcleaner-package-cleanup");
     const loadedDll = join(

@@ -493,7 +493,11 @@ async function runInstalledProperties(api, sandbox) {
       preserveTimestamps: false,
     });
     if (!result.ok || !readFileSync(sourcePath).equals(source))
-      throw new Error(`Installed property case failed: ${index}`);
+      throw installedPropertyFailure(
+        index,
+        result,
+        readFileSync(sourcePath).equals(source),
+      );
     const output = readFileSync(destinationPath);
     if (
       JSON.stringify(payloadDigests(source)) !==
@@ -503,6 +507,18 @@ async function runInstalledProperties(api, sandbox) {
     outputDigests.push(sha256Bytes(output));
   }
   return sha256Bytes(Buffer.from(outputDigests.join(""), "ascii"));
+}
+
+function installedPropertyFailure(index, result, sourcePreserved) {
+  if (!result.ok) {
+    const { code, phase, nativeWrite } = result.error;
+    return new Error(
+      `Installed property case failed: ${index}:${code}:${phase}:${nativeWrite}`,
+    );
+  }
+  if (!sourcePreserved)
+    return new Error(`Installed property source changed: ${index}`);
+  return new Error(`Installed property case failed: ${index}`);
 }
 
 async function runTransactions(packageRoot, sandbox, corpus) {
@@ -688,6 +704,7 @@ function createDevelopmentTarballForTests({ packageRoot, tarball }) {
 module.exports = {
   assertLiteralHostArtifact,
   createDevelopmentTarballForTests,
+  installedPropertyFailure,
   isLoadedNativeCleanupLock,
   parseArguments,
   runSmoke,
