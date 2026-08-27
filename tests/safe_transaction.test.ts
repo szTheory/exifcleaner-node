@@ -1,7 +1,8 @@
 import {
   constants as fsConstants,
   mkdirSync,
-  renameSync,
+  linkSync,
+  unlinkSync,
   rmdirSync,
 } from "node:fs";
 import {
@@ -65,8 +66,13 @@ describe("safe transaction file operations", () => {
     let reopenedStageDescriptor: number | undefined;
     const restore = setNativePublicationBindingForTests({
       publishNoReplace(...args) {
-        expect(args).toEqual([reopenedStageDescriptor, destinationPath]);
-        renameSync(join(capability.path!, "output.webp"), destinationPath);
+        expect(args).toEqual([
+          reopenedStageDescriptor,
+          destinationPath,
+          join(capability.path!, "output.webp"),
+          capability,
+        ]);
+        linkSync(join(capability.path!, "output.webp"), destinationPath);
         return "published";
       },
       createPrivateStageDirectory(stageDirectoryPath) {
@@ -76,6 +82,7 @@ describe("safe transaction file operations", () => {
       },
       disposePrivateStageDirectory(received) {
         expect(received).toBe(capability);
+        unlinkSync(join(capability.path!, "output.webp"));
         rmdirSync(capability.path!);
         return "published";
       },

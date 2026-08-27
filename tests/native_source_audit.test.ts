@@ -57,11 +57,10 @@ describe("native source capability audit", () => {
     const configuration = await readFile(binding, "utf8");
 
     expect(source).toContain("uv_get_osfhandle");
-    expect(source).toContain("ReOpenFile");
-    expect(source).toMatch(/FILE_SHARE_DELETE,\s+0\);/);
-    expect(source).toContain("FileRenameInfoEx");
-    expect(source).toContain("FileRenameInfo");
-    expect(source).toContain("rename_info->ReplaceIfExists = FALSE");
+    expect(source).toContain("CreateHardLinkW");
+    expect(source).toContain("GetFileInformationByHandleEx");
+    expect(source).toContain("FileIdInfo");
+    expect(source).not.toMatch(/FileRenameInfo|ReOpenFile/);
     expect(source).not.toMatch(/\b_get_osfhandle\b/);
     expect(configuration).not.toContain('"ucrt.lib"');
   });

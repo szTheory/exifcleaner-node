@@ -35,7 +35,7 @@ const DARWIN_IMPORTS = new Set([
 const WINDOWS_LIBRARIES = new Set(["node.exe", "KERNEL32.dll", "ADVAPI32.dll"]);
 const WINDOWS_IMPORTS = new Set([
   "CreateFileW",
-  "ReOpenFile",
+  "CreateHardLinkW",
   "SetFileInformationByHandle",
   "GetFileInformationByHandleEx",
   "CloseHandle",

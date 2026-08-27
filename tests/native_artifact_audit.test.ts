@@ -129,7 +129,7 @@ describe("native compiled artifact audits", () => {
     expect(
       audit.auditWindows(
         "node.exe\n    KERNEL32.dll",
-        "    KERNEL32.dll\n                         2A0 ReOpenFile\n    node.exe\n                         2A1 uv_get_osfhandle",
+        "    KERNEL32.dll\n                         2A0 CreateHardLinkW\n    node.exe\n                         2A1 uv_get_osfhandle",
       ),
     ).toContain('"uv_get_osfhandle"');
     expect(() =>
