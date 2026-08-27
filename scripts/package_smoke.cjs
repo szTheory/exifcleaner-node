@@ -557,6 +557,17 @@ async function diagnoseWindowsNativePublication(packageRoot, sandbox) {
   }
 }
 
+function assertWindowsPrivateStageCleanup(sandbox) {
+  const residue = readdirSync(sandbox).filter((entry) =>
+    entry.startsWith(".exifcleaner-stage-"),
+  );
+  if (residue.length !== 0)
+    throw new Error(
+      `Installed Windows transaction left private stage residue: ${residue.join(",")}`,
+    );
+  return "pass";
+}
+
 async function runTransactions(packageRoot, sandbox, corpus) {
   const api = await import(
     pathToFileURL(join(packageRoot, "dist", "index.js")).href
@@ -608,6 +619,7 @@ async function runTransactions(packageRoot, sandbox, corpus) {
   const windowsPublication =
     process.platform === "win32"
       ? (() => {
+          const cleanup = assertWindowsPrivateStageCleanup(sandbox);
           const sourceSha256 = sha256(still.sourcePath);
           const destinationSha256 = sha256(still.destinationPath);
           const volumeSerial = String(statSync(still.destinationPath).dev);
@@ -616,7 +628,7 @@ async function runTransactions(packageRoot, sandbox, corpus) {
             publication: "pass",
             collision: "pass",
             identity: "pass",
-            cleanup: "pass",
+            cleanup,
             sourceSha256,
             destinationSha256,
             volumeProof: {
@@ -780,6 +792,7 @@ function createDevelopmentTarballForTests({ packageRoot, tarball }) {
 }
 
 module.exports = {
+  assertWindowsPrivateStageCleanup,
   assertLiteralHostArtifact,
   createDevelopmentTarballForTests,
   diagnoseWindowsNativePublication,

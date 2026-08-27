@@ -20,6 +20,7 @@ const smoke = join(packageRoot, "scripts", "package_smoke.cjs");
 const temporaryDirectories: string[] = [];
 const require = createRequire(import.meta.url);
 const helper = require("../scripts/package_smoke.cjs") as {
+  assertWindowsPrivateStageCleanup(sandbox: string): "pass";
   createDevelopmentTarballForTests(input: {
     packageRoot: string;
     tarball: string;
@@ -77,6 +78,16 @@ async function runSmoke(
 }
 
 describe("installed package smoke", () => {
+  it("derives Windows private-stage cleanup evidence from the sandbox", async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), "exifcleaner-package-stage-"));
+    temporaryDirectories.push(sandbox);
+    expect(helper.assertWindowsPrivateStageCleanup(sandbox)).toBe("pass");
+    await mkdir(join(sandbox, ".exifcleaner-stage-residue"));
+    expect(() => helper.assertWindowsPrivateStageCleanup(sandbox)).toThrow(
+      "Installed Windows transaction left private stage residue",
+    );
+  });
+
   it("reports a bounded typed reason when an installed property fails", async () => {
     expect(
       (
