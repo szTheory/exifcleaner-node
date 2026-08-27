@@ -51,6 +51,11 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
   };
   renderSummary(report: Record<string, unknown>): string;
   parseArguments(args: readonly string[]): Record<string, unknown>;
+  validateBaselinePackage(packageJson: { name?: unknown; version?: unknown }): {
+    packageName: string;
+    version: string;
+    expectedIdentity: string;
+  };
 };
 
 describe("paired benchmark admission", () => {
@@ -202,6 +207,37 @@ describe("paired benchmark admission", () => {
     expect(source).toContain("benchmark-child.cjs");
     expect(source).toContain("spawnSync");
     expect(source).not.toMatch(/git\s+(?:show|checkout)|checkout source/u);
+  });
+
+  it("rejects a baseline package whose installed name is not exifcleaner-node", () => {
+    expect(() =>
+      benchmark.validateBaselinePackage({
+        name: "impostor-package",
+        version: "0.1.1",
+      }),
+    ).toThrow("Baseline package name is not exifcleaner-node");
+  });
+
+  it("rejects a baseline package whose installed version is not exactly 0.1.1", () => {
+    expect(() =>
+      benchmark.validateBaselinePackage({
+        name: "exifcleaner-node",
+        version: "0.1.2",
+      }),
+    ).toThrow("Baseline package is not v0.1.1");
+  });
+
+  it("emits the complete digest-bound baseline identity contract", () => {
+    expect(
+      benchmark.validateBaselinePackage({
+        name: "exifcleaner-node",
+        version: "0.1.1",
+      }),
+    ).toEqual({
+      packageName: "exifcleaner-node",
+      version: "0.1.1",
+      expectedIdentity: "exifcleaner-node@0.1.1",
+    });
   });
 
   it("keeps report mode informational and admit mode hard-failing", () => {
