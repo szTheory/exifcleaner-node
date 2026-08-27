@@ -171,8 +171,12 @@ describe("current-host native publication addon", () => {
       await writeFile(
         source,
         webp([
-          { fourCc: "VP8X", data: vp8x(0) },
+          { fourCc: "VP8X", data: vp8x(0x08) },
           { fourCc: "VP8 ", data: vp8() },
+          {
+            fourCc: "EXIF",
+            data: Buffer.from("II*\0\b\0\0\0\0\0\0\0", "binary"),
+          },
         ]),
       );
 
