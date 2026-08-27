@@ -202,6 +202,34 @@ describe("paired benchmark admission", () => {
     }
   });
 
+  it("keeps the 16 MiB animation fixture bounded and retains the additive Node 22 ceiling", async () => {
+    const manifest = benchmark.loadBenchmarkManifest();
+    const animation = manifest.fixtures.find(
+      (fixture) => fixture.id === "animation-alpha-16m",
+    );
+    expect(animation).toMatchObject({
+      targetBytes: 16 * 1024 * 1024,
+      sha256: "73fc89a949c4632c4797d10fd10ef7abeec1f35e7ba5959918bd4d580fba5908",
+    });
+    expect(benchmark.BENCHMARK_THRESHOLDS.peakRssSlackKiB).toBe(16_384);
+    expect(153_500).toBeLessThanOrEqual(
+      137_116 + benchmark.BENCHMARK_THRESHOLDS.peakRssSlackKiB,
+    );
+    const child = await readFile(
+      join(projectRoot, "scripts", "qualification", "benchmark-child.cjs"),
+      "utf8",
+    );
+    expect(child).toContain("materializeFixture");
+    expect(child).toContain("package-load");
+    expect(child).toContain("fixture-materialized");
+    expect(child).toContain("sanitize-complete");
+    expect(child).toContain("correctness-complete");
+    expect(child).not.toContain("generateFixture(options.fixture)");
+    expect(child).not.toMatch(/readFileSync\(destinationPath\)/u);
+    expect(child).not.toMatch(/readFileSync\(sourcePath\)/u);
+    expect(child).not.toMatch(/global\.gc|process\.gc/u);
+  });
+
   it("requires explicit packed baseline/candidate inputs and fresh child execution", async () => {
     expect(() => benchmark.parseArguments([])).toThrow("--baseline-tarball");
     const source = await readFile(
