@@ -1,5 +1,10 @@
 type NativePublicationCode = "published" | "collision" | "unsupported" | "failed";
-export type NativePublicationArguments = readonly [stageFileDescriptor: number, destinationPath: string] | readonly [
+export type NativePublicationArguments = readonly [
+    stageFileDescriptor: number,
+    destinationPath: string,
+    stagePath: string,
+    stageDirectoryCapability: NativeStageDirectoryCapability
+] | readonly [
     stageDirectoryDescriptor: number,
     stageEntryName: string,
     destinationDirectoryDescriptor: number,
@@ -41,7 +46,7 @@ export declare function loadNativePublicationBindingForTests(platform: string, a
 export declare function setNativePublicationBindingForTests(binding: NativePublicationBinding): () => void;
 export declare function mapNativePublicationCode(code: unknown): NativePublicationResult;
 export declare function mapNativeStageDirectoryCode(code: unknown): NativeStageDirectoryDisposition;
-export declare function publishNoReplace(stageFileDescriptor: number, stageDirectoryDescriptor: number | undefined, destinationDirectoryDescriptor: number | undefined, stageEntryName: string, destinationPath: string, destinationEntryName: string, platform?: NodeJS.Platform): NativePublicationResult;
+export declare function publishNoReplace(stageFileDescriptor: number, stageDirectoryDescriptor: number | undefined, destinationDirectoryDescriptor: number | undefined, stageEntryName: string, destinationPath: string, stagePath: string, stageDirectoryCapability: NativeStageDirectoryCapability | undefined, destinationEntryName: string, platform?: NodeJS.Platform): NativePublicationResult;
 export declare function createPrivateStageDirectory(stageDirectoryPath: string): unknown;
 export declare function disposePrivateStageDirectory(capability: NativeStageDirectoryCapability): NativeStageDirectoryDisposition;
 export {};

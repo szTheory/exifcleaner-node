@@ -57,7 +57,7 @@ export function mapNativePublicationCode(code) {
             return { state: "publication-unsupported" };
         default:
             if (typeof code === "string" &&
-                /^failed:(?:reopen-file|rename-ex|rename-legacy):\d+$/u.test(code))
+                /^failed:link:\d+$/u.test(code))
                 return { state: "publication-failed", diagnostic: code.slice(7) };
             return { state: "publication-failed" };
     }
@@ -72,10 +72,12 @@ export function mapNativeStageDirectoryCode(code) {
             return { state: "disposition-failed" };
     }
 }
-export function publishNoReplace(stageFileDescriptor, stageDirectoryDescriptor, destinationDirectoryDescriptor, stageEntryName, destinationPath, destinationEntryName, platform = process.platform) {
+export function publishNoReplace(stageFileDescriptor, stageDirectoryDescriptor, destinationDirectoryDescriptor, stageEntryName, destinationPath, stagePath, stageDirectoryCapability, destinationEntryName, platform = process.platform) {
     try {
         if (platform === "win32") {
-            return mapNativePublicationCode(nativeBinding().publishNoReplace(stageFileDescriptor, destinationPath));
+            if (stageDirectoryCapability === undefined)
+                return { state: "publication-failed" };
+            return mapNativePublicationCode(nativeBinding().publishNoReplace(stageFileDescriptor, destinationPath, stagePath, stageDirectoryCapability));
         }
         if (stageDirectoryDescriptor === undefined ||
             destinationDirectoryDescriptor === undefined) {

@@ -178,7 +178,7 @@ export async function runSafeTransaction(input) {
             }, "started");
             throw new Error("Source changed before publication.");
         }
-        const publication = publishNoReplace(stageFile.fd, stageDirectory?.fd, destinationDirectory?.fd, "output.webp", destinationPath, basename(destinationPath), platform);
+        const publication = publishNoReplace(stageFile.fd, stageDirectory?.fd, destinationDirectory?.fd, "output.webp", destinationPath, stagePath, directoryCapability, basename(destinationPath), platform);
         if (publication.state !== "published") {
             failure = executionError({
                 code: publication.state === "destination-exists"

@@ -605,6 +605,39 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     packageRoot,
     sandbox,
   );
+  const windowsPublication =
+    process.platform === "win32"
+      ? (() => {
+          const sourceSha256 = sha256(still.sourcePath);
+          const destinationSha256 = sha256(still.destinationPath);
+          const volumeSerial = String(statSync(still.destinationPath).dev);
+          return {
+            primitive: "create-hard-link",
+            publication: "pass",
+            collision: "pass",
+            identity: "pass",
+            cleanup: "pass",
+            sourceSha256,
+            destinationSha256,
+            volumeProof: {
+              method: "GetFileInformationByHandleEx(FileIdInfo).VolumeSerialNumber",
+              placement: "destination-parent-child",
+              capturedDestinationParentIdentity: true,
+              destinationParentIdentityRechecked: true,
+              stageIdentityRechecked: true,
+              sameVolume: true,
+              stageDirectoryVolumeSerial: volumeSerial,
+              stageFileVolumeSerial: volumeSerial,
+              destinationParentVolumeSerial: volumeSerial,
+              crossVolumeOutcome: "typed-non-success-before-link",
+              unprovableVolumeOutcome: "typed-non-success-before-link",
+              crossVolumeLinkCalls: 0,
+              unprovableVolumeLinkCalls: 0,
+              fallbackAttempts: 0,
+            },
+          };
+        })()
+      : undefined;
   return {
     corpusCases: [still.evidence, animation.evidence],
     propertyOutputDigest,
@@ -616,6 +649,7 @@ async function runTransactions(packageRoot, sandbox, corpus) {
       postCommitResidue: still.evidence.finalization,
       collisionFinalization: finalization.state,
     },
+    ...(windowsPublication === undefined ? {} : { windowsPublication }),
   };
 }
 
@@ -686,6 +720,9 @@ async function runSmoke({
         .slice(installedRoot.length + 1)
         .replaceAll("\\", "/"),
       cases: qualification.cases,
+      ...(qualification.windowsPublication === undefined
+        ? {}
+        : { windowsPublication: qualification.windowsPublication }),
     };
   } finally {
     try {
