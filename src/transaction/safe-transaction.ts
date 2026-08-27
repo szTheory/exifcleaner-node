@@ -66,6 +66,57 @@ function isVerifiedPosixStageDirectory(stats: Stats): boolean {
   );
 }
 
+interface PostPublicationResources {
+  readonly fileOps: FileOps;
+  readonly stageDirectory: FileHandle | undefined;
+  readonly destinationDirectory: FileHandle | undefined;
+  readonly stageFile: FileHandle;
+  readonly sourceHandle: FileHandle;
+  readonly directoryCapability: NativeStageDirectoryCapability | undefined;
+  readonly platform: NodeJS.Platform;
+}
+
+async function closePostPublicationResources({
+  fileOps,
+  stageDirectory,
+  destinationDirectory,
+  stageFile,
+  sourceHandle,
+  directoryCapability,
+  platform,
+}: PostPublicationResources): Promise<PostCommitResidue> {
+  let stageDirectoryCloseCause: JsonSafeCause | undefined;
+  const close = async (handle: FileHandle | undefined, stage = false) => {
+    if (handle === undefined) return;
+    await fileOps.close(handle).catch((cause) => {
+      if (stage) stageDirectoryCloseCause = jsonSafeCause(cause);
+    });
+  };
+
+  await close(stageDirectory, true);
+  await close(destinationDirectory);
+  await close(stageFile);
+  await close(sourceHandle);
+
+  if (platform === "win32" && directoryCapability !== undefined) {
+    const disposition = disposePrivateStageDirectory(directoryCapability);
+    return disposition.state === "disposed"
+      ? { state: "none" }
+      : stageResidue({
+          code: disposition.state,
+          message: "Private stage-directory disposal did not complete.",
+        });
+  }
+  return stageDirectory === undefined
+    ? { state: "none" }
+    : stageResidue(
+        stageDirectoryCloseCause ?? {
+          code: "ENOTSUP",
+          message: "Private empty stage-directory cleanup is unavailable.",
+        },
+      );
+}
+
 export interface SafeTransactionInput {
   readonly sourceHandle: FileHandle;
   readonly sourceSnapshot: SourceSnapshot;
@@ -122,6 +173,7 @@ export async function runSafeTransaction(
   let fileIdentity: FileIdentity | undefined;
   let stageDirectoryIdentity: FileIdentity | undefined;
   let failure: MetadataError | undefined;
+  let sourceHandleOpen = true;
 
   try {
     if (aborted(signal)) throw new DOMException("Aborted", "AbortError");
@@ -343,26 +395,22 @@ export async function runSafeTransaction(
       );
       throw new Error("Native publication did not succeed.");
     }
-    if (stageDirectory !== undefined) {
-      await fileOps.close(stageDirectory);
-      stageDirectory = undefined;
-    }
-    if (destinationDirectory !== undefined) {
-      await fileOps.close(destinationDirectory);
-      destinationDirectory = undefined;
-    }
-    await fileOps.close(stageFile);
+
+    const committedResources = {
+      fileOps,
+      stageDirectory,
+      destinationDirectory,
+      stageFile,
+      sourceHandle,
+      directoryCapability,
+      platform,
+    };
+    stageDirectory = undefined;
+    destinationDirectory = undefined;
     stageFile = undefined;
-    await fileOps.close(sourceHandle);
-    const postCommitResidue: PostCommitResidue =
-      platform === "win32" &&
-      directoryCapability !== undefined &&
-      disposePrivateStageDirectory(directoryCapability).state === "disposed"
-        ? { state: "none" }
-        : stageResidue({
-            code: "ENOTSUP",
-            message: "identity-bound directory cleanup unavailable",
-          });
+    sourceHandleOpen = false;
+    const postCommitResidue =
+      await closePostPublicationResources(committedResources);
     const namespaces = new Set(
       admission.parsed.chunks.flatMap((chunk) =>
         chunk.fourCc === "EXIF"
@@ -414,7 +462,8 @@ export async function runSafeTransaction(
       await fileOps.close(stageDirectory).catch(() => undefined);
     if (destinationDirectory !== undefined)
       await fileOps.close(destinationDirectory).catch(() => undefined);
-    await fileOps.close(sourceHandle).catch(() => undefined);
+    if (sourceHandleOpen)
+      await fileOps.close(sourceHandle).catch(() => undefined);
   }
   await Promise.resolve(
     beforeStageFinalization?.({ stageDirectoryPath, stagePath }),
