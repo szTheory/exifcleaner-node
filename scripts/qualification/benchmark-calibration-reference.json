@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "algorithmId": "exifcleaner-run-calibration-v2",
-  "scriptSha256": "86e7afce3761ea0575ec78ecdf8f01b8089bdfc320f0810037dd0ec0c8bdf0ea",
+  "scriptSha256": "092b34dd9b587566cd0c67944623576155f5c600590d63db8a0e62bc8c05c789",
   "workloadDigest": "98c7800c77ab133d5c012e2cb6bda08a2dc2665b734ab80356c8b9b2f6ee2a57",
   "workloadResultDigest": "1fb16f4fce034ffb35f65fb1a99037506fb35ead6fb81232c2a6243c83940dbb",
   "observationCount": 15,

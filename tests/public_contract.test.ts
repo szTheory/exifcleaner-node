@@ -431,7 +431,10 @@ describe("private automated qualification surface", () => {
     const [workflow, documentation, reportSource] = await Promise.all([
       readFile(join(packageRoot, ".github", "workflows", "ci.yml"), "utf8"),
       readFile(join(packageRoot, "docs", "benchmark-admission.md"), "utf8"),
-      readFile(join(packageRoot, "scripts", "qualification", "benchmark-report.cjs"), "utf8"),
+      readFile(
+        join(packageRoot, "scripts", "qualification", "benchmark-report.cjs"),
+        "utf8",
+      ),
     ]);
     for (const claim of [
       "exifcleaner-run-calibration-v2",
@@ -441,9 +444,12 @@ describe("private automated qualification surface", () => {
       "normalized MAD",
       "max(beforeMedianNs, afterMedianNs)",
       "8x100/7x110",
-    ]) expect(documentation).toContain(claim);
+    ])
+      expect(documentation).toContain(claim);
     expect(reportSource).toContain("centralRangeRatioLimit");
-    expect(reportSource).toContain("Math.max(beforeEstimate.medianNs, afterEstimate.medianNs)");
+    expect(reportSource).toContain(
+      "Math.max(beforeEstimate.medianNs, afterEstimate.medianNs)",
+    );
     expect(workflow).toContain("benchmark-report.cjs --validate-report");
     expect(workflow).toContain("'--phase-admission'");
   });

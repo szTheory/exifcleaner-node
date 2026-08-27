@@ -107,8 +107,7 @@ describe("paired benchmark admission", () => {
     };
     const stable = Array<number>(15).fill(100);
     const clustered = [
-      100, 100, 100, 100, 100, 100, 100, 100, 110, 110, 110, 110, 110, 110,
-      110,
+      100, 100, 100, 100, 100, 100, 100, 100, 110, 110, 110, 110, 110, 110, 110,
     ];
     expect(report.deriveBlockEstimate(clustered)).toMatchObject({
       medianNs: 100,
@@ -119,24 +118,33 @@ describe("paired benchmark admission", () => {
       90, 90, 90, 90, 90, 90, 90, 100, 110, 110, 110, 110, 110, 110, 110,
     ];
     expect(report.deriveBlockEstimate(madBoundary).madRatio).toBe(0.1);
-    expect(report.deriveBlockEstimate([
-      ...Array<number>(7).fill(89.999999), 100,
-      ...Array<number>(7).fill(110.000001),
-    ]).madRatio).toBeGreaterThan(0.1);
+    expect(
+      report.deriveBlockEstimate([
+        ...Array<number>(7).fill(89.999999),
+        100,
+        ...Array<number>(7).fill(110.000001),
+      ]).madRatio,
+    ).toBeGreaterThan(0.1);
     const rangeBoundary = [
-      100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 120, 120, 120,
-      120,
+      100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 120, 120, 120, 120,
     ];
-    expect(report.deriveBlockEstimate(rangeBoundary).centralRangeRatio).toBe(1.2);
-    expect(report.deriveBlockEstimate([
-      ...Array<number>(11).fill(100), ...Array<number>(4).fill(120.000001),
-    ]).centralRangeRatio).toBeGreaterThan(1.2);
+    expect(report.deriveBlockEstimate(rangeBoundary).centralRangeRatio).toBe(
+      1.2,
+    );
+    expect(
+      report.deriveBlockEstimate([
+        ...Array<number>(11).fill(100),
+        ...Array<number>(4).fill(120.000001),
+      ]).centralRangeRatio,
+    ).toBeGreaterThan(1.2);
     const driftDirections: readonly (readonly [number[], number[]])[] = [
       [Array<number>(15).fill(110), stable],
       [stable, Array<number>(15).fill(110)],
     ];
     for (const [before, after] of driftDirections) {
-      expect(() => report.deriveRunScale({ before, after, referenceMedianNs: 100 })).not.toThrow();
+      expect(() =>
+        report.deriveRunScale({ before, after, referenceMedianNs: 100 }),
+      ).not.toThrow();
       const above = Array<number>(15).fill(110.000001);
       expect(() =>
         report.deriveRunScale({
@@ -215,7 +223,8 @@ describe("paired benchmark admission", () => {
         elapsedNs: 1600,
         unitCount: 16,
         normalizedNs: 100,
-        resultDigest: "1fb16f4fce034ffb35f65fb1a99037506fb35ead6fb81232c2a6243c83940dbb",
+        resultDigest:
+          "1fb16f4fce034ffb35f65fb1a99037506fb35ead6fb81232c2a6243c83940dbb",
       })),
       workloadDigest: calibration.workloadDigest(),
       process: { execPath: process.execPath, clean: true },

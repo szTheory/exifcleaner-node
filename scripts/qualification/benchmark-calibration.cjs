@@ -10,7 +10,10 @@ const path = require("node:path");
 const ALGORITHM_ID = "exifcleaner-run-calibration-v2";
 const OBSERVATION_COUNT = 15;
 const WORKLOAD_UNIT_COUNT = 16;
-const referencePath = path.join(__dirname, "benchmark-calibration-reference.json");
+const referencePath = path.join(
+  __dirname,
+  "benchmark-calibration-reference.json",
+);
 
 function sha256(bytes) {
   return crypto.createHash("sha256").update(bytes).digest("hex");
@@ -21,7 +24,9 @@ function workloadDigest() {
   let state = 0x460014;
   for (let index = 0; index < 4096; index += 1) {
     state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
-    hash.update(Buffer.from(`${state.toString(16).padStart(8, "0")}:${index}\n`));
+    hash.update(
+      Buffer.from(`${state.toString(16).padStart(8, "0")}:${index}\n`),
+    );
   }
   return hash.digest("hex");
 }
@@ -57,21 +62,31 @@ function exactKeys(value, expected) {
     typeof value === "object" &&
     value !== null &&
     !Array.isArray(value) &&
-    JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort())
+    JSON.stringify(Object.keys(value).sort()) ===
+      JSON.stringify([...expected].sort())
   );
 }
 
 function main() {
-  if (process.argv.length !== 2) throw new Error("calibration accepts no arguments");
+  if (process.argv.length !== 2)
+    throw new Error("calibration accepts no arguments");
   const reference = JSON.parse(fs.readFileSync(referencePath, "utf8"));
   const nodeMajor = Number(process.versions.node.split(".")[0]);
   const scriptSha256 = sha256(fs.readFileSync(__filename));
   if (
     !exactKeys(reference, [
-      "schemaVersion", "algorithmId", "scriptSha256", "workloadDigest",
-      "workloadResultDigest", "observationCount", "workloadUnitCount",
-      "referenceMedianNs", "timeoutMs", "madRatioLimit",
-      "centralRangeRatioLimit", "maxDriftRatio",
+      "schemaVersion",
+      "algorithmId",
+      "scriptSha256",
+      "workloadDigest",
+      "workloadResultDigest",
+      "observationCount",
+      "workloadUnitCount",
+      "referenceMedianNs",
+      "timeoutMs",
+      "madRatioLimit",
+      "centralRangeRatioLimit",
+      "maxDriftRatio",
     ]) ||
     reference.schemaVersion !== 2 ||
     reference.algorithmId !== ALGORITHM_ID ||
@@ -86,24 +101,33 @@ function main() {
     reference.madRatioLimit !== 0.1 ||
     reference.centralRangeRatioLimit !== 1.2 ||
     reference.maxDriftRatio !== 1.1
-  ) throw new Error("calibration reference identity is invalid");
-  const observations = Array.from({ length: OBSERVATION_COUNT }, (_, index) => runObservation(index + 1));
+  )
+    throw new Error("calibration reference identity is invalid");
+  const observations = Array.from({ length: OBSERVATION_COUNT }, (_, index) =>
+    runObservation(index + 1),
+  );
   if (
-    observations.some((observation, index) =>
-      !Number.isFinite(observation.elapsedNs) || observation.elapsedNs <= 0 ||
-      observation.ordinal !== index + 1 ||
-      observation.normalizedNs !== observation.elapsedNs / WORKLOAD_UNIT_COUNT ||
-      observation.resultDigest !== reference.workloadResultDigest,
+    observations.some(
+      (observation, index) =>
+        !Number.isFinite(observation.elapsedNs) ||
+        observation.elapsedNs <= 0 ||
+        observation.ordinal !== index + 1 ||
+        observation.normalizedNs !==
+          observation.elapsedNs / WORKLOAD_UNIT_COUNT ||
+        observation.resultDigest !== reference.workloadResultDigest,
     )
-  ) throw new Error("calibration workload is invalid");
-  process.stdout.write(`${JSON.stringify({
-    schemaVersion: 2,
-    algorithmId: ALGORITHM_ID,
-    nodeMajor,
-    observations,
-    workloadDigest: workloadDigest(),
-    process: { execPath: process.execPath, clean: true },
-  })}\n`);
+  )
+    throw new Error("calibration workload is invalid");
+  process.stdout.write(
+    `${JSON.stringify({
+      schemaVersion: 2,
+      algorithmId: ALGORITHM_ID,
+      nodeMajor,
+      observations,
+      workloadDigest: workloadDigest(),
+      process: { execPath: process.execPath, clean: true },
+    })}\n`,
+  );
 }
 
 module.exports = {
@@ -115,7 +139,9 @@ module.exports = {
   runObservation,
 };
 if (require.main === module) {
-  try { main(); } catch (error) {
+  try {
+    main();
+  } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 2;
   }
