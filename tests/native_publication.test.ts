@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { sanitizeFile } from "../src/index.js";
 import { WINDOWS_REOPEN_FLAGS } from "../src/transaction/file-ops.js";
 import {
   loadNativePublicationBindingForTests,
@@ -14,6 +15,7 @@ import {
   type NativePublicationArguments,
   setNativePublicationBindingForTests,
 } from "../src/transaction/native-publication.js";
+import { vp8, vp8x, webp } from "./fixtures.js";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const require = createRequire(import.meta.url);
@@ -154,6 +156,38 @@ describe("current-host native publication addon", () => {
           "published",
         );
       }
+    },
+  );
+
+  it.runIf(process.platform === "win32")(
+    "publishes an ordinary sanitized WebP through the private stage transaction",
+    async () => {
+      const parent = await mkdtemp(
+        join(tmpdir(), "exifcleaner-native-private-transaction-"),
+      );
+      temporaryDirectories.push(parent);
+      const source = join(parent, "source.webp");
+      const destination = join(parent, "destination.webp");
+      await writeFile(
+        source,
+        webp([
+          { fourCc: "VP8X", data: vp8x(0) },
+          { fourCc: "VP8 ", data: vp8() },
+        ]),
+      );
+
+      await expect(
+        sanitizeFile({
+          sourcePath: source,
+          destinationPath: destination,
+          preserveOrientation: false,
+          preserveColorProfile: false,
+          preserveTimestamps: false,
+        }),
+      ).resolves.toMatchObject({ ok: true });
+      await expect(
+        cp(destination, join(parent, "published-copy.webp")),
+      ).resolves.toBeUndefined();
     },
   );
 });
