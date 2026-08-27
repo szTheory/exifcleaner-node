@@ -23,10 +23,7 @@ import { NODE_FILE_OPS, type FileOps } from "../../src/transaction/file-ops.js";
 import { snapshotSource } from "../../src/transaction/identity.js";
 import { setNativePublicationBindingForTests } from "../../src/transaction/native-publication.js";
 import { runSafeTransaction } from "../../src/transaction/safe-transaction.js";
-import {
-  encodeChunkHeader,
-  encodeRiffHeader,
-} from "../../src/webp/riff.js";
+import { encodeChunkHeader, encodeRiffHeader } from "../../src/webp/riff.js";
 import type { RegisteredHandler } from "../../src/admission/registry.js";
 import type {
   WebpAdmission,
@@ -150,12 +147,9 @@ const postPublicationCloseTargets = [
   "source-handle",
 ] as const;
 
-type PostPublicationCloseTarget =
-  (typeof postPublicationCloseTargets)[number];
+type PostPublicationCloseTarget = (typeof postPublicationCloseTargets)[number];
 
-async function expectedOutput(
-  prepared: TransactionFixture,
-): Promise<Buffer> {
+async function expectedOutput(prepared: TransactionFixture): Promise<Buffer> {
   const source = await readFile(prepared.sourcePath);
   return Buffer.concat([
     encodeRiffHeader(webpOutputSize(prepared.plan)),
@@ -244,7 +238,10 @@ describe("deterministic transaction qualification", () => {
         ...fault.fileOps,
         open: async (path, flags, mode) => {
           const handle = await fault.fileOps.open(path, flags, mode);
-          if (path.includes(".exifcleaner-stage-") && !path.endsWith("output.webp"))
+          if (
+            path.includes(".exifcleaner-stage-") &&
+            !path.endsWith("output.webp")
+          )
             stageDirectoryPath = path;
           return handle;
         },
@@ -262,7 +259,9 @@ describe("deterministic transaction qualification", () => {
           },
         });
         expect(await readFile(prepared.destinationPath)).toEqual(expected);
-        expect(await readFile(prepared.sourcePath)).toEqual(prepared.sourceBytes);
+        expect(await readFile(prepared.sourcePath)).toEqual(
+          prepared.sourceBytes,
+        );
         expect(fault.closeAttempts).toEqual(postPublicationCloseTargets);
         await expect(
           prepared.source.read(Buffer.alloc(1), 0, 1, 0),
