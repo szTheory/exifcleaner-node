@@ -323,9 +323,9 @@ describe("deterministic transaction qualification", () => {
         digest(prepared.sourceBytes),
       );
       await expect(access(prepared.destinationPath)).rejects.toBeDefined();
-      const privateStageDirectories = (await readdir(prepared.directory)).filter(
-        (entry) => entry.startsWith(".exifcleaner-stage-"),
-      );
+      const privateStageDirectories = (
+        await readdir(prepared.directory)
+      ).filter((entry) => entry.startsWith(".exifcleaner-stage-"));
       expect(privateStageDirectories).toEqual(
         preCreationFailure ? [] : expect.any(Array),
       );
