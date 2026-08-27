@@ -36,11 +36,11 @@ async function closePostPublicationResources({ fileOps, stageDirectory, destinat
     await close(stageFile);
     await close(sourceHandle);
     if (platform === "win32" && directoryCapability !== undefined) {
-        const disposition = disposePrivateStageDirectory(directoryCapability);
-        return disposition.state === "disposed"
+        const stageDirectoryResult = disposePrivateStageDirectory(directoryCapability);
+        return stageDirectoryResult.state === "disposed"
             ? { state: "none" }
             : stageResidue({
-                code: disposition.state,
+                code: stageDirectoryResult.state,
                 message: "Private stage-directory disposal did not complete.",
             });
     }
