@@ -1,10 +1,14 @@
 {
-  "schemaVersion": 1,
-  "algorithmId": "exifcleaner-run-calibration-v1",
-  "scriptSha256": "5e0e5bd5675aa57ccb2df17b5f66758b1d3eb7bad36f2266cdf175d0446e780d",
+  "schemaVersion": 2,
+  "algorithmId": "exifcleaner-run-calibration-v2",
+  "scriptSha256": "86e7afce3761ea0575ec78ecdf8f01b8089bdfc320f0810037dd0ec0c8bdf0ea",
   "workloadDigest": "98c7800c77ab133d5c012e2cb6bda08a2dc2665b734ab80356c8b9b2f6ee2a57",
-  "trialCount": 3,
+  "workloadResultDigest": "1fb16f4fce034ffb35f65fb1a99037506fb35ead6fb81232c2a6243c83940dbb",
+  "observationCount": 15,
+  "workloadUnitCount": 16,
   "referenceMedianNs": { "22": 1000000, "24": 1000000 },
-  "timeoutMs": 10000,
+  "timeoutMs": 15000,
+  "madRatioLimit": 0.1,
+  "centralRangeRatioLimit": 1.2,
   "maxDriftRatio": 1.1
 }

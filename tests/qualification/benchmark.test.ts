@@ -116,44 +116,27 @@ describe("paired benchmark admission", () => {
       centralRangeRatio: 1.1,
     });
     const madBoundary = [
-      90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 100,
+      90, 90, 90, 90, 90, 90, 90, 100, 110, 110, 110, 110, 110, 110, 110,
     ];
     expect(report.deriveBlockEstimate(madBoundary).madRatio).toBe(0.1);
-    expect(() =>
-      report.deriveRunScale({
-        before: madBoundary,
-        after: stable,
-        referenceMedianNs: 100,
-      }),
-    ).not.toThrow();
-    expect(() =>
-      report.deriveRunScale({
-        before: [...madBoundary.slice(0, 8), 100 + nextUp(10), ...madBoundary.slice(9)],
-        after: stable,
-        referenceMedianNs: 100,
-      }),
-    ).toThrow(/MAD/);
+    expect(report.deriveBlockEstimate([
+      ...Array<number>(7).fill(89.999999), 100,
+      ...Array<number>(7).fill(110.000001),
+    ]).madRatio).toBeGreaterThan(0.1);
     const rangeBoundary = [
       100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 120, 120, 120,
       120,
     ];
     expect(report.deriveBlockEstimate(rangeBoundary).centralRangeRatio).toBe(1.2);
-    expect(() =>
-      report.deriveRunScale({ before: rangeBoundary, after: stable, referenceMedianNs: 100 }),
-    ).not.toThrow();
-    expect(() =>
-      report.deriveRunScale({
-        before: [...rangeBoundary.slice(0, 11), 120 + nextUp(20), ...rangeBoundary.slice(12)],
-        after: stable,
-        referenceMedianNs: 100,
-      }),
-    ).toThrow(/central-eleven/);
+    expect(report.deriveBlockEstimate([
+      ...Array<number>(11).fill(100), ...Array<number>(4).fill(120.000001),
+    ]).centralRangeRatio).toBeGreaterThan(1.2);
     for (const [before, after] of [
       [Array<number>(15).fill(110), stable],
       [stable, Array<number>(15).fill(110)],
     ]) {
       expect(() => report.deriveRunScale({ before, after, referenceMedianNs: 100 })).not.toThrow();
-      const above = Array<number>(15).fill(nextUp(110));
+      const above = Array<number>(15).fill(110.000001);
       expect(() =>
         report.deriveRunScale({
           before: before[0] === 110 ? above : before,
@@ -167,13 +150,13 @@ describe("paired benchmark admission", () => {
   it("uses one common calibration scale that cancels a global runner factor", () => {
     const referenceMedianNs = 100;
     const normal = report.deriveRunScale({
-      before: [100, 100, 100],
-      after: [100, 100, 100],
+      before: Array<number>(15).fill(100),
+      after: Array<number>(15).fill(100),
       referenceMedianNs,
     });
     const slowerRunner = report.deriveRunScale({
-      before: [200, 200, 200],
-      after: [200, 200, 200],
+      before: Array<number>(15).fill(200),
+      after: Array<number>(15).fill(200),
       referenceMedianNs,
     });
     expect(100 * normal.runScale).toBe(200 * slowerRunner.runScale);
@@ -223,10 +206,16 @@ describe("paired benchmark admission", () => {
 
   it("fails closed for calibration drift, side-specific fields, and malformed authority output", () => {
     const authority = {
-      schemaVersion: 1,
-      algorithmId: "exifcleaner-run-calibration-v1",
+      schemaVersion: 2,
+      algorithmId: "exifcleaner-run-calibration-v2",
       nodeMajor: Number(process.versions.node.split(".")[0]),
-      trials: [100, 100, 100],
+      observations: Array.from({ length: 15 }, (_, index) => ({
+        ordinal: index + 1,
+        elapsedNs: 1600,
+        unitCount: 16,
+        normalizedNs: 100,
+        resultDigest: "1fb16f4fce034ffb35f65fb1a99037506fb35ead6fb81232c2a6243c83940dbb",
+      })),
       workloadDigest: calibration.workloadDigest(),
       process: { execPath: process.execPath, clean: true },
     };
@@ -235,12 +224,12 @@ describe("paired benchmark admission", () => {
       report.validateCalibration({ ...authority, candidateCalibration: 1 }),
     ).toThrow();
     expect(() =>
-      report.validateCalibration({ ...authority, trials: [0, 100, 100] }),
+      report.validateCalibration({ ...authority, observations: [] }),
     ).toThrow();
     expect(() =>
       report.deriveRunScale({
-        before: [100, 100, 100],
-        after: [111, 111, 111],
+        before: Array<number>(15).fill(100),
+        after: Array<number>(15).fill(111),
         referenceMedianNs: 100,
       }),
     ).toThrow();

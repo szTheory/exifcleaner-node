@@ -590,7 +590,7 @@ function measureCalibration(sandbox, position) {
     cwd: calibrationSandbox,
     env: { PATH: process.env.PATH ?? "", TZ: "UTC", LANG: "C", LC_ALL: "C" },
     encoding: "utf8",
-    timeout: 10_000,
+    timeout: 15_000,
     maxBuffer: 16 * 1024,
   });
   if (
@@ -694,8 +694,8 @@ async function executeBenchmark(options) {
     const calibrationAfter = measureCalibration(sandbox, "after");
     const reference = reportValidator.loadReference();
     const calibrationDerived = reportValidator.deriveRunScale({
-      before: calibrationBefore.trials,
-      after: calibrationAfter.trials,
+      before: calibrationBefore.observations,
+      after: calibrationAfter.observations,
       referenceMedianNs:
         reference.referenceMedianNs[String(calibrationBefore.nodeMajor)],
     });
