@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { executionError, jsonSafeCause, withDestinationFinalization, } from "../errors.js";
 import { err, ok } from "../result.js";
 import { DIRECT_FINAL_FLAGS, DESTINATION_DIRECTORY_FLAGS, REOPEN_FLAGS, STAGE_DIRECTORY_FLAGS, WINDOWS_REOPEN_FLAGS, } from "./file-ops.js";
@@ -60,7 +60,12 @@ async function closePostPublicationResources({ fileOps, stageDirectory, destinat
 export async function runSafeTransaction(input) {
     const { sourceHandle, sourceSnapshot, sourceMode, handler, admission, plan, orientation, options, fileOps, beforePublish, beforeStageFinalization, platform = process.platform, } = input;
     const { sourcePath, destinationPath, signal } = options;
-    const stageDirectoryPath = join(dirname(destinationPath), `.exifcleaner-stage-${randomUUID()}`);
+    // Windows passes these paths to an identity-bound native capability. Resolve
+    // both once at that boundary so a valid relative destination in the current
+    // directory never depends on ambiguous native parent-path parsing.
+    const resolvedSourcePath = resolve(sourcePath);
+    const resolvedDestinationPath = resolve(destinationPath);
+    const stageDirectoryPath = join(dirname(resolvedDestinationPath), `.exifcleaner-stage-${randomUUID()}`);
     const stagePath = join(stageDirectoryPath, "output.webp");
     let stageDirectory;
     let destinationDirectory;
@@ -140,7 +145,7 @@ export async function runSafeTransaction(input) {
         }
         if (aborted(signal))
             throw new DOMException("Aborted", "AbortError");
-        if (!sourcePathMatchesSnapshot(sourceSnapshot, await fileOps.statPath(sourcePath))) {
+        if (!sourcePathMatchesSnapshot(sourceSnapshot, await fileOps.statPath(resolvedSourcePath))) {
             failure = executionError({
                 code: "source-changed",
                 detail: "Source changed during sanitization; staged output was retained.",
@@ -161,7 +166,7 @@ export async function runSafeTransaction(input) {
         }
         await fileOps.sync(stageFile);
         if (platform !== "win32") {
-            destinationDirectory = await fileOps.open(dirname(destinationPath), DESTINATION_DIRECTORY_FLAGS);
+            destinationDirectory = await fileOps.open(dirname(resolvedDestinationPath), DESTINATION_DIRECTORY_FLAGS);
         }
         await beforePublish?.({ stageDirectoryPath, stagePath });
         if (aborted(signal))
@@ -176,7 +181,7 @@ export async function runSafeTransaction(input) {
             }, "started");
             throw new Error("Private stage directory changed.");
         }
-        if (!sourcePathMatchesSnapshot(sourceSnapshot, await fileOps.statPath(sourcePath))) {
+        if (!sourcePathMatchesSnapshot(sourceSnapshot, await fileOps.statPath(resolvedSourcePath))) {
             failure = executionError({
                 code: "source-changed",
                 detail: "Source changed before publication; staged output was retained.",
@@ -184,7 +189,7 @@ export async function runSafeTransaction(input) {
             }, "started");
             throw new Error("Source changed before publication.");
         }
-        const publication = publishNoReplace(stageFile.fd, stageDirectory?.fd, destinationDirectory?.fd, "output.webp", destinationPath, stagePath, directoryCapability, basename(destinationPath), platform);
+        const publication = publishNoReplace(stageFile.fd, stageDirectory?.fd, destinationDirectory?.fd, "output.webp", resolvedDestinationPath, stagePath, directoryCapability, basename(resolvedDestinationPath), platform);
         if (publication.state !== "published") {
             failure = executionError({
                 code: publication.state === "destination-exists"

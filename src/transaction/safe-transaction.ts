@@ -1,7 +1,7 @@
 import type { Stats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import {
   executionError,
   jsonSafeCause,
@@ -172,8 +172,13 @@ export async function runSafeTransaction(
     platform = process.platform,
   } = input;
   const { sourcePath, destinationPath, signal } = options;
+  // Windows passes these paths to an identity-bound native capability. Resolve
+  // both once at that boundary so a valid relative destination in the current
+  // directory never depends on ambiguous native parent-path parsing.
+  const resolvedSourcePath = resolve(sourcePath);
+  const resolvedDestinationPath = resolve(destinationPath);
   const stageDirectoryPath = join(
-    dirname(destinationPath),
+    dirname(resolvedDestinationPath),
     `.exifcleaner-stage-${randomUUID()}`,
   );
   const stagePath = join(stageDirectoryPath, "output.webp");
@@ -301,7 +306,7 @@ export async function runSafeTransaction(
     if (
       !sourcePathMatchesSnapshot(
         sourceSnapshot,
-        await fileOps.statPath(sourcePath),
+        await fileOps.statPath(resolvedSourcePath),
       )
     ) {
       failure = executionError(
@@ -341,7 +346,7 @@ export async function runSafeTransaction(
     await fileOps.sync(stageFile);
     if (platform !== "win32") {
       destinationDirectory = await fileOps.open(
-        dirname(destinationPath),
+        dirname(resolvedDestinationPath),
         DESTINATION_DIRECTORY_FLAGS,
       );
     }
@@ -369,7 +374,7 @@ export async function runSafeTransaction(
     if (
       !sourcePathMatchesSnapshot(
         sourceSnapshot,
-        await fileOps.statPath(sourcePath),
+        await fileOps.statPath(resolvedSourcePath),
       )
     ) {
       failure = executionError(
@@ -388,10 +393,10 @@ export async function runSafeTransaction(
       stageDirectory?.fd,
       destinationDirectory?.fd,
       "output.webp",
-      destinationPath,
+      resolvedDestinationPath,
       stagePath,
       directoryCapability,
-      basename(destinationPath),
+      basename(resolvedDestinationPath),
       platform,
     );
     if (publication.state !== "published") {

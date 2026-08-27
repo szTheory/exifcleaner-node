@@ -19,15 +19,17 @@ function isNativePublicationBinding(value) {
         return false;
     const binding = value;
     const names = Object.getOwnPropertyNames(binding).sort();
-    return (names.length === 4 &&
+    return (names.length === 5 &&
         names[0] === "createPrivateStageDirectory" &&
         names[1] === "disposePrivateStageDirectory" &&
         names[2] === "publishNoReplace" &&
         names[3] === "removePrivateStageFile" &&
+        names[4] === "takeLastWindowsPublicationEvidence" &&
         typeof binding.publishNoReplace === "function" &&
         typeof binding.createPrivateStageDirectory === "function" &&
         typeof binding.removePrivateStageFile === "function" &&
-        typeof binding.disposePrivateStageDirectory === "function");
+        typeof binding.disposePrivateStageDirectory === "function" &&
+        typeof binding.takeLastWindowsPublicationEvidence === "function");
 }
 export function loadNativePublicationBindingForTests(platform, architecture, loadAddon) {
     const binding = loadAddon(BINDING_PATHS[tupleFor(platform, architecture)]);
@@ -120,6 +122,18 @@ export function removePrivateStageFile(capability, stagePath) {
     }
     catch {
         return { state: "disposition-failed" };
+    }
+}
+/**
+ * Consume bounded Windows evidence captured during the native link operation.
+ * This is diagnostic data only; it is never used to decide publication.
+ */
+export function takeLastWindowsPublicationEvidence() {
+    try {
+        return nativeBinding().takeLastWindowsPublicationEvidence?.();
+    }
+    catch {
+        return undefined;
     }
 }
 //# sourceMappingURL=native-publication.js.map

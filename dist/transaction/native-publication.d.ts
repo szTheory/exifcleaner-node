@@ -15,6 +15,8 @@ export interface NativePublicationBinding {
     readonly createPrivateStageDirectory: (stageDirectoryPath: string) => unknown;
     readonly removePrivateStageFile: (capability: NativeStageDirectoryCapability, stagePath: string) => NativePublicationCode;
     readonly disposePrivateStageDirectory: (capability: NativeStageDirectoryCapability) => NativePublicationCode;
+    /** Bounded diagnostic captured by the actual Windows publication call. */
+    readonly takeLastWindowsPublicationEvidence?: () => unknown;
 }
 declare const nativeStageDirectoryCapability: unique symbol;
 export type NativeStageDirectoryCapability = {
@@ -59,5 +61,10 @@ export declare function publishNoReplace(stageFileDescriptor: number, stageDirec
 export declare function createPrivateStageDirectory(stageDirectoryPath: string): NativeStageDirectoryCreation;
 export declare function disposePrivateStageDirectory(capability: NativeStageDirectoryCapability): NativeStageDirectoryDisposition;
 export declare function removePrivateStageFile(capability: NativeStageDirectoryCapability, stagePath: string): NativeStageDirectoryDisposition;
+/**
+ * Consume bounded Windows evidence captured during the native link operation.
+ * This is diagnostic data only; it is never used to decide publication.
+ */
+export declare function takeLastWindowsPublicationEvidence(): unknown;
 export {};
 //# sourceMappingURL=native-publication.d.ts.map

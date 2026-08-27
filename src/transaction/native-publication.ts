@@ -31,6 +31,8 @@ export interface NativePublicationBinding {
   readonly disposePrivateStageDirectory: (
     capability: NativeStageDirectoryCapability,
   ) => NativePublicationCode;
+  /** Bounded diagnostic captured by the actual Windows publication call. */
+  readonly takeLastWindowsPublicationEvidence?: () => unknown;
 }
 
 declare const nativeStageDirectoryCapability: unique symbol;
@@ -91,15 +93,17 @@ function isNativePublicationBinding(
   const binding = value as Record<string, unknown>;
   const names = Object.getOwnPropertyNames(binding).sort();
   return (
-    names.length === 4 &&
+    names.length === 5 &&
     names[0] === "createPrivateStageDirectory" &&
     names[1] === "disposePrivateStageDirectory" &&
     names[2] === "publishNoReplace" &&
     names[3] === "removePrivateStageFile" &&
+    names[4] === "takeLastWindowsPublicationEvidence" &&
     typeof binding.publishNoReplace === "function" &&
     typeof binding.createPrivateStageDirectory === "function" &&
     typeof binding.removePrivateStageFile === "function" &&
-    typeof binding.disposePrivateStageDirectory === "function"
+    typeof binding.disposePrivateStageDirectory === "function" &&
+    typeof binding.takeLastWindowsPublicationEvidence === "function"
   );
 }
 
@@ -247,5 +251,17 @@ export function removePrivateStageFile(
     );
   } catch {
     return { state: "disposition-failed" };
+  }
+}
+
+/**
+ * Consume bounded Windows evidence captured during the native link operation.
+ * This is diagnostic data only; it is never used to decide publication.
+ */
+export function takeLastWindowsPublicationEvidence(): unknown {
+  try {
+    return nativeBinding().takeLastWindowsPublicationEvidence?.();
+  } catch {
+    return undefined;
   }
 }

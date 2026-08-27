@@ -22,6 +22,7 @@ const require = createRequire(import.meta.url);
 const helper = require("../scripts/package_smoke.cjs") as {
   assertWindowsPrivateStageCleanup(sandbox: string): "pass";
   assertWindowsPrivateStageResidue(sandbox: string): "pass";
+  requireWindowsPublicationEvidence(value: unknown): Record<string, unknown>;
   createDevelopmentTarballForTests(input: {
     packageRoot: string;
     tarball: string;
@@ -79,6 +80,36 @@ async function runSmoke(
 }
 
 describe("installed package smoke", () => {
+  it("rejects missing and fabricated Windows publication proof", () => {
+    expect(() => helper.requireWindowsPublicationEvidence(undefined)).toThrow(
+      "Windows native publication evidence is absent",
+    );
+    expect(() =>
+      helper.requireWindowsPublicationEvidence({
+        primitive: "create-hard-link",
+        publication: "pass",
+        identity: "pass",
+      }),
+    ).toThrow(
+      "Windows native publication evidence is incomplete or inconsistent",
+    );
+    expect(() =>
+      helper.requireWindowsPublicationEvidence({
+        primitive: "CreateHardLinkW",
+        linkCalls: 1,
+        destinationParentIdentityRechecked: true,
+        stageIdentityRechecked: true,
+        stageFileIdentityRechecked: true,
+        destinationParent: { volumeSerialNumber: 1, fileId: "0".repeat(32) },
+        stageDirectory: { volumeSerialNumber: 1, fileId: "1".repeat(32) },
+        stageFile: { volumeSerialNumber: 1, fileId: "2".repeat(32) },
+        destinationFile: { volumeSerialNumber: 1, fileId: "3".repeat(32) },
+      }),
+    ).toThrow(
+      "Windows native publication evidence is incomplete or inconsistent",
+    );
+  });
+
   it("derives Windows private-stage cleanup evidence from the sandbox", async () => {
     const sandbox = await mkdtemp(join(tmpdir(), "exifcleaner-package-stage-"));
     temporaryDirectories.push(sandbox);

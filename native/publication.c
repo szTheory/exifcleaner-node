@@ -59,6 +59,19 @@ typedef struct private_stage_directory {
   FILE_ID_INFO parent_identity;
 } private_stage_directory;
 
+/* Bounded, per-addon evidence for the most recent successful Windows link.
+ * It is diagnostic-only and is consumed by the installed-package smoke test;
+ * production publication authority remains the native return code. */
+typedef struct windows_publication_evidence {
+  BOOL available;
+  FILE_ID_INFO destination_parent;
+  FILE_ID_INFO stage_directory;
+  FILE_ID_INFO stage_file;
+  FILE_ID_INFO destination_file;
+} windows_publication_evidence;
+
+static windows_publication_evidence last_windows_publication_evidence;
+
 static publication_result publish_no_replace(HANDLE stage, const WCHAR *destination,
                                              const WCHAR *stage_path,
                                              private_stage_directory *capability,
@@ -354,12 +367,87 @@ static napi_value remove_stage_file_binding(napi_env env, napi_callback_info inf
 #endif
 }
 
+#if defined(_WIN32)
+static napi_value file_id_info_value(napi_env env, const FILE_ID_INFO *identity) {
+  static const char hex[] = "0123456789abcdef";
+  char identifier[sizeof(identity->FileId.Identifier) * 2 + 1];
+  size_t index;
+  napi_value value;
+  napi_value volume;
+  napi_value file_id;
+  if (identity == NULL || napi_create_object(env, &value) != napi_ok ||
+      napi_create_uint32(env, identity->VolumeSerialNumber, &volume) != napi_ok) {
+    return NULL;
+  }
+  for (index = 0; index < sizeof(identity->FileId.Identifier); index += 1) {
+    identifier[index * 2] = hex[(identity->FileId.Identifier[index] >> 4) & 0x0f];
+    identifier[index * 2 + 1] = hex[identity->FileId.Identifier[index] & 0x0f];
+  }
+  identifier[sizeof(identity->FileId.Identifier) * 2] = '\0';
+  if (napi_create_string_utf8(env, identifier, NAPI_AUTO_LENGTH, &file_id) != napi_ok ||
+      napi_set_named_property(env, value, "volumeSerialNumber", volume) != napi_ok ||
+      napi_set_named_property(env, value, "fileId", file_id) != napi_ok) {
+    return NULL;
+  }
+  return value;
+}
+
+static napi_value take_last_windows_publication_evidence_binding(
+    napi_env env, napi_callback_info info) {
+  napi_value value;
+  napi_value property;
+  napi_value destination_parent;
+  napi_value stage_directory;
+  napi_value stage_file;
+  napi_value destination_file;
+  (void)info;
+  if (!last_windows_publication_evidence.available) {
+    napi_get_undefined(env, &value);
+    return value;
+  }
+  last_windows_publication_evidence.available = FALSE;
+  destination_parent = file_id_info_value(
+      env, &last_windows_publication_evidence.destination_parent);
+  stage_directory = file_id_info_value(
+      env, &last_windows_publication_evidence.stage_directory);
+  stage_file = file_id_info_value(env, &last_windows_publication_evidence.stage_file);
+  destination_file = file_id_info_value(
+      env, &last_windows_publication_evidence.destination_file);
+  if (destination_parent == NULL || stage_directory == NULL || stage_file == NULL ||
+      destination_file == NULL || napi_create_object(env, &value) != napi_ok ||
+      napi_create_string_utf8(env, "CreateHardLinkW", NAPI_AUTO_LENGTH, &property) != napi_ok ||
+      napi_set_named_property(env, value, "primitive", property) != napi_ok ||
+      napi_create_uint32(env, 1, &property) != napi_ok ||
+      napi_set_named_property(env, value, "linkCalls", property) != napi_ok ||
+      napi_get_boolean(env, TRUE, &property) != napi_ok ||
+      napi_set_named_property(env, value, "destinationParentIdentityRechecked", property) != napi_ok ||
+      napi_set_named_property(env, value, "stageIdentityRechecked", property) != napi_ok ||
+      napi_set_named_property(env, value, "stageFileIdentityRechecked", property) != napi_ok ||
+      napi_set_named_property(env, value, "destinationParent", destination_parent) != napi_ok ||
+      napi_set_named_property(env, value, "stageDirectory", stage_directory) != napi_ok ||
+      napi_set_named_property(env, value, "stageFile", stage_file) != napi_ok ||
+      napi_set_named_property(env, value, "destinationFile", destination_file) != napi_ok) {
+    napi_get_undefined(env, &value);
+  }
+  return value;
+}
+#else
+static napi_value take_last_windows_publication_evidence_binding(
+    napi_env env, napi_callback_info info) {
+  napi_value value;
+  (void)info;
+  napi_get_undefined(env, &value);
+  return value;
+}
+#endif
+
 NAPI_MODULE_INIT() {
   napi_property_descriptor properties[] = {
     { "publishNoReplace", NULL, publish_no_replace_binding, NULL, NULL, NULL, napi_default, NULL },
     { "createPrivateStageDirectory", NULL, create_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
     { "disposePrivateStageDirectory", NULL, dispose_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
     { "removePrivateStageFile", NULL, remove_stage_file_binding, NULL, NULL, NULL, napi_default, NULL },
+    { "takeLastWindowsPublicationEvidence", NULL, take_last_windows_publication_evidence_binding, NULL, NULL, NULL, napi_default, NULL },
   };
   napi_define_properties(env, exports, sizeof(properties) / sizeof(properties[0]), properties);
   return exports;
@@ -393,13 +481,26 @@ static WCHAR *parent_path(const WCHAR *path) {
   size_t split = 0;
   size_t parent_length;
   WCHAR *parent;
+  BOOL found_separator = FALSE;
   if (path == NULL || path[0] == L'\0') return NULL;
   while (path[length] != L'\0') {
-    if (path[length] == L'\\' || path[length] == L'/') split = length;
+    if (path[length] == L'\\' || path[length] == L'/') {
+      split = length;
+      found_separator = TRUE;
+    }
     length += 1;
   }
-  if (split == 0 || split + 1 >= length) return NULL;
+  if (!found_separator) {
+    /* A filename in the current directory has an explicit, safe parent. */
+    parent = (WCHAR *)publication_allocate(2 * sizeof(WCHAR));
+    if (parent == NULL) return NULL;
+    parent[0] = L'.';
+    parent[1] = L'\0';
+    return parent;
+  }
+  if (split + 1 >= length) return NULL;
   parent_length = split;
+  if (split == 0) parent_length = 1;
   /* C:\\file has the drive root as its parent; C: would be drive-relative. */
   if (split == 2 && path[1] == L':') parent_length = split + 1;
   parent = (WCHAR *)publication_allocate((parent_length + 1) * sizeof(WCHAR));
@@ -422,6 +523,7 @@ static publication_result publish_no_replace(HANDLE stage_handle,
                                              DWORD *diagnostic) {
   HANDLE parent_handle = INVALID_HANDLE_VALUE;
   HANDLE stage_directory = INVALID_HANDLE_VALUE;
+  HANDLE destination_handle = INVALID_HANDLE_VALUE;
   FILE_ID_INFO parent_identity;
   FILE_ID_INFO stage_identity;
   FILE_ID_INFO stage_file_identity;
@@ -431,6 +533,7 @@ static publication_result publish_no_replace(HANDLE stage_handle,
   DWORD error;
 
   if (diagnostic != NULL) *diagnostic = ERROR_SUCCESS;
+  last_windows_publication_evidence.available = FALSE;
   if (stage_handle == INVALID_HANDLE_VALUE || stage_handle == NULL || destination == NULL ||
       stage_path == NULL || capability == NULL ||
       capability->handle == INVALID_HANDLE_VALUE ||
@@ -455,6 +558,25 @@ static publication_result publish_no_replace(HANDLE stage_handle,
     goto done;
   }
   if (CreateHardLinkW(destination, stage_path, NULL)) {
+    /* This is evidence only. A failure to observe it cannot revoke an already
+     * successful no-replace publication, but it must not be reported as proof. */
+    destination_handle = CreateFileW(
+        destination, READ_CONTROL | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
+        FILE_FLAG_OPEN_REPARSE_POINT, NULL);
+    if (destination_handle != INVALID_HANDLE_VALUE) {
+      FILE_ID_INFO destination_file_identity;
+      if (GetFileInformationByHandleEx(destination_handle, FileIdInfo,
+                                       &destination_file_identity,
+                                       sizeof(destination_file_identity)) &&
+          file_identity_matches(&stage_file_identity, &destination_file_identity)) {
+        last_windows_publication_evidence.destination_parent = parent_identity;
+        last_windows_publication_evidence.stage_directory = stage_identity;
+        last_windows_publication_evidence.stage_file = stage_file_identity;
+        last_windows_publication_evidence.destination_file = destination_file_identity;
+        last_windows_publication_evidence.available = TRUE;
+      }
+    }
     result = PUBLICATION_PUBLISHED;
   } else {
     error = GetLastError();
@@ -462,6 +584,7 @@ static publication_result publish_no_replace(HANDLE stage_handle,
     result = map_windows_error(error);
   }
 done:
+  if (destination_handle != INVALID_HANDLE_VALUE) CloseHandle(destination_handle);
   if (stage_directory != INVALID_HANDLE_VALUE) CloseHandle(stage_directory);
   if (parent_handle != INVALID_HANDLE_VALUE) CloseHandle(parent_handle);
   publication_free(destination_parent);

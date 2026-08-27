@@ -76,6 +76,7 @@ describe("current-host native publication addon", () => {
       "disposePrivateStageDirectory",
       "publishNoReplace",
       "removePrivateStageFile",
+      "takeLastWindowsPublicationEvidence",
     ]);
 
     const directory = await mkdtemp(
@@ -264,6 +265,49 @@ describe("current-host native publication addon", () => {
       );
     },
   );
+
+  it.runIf(process.platform === "win32")(
+    "publishes a current-directory relative destination through the native capability",
+    async () => {
+      const parent = await mkdtemp(
+        join(tmpdir(), "exifcleaner-native-relative-transaction-"),
+      );
+      temporaryDirectories.push(parent);
+      const source = join(parent, "source.webp");
+      const previousDirectory = process.cwd();
+      await writeFile(
+        source,
+        webp([
+          { fourCc: "VP8X", data: vp8x(0x08) },
+          { fourCc: "VP8 ", data: vp8() },
+          {
+            fourCc: "EXIF",
+            data: Buffer.from("II*\0\b\0\0\0\0\0\0\0", "binary"),
+          },
+        ]),
+      );
+      process.chdir(parent);
+      try {
+        await expect(
+          sanitizeFile({
+            sourcePath: source,
+            destinationPath: "output.webp",
+            preserveOrientation: false,
+            preserveColorProfile: false,
+            preserveTimestamps: false,
+          }),
+        ).resolves.toMatchObject({ ok: true });
+        await expect(
+          cp(join(parent, "output.webp"), join(parent, "copy.webp")),
+        ).resolves.toBeUndefined();
+        await expect(readdir(parent)).resolves.not.toContainEqual(
+          expect.stringMatching(/^\.exifcleaner-stage-/u),
+        );
+      } finally {
+        process.chdir(previousDirectory);
+      }
+    },
+  );
 });
 
 describe("private native publication loader", () => {
@@ -288,6 +332,7 @@ describe("private native publication loader", () => {
         createPrivateStageDirectory: () => undefined,
         removePrivateStageFile: () => "unsupported",
         disposePrivateStageDirectory: () => "unsupported",
+        takeLastWindowsPublicationEvidence: () => undefined,
       };
       expect(
         loadNativePublicationBindingForTests(

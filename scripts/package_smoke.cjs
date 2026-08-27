@@ -579,6 +579,56 @@ function assertWindowsPrivateStageResidue(sandbox) {
   return "pass";
 }
 
+function requireWindowsPublicationEvidence(value) {
+  if (typeof value !== "object" || value === null)
+    throw new Error("Windows native publication evidence is absent");
+  const evidence = value;
+  const identities = [
+    evidence.destinationParent,
+    evidence.stageDirectory,
+    evidence.stageFile,
+    evidence.destinationFile,
+  ];
+  if (
+    evidence.primitive !== "CreateHardLinkW" ||
+    evidence.linkCalls !== 1 ||
+    evidence.destinationParentIdentityRechecked !== true ||
+    evidence.stageIdentityRechecked !== true ||
+    evidence.stageFileIdentityRechecked !== true ||
+    identities.some(
+      (identity) =>
+        typeof identity !== "object" ||
+        identity === null ||
+        !Number.isInteger(identity.volumeSerialNumber) ||
+        identity.volumeSerialNumber < 0 ||
+        typeof identity.fileId !== "string" ||
+        !/^[a-f0-9]{32}$/u.test(identity.fileId),
+    ) ||
+    evidence.destinationParent.volumeSerialNumber !==
+      evidence.stageDirectory.volumeSerialNumber ||
+    evidence.stageDirectory.volumeSerialNumber !==
+      evidence.stageFile.volumeSerialNumber ||
+    evidence.stageFile.volumeSerialNumber !==
+      evidence.destinationFile.volumeSerialNumber ||
+    evidence.stageFile.fileId !== evidence.destinationFile.fileId
+  )
+    throw new Error(
+      "Windows native publication evidence is incomplete or inconsistent",
+    );
+  return {
+    primitive: evidence.primitive,
+    linkCalls: evidence.linkCalls,
+    destinationParentIdentityRechecked:
+      evidence.destinationParentIdentityRechecked,
+    stageIdentityRechecked: evidence.stageIdentityRechecked,
+    stageFileIdentityRechecked: evidence.stageFileIdentityRechecked,
+    destinationParent: evidence.destinationParent,
+    stageDirectory: evidence.stageDirectory,
+    stageFile: evidence.stageFile,
+    destinationFile: evidence.destinationFile,
+  };
+}
+
 async function runTransactions(packageRoot, sandbox, corpus) {
   const api = await import(
     pathToFileURL(join(packageRoot, "dist", "index.js")).href
@@ -590,10 +640,24 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     corpus.sample.bytes,
     0,
   );
-  const stillCleanup =
+  const windowsPublication =
     process.platform === "win32"
-      ? assertWindowsPrivateStageCleanup(sandbox)
+      ? requireWindowsPublicationEvidence(
+          (
+            await import(
+              pathToFileURL(
+                join(
+                  packageRoot,
+                  "dist",
+                  "transaction",
+                  "native-publication.js",
+                ),
+              ).href
+            )
+          ).takeLastWindowsPublicationEvidence(),
+        )
       : undefined;
+  if (process.platform === "win32") assertWindowsPrivateStageCleanup(sandbox);
   const animation = await runCorpusCase(
     api,
     sandbox,
@@ -601,10 +665,7 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     derivedAnimation(corpus.upstream.bytes),
     1,
   );
-  const animationCleanup =
-    process.platform === "win32"
-      ? assertWindowsPrivateStageCleanup(sandbox)
-      : undefined;
+  if (process.platform === "win32") assertWindowsPrivateStageCleanup(sandbox);
   const competitorPath = still.destinationPath;
   const competitor = readFileSync(competitorPath);
   const collision = await api.sanitizeFile({
@@ -625,10 +686,7 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     throw new Error(
       "Installed collision did not preserve bounded D-52 residue truth",
     );
-  const collisionResidue =
-    process.platform === "win32"
-      ? assertWindowsPrivateStageResidue(sandbox)
-      : undefined;
+  if (process.platform === "win32") assertWindowsPrivateStageResidue(sandbox);
   const cancellation = await runDeterministicCancellation(
     packageRoot,
     sandbox,
@@ -639,44 +697,6 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     packageRoot,
     sandbox,
   );
-  const windowsPublication =
-    process.platform === "win32"
-      ? (() => {
-          const sourceSha256 = sha256(still.sourcePath);
-          const destinationSha256 = sha256(still.destinationPath);
-          const volumeSerial = String(statSync(still.destinationPath).dev);
-          return {
-            primitive: "create-hard-link",
-            publication: "pass",
-            collision: "pass",
-            identity: "pass",
-            cleanup:
-              stillCleanup === "pass" && animationCleanup === "pass"
-                ? "pass"
-                : "unverified",
-            collisionResidue,
-            sourceSha256,
-            destinationSha256,
-            volumeProof: {
-              method:
-                "GetFileInformationByHandleEx(FileIdInfo).VolumeSerialNumber",
-              placement: "destination-parent-child",
-              capturedDestinationParentIdentity: true,
-              destinationParentIdentityRechecked: true,
-              stageIdentityRechecked: true,
-              sameVolume: true,
-              stageDirectoryVolumeSerial: volumeSerial,
-              stageFileVolumeSerial: volumeSerial,
-              destinationParentVolumeSerial: volumeSerial,
-              crossVolumeOutcome: "typed-non-success-before-link",
-              unprovableVolumeOutcome: "typed-non-success-before-link",
-              crossVolumeLinkCalls: 0,
-              unprovableVolumeLinkCalls: 0,
-              fallbackAttempts: 0,
-            },
-          };
-        })()
-      : undefined;
   return {
     corpusCases: [still.evidence, animation.evidence],
     propertyOutputDigest,
@@ -820,6 +840,7 @@ function createDevelopmentTarballForTests({ packageRoot, tarball }) {
 module.exports = {
   assertWindowsPrivateStageCleanup,
   assertWindowsPrivateStageResidue,
+  requireWindowsPublicationEvidence,
   assertLiteralHostArtifact,
   createDevelopmentTarballForTests,
   diagnoseWindowsNativePublication,
