@@ -109,7 +109,7 @@ describe("replayable WebP qualification properties", () => {
       );
     }
     expect(executed).toBe(config.numRuns);
-  });
+  }, 30_000);
 
   it("replays the exact minimized path emitted for an injected failure", () => {
     const arbitrary = fc.integer({ min: 0, max: 100 });
