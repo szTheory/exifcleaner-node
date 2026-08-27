@@ -132,10 +132,7 @@ export function mapNativePublicationCode(
     case "unsupported":
       return { state: "publication-unsupported" };
     default:
-      if (
-        typeof code === "string" &&
-        /^failed:link:\d+$/u.test(code)
-      )
+      if (typeof code === "string" && /^failed:link:\d+$/u.test(code))
         return { state: "publication-failed", diagnostic: code.slice(7) };
       return { state: "publication-failed" };
   }

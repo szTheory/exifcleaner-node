@@ -620,7 +620,8 @@ async function runTransactions(packageRoot, sandbox, corpus) {
             sourceSha256,
             destinationSha256,
             volumeProof: {
-              method: "GetFileInformationByHandleEx(FileIdInfo).VolumeSerialNumber",
+              method:
+                "GetFileInformationByHandleEx(FileIdInfo).VolumeSerialNumber",
               placement: "destination-parent-child",
               capturedDestinationParentIdentity: true,
               destinationParentIdentityRechecked: true,

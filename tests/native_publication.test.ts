@@ -42,13 +42,21 @@ describe("current-host native publication addon", () => {
     const source = readFileSync(nativePublicationSource, "utf8");
 
     expect(source).toContain("CreateHardLinkW(destination, stage_path, NULL)");
-    expect(source).toContain("GetFileInformationByHandleEx(parent_handle, FileIdInfo");
-    expect(source).toContain("GetFileInformationByHandleEx(stage_directory, FileIdInfo");
-    expect(source).toContain("GetFileInformationByHandleEx(stage_handle, FileIdInfo");
+    expect(source).toContain(
+      "GetFileInformationByHandleEx(parent_handle, FileIdInfo",
+    );
+    expect(source).toContain(
+      "GetFileInformationByHandleEx(stage_directory, FileIdInfo",
+    );
+    expect(source).toContain(
+      "GetFileInformationByHandleEx(stage_handle, FileIdInfo",
+    );
     expect(source.indexOf("FileIdInfo")).toBeLessThan(
       source.indexOf("CreateHardLinkW(destination, stage_path, NULL)"),
     );
-    expect(source).not.toMatch(/FileRenameInfo(?:Ex)?|ReplaceIfExists|ReOpenFile/u);
+    expect(source).not.toMatch(
+      /FileRenameInfo(?:Ex)?|ReplaceIfExists|ReOpenFile/u,
+    );
   });
 
   it("loads the canonical artifact and publishes without replacing a collision", async () => {
@@ -87,7 +95,12 @@ describe("current-host native publication addon", () => {
     ) =>
       process.platform === "win32"
         ? binding.publishNoReplace(
-            ...( [stageDescriptor, destination, stage, {}] as unknown as NativePublicationArguments),
+            ...([
+              stageDescriptor,
+              destination,
+              stage,
+              {},
+            ] as unknown as NativePublicationArguments),
           )
         : binding.publishNoReplace(
             stageDirectory.fd,
