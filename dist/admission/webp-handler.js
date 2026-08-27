@@ -107,10 +107,11 @@ async function chunksEqual(sourceHandle, source, destinationHandle, destination,
         if (isAborted(signal))
             throw signal?.reason ?? new DOMException("Aborted", "AbortError");
         const length = Math.min(COPY_BLOCK_BYTES, source.size - offset);
-        const [left, right] = await Promise.all([
-            sourceHandle.read(sourceBuffer, 0, length, source.dataOffset + offset),
-            destinationHandle.read(destinationBuffer, 0, length, destination.dataOffset + offset),
-        ]);
+        // Keep the two bounded reads serialized.  Concurrent MiB reads make the
+        // verification pass contend for libuv's file-I/O scheduling window and
+        // can create large tail-latency spikes on fresh benchmark children.
+        const left = await sourceHandle.read(sourceBuffer, 0, length, source.dataOffset + offset);
+        const right = await destinationHandle.read(destinationBuffer, 0, length, destination.dataOffset + offset);
         if (left.bytesRead !== length || right.bytesRead !== length)
             throw new Error("Source or output changed or became truncated during verification.");
         if (!sourceBuffer

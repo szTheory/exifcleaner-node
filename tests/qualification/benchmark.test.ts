@@ -236,8 +236,15 @@ describe("paired benchmark admission", () => {
       join(projectRoot, "src", "webp", "riff.ts"),
       "utf8",
     );
+    const handler = await readFile(
+      join(projectRoot, "src", "admission", "webp-handler.ts"),
+      "utf8",
+    );
     expect(riff).toContain("export const COPY_BLOCK_BYTES = 1024 * 1024");
     expect(riff).not.toContain("COPY_BLOCK_BYTES = 64 * 1024");
+    expect(handler).toContain("const left = await sourceHandle.read(");
+    expect(handler).toContain("const right = await destinationHandle.read(");
+    expect(handler).not.toContain("const [left, right] = await Promise.all");
   });
 
   it("requires explicit packed baseline/candidate inputs and fresh child execution", async () => {
