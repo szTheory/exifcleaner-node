@@ -83,6 +83,13 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     runScale: number;
   };
   validateCalibration(input: Record<string, unknown>): void;
+  deriveBlockEstimate(values: readonly number[]): {
+    medianNs: number;
+    madNs: number;
+    madRatio: number;
+    centralValues: readonly number[];
+    centralRangeRatio: number;
+  };
 };
 const calibration =
   require("../../scripts/qualification/benchmark-calibration.cjs") as {
@@ -90,6 +97,73 @@ const calibration =
   };
 
 describe("paired benchmark admission", () => {
+  it("uses the fixed v2 robust block estimator at every threshold in both drift directions", () => {
+    const nextUp = (value: number): number => {
+      const bytes = new ArrayBuffer(8);
+      const view = new DataView(bytes);
+      view.setFloat64(0, value);
+      view.setBigUint64(0, view.getBigUint64(0) + 1n);
+      return view.getFloat64(0);
+    };
+    const stable = Array<number>(15).fill(100);
+    const clustered = [
+      100, 100, 100, 100, 100, 100, 100, 100, 110, 110, 110, 110, 110, 110,
+      110,
+    ];
+    expect(report.deriveBlockEstimate(clustered)).toMatchObject({
+      medianNs: 100,
+      madRatio: 0,
+      centralRangeRatio: 1.1,
+    });
+    const madBoundary = [
+      90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 100,
+    ];
+    expect(report.deriveBlockEstimate(madBoundary).madRatio).toBe(0.1);
+    expect(() =>
+      report.deriveRunScale({
+        before: madBoundary,
+        after: stable,
+        referenceMedianNs: 100,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      report.deriveRunScale({
+        before: [...madBoundary.slice(0, 8), 100 + nextUp(10), ...madBoundary.slice(9)],
+        after: stable,
+        referenceMedianNs: 100,
+      }),
+    ).toThrow(/MAD/);
+    const rangeBoundary = [
+      100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 120, 120, 120,
+      120,
+    ];
+    expect(report.deriveBlockEstimate(rangeBoundary).centralRangeRatio).toBe(1.2);
+    expect(() =>
+      report.deriveRunScale({ before: rangeBoundary, after: stable, referenceMedianNs: 100 }),
+    ).not.toThrow();
+    expect(() =>
+      report.deriveRunScale({
+        before: [...rangeBoundary.slice(0, 11), 120 + nextUp(20), ...rangeBoundary.slice(12)],
+        after: stable,
+        referenceMedianNs: 100,
+      }),
+    ).toThrow(/central-eleven/);
+    for (const [before, after] of [
+      [Array<number>(15).fill(110), stable],
+      [stable, Array<number>(15).fill(110)],
+    ]) {
+      expect(() => report.deriveRunScale({ before, after, referenceMedianNs: 100 })).not.toThrow();
+      const above = Array<number>(15).fill(nextUp(110));
+      expect(() =>
+        report.deriveRunScale({
+          before: before[0] === 110 ? above : before,
+          after: after[0] === 110 ? above : after,
+          referenceMedianNs: 100,
+        }),
+      ).toThrow(/drift/);
+    }
+  });
+
   it("uses one common calibration scale that cancels a global runner factor", () => {
     const referenceMedianNs = 100;
     const normal = report.deriveRunScale({
