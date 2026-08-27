@@ -427,6 +427,27 @@ describe("private automated qualification surface", () => {
     expect(workflow).toContain("cancel-in-progress: false");
   });
 
+  it("pins v2's retained robust calibration evidence without widening runtime surface", async () => {
+    const [workflow, documentation, reportSource] = await Promise.all([
+      readFile(join(packageRoot, ".github", "workflows", "ci.yml"), "utf8"),
+      readFile(join(packageRoot, "docs", "benchmark-admission.md"), "utf8"),
+      readFile(join(packageRoot, "scripts", "qualification", "benchmark-report.cjs"), "utf8"),
+    ]);
+    for (const claim of [
+      "exifcleaner-run-calibration-v2",
+      "15 x 16",
+      "15000 ms",
+      "central eleven",
+      "normalized MAD",
+      "max(beforeMedianNs, afterMedianNs)",
+      "8x100/7x110",
+    ]) expect(documentation).toContain(claim);
+    expect(reportSource).toContain("centralRangeRatioLimit");
+    expect(reportSource).toContain("Math.max(beforeEstimate.medianNs, afterEstimate.medianNs)");
+    expect(workflow).toContain("benchmark-report.cjs --validate-report");
+    expect(workflow).toContain("'--phase-admission'");
+  });
+
   it("documents every replay, promotion step, guarantee, and bounded non-guarantee", async () => {
     const [capabilitiesSource, provenanceSource] = await Promise.all([
       readFile(join(packageRoot, "docs", "capabilities.md"), "utf8"),

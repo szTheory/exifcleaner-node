@@ -33,23 +33,36 @@ version.
 
 ## Runner-Speed Calibration
 
-Timing evidence has one package-independent `exifcleaner-run-calibration-v1`
+Timing evidence has one package-independent `exifcleaner-run-calibration-v2`
 authority. The parent runs it in a clean temporary directory once before the
-first package child and once after the last package child. Its fixed workload,
-stdout schema, trial count, Node 22/24 reference median, timeout, drift limit,
+first package child and once after the last package child. Each fixed 15 x 16 block retains
+exactly fifteen ordered observations; every observation runs exactly sixteen
+identical workload units under one fixed 15000 ms process timeout. Its fixed
+workload, result digest, stdout schema, Node 22/24 reference median, constants,
 workload digest, and authority-script SHA-256 are committed in
 `scripts/qualification/benchmark-calibration-reference.json`. It neither
 imports nor receives a path to either package.
 
-The parent rejects non-finite or zero trials, unexpected output, nonzero exit,
-wrong executable, authority identity mismatch, cleanup failure, or more than
-10% before/after drift. It computes `runScale = referenceMedian /
-sqrt(beforeMedian * afterMedian)` once and applies that same scale to every
-baseline and candidate raw elapsed value. A global positive runner factor
-cancels; candidate-only work remains visible. There is no side-specific,
-fixture-specific, retry-produced, discarded, or package-controlled denominator.
-Raw elapsed values and the original 2-warmup/15-measurement alternating record
-remain evidence.
+The parent rejects non-finite or non-positive records, wrong ordinal or unit
+count, unexpected output, nonzero exit, stderr, timeout, wrong executable,
+authority identity mismatch, cleanup failure, or leftover process evidence.
+There is no retry, replacement, adaptive extension, or discarded raw record.
+The block estimate is the median of all fifteen normalized observations. The
+reported dispersion view removes exactly two sorted values from each tail only
+to derive the central eleven; it never deletes evidence or changes the median.
+Statistical rejection occurs only when normalized MAD exceeds 0.10, the
+central eleven maximum/minimum exceeds 1.20, or symmetric
+`max(beforeMedianNs, afterMedianNs) / min(beforeMedianNs, afterMedianNs)`
+exceeds 1.10. Equality passes. A clustered 8x100/7x110 block passes: its
+median is 100, normalized MAD is 0, and central-eleven range is 1.10; modality
+is not a rejection rule.
+
+It computes `runScale = referenceMedian / sqrt(beforeMedian * afterMedian)`
+once and applies that same scale to every baseline and candidate raw elapsed
+value. A global positive runner factor cancels; candidate-only work remains
+visible. There is no side-specific, fixture-specific, retry-produced,
+discarded, or package-controlled denominator. Raw calibration blocks and the
+original 2-warmup/15-measurement alternating package record remain evidence.
 
 `benchmark-report.cjs` is the dependency-free fail-closed authority for local
 output, each Node benchmark job, phase admission, and the final hosted ledger.

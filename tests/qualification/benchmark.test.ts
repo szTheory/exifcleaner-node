@@ -131,10 +131,11 @@ describe("paired benchmark admission", () => {
     expect(report.deriveBlockEstimate([
       ...Array<number>(11).fill(100), ...Array<number>(4).fill(120.000001),
     ]).centralRangeRatio).toBeGreaterThan(1.2);
-    for (const [before, after] of [
+    const driftDirections: readonly (readonly [number[], number[]])[] = [
       [Array<number>(15).fill(110), stable],
       [stable, Array<number>(15).fill(110)],
-    ]) {
+    ];
+    for (const [before, after] of driftDirections) {
       expect(() => report.deriveRunScale({ before, after, referenceMedianNs: 100 })).not.toThrow();
       const above = Array<number>(15).fill(110.000001);
       expect(() =>
