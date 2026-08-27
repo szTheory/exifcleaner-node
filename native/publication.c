@@ -596,7 +596,10 @@ done:
 static publication_result remove_private_stage_file(
     private_stage_directory *capability, const WCHAR *stage_path) {
   HANDLE stage_directory = INVALID_HANDLE_VALUE;
+  HANDLE stage_file = INVALID_HANDLE_VALUE;
   FILE_ID_INFO stage_identity;
+  FILE_DISPOSITION_INFO_EX disposition = {0};
+  FILE_DISPOSITION_INFO legacy = {0};
   WCHAR *stage_parent = NULL;
   publication_result result = PUBLICATION_FAILED;
 
@@ -612,12 +615,29 @@ static publication_result remove_private_stage_file(
     result = PUBLICATION_UNSUPPORTED;
     goto done;
   }
-  if (DeleteFileW(stage_path)) {
+  stage_file = CreateFileW(
+      stage_path, DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
+      FILE_FLAG_OPEN_REPARSE_POINT, NULL);
+  if (stage_file == INVALID_HANDLE_VALUE) {
+    result = map_windows_error(GetLastError());
+    goto done;
+  }
+  disposition.Flags = FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_POSIX_SEMANTICS;
+  if (SetFileInformationByHandle(stage_file, FileDispositionInfoEx, &disposition,
+                                 sizeof(disposition))) {
     result = PUBLICATION_PUBLISHED;
   } else {
-    result = map_windows_error(GetLastError());
+    legacy.DeleteFile = TRUE;
+    if (SetFileInformationByHandle(stage_file, FileDispositionInfo, &legacy,
+                                   sizeof(legacy))) {
+      result = PUBLICATION_PUBLISHED;
+    } else {
+      result = map_windows_error(GetLastError());
+    }
   }
 done:
+  if (stage_file != INVALID_HANDLE_VALUE) CloseHandle(stage_file);
   if (stage_directory != INVALID_HANDLE_VALUE) CloseHandle(stage_directory);
   publication_free(stage_parent);
   return result;
