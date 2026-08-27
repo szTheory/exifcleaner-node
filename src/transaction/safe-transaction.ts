@@ -376,6 +376,8 @@ export async function runSafeTransaction(
       destinationDirectory?.fd,
       "output.webp",
       destinationPath,
+      stagePath,
+      directoryCapability,
       basename(destinationPath),
       platform,
     );

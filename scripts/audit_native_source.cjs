@@ -28,7 +28,7 @@ const allowedCalls = new Set([
   "AddAccessAllowedAceEx",
   "CreateDirectoryW",
   "CreateFileW",
-  "ReOpenFile",
+  "CreateHardLinkW",
   "CreateWellKnownSid",
   "DuplicateToken",
   "EqualSid",
@@ -77,6 +77,7 @@ const allowedCalls = new Set([
   "create_private_stage_directory",
   "publication_allocate",
   "read_path",
+  "parent_path",
   "uv_get_osfhandle",
 ]);
 const languageCalls = new Set([
@@ -99,7 +100,7 @@ const forbiddenFamilies = [
   ["downloader", /\b(URLDownloadToFile\w*|BITS\w*)\b/i],
   ["runtime-build", /\b(cl\.exe|gcc|clang|node-gyp|make)\b/i],
   ["dynamic-loader", /\b(dlopen|dlsym|LoadLibrary\w*|GetProcAddress)\b/i],
-  ["replacing-publication", /\b(rename|MoveFile\w*|CopyFile\w*|link)\b/i],
+  ["replacing-publication", /\b(rename|MoveFile\w*|CopyFile\w*)\b/i],
   [
     "pathname-cleanup",
     /\b(unlink|unlinkat|remove|rm|rmdir|RemoveFile|DeleteFileW|RemoveDirectoryW)\b/i,

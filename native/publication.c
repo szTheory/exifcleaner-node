@@ -55,10 +55,13 @@ typedef enum publication_result {
 typedef struct private_stage_directory {
   HANDLE handle;
   FILE_ID_INFO identity;
+  HANDLE parent_handle;
+  FILE_ID_INFO parent_identity;
 } private_stage_directory;
 
-static publication_result publish_no_replace(HANDLE stage,
-                                             const WCHAR *destination,
+static publication_result publish_no_replace(HANDLE stage, const WCHAR *destination,
+                                             const WCHAR *stage_path,
+                                             private_stage_directory *capability,
                                              DWORD *diagnostic);
 static private_stage_directory *create_private_stage_directory(const WCHAR *path);
 static publication_result dispose_private_stage_directory(
@@ -81,7 +84,7 @@ static const char *publication_result_name(publication_result result) {
 
 #if defined(_WIN32)
 static napi_value native_diagnostic_result(napi_env env, DWORD diagnostic) {
-  const char *operation = "rename-legacy:";
+  const char *operation = "link:";
   char value[64];
   size_t length = 7;
   size_t index = 0;
@@ -89,13 +92,6 @@ static napi_value native_diagnostic_result(napi_env env, DWORD diagnostic) {
   size_t digit_count = 0;
   DWORD error = diagnostic;
   const char prefix[] = "failed:";
-  if (diagnostic >> 30 == 1) {
-    operation = "reopen-file:";
-    error &= ~(1UL << 30);
-  } else if (diagnostic >> 30 == 2) {
-    operation = "rename-ex:";
-    error &= ~(2UL << 30);
-  }
   for (index = 0; index < sizeof(prefix) - 1; index += 1) value[index] = prefix[index];
   for (index = 0; operation[index] != '\0'; index += 1) value[length + index] = operation[index];
   length += index;
@@ -169,6 +165,8 @@ static void finalize_stage_directory(napi_env env, void *data, void *hint) {
   (void)hint;
   if (capability != NULL) {
     if (capability->handle != INVALID_HANDLE_VALUE) CloseHandle(capability->handle);
+    if (capability->parent_handle != INVALID_HANDLE_VALUE)
+      CloseHandle(capability->parent_handle);
     publication_free(capability);
   }
 }
@@ -177,7 +175,7 @@ static void finalize_stage_directory(napi_env env, void *data, void *hint) {
 static napi_value publish_no_replace_binding(napi_env env, napi_callback_info info) {
   size_t argc =
 #if defined(_WIN32)
-      2;
+      4;
 #else
       4;
 #endif
@@ -186,6 +184,8 @@ static napi_value publish_no_replace_binding(napi_env env, napi_callback_info in
   int32_t stage_descriptor;
   HANDLE stage_handle;
   WCHAR *destination;
+  WCHAR *stage_path;
+  void *capability_data = NULL;
 #else
   size_t stage_entry_length;
   size_t destination_entry_length;
@@ -200,7 +200,7 @@ static napi_value publish_no_replace_binding(napi_env env, napi_callback_info in
 #endif
   if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc !=
 #if defined(_WIN32)
-      2
+      4
 #else
       4
 #endif
@@ -214,22 +214,29 @@ static napi_value publish_no_replace_binding(napi_env env, napi_callback_info in
     return NULL;
   }
   destination = read_path(env, args[1]);
-  if (destination == NULL) {
+  stage_path = read_path(env, args[2]);
+  if (destination == NULL || stage_path == NULL ||
+      napi_get_value_external(env, args[3], &capability_data) != napi_ok ||
+      capability_data == NULL) {
     publication_free(destination);
+    publication_free(stage_path);
     napi_throw_error(env, NULL, "could not read destination path");
     return NULL;
   }
   stage_handle = uv_get_osfhandle(stage_descriptor);
   if (stage_handle == INVALID_HANDLE_VALUE) {
     publication_free(destination);
+    publication_free(stage_path);
     return publication_result_value(env, PUBLICATION_FAILED
 #if defined(_WIN32)
                                     , ERROR_SUCCESS
 #endif
                                     );
   }
-  result = publish_no_replace(stage_handle, destination, &diagnostic);
+  result = publish_no_replace(stage_handle, destination, stage_path,
+                              (private_stage_directory *)capability_data, &diagnostic);
   publication_free(destination);
+  publication_free(stage_path);
 #else
   if (
       napi_get_value_int32(env, args[0], &stage_directory) != napi_ok ||
@@ -335,84 +342,89 @@ static publication_result map_windows_error(DWORD error) {
   return PUBLICATION_FAILED;
 }
 
-static size_t wide_length(const WCHAR *value) {
-  size_t length = 0;
-  if (value == NULL) return 0;
-  while (value[length] != L'\0') length += 1;
-  return length;
+static BOOL file_identity_matches(const FILE_ID_INFO *left, const FILE_ID_INFO *right) {
+  size_t index;
+  if (left->VolumeSerialNumber != right->VolumeSerialNumber) return FALSE;
+  for (index = 0; index < sizeof(left->FileId.Identifier); index += 1) {
+    if (left->FileId.Identifier[index] != right->FileId.Identifier[index]) return FALSE;
+  }
+  return TRUE;
 }
 
-static void copy_bytes(BYTE *destination, const BYTE *source, size_t length) {
-  size_t index;
-  for (index = 0; index < length; index += 1) destination[index] = source[index];
+static WCHAR *parent_path(const WCHAR *path) {
+  size_t length = 0;
+  size_t split = 0;
+  WCHAR *parent;
+  if (path == NULL || path[0] == L'\0') return NULL;
+  while (path[length] != L'\0') {
+    if (path[length] == L'\\' || path[length] == L'/') split = length;
+    length += 1;
+  }
+  if (split == 0 || split + 1 >= length) return NULL;
+  parent = (WCHAR *)publication_allocate((split + 1) * sizeof(WCHAR));
+  if (parent == NULL) return NULL;
+  for (length = 0; length < split; length += 1) parent[length] = path[length];
+  parent[split] = L'\0';
+  return parent;
+}
+
+static HANDLE open_directory_no_reparse(const WCHAR *path) {
+  return CreateFileW(path, READ_CONTROL | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
+      FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
 }
 
 static publication_result publish_no_replace(HANDLE stage_handle,
-                                             const wchar_t *destination,
+                                             const WCHAR *destination,
+                                             const WCHAR *stage_path,
+                                             private_stage_directory *capability,
                                              DWORD *diagnostic) {
-  HANDLE publication_handle;
-  FILE_RENAME_INFO *rename_info;
-  size_t destination_bytes;
-  DWORD allocation_size;
-  publication_result result;
+  HANDLE parent_handle = INVALID_HANDLE_VALUE;
+  HANDLE stage_directory = INVALID_HANDLE_VALUE;
+  FILE_ID_INFO parent_identity;
+  FILE_ID_INFO stage_identity;
+  FILE_ID_INFO stage_file_identity;
+  WCHAR *destination_parent = NULL;
+  WCHAR *stage_parent = NULL;
+  publication_result result = PUBLICATION_FAILED;
+  DWORD error;
 
-  if (stage_handle == INVALID_HANDLE_VALUE || stage_handle == NULL ||
-      destination == NULL) {
-    return PUBLICATION_FAILED;
-  }
   if (diagnostic != NULL) *diagnostic = ERROR_SUCCESS;
-  publication_handle = ReOpenFile(
-      stage_handle, DELETE | SYNCHRONIZE,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-      0);
-  if (publication_handle == INVALID_HANDLE_VALUE) {
-    if (diagnostic != NULL) *diagnostic = GetLastError() | (1UL << 30);
-    return map_windows_error(GetLastError());
+  if (stage_handle == INVALID_HANDLE_VALUE || stage_handle == NULL || destination == NULL ||
+      stage_path == NULL || capability == NULL ||
+      capability->handle == INVALID_HANDLE_VALUE ||
+      capability->parent_handle == INVALID_HANDLE_VALUE) goto done;
+  destination_parent = parent_path(destination);
+  stage_parent = parent_path(stage_path);
+  if (destination_parent == NULL || stage_parent == NULL) goto done;
+  parent_handle = open_directory_no_reparse(destination_parent);
+  stage_directory = open_directory_no_reparse(stage_parent);
+  if (parent_handle == INVALID_HANDLE_VALUE || stage_directory == INVALID_HANDLE_VALUE ||
+      !GetFileInformationByHandleEx(parent_handle, FileIdInfo, &parent_identity,
+                                    sizeof(parent_identity)) ||
+      !GetFileInformationByHandleEx(stage_directory, FileIdInfo, &stage_identity,
+                                    sizeof(stage_identity)) ||
+      !GetFileInformationByHandleEx(stage_handle, FileIdInfo, &stage_file_identity,
+                                    sizeof(stage_file_identity)) ||
+      !file_identity_matches(&parent_identity, &capability->parent_identity) ||
+      !file_identity_matches(&stage_identity, &capability->identity) ||
+      parent_identity.VolumeSerialNumber != stage_identity.VolumeSerialNumber ||
+      stage_identity.VolumeSerialNumber != stage_file_identity.VolumeSerialNumber) {
+    result = PUBLICATION_UNSUPPORTED;
+    goto done;
   }
-  destination_bytes = wide_length(destination) * sizeof(WCHAR);
-  if (destination_bytes > MAXDWORD - FIELD_OFFSET(FILE_RENAME_INFO, FileName)) {
-    CloseHandle(publication_handle);
-    return PUBLICATION_FAILED;
-  }
-  allocation_size = (DWORD)(FIELD_OFFSET(FILE_RENAME_INFO, FileName) + destination_bytes);
-  rename_info = (FILE_RENAME_INFO *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-                                               allocation_size);
-  if (rename_info == NULL) {
-    CloseHandle(publication_handle);
-    return PUBLICATION_FAILED;
-  }
-  rename_info->Flags = 0;
-  rename_info->RootDirectory = NULL;
-  rename_info->FileNameLength = (DWORD)destination_bytes;
-  copy_bytes((BYTE *)rename_info->FileName, (const BYTE *)destination,
-             destination_bytes);
-  if (SetFileInformationByHandle(publication_handle, FileRenameInfoEx, rename_info,
-                                 allocation_size)) {
+  if (CreateHardLinkW(destination, stage_path, NULL)) {
     result = PUBLICATION_PUBLISHED;
   } else {
-    DWORD error = GetLastError();
-    /* Some Windows filesystems reject the extended information class even
-     * though the legacy no-replace form is supported.  Both paths retain the
-     * required no-replace behavior. */
-    if (error == ERROR_INVALID_FUNCTION || error == ERROR_INVALID_PARAMETER ||
-        error == ERROR_NOT_SUPPORTED || error == ERROR_CALL_NOT_IMPLEMENTED ||
-        error == ERROR_INVALID_NAME) {
-      rename_info->ReplaceIfExists = FALSE;
-      if (SetFileInformationByHandle(publication_handle, FileRenameInfo,
-                                     rename_info, allocation_size)) {
-        result = PUBLICATION_PUBLISHED;
-      } else {
-        DWORD legacy_error = GetLastError();
-        if (diagnostic != NULL) *diagnostic = legacy_error;
-        result = map_windows_error(legacy_error);
-      }
-    } else {
-      if (diagnostic != NULL) *diagnostic = error | (2UL << 30);
-      result = map_windows_error(error);
-    }
+    error = GetLastError();
+    if (diagnostic != NULL) *diagnostic = error;
+    result = map_windows_error(error);
   }
-  HeapFree(GetProcessHeap(), 0, rename_info);
-  CloseHandle(publication_handle);
+done:
+  if (stage_directory != INVALID_HANDLE_VALUE) CloseHandle(stage_directory);
+  if (parent_handle != INVALID_HANDLE_VALUE) CloseHandle(parent_handle);
+  publication_free(destination_parent);
+  publication_free(stage_parent);
   return result;
 }
 
@@ -492,13 +504,17 @@ static private_stage_directory *create_private_stage_directory(const WCHAR *path
   SECURITY_DESCRIPTOR descriptor;
   SECURITY_ATTRIBUTES attributes;
   HANDLE directory = INVALID_HANDLE_VALUE;
+  HANDLE parent = INVALID_HANDLE_VALUE;
+  WCHAR *parent_name = NULL;
   private_stage_directory *capability = NULL;
   DWORD acl_size = sizeof(ACL) + 2 * (sizeof(ACCESS_ALLOWED_ACE) - sizeof(DWORD)) +
                    2 * SECURITY_MAX_SID_SIZE;
 
-  if (path == NULL ||
+  if (path == NULL || (parent_name = parent_path(path)) == NULL ||
       !OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &token))
     goto done;
+  parent = open_directory_no_reparse(parent_name);
+  if (parent == INVALID_HANDLE_VALUE) goto done;
   GetTokenInformation(token, TokenUser, NULL, 0, &token_size);
   if (token_size == 0 ||
       (token_user = (TOKEN_USER *)publication_allocate(token_size)) == NULL ||
@@ -531,19 +547,25 @@ static private_stage_directory *create_private_stage_directory(const WCHAR *path
   capability = (private_stage_directory *)publication_allocate(sizeof(*capability));
   if (capability == NULL ||
       !GetFileInformationByHandleEx(directory, FileIdInfo, &capability->identity,
-                                    sizeof(capability->identity))) {
+                                    sizeof(capability->identity)) ||
+      !GetFileInformationByHandleEx(parent, FileIdInfo, &capability->parent_identity,
+                                    sizeof(capability->parent_identity))) {
     publication_free(capability);
     capability = NULL;
     goto done;
   }
   capability->handle = directory;
+  capability->parent_handle = parent;
   directory = INVALID_HANDLE_VALUE;
+  parent = INVALID_HANDLE_VALUE;
 
 done:
   if (directory != INVALID_HANDLE_VALUE) CloseHandle(directory);
+  if (parent != INVALID_HANDLE_VALUE) CloseHandle(parent);
   if (token != NULL) CloseHandle(token);
   publication_free(dacl);
   publication_free(token_user);
+  publication_free(parent_name);
   return capability;
 }
 
@@ -558,6 +580,10 @@ static publication_result dispose_private_stage_directory(private_stage_director
                                  &disposition, sizeof(disposition))) {
     CloseHandle(capability->handle);
     capability->handle = INVALID_HANDLE_VALUE;
+    if (capability->parent_handle != INVALID_HANDLE_VALUE) {
+      CloseHandle(capability->parent_handle);
+      capability->parent_handle = INVALID_HANDLE_VALUE;
+    }
     return PUBLICATION_PUBLISHED;
   }
   legacy.DeleteFile = TRUE;
@@ -565,6 +591,10 @@ static publication_result dispose_private_stage_directory(private_stage_director
                                  &legacy, sizeof(legacy))) {
     CloseHandle(capability->handle);
     capability->handle = INVALID_HANDLE_VALUE;
+    if (capability->parent_handle != INVALID_HANDLE_VALUE) {
+      CloseHandle(capability->parent_handle);
+      capability->parent_handle = INVALID_HANDLE_VALUE;
+    }
     return PUBLICATION_PUBLISHED;
   }
   return map_windows_error(GetLastError());

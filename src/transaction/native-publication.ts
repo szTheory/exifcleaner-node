@@ -6,7 +6,12 @@ type SupportedTuple = `${SupportedPlatform}-${SupportedArchitecture}`;
 type NativePublicationCode =
   "published" | "collision" | "unsupported" | "failed";
 export type NativePublicationArguments =
-  | readonly [stageFileDescriptor: number, destinationPath: string]
+  | readonly [
+      stageFileDescriptor: number,
+      destinationPath: string,
+      stagePath: string,
+      stageDirectoryCapability: NativeStageDirectoryCapability,
+    ]
   | readonly [
       stageDirectoryDescriptor: number,
       stageEntryName: string,
@@ -129,7 +134,7 @@ export function mapNativePublicationCode(
     default:
       if (
         typeof code === "string" &&
-        /^failed:(?:reopen-file|rename-ex|rename-legacy):\d+$/u.test(code)
+        /^failed:link:\d+$/u.test(code)
       )
         return { state: "publication-failed", diagnostic: code.slice(7) };
       return { state: "publication-failed" };
@@ -155,13 +160,22 @@ export function publishNoReplace(
   destinationDirectoryDescriptor: number | undefined,
   stageEntryName: string,
   destinationPath: string,
+  stagePath: string,
+  stageDirectoryCapability: NativeStageDirectoryCapability | undefined,
   destinationEntryName: string,
   platform = process.platform,
 ): NativePublicationResult {
   try {
     if (platform === "win32") {
+      if (stageDirectoryCapability === undefined)
+        return { state: "publication-failed" };
       return mapNativePublicationCode(
-        nativeBinding().publishNoReplace(stageFileDescriptor, destinationPath),
+        nativeBinding().publishNoReplace(
+          stageFileDescriptor,
+          destinationPath,
+          stagePath,
+          stageDirectoryCapability,
+        ),
       );
     }
     if (

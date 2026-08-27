@@ -13,6 +13,7 @@ import {
   mapNativeStageDirectoryCode,
   publishNoReplace,
   type NativePublicationArguments,
+  type NativeStageDirectoryCapability,
   setNativePublicationBindingForTests,
 } from "../src/transaction/native-publication.js";
 import { vp8, vp8x, webp } from "./fixtures.js";
@@ -85,7 +86,9 @@ describe("current-host native publication addon", () => {
       destinationEntry: string,
     ) =>
       process.platform === "win32"
-        ? binding.publishNoReplace(stageDescriptor, destination)
+        ? binding.publishNoReplace(
+            ...( [stageDescriptor, destination, stage, {}] as unknown as NativePublicationArguments),
+          )
         : binding.publishNoReplace(
             stageDirectory.fd,
             stageEntry,
@@ -312,6 +315,8 @@ describe("private native publication loader", () => {
           42,
           "output.webp",
           "/safe/destination.webp",
+          "/safe/stage/output.webp",
+          undefined,
           "destination.webp",
           "linux",
         ),
@@ -324,7 +329,12 @@ describe("private native publication loader", () => {
   it("passes the explicit Windows stage-handle ABI to the binding", () => {
     const restore = setNativePublicationBindingForTests({
       publishNoReplace(...args) {
-        expect(args).toEqual([40, "C:\\safe\\destination.webp"]);
+        expect(args).toEqual([
+          40,
+          "C:\\safe\\destination.webp",
+          "C:\\safe\\.stage\\output.webp",
+          {},
+        ]);
         return "published";
       },
       createPrivateStageDirectory: () => undefined,
@@ -339,6 +349,8 @@ describe("private native publication loader", () => {
           undefined,
           "output.webp",
           "C:\\safe\\destination.webp",
+          "C:\\safe\\.stage\\output.webp",
+          {} as NativeStageDirectoryCapability,
           "destination.webp",
           "win32",
         ),
