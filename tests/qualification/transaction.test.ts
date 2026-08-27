@@ -14,12 +14,19 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { webpHandler } from "../../src/admission/webp-handler.js";
+import {
+  webpHandler,
+  webpOutputSize,
+} from "../../src/admission/webp-handler.js";
 import { classifyFallback } from "../../src/fallback.js";
 import { NODE_FILE_OPS, type FileOps } from "../../src/transaction/file-ops.js";
 import { snapshotSource } from "../../src/transaction/identity.js";
 import { setNativePublicationBindingForTests } from "../../src/transaction/native-publication.js";
 import { runSafeTransaction } from "../../src/transaction/safe-transaction.js";
+import {
+  encodeChunkHeader,
+  encodeRiffHeader,
+} from "../../src/webp/riff.js";
 import type { RegisteredHandler } from "../../src/admission/registry.js";
 import type {
   WebpAdmission,
@@ -136,7 +143,136 @@ const terminalFaults = LOGICAL_OPERATIONS.filter(
   (operation) => operation !== "stage-disposition",
 );
 
+const postPublicationCloseTargets = [
+  "stage-directory",
+  "destination-directory",
+  "published-stage-file",
+  "source-handle",
+] as const;
+
+type PostPublicationCloseTarget =
+  (typeof postPublicationCloseTargets)[number];
+
+async function expectedOutput(
+  prepared: TransactionFixture,
+): Promise<Buffer> {
+  const source = await readFile(prepared.sourcePath);
+  return Buffer.concat([
+    encodeRiffHeader(webpOutputSize(prepared.plan)),
+    ...prepared.plan.flatMap((chunk) => {
+      const data =
+        chunk.data ??
+        source.subarray(
+          chunk.source!.dataOffset,
+          chunk.source!.dataOffset + chunk.size,
+        );
+      return [
+        encodeChunkHeader(chunk.fourCc, chunk.size),
+        data,
+        ...(chunk.size & 1 ? [Buffer.alloc(1)] : []),
+      ];
+    }),
+  ]);
+}
+
+function postPublicationCloseFaultFileOps(
+  prepared: TransactionFixture,
+  target: PostPublicationCloseTarget,
+  published: () => boolean,
+): { readonly fileOps: FileOps; readonly closeAttempts: readonly string[] } {
+  const paths = new Map<number, string>();
+  const closeAttempts: string[] = [];
+  const nameFor = (handle: Awaited<ReturnType<typeof open>>): string => {
+    if (handle === prepared.source) return "source-handle";
+    const path = paths.get(handle.fd);
+    if (path === undefined) return "unknown";
+    if (path.includes(".exifcleaner-stage-") && !path.endsWith("output.webp"))
+      return "stage-directory";
+    if (path === prepared.directory) return "destination-directory";
+    return "published-stage-file";
+  };
+  return {
+    fileOps: {
+      ...NODE_FILE_OPS,
+      open: async (path, flags, mode) => {
+        const handle = await NODE_FILE_OPS.open(path, flags, mode);
+        paths.set(handle.fd, path);
+        return handle;
+      },
+      close: async (handle) => {
+        const name = nameFor(handle);
+        if (published()) closeAttempts.push(name);
+        await NODE_FILE_OPS.close(handle);
+        paths.delete(handle.fd);
+        if (published() && name === target)
+          throw Object.assign(new Error(`Synthetic EIO at ${name}`), {
+            code: "EIO",
+          });
+      },
+    },
+    closeAttempts,
+  };
+}
+
 describe("deterministic transaction qualification", () => {
+  it.each(postPublicationCloseTargets)(
+    "retains committed success when post-publication %s close fails",
+    async (target: PostPublicationCloseTarget) => {
+      const prepared = await fixture();
+      let published = false;
+      let stageDirectoryPath: string | undefined;
+      const fault = postPublicationCloseFaultFileOps(
+        prepared,
+        target,
+        () => published,
+      );
+      const restore = setNativePublicationBindingForTests({
+        createPrivateStageDirectory: () => undefined,
+        publishNoReplace() {
+          if (stageDirectoryPath === undefined)
+            throw new Error("Expected private stage directory");
+          renameSync(
+            join(stageDirectoryPath, "output.webp"),
+            prepared.destinationPath,
+          );
+          published = true;
+          return "published";
+        },
+        disposePrivateStageDirectory: () => "unsupported",
+      });
+      const fileOps: FileOps = {
+        ...fault.fileOps,
+        open: async (path, flags, mode) => {
+          const handle = await fault.fileOps.open(path, flags, mode);
+          if (path.includes(".exifcleaner-stage-") && !path.endsWith("output.webp"))
+            stageDirectoryPath = path;
+          return handle;
+        },
+      };
+      try {
+        const expected = await expectedOutput(prepared);
+        const result = await run(prepared, { fileOps, platform: "darwin" });
+
+        expect(result).toMatchObject({
+          ok: true,
+          value: {
+            postCommitResidue: {
+              state: "private-empty-stage-directory-remains",
+            },
+          },
+        });
+        expect(await readFile(prepared.destinationPath)).toEqual(expected);
+        expect(await readFile(prepared.sourcePath)).toEqual(prepared.sourceBytes);
+        expect(fault.closeAttempts).toEqual(postPublicationCloseTargets);
+        await expect(
+          prepared.source.read(Buffer.alloc(1), 0, 1, 0),
+        ).rejects.toMatchObject({ code: "EBADF" });
+      } finally {
+        restore();
+      }
+    },
+  );
+
   it.each(terminalFaults)(
     "injects %s once with terminal safety and complete handle accounting",
     async (operation: LogicalOperation) => {
