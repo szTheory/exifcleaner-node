@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { WINDOWS_REOPEN_FLAGS } from "../src/transaction/file-ops.js";
 import {
   loadNativePublicationBindingForTests,
   mapNativePublicationCode,
@@ -119,6 +120,13 @@ describe("current-host native publication addon", () => {
 });
 
 describe("private native publication loader", () => {
+  it("does not apply POSIX no-follow reopening flags to a Windows private stage", () => {
+    expect(WINDOWS_REOPEN_FLAGS & fsConstants.O_NOFOLLOW).toBe(0);
+    expect(WINDOWS_REOPEN_FLAGS & fsConstants.O_RDWR).toBe(
+      fsConstants.O_RDWR,
+    );
+  });
+
   it.each([
     ["linux", "x64", "../../prebuilds/linux-x64/publication.node"],
     ["linux", "arm64", "../../prebuilds/linux-arm64/publication.node"],
