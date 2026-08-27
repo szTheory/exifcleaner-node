@@ -422,7 +422,7 @@ describe("sanitizeFile", () => {
       state: "private-empty-stage-directory-remains",
       cause: {
         code: "ENOTSUP",
-        message: "identity-bound directory cleanup unavailable",
+        message: "Private empty stage-directory cleanup is unavailable.",
       },
     });
   });
