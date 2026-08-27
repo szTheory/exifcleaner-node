@@ -9,6 +9,7 @@ const HELP = `Usage: node scripts/ci_monitor.cjs <command> [arguments]
 
 Commands:
   runs [--branch <name>]                 List recent workflow runs
+  dispatch <workflow> <ref>              Dispatch a workflow on an exact ref
   watch <run-id>                         Watch a run and exit with its status
   fail-fast <run-id>                     Watch a run and exit on failure
   rerun-failed <run-id>                  Rerun only failed jobs
@@ -180,6 +181,12 @@ async function main() {
     const branch = option(args, "--branch");
     if (branch) ghArgs.push("--branch", branch);
     return runGh(ghArgs);
+  }
+  if (command === "dispatch") {
+    const [workflow, ref] = args;
+    if (!workflow || !ref)
+      throw new Error("dispatch requires a workflow and exact ref");
+    return runGh(["workflow", "run", workflow, "--ref", ref]);
   }
   if (command === "watch") {
     if (!args[0]) throw new Error(`${command} requires a run id`);
