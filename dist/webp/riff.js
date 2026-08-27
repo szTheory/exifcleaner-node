@@ -2,7 +2,7 @@ export const RIFF_HEADER_SIZE = 12;
 export const MAX_BUFFERED_METADATA_BYTES = 16 * 1024 * 1024;
 export const MAX_CHUNK_COUNT = 10_000;
 export const MAX_RIFF_BYTES = 0xffff_fffe;
-export const COPY_BLOCK_BYTES = 64 * 1024;
+export const COPY_BLOCK_BYTES = 1024 * 1024;
 const KNOWN_CHUNKS = new Set([
     "VP8 ",
     "VP8L",

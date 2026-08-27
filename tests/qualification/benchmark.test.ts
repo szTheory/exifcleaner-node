@@ -231,6 +231,15 @@ describe("paired benchmark admission", () => {
     expect(child).not.toMatch(/global\.gc|process\.gc/u);
   });
 
+  it("uses a bounded MiB payload I/O window to avoid hundreds of scheduler-sensitive file operations", async () => {
+    const riff = await readFile(
+      join(projectRoot, "src", "webp", "riff.ts"),
+      "utf8",
+    );
+    expect(riff).toContain("export const COPY_BLOCK_BYTES = 1024 * 1024");
+    expect(riff).not.toContain("COPY_BLOCK_BYTES = 64 * 1024");
+  });
+
   it("requires explicit packed baseline/candidate inputs and fresh child execution", async () => {
     expect(() => benchmark.parseArguments([])).toThrow("--baseline-tarball");
     const source = await readFile(
