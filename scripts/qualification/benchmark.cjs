@@ -17,8 +17,7 @@ const BASELINE_PACKAGE_NAME = "exifcleaner-node";
 const BASELINE_VERSION = "0.1.1";
 const BASELINE_TARBALL_SHA256 =
   "c2fc569b553cba360814bcce61d6882a02aba062e6d6da2193323915530a34bf";
-const BASELINE_EXPECTED_IDENTITY =
-  `${BASELINE_PACKAGE_NAME}@${BASELINE_VERSION}#sha256:${BASELINE_TARBALL_SHA256}`;
+const BASELINE_EXPECTED_IDENTITY = `${BASELINE_PACKAGE_NAME}@${BASELINE_VERSION}#sha256:${BASELINE_TARBALL_SHA256}`;
 
 const BENCHMARK_THRESHOLDS = Object.freeze({
   medianRatio: 1.2,
@@ -469,7 +468,9 @@ function validateBaselinePackage(packageJson, sha256) {
   if (!SHA256.test(sha256))
     throw new Error("Baseline tarball digest is not SHA-256");
   if (sha256 !== BASELINE_TARBALL_SHA256)
-    throw new Error("Baseline tarball digest does not match the trusted artifact");
+    throw new Error(
+      "Baseline tarball digest does not match the trusted artifact",
+    );
   return {
     baselinePackageName: packageJson.name,
     baselineVersion: packageJson.version,

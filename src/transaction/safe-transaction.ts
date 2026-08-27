@@ -102,7 +102,10 @@ async function closePostPublicationResources({
   await close(sourceHandle);
 
   if (platform === "win32" && directoryCapability !== undefined) {
-    const stageFileResult = removePrivateStageFile(directoryCapability, stagePath);
+    const stageFileResult = removePrivateStageFile(
+      directoryCapability,
+      stagePath,
+    );
     if (stageFileResult.state !== "disposed")
       return stageResidue({
         code: stageFileResult.state,
@@ -512,7 +515,8 @@ export async function runSafeTransaction(
           "Private staged file remains after terminal publication failure.",
       }
     : {
-        message: "Private staging directory remains after terminal setup failure.",
+        message:
+          "Private staging directory remains after terminal setup failure.",
       };
   return err(
     withDestinationFinalization(failure!, {
