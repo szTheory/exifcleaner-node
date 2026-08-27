@@ -511,9 +511,9 @@ async function runInstalledProperties(api, sandbox) {
 
 function installedPropertyFailure(index, result, sourcePreserved) {
   if (!result.ok) {
-    const { code, phase, nativeWrite } = result.error;
+    const { code, detail, phase, nativeWrite } = result.error;
     return new Error(
-      `Installed property case failed: ${index}:${code}:${phase}:${nativeWrite}`,
+      `Installed property case failed: ${index}:${code}:${phase}:${nativeWrite}:${detail}`,
     );
   }
   if (!sourcePreserved)

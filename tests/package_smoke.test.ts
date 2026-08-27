@@ -38,7 +38,12 @@ const helper = require("../scripts/package_smoke.cjs") as {
       | { ok: true }
       | {
           ok: false;
-          error: { code: string; phase: string; nativeWrite: string };
+          error: {
+            code: string;
+            detail: string;
+            phase: string;
+            nativeWrite: string;
+          };
         },
     sourcePreserved: boolean,
   ): Error;
@@ -80,6 +85,7 @@ describe("installed package smoke", () => {
           ok: false,
           error: {
             code: "publication-failed",
+            detail: "Native no-replace publication could not complete.",
             phase: "execution",
             nativeWrite: "started",
           },
@@ -87,7 +93,7 @@ describe("installed package smoke", () => {
         true,
       ).message,
     ).toBe(
-      "Installed property case failed: 0:publication-failed:execution:started",
+      "Installed property case failed: 0:publication-failed:execution:started:Native no-replace publication could not complete.",
     );
     expect(
       helper.installedPropertyFailure(1, { ok: true }, false).message,
