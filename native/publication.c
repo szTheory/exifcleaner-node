@@ -378,6 +378,7 @@ static BOOL file_identity_matches(const FILE_ID_INFO *left, const FILE_ID_INFO *
 static WCHAR *parent_path(const WCHAR *path) {
   size_t length = 0;
   size_t split = 0;
+  size_t parent_length;
   WCHAR *parent;
   if (path == NULL || path[0] == L'\0') return NULL;
   while (path[length] != L'\0') {
@@ -385,10 +386,13 @@ static WCHAR *parent_path(const WCHAR *path) {
     length += 1;
   }
   if (split == 0 || split + 1 >= length) return NULL;
-  parent = (WCHAR *)publication_allocate((split + 1) * sizeof(WCHAR));
+  parent_length = split;
+  /* C:\\file has the drive root as its parent; C: would be drive-relative. */
+  if (split == 2 && path[1] == L':') parent_length = split + 1;
+  parent = (WCHAR *)publication_allocate((parent_length + 1) * sizeof(WCHAR));
   if (parent == NULL) return NULL;
-  for (length = 0; length < split; length += 1) parent[length] = path[length];
-  parent[split] = L'\0';
+  for (length = 0; length < parent_length; length += 1) parent[length] = path[length];
+  parent[parent_length] = L'\0';
   return parent;
 }
 

@@ -54,6 +54,9 @@ describe("current-host native publication addon", () => {
     expect(source.indexOf("FileIdInfo")).toBeLessThan(
       source.indexOf("CreateHardLinkW(destination, stage_path, NULL)"),
     );
+    expect(source).toContain(
+      "if (split == 2 && path[1] == L':') parent_length = split + 1;",
+    );
     expect(source).not.toMatch(
       /FileRenameInfo(?:Ex)?|ReplaceIfExists|ReOpenFile/u,
     );
@@ -377,13 +380,13 @@ describe("private native publication loader", () => {
     }
   });
 
-  it("passes the explicit Windows stage-handle ABI to the binding", () => {
+  it("passes the drive-root Windows publication ABI to the binding", () => {
     const restore = setNativePublicationBindingForTests({
       publishNoReplace(...args) {
         expect(args).toEqual([
           40,
-          "C:\\safe\\destination.webp",
-          "C:\\safe\\.stage\\output.webp",
+          "C:\\destination.webp",
+          "C:\\.exifcleaner-stage-test\\output.webp",
           {},
         ]);
         return "published";
@@ -400,8 +403,8 @@ describe("private native publication loader", () => {
           undefined,
           undefined,
           "output.webp",
-          "C:\\safe\\destination.webp",
-          "C:\\safe\\.stage\\output.webp",
+          "C:\\destination.webp",
+          "C:\\.exifcleaner-stage-test\\output.webp",
           {} as NativeStageDirectoryCapability,
           "destination.webp",
           "win32",
