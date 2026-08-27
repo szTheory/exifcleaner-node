@@ -324,10 +324,25 @@ static publication_result publish_no_replace(HANDLE stage_handle,
   rename_info->FileNameLength = (DWORD)destination_bytes;
   copy_bytes((BYTE *)rename_info->FileName, (const BYTE *)destination,
              destination_bytes);
-  result = SetFileInformationByHandle(publication_handle, FileRenameInfoEx, rename_info,
-                                      allocation_size)
-               ? PUBLICATION_PUBLISHED
-               : map_windows_error(GetLastError());
+  if (SetFileInformationByHandle(publication_handle, FileRenameInfoEx, rename_info,
+                                 allocation_size)) {
+    result = PUBLICATION_PUBLISHED;
+  } else {
+    DWORD error = GetLastError();
+    /* Some Windows filesystems reject the extended information class even
+     * though the legacy no-replace form is supported.  Both paths retain the
+     * required no-replace behavior. */
+    if (error == ERROR_INVALID_FUNCTION || error == ERROR_INVALID_PARAMETER ||
+        error == ERROR_NOT_SUPPORTED || error == ERROR_CALL_NOT_IMPLEMENTED) {
+      rename_info->ReplaceIfExists = FALSE;
+      result = SetFileInformationByHandle(publication_handle, FileRenameInfo,
+                                          rename_info, allocation_size)
+                   ? PUBLICATION_PUBLISHED
+                   : map_windows_error(GetLastError());
+    } else {
+      result = map_windows_error(error);
+    }
+  }
   HeapFree(GetProcessHeap(), 0, rename_info);
   CloseHandle(publication_handle);
   return result;
