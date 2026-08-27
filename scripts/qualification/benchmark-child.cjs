@@ -7,12 +7,33 @@ const fsPromises = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { generateFixture } = require("./benchmark.cjs");
+const { materializeFixture } = require("./benchmark.cjs");
 
 const SHA256 = /^[a-f0-9]{64}$/;
 
 function digest(bytes) {
   return crypto.createHash("sha256").update(bytes).digest("hex");
+}
+
+async function digestFile(filePath) {
+  const hash = crypto.createHash("sha256");
+  for await (const chunk of fs.createReadStream(filePath)) hash.update(chunk);
+  return hash.digest("hex");
+}
+
+function memorySnapshot(phase) {
+  const memory = process.memoryUsage();
+  return {
+    phase,
+    rss: memory.rss,
+    heapUsed: memory.heapUsed,
+    external: memory.external,
+    arrayBuffers: memory.arrayBuffers,
+    maxRSSKiB:
+      process.platform === "darwin"
+        ? process.resourceUsage().maxRSS / 1024
+        : process.resourceUsage().maxRSS,
+  };
 }
 
 function parseArguments(args) {
@@ -227,14 +248,13 @@ async function main() {
   const publicApi = await import(
     moduleUrl(options.packageRoot, "dist/index.js")
   );
-  const fixtureBytes = generateFixture(options.fixture);
-  if (digest(fixtureBytes) !== options.fixture.sha256)
-    throw new Error(`fixture ${options.fixture.id} digest drift`);
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "exifcleaner-sample-"));
   const sourcePath = path.join(sandbox, "source.webp");
   const destinationPath = path.join(sandbox, "output.webp");
-  fs.writeFileSync(sourcePath, fixtureBytes);
-  const sourceDigest = digest(fixtureBytes);
+  const allocationPhases = [memorySnapshot("package-load")];
+  const source = materializeFixture(options.fixture, sourcePath);
+  allocationPhases.push(memorySnapshot("fixture-materialized"));
+  const sourceDigest = source.sha256;
   const startedRss = process.memoryUsage().rss;
   const startedAt = process.hrtime.bigint();
   try {
@@ -266,15 +286,16 @@ async function main() {
                 : undefined,
           };
     const endedAt = process.hrtime.bigint();
+    allocationPhases.push(memorySnapshot("sanitize-complete"));
     const status = assertExpected(options.fixture, measured.result);
-    const output = exists(destinationPath)
-      ? fs.readFileSync(destinationPath)
-      : undefined;
-    const outputSha256 = output === undefined ? null : digest(output);
-    const outputBytes = output?.length ?? 0;
-    const sourceUnchanged =
-      digest(fs.readFileSync(sourcePath)) === sourceDigest;
-    const destinationAbsent = output === undefined;
+    const destinationAbsent = !exists(destinationPath);
+    const outputBytes = destinationAbsent
+      ? 0
+      : fs.statSync(destinationPath).size;
+    const outputSha256 = destinationAbsent
+      ? null
+      : await digestFile(destinationPath);
+    const sourceUnchanged = (await digestFile(sourcePath)) === sourceDigest;
     const finalization =
       measured.cancellation === undefined
         ? ordinaryFinalization(measured.result, sandbox, destinationPath)
@@ -295,6 +316,7 @@ async function main() {
         }),
       ),
     );
+    allocationPhases.push(memorySnapshot("correctness-complete"));
     const record = {
       schemaVersion: 1,
       version: options.version,
@@ -315,6 +337,7 @@ async function main() {
       finalizationTruthful: finalization.finalizationTruthful,
       correctnessKey,
       cancellation: measured.cancellation,
+      allocationPhases,
       environment: {
         nodeVersion: process.version,
         platform: process.platform,

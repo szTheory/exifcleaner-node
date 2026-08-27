@@ -209,7 +209,8 @@ describe("paired benchmark admission", () => {
     );
     expect(animation).toMatchObject({
       targetBytes: 16 * 1024 * 1024,
-      sha256: "73fc89a949c4632c4797d10fd10ef7abeec1f35e7ba5959918bd4d580fba5908",
+      sha256:
+        "73fc89a949c4632c4797d10fd10ef7abeec1f35e7ba5959918bd4d580fba5908",
     });
     expect(benchmark.BENCHMARK_THRESHOLDS.peakRssSlackKiB).toBe(16_384);
     expect(153_500).toBeLessThanOrEqual(

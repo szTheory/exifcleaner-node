@@ -182,6 +182,128 @@ function generateFixture(record) {
   return bytes;
 }
 
+function deterministicBlock(length, seed) {
+  const block = Buffer.allocUnsafe(Math.min(length, 64 * 1024));
+  let state = seed >>> 0;
+  for (let index = 0; index < block.length; index += 1) {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+    block[index] = state >>> 24;
+  }
+  return block;
+}
+
+function materializeFixture(record, destinationPath) {
+  const target = Number(record.targetBytes);
+  const hash = crypto.createHash("sha256");
+  const descriptor = fs.openSync(destinationPath, "wx");
+  let bytesWritten = 0;
+  const write = (bytes) => {
+    let offset = 0;
+    while (offset < bytes.length) {
+      const written = fs.writeSync(
+        descriptor,
+        bytes,
+        offset,
+        bytes.length - offset,
+      );
+      if (written === 0) throw new Error("Fixture write made no progress");
+      offset += written;
+    }
+    hash.update(bytes);
+    bytesWritten += bytes.length;
+  };
+  const writeHeader = (fourCc, size) => {
+    const header = Buffer.allocUnsafe(8);
+    header.write(fourCc, 0, 4, "ascii");
+    header.writeUInt32LE(size, 4);
+    write(header);
+  };
+  const writeDeterministic = (length, seed, mutations = []) => {
+    const block = deterministicBlock(length, seed);
+    const first = Buffer.from(block);
+    for (const [offset, value] of mutations) {
+      if (offset < first.length) first[offset] = value;
+    }
+    write(first);
+    for (let offset = block.length; offset < length; offset += block.length)
+      write(block.subarray(0, Math.min(block.length, length - offset)));
+  };
+  const writeChunk = (fourCc, size, payload) => {
+    writeHeader(fourCc, size);
+    payload();
+    if (size & 1) write(Buffer.alloc(1));
+  };
+  try {
+    const riff = Buffer.allocUnsafe(12);
+    riff.write("RIFF", 0, 4, "ascii");
+    riff.writeUInt32LE(target - 8, 4);
+    riff.write("WEBP", 8, 4, "ascii");
+    if (record.kind !== "malformed") write(riff);
+    if (record.kind === "still" || record.kind === "cancellation") {
+      const payloadLength = target - 20;
+      writeChunk("VP8 ", payloadLength, () => {
+        const block = deterministicBlock(payloadLength, record.seed);
+        const first = Buffer.from(block);
+        first.set([0x10, 0, 0, 0x9d, 0x01, 0x2a, 1, 0, 1, 0]);
+        write(first);
+        for (
+          let offset = block.length;
+          offset < payloadLength;
+          offset += block.length
+        )
+          write(
+            block.subarray(0, Math.min(block.length, payloadLength - offset)),
+          );
+      });
+    } else if (record.kind === "metadata-still") {
+      writeChunk("VP8X", 10, () => write(vp8x(0x08)));
+      writeChunk("VP8 ", 10, () => write(vp8Payload(10, record.seed)));
+      writeChunk("EXIF", target - 56, () =>
+        writeDeterministic(target - 56, record.seed + 1),
+      );
+    } else if (record.kind === "animation-alpha") {
+      writeChunk("VP8X", 10, () => write(vp8x(0x12)));
+      writeChunk("ANIM", 6, () => write(Buffer.alloc(6)));
+      const alphaLength = target - 94;
+      writeHeader("ANMF", alphaLength + 42);
+      write(
+        Buffer.concat([
+          uint24(0),
+          uint24(0),
+          uint24(0),
+          uint24(0),
+          uint24(40),
+          Buffer.alloc(1),
+        ]),
+      );
+      writeChunk("ALPH", alphaLength, () =>
+        writeDeterministic(alphaLength, record.seed, [[0, 1]]),
+      );
+      writeChunk("VP8 ", 10, () => write(vp8Payload(10, record.seed + 1)));
+    } else if (record.kind === "malformed") {
+      const bytes = Buffer.alloc(target);
+      bytes.write("RIFF", 0, 4, "ascii");
+      bytes.writeUInt32LE(4, 4);
+      bytes.write("WEBP", 8, 4, "ascii");
+      write(bytes);
+    } else if (record.kind === "metadata-sentinel") {
+      writeChunk("VP8X", 10, () => write(vp8x(0x20)));
+      writeChunk("ICCP", 16 * 1024 * 1024 + 1, () =>
+        writeDeterministic(16 * 1024 * 1024 + 1, record.seed),
+      );
+      writeChunk("VP8 ", 10, () => write(vp8Payload(10, record.seed + 1)));
+    } else throw new Error(`Unknown benchmark fixture kind: ${record.kind}`);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  if (bytesWritten !== target)
+    throw new Error(`Benchmark fixture size drift: ${record.id}`);
+  const sha256 = hash.digest("hex");
+  if (sha256 !== record.sha256)
+    throw new Error(`Benchmark fixture digest drift: ${record.id}`);
+  return { bytes: bytesWritten, sha256 };
+}
+
 function buildSchedule(
   fixtureIds,
   warmups = WARMUPS,
@@ -401,6 +523,22 @@ function measureChild(version, installed, fixture) {
     { label: `${version}:${fixture.id}` },
   );
   const record = JSON.parse(output);
+  const expectedPhases = [
+    "package-load",
+    "fixture-materialized",
+    "sanitize-complete",
+    "correctness-complete",
+  ];
+  const validAllocationPhases =
+    Array.isArray(record.allocationPhases) &&
+    record.allocationPhases.length === expectedPhases.length &&
+    record.allocationPhases.every(
+      (snapshot, index) =>
+        snapshot?.phase === expectedPhases[index] &&
+        ["rss", "heapUsed", "external", "arrayBuffers", "maxRSSKiB"].every(
+          (field) => Number.isFinite(snapshot[field]) && snapshot[field] >= 0,
+        ),
+    );
   if (
     record.schemaVersion !== 1 ||
     record.version !== version ||
@@ -415,6 +553,7 @@ function measureChild(version, installed, fixture) {
     !Number.isFinite(record.endedRss) ||
     record.endedRss < 0 ||
     !SHA256.test(record.correctnessKey) ||
+    !validAllocationPhases ||
     record.environment?.nodeVersion !== process.version ||
     record.environment?.platform !== process.platform ||
     record.environment?.architecture !== process.arch
@@ -572,6 +711,7 @@ module.exports = {
   executeBenchmark,
   exitCodeForMode,
   generateFixture,
+  materializeFixture,
   loadBenchmarkManifest,
   parseArguments,
   percentile,
