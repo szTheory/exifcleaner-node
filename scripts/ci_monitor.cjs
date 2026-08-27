@@ -10,6 +10,8 @@ const HELP = `Usage: node scripts/ci_monitor.cjs <command> [arguments]
 Commands:
   runs [--branch <name>]                 List recent workflow runs
   dispatch <workflow> <ref>              Dispatch a workflow on an exact ref
+  view <run-id>                          Show run identity and conclusion as JSON
+  download <run-id> <name> <directory>   Download one named run artifact
   watch <run-id>                         Watch a run and exit with its status
   fail-fast <run-id>                     Watch a run and exit on failure
   rerun-failed <run-id>                  Rerun only failed jobs
@@ -187,6 +189,37 @@ async function main() {
     if (!workflow || !ref)
       throw new Error("dispatch requires a workflow and exact ref");
     return runGh(["workflow", "run", workflow, "--ref", ref]);
+  }
+  if (command === "view") {
+    if (!args[0]) throw new Error("view requires a run id");
+    const run = runGh(
+      [
+        "run",
+        "view",
+        args[0],
+        "--json",
+        "status,conclusion,url,headSha,headBranch,event,workflowName,databaseId",
+      ],
+      true,
+    );
+    console.log(run.trim());
+    return;
+  }
+  if (command === "download") {
+    const [runId, name, directory] = args;
+    if (!runId || !name || !directory)
+      throw new Error(
+        "download requires a run id, artifact name, and directory",
+      );
+    return runGh([
+      "run",
+      "download",
+      runId,
+      "--name",
+      name,
+      "--dir",
+      directory,
+    ]);
   }
   if (command === "watch") {
     if (!args[0]) throw new Error(`${command} requires a run id`);
