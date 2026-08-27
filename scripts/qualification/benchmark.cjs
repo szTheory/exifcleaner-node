@@ -526,7 +526,11 @@ function measureChild(version, installed, fixture) {
       "--run-token",
       runToken,
     ],
-    { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, detached: process.platform !== "win32" },
+    {
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
+      detached: process.platform !== "win32",
+    },
   );
   if (result.error !== undefined || result.status !== 0 || result.stderr !== "")
     throw new Error(`${version}:${fixture.id} process contract failed`);
@@ -589,12 +593,29 @@ function measureCalibration(sandbox, position) {
     timeout: 10_000,
     maxBuffer: 16 * 1024,
   });
-  if (result.error !== undefined || result.status !== 0 || result.signal !== null || result.stderr !== "" || !result.stdout.endsWith("\n") || result.stdout.indexOf("\n") !== result.stdout.length - 1)
+  if (
+    result.error !== undefined ||
+    result.status !== 0 ||
+    result.signal !== null ||
+    result.stderr !== "" ||
+    !result.stdout.endsWith("\n") ||
+    result.stdout.indexOf("\n") !== result.stdout.length - 1
+  )
     throw new Error(`calibration ${position} process contract failed`);
   let authority;
-  try { authority = JSON.parse(result.stdout); } catch { throw new Error(`calibration ${position} emitted invalid JSON`); }
-  reportValidator.validateCalibration(authority, reportValidator.loadReference());
-  if (authority.process.execPath !== process.execPath || fs.readdirSync(calibrationSandbox).length !== 0)
+  try {
+    authority = JSON.parse(result.stdout);
+  } catch {
+    throw new Error(`calibration ${position} emitted invalid JSON`);
+  }
+  reportValidator.validateCalibration(
+    authority,
+    reportValidator.loadReference(),
+  );
+  if (
+    authority.process.execPath !== process.execPath ||
+    fs.readdirSync(calibrationSandbox).length !== 0
+  )
     throw new Error(`calibration ${position} identity or cleanup failed`);
   return authority;
 }
@@ -675,7 +696,8 @@ async function executeBenchmark(options) {
     const calibrationDerived = reportValidator.deriveRunScale({
       before: calibrationBefore.trials,
       after: calibrationAfter.trials,
-      referenceMedianNs: reference.referenceMedianNs[String(calibrationBefore.nodeMajor)],
+      referenceMedianNs:
+        reference.referenceMedianNs[String(calibrationBefore.nodeMajor)],
     });
     const aggregates = new Map();
     for (const [key, samples] of retained) {
@@ -686,8 +708,14 @@ async function executeBenchmark(options) {
       const rawAggregate = aggregate(samples);
       aggregates.set(key, {
         ...rawAggregate,
-        medianElapsedNs: percentile(scaledSamples.map((sample) => sample.scaledElapsedNs), 0.5),
-        p95ElapsedNs: percentile(scaledSamples.map((sample) => sample.scaledElapsedNs), 0.95),
+        medianElapsedNs: percentile(
+          scaledSamples.map((sample) => sample.scaledElapsedNs),
+          0.5,
+        ),
+        p95ElapsedNs: percentile(
+          scaledSamples.map((sample) => sample.scaledElapsedNs),
+          0.95,
+        ),
         samples: scaledSamples,
       });
     }
@@ -721,7 +749,13 @@ async function executeBenchmark(options) {
         baselineP95Ns: baseline.p95ElapsedNs,
         candidateP95Ns: candidate.p95ElapsedNs,
       });
-      comparisons.push({ fixtureId: fixture.id, baseline, candidate, timing, verdict });
+      comparisons.push({
+        fixtureId: fixture.id,
+        baseline,
+        candidate,
+        timing,
+        verdict,
+      });
       failures.push(
         ...verdict.failures.map((failure) => `${fixture.id}: ${failure}`),
       );
@@ -748,7 +782,12 @@ async function executeBenchmark(options) {
       warmups: WARMUPS,
       measurements: MEASUREMENTS,
       thresholds: BENCHMARK_THRESHOLDS,
-      calibration: { before: calibrationBefore, after: calibrationAfter, reference, derived: calibrationDerived },
+      calibration: {
+        before: calibrationBefore,
+        after: calibrationAfter,
+        reference,
+        derived: calibrationDerived,
+      },
       rawSchedule,
       collection: { retries: 0, discarded: 0 },
       environment: {

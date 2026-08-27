@@ -68,16 +68,26 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     candidateMedianNs: number;
     baselineP95Ns: number;
     candidateP95Ns: number;
-  }): { pass: boolean; medianLimitNs: number; p95LimitNs: number; failures: string[] };
-  deriveRunScale(input: { before: number[]; after: number[]; referenceMedianNs: number }): {
+  }): {
+    pass: boolean;
+    medianLimitNs: number;
+    p95LimitNs: number;
+    failures: string[];
+  };
+  deriveRunScale(input: {
+    before: number[];
+    after: number[];
+    referenceMedianNs: number;
+  }): {
     observedCalibrationNs: number;
     runScale: number;
   };
   validateCalibration(input: Record<string, unknown>): void;
 };
-const calibration = require("../../scripts/qualification/benchmark-calibration.cjs") as {
-  workloadDigest(): string;
-};
+const calibration =
+  require("../../scripts/qualification/benchmark-calibration.cjs") as {
+    workloadDigest(): string;
+  };
 
 describe("paired benchmark admission", () => {
   it("uses one common calibration scale that cancels a global runner factor", () => {
@@ -122,7 +132,11 @@ describe("paired benchmark admission", () => {
       baselineP95Ns: 10_000_000,
       candidateP95Ns: 40_000_000,
     });
-    expect(slack).toMatchObject({ pass: true, medianLimitNs: 25_000_000, p95LimitNs: 40_000_000 });
+    expect(slack).toMatchObject({
+      pass: true,
+      medianLimitNs: 25_000_000,
+      p95LimitNs: 40_000_000,
+    });
     expect(
       report.evaluateTiming({
         baselineMedianNs: 10_000_000,
@@ -143,9 +157,19 @@ describe("paired benchmark admission", () => {
       process: { execPath: process.execPath, clean: true },
     };
     expect(() => report.validateCalibration(authority)).not.toThrow();
-    expect(() => report.validateCalibration({ ...authority, candidateCalibration: 1 })).toThrow();
-    expect(() => report.validateCalibration({ ...authority, trials: [0, 100, 100] })).toThrow();
-    expect(() => report.deriveRunScale({ before: [100, 100, 100], after: [111, 111, 111], referenceMedianNs: 100 })).toThrow();
+    expect(() =>
+      report.validateCalibration({ ...authority, candidateCalibration: 1 }),
+    ).toThrow();
+    expect(() =>
+      report.validateCalibration({ ...authority, trials: [0, 100, 100] }),
+    ).toThrow();
+    expect(() =>
+      report.deriveRunScale({
+        before: [100, 100, 100],
+        after: [111, 111, 111],
+        referenceMedianNs: 100,
+      }),
+    ).toThrow();
   });
   it("alternates baseline/candidate in fresh-child order with locked 2/15 counts", () => {
     const schedule = benchmark.buildSchedule(["still-64k"], 2, 15);
