@@ -169,7 +169,7 @@ function validateReport(report) {
     report.calibration.before.nodeMajor !==
       report.calibration.after.nodeMajor ||
     report.calibration.before.nodeMajor !==
-      Number(report.environment.nodeVersion.match(/^v(\\d+)/)[1])
+      Number(report.environment.nodeVersion.match(/^v(\d+)/)[1])
   )
     throw new Error("calibration Node identity mismatch");
   const derived = deriveRunScale({
