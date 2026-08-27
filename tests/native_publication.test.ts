@@ -62,7 +62,7 @@ describe("current-host native publication addon", () => {
   it("loads the canonical artifact and publishes without replacing a collision", async () => {
     const binding = require(hostArtifact) as {
       publishNoReplace(...args: NativePublicationArguments): string;
-      createPrivateStageDirectory(): unknown;
+      createPrivateStageDirectory(stageDirectoryPath: string): unknown;
       disposePrivateStageDirectory(capability: unknown): string;
     };
     expect(Object.getOwnPropertyNames(binding).sort()).toEqual([
@@ -75,8 +75,18 @@ describe("current-host native publication addon", () => {
       join(tmpdir(), "exifcleaner-native-publication-"),
     );
     temporaryDirectories.push(directory);
-    const stage = join(directory, "stage.webp");
+    const stageDirectoryPath = join(directory, "stage");
+    const stage =
+      process.platform === "win32"
+        ? join(stageDirectoryPath, "stage.webp")
+        : join(directory, "stage.webp");
     const destination = join(directory, "destination.webp");
+    const stageDirectoryCapability =
+      process.platform === "win32"
+        ? binding.createPrivateStageDirectory(stageDirectoryPath)
+        : undefined;
+    if (process.platform === "win32")
+      expect(stageDirectoryCapability).toBeDefined();
     await writeFile(stage, "verified stage");
 
     const stageDirectory = await open(
@@ -99,7 +109,7 @@ describe("current-host native publication addon", () => {
               stageDescriptor,
               destination,
               stage,
-              {},
+              stageDirectoryCapability!,
             ] as unknown as NativePublicationArguments),
           )
         : binding.publishNoReplace(
@@ -126,6 +136,12 @@ describe("current-host native publication addon", () => {
     await stageHandle.close();
     await stageDirectory.close();
     await destinationDirectory.close();
+    if (process.platform === "win32") {
+      await rm(stage, { force: true });
+      expect(
+        binding.disposePrivateStageDirectory(stageDirectoryCapability!),
+      ).toBe("published");
+    }
   });
 
   it.runIf(process.platform === "win32")(
@@ -157,6 +173,8 @@ describe("current-host native publication addon", () => {
         publishNoReplace(
           stageDescriptor: number,
           destinationPath: string,
+          stagePath: string,
+          capability: unknown,
         ): string;
         createPrivateStageDirectory(stageDirectoryPath: string): unknown;
         disposePrivateStageDirectory(capability: unknown): string;
@@ -174,14 +192,20 @@ describe("current-host native publication addon", () => {
       await writeFile(stagePath, "verified private stage");
       const stage = await open(stagePath, WINDOWS_REOPEN_FLAGS);
       try {
-        expect(binding.publishNoReplace(stage.fd, destination)).toBe(
-          "published",
-        );
+        expect(
+          binding.publishNoReplace(
+            stage.fd,
+            destination,
+            stagePath,
+            capability,
+          ),
+        ).toBe("published");
         await expect(
           cp(destination, join(parent, "published-copy.webp")),
         ).resolves.toBeUndefined();
       } finally {
         await stage.close();
+        await rm(stagePath, { force: true });
         expect(binding.disposePrivateStageDirectory(capability)).toBe(
           "published",
         );
