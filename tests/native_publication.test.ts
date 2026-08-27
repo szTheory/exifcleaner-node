@@ -37,15 +37,17 @@ afterEach(async () => {
 });
 
 describe("current-host native publication addon", () => {
-  it("keeps the legacy no-replace fallback available for the hosted ARM64 invalid-name result", () => {
+  it("requires FileIdInfo proof before one CreateHardLinkW publication", () => {
     const source = readFileSync(nativePublicationSource, "utf8");
 
-    expect(source).toMatch(
-      /error == ERROR_INVALID_FUNCTION \|\| error == ERROR_INVALID_PARAMETER \|\|\n\s*error == ERROR_NOT_SUPPORTED \|\| error == ERROR_CALL_NOT_IMPLEMENTED \|\|\n\s*error == ERROR_INVALID_NAME/u,
+    expect(source).toContain("CreateHardLinkW(destination, stage_path, NULL)");
+    expect(source).toContain("GetFileInformationByHandleEx(parent_handle, FileIdInfo");
+    expect(source).toContain("GetFileInformationByHandleEx(stage_directory, FileIdInfo");
+    expect(source).toContain("GetFileInformationByHandleEx(stage_handle, FileIdInfo");
+    expect(source.indexOf("FileIdInfo")).toBeLessThan(
+      source.indexOf("CreateHardLinkW(destination, stage_path, NULL)"),
     );
-    expect(source).toMatch(
-      /rename_info->ReplaceIfExists = FALSE;\n\s*if \(SetFileInformationByHandle\(publication_handle, FileRenameInfo,/u,
-    );
+    expect(source).not.toMatch(/FileRenameInfo(?:Ex)?|ReplaceIfExists|ReOpenFile/u);
   });
 
   it("loads the canonical artifact and publishes without replacing a collision", async () => {
@@ -267,9 +269,9 @@ describe("private native publication loader", () => {
     expect(mapNativePublicationCode("anything-else")).toEqual({
       state: "publication-failed",
     });
-    expect(mapNativePublicationCode("failed:rename-legacy:32")).toEqual({
+    expect(mapNativePublicationCode("failed:link:32")).toEqual({
       state: "publication-failed",
-      diagnostic: "rename-legacy:32",
+      diagnostic: "link:32",
     });
     expect(mapNativeStageDirectoryCode("published")).toEqual({
       state: "disposed",
