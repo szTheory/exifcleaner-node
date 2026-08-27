@@ -5,6 +5,7 @@ import {
   mkdir,
   mkdtemp,
   open,
+  readdir,
   readFile,
   rename,
   rm,
