@@ -122,9 +122,7 @@ describe("current-host native publication addon", () => {
 describe("private native publication loader", () => {
   it("does not apply POSIX no-follow reopening flags to a Windows private stage", () => {
     expect(WINDOWS_REOPEN_FLAGS & fsConstants.O_NOFOLLOW).toBe(0);
-    expect(WINDOWS_REOPEN_FLAGS & fsConstants.O_RDWR).toBe(
-      fsConstants.O_RDWR,
-    );
+    expect(WINDOWS_REOPEN_FLAGS & fsConstants.O_RDWR).toBe(fsConstants.O_RDWR);
   });
 
   it.each([
