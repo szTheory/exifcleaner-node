@@ -117,6 +117,45 @@ describe("current-host native publication addon", () => {
       );
     },
   );
+
+  it.runIf(process.platform === "win32")(
+    "publishes a file reopened inside an identity-bound private stage directory",
+    async () => {
+      const binding = require(hostArtifact) as {
+        publishNoReplace(
+          stageDescriptor: number,
+          destinationPath: string,
+        ): string;
+        createPrivateStageDirectory(stageDirectoryPath: string): unknown;
+        disposePrivateStageDirectory(capability: unknown): string;
+      };
+      const parent = await mkdtemp(
+        join(tmpdir(), "exifcleaner-native-private-publication-"),
+      );
+      temporaryDirectories.push(parent);
+      const stageDirectory = join(parent, "stage");
+      const stagePath = join(stageDirectory, "output.webp");
+      const destination = join(parent, "destination.webp");
+      const capability = binding.createPrivateStageDirectory(stageDirectory);
+
+      expect(capability).toBeDefined();
+      await writeFile(stagePath, "verified private stage");
+      const stage = await open(stagePath, WINDOWS_REOPEN_FLAGS);
+      try {
+        expect(binding.publishNoReplace(stage.fd, destination)).toBe(
+          "published",
+        );
+        await expect(
+          cp(destination, join(parent, "published-copy.webp")),
+        ).resolves.toBeUndefined();
+      } finally {
+        await stage.close();
+        expect(binding.disposePrivateStageDirectory(capability)).toBe(
+          "published",
+        );
+      }
+    },
+  );
 });
 
 describe("private native publication loader", () => {
