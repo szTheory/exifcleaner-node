@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "algorithmId": "exifcleaner-run-calibration-v1",
+  "scriptSha256": "4d5f9b4cf1680c7a4e3a784face66ad5799e1134302daef05bdf1a232443110e",
+  "workloadDigest": "98c7800c77ab133d5c012e2cb6bda08a2dc2665b734ab80356c8b9b2f6ee2a57",
+  "trialCount": 3,
+  "referenceMedianNs": { "22": 1000000, "24": 1000000 },
+  "timeoutMs": 10000,
+  "maxDriftRatio": 1.1
+}

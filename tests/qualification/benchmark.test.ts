@@ -62,8 +62,91 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
   };
   BASELINE_TARBALL_SHA256: string;
 };
+const report = require("../../scripts/qualification/benchmark-report.cjs") as {
+  evaluateTiming(input: {
+    baselineMedianNs: number;
+    candidateMedianNs: number;
+    baselineP95Ns: number;
+    candidateP95Ns: number;
+  }): { pass: boolean; medianLimitNs: number; p95LimitNs: number; failures: string[] };
+  deriveRunScale(input: { before: number[]; after: number[]; referenceMedianNs: number }): {
+    observedCalibrationNs: number;
+    runScale: number;
+  };
+  validateCalibration(input: Record<string, unknown>): void;
+};
+const calibration = require("../../scripts/qualification/benchmark-calibration.cjs") as {
+  workloadDigest(): string;
+};
 
 describe("paired benchmark admission", () => {
+  it("uses one common calibration scale that cancels a global runner factor", () => {
+    const referenceMedianNs = 100;
+    const normal = report.deriveRunScale({
+      before: [100, 100, 100],
+      after: [100, 100, 100],
+      referenceMedianNs,
+    });
+    const slowerRunner = report.deriveRunScale({
+      before: [200, 200, 200],
+      after: [200, 200, 200],
+      referenceMedianNs,
+    });
+    expect(100 * normal.runScale).toBe(200 * slowerRunner.runScale);
+    expect(120 * normal.runScale).toBe(240 * slowerRunner.runScale);
+  });
+
+  it("uses the exact D-23 Math.max boundaries and rejects one nanosecond over", () => {
+    const factor = report.evaluateTiming({
+      baselineMedianNs: 100_000_000,
+      candidateMedianNs: 120_000_000,
+      baselineP95Ns: 100_000_000,
+      candidateP95Ns: 135_000_000,
+    });
+    expect(factor).toMatchObject({
+      pass: true,
+      medianLimitNs: 120_000_000,
+      p95LimitNs: 135_000_000,
+    });
+    expect(
+      report.evaluateTiming({
+        baselineMedianNs: 100_000_000,
+        candidateMedianNs: 120_000_001,
+        baselineP95Ns: 100_000_000,
+        candidateP95Ns: 135_000_000,
+      }).pass,
+    ).toBe(false);
+    const slack = report.evaluateTiming({
+      baselineMedianNs: 10_000_000,
+      candidateMedianNs: 25_000_000,
+      baselineP95Ns: 10_000_000,
+      candidateP95Ns: 40_000_000,
+    });
+    expect(slack).toMatchObject({ pass: true, medianLimitNs: 25_000_000, p95LimitNs: 40_000_000 });
+    expect(
+      report.evaluateTiming({
+        baselineMedianNs: 10_000_000,
+        candidateMedianNs: 25_000_001,
+        baselineP95Ns: 10_000_000,
+        candidateP95Ns: 40_000_000,
+      }).pass,
+    ).toBe(false);
+  });
+
+  it("fails closed for calibration drift, side-specific fields, and malformed authority output", () => {
+    const authority = {
+      schemaVersion: 1,
+      algorithmId: "exifcleaner-run-calibration-v1",
+      nodeMajor: Number(process.versions.node.split(".")[0]),
+      trials: [100, 100, 100],
+      workloadDigest: calibration.workloadDigest(),
+      process: { execPath: process.execPath, clean: true },
+    };
+    expect(() => report.validateCalibration(authority)).not.toThrow();
+    expect(() => report.validateCalibration({ ...authority, candidateCalibration: 1 })).toThrow();
+    expect(() => report.validateCalibration({ ...authority, trials: [0, 100, 100] })).toThrow();
+    expect(() => report.deriveRunScale({ before: [100, 100, 100], after: [111, 111, 111], referenceMedianNs: 100 })).toThrow();
+  });
   it("alternates baseline/candidate in fresh-child order with locked 2/15 counts", () => {
     const schedule = benchmark.buildSchedule(["still-64k"], 2, 15);
     expect(schedule).toHaveLength(34);

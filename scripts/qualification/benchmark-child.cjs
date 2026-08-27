@@ -49,6 +49,7 @@ function parseArguments(args) {
         "--package-sha",
         "--version",
         "--fixture",
+        "--run-token",
       ]).has(flag)
     )
       throw new Error(`unknown benchmark child option ${flag}`);
@@ -58,12 +59,15 @@ function parseArguments(args) {
   const packageSha = values["--package-sha"];
   const version = values["--version"];
   const fixture = values["--fixture"];
+  const runToken = values["--run-token"];
   if (
     typeof packageRoot !== "string" ||
     typeof packageSha !== "string" ||
     !SHA256.test(packageSha) ||
     (version !== "baseline" && version !== "candidate") ||
-    typeof fixture !== "string"
+    typeof fixture !== "string" ||
+    typeof runToken !== "string" ||
+    !/^[a-f0-9]{32}$/.test(runToken)
   )
     throw new Error("benchmark child identity is incomplete");
   return {
@@ -71,6 +75,7 @@ function parseArguments(args) {
     packageSha,
     version,
     fixture: JSON.parse(Buffer.from(fixture, "base64").toString("utf8")),
+    runToken,
   };
 }
 
@@ -322,6 +327,7 @@ async function main() {
       version: options.version,
       fixtureId: options.fixture.id,
       packageSha: options.packageSha,
+      runToken: options.runToken,
       elapsedNs: Number(endedAt - startedAt),
       maxRSSKiB:
         process.platform === "darwin"

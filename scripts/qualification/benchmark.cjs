@@ -6,10 +6,12 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const reportValidator = require("./benchmark-report.cjs");
 
 const projectRoot = path.resolve(__dirname, "../..");
 const manifestPath = path.join(projectRoot, "tests/corpus/manifest.json");
 const childPath = path.join(__dirname, "benchmark-child.cjs");
+const calibrationPath = path.join(__dirname, "benchmark-calibration.cjs");
 const SHA256 = /^[a-f0-9]{64}$/;
 const WARMUPS = 2;
 const MEASUREMENTS = 15;
@@ -344,18 +346,13 @@ function evaluatePair({ baseline, candidate }) {
   const failures = [];
   if (baseline.correctnessKey !== candidate.correctnessKey)
     return { pass: false, failures: ["correctness mismatch"] };
-  const medianLimit = Math.max(
-    baseline.medianElapsedNs * BENCHMARK_THRESHOLDS.medianRatio,
-    baseline.medianElapsedNs + BENCHMARK_THRESHOLDS.medianSlackNs,
-  );
-  const p95Limit = Math.max(
-    baseline.p95ElapsedNs * BENCHMARK_THRESHOLDS.p95Ratio,
-    baseline.p95ElapsedNs + BENCHMARK_THRESHOLDS.p95SlackNs,
-  );
-  if (candidate.medianElapsedNs > medianLimit)
-    failures.push("median threshold exceeded");
-  if (candidate.p95ElapsedNs > p95Limit)
-    failures.push("p95 threshold exceeded");
+  const timing = reportValidator.evaluateTiming({
+    baselineMedianNs: baseline.medianElapsedNs,
+    candidateMedianNs: candidate.medianElapsedNs,
+    baselineP95Ns: baseline.p95ElapsedNs,
+    candidateP95Ns: candidate.p95ElapsedNs,
+  });
+  failures.push(...timing.failures);
   if (
     candidate.medianMaxRSSKiB >
     baseline.medianMaxRSSKiB + BENCHMARK_THRESHOLDS.peakRssSlackKiB
@@ -513,7 +510,8 @@ function measureChild(version, installed, fixture) {
   const encoded = Buffer.from(JSON.stringify(fixture), "utf8").toString(
     "base64",
   );
-  const output = run(
+  const runToken = crypto.randomBytes(16).toString("hex");
+  const result = spawnSync(
     process.execPath,
     [
       childPath,
@@ -525,10 +523,22 @@ function measureChild(version, installed, fixture) {
       version,
       "--fixture",
       encoded,
+      "--run-token",
+      runToken,
     ],
-    { label: `${version}:${fixture.id}` },
+    { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, detached: process.platform !== "win32" },
   );
-  const record = JSON.parse(output);
+  if (result.error !== undefined || result.status !== 0 || result.stderr !== "")
+    throw new Error(`${version}:${fixture.id} process contract failed`);
+  if (process.platform !== "win32" && result.pid !== undefined) {
+    try {
+      process.kill(-result.pid, 0);
+      throw new Error(`${version}:${fixture.id} left a process-group member`);
+    } catch (error) {
+      if (error?.code !== "ESRCH") throw error;
+    }
+  }
+  const record = JSON.parse(result.stdout);
   const expectedPhases = [
     "package-load",
     "fixture-materialized",
@@ -550,6 +560,7 @@ function measureChild(version, installed, fixture) {
     record.version !== version ||
     record.fixtureId !== fixture.id ||
     record.packageSha !== installed.sha256 ||
+    record.runToken !== runToken ||
     !Number.isFinite(record.elapsedNs) ||
     record.elapsedNs < 0 ||
     !Number.isFinite(record.maxRSSKiB) ||
@@ -566,6 +577,26 @@ function measureChild(version, installed, fixture) {
   )
     throw new Error(`${version}:${fixture.id} emitted invalid evidence`);
   return record;
+}
+
+function measureCalibration(sandbox, position) {
+  const calibrationSandbox = path.join(sandbox, `calibration-${position}`);
+  fs.mkdirSync(calibrationSandbox, { recursive: true });
+  const result = spawnSync(process.execPath, [calibrationPath], {
+    cwd: calibrationSandbox,
+    env: { PATH: process.env.PATH ?? "", TZ: "UTC", LANG: "C", LC_ALL: "C" },
+    encoding: "utf8",
+    timeout: 10_000,
+    maxBuffer: 16 * 1024,
+  });
+  if (result.error !== undefined || result.status !== 0 || result.signal !== null || result.stderr !== "" || !result.stdout.endsWith("\n") || result.stdout.indexOf("\n") !== result.stdout.length - 1)
+    throw new Error(`calibration ${position} process contract failed`);
+  let authority;
+  try { authority = JSON.parse(result.stdout); } catch { throw new Error(`calibration ${position} emitted invalid JSON`); }
+  reportValidator.validateCalibration(authority, reportValidator.loadReference());
+  if (authority.process.execPath !== process.execPath || fs.readdirSync(calibrationSandbox).length !== 0)
+    throw new Error(`calibration ${position} identity or cleanup failed`);
+  return authority;
 }
 
 function aggregate(samples) {
@@ -621,7 +652,9 @@ async function executeBenchmark(options) {
     };
     if (installed.baseline.sha256 === installed.candidate.sha256)
       throw new Error("Baseline and candidate tarballs are identical");
+    const calibrationBefore = measureCalibration(sandbox, "before");
     const retained = new Map();
+    const rawSchedule = [];
     for (const item of buildSchedule(fixtures.map((fixture) => fixture.id))) {
       const fixture = fixtures.find(
         (candidate) => candidate.id === item.fixtureId,
@@ -631,14 +664,33 @@ async function executeBenchmark(options) {
         installed[item.version],
         fixture,
       );
+      rawSchedule.push({ ...item, sample });
       if (!item.warmup) {
         const key = `${item.version}:${item.fixtureId}`;
         retained.set(key, [...(retained.get(key) ?? []), sample]);
       }
     }
+    const calibrationAfter = measureCalibration(sandbox, "after");
+    const reference = reportValidator.loadReference();
+    const calibrationDerived = reportValidator.deriveRunScale({
+      before: calibrationBefore.trials,
+      after: calibrationAfter.trials,
+      referenceMedianNs: reference.referenceMedianNs[String(calibrationBefore.nodeMajor)],
+    });
     const aggregates = new Map();
-    for (const [key, samples] of retained)
-      aggregates.set(key, aggregate(samples));
+    for (const [key, samples] of retained) {
+      const scaledSamples = samples.map((sample) => ({
+        ...sample,
+        scaledElapsedNs: sample.elapsedNs * calibrationDerived.runScale,
+      }));
+      const rawAggregate = aggregate(samples);
+      aggregates.set(key, {
+        ...rawAggregate,
+        medianElapsedNs: percentile(scaledSamples.map((sample) => sample.scaledElapsedNs), 0.5),
+        p95ElapsedNs: percentile(scaledSamples.map((sample) => sample.scaledElapsedNs), 0.95),
+        samples: scaledSamples,
+      });
+    }
     const slopes = { baseline: 0, candidate: 0 };
     if (options.fixture === undefined)
       for (const version of ["baseline", "candidate"])
@@ -663,7 +715,13 @@ async function executeBenchmark(options) {
         rssSlope: slopes.candidate,
       };
       const verdict = evaluatePair({ baseline, candidate });
-      comparisons.push({ fixtureId: fixture.id, baseline, candidate, verdict });
+      const timing = reportValidator.evaluateTiming({
+        baselineMedianNs: baseline.medianElapsedNs,
+        candidateMedianNs: candidate.medianElapsedNs,
+        baselineP95Ns: baseline.p95ElapsedNs,
+        candidateP95Ns: candidate.p95ElapsedNs,
+      });
+      comparisons.push({ fixtureId: fixture.id, baseline, candidate, timing, verdict });
       failures.push(
         ...verdict.failures.map((failure) => `${fixture.id}: ${failure}`),
       );
@@ -690,6 +748,9 @@ async function executeBenchmark(options) {
       warmups: WARMUPS,
       measurements: MEASUREMENTS,
       thresholds: BENCHMARK_THRESHOLDS,
+      calibration: { before: calibrationBefore, after: calibrationAfter, reference, derived: calibrationDerived },
+      rawSchedule,
+      collection: { retries: 0, discarded: 0 },
       environment: {
         nodeVersion: process.version,
         platform: process.platform,
@@ -701,6 +762,7 @@ async function executeBenchmark(options) {
       cancellation,
       failures,
     };
+    reportValidator.validateReport(report);
     fs.writeFileSync(options.output, `${JSON.stringify(report, null, 2)}\n`);
     fs.writeFileSync(`${options.output}.md`, renderSummary(report));
     return report;
