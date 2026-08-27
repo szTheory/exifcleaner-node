@@ -21,6 +21,36 @@ function isVerifiedPosixStageDirectory(stats) {
         stats.uid === euid &&
         (stats.mode & 0o077) === 0);
 }
+async function closePostPublicationResources({ fileOps, stageDirectory, destinationDirectory, stageFile, sourceHandle, directoryCapability, platform, }) {
+    let stageDirectoryCloseCause;
+    const close = async (handle, stage = false) => {
+        if (handle === undefined)
+            return;
+        await fileOps.close(handle).catch((cause) => {
+            if (stage)
+                stageDirectoryCloseCause = jsonSafeCause(cause);
+        });
+    };
+    await close(stageDirectory, true);
+    await close(destinationDirectory);
+    await close(stageFile);
+    await close(sourceHandle);
+    if (platform === "win32" && directoryCapability !== undefined) {
+        const disposition = disposePrivateStageDirectory(directoryCapability);
+        return disposition.state === "disposed"
+            ? { state: "none" }
+            : stageResidue({
+                code: disposition.state,
+                message: "Private stage-directory disposal did not complete.",
+            });
+    }
+    return stageDirectory === undefined
+        ? { state: "none" }
+        : stageResidue(stageDirectoryCloseCause ?? {
+            code: "ENOTSUP",
+            message: "Private empty stage-directory cleanup is unavailable.",
+        });
+}
 export async function runSafeTransaction(input) {
     const { sourceHandle, sourceSnapshot, sourceMode, handler, admission, plan, orientation, options, fileOps, beforePublish, beforeStageFinalization, platform = process.platform, } = input;
     const { sourcePath, destinationPath, signal } = options;
@@ -35,6 +65,7 @@ export async function runSafeTransaction(input) {
     let fileIdentity;
     let stageDirectoryIdentity;
     let failure;
+    let sourceHandleOpen = true;
     try {
         if (aborted(signal))
             throw new DOMException("Aborted", "AbortError");
@@ -160,25 +191,20 @@ export async function runSafeTransaction(input) {
             }, "started");
             throw new Error("Native publication did not succeed.");
         }
-        if (stageDirectory !== undefined) {
-            await fileOps.close(stageDirectory);
-            stageDirectory = undefined;
-        }
-        if (destinationDirectory !== undefined) {
-            await fileOps.close(destinationDirectory);
-            destinationDirectory = undefined;
-        }
-        await fileOps.close(stageFile);
+        const committedResources = {
+            fileOps,
+            stageDirectory,
+            destinationDirectory,
+            stageFile,
+            sourceHandle,
+            directoryCapability,
+            platform,
+        };
+        stageDirectory = undefined;
+        destinationDirectory = undefined;
         stageFile = undefined;
-        await fileOps.close(sourceHandle);
-        const postCommitResidue = platform === "win32" &&
-            directoryCapability !== undefined &&
-            disposePrivateStageDirectory(directoryCapability).state === "disposed"
-            ? { state: "none" }
-            : stageResidue({
-                code: "ENOTSUP",
-                message: "identity-bound directory cleanup unavailable",
-            });
+        sourceHandleOpen = false;
+        const postCommitResidue = await closePostPublicationResources(committedResources);
         const namespaces = new Set(admission.parsed.chunks.flatMap((chunk) => chunk.fourCc === "EXIF"
             ? ["EXIF"]
             : chunk.fourCc === "XMP "
@@ -225,7 +251,8 @@ export async function runSafeTransaction(input) {
             await fileOps.close(stageDirectory).catch(() => undefined);
         if (destinationDirectory !== undefined)
             await fileOps.close(destinationDirectory).catch(() => undefined);
-        await fileOps.close(sourceHandle).catch(() => undefined);
+        if (sourceHandleOpen)
+            await fileOps.close(sourceHandle).catch(() => undefined);
     }
     await Promise.resolve(beforeStageFinalization?.({ stageDirectoryPath, stagePath })).catch(() => undefined);
     if (directoryCreated &&
