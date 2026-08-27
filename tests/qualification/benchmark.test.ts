@@ -60,6 +60,7 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
     baselineExpectedIdentity: string;
     baselineSha256: string;
   };
+  BASELINE_TARBALL_SHA256: string;
 };
 
 describe("paired benchmark admission", () => {
@@ -282,6 +283,18 @@ describe("paired benchmark admission", () => {
     ).toThrow("Baseline package is not v0.1.1");
   });
 
+  it("rejects a repacked baseline with the trusted name and version", () => {
+    expect(() =>
+      benchmark.validateBaselinePackage(
+        {
+          name: "exifcleaner-node",
+          version: "0.1.1",
+        },
+        "0".repeat(64),
+      ),
+    ).toThrow("Baseline tarball digest does not match the trusted artifact");
+  });
+
   it("emits the complete digest-bound baseline identity contract", () => {
     expect(
       benchmark.validateBaselinePackage(
@@ -289,13 +302,13 @@ describe("paired benchmark admission", () => {
           name: "exifcleaner-node",
           version: "0.1.1",
         },
-        "a".repeat(64),
+        benchmark.BASELINE_TARBALL_SHA256,
       ),
     ).toEqual({
       baselinePackageName: "exifcleaner-node",
       baselineVersion: "0.1.1",
-      baselineExpectedIdentity: "exifcleaner-node@0.1.1",
-      baselineSha256: "a".repeat(64),
+      baselineExpectedIdentity: `exifcleaner-node@0.1.1#sha256:${benchmark.BASELINE_TARBALL_SHA256}`,
+      baselineSha256: benchmark.BASELINE_TARBALL_SHA256,
     });
   });
 

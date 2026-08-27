@@ -24,7 +24,8 @@ at `<output>.md`. To replay one manifested fixture, add
 `tests/corpus/manifest.json`). Both tarball flags remain mandatory.
 
 The runner installs each tarball in a separate temporary project with package
-scripts disabled. The baseline must identify itself as version `0.1.1`, and the
+scripts disabled. The baseline must identify itself as version `0.1.1` and have
+SHA-256 `c2fc569b553cba360814bcce61d6882a02aba062e6d6da2193323915530a34bf`; the
 two archive SHA-256 values must differ. Every sample runs one operation in a
 fresh child process. Each fixture alternates baseline-first and candidate-first
 rounds, discards two warmups per version, and retains fifteen measurements per
