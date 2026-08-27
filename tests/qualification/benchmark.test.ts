@@ -51,10 +51,14 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
   };
   renderSummary(report: Record<string, unknown>): string;
   parseArguments(args: readonly string[]): Record<string, unknown>;
-  validateBaselinePackage(packageJson: { name?: unknown; version?: unknown }): {
-    packageName: string;
-    version: string;
-    expectedIdentity: string;
+  validateBaselinePackage(
+    packageJson: { name?: unknown; version?: unknown },
+    sha256: string,
+  ): {
+    baselinePackageName: string;
+    baselineVersion: string;
+    baselineExpectedIdentity: string;
+    baselineSha256: string;
   };
 };
 
@@ -214,7 +218,7 @@ describe("paired benchmark admission", () => {
       benchmark.validateBaselinePackage({
         name: "impostor-package",
         version: "0.1.1",
-      }),
+      }, "a".repeat(64)),
     ).toThrow("Baseline package name is not exifcleaner-node");
   });
 
@@ -223,7 +227,7 @@ describe("paired benchmark admission", () => {
       benchmark.validateBaselinePackage({
         name: "exifcleaner-node",
         version: "0.1.2",
-      }),
+      }, "a".repeat(64)),
     ).toThrow("Baseline package is not v0.1.1");
   });
 
@@ -232,11 +236,12 @@ describe("paired benchmark admission", () => {
       benchmark.validateBaselinePackage({
         name: "exifcleaner-node",
         version: "0.1.1",
-      }),
+      }, "a".repeat(64)),
     ).toEqual({
-      packageName: "exifcleaner-node",
-      version: "0.1.1",
-      expectedIdentity: "exifcleaner-node@0.1.1",
+      baselinePackageName: "exifcleaner-node",
+      baselineVersion: "0.1.1",
+      baselineExpectedIdentity: "exifcleaner-node@0.1.1",
+      baselineSha256: "a".repeat(64),
     });
   });
 

@@ -13,6 +13,9 @@ const childPath = path.join(__dirname, "benchmark-child.cjs");
 const SHA256 = /^[a-f0-9]{64}$/;
 const WARMUPS = 2;
 const MEASUREMENTS = 15;
+const BASELINE_PACKAGE_NAME = "exifcleaner-node";
+const BASELINE_VERSION = "0.1.1";
+const BASELINE_EXPECTED_IDENTITY = `${BASELINE_PACKAGE_NAME}@${BASELINE_VERSION}`;
 
 const BENCHMARK_THRESHOLDS = Object.freeze({
   medianRatio: 1.2,
@@ -333,6 +336,20 @@ function run(command, args, options = {}) {
   return result.stdout;
 }
 
+function validateBaselinePackage(packageJson, sha256) {
+  if (packageJson?.name !== BASELINE_PACKAGE_NAME)
+    throw new Error("Baseline package name is not exifcleaner-node");
+  if (packageJson.version !== BASELINE_VERSION)
+    throw new Error("Baseline package is not v0.1.1");
+  if (!SHA256.test(sha256)) throw new Error("Baseline tarball digest is not SHA-256");
+  return {
+    baselinePackageName: packageJson.name,
+    baselineVersion: packageJson.version,
+    baselineExpectedIdentity: BASELINE_EXPECTED_IDENTITY,
+    baselineSha256: sha256,
+  };
+}
+
 function installTarball(tarball, root, label) {
   if (!fs.statSync(tarball).isFile())
     throw new Error(`${label} tarball missing`);
@@ -354,9 +371,10 @@ function installTarball(tarball, root, label) {
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
   );
-  if (label === "baseline" && packageJson.version !== "0.1.1")
-    throw new Error("Baseline package is not v0.1.1");
-  return { packageRoot, sha256: digest(fs.readFileSync(tarball)) };
+  const installed = { packageRoot, sha256: digest(fs.readFileSync(tarball)) };
+  return label === "baseline"
+    ? { ...installed, ...validateBaselinePackage(packageJson, installed.sha256) }
+    : installed;
 }
 
 function measureChild(version, installed, fixture) {
@@ -515,7 +533,10 @@ async function executeBenchmark(options) {
       version: 1,
       mode: options.mode,
       pass: failures.length === 0,
-      baselineSha256: installed.baseline.sha256,
+      baselinePackageName: installed.baseline.baselinePackageName,
+      baselineVersion: installed.baseline.baselineVersion,
+      baselineExpectedIdentity: installed.baseline.baselineExpectedIdentity,
+      baselineSha256: installed.baseline.baselineSha256,
       candidateSha256: installed.candidate.sha256,
       warmups: WARMUPS,
       measurements: MEASUREMENTS,
@@ -552,6 +573,7 @@ module.exports = {
   percentile,
   renderSummary,
   rssSlope,
+  validateBaselinePackage,
 };
 
 if (require.main === module) {
