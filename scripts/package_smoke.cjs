@@ -568,6 +568,17 @@ function assertWindowsPrivateStageCleanup(sandbox) {
   return "pass";
 }
 
+function assertWindowsPrivateStageResidue(sandbox) {
+  const residue = readdirSync(sandbox).filter((entry) =>
+    entry.startsWith(".exifcleaner-stage-"),
+  );
+  if (residue.length === 0)
+    throw new Error(
+      "Installed Windows failed transaction did not retain bounded private stage residue",
+    );
+  return "pass";
+}
+
 async function runTransactions(packageRoot, sandbox, corpus) {
   const api = await import(
     pathToFileURL(join(packageRoot, "dist", "index.js")).href
@@ -579,6 +590,10 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     corpus.sample.bytes,
     0,
   );
+  const stillCleanup =
+    process.platform === "win32"
+      ? assertWindowsPrivateStageCleanup(sandbox)
+      : undefined;
   const animation = await runCorpusCase(
     api,
     sandbox,
@@ -586,6 +601,10 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     derivedAnimation(corpus.upstream.bytes),
     1,
   );
+  const animationCleanup =
+    process.platform === "win32"
+      ? assertWindowsPrivateStageCleanup(sandbox)
+      : undefined;
   const competitorPath = still.destinationPath;
   const competitor = readFileSync(competitorPath);
   const collision = await api.sanitizeFile({
@@ -606,6 +625,10 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     throw new Error(
       "Installed collision did not preserve bounded D-52 residue truth",
     );
+  const collisionResidue =
+    process.platform === "win32"
+      ? assertWindowsPrivateStageResidue(sandbox)
+      : undefined;
   const cancellation = await runDeterministicCancellation(
     packageRoot,
     sandbox,
@@ -619,7 +642,6 @@ async function runTransactions(packageRoot, sandbox, corpus) {
   const windowsPublication =
     process.platform === "win32"
       ? (() => {
-          const cleanup = assertWindowsPrivateStageCleanup(sandbox);
           const sourceSha256 = sha256(still.sourcePath);
           const destinationSha256 = sha256(still.destinationPath);
           const volumeSerial = String(statSync(still.destinationPath).dev);
@@ -628,7 +650,11 @@ async function runTransactions(packageRoot, sandbox, corpus) {
             publication: "pass",
             collision: "pass",
             identity: "pass",
-            cleanup,
+            cleanup:
+              stillCleanup === "pass" && animationCleanup === "pass"
+                ? "pass"
+                : "unverified",
+            collisionResidue,
             sourceSha256,
             destinationSha256,
             volumeProof: {
@@ -793,6 +819,7 @@ function createDevelopmentTarballForTests({ packageRoot, tarball }) {
 
 module.exports = {
   assertWindowsPrivateStageCleanup,
+  assertWindowsPrivateStageResidue,
   assertLiteralHostArtifact,
   createDevelopmentTarballForTests,
   diagnoseWindowsNativePublication,

@@ -21,6 +21,7 @@ const temporaryDirectories: string[] = [];
 const require = createRequire(import.meta.url);
 const helper = require("../scripts/package_smoke.cjs") as {
   assertWindowsPrivateStageCleanup(sandbox: string): "pass";
+  assertWindowsPrivateStageResidue(sandbox: string): "pass";
   createDevelopmentTarballForTests(input: {
     packageRoot: string;
     tarball: string;
@@ -86,6 +87,26 @@ describe("installed package smoke", () => {
     expect(() => helper.assertWindowsPrivateStageCleanup(sandbox)).toThrow(
       "Installed Windows transaction left private stage residue",
     );
+    expect(helper.assertWindowsPrivateStageResidue(sandbox)).toBe("pass");
+  });
+
+  it("distinguishes successful cleanup from permitted failed-transaction residue", async () => {
+    const successfulSandbox = await mkdtemp(
+      join(tmpdir(), "exifcleaner-package-success-"),
+    );
+    const failedSandbox = await mkdtemp(
+      join(tmpdir(), "exifcleaner-package-failure-"),
+    );
+    temporaryDirectories.push(successfulSandbox, failedSandbox);
+    await mkdir(join(failedSandbox, ".exifcleaner-stage-owned-partial"));
+
+    expect(helper.assertWindowsPrivateStageCleanup(successfulSandbox)).toBe(
+      "pass",
+    );
+    expect(() =>
+      helper.assertWindowsPrivateStageCleanup(failedSandbox),
+    ).toThrow("Installed Windows transaction left private stage residue");
+    expect(helper.assertWindowsPrivateStageResidue(failedSandbox)).toBe("pass");
   });
 
   it("reports a bounded typed reason when an installed property fails", async () => {
