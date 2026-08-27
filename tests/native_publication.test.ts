@@ -171,6 +171,10 @@ describe("private native publication loader", () => {
     expect(mapNativePublicationCode("anything-else")).toEqual({
       state: "publication-failed",
     });
+    expect(mapNativePublicationCode("failed:rename-legacy:32")).toEqual({
+      state: "publication-failed",
+      diagnostic: "rename-legacy:32",
+    });
     expect(mapNativeStageDirectoryCode("published")).toEqual({
       state: "disposed",
     });

@@ -33,7 +33,15 @@ export type NativePublicationResult =
   | { readonly state: "published" }
   | { readonly state: "destination-exists" }
   | { readonly state: "publication-unsupported" }
-  | { readonly state: "publication-failed" };
+  | {
+      readonly state: "publication-failed";
+      /**
+       * Bounded native diagnostic for hosted qualification only. It remains
+       * non-authoritative: callers may not treat it as publication success or
+       * fallback authority.
+       */
+      readonly diagnostic?: string;
+    };
 
 export type NativeStageDirectoryDisposition =
   | { readonly state: "disposed" }
@@ -119,6 +127,11 @@ export function mapNativePublicationCode(
     case "unsupported":
       return { state: "publication-unsupported" };
     default:
+      if (
+        typeof code === "string" &&
+        /^failed:(?:reopen-file|rename-ex|rename-legacy):\d+$/u.test(code)
+      )
+        return { state: "publication-failed", diagnostic: code.slice(7) };
       return { state: "publication-failed" };
   }
 }

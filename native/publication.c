@@ -17,6 +17,7 @@
 #include <uv.h>
 #include <aclapi.h>
 #include <sddl.h>
+#include <stdlib.h>
 #elif defined(__APPLE__)
 #include <errno.h>
 #include <stdio.h>
@@ -57,7 +58,8 @@ typedef struct private_stage_directory {
 } private_stage_directory;
 
 static publication_result publish_no_replace(HANDLE stage,
-                                             const WCHAR *destination);
+                                             const WCHAR *destination,
+                                             DWORD *diagnostic);
 static private_stage_directory *create_private_stage_directory(const WCHAR *path);
 static publication_result dispose_private_stage_directory(
     private_stage_directory *capability);
@@ -77,8 +79,53 @@ static const char *publication_result_name(publication_result result) {
   }
 }
 
-static napi_value publication_result_value(napi_env env, publication_result result) {
+#if defined(_WIN32)
+static napi_value native_diagnostic_result(napi_env env, DWORD diagnostic) {
+  const char *operation = "rename-legacy:";
+  char value[64];
+  size_t length = 7;
+  size_t index = 0;
+  char digits[16];
+  size_t digit_count = 0;
+  DWORD error = diagnostic;
+  const char prefix[] = "failed:";
+  if (diagnostic >> 30 == 1) {
+    operation = "reopen-file:";
+    error &= ~(1UL << 30);
+  } else if (diagnostic >> 30 == 2) {
+    operation = "rename-ex:";
+    error &= ~(2UL << 30);
+  }
+  for (index = 0; index < sizeof(prefix) - 1; index += 1) value[index] = prefix[index];
+  for (index = 0; operation[index] != '\0'; index += 1) value[length + index] = operation[index];
+  length += index;
+  do {
+    digits[digit_count] = (char)('0' + (error % 10));
+    digit_count += 1;
+    error /= 10;
+  } while (error != 0 && digit_count < sizeof(digits));
+  while (digit_count > 0) {
+    digit_count -= 1;
+    value[length] = digits[digit_count];
+    length += 1;
+  }
+  value[length] = '\0';
+  napi_value result;
+  napi_create_string_utf8(env, value, NAPI_AUTO_LENGTH, &result);
+  return result;
+}
+#endif
+
+static napi_value publication_result_value(napi_env env, publication_result result
+#if defined(_WIN32)
+                                          , DWORD diagnostic
+#endif
+                                          ) {
   napi_value value;
+#if defined(_WIN32)
+  if (result == PUBLICATION_FAILED && diagnostic != ERROR_SUCCESS)
+    return native_diagnostic_result(env, diagnostic);
+#endif
   napi_create_string_utf8(env, publication_result_name(result), NAPI_AUTO_LENGTH, &value);
   return value;
 }
@@ -148,6 +195,9 @@ static napi_value publish_no_replace_binding(napi_env env, napi_callback_info in
   char *destination_entry;
 #endif
   publication_result result = PUBLICATION_FAILED;
+#if defined(_WIN32)
+  DWORD diagnostic = ERROR_SUCCESS;
+#endif
   if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc !=
 #if defined(_WIN32)
       2
@@ -172,9 +222,13 @@ static napi_value publish_no_replace_binding(napi_env env, napi_callback_info in
   stage_handle = uv_get_osfhandle(stage_descriptor);
   if (stage_handle == INVALID_HANDLE_VALUE) {
     publication_free(destination);
-    return publication_result_value(env, PUBLICATION_FAILED);
+    return publication_result_value(env, PUBLICATION_FAILED
+#if defined(_WIN32)
+                                    , ERROR_SUCCESS
+#endif
+                                    );
   }
-  result = publish_no_replace(stage_handle, destination);
+  result = publish_no_replace(stage_handle, destination, &diagnostic);
   publication_free(destination);
 #else
   if (
@@ -200,7 +254,11 @@ static napi_value publish_no_replace_binding(napi_env env, napi_callback_info in
   free(stage_entry);
   free(destination_entry);
 #endif
-  return publication_result_value(env, result);
+  return publication_result_value(env, result
+#if defined(_WIN32)
+                                  , diagnostic
+#endif
+                                  );
 }
 
 static napi_value create_stage_directory_binding(napi_env env, napi_callback_info info) {
@@ -242,10 +300,11 @@ static napi_value dispose_stage_directory_binding(napi_env env, napi_callback_in
   void *data = NULL;
   if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc != 1 ||
       napi_get_value_external(env, args[0], &data) != napi_ok || data == NULL) {
-    return publication_result_value(env, PUBLICATION_FAILED);
+    return publication_result_value(env, PUBLICATION_FAILED, ERROR_SUCCESS);
   }
   return publication_result_value(
-      env, dispose_private_stage_directory((private_stage_directory *)data));
+      env, dispose_private_stage_directory((private_stage_directory *)data),
+      ERROR_SUCCESS);
 #else
   (void)info;
   return publication_result_value(env, PUBLICATION_UNSUPPORTED);
@@ -289,7 +348,8 @@ static void copy_bytes(BYTE *destination, const BYTE *source, size_t length) {
 }
 
 static publication_result publish_no_replace(HANDLE stage_handle,
-                                             const wchar_t *destination) {
+                                             const wchar_t *destination,
+                                             DWORD *diagnostic) {
   HANDLE publication_handle;
   FILE_RENAME_INFO *rename_info;
   size_t destination_bytes;
@@ -300,11 +360,13 @@ static publication_result publish_no_replace(HANDLE stage_handle,
       destination == NULL) {
     return PUBLICATION_FAILED;
   }
+  if (diagnostic != NULL) *diagnostic = ERROR_SUCCESS;
   publication_handle = ReOpenFile(
       stage_handle, DELETE | SYNCHRONIZE,
       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
       0);
   if (publication_handle == INVALID_HANDLE_VALUE) {
+    if (diagnostic != NULL) *diagnostic = GetLastError() | (1UL << 30);
     return map_windows_error(GetLastError());
   }
   destination_bytes = wide_length(destination) * sizeof(WCHAR);
@@ -335,11 +397,16 @@ static publication_result publish_no_replace(HANDLE stage_handle,
     if (error == ERROR_INVALID_FUNCTION || error == ERROR_INVALID_PARAMETER ||
         error == ERROR_NOT_SUPPORTED || error == ERROR_CALL_NOT_IMPLEMENTED) {
       rename_info->ReplaceIfExists = FALSE;
-      result = SetFileInformationByHandle(publication_handle, FileRenameInfo,
-                                          rename_info, allocation_size)
-                   ? PUBLICATION_PUBLISHED
-                   : map_windows_error(GetLastError());
+      if (SetFileInformationByHandle(publication_handle, FileRenameInfo,
+                                     rename_info, allocation_size)) {
+        result = PUBLICATION_PUBLISHED;
+      } else {
+        DWORD legacy_error = GetLastError();
+        if (diagnostic != NULL) *diagnostic = legacy_error;
+        result = map_windows_error(legacy_error);
+      }
     } else {
+      if (diagnostic != NULL) *diagnostic = error | (2UL << 30);
       result = map_windows_error(error);
     }
   }

@@ -473,7 +473,7 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
   };
 }
 
-async function runInstalledProperties(api, sandbox) {
+async function runInstalledProperties(api, packageRoot, sandbox) {
   const configured = process.env.QUALIFICATION_PROPERTY_RUNS;
   if (configured !== undefined && configured !== String(PROPERTY_RUNS))
     throw new Error("QUALIFICATION_PROPERTY_RUNS must be exactly 25");
@@ -493,10 +493,12 @@ async function runInstalledProperties(api, sandbox) {
       preserveTimestamps: false,
     });
     if (!result.ok || !readFileSync(sourcePath).equals(source))
-      throw installedPropertyFailure(
+      throw await installedPropertyFailure(
         index,
         result,
         readFileSync(sourcePath).equals(source),
+        packageRoot,
+        sandbox,
       );
     const output = readFileSync(destinationPath);
     if (
@@ -509,16 +511,50 @@ async function runInstalledProperties(api, sandbox) {
   return sha256Bytes(Buffer.from(outputDigests.join(""), "ascii"));
 }
 
-function installedPropertyFailure(index, result, sourcePreserved) {
+async function installedPropertyFailure(
+  index,
+  result,
+  sourcePreserved,
+  packageRoot,
+  sandbox,
+) {
   if (!result.ok) {
     const { code, detail, phase, nativeWrite } = result.error;
+    const nativeDiagnostic =
+      packageRoot === undefined || sandbox === undefined
+        ? undefined
+        : await diagnoseWindowsNativePublication(packageRoot, sandbox);
     return new Error(
-      `Installed property case failed: ${index}:${code}:${phase}:${nativeWrite}:${detail}`,
+      `Installed property case failed: ${index}:${code}:${phase}:${nativeWrite}:${detail}${nativeDiagnostic === undefined ? "" : `:${nativeDiagnostic}`}`,
     );
   }
   if (!sourcePreserved)
     return new Error(`Installed property source changed: ${index}`);
   return new Error(`Installed property case failed: ${index}`);
+}
+
+async function diagnoseWindowsNativePublication(packageRoot, sandbox) {
+  if (process.platform !== "win32") return undefined;
+  const bindingPath = join(
+    packageRoot,
+    "prebuilds",
+    `${process.platform}-${process.arch}`,
+    "publication.node",
+  );
+  const binding = require(bindingPath);
+  if (typeof binding?.publishNoReplace !== "function")
+    return "native-binding-unavailable";
+  const stagePath = join(sandbox, "native-diagnostic-stage.webp");
+  const destinationPath = join(sandbox, "native-diagnostic-destination.webp");
+  writeFileSync(stagePath, "native-diagnostic-stage");
+  const stage = await open(stagePath, "r+");
+  try {
+    return `native-diagnostic=${String(
+      binding.publishNoReplace(stage.fd, destinationPath),
+    )}`;
+  } finally {
+    await stage.close();
+  }
 }
 
 async function runTransactions(packageRoot, sandbox, corpus) {
@@ -564,7 +600,11 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     sandbox,
     corpus.sample.bytes,
   );
-  const propertyOutputDigest = await runInstalledProperties(api, sandbox);
+  const propertyOutputDigest = await runInstalledProperties(
+    api,
+    packageRoot,
+    sandbox,
+  );
   return {
     corpusCases: [still.evidence, animation.evidence],
     propertyOutputDigest,
@@ -704,6 +744,7 @@ function createDevelopmentTarballForTests({ packageRoot, tarball }) {
 module.exports = {
   assertLiteralHostArtifact,
   createDevelopmentTarballForTests,
+  diagnoseWindowsNativePublication,
   installedPropertyFailure,
   isLoadedNativeCleanupLock,
   parseArguments,

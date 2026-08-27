@@ -77,26 +77,28 @@ async function runSmoke(
 }
 
 describe("installed package smoke", () => {
-  it("reports a bounded typed reason when an installed property fails", () => {
+  it("reports a bounded typed reason when an installed property fails", async () => {
     expect(
-      helper.installedPropertyFailure(
-        0,
-        {
-          ok: false,
-          error: {
-            code: "publication-failed",
-            detail: "Native no-replace publication could not complete.",
-            phase: "execution",
-            nativeWrite: "started",
+      (
+        await helper.installedPropertyFailure(
+          0,
+          {
+            ok: false,
+            error: {
+              code: "publication-failed",
+              detail: "Native no-replace publication could not complete.",
+              phase: "execution",
+              nativeWrite: "started",
+            },
           },
-        },
-        true,
+          true,
+        )
       ).message,
     ).toBe(
       "Installed property case failed: 0:publication-failed:execution:started:Native no-replace publication could not complete.",
     );
     expect(
-      helper.installedPropertyFailure(1, { ok: true }, false).message,
+      (await helper.installedPropertyFailure(1, { ok: true }, false)).message,
     ).toBe("Installed property source changed: 1");
   });
 

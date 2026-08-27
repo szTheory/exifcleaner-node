@@ -56,6 +56,9 @@ export function mapNativePublicationCode(code) {
         case "unsupported":
             return { state: "publication-unsupported" };
         default:
+            if (typeof code === "string" &&
+                /^failed:(?:reopen-file|rename-ex|rename-legacy):\d+$/u.test(code))
+                return { state: "publication-failed", diagnostic: code.slice(7) };
             return { state: "publication-failed" };
     }
 }

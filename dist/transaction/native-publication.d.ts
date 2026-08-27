@@ -22,6 +22,12 @@ export type NativePublicationResult = {
     readonly state: "publication-unsupported";
 } | {
     readonly state: "publication-failed";
+    /**
+     * Bounded native diagnostic for hosted qualification only. It remains
+     * non-authoritative: callers may not treat it as publication success or
+     * fallback authority.
+     */
+    readonly diagnostic?: string;
 };
 export type NativeStageDirectoryDisposition = {
     readonly state: "disposed";
