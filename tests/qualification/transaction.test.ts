@@ -232,6 +232,7 @@ describe("deterministic transaction qualification", () => {
           published = true;
           return "published";
         },
+        removePrivateStageFile: () => "unsupported",
         disposePrivateStageDirectory: () => "unsupported",
       });
       const fileOps: FileOps = {
@@ -343,6 +344,9 @@ describe("deterministic transaction qualification", () => {
         if (typeof destinationPath !== "string")
           throw new Error("Expected Windows publication arguments");
         renameSync(join(capability.path!, "output.webp"), destinationPath);
+        return "published";
+      },
+      removePrivateStageFile() {
         return "published";
       },
       disposePrivateStageDirectory() {

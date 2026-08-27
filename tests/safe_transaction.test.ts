@@ -80,9 +80,13 @@ describe("safe transaction file operations", () => {
         mkdirSync(stageDirectoryPath);
         return capability;
       },
+      removePrivateStageFile(received, stagePath) {
+        expect(received).toBe(capability);
+        unlinkSync(stagePath);
+        return "published";
+      },
       disposePrivateStageDirectory(received) {
         expect(received).toBe(capability);
-        unlinkSync(join(capability.path!, "output.webp"));
         rmdirSync(capability.path!);
         return "published";
       },
@@ -319,6 +323,7 @@ describe("safe transaction file operations", () => {
     const restore = setNativePublicationBindingForTests({
       publishNoReplace: () => "failed",
       createPrivateStageDirectory: () => capability,
+      removePrivateStageFile: () => "unsupported",
       disposePrivateStageDirectory: (received) => {
         expect(received).toBe(capability);
         dispositionAttempts += 1;
@@ -465,6 +470,7 @@ describe("safe transaction file operations", () => {
           return nativeOutcome;
         },
         createPrivateStageDirectory: () => undefined,
+        removePrivateStageFile: () => "unsupported",
         disposePrivateStageDirectory: () => "unsupported",
       });
       try {

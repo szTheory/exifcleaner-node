@@ -41,6 +41,7 @@ import {
 import {
   createPrivateStageDirectory,
   disposePrivateStageDirectory,
+  removePrivateStageFile,
   publishNoReplace,
   type NativeStageDirectoryCapability,
 } from "./native-publication.js";
@@ -73,6 +74,7 @@ interface PostPublicationResources {
   readonly stageFile: FileHandle;
   readonly sourceHandle: FileHandle;
   readonly directoryCapability: NativeStageDirectoryCapability | undefined;
+  readonly stagePath: string;
   readonly platform: NodeJS.Platform;
 }
 
@@ -83,6 +85,7 @@ async function closePostPublicationResources({
   stageFile,
   sourceHandle,
   directoryCapability,
+  stagePath,
   platform,
 }: PostPublicationResources): Promise<PostCommitResidue> {
   let stageDirectoryCloseCause: JsonSafeCause | undefined;
@@ -99,6 +102,12 @@ async function closePostPublicationResources({
   await close(sourceHandle);
 
   if (platform === "win32" && directoryCapability !== undefined) {
+    const stageFileResult = removePrivateStageFile(directoryCapability, stagePath);
+    if (stageFileResult.state !== "disposed")
+      return stageResidue({
+        code: stageFileResult.state,
+        message: "Private staged-file disposal did not complete.",
+      });
     const stageDirectoryResult =
       disposePrivateStageDirectory(directoryCapability);
     return stageDirectoryResult.state === "disposed"
@@ -415,6 +424,7 @@ export async function runSafeTransaction(
       stageFile,
       sourceHandle,
       directoryCapability,
+      stagePath,
       platform,
     };
     stageDirectory = undefined;

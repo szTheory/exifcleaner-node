@@ -4,7 +4,7 @@ import { executionError, jsonSafeCause, withDestinationFinalization, } from "../
 import { err, ok } from "../result.js";
 import { DIRECT_FINAL_FLAGS, DESTINATION_DIRECTORY_FLAGS, REOPEN_FLAGS, STAGE_DIRECTORY_FLAGS, WINDOWS_REOPEN_FLAGS, } from "./file-ops.js";
 import { identitiesDistinct, identityMatches, identityOf, sourcePathMatchesSnapshot, timestampsMatchAtMillisecondPrecision, } from "./identity.js";
-import { createPrivateStageDirectory, disposePrivateStageDirectory, publishNoReplace, } from "./native-publication.js";
+import { createPrivateStageDirectory, disposePrivateStageDirectory, removePrivateStageFile, publishNoReplace, } from "./native-publication.js";
 function aborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -21,7 +21,7 @@ function isVerifiedPosixStageDirectory(stats) {
         stats.uid === euid &&
         (stats.mode & 0o077) === 0);
 }
-async function closePostPublicationResources({ fileOps, stageDirectory, destinationDirectory, stageFile, sourceHandle, directoryCapability, platform, }) {
+async function closePostPublicationResources({ fileOps, stageDirectory, destinationDirectory, stageFile, sourceHandle, directoryCapability, stagePath, platform, }) {
     let stageDirectoryCloseCause;
     const close = async (handle, stage = false) => {
         if (handle === undefined)
@@ -36,6 +36,12 @@ async function closePostPublicationResources({ fileOps, stageDirectory, destinat
     await close(stageFile);
     await close(sourceHandle);
     if (platform === "win32" && directoryCapability !== undefined) {
+        const stageFileResult = removePrivateStageFile(directoryCapability, stagePath);
+        if (stageFileResult.state !== "disposed")
+            return stageResidue({
+                code: stageFileResult.state,
+                message: "Private staged-file disposal did not complete.",
+            });
         const stageDirectoryResult = disposePrivateStageDirectory(directoryCapability);
         return stageDirectoryResult.state === "disposed"
             ? { state: "none" }
@@ -207,6 +213,7 @@ export async function runSafeTransaction(input) {
             stageFile,
             sourceHandle,
             directoryCapability,
+            stagePath,
             platform,
         };
         stageDirectory = undefined;

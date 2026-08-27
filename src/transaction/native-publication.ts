@@ -24,6 +24,10 @@ export interface NativePublicationBinding {
     ...args: NativePublicationArguments
   ) => NativePublicationCode;
   readonly createPrivateStageDirectory: (stageDirectoryPath: string) => unknown;
+  readonly removePrivateStageFile: (
+    capability: NativeStageDirectoryCapability,
+    stagePath: string,
+  ) => NativePublicationCode;
   readonly disposePrivateStageDirectory: (
     capability: NativeStageDirectoryCapability,
   ) => NativePublicationCode;
@@ -79,12 +83,14 @@ function isNativePublicationBinding(
   const binding = value as Record<string, unknown>;
   const names = Object.getOwnPropertyNames(binding).sort();
   return (
-    names.length === 3 &&
+    names.length === 4 &&
     names[0] === "createPrivateStageDirectory" &&
     names[1] === "disposePrivateStageDirectory" &&
     names[2] === "publishNoReplace" &&
+    names[3] === "removePrivateStageFile" &&
     typeof binding.publishNoReplace === "function" &&
     typeof binding.createPrivateStageDirectory === "function" &&
+    typeof binding.removePrivateStageFile === "function" &&
     typeof binding.disposePrivateStageDirectory === "function"
   );
 }
@@ -210,6 +216,19 @@ export function disposePrivateStageDirectory(
   try {
     return mapNativeStageDirectoryCode(
       nativeBinding().disposePrivateStageDirectory(capability),
+    );
+  } catch {
+    return { state: "disposition-failed" };
+  }
+}
+
+export function removePrivateStageFile(
+  capability: NativeStageDirectoryCapability,
+  stagePath: string,
+): NativeStageDirectoryDisposition {
+  try {
+    return mapNativeStageDirectoryCode(
+      nativeBinding().removePrivateStageFile(capability, stagePath),
     );
   } catch {
     return { state: "disposition-failed" };

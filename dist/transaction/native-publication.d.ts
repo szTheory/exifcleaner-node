@@ -13,6 +13,7 @@ export type NativePublicationArguments = readonly [
 export interface NativePublicationBinding {
     readonly publishNoReplace: (...args: NativePublicationArguments) => NativePublicationCode;
     readonly createPrivateStageDirectory: (stageDirectoryPath: string) => unknown;
+    readonly removePrivateStageFile: (capability: NativeStageDirectoryCapability, stagePath: string) => NativePublicationCode;
     readonly disposePrivateStageDirectory: (capability: NativeStageDirectoryCapability) => NativePublicationCode;
 }
 declare const nativeStageDirectoryCapability: unique symbol;
@@ -49,5 +50,6 @@ export declare function mapNativeStageDirectoryCode(code: unknown): NativeStageD
 export declare function publishNoReplace(stageFileDescriptor: number, stageDirectoryDescriptor: number | undefined, destinationDirectoryDescriptor: number | undefined, stageEntryName: string, destinationPath: string, stagePath: string, stageDirectoryCapability: NativeStageDirectoryCapability | undefined, destinationEntryName: string, platform?: NodeJS.Platform): NativePublicationResult;
 export declare function createPrivateStageDirectory(stageDirectoryPath: string): unknown;
 export declare function disposePrivateStageDirectory(capability: NativeStageDirectoryCapability): NativeStageDirectoryDisposition;
+export declare function removePrivateStageFile(capability: NativeStageDirectoryCapability, stagePath: string): NativeStageDirectoryDisposition;
 export {};
 //# sourceMappingURL=native-publication.d.ts.map

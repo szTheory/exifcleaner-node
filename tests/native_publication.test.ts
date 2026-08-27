@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { constants as fsConstants, readFileSync } from "node:fs";
-import { cp, mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, open, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -63,12 +63,14 @@ describe("current-host native publication addon", () => {
     const binding = require(hostArtifact) as {
       publishNoReplace(...args: NativePublicationArguments): string;
       createPrivateStageDirectory(stageDirectoryPath: string): unknown;
+      removePrivateStageFile(capability: unknown, stagePath: string): string;
       disposePrivateStageDirectory(capability: unknown): string;
     };
     expect(Object.getOwnPropertyNames(binding).sort()).toEqual([
       "createPrivateStageDirectory",
       "disposePrivateStageDirectory",
       "publishNoReplace",
+      "removePrivateStageFile",
     ]);
 
     const directory = await mkdtemp(
@@ -137,7 +139,9 @@ describe("current-host native publication addon", () => {
     await stageDirectory.close();
     await destinationDirectory.close();
     if (process.platform === "win32") {
-      await rm(stage, { force: true });
+      expect(
+        binding.removePrivateStageFile(stageDirectoryCapability!, stage),
+      ).toBe("published");
       expect(
         binding.disposePrivateStageDirectory(stageDirectoryCapability!),
       ).toBe("published");
@@ -149,6 +153,7 @@ describe("current-host native publication addon", () => {
     async () => {
       const binding = require(hostArtifact) as {
         createPrivateStageDirectory(stageDirectoryPath: string): unknown;
+        removePrivateStageFile(capability: unknown, stagePath: string): string;
         disposePrivateStageDirectory(capability: unknown): string;
       };
       const parent = await mkdtemp(
@@ -177,6 +182,7 @@ describe("current-host native publication addon", () => {
           capability: unknown,
         ): string;
         createPrivateStageDirectory(stageDirectoryPath: string): unknown;
+        removePrivateStageFile(capability: unknown, stagePath: string): string;
         disposePrivateStageDirectory(capability: unknown): string;
       };
       const parent = await mkdtemp(
@@ -205,7 +211,9 @@ describe("current-host native publication addon", () => {
         ).resolves.toBeUndefined();
       } finally {
         await stage.close();
-        await rm(stagePath, { force: true });
+        expect(binding.removePrivateStageFile(capability, stagePath)).toBe(
+          "published",
+        );
         expect(binding.disposePrivateStageDirectory(capability)).toBe(
           "published",
         );
@@ -246,6 +254,9 @@ describe("current-host native publication addon", () => {
       await expect(
         cp(destination, join(parent, "published-copy.webp")),
       ).resolves.toBeUndefined();
+      await expect(readdir(parent)).resolves.not.toContainEqual(
+        expect.stringMatching(/^\.exifcleaner-stage-/u),
+      );
     },
   );
 });
@@ -270,6 +281,7 @@ describe("private native publication loader", () => {
       const binding = {
         publishNoReplace: () => "published",
         createPrivateStageDirectory: () => undefined,
+        removePrivateStageFile: () => "unsupported",
         disposePrivateStageDirectory: () => "unsupported",
       };
       expect(
@@ -328,6 +340,7 @@ describe("private native publication loader", () => {
     const restore = setNativePublicationBindingForTests({
       publishNoReplace: () => "collision",
       createPrivateStageDirectory: () => undefined,
+      removePrivateStageFile: () => "unsupported",
       disposePrivateStageDirectory: () => "unsupported",
     });
     expect(restore).toBeTypeOf("function");
@@ -341,6 +354,7 @@ describe("private native publication loader", () => {
         return "published";
       },
       createPrivateStageDirectory: () => undefined,
+      removePrivateStageFile: () => "unsupported",
       disposePrivateStageDirectory: () => "unsupported",
     });
 
@@ -375,6 +389,7 @@ describe("private native publication loader", () => {
         return "published";
       },
       createPrivateStageDirectory: () => undefined,
+      removePrivateStageFile: () => "unsupported",
       disposePrivateStageDirectory: () => "unsupported",
     });
 

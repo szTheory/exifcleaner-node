@@ -64,6 +64,8 @@ static publication_result publish_no_replace(HANDLE stage, const WCHAR *destinat
                                              private_stage_directory *capability,
                                              DWORD *diagnostic);
 static private_stage_directory *create_private_stage_directory(const WCHAR *path);
+static publication_result remove_private_stage_file(
+    private_stage_directory *capability, const WCHAR *stage_path);
 static publication_result dispose_private_stage_directory(
     private_stage_directory *capability);
 #else
@@ -318,11 +320,33 @@ static napi_value dispose_stage_directory_binding(napi_env env, napi_callback_in
 #endif
 }
 
+static napi_value remove_stage_file_binding(napi_env env, napi_callback_info info) {
+#if defined(_WIN32)
+  size_t argc = 2;
+  napi_value args[2];
+  void *data = NULL;
+  WCHAR *stage_path;
+  publication_result result;
+  if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc != 2 ||
+      napi_get_value_external(env, args[0], &data) != napi_ok || data == NULL ||
+      (stage_path = read_path(env, args[1])) == NULL) {
+    return publication_result_value(env, PUBLICATION_FAILED, ERROR_SUCCESS);
+  }
+  result = remove_private_stage_file((private_stage_directory *)data, stage_path);
+  publication_free(stage_path);
+  return publication_result_value(env, result, ERROR_SUCCESS);
+#else
+  (void)info;
+  return publication_result_value(env, PUBLICATION_UNSUPPORTED);
+#endif
+}
+
 NAPI_MODULE_INIT() {
   napi_property_descriptor properties[] = {
     { "publishNoReplace", NULL, publish_no_replace_binding, NULL, NULL, NULL, napi_default, NULL },
     { "createPrivateStageDirectory", NULL, create_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
     { "disposePrivateStageDirectory", NULL, dispose_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
+    { "removePrivateStageFile", NULL, remove_stage_file_binding, NULL, NULL, NULL, napi_default, NULL },
   };
   napi_define_properties(env, exports, sizeof(properties) / sizeof(properties[0]), properties);
   return exports;
@@ -567,6 +591,36 @@ done:
   publication_free(token_user);
   publication_free(parent_name);
   return capability;
+}
+
+static publication_result remove_private_stage_file(
+    private_stage_directory *capability, const WCHAR *stage_path) {
+  HANDLE stage_directory = INVALID_HANDLE_VALUE;
+  FILE_ID_INFO stage_identity;
+  WCHAR *stage_parent = NULL;
+  publication_result result = PUBLICATION_FAILED;
+
+  if (capability == NULL || capability->handle == INVALID_HANDLE_VALUE ||
+      stage_path == NULL || (stage_parent = parent_path(stage_path)) == NULL) {
+    goto done;
+  }
+  stage_directory = open_directory_no_reparse(stage_parent);
+  if (stage_directory == INVALID_HANDLE_VALUE ||
+      !GetFileInformationByHandleEx(stage_directory, FileIdInfo, &stage_identity,
+                                    sizeof(stage_identity)) ||
+      !file_identity_matches(&stage_identity, &capability->identity)) {
+    result = PUBLICATION_UNSUPPORTED;
+    goto done;
+  }
+  if (DeleteFileW(stage_path)) {
+    result = PUBLICATION_PUBLISHED;
+  } else {
+    result = map_windows_error(GetLastError());
+  }
+done:
+  if (stage_directory != INVALID_HANDLE_VALUE) CloseHandle(stage_directory);
+  publication_free(stage_parent);
+  return result;
 }
 
 static publication_result dispose_private_stage_directory(private_stage_directory *capability) {
