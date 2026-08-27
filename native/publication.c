@@ -395,7 +395,8 @@ static publication_result publish_no_replace(HANDLE stage_handle,
      * though the legacy no-replace form is supported.  Both paths retain the
      * required no-replace behavior. */
     if (error == ERROR_INVALID_FUNCTION || error == ERROR_INVALID_PARAMETER ||
-        error == ERROR_NOT_SUPPORTED || error == ERROR_CALL_NOT_IMPLEMENTED) {
+        error == ERROR_NOT_SUPPORTED || error == ERROR_CALL_NOT_IMPLEMENTED ||
+        error == ERROR_INVALID_NAME) {
       rename_info->ReplaceIfExists = FALSE;
       if (SetFileInformationByHandle(publication_handle, FileRenameInfo,
                                      rename_info, allocation_size)) {

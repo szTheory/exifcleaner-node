@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { constants as fsConstants } from "node:fs";
+import { constants as fsConstants, readFileSync } from "node:fs";
 import { cp, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
@@ -25,6 +25,7 @@ const hostArtifact = join(
   `${process.platform}-${process.arch}`,
   "publication.node",
 );
+const nativePublicationSource = join(packageRoot, "native", "publication.c");
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -36,6 +37,17 @@ afterEach(async () => {
 });
 
 describe("current-host native publication addon", () => {
+  it("keeps the legacy no-replace fallback available for the hosted ARM64 invalid-name result", () => {
+    const source = readFileSync(nativePublicationSource, "utf8");
+
+    expect(source).toMatch(
+      /error == ERROR_INVALID_FUNCTION \|\| error == ERROR_INVALID_PARAMETER \|\|\n\s*error == ERROR_NOT_SUPPORTED \|\| error == ERROR_CALL_NOT_IMPLEMENTED \|\|\n\s*error == ERROR_INVALID_NAME/u,
+    );
+    expect(source).toMatch(
+      /rename_info->ReplaceIfExists = FALSE;\n\s*if \(SetFileInformationByHandle\(publication_handle, FileRenameInfo,/u,
+    );
+  });
+
   it("loads the canonical artifact and publishes without replacing a collision", async () => {
     const binding = require(hostArtifact) as {
       publishNoReplace(...args: NativePublicationArguments): string;
