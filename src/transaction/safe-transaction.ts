@@ -501,17 +501,19 @@ export async function runSafeTransaction(
       withDestinationFinalization(failure!, { state: "owned-partial-removed" }),
     );
   }
+  if (!directoryCreated) {
+    return err(
+      withDestinationFinalization(failure!, { state: "already-missing" }),
+    );
+  }
   const residueCause = fileCreated
     ? {
         message:
           "Private staged file remains after terminal publication failure.",
       }
-    : directoryCreated
-      ? {
-          message:
-            "Private staging directory remains after terminal setup failure.",
-        }
-      : { message: "Private staging setup did not complete." };
+    : {
+        message: "Private staging directory remains after terminal setup failure.",
+      };
   return err(
     withDestinationFinalization(failure!, {
       state: "owned-partial-remains",

@@ -291,6 +291,7 @@ describe("deterministic transaction qualification", () => {
 
       expect(result.ok).toBe(false);
       if (result.ok) return;
+      const preCreationFailure = operation === "stage-directory-create";
       expect(result.error).toMatchObject({
         phase: "transaction",
         nativeWrite:
@@ -299,7 +300,11 @@ describe("deterministic transaction qualification", () => {
           operation === "stage-open"
             ? "not-started"
             : "started",
-        finalization: { state: "owned-partial-remains" },
+        finalization: {
+          state: preCreationFailure
+            ? "already-missing"
+            : "owned-partial-remains",
+        },
       });
       expect(classifyFallback(result.error)).toBe("do-not-fallback");
       expect(controller.evidence()).toMatchObject({
@@ -317,6 +322,12 @@ describe("deterministic transaction qualification", () => {
         digest(prepared.sourceBytes),
       );
       await expect(access(prepared.destinationPath)).rejects.toBeDefined();
+      const privateStageDirectories = (await readdir(prepared.directory)).filter(
+        (entry) => entry.startsWith(".exifcleaner-stage-"),
+      );
+      expect(privateStageDirectories).toEqual(
+        preCreationFailure ? [] : expect.any(Array),
+      );
       await expect(
         prepared.source.read(Buffer.alloc(1), 0, 1, 0),
       ).rejects.toMatchObject({
