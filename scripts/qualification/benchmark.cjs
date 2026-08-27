@@ -341,7 +341,8 @@ function validateBaselinePackage(packageJson, sha256) {
     throw new Error("Baseline package name is not exifcleaner-node");
   if (packageJson.version !== BASELINE_VERSION)
     throw new Error("Baseline package is not v0.1.1");
-  if (!SHA256.test(sha256)) throw new Error("Baseline tarball digest is not SHA-256");
+  if (!SHA256.test(sha256))
+    throw new Error("Baseline tarball digest is not SHA-256");
   return {
     baselinePackageName: packageJson.name,
     baselineVersion: packageJson.version,
@@ -373,7 +374,10 @@ function installTarball(tarball, root, label) {
   );
   const installed = { packageRoot, sha256: digest(fs.readFileSync(tarball)) };
   return label === "baseline"
-    ? { ...installed, ...validateBaselinePackage(packageJson, installed.sha256) }
+    ? {
+        ...installed,
+        ...validateBaselinePackage(packageJson, installed.sha256),
+      }
     : installed;
 }
 

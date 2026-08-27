@@ -215,28 +215,37 @@ describe("paired benchmark admission", () => {
 
   it("rejects a baseline package whose installed name is not exifcleaner-node", () => {
     expect(() =>
-      benchmark.validateBaselinePackage({
-        name: "impostor-package",
-        version: "0.1.1",
-      }, "a".repeat(64)),
+      benchmark.validateBaselinePackage(
+        {
+          name: "impostor-package",
+          version: "0.1.1",
+        },
+        "a".repeat(64),
+      ),
     ).toThrow("Baseline package name is not exifcleaner-node");
   });
 
   it("rejects a baseline package whose installed version is not exactly 0.1.1", () => {
     expect(() =>
-      benchmark.validateBaselinePackage({
-        name: "exifcleaner-node",
-        version: "0.1.2",
-      }, "a".repeat(64)),
+      benchmark.validateBaselinePackage(
+        {
+          name: "exifcleaner-node",
+          version: "0.1.2",
+        },
+        "a".repeat(64),
+      ),
     ).toThrow("Baseline package is not v0.1.1");
   });
 
   it("emits the complete digest-bound baseline identity contract", () => {
     expect(
-      benchmark.validateBaselinePackage({
-        name: "exifcleaner-node",
-        version: "0.1.1",
-      }, "a".repeat(64)),
+      benchmark.validateBaselinePackage(
+        {
+          name: "exifcleaner-node",
+          version: "0.1.1",
+        },
+        "a".repeat(64),
+      ),
     ).toEqual({
       baselinePackageName: "exifcleaner-node",
       baselineVersion: "0.1.1",
