@@ -12,7 +12,6 @@ const PRIVATE_NATIVE_EXPORTS = Object.freeze([
   "disposePrivateStageDirectory",
   "publishNoReplace",
   "removePrivateStageFile",
-  "stageFileIdentity",
   "takeLastWindowsPublicationEvidence",
 ]);
 
@@ -303,6 +302,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  PRIVATE_NATIVE_EXPORTS,
   auditLinux,
   auditDarwin,
   auditWindows,
