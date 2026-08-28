@@ -96,13 +96,13 @@ describe("native compiled artifact audits", () => {
   });
 
   it.runIf(process.platform === "darwin")(
-    "rejects the stale matching-host artifact before successor builds",
+    "accepts the compiled matching-host artifact",
     () => {
-      expect(() =>
+      expect(
         audit.auditHostArtifact(
           join(packageRoot, "prebuilds", "darwin-arm64", "publication.node"),
         ),
-      ).toThrow(/exact private capability surface/i);
+      ).toContain('"auditTool":"otool-nm"');
     },
   );
 

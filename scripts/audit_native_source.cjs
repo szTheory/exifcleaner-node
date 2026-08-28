@@ -138,7 +138,10 @@ function functionBody(input, name) {
     const candidate = match.index;
     const candidateOpen = input.indexOf("{", candidate);
     const candidateEnd = input.indexOf(";", candidate);
-    if (candidateOpen !== -1 && (candidateEnd === -1 || candidateOpen < candidateEnd)) {
+    if (
+      candidateOpen !== -1 &&
+      (candidateEnd === -1 || candidateOpen < candidateEnd)
+    ) {
       start = candidate;
       open = candidateOpen;
       break;
@@ -148,7 +151,8 @@ function functionBody(input, name) {
   let depth = 0;
   for (let index = open; index < input.length; index += 1) {
     if (input[index] === "{") depth += 1;
-    if (input[index] === "}" && --depth === 0) return input.slice(start, index + 1);
+    if (input[index] === "}" && --depth === 0)
+      return input.slice(start, index + 1);
   }
   return undefined;
 }
@@ -230,8 +234,14 @@ if (
     /SetFileInformationByHandle\(capability->cleanup_handle[\s\S]*CloseHandle\(capability->cleanup_handle\)[\s\S]*capability->cleanup_handle\s*=\s*INVALID_HANDLE_VALUE/,
     "retained cleanup-handle consume",
   );
-  if (/\buint32_t\b|napi_get_value_uint32|napi_get_named_property|\bnapi_value\s+identity\b/.test(captureBinding))
-    fail("capture authority must not parse a JavaScript identity object or uint32 volume serial");
+  if (
+    /\buint32_t\b|napi_get_value_uint32|napi_get_named_property|\bnapi_value\s+identity\b/.test(
+      captureBinding,
+    )
+  )
+    fail(
+      "capture authority must not parse a JavaScript identity object or uint32 volume serial",
+    );
   if (/\bReOpenFile\b/.test(tokens))
     fail("post-capture stage-path reopen capability is forbidden");
 }

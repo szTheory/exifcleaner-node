@@ -83,18 +83,99 @@ describe("native source capability audit", () => {
   });
 
   it.each([
-    ["descriptor bridge", (source: string) => source.replace("uv_get_osfhandle(stage_descriptor)", "invalid_descriptor(stage_descriptor)")],
-    ["borrowed-descriptor FileIdInfo", (source: string) => source.replace("GetFileInformationByHandleEx(stage_handle, FileIdInfo, &expected, sizeof(expected))", "FALSE")],
-    ["observed FileIdInfo", (source: string) => source.replace("GetFileInformationByHandleEx(stage_file, FileIdInfo, &observed, sizeof(observed))", "FALSE")],
-    ["complete identity comparison", (source: string) => source.replace("!file_identity_matches(&observed, expected)", "FALSE")],
-    ["delete-authorized rights", (source: string) => source.replace("DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE", "FILE_READ_ATTRIBUTES")],
-    ["all sharing", (source: string) => source.replace("stage_file = CreateFileW(stage_path,\n      DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,\n      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE", "stage_file = CreateFileW(stage_path,\n      DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,\n      FILE_SHARE_READ")],
-    ["reparse refusal", (source: string) => source.replace("stage_file = CreateFileW(stage_path,\n      DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,\n      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,\n      FILE_FLAG_OPEN_REPARSE_POINT", "stage_file = CreateFileW(stage_path,\n      DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,\n      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,\n      0")],
-    ["retained cleanup consume", (source: string) => source.replaceAll("SetFileInformationByHandle(capability->cleanup_handle", "SetFileInformationByHandle(INVALID_HANDLE_VALUE")],
-    ["full-width native comparison", (source: string) => source.replace("left->VolumeSerialNumber != right->VolumeSerialNumber", "FALSE")],
-    ["no uint32 identity authority", (source: string) => source.replace("FILE_ID_INFO expected;", "uint32_t serial;\n  FILE_ID_INFO expected;")],
-    ["no cleanup JavaScript identity object", (source: string) => source.replace("FILE_ID_INFO expected;", "napi_value identity;\n  FILE_ID_INFO expected;")],
-    ["no post-capture reopen", (source: string) => source.replace("return capability;\n}\n\nstatic publication_result consume_private_stage_cleanup", "return capability;\n  ReOpenFile(stage_file, 0, 0, 0);\n}\n\nstatic publication_result consume_private_stage_cleanup")],
+    [
+      "descriptor bridge",
+      (source: string) =>
+        source.replace(
+          "uv_get_osfhandle(stage_descriptor)",
+          "invalid_descriptor(stage_descriptor)",
+        ),
+    ],
+    [
+      "borrowed-descriptor FileIdInfo",
+      (source: string) =>
+        source.replace(
+          "GetFileInformationByHandleEx(stage_handle, FileIdInfo, &expected, sizeof(expected))",
+          "FALSE",
+        ),
+    ],
+    [
+      "observed FileIdInfo",
+      (source: string) =>
+        source.replace(
+          "GetFileInformationByHandleEx(stage_file, FileIdInfo, &observed, sizeof(observed))",
+          "FALSE",
+        ),
+    ],
+    [
+      "complete identity comparison",
+      (source: string) =>
+        source.replace("!file_identity_matches(&observed, expected)", "FALSE"),
+    ],
+    [
+      "delete-authorized rights",
+      (source: string) =>
+        source.replace(
+          "DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE",
+          "FILE_READ_ATTRIBUTES",
+        ),
+    ],
+    [
+      "all sharing",
+      (source: string) =>
+        source.replace(
+          "stage_file = CreateFileW(stage_path,\n      DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,\n      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE",
+          "stage_file = CreateFileW(stage_path,\n      DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,\n      FILE_SHARE_READ",
+        ),
+    ],
+    [
+      "reparse refusal",
+      (source: string) =>
+        source.replace(
+          "stage_file = CreateFileW(stage_path,\n      DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,\n      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,\n      FILE_FLAG_OPEN_REPARSE_POINT",
+          "stage_file = CreateFileW(stage_path,\n      DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,\n      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,\n      0",
+        ),
+    ],
+    [
+      "retained cleanup consume",
+      (source: string) =>
+        source.replaceAll(
+          "SetFileInformationByHandle(capability->cleanup_handle",
+          "SetFileInformationByHandle(INVALID_HANDLE_VALUE",
+        ),
+    ],
+    [
+      "full-width native comparison",
+      (source: string) =>
+        source.replace(
+          "left->VolumeSerialNumber != right->VolumeSerialNumber",
+          "FALSE",
+        ),
+    ],
+    [
+      "no uint32 identity authority",
+      (source: string) =>
+        source.replace(
+          "FILE_ID_INFO expected;",
+          "uint32_t serial;\n  FILE_ID_INFO expected;",
+        ),
+    ],
+    [
+      "no cleanup JavaScript identity object",
+      (source: string) =>
+        source.replace(
+          "FILE_ID_INFO expected;",
+          "napi_value identity;\n  FILE_ID_INFO expected;",
+        ),
+    ],
+    [
+      "no post-capture reopen",
+      (source: string) =>
+        source.replace(
+          "return capability;\n}\n\nstatic publication_result consume_private_stage_cleanup",
+          "return capability;\n  ReOpenFile(stage_file, 0, 0, 0);\n}\n\nstatic publication_result consume_private_stage_cleanup",
+        ),
+    ],
   ])("rejects a missing or unsafe %s", async (_name, mutate) => {
     const path = await productionFixture(mutate);
     await expect(run(path)).resolves.toMatchObject({ code: 1 });
