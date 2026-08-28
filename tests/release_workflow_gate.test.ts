@@ -26,6 +26,40 @@ const authorities = [
 type WorkflowJob = { needs?: string[]; script?: string };
 type WorkflowGraph = { jobs: Record<string, WorkflowJob> };
 
+function validateWindowsDiagnosticWorkflow(workflow: string): void {
+  const matchingPath =
+    "windows-publication-matching-host-${{ matrix.tuple }}.json";
+  const installedPath =
+    "windows-publication-installed-node22-${{ matrix.tuple }}.json";
+  const matchingUpload = workflow.match(
+    /if: always\(\) && matrix\.os == 'win32'[\s\S]{0,300}name: windows-publication-matching-host-\$\{\{ matrix\.tuple \}\}[\s\S]{0,200}path: windows-publication-matching-host-\$\{\{ matrix\.tuple \}\}\.json/u,
+  );
+  const installedUpload = workflow.match(
+    /if: always\(\) && matrix\.os == 'win32'[\s\S]{0,300}name: windows-publication-installed-node22-\$\{\{ matrix\.tuple \}\}[\s\S]{0,200}path: windows-publication-installed-node22-\$\{\{ matrix\.tuple \}\}\.json/u,
+  );
+  if (!matchingUpload || !installedUpload)
+    throw new Error("both Windows diagnostic uploads must run always");
+  for (const required of [
+    "WINDOWS_PUBLICATION_DIAGNOSTIC_PATH",
+    "--windows-publication-diagnostic-output",
+    matchingPath,
+    installedPath,
+    "win32-x64",
+    "win32-arm64",
+    "fail-fast: false",
+  ])
+    if (!workflow.includes(required))
+      throw new Error(`Windows diagnostic workflow lacks ${required}`);
+  if (/continue-on-error:\s*true/u.test(workflow))
+    throw new Error("Windows diagnostic workflow softens a hard failure");
+  for (const name of [
+    "windows-publication-matching-host-*",
+    "windows-publication-installed-node22-*",
+  ])
+    if (workflow.includes(`pattern: ${name}`) || workflow.includes(`needs: ${name}`))
+      throw new Error("diagnostic artifact entered an authority graph");
+}
+
 function greenGraph(): WorkflowGraph {
   return {
     jobs: {
@@ -53,6 +87,41 @@ function greenGraph(): WorkflowGraph {
 }
 
 describe("release workflow authority gate", () => {
+  it("keeps complete Windows diagnostics outside every authority path", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    expect(() => validateWindowsDiagnosticWorkflow(workflow)).not.toThrow();
+    const mutations = [
+      workflow.replace("if: always() && matrix.os == 'win32'", "if: matrix.os == 'win32'"),
+      workflow.replaceAll(
+        "if: always() && matrix.os == 'win32'",
+        "if: matrix.os == 'win32'",
+      ),
+      workflow.replace("WINDOWS_PUBLICATION_DIAGNOSTIC_PATH", "WINDOWS_PUBLICATION_LATE_PATH"),
+      workflow.replace("--windows-publication-diagnostic-output", "--ignored-output"),
+      workflow.replace("win32-x64", "win32-x86"),
+      workflow.replace("win32-arm64", "win32-arm"),
+      workflow.replace(matchingPath, "renamed-matching.json"),
+      workflow.replace(installedPath, "renamed-installed.json"),
+      `${workflow}\n# pattern: windows-publication-matching-host-*`,
+      `${workflow}\n# needs: windows-publication-installed-node22-*`,
+      `${workflow}\ncontinue-on-error: true`,
+    ];
+    for (const mutation of mutations)
+      expect(() => validateWindowsDiagnosticWorkflow(mutation)).toThrow();
+
+    const nativeTest = readFileSync(
+      join(packageRoot, "tests", "native_publication.test.ts"),
+      "utf8",
+    );
+    expect(nativeTest.indexOf("takeLastWindowsPublicationEvidence()"))
+      .toBeLessThan(nativeTest.indexOf("status: \"accepted\""));
+    expect(nativeTest).toContain(
+      "expect(binding.takeLastWindowsPublicationEvidence()).toBeUndefined()",
+    );
+  });
   it("makes the raw identity-cleanup ledger a non-optional CI authority", () => {
     const workflow = readFileSync(
       join(packageRoot, ".github", "workflows", "ci.yml"),
