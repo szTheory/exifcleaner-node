@@ -53,9 +53,24 @@ const WINDOWS_PUBLICATION_IDENTITIES = Object.freeze([
   "stageFile",
   "destinationFile",
 ]);
+const INSTALLED_CANCELLATION_FINALIZATION = Object.freeze({
+  "linux-x64": "owned-partial-remains",
+  "linux-arm64": "owned-partial-remains",
+  "darwin-x64": "owned-partial-remains",
+  "darwin-arm64": "owned-partial-remains",
+  "win32-x64": "owned-partial-remains",
+  "win32-arm64": "owned-partial-remains",
+});
 
 function hostTuple() {
   return `${process.platform}-${process.arch}`;
+}
+
+function expectedDeterministicCancellationFinalization(tuple) {
+  const state = INSTALLED_CANCELLATION_FINALIZATION[tuple];
+  if (state === undefined)
+    throw new Error(`Unsupported installed cancellation tuple: ${tuple}`);
+  return state;
 }
 
 function npmInvocation() {
@@ -866,9 +881,7 @@ async function runDeterministicCancellation(
     },
   });
   const expectedFinalizationState =
-    process.platform === "win32"
-      ? "owned-partial-removed"
-      : "owned-partial-remains";
+    expectedDeterministicCancellationFinalization(hostTuple());
   const fallback = result.ok
     ? undefined
     : fallbackModule.classifyFallback(result.error);
@@ -1445,6 +1458,7 @@ function createDevelopmentTarballForTests({ packageRoot, tarball }) {
 }
 
 module.exports = {
+  expectedDeterministicCancellationFinalization,
   classifyDeterministicCancellation,
   assertWindowsPrivateStageCleanup,
   assertWindowsPrivateStageResidue,
