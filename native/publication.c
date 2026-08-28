@@ -50,6 +50,11 @@ typedef enum publication_result {
   PUBLICATION_COLLISION = 1,
   PUBLICATION_UNSUPPORTED = 2,
   PUBLICATION_FAILED = 3,
+  /* Cleanup-specific terminal outcomes. These never authorize fallback. */
+  PUBLICATION_ABSENT = 4,
+  PUBLICATION_REPLACEMENT_RETAINED = 5,
+  PUBLICATION_IDENTITY_MISMATCH = 6,
+  PUBLICATION_ALREADY_CONSUMED = 7,
 } publication_result;
 
 #if defined(_WIN32)
@@ -62,6 +67,10 @@ typedef struct private_stage_directory {
    * after this handle has proved its identity and DELETE authority. */
   HANDLE cleanup_handle;
   FILE_ID_INFO cleanup_identity;
+  /* Native-only pathname retained solely to re-open under this capability
+   * immediately before disposition. JavaScript never receives it. */
+  WCHAR *cleanup_path;
+  BOOL cleanup_consumed;
 } private_stage_directory;
 
 /* Bounded, per-addon evidence for the most recent successful Windows link.
@@ -75,7 +84,20 @@ typedef struct windows_publication_evidence {
   FILE_ID_INFO destination_file;
 } windows_publication_evidence;
 
+/* Raw terminal facts only. Tokens, sequencing and policy conclusions live in
+ * the private TypeScript recorder so neither side can fabricate the other. */
+typedef struct windows_terminal_cleanup_evidence {
+  BOOL available;
+  FILE_ID_INFO directory_identity;
+  FILE_ID_INFO capture_identity;
+  FILE_ID_INFO identity_before;
+  FILE_ID_INFO removal_identity;
+  BOOL removal_identity_available;
+  publication_result outcome;
+} windows_terminal_cleanup_evidence;
+
 static windows_publication_evidence last_windows_publication_evidence;
+static windows_terminal_cleanup_evidence last_windows_terminal_cleanup_evidence;
 
 static publication_result publish_no_replace(HANDLE stage, const WCHAR *destination,
                                              const WCHAR *stage_path,
@@ -104,12 +126,18 @@ static const char *publication_result_name(publication_result result) {
     case PUBLICATION_PUBLISHED: return "published";
     case PUBLICATION_COLLISION: return "collision";
     case PUBLICATION_UNSUPPORTED: return "unsupported";
+    case PUBLICATION_ABSENT: return "absent";
+    case PUBLICATION_REPLACEMENT_RETAINED: return "replacement-retained";
+    case PUBLICATION_IDENTITY_MISMATCH: return "identity-mismatch";
+    case PUBLICATION_ALREADY_CONSUMED: return "already-consumed";
     default: return "failed";
   }
 }
 
 #if defined(_WIN32)
 static napi_value file_id_info_value(napi_env env, const FILE_ID_INFO *identity);
+static napi_value take_last_terminal_cleanup_evidence_binding(
+    napi_env env, napi_callback_info info);
 static napi_value native_diagnostic_result(napi_env env, DWORD diagnostic) {
   const char *operation = "link:";
   char value[64];
@@ -196,6 +224,7 @@ static void finalize_stage_directory(napi_env env, void *data, void *hint) {
       CloseHandle(capability->parent_handle);
     if (capability->cleanup_handle != INVALID_HANDLE_VALUE)
       CloseHandle(capability->cleanup_handle);
+    publication_free(capability->cleanup_path);
     publication_free(capability);
   }
 }
@@ -508,8 +537,54 @@ static napi_value take_last_windows_publication_evidence_binding(
   }
   return value;
 }
+
+static napi_value take_last_terminal_cleanup_evidence_binding(
+    napi_env env, napi_callback_info info) {
+  napi_value value;
+  napi_value property;
+  napi_value capture;
+  napi_value before;
+  napi_value removal;
+  (void)info;
+  if (!last_windows_terminal_cleanup_evidence.available) {
+    napi_get_undefined(env, &value);
+    return value;
+  }
+  last_windows_terminal_cleanup_evidence.available = FALSE;
+  capture = file_id_info_value(env, &last_windows_terminal_cleanup_evidence.capture_identity);
+  before = file_id_info_value(env, &last_windows_terminal_cleanup_evidence.identity_before);
+  if (last_windows_terminal_cleanup_evidence.removal_identity_available)
+    removal = file_id_info_value(env, &last_windows_terminal_cleanup_evidence.removal_identity);
+  else
+    napi_get_null(env, &removal);
+  if (capture == NULL || before == NULL || removal == NULL ||
+      napi_create_object(env, &value) != napi_ok ||
+      napi_set_named_property(env, value, "captureIdentity", capture) != napi_ok ||
+      napi_set_named_property(env, value, "identityBefore", before) != napi_ok ||
+      napi_set_named_property(env, value, "removalIdentity", removal) != napi_ok ||
+      napi_create_string_utf8(env,
+          publication_result_name(last_windows_terminal_cleanup_evidence.outcome),
+          NAPI_AUTO_LENGTH, &property) != napi_ok ||
+      napi_set_named_property(env, value, "outcome", property) != napi_ok) {
+    napi_get_undefined(env, &value);
+  } else {
+    napi_value directory = file_id_info_value(
+        env, &last_windows_terminal_cleanup_evidence.directory_identity);
+    if (directory == NULL ||
+        napi_set_named_property(env, value, "directoryIdentity", directory) != napi_ok)
+      napi_get_undefined(env, &value);
+  }
+  return value;
+}
 #else
 static napi_value take_last_windows_publication_evidence_binding(
+    napi_env env, napi_callback_info info) {
+  napi_value value;
+  (void)info;
+  napi_get_undefined(env, &value);
+  return value;
+}
+static napi_value take_last_terminal_cleanup_evidence_binding(
     napi_env env, napi_callback_info info) {
   napi_value value;
   (void)info;
@@ -528,6 +603,7 @@ NAPI_MODULE_INIT() {
     { "consumePrivateStageCleanup", NULL, consume_stage_cleanup_binding, NULL, NULL, NULL, napi_default, NULL },
     { "stageFileIdentity", NULL, stage_file_identity_binding, NULL, NULL, NULL, napi_default, NULL },
     { "takeLastWindowsPublicationEvidence", NULL, take_last_windows_publication_evidence_binding, NULL, NULL, NULL, napi_default, NULL },
+    { "takeLastTerminalCleanupEvidence", NULL, take_last_terminal_cleanup_evidence_binding, NULL, NULL, NULL, napi_default, NULL },
   };
   napi_define_properties(env, exports, sizeof(properties) / sizeof(properties[0]), properties);
   return exports;
@@ -824,6 +900,8 @@ static private_stage_directory *create_private_stage_directory(const WCHAR *path
   capability->handle = directory;
   capability->parent_handle = parent;
   capability->cleanup_handle = INVALID_HANDLE_VALUE;
+  capability->cleanup_path = NULL;
+  capability->cleanup_consumed = FALSE;
   directory = INVALID_HANDLE_VALUE;
   parent = INVALID_HANDLE_VALUE;
 
@@ -861,6 +939,9 @@ static private_stage_directory *capture_private_stage_cleanup(
     const FILE_ID_INFO *expected) {
   HANDLE stage_file = INVALID_HANDLE_VALUE;
   FILE_ID_INFO observed;
+  size_t path_length = 0;
+  WCHAR *path_copy = NULL;
+  last_windows_terminal_cleanup_evidence.available = FALSE;
   if (capability == NULL || capability->handle == INVALID_HANDLE_VALUE ||
       capability->cleanup_handle != INVALID_HANDLE_VALUE || stage_path == NULL ||
       expected == NULL) return NULL;
@@ -876,8 +957,22 @@ static private_stage_directory *capture_private_stage_cleanup(
     if (stage_file != INVALID_HANDLE_VALUE) CloseHandle(stage_file);
     return NULL;
   }
+  while (stage_path[path_length] != L'\0') path_length += 1;
+  if (path_length > (MAXDWORD / sizeof(WCHAR)) - 1) {
+    CloseHandle(stage_file);
+    return NULL;
+  }
+  path_copy = (WCHAR *)publication_allocate((path_length + 1) * sizeof(WCHAR));
+  if (path_copy == NULL) {
+    CloseHandle(stage_file);
+    return NULL;
+  }
+  memcpy(path_copy, stage_path, (path_length + 1) * sizeof(WCHAR));
   capability->cleanup_identity = observed;
   capability->cleanup_handle = stage_file;
+  capability->cleanup_path = path_copy;
+  capability->cleanup_consumed = FALSE;
+  last_windows_terminal_cleanup_evidence.capture_identity = observed;
   return capability;
 }
 
@@ -885,9 +980,47 @@ static publication_result consume_private_stage_cleanup(
     private_stage_directory *capability) {
   FILE_DISPOSITION_INFO_EX disposition = {0};
   FILE_DISPOSITION_INFO legacy = {0};
+  HANDLE observed_handle = INVALID_HANDLE_VALUE;
+  FILE_ID_INFO directory_identity;
+  FILE_ID_INFO observed_identity;
   publication_result result = PUBLICATION_FAILED;
-  if (capability == NULL || capability->cleanup_handle == INVALID_HANDLE_VALUE)
+  if (capability == NULL || capability->cleanup_handle == INVALID_HANDLE_VALUE ||
+      capability->cleanup_path == NULL)
     return PUBLICATION_UNSUPPORTED;
+  if (capability->cleanup_consumed) return PUBLICATION_ALREADY_CONSUMED;
+  capability->cleanup_consumed = TRUE;
+  last_windows_terminal_cleanup_evidence.available = TRUE;
+  last_windows_terminal_cleanup_evidence.directory_identity = capability->identity;
+  last_windows_terminal_cleanup_evidence.identity_before = capability->cleanup_identity;
+  last_windows_terminal_cleanup_evidence.removal_identity_available = FALSE;
+  /* Keep this recheck and disposition in one native primitive. The path is
+   * private capture state, never a JavaScript teardown authority. */
+  if (!GetFileInformationByHandleEx(capability->handle, FileIdInfo,
+                                    &directory_identity, sizeof(directory_identity)) ||
+      !file_identity_matches(&directory_identity, &capability->identity)) {
+    result = PUBLICATION_IDENTITY_MISMATCH;
+    goto done;
+  }
+  observed_handle = CreateFileW(capability->cleanup_path,
+      FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
+      FILE_FLAG_OPEN_REPARSE_POINT, NULL);
+  if (observed_handle == INVALID_HANDLE_VALUE) {
+    result = GetLastError() == ERROR_FILE_NOT_FOUND ? PUBLICATION_ABSENT
+                                                     : PUBLICATION_IDENTITY_MISMATCH;
+    goto done;
+  }
+  if (!GetFileInformationByHandleEx(observed_handle, FileIdInfo, &observed_identity,
+                                    sizeof(observed_identity))) {
+    result = PUBLICATION_IDENTITY_MISMATCH;
+    goto done;
+  }
+  last_windows_terminal_cleanup_evidence.removal_identity = observed_identity;
+  last_windows_terminal_cleanup_evidence.removal_identity_available = TRUE;
+  if (!file_identity_matches(&observed_identity, &capability->cleanup_identity)) {
+    result = PUBLICATION_REPLACEMENT_RETAINED;
+    goto done;
+  }
   disposition.Flags = FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_POSIX_SEMANTICS;
   if (SetFileInformationByHandle(capability->cleanup_handle, FileDispositionInfoEx, &disposition,
                                  sizeof(disposition))) {
@@ -901,8 +1034,13 @@ static publication_result consume_private_stage_cleanup(
       result = map_windows_error(GetLastError());
     }
   }
+done:
+  last_windows_terminal_cleanup_evidence.outcome = result;
+  if (observed_handle != INVALID_HANDLE_VALUE) CloseHandle(observed_handle);
   CloseHandle(capability->cleanup_handle);
   capability->cleanup_handle = INVALID_HANDLE_VALUE;
+  publication_free(capability->cleanup_path);
+  capability->cleanup_path = NULL;
   return result;
 }
 

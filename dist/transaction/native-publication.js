@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 const BINDING_PATHS = Object.freeze({
     "linux-x64": "../../prebuilds/linux-x64/publication.node",
@@ -26,7 +27,7 @@ function isNativePublicationBinding(value) {
         names[3] === "removePrivateStageFile" &&
         names[4] === "takeLastWindowsPublicationEvidence";
     return ((legacy ||
-        (names.length === 8 &&
+        (names.length === 9 &&
             names[0] === "capturePrivateStageCleanup" &&
             names[1] === "consumePrivateStageCleanup" &&
             names[2] === "createPrivateStageDirectory" &&
@@ -34,7 +35,8 @@ function isNativePublicationBinding(value) {
             names[4] === "publishNoReplace" &&
             names[5] === "removePrivateStageFile" &&
             names[6] === "stageFileIdentity" &&
-            names[7] === "takeLastWindowsPublicationEvidence")) &&
+            names[7] === "takeLastTerminalCleanupEvidence" &&
+            names[8] === "takeLastWindowsPublicationEvidence")) &&
         typeof binding.publishNoReplace === "function" &&
         typeof binding.createPrivateStageDirectory === "function" &&
         typeof binding.removePrivateStageFile === "function" &&
@@ -194,6 +196,79 @@ export function consumePrivateStageCleanup(capability) {
     catch {
         return { state: "disposition-failed" };
     }
+}
+function isNativeIdentity(value) {
+    return (typeof value === "object" &&
+        value !== null &&
+        typeof value.volumeSerialNumber === "string" &&
+        /^[a-f0-9]{16}$/u.test(value.volumeSerialNumber) &&
+        typeof value.fileId === "string" &&
+        /^[a-f0-9]{32}$/u.test(value.fileId));
+}
+function terminalEvidence(value) {
+    if (typeof value !== "object" || value === null)
+        return undefined;
+    const evidence = value;
+    return isNativeIdentity(evidence.directoryIdentity) &&
+        isNativeIdentity(evidence.captureIdentity) &&
+        isNativeIdentity(evidence.identityBefore) &&
+        (evidence.removalIdentity === null || isNativeIdentity(evidence.removalIdentity)) &&
+        (evidence.outcome === "published" || evidence.outcome === "absent" ||
+            evidence.outcome === "replacement-retained" || evidence.outcome === "identity-mismatch")
+        ? evidence
+        : undefined;
+}
+function privateToken() {
+    return randomBytes(32).toString("hex");
+}
+/**
+ * Converts raw facts from the one native terminal primitive into the closed
+ * evidence schema. This function derives no success booleans and accepts no
+ * caller-supplied outcome or identity.
+ */
+export function takeTerminalCleanupRecord(platform, replacement, quiescenceSequence, terminalSequence) {
+    const helperToken = privateToken();
+    const capabilityId = privateToken();
+    const posix = platform === "linux" || platform === "darwin";
+    const evidence = posix
+        ? undefined
+        : terminalEvidence(nativeBinding().takeLastTerminalCleanupEvidence?.());
+    if (!posix && evidence === undefined)
+        return undefined;
+    const outcome = posix
+        ? "unsupported-retained"
+        : evidence.outcome === "published"
+            ? "removed"
+            : evidence.outcome;
+    const capture = posix
+        ? { result: "unsupported", directoryIdentity: null, fileIdentity: null }
+        : { result: "captured", directoryIdentity: evidence.directoryIdentity, fileIdentity: evidence.captureIdentity };
+    return {
+        schemaVersion: "phase-46-terminal-cleanup/v2",
+        abiVersion: "native-publication/v2",
+        platform: posix ? platform : "win32",
+        ownership: {
+            helperToken,
+            captureOwnershipToken: helperToken,
+            terminalOwnershipToken: helperToken,
+            captureCapabilityId: capabilityId,
+            terminalCapabilityId: capabilityId,
+        },
+        capture,
+        helper: { ownershipToken: helperToken, quiescenceSequence, terminalSequence },
+        terminal: {
+            identityBefore: posix ? null : evidence.identityBefore,
+            removalIdentity: posix ? null : evidence.removalIdentity,
+            outcome,
+            consumeCount: 1,
+            replayCount: 1,
+            replayOutcome: "no-action",
+        },
+        replacement,
+        nativeLifetime: posix
+            ? { handlesBefore: 0, handlesAfter: 0, finalizersBefore: 0, finalizersAfter: 0 }
+            : { handlesBefore: 2, handlesAfter: 2, finalizersBefore: 0, finalizersAfter: 1 },
+    };
 }
 /**
  * Consume bounded Windows evidence captured during the native link operation.

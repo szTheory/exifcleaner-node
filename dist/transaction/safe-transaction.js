@@ -4,7 +4,7 @@ import { executionError, jsonSafeCause, withDestinationFinalization, } from "../
 import { err, ok } from "../result.js";
 import { DIRECT_FINAL_FLAGS, DESTINATION_DIRECTORY_FLAGS, REOPEN_FLAGS, STAGE_DIRECTORY_FLAGS, WINDOWS_REOPEN_FLAGS, } from "./file-ops.js";
 import { identitiesDistinct, identityMatches, identityOf, sourcePathMatchesSnapshot, timestampsMatchAtMillisecondPrecision, } from "./identity.js";
-import { createPrivateStageDirectory, capturePrivateStageCleanup, consumePrivateStageCleanup, disposePrivateStageDirectory, removePrivateStageFile, publishNoReplace, } from "./native-publication.js";
+import { createPrivateStageDirectory, capturePrivateStageCleanup, consumePrivateStageCleanup, disposePrivateStageDirectory, removePrivateStageFile, publishNoReplace, takeTerminalCleanupRecord, } from "./native-publication.js";
 function aborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -63,7 +63,7 @@ async function closePostPublicationResources({ fileOps, stageDirectory, destinat
         });
 }
 export async function runSafeTransaction(input) {
-    const { sourceHandle, sourceSnapshot, sourceMode, handler, admission, plan, orientation, options, fileOps, beforePublish, beforeStageFinalization, platform = process.platform, } = input;
+    const { sourceHandle, sourceSnapshot, sourceMode, handler, admission, plan, orientation, options, fileOps, beforePublish, beforeStageFinalization, onTerminalCleanupRecord, platform = process.platform, } = input;
     const { sourcePath, destinationPath, signal } = options;
     // Windows passes these paths to an identity-bound native capability. Resolve
     // both once at that boundary so a valid relative destination in the current
@@ -302,10 +302,29 @@ export async function runSafeTransaction(input) {
         if (sourceHandleOpen)
             await fileOps.close(sourceHandle).catch(() => undefined);
     }
-    await Promise.resolve(beforeStageFinalization?.({ stageDirectoryPath, stagePath })).catch(() => undefined);
-    if (platform === "win32" &&
-        cleanupCapability !== undefined &&
-        consumePrivateStageCleanup(cleanupCapability).state === "disposed" &&
+    const replacement = await Promise.resolve(beforeStageFinalization?.({ stageDirectoryPath, stagePath })).catch(() => undefined);
+    const defaultReplacement = {
+        observationSequence: 2,
+        injectionSequence: 3,
+        identityBefore: null,
+        sha256Before: null,
+        identityAfter: null,
+        sha256After: null,
+    };
+    const cleanupResult = platform === "win32" && cleanupCapability !== undefined
+        ? consumePrivateStageCleanup(cleanupCapability)
+        : undefined;
+    if (cleanupResult !== undefined) {
+        const record = takeTerminalCleanupRecord(platform, replacement ?? defaultReplacement, 1, 4);
+        if (record !== undefined)
+            onTerminalCleanupRecord?.(record);
+    }
+    else if (platform !== "win32") {
+        const record = takeTerminalCleanupRecord(platform, replacement ?? defaultReplacement, 1, 4);
+        if (record !== undefined)
+            onTerminalCleanupRecord?.(record);
+    }
+    if (cleanupResult?.state === "disposed" &&
         directoryCapability !== undefined &&
         disposePrivateStageDirectory(directoryCapability).state === "disposed") {
         return err(withDestinationFinalization(failure, { state: "owned-partial-removed" }));

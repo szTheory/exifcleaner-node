@@ -1,4 +1,4 @@
-type NativePublicationCode = "published" | "collision" | "unsupported" | "already-consumed" | "failed";
+type NativePublicationCode = "published" | "collision" | "unsupported" | "already-consumed" | "absent" | "replacement-retained" | "identity-mismatch" | "failed";
 export type NativePublicationArguments = readonly [
     stageFileDescriptor: number,
     destinationPath: string,
@@ -19,6 +19,8 @@ export interface NativePublicationBinding {
     readonly stageFileIdentity?: (stageDescriptor: number) => unknown;
     /** Consumes only the handle retained by capturePrivateStageCleanup. */
     readonly consumePrivateStageCleanup?: (capability: NativeStageCleanupCapability) => NativePublicationCode;
+    /** Raw native facts from the last terminal consume; private to transaction. */
+    readonly takeLastTerminalCleanupEvidence?: () => unknown;
     readonly disposePrivateStageDirectory: (capability: NativeStageDirectoryCapability) => NativePublicationCode;
     /** Bounded diagnostic captured by the actual Windows publication call. */
     readonly takeLastWindowsPublicationEvidence?: () => unknown;
@@ -73,6 +75,47 @@ export type NativeStageCleanupCapture = {
 } | {
     readonly state: "capture-failed";
 };
+type NativeCleanupOutcome = "removed" | "absent" | "replacement-retained" | "identity-mismatch" | "unsupported-retained";
+/** Private, closed terminal-cleanup evidence. It is intentionally not exported
+ * from the package root or its declarations. */
+export type TerminalCleanupRecord = Readonly<{
+    schemaVersion: "phase-46-terminal-cleanup/v2";
+    abiVersion: "native-publication/v2";
+    platform: "win32" | "linux" | "darwin";
+    ownership: Readonly<Record<"helperToken" | "captureOwnershipToken" | "terminalOwnershipToken" | "captureCapabilityId" | "terminalCapabilityId", string>>;
+    capture: Readonly<{
+        result: "captured" | "unsupported";
+        directoryIdentity: NativeStageFileIdentity | null;
+        fileIdentity: NativeStageFileIdentity | null;
+    }>;
+    helper: Readonly<{
+        ownershipToken: string;
+        quiescenceSequence: number;
+        terminalSequence: number;
+    }>;
+    terminal: Readonly<{
+        identityBefore: NativeStageFileIdentity | null;
+        removalIdentity: NativeStageFileIdentity | null;
+        outcome: NativeCleanupOutcome;
+        consumeCount: number;
+        replayCount: number;
+        replayOutcome: "no-action";
+    }>;
+    replacement: Readonly<{
+        observationSequence: number;
+        injectionSequence: number;
+        identityBefore: NativeStageFileIdentity | null;
+        sha256Before: string | null;
+        identityAfter: NativeStageFileIdentity | null;
+        sha256After: string | null;
+    }>;
+    nativeLifetime: Readonly<{
+        handlesBefore: number;
+        handlesAfter: number;
+        finalizersBefore: number;
+        finalizersAfter: number;
+    }>;
+}>;
 type AddonLoader = (specifier: string) => unknown;
 export declare function loadNativePublicationBindingForTests(platform: string, architecture: string, loadAddon: AddonLoader): NativePublicationBinding;
 export declare function setNativePublicationBindingForTests(binding: NativePublicationBinding): () => void;
@@ -89,6 +132,19 @@ export declare function removePrivateStageFile(capability: NativeStageDirectoryC
 export declare function capturePrivateStageCleanup(directoryCapability: NativeStageDirectoryCapability, stagePath: string, stageDescriptor: number, platform?: NodeJS.Platform): NativeStageCleanupCapture;
 export declare function stageFileIdentity(stageDescriptor: number, platform?: NodeJS.Platform): NativeStageFileIdentity | undefined;
 export declare function consumePrivateStageCleanup(capability: NativeStageCleanupCapability): NativeStageDirectoryDisposition;
+/**
+ * Converts raw facts from the one native terminal primitive into the closed
+ * evidence schema. This function derives no success booleans and accepts no
+ * caller-supplied outcome or identity.
+ */
+export declare function takeTerminalCleanupRecord(platform: NodeJS.Platform, replacement: Readonly<{
+    observationSequence: number;
+    injectionSequence: number;
+    identityBefore: NativeStageFileIdentity | null;
+    sha256Before: string | null;
+    identityAfter: NativeStageFileIdentity | null;
+    sha256After: string | null;
+}>, quiescenceSequence: number, terminalSequence: number): TerminalCleanupRecord | undefined;
 /**
  * Consume bounded Windows evidence captured during the native link operation.
  * This is diagnostic data only; it is never used to decide publication.

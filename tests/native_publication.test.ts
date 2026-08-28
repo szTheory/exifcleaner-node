@@ -13,6 +13,7 @@ import {
   mapNativeStageDirectoryCode,
   publishNoReplace,
   stageFileIdentity,
+  takeTerminalCleanupRecord,
   type NativePublicationArguments,
   type NativeStageDirectoryCapability,
   setNativePublicationBindingForTests,
@@ -99,6 +100,7 @@ describe("current-host native publication addon", () => {
       "publishNoReplace",
       "removePrivateStageFile",
       "stageFileIdentity",
+      "takeLastTerminalCleanupEvidence",
       "takeLastWindowsPublicationEvidence",
     ]);
 
@@ -391,6 +393,7 @@ describe("private native publication loader", () => {
         capturePrivateStageCleanup: () => undefined,
         consumePrivateStageCleanup: () => "unsupported",
         stageFileIdentity: () => undefined,
+        takeLastTerminalCleanupEvidence: () => undefined,
         disposePrivateStageDirectory: () => "unsupported",
         takeLastWindowsPublicationEvidence: () => undefined,
       };
@@ -444,6 +447,49 @@ describe("private native publication loader", () => {
     expect(mapNativeStageDirectoryCode("anything-else")).toEqual({
       state: "disposition-failed",
     });
+  });
+
+  it("derives a closed terminal record from raw native evidence", () => {
+    const identity = {
+      volumeSerialNumber: "0".repeat(16),
+      fileId: "a".repeat(32),
+    };
+    const restore = setNativePublicationBindingForTests({
+      publishNoReplace: () => "failed",
+      createPrivateStageDirectory: () => undefined,
+      removePrivateStageFile: () => "unsupported",
+      disposePrivateStageDirectory: () => "unsupported",
+      takeLastTerminalCleanupEvidence: () => ({
+        directoryIdentity: identity,
+        captureIdentity: identity,
+        identityBefore: identity,
+        removalIdentity: identity,
+        outcome: "replacement-retained",
+      }),
+    });
+    try {
+      const record = takeTerminalCleanupRecord(
+        "win32",
+        {
+          observationSequence: 2,
+          injectionSequence: 3,
+          identityBefore: identity,
+          sha256Before: "b".repeat(64),
+          identityAfter: identity,
+          sha256After: "b".repeat(64),
+        },
+        1,
+        4,
+      );
+      expect(record).toMatchObject({
+        schemaVersion: "phase-46-terminal-cleanup/v2",
+        terminal: { outcome: "replacement-retained", replayOutcome: "no-action" },
+      });
+      expect(record?.ownership.helperToken).toHaveLength(64);
+      expect(record?.ownership.captureCapabilityId).not.toBe(record?.ownership.helperToken);
+    } finally {
+      restore();
+    }
   });
 
   it("uses an injected binding only through the private test seam", () => {

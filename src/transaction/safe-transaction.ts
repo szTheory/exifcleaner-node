@@ -45,8 +45,11 @@ import {
   disposePrivateStageDirectory,
   removePrivateStageFile,
   publishNoReplace,
+  takeTerminalCleanupRecord,
+  type NativeStageFileIdentity,
   type NativeStageDirectoryCapability,
   type NativeStageCleanupCapability,
+  type TerminalCleanupRecord,
 } from "./native-publication.js";
 
 function aborted(signal: AbortSignal | undefined): boolean {
@@ -156,7 +159,29 @@ export interface SafeTransactionInput {
   readonly beforeStageFinalization?: (paths: {
     readonly stageDirectoryPath: string;
     readonly stagePath: string;
-  }) => void | Promise<void>;
+  }) =>
+    | void
+    | Readonly<{
+        observationSequence: number;
+        injectionSequence: number;
+        identityBefore: NativeStageFileIdentity | null;
+        sha256Before: string | null;
+        identityAfter: NativeStageFileIdentity | null;
+        sha256After: string | null;
+      }>
+    | Promise<
+        | void
+        | Readonly<{
+            observationSequence: number;
+            injectionSequence: number;
+            identityBefore: NativeStageFileIdentity | null;
+            sha256Before: string | null;
+            identityAfter: NativeStageFileIdentity | null;
+            sha256After: string | null;
+          }>
+      >;
+  /** Private installed-evidence sink; never threaded through sanitizeFile. */
+  readonly onTerminalCleanupRecord?: (record: TerminalCleanupRecord) => void;
   /** Private platform seam for deterministic capability-finalization coverage. */
   readonly platform?: NodeJS.Platform;
 }
@@ -176,6 +201,7 @@ export async function runSafeTransaction(
     fileOps,
     beforePublish,
     beforeStageFinalization,
+    onTerminalCleanupRecord,
     platform = process.platform,
   } = input;
   const { sourcePath, destinationPath, signal } = options;
@@ -536,13 +562,30 @@ export async function runSafeTransaction(
     if (sourceHandleOpen)
       await fileOps.close(sourceHandle).catch(() => undefined);
   }
-  await Promise.resolve(
+  const replacement = await Promise.resolve(
     beforeStageFinalization?.({ stageDirectoryPath, stagePath }),
   ).catch(() => undefined);
+  const defaultReplacement = {
+    observationSequence: 2,
+    injectionSequence: 3,
+    identityBefore: null,
+    sha256Before: null,
+    identityAfter: null,
+    sha256After: null,
+  };
+  const cleanupResult =
+    platform === "win32" && cleanupCapability !== undefined
+      ? consumePrivateStageCleanup(cleanupCapability)
+      : undefined;
+  if (cleanupResult !== undefined) {
+    const record = takeTerminalCleanupRecord(platform, replacement ?? defaultReplacement, 1, 4);
+    if (record !== undefined) onTerminalCleanupRecord?.(record);
+  } else if (platform !== "win32") {
+    const record = takeTerminalCleanupRecord(platform, replacement ?? defaultReplacement, 1, 4);
+    if (record !== undefined) onTerminalCleanupRecord?.(record);
+  }
   if (
-    platform === "win32" &&
-    cleanupCapability !== undefined &&
-    consumePrivateStageCleanup(cleanupCapability).state === "disposed" &&
+    cleanupResult?.state === "disposed" &&
     directoryCapability !== undefined &&
     disposePrivateStageDirectory(directoryCapability).state === "disposed"
   ) {

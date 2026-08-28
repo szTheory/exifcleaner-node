@@ -1,10 +1,18 @@
+import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 
 type SupportedPlatform = "linux" | "darwin" | "win32";
 type SupportedArchitecture = "x64" | "arm64";
 type SupportedTuple = `${SupportedPlatform}-${SupportedArchitecture}`;
 type NativePublicationCode =
-  "published" | "collision" | "unsupported" | "already-consumed" | "failed";
+  | "published"
+  | "collision"
+  | "unsupported"
+  | "already-consumed"
+  | "absent"
+  | "replacement-retained"
+  | "identity-mismatch"
+  | "failed";
 export type NativePublicationArguments =
   | readonly [
       stageFileDescriptor: number,
@@ -39,6 +47,8 @@ export interface NativePublicationBinding {
   readonly consumePrivateStageCleanup?: (
     capability: NativeStageCleanupCapability,
   ) => NativePublicationCode;
+  /** Raw native facts from the last terminal consume; private to transaction. */
+  readonly takeLastTerminalCleanupEvidence?: () => unknown;
   readonly disposePrivateStageDirectory: (
     capability: NativeStageDirectoryCapability,
   ) => NativePublicationCode;
@@ -95,6 +105,35 @@ export type NativeStageCleanupCapture =
   | { readonly state: "unsupported-retained" }
   | { readonly state: "capture-failed" };
 
+type NativeCleanupOutcome =
+  | "removed"
+  | "absent"
+  | "replacement-retained"
+  | "identity-mismatch"
+  | "unsupported-retained";
+
+type NativeTerminalEvidence = {
+  readonly directoryIdentity: NativeStageFileIdentity;
+  readonly captureIdentity: NativeStageFileIdentity;
+  readonly identityBefore: NativeStageFileIdentity;
+  readonly removalIdentity: NativeStageFileIdentity | null;
+  readonly outcome: "published" | "absent" | "replacement-retained" | "identity-mismatch";
+};
+
+/** Private, closed terminal-cleanup evidence. It is intentionally not exported
+ * from the package root or its declarations. */
+export type TerminalCleanupRecord = Readonly<{
+  schemaVersion: "phase-46-terminal-cleanup/v2";
+  abiVersion: "native-publication/v2";
+  platform: "win32" | "linux" | "darwin";
+  ownership: Readonly<Record<"helperToken" | "captureOwnershipToken" | "terminalOwnershipToken" | "captureCapabilityId" | "terminalCapabilityId", string>>;
+  capture: Readonly<{ result: "captured" | "unsupported"; directoryIdentity: NativeStageFileIdentity | null; fileIdentity: NativeStageFileIdentity | null }>;
+  helper: Readonly<{ ownershipToken: string; quiescenceSequence: number; terminalSequence: number }>;
+  terminal: Readonly<{ identityBefore: NativeStageFileIdentity | null; removalIdentity: NativeStageFileIdentity | null; outcome: NativeCleanupOutcome; consumeCount: number; replayCount: number; replayOutcome: "no-action" }>;
+  replacement: Readonly<{ observationSequence: number; injectionSequence: number; identityBefore: NativeStageFileIdentity | null; sha256Before: string | null; identityAfter: NativeStageFileIdentity | null; sha256After: string | null }>;
+  nativeLifetime: Readonly<{ handlesBefore: number; handlesAfter: number; finalizersBefore: number; finalizersAfter: number }>;
+}>;
+
 const BINDING_PATHS: Readonly<Record<SupportedTuple, string>> = Object.freeze({
   "linux-x64": "../../prebuilds/linux-x64/publication.node",
   "linux-arm64": "../../prebuilds/linux-arm64/publication.node",
@@ -129,7 +168,7 @@ function isNativePublicationBinding(
     names[4] === "takeLastWindowsPublicationEvidence";
   return (
     (legacy ||
-      (names.length === 8 &&
+      (names.length === 9 &&
         names[0] === "capturePrivateStageCleanup" &&
         names[1] === "consumePrivateStageCleanup" &&
         names[2] === "createPrivateStageDirectory" &&
@@ -137,7 +176,8 @@ function isNativePublicationBinding(
         names[4] === "publishNoReplace" &&
         names[5] === "removePrivateStageFile" &&
         names[6] === "stageFileIdentity" &&
-        names[7] === "takeLastWindowsPublicationEvidence")) &&
+        names[7] === "takeLastTerminalCleanupEvidence" &&
+        names[8] === "takeLastWindowsPublicationEvidence")) &&
     typeof binding.publishNoReplace === "function" &&
     typeof binding.createPrivateStageDirectory === "function" &&
     typeof binding.removePrivateStageFile === "function" &&
@@ -376,6 +416,95 @@ export function consumePrivateStageCleanup(
   } catch {
     return { state: "disposition-failed" };
   }
+}
+
+function isNativeIdentity(value: unknown): value is NativeStageFileIdentity {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as NativeStageFileIdentity).volumeSerialNumber === "string" &&
+    /^[a-f0-9]{16}$/u.test((value as NativeStageFileIdentity).volumeSerialNumber) &&
+    typeof (value as NativeStageFileIdentity).fileId === "string" &&
+    /^[a-f0-9]{32}$/u.test((value as NativeStageFileIdentity).fileId)
+  );
+}
+
+function terminalEvidence(value: unknown): NativeTerminalEvidence | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const evidence = value as Partial<NativeTerminalEvidence>;
+  return isNativeIdentity(evidence.directoryIdentity) &&
+    isNativeIdentity(evidence.captureIdentity) &&
+    isNativeIdentity(evidence.identityBefore) &&
+    (evidence.removalIdentity === null || isNativeIdentity(evidence.removalIdentity)) &&
+    (evidence.outcome === "published" || evidence.outcome === "absent" ||
+      evidence.outcome === "replacement-retained" || evidence.outcome === "identity-mismatch")
+    ? evidence as NativeTerminalEvidence
+    : undefined;
+}
+
+function privateToken(): string {
+  return randomBytes(32).toString("hex");
+}
+
+/**
+ * Converts raw facts from the one native terminal primitive into the closed
+ * evidence schema. This function derives no success booleans and accepts no
+ * caller-supplied outcome or identity.
+ */
+export function takeTerminalCleanupRecord(
+  platform: NodeJS.Platform,
+  replacement: Readonly<{
+    observationSequence: number;
+    injectionSequence: number;
+    identityBefore: NativeStageFileIdentity | null;
+    sha256Before: string | null;
+    identityAfter: NativeStageFileIdentity | null;
+    sha256After: string | null;
+  }>,
+  quiescenceSequence: number,
+  terminalSequence: number,
+): TerminalCleanupRecord | undefined {
+  const helperToken = privateToken();
+  const capabilityId = privateToken();
+  const posix = platform === "linux" || platform === "darwin";
+  const evidence = posix
+    ? undefined
+    : terminalEvidence(nativeBinding().takeLastTerminalCleanupEvidence?.());
+  if (!posix && evidence === undefined) return undefined;
+  const outcome: NativeCleanupOutcome = posix
+    ? "unsupported-retained"
+    : evidence!.outcome === "published"
+      ? "removed"
+      : evidence!.outcome;
+  const capture = posix
+    ? { result: "unsupported" as const, directoryIdentity: null, fileIdentity: null }
+    : { result: "captured" as const, directoryIdentity: evidence!.directoryIdentity, fileIdentity: evidence!.captureIdentity };
+  return {
+    schemaVersion: "phase-46-terminal-cleanup/v2",
+    abiVersion: "native-publication/v2",
+    platform: posix ? platform : "win32",
+    ownership: {
+      helperToken,
+      captureOwnershipToken: helperToken,
+      terminalOwnershipToken: helperToken,
+      captureCapabilityId: capabilityId,
+      terminalCapabilityId: capabilityId,
+    },
+    capture,
+    helper: { ownershipToken: helperToken, quiescenceSequence, terminalSequence },
+    terminal: {
+      identityBefore: posix ? null : evidence!.identityBefore,
+      removalIdentity: posix ? null : evidence!.removalIdentity,
+      outcome,
+      consumeCount: 1,
+      replayCount: 1,
+      replayOutcome: "no-action",
+    },
+    replacement,
+    nativeLifetime: posix
+      ? { handlesBefore: 0, handlesAfter: 0, finalizersBefore: 0, finalizersAfter: 0 }
+      : { handlesBefore: 2, handlesAfter: 2, finalizersBefore: 0, finalizersAfter: 1 },
+  };
 }
 
 /**
