@@ -262,12 +262,18 @@ jobs:
         shell: bash
         run: |
           manifest_sha="$(node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'))")"
-          QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host --windows-publication-diagnostic-output "windows-publication-installed-node22-${{ matrix.tuple }}.json" > node-22.json
+          QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host --windows-publication-diagnostic-output "windows-publication-installed-node22-${{ matrix.tuple }}.json" --windows-cancellation-diagnostic-output "windows-cancellation-installed-node22-${{ matrix.tuple }}.json" > node-22.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.os == 'win32'
         with:
           name: windows-publication-installed-node22-${{ matrix.tuple }}
           path: windows-publication-installed-node22-${{ matrix.tuple }}.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always() && matrix.os == 'win32'
+        with:
+          name: windows-cancellation-installed-node22-${{ matrix.tuple }}
+          path: windows-cancellation-installed-node22-${{ matrix.tuple }}.json
           if-no-files-found: error
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
