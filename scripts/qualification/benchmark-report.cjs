@@ -1191,6 +1191,203 @@ function validateWindowsPublicationDiagnosticLedger(ledger) {
   }
   return ledger;
 }
+
+const WINDOWS_CANCELLATION_DIAGNOSTIC_TUPLES = Object.freeze([
+  "win32-x64",
+  "win32-arm64",
+]);
+const WINDOWS_CANCELLATION_REASONS = Object.freeze([
+  "result-shape",
+  "unexpected-ok",
+  "error-code",
+  "native-write",
+  "fallback",
+  "finalization-state",
+  "hook-missing",
+  "capture-missing",
+  "cleanup-record",
+  "residue",
+  "accepted",
+]);
+
+function cancellationReason(observation) {
+  if (observation.resultOk === null) return "result-shape";
+  if (observation.resultOk) return "unexpected-ok";
+  if (observation.errorCode !== "aborted") return "error-code";
+  if (observation.nativeWrite !== "started") return "native-write";
+  if (observation.fallback !== "do-not-fallback") return "fallback";
+  if (observation.finalizationState !== "owned-partial-removed")
+    return "finalization-state";
+  if (!observation.beforePublishHookSeen) return "hook-missing";
+  if (!observation.cancellationStageCaptured) return "capture-missing";
+  if (
+    !observation.cleanupRecordPresent ||
+    observation.cleanupValidation !== "accepted"
+  )
+    return "cleanup-record";
+  if (
+    observation.residue.directory !== false ||
+    observation.residue.file !== false
+  )
+    return "residue";
+  return "accepted";
+}
+
+function validateWindowsCancellationObservation(observation) {
+  exactKeys(
+    observation,
+    [
+      "reason",
+      "resultOk",
+      "errorCode",
+      "nativeWrite",
+      "fallback",
+      "finalizationState",
+      "beforePublishHookSeen",
+      "cancellationStageCaptured",
+      "cleanupRecordPresent",
+      "cleanupValidation",
+      "residue",
+      "keyCounts",
+    ],
+    "Windows cancellation observation",
+  );
+  exactKeys(observation.residue, ["directory", "file"], "cancellation residue");
+  exactKeys(
+    observation.keyCounts,
+    [
+      "result",
+      "error",
+      "finalization",
+      "cancellationStage",
+      "cleanupRecord",
+      "residue",
+    ],
+    "cancellation key counts",
+  );
+  if (
+    ![true, false, null].includes(observation.resultOk) ||
+    !["aborted", "other", "absent"].includes(observation.errorCode) ||
+    !["started", "not-started", "other", "absent"].includes(
+      observation.nativeWrite,
+    ) ||
+    !["do-not-fallback", "safe-to-fallback", "other", "absent"].includes(
+      observation.fallback,
+    ) ||
+    ![
+      "owned-partial-removed",
+      "already-missing",
+      "replaced-and-left-untouched",
+      "owned-partial-remains",
+      "other",
+      "absent",
+    ].includes(observation.finalizationState) ||
+    !["accepted", "closed-reason", "not-reached"].includes(
+      observation.cleanupValidation,
+    ) ||
+    typeof observation.beforePublishHookSeen !== "boolean" ||
+    typeof observation.cancellationStageCaptured !== "boolean" ||
+    typeof observation.cleanupRecordPresent !== "boolean" ||
+    ![true, false, null].includes(observation.residue.directory) ||
+    ![true, false, null].includes(observation.residue.file) ||
+    Object.values(observation.keyCounts).some(
+      (value) => !Number.isSafeInteger(value) || value < 0 || value > 32,
+    )
+  )
+    throw new Error("Windows cancellation facts are invalid");
+  const reason = cancellationReason(observation);
+  if (
+    !WINDOWS_CANCELLATION_REASONS.includes(observation.reason) ||
+    observation.reason !== reason
+  )
+    throw new Error("Windows cancellation reason is invalid");
+  return observation;
+}
+
+function validateWindowsCancellationDiagnosticRecord(record, tuple) {
+  exactKeys(
+    record,
+    ["tuple", "nodeMajor", "job", "artifact", "diagnostic"],
+    "Windows cancellation record",
+  );
+  exactKeys(record.job, ["name", "conclusion"], "cancellation job");
+  exactKeys(record.artifact, ["name", "sha256"], "cancellation artifact");
+  exactKeys(
+    record.diagnostic,
+    ["schemaVersion", "diagnosticOnly", "tuple", "nodeMajor", "observation"],
+    "Windows cancellation diagnostic",
+  );
+  if (
+    record.tuple !== tuple ||
+    record.nodeMajor !== 22 ||
+    record.job.name !== `installed-${tuple}` ||
+    record.job.conclusion !== "failure" ||
+    record.artifact.name !== `windows-cancellation-installed-node22-${tuple}` ||
+    record.diagnostic.schemaVersion !==
+      "phase-46-windows-cancellation-diagnostic/v1" ||
+    record.diagnostic.diagnosticOnly !== true ||
+    record.diagnostic.tuple !== tuple ||
+    record.diagnostic.nodeMajor !== 22
+  )
+    throw new Error("Windows cancellation record identity is invalid");
+  assertSha(record.artifact.sha256, "Windows cancellation artifact");
+  validateWindowsCancellationObservation(record.diagnostic.observation);
+  return record;
+}
+
+function validateWindowsCancellationDiagnosticLedger(ledger) {
+  exactKeys(
+    ledger,
+    ["schemaVersion", "diagnosticOnly", "run", "records"],
+    "Windows cancellation diagnostic ledger",
+  );
+  exactKeys(
+    ledger.run,
+    [
+      "repository",
+      "workflow",
+      "event",
+      "attempt",
+      "id",
+      "url",
+      "ref",
+      "headSha",
+    ],
+    "Windows cancellation run",
+  );
+  if (
+    ledger.schemaVersion !==
+      "phase-46-windows-cancellation-diagnostic-ledger/v1" ||
+    ledger.diagnosticOnly !== true ||
+    ledger.run.repository !== "szTheory/exifcleaner-node" ||
+    ledger.run.workflow !== ".github/workflows/ci.yml" ||
+    ledger.run.event !== "workflow_dispatch" ||
+    ledger.run.attempt !== 1 ||
+    !Number.isSafeInteger(ledger.run.id) ||
+    ledger.run.id <= 0 ||
+    ledger.run.url !==
+      `https://github.com/szTheory/exifcleaner-node/actions/runs/${ledger.run.id}` ||
+    !/^[a-f0-9]{40}$/u.test(ledger.run.headSha) ||
+    ledger.run.ref !==
+      `refs/heads/proof/46-27-cancellation-diagnostic-${ledger.run.headSha.slice(0, 7)}`
+  )
+    throw new Error("Windows cancellation run identity is invalid");
+  exactKeys(
+    ledger.records,
+    WINDOWS_CANCELLATION_DIAGNOSTIC_TUPLES,
+    "Windows cancellation tuple set",
+  );
+  const records = WINDOWS_CANCELLATION_DIAGNOSTIC_TUPLES.map((tuple) =>
+    validateWindowsCancellationDiagnosticRecord(ledger.records[tuple], tuple),
+  );
+  if (
+    !records.some(
+      (record) => record.diagnostic.observation.reason !== "accepted",
+    )
+  )
+    throw new Error("Windows cancellation diagnostic has no rejection");
+  return ledger;
+}
 function sha256File(filePath) {
   return crypto
     .createHash("sha256")
@@ -2121,6 +2318,11 @@ function main(args) {
   )
     return validateWindowsPublicationDiagnosticLedger(readJson(args[1]));
   if (
+    args[0] === "--windows-cancellation-diagnostic-ledger" &&
+    args.length === 2
+  )
+    return validateWindowsCancellationDiagnosticLedger(readJson(args[1]));
+  if (
     args[0] === "--hosted-ledger" &&
     args[2] === "--memory-ledger" &&
     args[4] === "--windows-ledger" &&
@@ -2128,7 +2330,7 @@ function main(args) {
   )
     return hostedLedger(args[1], args[3], args[5]);
   throw new Error(
-    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --windows-publication-diagnostic-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
+    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --windows-publication-diagnostic-ledger <file> | --windows-cancellation-diagnostic-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
   );
 }
 module.exports = {
@@ -2149,6 +2351,7 @@ module.exports = {
   validateTerminalCleanupRecord,
   validateIdentityCleanupLedger,
   validateWindowsPublicationDiagnosticLedger,
+  validateWindowsCancellationDiagnosticLedger,
   phaseAdmission,
   deriveCorrectnessKey,
   deriveFinalizationKey,

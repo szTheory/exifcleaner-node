@@ -103,6 +103,129 @@ function exists(path) {
   }
 }
 
+function closedObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value
+    : undefined;
+}
+
+function boundedKeyCount(value) {
+  const record = closedObject(value);
+  return record === undefined ? 0 : Math.min(Object.keys(record).length, 32);
+}
+
+function classifyDeterministicCancellation({
+  result,
+  fallback,
+  expectedFinalizationState,
+  beforePublishHookSeen,
+  cancellationStage,
+  cleanupRecord,
+  cleanupValidation,
+  residue,
+}) {
+  const resultRecord = closedObject(result);
+  const errorRecord = closedObject(resultRecord?.error);
+  const finalizationRecord = closedObject(errorRecord?.finalization);
+  const residueRecord = closedObject(residue);
+  const resultOk =
+    typeof resultRecord?.ok === "boolean" ? resultRecord.ok : null;
+  const errorCode =
+    errorRecord?.code === undefined
+      ? "absent"
+      : errorRecord.code === "aborted"
+        ? "aborted"
+        : "other";
+  const nativeWrite =
+    errorRecord?.nativeWrite === undefined
+      ? "absent"
+      : ["started", "not-started"].includes(errorRecord.nativeWrite)
+        ? errorRecord.nativeWrite
+        : "other";
+  const normalizedFallback =
+    fallback === undefined
+      ? "absent"
+      : ["do-not-fallback", "safe-to-fallback"].includes(fallback)
+        ? fallback
+        : "other";
+  const finalizationState =
+    finalizationRecord?.state === undefined
+      ? "absent"
+      : [
+            "owned-partial-removed",
+            "already-missing",
+            "replaced-and-left-untouched",
+            "owned-partial-remains",
+          ].includes(finalizationRecord.state)
+        ? finalizationRecord.state
+        : "other";
+  const hookSeen = beforePublishHookSeen === true;
+  const stageCaptured = closedObject(cancellationStage) !== undefined;
+  const cleanupPresent = closedObject(cleanupRecord) !== undefined;
+  const normalizedCleanupValidation = !cleanupPresent
+    ? "not-reached"
+    : cleanupValidation === "accepted"
+      ? "accepted"
+      : "closed-reason";
+  const normalizedResidue = {
+    directory:
+      typeof residueRecord?.stageDirectoryExists === "boolean"
+        ? residueRecord.stageDirectoryExists
+        : null,
+    file:
+      typeof residueRecord?.stageFileExists === "boolean"
+        ? residueRecord.stageFileExists
+        : null,
+  };
+  const keyCounts = {
+    result: boundedKeyCount(result),
+    error: boundedKeyCount(resultRecord?.error),
+    finalization: boundedKeyCount(errorRecord?.finalization),
+    cancellationStage: boundedKeyCount(cancellationStage),
+    cleanupRecord: boundedKeyCount(cleanupRecord),
+    residue: boundedKeyCount(residue),
+  };
+  const normalizedExpectedFinalizationState = [
+    "owned-partial-removed",
+    "owned-partial-remains",
+  ].includes(expectedFinalizationState)
+    ? expectedFinalizationState
+    : undefined;
+  const expectedResidue =
+    normalizedExpectedFinalizationState === "owned-partial-remains";
+  let reason = "accepted";
+  if (resultRecord === undefined || resultOk === null) reason = "result-shape";
+  else if (resultOk) reason = "unexpected-ok";
+  else if (errorCode !== "aborted") reason = "error-code";
+  else if (nativeWrite !== "started") reason = "native-write";
+  else if (normalizedFallback !== "do-not-fallback") reason = "fallback";
+  else if (finalizationState !== normalizedExpectedFinalizationState)
+    reason = "finalization-state";
+  else if (!hookSeen) reason = "hook-missing";
+  else if (!stageCaptured) reason = "capture-missing";
+  else if (!cleanupPresent || normalizedCleanupValidation !== "accepted")
+    reason = "cleanup-record";
+  else if (
+    normalizedResidue.directory !== expectedResidue ||
+    normalizedResidue.file !== expectedResidue
+  )
+    reason = "residue";
+  return {
+    reason,
+    resultOk,
+    errorCode,
+    nativeWrite,
+    fallback: normalizedFallback,
+    finalizationState,
+    beforePublishHookSeen: hookSeen,
+    cancellationStageCaptured: stageCaptured,
+    cleanupRecordPresent: cleanupPresent,
+    cleanupValidation: normalizedCleanupValidation,
+    residue: normalizedResidue,
+    keyCounts,
+  };
+}
+
 function legacyTerminalCleanupRecord(record) {
   const keys = (value) => Object.keys(value);
   const isHex = (value, length) =>
@@ -336,6 +459,7 @@ function parseArguments(args) {
         "--tarball-sha256",
         "--manifest-sha256",
         "--windows-publication-diagnostic-output",
+        "--windows-cancellation-diagnostic-output",
       ]).has(flag)
     )
       throw new Error(`Unknown option ${flag}`);
@@ -356,6 +480,8 @@ function parseArguments(args) {
   const manifestSha256 = values["--manifest-sha256"];
   const windowsPublicationDiagnosticOutput =
     values["--windows-publication-diagnostic-output"];
+  const windowsCancellationDiagnosticOutput =
+    values["--windows-cancellation-diagnostic-output"];
   for (const [label, value] of [
     ["--tarball-sha256", tarballSha256],
     ["--manifest-sha256", manifestSha256],
@@ -378,6 +504,10 @@ function parseArguments(args) {
       windowsPublicationDiagnosticOutput === undefined
         ? undefined
         : resolve(windowsPublicationDiagnosticOutput),
+    windowsCancellationDiagnosticOutput:
+      windowsCancellationDiagnosticOutput === undefined
+        ? undefined
+        : resolve(windowsCancellationDiagnosticOutput),
   };
 }
 
@@ -626,7 +756,12 @@ async function runCorpusCase(api, sandbox, id, source, index) {
   };
 }
 
-async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
+async function runDeterministicCancellation(
+  packageRoot,
+  sandbox,
+  sourceBytes,
+  windowsCancellationDiagnosticOutput,
+) {
   const moduleUrl = (relativePath) =>
     pathToFileURL(join(packageRoot, "dist", relativePath)).href;
   const [
@@ -659,6 +794,7 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
   const controller = new AbortController();
   let cancellationStage;
   let cleanupRecord;
+  let beforePublishHookSeen = false;
   const result = await transactionModule.runSafeTransaction({
     sourceHandle: source,
     sourceSnapshot: identityModule.snapshotSource(stats),
@@ -677,6 +813,7 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
     },
     fileOps: fileOpsModule.NODE_FILE_OPS,
     beforePublish: ({ stageDirectoryPath, stagePath }) => {
+      beforePublishHookSeen = true;
       const stageDirectory = lstatSync(stageDirectoryPath);
       const stageFile = lstatSync(stagePath);
       cancellationStage = {
@@ -728,16 +865,55 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
       cleanupRecord = record;
     },
   });
-  if (
-    result.ok ||
-    result.error.code !== "aborted" ||
-    result.error.nativeWrite !== "started" ||
-    fallbackModule.classifyFallback(result.error) !== "do-not-fallback" ||
-    result.error.finalization?.state !==
-      (process.platform === "win32"
-        ? "owned-partial-removed"
-        : "owned-partial-remains")
-  )
+  const expectedFinalizationState =
+    process.platform === "win32"
+      ? "owned-partial-removed"
+      : "owned-partial-remains";
+  const fallback = result.ok
+    ? undefined
+    : fallbackModule.classifyFallback(result.error);
+  const residue =
+    cancellationStage === undefined
+      ? undefined
+      : {
+          stageDirectoryExists: exists(cancellationStage.stageDirectoryPath),
+          stageFileExists: exists(cancellationStage.stagePath),
+        };
+  let cleanupValidation = "not-reached";
+  if (cleanupRecord !== undefined) {
+    try {
+      validateTerminalCleanupRecord(cleanupRecord, "installed");
+      cleanupValidation = "accepted";
+    } catch {
+      cleanupValidation = "closed-reason";
+    }
+  }
+  const observation = classifyDeterministicCancellation({
+    result,
+    fallback,
+    expectedFinalizationState,
+    beforePublishHookSeen,
+    cancellationStage,
+    cleanupRecord,
+    cleanupValidation,
+    residue,
+  });
+  if (windowsCancellationDiagnosticOutput !== undefined)
+    writeFileSync(
+      windowsCancellationDiagnosticOutput,
+      `${JSON.stringify(
+        {
+          schemaVersion: "phase-46-windows-cancellation-diagnostic/v1",
+          diagnosticOnly: true,
+          tuple: hostTuple(),
+          nodeMajor: Number(process.versions.node.split(".")[0]),
+          observation,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  if (observation.reason !== "accepted")
     throw new Error("Installed deterministic cancellation contract failed");
   try {
     accessSync(destinationPath);
@@ -747,12 +923,6 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
   }
   if (!readFileSync(sourcePath).equals(sourceBytes))
     throw new Error("Installed cancellation changed source bytes");
-  if (cancellationStage === undefined)
-    throw new Error("Installed cancellation did not expose its private stage");
-  const residue = {
-    stageDirectoryExists: exists(cancellationStage.stageDirectoryPath),
-    stageFileExists: exists(cancellationStage.stagePath),
-  };
   const retainsOwnedStage =
     result.error.finalization.state === "owned-partial-remains";
   if (
@@ -762,13 +932,6 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
     throw new Error(
       "Installed cancellation finalization residue is untruthful",
     );
-  try {
-    validateTerminalCleanupRecord(cleanupRecord, "installed");
-  } catch (error) {
-    throw new Error(
-      `Installed cancellation terminal cleanup record is invalid: ${error.message}`,
-    );
-  }
   return {
     code: result.error.code,
     nativeWrite: result.error.nativeWrite,
@@ -1045,6 +1208,7 @@ async function runTransactions(
   sandbox,
   corpus,
   windowsPublicationDiagnosticOutput,
+  windowsCancellationDiagnosticOutput,
 ) {
   const api = await import(
     pathToFileURL(join(packageRoot, "dist", "index.js")).href
@@ -1125,6 +1289,7 @@ async function runTransactions(
     packageRoot,
     sandbox,
     corpus.sample.bytes,
+    windowsCancellationDiagnosticOutput,
   );
   const propertyOutputDigest = await runInstalledProperties(
     api,
@@ -1152,6 +1317,7 @@ async function runSmoke({
   tarballSha256,
   manifestSha256,
   windowsPublicationDiagnosticOutput,
+  windowsCancellationDiagnosticOutput,
 }) {
   const corpus = loadCorpusAuthority();
   const actualTarballSha256 = sha256(tarball);
@@ -1195,6 +1361,7 @@ async function runSmoke({
       sandbox,
       corpus,
       windowsPublicationDiagnosticOutput,
+      windowsCancellationDiagnosticOutput,
     );
     return {
       evidenceScope,
@@ -1278,6 +1445,7 @@ function createDevelopmentTarballForTests({ packageRoot, tarball }) {
 }
 
 module.exports = {
+  classifyDeterministicCancellation,
   assertWindowsPrivateStageCleanup,
   assertWindowsPrivateStageResidue,
   requireWindowsPublicationEvidence,

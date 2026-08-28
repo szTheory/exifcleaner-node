@@ -24,8 +24,7 @@ const helper = require("../scripts/package_smoke.cjs") as {
     result: unknown;
     fallback: unknown;
     expectedFinalizationState:
-      | "owned-partial-removed"
-      | "owned-partial-remains";
+      "owned-partial-removed" | "owned-partial-remains";
     beforePublishHookSeen: unknown;
     cancellationStage: unknown;
     cleanupRecord: unknown;
