@@ -135,6 +135,10 @@ function executeProductionTupleStage(
   ) as { tuples: string[]; mappedTuples: string[] };
 }
 
+function validateImmutableEvidenceWorkflow(_workflow: string): void {
+  throw new Error("immutable evidence workflow validator not implemented");
+}
+
 function validateBenchmarkWorkflow(workflow: string): void {
   const benchmarkJob = workflowJob(
     workflow,
@@ -261,6 +265,29 @@ describe("release workflow authority gate", () => {
           manifest as readonly Record<string, unknown>[],
         ),
       ).toThrow();
+  });
+
+  it("fails closed when immutable tuple authority wiring is mutated", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    expect(() => validateImmutableEvidenceWorkflow(workflow)).not.toThrow();
+    const mutations = [
+      workflow.replace(
+        "const byTuple=validateExactNativeManifestTuples(manifest)",
+        "const byTuple=new Map(manifest.map(record=>[record.tuple,record]))",
+      ),
+      workflow.replace(
+        "CANONICAL_NATIVE_TUPLES:tuples,validateExactNativeManifestTuples",
+        "CANONICAL_NATIVE_TUPLES:tuples",
+      ),
+      workflow.replace("GITHUB_REF_NAME", "GITHUB_REF"),
+    ];
+    for (const mutation of mutations) {
+      expect(mutation).not.toBe(workflow);
+      expect(() => validateImmutableEvidenceWorkflow(mutation)).toThrow();
+    }
   });
 
   it("keeps complete Windows diagnostics outside every authority path", () => {
