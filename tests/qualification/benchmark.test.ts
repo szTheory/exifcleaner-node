@@ -1782,4 +1782,14 @@ describe("paired benchmark admission", () => {
     ])
       expect(normalized).toContain(claim);
   });
+
+  it("keeps the final hosted benchmark ledger on the fresh 100-sample contract", async () => {
+    const validator = await readFile(
+      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+      "utf8",
+    );
+    expect(validator).toMatch(
+      /animation\.baseline\.samples\.length !== 100[\s\S]{0,120}animation\.candidate\.samples\.length !== 100/u,
+    );
+  });
 });

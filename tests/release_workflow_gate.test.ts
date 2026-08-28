@@ -71,6 +71,61 @@ function validateWindowsDiagnosticWorkflow(workflow: string): void {
       throw new Error("diagnostic artifact entered an authority graph");
 }
 
+function workflowJob(
+  workflow: string,
+  jobName: string,
+  nextJobName?: string,
+): string {
+  const start = workflow.indexOf(`\n  ${jobName}:`);
+  const end =
+    nextJobName === undefined
+      ? workflow.length
+      : workflow.indexOf(`\n  ${nextJobName}:`, start + 1);
+  if (start < 0 || end < 0) throw new Error(`workflow job ${jobName} is absent`);
+  return workflow.slice(start, end);
+}
+
+function validateBenchmarkWorkflow(workflow: string): void {
+  const benchmarkJob = workflowJob(
+    workflow,
+    "benchmark-linux",
+    "phase-46-admission",
+  );
+  const admissionJob = workflowJob(workflow, "phase-46-admission");
+  const freshContract =
+    "report.version!==4||report.warmups!==2||report.measurements!==100||report.elapsedP95Estimator?.retainedObservations!==100||report.collection?.retries!==0||report.collection?.discarded!==0";
+  for (const required of [
+    "node: [22, 24]",
+    "npm run benchmark:qualify -- --baseline-tarball",
+    "node scripts/qualification/benchmark-report.cjs --validate-report",
+    freshContract,
+  ])
+    if (!benchmarkJob.includes(required))
+      throw new Error(`benchmark producer job lacks ${required}`);
+  for (const forbidden of [
+    /BENCHMARK_(?:MEASUREMENTS|SAMPLES|RETRIES)/u,
+    /--(?:measurements|samples|retries)\b/u,
+    /timeout-minutes:/u,
+    /continue-on-error:\s*true/u,
+    /for\s+attempt\b|while\s+.*attempt|retry\s+vote|outlier/u,
+  ])
+    if (forbidden.test(benchmarkJob))
+      throw new Error("benchmark producer contains a sample shortcut");
+  for (const required of [
+    "- benchmark-linux",
+    "benchmark-linux-node22/benchmark-node22.json",
+    "benchmark-linux-node24/benchmark-node24.json",
+    "const benchmarkReports=files.map",
+    freshContract,
+    "--phase-admission',...files.map",
+    "majors.join(',')!=='22,24'",
+    "reportVersion:report.version",
+    "retainedObservationCount:report.elapsedP95Estimator.retainedObservations",
+  ])
+    if (!admissionJob.includes(required))
+      throw new Error(`benchmark aggregate lacks ${required}`);
+}
+
 function greenGraph(): WorkflowGraph {
   return {
     jobs: {
@@ -180,6 +235,49 @@ describe("release workflow authority gate", () => {
       expect(workflow).toContain(required);
     for (const forbidden of ["npm install --foreground-scripts", "retry vote"])
       expect(workflow).not.toContain(forbidden);
+  });
+  it("makes exact version-4 100-sample reports a hard hosted authority", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    expect(() => validateBenchmarkWorkflow(workflow)).not.toThrow();
+    const mutations = [
+      workflow.replace("report.version!==4", "report.version!==3"),
+      workflow.replace("report.measurements!==100", "report.measurements!==15"),
+      workflow.replace(
+        "report.elapsedP95Estimator?.retainedObservations!==100",
+        "report.elapsedP95Estimator?.retainedObservations!==99",
+      ),
+      workflow.replace("report.collection?.retries!==0", "report.collection?.retries!==1"),
+      workflow.replace(
+        "report.collection?.discarded!==0",
+        "report.collection?.discarded!==1",
+      ),
+      workflow.replace("node: [22, 24]", "node: [24]"),
+      workflow.replace(
+        "node scripts/qualification/benchmark-report.cjs --validate-report",
+        "cp replacement.json benchmark-node${{ matrix.node }}.json #",
+      ),
+      workflow.replace("const benchmarkReports=files.map", "const replacementReports=files.map"),
+      workflow.replace("      - benchmark-linux\n", ""),
+      workflow.replace(
+        "      fail-fast: false\n",
+        "      fail-fast: false\n    timeout-minutes: 1\n",
+      ),
+      workflow.replace(
+        "npm run benchmark:qualify --",
+        "BENCHMARK_MEASUREMENTS=99 npm run benchmark:qualify --",
+      ),
+      workflow.replace(
+        "npm run benchmark:qualify --",
+        "for attempt in 1 2; do npm run benchmark:qualify --",
+      ),
+    ];
+    for (const mutation of mutations) {
+      expect(mutation).not.toBe(workflow);
+      expect(() => validateBenchmarkWorkflow(mutation)).toThrow();
+    }
   });
   it("accepts the production graph only with all immutable installed authorities", () => {
     expect(() => gate.validateReleaseGraph(greenGraph())).not.toThrow();
