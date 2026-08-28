@@ -447,6 +447,9 @@ function validateReport(report) {
     report.rawSchedule.length !== expected.rawSchedule.length
   )
     throw new Error("retry/discard evidence is invalid");
+  const fixtures = new Map(expected.fixtures.map((fixture) => [fixture.id, fixture]));
+  const retained = new Map();
+  const runTokens = new Set();
   for (const [index, expectedRecord] of expected.rawSchedule.entries()) {
     const item = report.rawSchedule[index];
     if (
@@ -457,10 +460,31 @@ function validateReport(report) {
       item.round !== expectedRecord.round ||
       item.warmup !== expectedRecord.warmup ||
       item.version !== expectedRecord.version ||
-      !item.sample ||
-      Object.hasOwn(item.sample, "calibration")
+      !item.sample
     )
       throw new Error("raw alternating schedule is invalid");
+    validateChildSample(item.sample, expectedRecord, fixtures.get(expectedRecord.fixtureId), report, runTokens);
+    if (!expectedRecord.warmup) {
+      const key = `${expectedRecord.fixtureId}:${expectedRecord.version}`;
+      retained.set(key, [...(retained.get(key) ?? []), item.sample]);
+    }
+  }
+  if (!Array.isArray(report.comparisons) || report.comparisons.length !== expected.comparisonFixtureIds.length ||
+    JSON.stringify(report.comparisons.map((item) => item?.fixtureId).sort()) !== JSON.stringify([...expected.comparisonFixtureIds].sort()))
+    throw new Error("comparison evidence set is incomplete");
+  for (const comparison of report.comparisons) {
+    for (const side of ["baseline", "candidate"]) {
+      const item = comparison[side];
+      const source = retained.get(`${comparison.fixtureId}:${side}`);
+      const expectedSamples = source?.map((sample) => ({ ...sample, scaledElapsedNs: sample.elapsedNs * derived.runScale }));
+      if (!Array.isArray(item?.samples) || !sameJson(item.samples, expectedSamples))
+        throw new Error("comparison samples are not bound to retained raw evidence");
+      const scaled = item.samples.map((sample) => sample.scaledElapsedNs);
+      if (item.medianElapsedNs !== percentile(scaled, 0.5) || item.p95ElapsedNs !== percentile(scaled, 0.95))
+        throw new Error("derived distribution mismatch");
+    }
+    const timing = evaluateTiming({ baselineMedianNs: comparison.baseline.medianElapsedNs, candidateMedianNs: comparison.candidate.medianElapsedNs, baselineP95Ns: comparison.baseline.p95ElapsedNs, candidateP95Ns: comparison.candidate.p95ElapsedNs });
+    if (!sameJson(timing, comparison.timing)) throw new Error("D-23 verdict mismatch");
   }
   validateCancellationEvidence(
     report.cancellation,
@@ -484,6 +508,31 @@ function sha256File(filePath) {
 }
 function assertEqual(left, right, label) {
   if (left !== right) throw new Error(`${label} mismatch`);
+}
+function requireWindowsPublicationEvidence(evidence) {
+  if (typeof evidence !== "object" || evidence === null)
+    throw new Error("Windows native publication evidence is absent");
+  const identities = [evidence.destinationParent, evidence.stageDirectory, evidence.stageFile, evidence.destinationFile];
+  if (evidence.primitive !== "CreateHardLinkW" || evidence.linkCalls !== 1 ||
+    evidence.destinationParentIdentityRechecked !== true || evidence.stageIdentityRechecked !== true ||
+    evidence.stageFileIdentityRechecked !== true || identities.some((identity) =>
+      typeof identity !== "object" || identity === null || !Number.isInteger(identity.volumeSerialNumber) ||
+      identity.volumeSerialNumber < 0 || typeof identity.fileId !== "string" || !/^[a-f0-9]{32}$/.test(identity.fileId)) ||
+    new Set(identities.map((identity) => identity.volumeSerialNumber)).size !== 1 ||
+    evidence.stageFile.fileId !== evidence.destinationFile.fileId)
+    throw new Error("Windows native publication evidence is incomplete or inconsistent");
+  return { primitive: "create-hard-link", publication: "pass", collision: "pass", identity: "pass", cleanup: "pass" };
+}
+function validateInstalledReport(report, tuple, nodeMajor, candidate) {
+  if (typeof report !== "object" || report === null ||
+    report.evidenceScope !== "final-matching-host" || report.hostTuple !== tuple ||
+    !new RegExp(`^v${nodeMajor}\\.`).test(report.nodeVersion ?? "") ||
+    report.tarball?.sha256 !== candidate.tarballSha256 || report.manifestSha256 !== candidate.corpusManifestSha256 ||
+    report.selectedArtifact !== `prebuilds/${tuple}/publication.node` ||
+    report.cases?.sourcePreserved !== true || report.cases?.published !== true ||
+    report.cases?.collisionPreserved !== true || report.cases?.cancellation?.code !== "aborted")
+    throw new Error("installed report binding is invalid");
+  return tuple.startsWith("win32") ? requireWindowsPublicationEvidence(report.windowsPublication) : undefined;
 }
 function hostedLedger(filePath, memoryPath, windowsPath) {
   if (!memoryPath || !windowsPath)
@@ -564,6 +613,13 @@ function hostedLedger(filePath, memoryPath, windowsPath) {
     throw new Error("installed tuple set is incomplete");
   for (const tuple of tuples) {
     const item = ledger.tuples[tuple];
+    const expectedWindowsSummary = {};
+    if (!item?.reports || JSON.stringify(Object.keys(item.reports).sort()) !== JSON.stringify(["node22", "node24"]))
+      throw new Error("installed report map is incomplete");
+    for (const [nodeMajor, key] of [[22, "node22"], [24, "node24"]]) {
+      const summary = validateInstalledReport(item.reports[key], tuple, nodeMajor, ledger.candidate);
+      if (summary !== undefined) Object.assign(expectedWindowsSummary, summary);
+    }
     if (
       item?.jobName !== `installed-${tuple}` ||
       item?.conclusion !== "success" ||
@@ -579,13 +635,10 @@ function hostedLedger(filePath, memoryPath, windowsPath) {
       JSON.stringify(item.nodeMajors) !== JSON.stringify([22, 24])
     )
       throw new Error("installed tuple binding is invalid");
-    if (
-      tuple.startsWith("win32") &&
-      (item.primitive !== "create-hard-link" ||
-        [item.publication, item.collision, item.identity, item.cleanup].some(
-          (value) => value !== "pass",
-        ))
-    )
+    if (tuple.startsWith("win32") && !sameJson(
+      { primitive: item.primitive, publication: item.publication, collision: item.collision, identity: item.identity, cleanup: item.cleanup },
+      expectedWindowsSummary,
+    ))
       throw new Error("Windows publication authority is invalid");
   }
   assertSha(ledger.candidate?.tarballSha256, "candidate tarball");
