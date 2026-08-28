@@ -53,6 +53,7 @@ const helper = require("../scripts/package_smoke.cjs") as {
       rmdirSync(path: string): void;
     },
   ): "pass";
+  isTerminalCleanupRecord(value: unknown): boolean;
   installedPropertyFailure(
     index: number,
     result:
@@ -98,6 +99,68 @@ async function runSmoke(
 }
 
 describe("installed package smoke", () => {
+  it("rejects forged terminal cleanup lifecycle relations", () => {
+    const token = "a".repeat(64);
+    const capability = "b".repeat(64);
+    const identity = {
+      volumeSerialNumber: "0".repeat(16),
+      fileId: "1".repeat(32),
+    };
+    const record = {
+      schemaVersion: "phase-46-terminal-cleanup/v2",
+      abiVersion: "native-publication/v2",
+      platform: "win32",
+      ownership: {
+        helperToken: token,
+        captureOwnershipToken: token,
+        terminalOwnershipToken: token,
+        captureCapabilityId: capability,
+        terminalCapabilityId: capability,
+      },
+      capture: {
+        result: "captured",
+        directoryIdentity: identity,
+        fileIdentity: identity,
+      },
+      helper: { ownershipToken: token, quiescenceSequence: 1, terminalSequence: 4 },
+      terminal: {
+        identityBefore: identity,
+        removalIdentity: identity,
+        outcome: "removed",
+        consumeCount: 1,
+        replayCount: 1,
+        replayOutcome: "no-action",
+      },
+      replacement: {
+        observationSequence: 2,
+        injectionSequence: 3,
+        identityBefore: null,
+        sha256Before: null,
+        identityAfter: null,
+        sha256After: null,
+      },
+      nativeLifetime: {
+        handlesBefore: 2,
+        handlesAfter: 2,
+        finalizersBefore: 0,
+        finalizersAfter: 1,
+      },
+    };
+    expect(helper.isTerminalCleanupRecord(record)).toBe(true);
+    expect(
+      helper.isTerminalCleanupRecord({
+        ...record,
+        ownership: { ...record.ownership, terminalOwnershipToken: "c".repeat(64) },
+      }),
+    ).toBe(false);
+    expect(
+      helper.isTerminalCleanupRecord({
+        ...record,
+        terminal: { ...record.terminal, replayOutcome: "filesystem-action" },
+      }),
+    ).toBe(false);
+  });
+
   it("rejects missing and fabricated Windows publication proof", () => {
     expect(() => helper.requireWindowsPublicationEvidence(undefined)).toThrow(
       "Windows native publication evidence is absent",
