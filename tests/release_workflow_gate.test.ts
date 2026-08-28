@@ -29,6 +29,8 @@ const matchingPath =
   "windows-publication-matching-host-${{ matrix.tuple }}.json";
 const installedPath =
   "windows-publication-installed-node22-${{ matrix.tuple }}.json";
+const cancellationPath =
+  "windows-cancellation-installed-node22-${{ matrix.tuple }}.json";
 
 function validateWindowsDiagnosticWorkflow(workflow: string): void {
   const matchingUpload = workflow.match(
@@ -37,24 +39,30 @@ function validateWindowsDiagnosticWorkflow(workflow: string): void {
   const installedUpload = workflow.match(
     /if: always\(\) && matrix\.os == 'win32'[\s\S]{0,300}name: windows-publication-installed-node22-\$\{\{ matrix\.tuple \}\}[\s\S]{0,200}path: windows-publication-installed-node22-\$\{\{ matrix\.tuple \}\}\.json/u,
   );
-  if (!matchingUpload || !installedUpload)
-    throw new Error("both Windows diagnostic uploads must run always");
+  const cancellationUpload = workflow.match(
+    /if: always\(\) && matrix\.os == 'win32'[\s\S]{0,300}name: windows-cancellation-installed-node22-\$\{\{ matrix\.tuple \}\}[\s\S]{0,200}path: windows-cancellation-installed-node22-\$\{\{ matrix\.tuple \}\}\.json/u,
+  );
+  if (!matchingUpload || !installedUpload || !cancellationUpload)
+    throw new Error("all Windows diagnostic uploads must run always");
   for (const required of [
     "WINDOWS_PUBLICATION_DIAGNOSTIC_PATH",
     "--windows-publication-diagnostic-output",
     matchingPath,
     installedPath,
+    "--windows-cancellation-diagnostic-output",
+    cancellationPath,
     "win32-x64",
     "win32-arm64",
     "fail-fast: false",
   ])
     if (!workflow.includes(required))
       throw new Error(`Windows diagnostic workflow lacks ${required}`);
-  if (/continue-on-error:\s*true/u.test(workflow))
+  if (/continue-on-error:\s*true|\|\|\s*true/u.test(workflow))
     throw new Error("Windows diagnostic workflow softens a hard failure");
   for (const name of [
     "windows-publication-matching-host-*",
     "windows-publication-installed-node22-*",
+    "windows-cancellation-installed-node22-*",
   ])
     if (
       workflow.includes(`pattern: ${name}`) ||
@@ -117,9 +125,17 @@ describe("release workflow authority gate", () => {
       workflow.replaceAll("win32-arm64", "win32-arm"),
       workflow.replaceAll(matchingPath, "renamed-matching.json"),
       workflow.replaceAll(installedPath, "renamed-installed.json"),
+      workflow.replaceAll(cancellationPath, "renamed-cancellation.json"),
+      workflow.replace(
+        "--windows-cancellation-diagnostic-output",
+        "--ignored-cancellation-output",
+      ),
       `${workflow}\n# pattern: windows-publication-matching-host-*`,
       `${workflow}\n# needs: windows-publication-installed-node22-*`,
+      `${workflow}\n# pattern: windows-cancellation-installed-node22-*`,
+      `${workflow}\n# needs: windows-cancellation-installed-node22-*`,
       `${workflow}\ncontinue-on-error: true`,
+      `${workflow}\n# || true`,
     ];
     for (const mutation of mutations)
       expect(() => validateWindowsDiagnosticWorkflow(mutation)).toThrow();
@@ -133,6 +149,13 @@ describe("release workflow authority gate", () => {
     );
     expect(nativeTest).toContain(
       "expect(binding.takeLastWindowsPublicationEvidence()).toBeUndefined()",
+    );
+    const packageSmoke = readFileSync(
+      join(packageRoot, "scripts", "package_smoke.cjs"),
+      "utf8",
+    );
+    expect(packageSmoke).toMatch(
+      /if \(windowsCancellationDiagnosticOutput !== undefined\)[\s\S]{0,1200}writeFileSync\([\s\S]{0,1200}if \(observation\.reason !== "accepted"\)[\s\S]{0,200}throw new Error\("Installed deterministic cancellation contract failed"\)/u,
     );
   });
   it("makes the raw identity-cleanup ledger a non-optional CI authority", () => {
