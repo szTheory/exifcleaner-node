@@ -144,7 +144,10 @@ describe("installed package smoke", () => {
       ["stage-file-recheck", { ...accepted, stageFileIdentityRechecked: null }],
       [
         "destination-parent-identity-shape",
-        { ...accepted, destinationParent: { ...accepted.destinationParent, extra: true } },
+        {
+          ...accepted,
+          destinationParent: { ...accepted.destinationParent, extra: true },
+        },
       ],
       [
         "stage-directory-volume-format",
@@ -225,7 +228,7 @@ describe("installed package smoke", () => {
       "C:\\private\\image.webp",
       "/tmp/private/image.webp",
       "token-12345",
-    ];
+    ] as const;
     const evidence = {
       ...windowsPublicationEvidence(),
       primitive: sentinels[1],
@@ -338,7 +341,7 @@ describe("installed package smoke", () => {
 
   it("rejects missing and fabricated Windows publication proof", () => {
     expect(() => helper.requireWindowsPublicationEvidence(undefined)).toThrow(
-      "Windows native publication evidence is absent",
+      "Windows native publication evidence rejected: absent",
     );
     expect(() =>
       helper.requireWindowsPublicationEvidence({
@@ -346,9 +349,7 @@ describe("installed package smoke", () => {
         publication: "pass",
         identity: "pass",
       }),
-    ).toThrow(
-      "Windows native publication evidence is incomplete or inconsistent",
-    );
+    ).toThrow("Windows native publication evidence rejected");
     for (const serial of ["00000000", 1, "A".repeat(16), "0".repeat(17)]) {
       const evidence = {
         primitive: "CreateHardLinkW",
@@ -374,7 +375,7 @@ describe("installed package smoke", () => {
         },
       };
       expect(() => helper.requireWindowsPublicationEvidence(evidence)).toThrow(
-        "Windows native publication evidence is incomplete or inconsistent",
+        "Windows native publication evidence rejected",
       );
     }
     for (const fileId of ["a".repeat(31), "A".repeat(32), 1]) {
@@ -399,7 +400,7 @@ describe("installed package smoke", () => {
         },
       };
       expect(() => helper.requireWindowsPublicationEvidence(evidence)).toThrow(
-        "Windows native publication evidence is incomplete or inconsistent",
+        "Windows native publication evidence rejected",
       );
     }
     expect(() =>
@@ -426,9 +427,7 @@ describe("installed package smoke", () => {
           fileId: "3".repeat(32),
         },
       }),
-    ).toThrow(
-      "Windows native publication evidence is incomplete or inconsistent",
-    );
+    ).toThrow("Windows native publication evidence rejected");
     expect(() =>
       helper.requireWindowsPublicationEvidence({
         primitive: "CreateHardLinkW",
@@ -455,9 +454,7 @@ describe("installed package smoke", () => {
         },
         extra: true,
       }),
-    ).toThrow(
-      "Windows native publication evidence is incomplete or inconsistent",
-    );
+    ).toThrow("Windows native publication evidence rejected");
   });
 
   it("derives Windows private-stage cleanup evidence from the sandbox", async () => {

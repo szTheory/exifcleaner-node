@@ -36,6 +36,23 @@ const CORPUS_MANIFEST_PATH = resolve(
 const SHA256 = /^[a-f0-9]{64}$/;
 const PROPERTY_SEED = 460_046;
 const PROPERTY_RUNS = 25;
+const WINDOWS_PUBLICATION_KEYS = Object.freeze([
+  "primitive",
+  "linkCalls",
+  "destinationParentIdentityRechecked",
+  "stageIdentityRechecked",
+  "stageFileIdentityRechecked",
+  "destinationParent",
+  "stageDirectory",
+  "stageFile",
+  "destinationFile",
+]);
+const WINDOWS_PUBLICATION_IDENTITIES = Object.freeze([
+  "destinationParent",
+  "stageDirectory",
+  "stageFile",
+  "destinationFile",
+]);
 
 function hostTuple() {
   return `${process.platform}-${process.arch}`;
@@ -318,6 +335,7 @@ function parseArguments(args) {
         "--evidence-scope",
         "--tarball-sha256",
         "--manifest-sha256",
+        "--windows-publication-diagnostic-output",
       ]).has(flag)
     )
       throw new Error(`Unknown option ${flag}`);
@@ -336,6 +354,8 @@ function parseArguments(args) {
     );
   const tarballSha256 = values["--tarball-sha256"];
   const manifestSha256 = values["--manifest-sha256"];
+  const windowsPublicationDiagnosticOutput =
+    values["--windows-publication-diagnostic-output"];
   for (const [label, value] of [
     ["--tarball-sha256", tarballSha256],
     ["--manifest-sha256", manifestSha256],
@@ -354,6 +374,10 @@ function parseArguments(args) {
     evidenceScope,
     tarballSha256,
     manifestSha256,
+    windowsPublicationDiagnosticOutput:
+      windowsPublicationDiagnosticOutput === undefined
+        ? undefined
+        : resolve(windowsPublicationDiagnosticOutput),
   };
 }
 
@@ -861,57 +885,147 @@ function assertWindowsPrivateStageResidue(sandbox) {
   return "pass";
 }
 
-function requireWindowsPublicationEvidence(value) {
-  if (typeof value !== "object" || value === null)
-    throw new Error("Windows native publication evidence is absent");
-  const evidence = value;
-  const hasExactKeys = (record, expected) =>
-    typeof record === "object" &&
-    record !== null &&
-    JSON.stringify(Object.keys(record).sort()) ===
-      JSON.stringify([...expected].sort());
-  const identities = [
-    evidence.destinationParent,
-    evidence.stageDirectory,
-    evidence.stageFile,
-    evidence.destinationFile,
-  ];
+function boundedValueType(value) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+function hasExactKeys(value, expected) {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    JSON.stringify(Object.keys(value).sort()) ===
+      JSON.stringify([...expected].sort())
+  );
+}
+
+function identityObservation(value) {
+  const record =
+    typeof value === "object" && value !== null && !Array.isArray(value)
+      ? value
+      : {};
+  const volume = record.volumeSerialNumber;
+  const fileId = record.fileId;
+  return {
+    keysOk: hasExactKeys(value, ["volumeSerialNumber", "fileId"]),
+    volumeLength: typeof volume === "string" ? volume.length : -1,
+    volumeLowerHex: typeof volume === "string" && /^[a-f0-9]+$/u.test(volume),
+    fileIdLength: typeof fileId === "string" ? fileId.length : -1,
+    fileIdLowerHex: typeof fileId === "string" && /^[a-f0-9]+$/u.test(fileId),
+  };
+}
+
+function safeStringEquality(left, right) {
+  return (
+    typeof left === "string" && typeof right === "string" && left === right
+  );
+}
+
+function windowsPublicationReason(observation) {
+  if (observation.topLevelType === "undefined") return "absent";
+  if (observation.topLevelType !== "object") return "top-level-shape";
   if (
-    !hasExactKeys(evidence, [
-      "primitive",
-      "linkCalls",
-      "destinationParentIdentityRechecked",
-      "stageIdentityRechecked",
-      "stageFileIdentityRechecked",
-      "destinationParent",
-      "stageDirectory",
-      "stageFile",
-      "destinationFile",
-    ]) ||
-    evidence.primitive !== "CreateHardLinkW" ||
-    evidence.linkCalls !== 1 ||
-    evidence.destinationParentIdentityRechecked !== true ||
-    evidence.stageIdentityRechecked !== true ||
-    evidence.stageFileIdentityRechecked !== true ||
-    identities.some(
-      (identity) =>
-        !hasExactKeys(identity, ["volumeSerialNumber", "fileId"]) ||
-        typeof identity.volumeSerialNumber !== "string" ||
-        !/^[a-f0-9]{16}$/u.test(identity.volumeSerialNumber) ||
-        typeof identity.fileId !== "string" ||
-        !/^[a-f0-9]{32}$/u.test(identity.fileId),
-    ) ||
-    evidence.destinationParent.volumeSerialNumber !==
-      evidence.stageDirectory.volumeSerialNumber ||
-    evidence.stageDirectory.volumeSerialNumber !==
-      evidence.stageFile.volumeSerialNumber ||
-    evidence.stageFile.volumeSerialNumber !==
-      evidence.destinationFile.volumeSerialNumber ||
-    evidence.stageFile.fileId !== evidence.destinationFile.fileId
+    Object.values(observation.topLevelKeys).some((present) => !present) ||
+    observation.unexpectedTopLevelKeyCount !== 0
   )
+    return "top-level-keys";
+  if (!observation.primitiveIsCreateHardLinkW) return "primitive";
+  if (!observation.linkCallsIsOne) return "link-count";
+  if (!observation.destinationParentIdentityRecheckedIsTrue)
+    return "destination-parent-recheck";
+  if (!observation.stageIdentityRecheckedIsTrue)
+    return "stage-directory-recheck";
+  if (!observation.stageFileIdentityRecheckedIsTrue)
+    return "stage-file-recheck";
+  for (const name of WINDOWS_PUBLICATION_IDENTITIES) {
+    const identity = observation.identities[name];
+    const reasonName = name.replace(/([A-Z])/gu, "-$1").toLowerCase();
+    if (!identity.keysOk) return `${reasonName}-identity-shape`;
+    if (identity.volumeLength !== 16 || !identity.volumeLowerHex)
+      return `${reasonName}-volume-format`;
+    if (identity.fileIdLength !== 32 || !identity.fileIdLowerHex)
+      return `${reasonName}-id-format`;
+  }
+  if (!observation.equalities.destinationParentVolumeEqualsStageDirectoryVolume)
+    return "destination-parent-stage-directory-volume-mismatch";
+  if (!observation.equalities.stageDirectoryVolumeEqualsStageFileVolume)
+    return "stage-directory-stage-file-volume-mismatch";
+  if (!observation.equalities.stageFileVolumeEqualsDestinationFileVolume)
+    return "stage-file-destination-file-volume-mismatch";
+  if (!observation.equalities.stageFileIdEqualsDestinationFileId)
+    return "stage-destination-file-id-mismatch";
+  return "accepted";
+}
+
+function classifyWindowsPublicationEvidence(value) {
+  const evidence =
+    typeof value === "object" && value !== null && !Array.isArray(value)
+      ? value
+      : {};
+  const topLevelKeySet = new Set(Object.keys(evidence));
+  const identity = (name) =>
+    typeof evidence[name] === "object" &&
+    evidence[name] !== null &&
+    !Array.isArray(evidence[name])
+      ? evidence[name]
+      : {};
+  const observation = {
+    status: "rejected",
+    reason: "absent",
+    topLevelType: boundedValueType(value),
+    topLevelKeys: Object.fromEntries(
+      WINDOWS_PUBLICATION_KEYS.map((key) => [key, topLevelKeySet.has(key)]),
+    ),
+    unexpectedTopLevelKeyCount: [...topLevelKeySet].filter(
+      (key) => !WINDOWS_PUBLICATION_KEYS.includes(key),
+    ).length,
+    primitiveIsCreateHardLinkW: evidence.primitive === "CreateHardLinkW",
+    linkCallsIsOne: evidence.linkCalls === 1,
+    destinationParentIdentityRecheckedIsTrue:
+      evidence.destinationParentIdentityRechecked === true,
+    stageIdentityRecheckedIsTrue: evidence.stageIdentityRechecked === true,
+    stageFileIdentityRecheckedIsTrue:
+      evidence.stageFileIdentityRechecked === true,
+    identities: Object.fromEntries(
+      WINDOWS_PUBLICATION_IDENTITIES.map((name) => [
+        name,
+        identityObservation(evidence[name]),
+      ]),
+    ),
+    equalities: {
+      destinationParentVolumeEqualsStageDirectoryVolume: safeStringEquality(
+        identity("destinationParent").volumeSerialNumber,
+        identity("stageDirectory").volumeSerialNumber,
+      ),
+      stageDirectoryVolumeEqualsStageFileVolume: safeStringEquality(
+        identity("stageDirectory").volumeSerialNumber,
+        identity("stageFile").volumeSerialNumber,
+      ),
+      stageFileVolumeEqualsDestinationFileVolume: safeStringEquality(
+        identity("stageFile").volumeSerialNumber,
+        identity("destinationFile").volumeSerialNumber,
+      ),
+      stageFileIdEqualsDestinationFileId: safeStringEquality(
+        identity("stageFile").fileId,
+        identity("destinationFile").fileId,
+      ),
+    },
+  };
+  observation.reason = windowsPublicationReason(observation);
+  observation.status =
+    observation.reason === "accepted" ? "accepted" : "rejected";
+  return observation;
+}
+
+function requireWindowsPublicationEvidence(value) {
+  const observation = classifyWindowsPublicationEvidence(value);
+  if (observation.status !== "accepted")
     throw new Error(
-      "Windows native publication evidence is incomplete or inconsistent",
+      `Windows native publication evidence rejected: ${observation.reason} ${JSON.stringify(observation)}`,
     );
+  const evidence = value;
   return {
     primitive: evidence.primitive,
     linkCalls: evidence.linkCalls,
@@ -926,7 +1040,12 @@ function requireWindowsPublicationEvidence(value) {
   };
 }
 
-async function runTransactions(packageRoot, sandbox, corpus) {
+async function runTransactions(
+  packageRoot,
+  sandbox,
+  corpus,
+  windowsPublicationDiagnosticOutput,
+) {
   const api = await import(
     pathToFileURL(join(packageRoot, "dist", "index.js")).href
   );
@@ -937,23 +1056,37 @@ async function runTransactions(packageRoot, sandbox, corpus) {
     corpus.sample.bytes,
     0,
   );
-  const windowsPublication =
-    process.platform === "win32"
-      ? requireWindowsPublicationEvidence(
-          (
-            await import(
-              pathToFileURL(
-                join(
-                  packageRoot,
-                  "dist",
-                  "transaction",
-                  "native-publication.js",
-                ),
-              ).href
-            )
-          ).takeLastWindowsPublicationEvidence(),
-        )
-      : undefined;
+  let windowsPublication;
+  if (process.platform === "win32") {
+    const rawWindowsPublication = (
+      await import(
+        pathToFileURL(
+          join(packageRoot, "dist", "transaction", "native-publication.js"),
+        ).href
+      )
+    ).takeLastWindowsPublicationEvidence();
+    const observation = classifyWindowsPublicationEvidence(
+      rawWindowsPublication,
+    );
+    if (windowsPublicationDiagnosticOutput !== undefined)
+      writeFileSync(
+        windowsPublicationDiagnosticOutput,
+        `${JSON.stringify(
+          {
+            schemaVersion: "phase-46-windows-publication-observation/v1",
+            boundary: "installed-node22",
+            tuple: hostTuple(),
+            nodeMajor: Number(process.versions.node.split(".")[0]),
+            observation,
+          },
+          null,
+          2,
+        )}\n`,
+      );
+    windowsPublication = requireWindowsPublicationEvidence(
+      rawWindowsPublication,
+    );
+  }
   if (process.platform === "win32") assertWindowsPrivateStageCleanup(sandbox);
   const animation = await runCorpusCase(
     api,
@@ -1018,6 +1151,7 @@ async function runSmoke({
   evidenceScope,
   tarballSha256,
   manifestSha256,
+  windowsPublicationDiagnosticOutput,
 }) {
   const corpus = loadCorpusAuthority();
   const actualTarballSha256 = sha256(tarball);
@@ -1056,7 +1190,12 @@ async function runSmoke({
     const installedRoot = join(sandbox, "node_modules", "exifcleaner-node");
     const literalArtifact = assertLiteralHostArtifact(installedRoot);
     loadedNativeArtifact = literalArtifact;
-    const qualification = await runTransactions(installedRoot, sandbox, corpus);
+    const qualification = await runTransactions(
+      installedRoot,
+      sandbox,
+      corpus,
+      windowsPublicationDiagnosticOutput,
+    );
     return {
       evidenceScope,
       hostTuple: hostTuple(),
@@ -1142,6 +1281,7 @@ module.exports = {
   assertWindowsPrivateStageCleanup,
   assertWindowsPrivateStageResidue,
   requireWindowsPublicationEvidence,
+  classifyWindowsPublicationEvidence,
   assertLiteralHostArtifact,
   createDevelopmentTarballForTests,
   diagnoseWindowsNativePublication,

@@ -183,8 +183,7 @@ describe("current-host native publication addon", () => {
           diagnosticPath,
           `${JSON.stringify(
             {
-              schemaVersion:
-                "phase-46-windows-publication-observation/v1",
+              schemaVersion: "phase-46-windows-publication-observation/v1",
               boundary: "matching-host",
               tuple: `${process.platform}-${process.arch}`,
               nodeMajor: Number(process.versions.node.split(".")[0]),
@@ -194,7 +193,10 @@ describe("current-host native publication addon", () => {
             2,
           )}\n`,
         );
-      expect(observation).toMatchObject({ status: "accepted", reason: "accepted" });
+      expect(observation).toMatchObject({
+        status: "accepted",
+        reason: "accepted",
+      });
       expect(binding.takeLastWindowsPublicationEvidence()).toBeUndefined();
     }
     await expect(

@@ -170,7 +170,10 @@ function diagnosticLedger() {
     boundary,
     nodeMajor: 22,
     job: {
-      name: boundary === "matching-host" ? `build-audit-${tuple}` : `installed-${tuple}`,
+      name:
+        boundary === "matching-host"
+          ? `build-audit-${tuple}`
+          : `installed-${tuple}`,
       conclusion: "failure",
     },
     artifact: {
@@ -181,6 +184,13 @@ function diagnosticLedger() {
       ...acceptedWindowsPublicationObservation(),
       status: "rejected",
       reason: "stage-file-id-format",
+      identities: {
+        ...acceptedWindowsPublicationObservation().identities,
+        stageFile: {
+          ...acceptedWindowsPublicationObservation().identities.stageFile,
+          fileIdLength: 17,
+        },
+      },
     },
   });
   return {
@@ -192,7 +202,7 @@ function diagnosticLedger() {
       event: "workflow_dispatch",
       id: 123456,
       url: "https://github.com/szTheory/exifcleaner-node/actions/runs/123456",
-      ref: "refs/heads/proof/46-25-windows-diagnostic-abcdef0",
+      ref: "refs/heads/proof/46-25-windows-diagnostic-ccccccc",
       headSha: "c".repeat(40),
     },
     selectedBoundary: "matching-host",
@@ -234,6 +244,7 @@ describe("paired benchmark admission", () => {
           name: "windows-publication-installed-node22-win32-arm64",
           sha256: "e".repeat(64),
         },
+        observation: acceptedWindowsPublicationObservation(),
       },
     };
     const installedLedger = {
@@ -263,7 +274,10 @@ describe("paired benchmark admission", () => {
       { ...base, admission: true },
       { ...base, run: { ...base.run, event: "push" } },
       { ...base, run: { ...base.run, headSha: "d".repeat(40) } },
-      { ...base, matchingHost: { "win32-x64": base.matchingHost["win32-x64"] } },
+      {
+        ...base,
+        matchingHost: { "win32-x64": base.matchingHost["win32-x64"] },
+      },
       { ...base, installedNode22: base.matchingHost },
       {
         ...base,

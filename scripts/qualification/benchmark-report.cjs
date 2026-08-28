@@ -809,6 +809,314 @@ function assertSha(value, label) {
   if (typeof value !== "string" || !SHA256.test(value))
     throw new Error(`${label} must be SHA-256`);
 }
+
+const WINDOWS_PUBLICATION_DIAGNOSTIC_REASONS = Object.freeze([
+  "absent",
+  "top-level-shape",
+  "top-level-keys",
+  "primitive",
+  "link-count",
+  "destination-parent-recheck",
+  "stage-directory-recheck",
+  "stage-file-recheck",
+  "destination-parent-identity-shape",
+  "destination-parent-volume-format",
+  "destination-parent-id-format",
+  "stage-directory-identity-shape",
+  "stage-directory-volume-format",
+  "stage-directory-id-format",
+  "stage-file-identity-shape",
+  "stage-file-volume-format",
+  "stage-file-id-format",
+  "destination-file-identity-shape",
+  "destination-file-volume-format",
+  "destination-file-id-format",
+  "destination-parent-stage-directory-volume-mismatch",
+  "stage-directory-stage-file-volume-mismatch",
+  "stage-file-destination-file-volume-mismatch",
+  "stage-destination-file-id-mismatch",
+]);
+const WINDOWS_PUBLICATION_DIAGNOSTIC_TUPLES = Object.freeze([
+  "win32-x64",
+  "win32-arm64",
+]);
+const WINDOWS_PUBLICATION_DIAGNOSTIC_KEYS = Object.freeze([
+  "primitive",
+  "linkCalls",
+  "destinationParentIdentityRechecked",
+  "stageIdentityRechecked",
+  "stageFileIdentityRechecked",
+  "destinationParent",
+  "stageDirectory",
+  "stageFile",
+  "destinationFile",
+]);
+const WINDOWS_PUBLICATION_DIAGNOSTIC_IDENTITIES = Object.freeze([
+  "destinationParent",
+  "stageDirectory",
+  "stageFile",
+  "destinationFile",
+]);
+
+function diagnosticReason(observation) {
+  if (observation.topLevelType === "undefined") return "absent";
+  if (observation.topLevelType !== "object") return "top-level-shape";
+  if (
+    Object.values(observation.topLevelKeys).some((value) => value !== true) ||
+    observation.unexpectedTopLevelKeyCount !== 0
+  )
+    return "top-level-keys";
+  if (!observation.primitiveIsCreateHardLinkW) return "primitive";
+  if (!observation.linkCallsIsOne) return "link-count";
+  if (!observation.destinationParentIdentityRecheckedIsTrue)
+    return "destination-parent-recheck";
+  if (!observation.stageIdentityRecheckedIsTrue)
+    return "stage-directory-recheck";
+  if (!observation.stageFileIdentityRecheckedIsTrue)
+    return "stage-file-recheck";
+  for (const name of WINDOWS_PUBLICATION_DIAGNOSTIC_IDENTITIES) {
+    const facts = observation.identities[name];
+    const reasonName = name.replace(/([A-Z])/gu, "-$1").toLowerCase();
+    if (!facts.keysOk) return `${reasonName}-identity-shape`;
+    if (facts.volumeLength !== 16 || !facts.volumeLowerHex)
+      return `${reasonName}-volume-format`;
+    if (facts.fileIdLength !== 32 || !facts.fileIdLowerHex)
+      return `${reasonName}-id-format`;
+  }
+  if (!observation.equalities.destinationParentVolumeEqualsStageDirectoryVolume)
+    return "destination-parent-stage-directory-volume-mismatch";
+  if (!observation.equalities.stageDirectoryVolumeEqualsStageFileVolume)
+    return "stage-directory-stage-file-volume-mismatch";
+  if (!observation.equalities.stageFileVolumeEqualsDestinationFileVolume)
+    return "stage-file-destination-file-volume-mismatch";
+  if (!observation.equalities.stageFileIdEqualsDestinationFileId)
+    return "stage-destination-file-id-mismatch";
+  return "accepted";
+}
+
+function validateWindowsPublicationObservation(observation) {
+  exactKeys(
+    observation,
+    [
+      "status",
+      "reason",
+      "topLevelType",
+      "topLevelKeys",
+      "unexpectedTopLevelKeyCount",
+      "primitiveIsCreateHardLinkW",
+      "linkCallsIsOne",
+      "destinationParentIdentityRecheckedIsTrue",
+      "stageIdentityRecheckedIsTrue",
+      "stageFileIdentityRecheckedIsTrue",
+      "identities",
+      "equalities",
+    ],
+    "Windows publication diagnostic observation",
+  );
+  exactKeys(
+    observation.topLevelKeys,
+    WINDOWS_PUBLICATION_DIAGNOSTIC_KEYS,
+    "Windows publication diagnostic key presence",
+  );
+  if (
+    ![
+      "undefined",
+      "null",
+      "array",
+      "object",
+      "boolean",
+      "number",
+      "string",
+      "function",
+      "symbol",
+      "bigint",
+    ].includes(observation.topLevelType) ||
+    Object.values(observation.topLevelKeys).some(
+      (value) => typeof value !== "boolean",
+    ) ||
+    !Number.isSafeInteger(observation.unexpectedTopLevelKeyCount) ||
+    observation.unexpectedTopLevelKeyCount < 0
+  )
+    throw new Error(
+      "Windows publication diagnostic top-level facts are invalid",
+    );
+  for (const key of [
+    "primitiveIsCreateHardLinkW",
+    "linkCallsIsOne",
+    "destinationParentIdentityRecheckedIsTrue",
+    "stageIdentityRecheckedIsTrue",
+    "stageFileIdentityRecheckedIsTrue",
+  ])
+    if (typeof observation[key] !== "boolean")
+      throw new Error(
+        "Windows publication diagnostic primitive facts are invalid",
+      );
+  exactKeys(
+    observation.identities,
+    WINDOWS_PUBLICATION_DIAGNOSTIC_IDENTITIES,
+    "Windows publication diagnostic identities",
+  );
+  for (const identity of Object.values(observation.identities)) {
+    exactKeys(
+      identity,
+      [
+        "keysOk",
+        "volumeLength",
+        "volumeLowerHex",
+        "fileIdLength",
+        "fileIdLowerHex",
+      ],
+      "Windows publication diagnostic identity facts",
+    );
+    if (
+      typeof identity.keysOk !== "boolean" ||
+      !Number.isSafeInteger(identity.volumeLength) ||
+      identity.volumeLength < -1 ||
+      typeof identity.volumeLowerHex !== "boolean" ||
+      !Number.isSafeInteger(identity.fileIdLength) ||
+      identity.fileIdLength < -1 ||
+      typeof identity.fileIdLowerHex !== "boolean"
+    )
+      throw new Error(
+        "Windows publication diagnostic identity facts are invalid",
+      );
+  }
+  exactKeys(
+    observation.equalities,
+    [
+      "destinationParentVolumeEqualsStageDirectoryVolume",
+      "stageDirectoryVolumeEqualsStageFileVolume",
+      "stageFileVolumeEqualsDestinationFileVolume",
+      "stageFileIdEqualsDestinationFileId",
+    ],
+    "Windows publication diagnostic equalities",
+  );
+  if (
+    Object.values(observation.equalities).some(
+      (value) => typeof value !== "boolean",
+    )
+  )
+    throw new Error("Windows publication diagnostic equalities are invalid");
+  const reason = diagnosticReason(observation);
+  if (
+    !["accepted", ...WINDOWS_PUBLICATION_DIAGNOSTIC_REASONS].includes(
+      observation.reason,
+    ) ||
+    observation.reason !== reason ||
+    observation.status !== (reason === "accepted" ? "accepted" : "rejected")
+  )
+    throw new Error("Windows publication diagnostic reason is invalid");
+  return observation;
+}
+
+function validateWindowsPublicationDiagnosticRecord(record, tuple, boundary) {
+  exactKeys(
+    record,
+    ["tuple", "boundary", "nodeMajor", "job", "artifact", "observation"],
+    "Windows publication diagnostic record",
+  );
+  exactKeys(record.job, ["name", "conclusion"], "diagnostic job");
+  exactKeys(record.artifact, ["name", "sha256"], "diagnostic artifact");
+  const expectedJob =
+    boundary === "matching-host"
+      ? `build-audit-${tuple}`
+      : `installed-${tuple}`;
+  const expectedArtifact = `windows-publication-${boundary}-${tuple}`;
+  if (
+    record.tuple !== tuple ||
+    record.boundary !== boundary ||
+    record.nodeMajor !== 22 ||
+    record.job.name !== expectedJob ||
+    !["success", "failure", "cancelled", "timed_out"].includes(
+      record.job.conclusion,
+    ) ||
+    record.artifact.name !== expectedArtifact
+  )
+    throw new Error(
+      "Windows publication diagnostic record identity is invalid",
+    );
+  assertSha(record.artifact.sha256, "Windows publication diagnostic artifact");
+  validateWindowsPublicationObservation(record.observation);
+  if (
+    record.observation.status === "rejected" &&
+    record.job.conclusion !== "failure"
+  )
+    throw new Error(
+      "rejected Windows observation must retain hard job failure",
+    );
+  return record;
+}
+
+function validateWindowsPublicationDiagnosticPair(pair, boundary) {
+  exactKeys(pair, WINDOWS_PUBLICATION_DIAGNOSTIC_TUPLES, `${boundary} pair`);
+  for (const tuple of WINDOWS_PUBLICATION_DIAGNOSTIC_TUPLES)
+    validateWindowsPublicationDiagnosticRecord(pair[tuple], tuple, boundary);
+  return pair;
+}
+
+function validateWindowsPublicationDiagnosticLedger(ledger) {
+  exactKeys(
+    ledger,
+    [
+      "schemaVersion",
+      "diagnosticOnly",
+      "run",
+      "selectedBoundary",
+      "matchingHost",
+      "installedNode22",
+    ],
+    "Windows publication diagnostic ledger",
+  );
+  exactKeys(
+    ledger.run,
+    ["repository", "workflow", "event", "id", "url", "ref", "headSha"],
+    "Windows publication diagnostic run",
+  );
+  if (
+    ledger.schemaVersion !==
+      "phase-46-windows-publication-diagnostic-ledger/v1" ||
+    ledger.diagnosticOnly !== true ||
+    ledger.run.repository !== "szTheory/exifcleaner-node" ||
+    ledger.run.workflow !== ".github/workflows/ci.yml" ||
+    ledger.run.event !== "workflow_dispatch" ||
+    !Number.isSafeInteger(ledger.run.id) ||
+    ledger.run.id <= 0 ||
+    ledger.run.url !==
+      `https://github.com/szTheory/exifcleaner-node/actions/runs/${ledger.run.id}` ||
+    !/^[a-f0-9]{40}$/u.test(ledger.run.headSha) ||
+    ledger.run.ref !==
+      `refs/heads/proof/46-25-windows-diagnostic-${ledger.run.headSha.slice(0, 7)}`
+  )
+    throw new Error("Windows publication diagnostic run identity is invalid");
+  const matching = validateWindowsPublicationDiagnosticPair(
+    ledger.matchingHost,
+    "matching-host",
+  );
+  const matchingRejected = WINDOWS_PUBLICATION_DIAGNOSTIC_TUPLES.some(
+    (tuple) => matching[tuple].observation.status === "rejected",
+  );
+  if (matchingRejected) {
+    if (
+      ledger.selectedBoundary !== "matching-host" ||
+      ledger.installedNode22 !== null
+    )
+      throw new Error("Windows diagnostic boundaries are mixed");
+  } else {
+    if (ledger.selectedBoundary !== "installed-node22")
+      throw new Error("Windows diagnostic selected boundary is invalid");
+    const installed = validateWindowsPublicationDiagnosticPair(
+      ledger.installedNode22,
+      "installed-node22",
+    );
+    if (
+      !WINDOWS_PUBLICATION_DIAGNOSTIC_TUPLES.some(
+        (tuple) => installed[tuple].observation.status === "rejected",
+      )
+    )
+      throw new Error("Windows diagnostic selected boundary has no rejection");
+  }
+  return ledger;
+}
 function sha256File(filePath) {
   return crypto
     .createHash("sha256")
@@ -1734,6 +2042,11 @@ function main(args) {
   if (args[0] === "--identity-cleanup-ledger" && args.length === 2)
     return validateIdentityCleanupLedger(readJson(args[1]));
   if (
+    args[0] === "--windows-publication-diagnostic-ledger" &&
+    args.length === 2
+  )
+    return validateWindowsPublicationDiagnosticLedger(readJson(args[1]));
+  if (
     args[0] === "--hosted-ledger" &&
     args[2] === "--memory-ledger" &&
     args[4] === "--windows-ledger" &&
@@ -1741,7 +2054,7 @@ function main(args) {
   )
     return hostedLedger(args[1], args[3], args[5]);
   throw new Error(
-    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
+    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --windows-publication-diagnostic-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
   );
 }
 module.exports = {
@@ -1761,6 +2074,7 @@ module.exports = {
   validateInstalledReport,
   validateTerminalCleanupRecord,
   validateIdentityCleanupLedger,
+  validateWindowsPublicationDiagnosticLedger,
   phaseAdmission,
   deriveCorrectnessKey,
   deriveFinalizationKey,
