@@ -2252,8 +2252,8 @@ function hostedLedger(filePath, memoryPath, windowsPath) {
   );
   if (
     !animation ||
-    animation.baseline.samples.length !== 15 ||
-    animation.candidate.samples.length !== 15 ||
+    animation.baseline.samples.length !== 100 ||
+    animation.candidate.samples.length !== 100 ||
     percentile(
       animation.candidate.samples.map((sample) => sample.maxRSSKiB),
       0.5,

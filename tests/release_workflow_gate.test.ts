@@ -81,7 +81,8 @@ function workflowJob(
     nextJobName === undefined
       ? workflow.length
       : workflow.indexOf(`\n  ${nextJobName}:`, start + 1);
-  if (start < 0 || end < 0) throw new Error(`workflow job ${jobName} is absent`);
+  if (start < 0 || end < 0)
+    throw new Error(`workflow job ${jobName} is absent`);
   return workflow.slice(start, end);
 }
 
@@ -249,7 +250,10 @@ describe("release workflow authority gate", () => {
         "report.elapsedP95Estimator?.retainedObservations!==100",
         "report.elapsedP95Estimator?.retainedObservations!==99",
       ),
-      workflow.replace("report.collection?.retries!==0", "report.collection?.retries!==1"),
+      workflow.replace(
+        "report.collection?.retries!==0",
+        "report.collection?.retries!==1",
+      ),
       workflow.replace(
         "report.collection?.discarded!==0",
         "report.collection?.discarded!==1",
@@ -259,11 +263,14 @@ describe("release workflow authority gate", () => {
         "node scripts/qualification/benchmark-report.cjs --validate-report",
         "cp replacement.json benchmark-node${{ matrix.node }}.json #",
       ),
-      workflow.replace("const benchmarkReports=files.map", "const replacementReports=files.map"),
+      workflow.replace(
+        "const benchmarkReports=files.map",
+        "const replacementReports=files.map",
+      ),
       workflow.replace("      - benchmark-linux\n", ""),
       workflow.replace(
-        "      fail-fast: false\n",
-        "      fail-fast: false\n    timeout-minutes: 1\n",
+        "  benchmark-linux:\n    name:",
+        "  benchmark-linux:\n    timeout-minutes: 1\n    name:",
       ),
       workflow.replace(
         "npm run benchmark:qualify --",
