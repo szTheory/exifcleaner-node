@@ -355,16 +355,32 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
   exactKeys(
     sample,
     [
-      "schemaVersion", "version", "fixtureId", "packageSha", "runToken",
-      "elapsedNs", "maxRSSKiB", "startedRss", "endedRss", "outputBytes",
-      "outputSha256", "sourceUnchanged", "destinationAbsent", "finalization",
-      "finalizationTruthful", "correctnessKey", "allocationPhases", "environment",
+      "schemaVersion",
+      "version",
+      "fixtureId",
+      "packageSha",
+      "runToken",
+      "elapsedNs",
+      "maxRSSKiB",
+      "startedRss",
+      "endedRss",
+      "outputBytes",
+      "outputSha256",
+      "sourceUnchanged",
+      "destinationAbsent",
+      "finalization",
+      "finalizationTruthful",
+      "correctnessKey",
+      "allocationPhases",
+      "environment",
       ...(cancellation ? ["cancellation"] : []),
     ],
     "benchmark child sample",
   );
-  const expectedPackageSha = record.version === "baseline"
-    ? report.baselineSha256 : report.candidateSha256;
+  const expectedPackageSha =
+    record.version === "baseline"
+      ? report.baselineSha256
+      : report.candidateSha256;
   if (
     sample.schemaVersion !== 1 ||
     sample.version !== record.version ||
@@ -372,43 +388,93 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
     sample.packageSha !== expectedPackageSha ||
     !/^[a-f0-9]{32}$/.test(sample.runToken) ||
     seenRunTokens.has(sample.runToken) ||
-    !Number.isFinite(sample.elapsedNs) || sample.elapsedNs <= 0 ||
-    !Number.isFinite(sample.maxRSSKiB) || sample.maxRSSKiB < 0 ||
-    !Number.isFinite(sample.startedRss) || sample.startedRss < 0 ||
-    !Number.isFinite(sample.endedRss) || sample.endedRss < 0 ||
-    !Number.isSafeInteger(sample.outputBytes) || sample.outputBytes < 0 ||
-    typeof sample.sourceUnchanged !== "boolean" || sample.sourceUnchanged !== true ||
+    !Number.isFinite(sample.elapsedNs) ||
+    sample.elapsedNs <= 0 ||
+    !Number.isFinite(sample.maxRSSKiB) ||
+    sample.maxRSSKiB < 0 ||
+    !Number.isFinite(sample.startedRss) ||
+    sample.startedRss < 0 ||
+    !Number.isFinite(sample.endedRss) ||
+    sample.endedRss < 0 ||
+    !Number.isSafeInteger(sample.outputBytes) ||
+    sample.outputBytes < 0 ||
+    typeof sample.sourceUnchanged !== "boolean" ||
+    sample.sourceUnchanged !== true ||
     typeof sample.finalization !== "string" ||
     sample.finalizationTruthful !== true ||
     !SHA256.test(sample.correctnessKey) ||
-    typeof sample.environment !== "object" || sample.environment === null ||
+    typeof sample.environment !== "object" ||
+    sample.environment === null ||
     !sameJson(sample.environment, report.environment)
-  ) throw new Error("benchmark child identity or correctness is invalid");
+  )
+    throw new Error("benchmark child identity or correctness is invalid");
   seenRunTokens.add(sample.runToken);
   const mustProduceOutput = fixture.expected === "success";
   if (
     (mustProduceOutput &&
-      (sample.destinationAbsent !== false || sample.outputBytes <= 0 || !SHA256.test(sample.outputSha256))) ||
+      (sample.destinationAbsent !== false ||
+        sample.outputBytes <= 0 ||
+        !SHA256.test(sample.outputSha256))) ||
     (!mustProduceOutput &&
-      (sample.destinationAbsent !== true || sample.outputBytes !== 0 || sample.outputSha256 !== null))
-  ) throw new Error("benchmark child output invariant is invalid");
-  if (!Array.isArray(sample.allocationPhases) || sample.allocationPhases.length !== 4)
+      (sample.destinationAbsent !== true ||
+        sample.outputBytes !== 0 ||
+        sample.outputSha256 !== null))
+  )
+    throw new Error("benchmark child output invariant is invalid");
+  if (
+    !Array.isArray(sample.allocationPhases) ||
+    sample.allocationPhases.length !== 4
+  )
     throw new Error("benchmark child allocation evidence is invalid");
-  const phases = ["package-load", "fixture-materialized", "sanitize-complete", "correctness-complete"];
+  const phases = [
+    "package-load",
+    "fixture-materialized",
+    "sanitize-complete",
+    "correctness-complete",
+  ];
   sample.allocationPhases.forEach((snapshot, index) => {
-    exactKeys(snapshot, ["phase", "rss", "heapUsed", "external", "arrayBuffers", "maxRSSKiB"], "allocation snapshot");
-    if (snapshot.phase !== phases[index] ||
-      [snapshot.rss, snapshot.heapUsed, snapshot.external, snapshot.arrayBuffers, snapshot.maxRSSKiB]
-        .some((value) => !Number.isFinite(value) || value < 0))
+    exactKeys(
+      snapshot,
+      ["phase", "rss", "heapUsed", "external", "arrayBuffers", "maxRSSKiB"],
+      "allocation snapshot",
+    );
+    if (
+      snapshot.phase !== phases[index] ||
+      [
+        snapshot.rss,
+        snapshot.heapUsed,
+        snapshot.external,
+        snapshot.arrayBuffers,
+        snapshot.maxRSSKiB,
+      ].some((value) => !Number.isFinite(value) || value < 0)
+    )
       throw new Error("benchmark child allocation evidence is invalid");
   });
   if (cancellation) {
-    exactKeys(sample.cancellation, ["code", "destinationAbsent", "finalizationTruthful", "secondWriter", "finalizationStartMs", "terminalMs", "finalization"], "benchmark child cancellation");
-    if (sample.cancellation.code !== "aborted" || sample.cancellation.destinationAbsent !== true ||
-      sample.cancellation.finalizationTruthful !== true || sample.cancellation.secondWriter !== false ||
-      !Number.isFinite(sample.cancellation.finalizationStartMs) || sample.cancellation.finalizationStartMs < 0 ||
-      !Number.isFinite(sample.cancellation.terminalMs) || sample.cancellation.terminalMs < 0 ||
-      typeof sample.cancellation.finalization !== "string")
+    exactKeys(
+      sample.cancellation,
+      [
+        "code",
+        "destinationAbsent",
+        "finalizationTruthful",
+        "secondWriter",
+        "finalizationStartMs",
+        "terminalMs",
+        "finalization",
+      ],
+      "benchmark child cancellation",
+    );
+    if (
+      sample.cancellation.code !== "aborted" ||
+      sample.cancellation.destinationAbsent !== true ||
+      sample.cancellation.finalizationTruthful !== true ||
+      sample.cancellation.secondWriter !== false ||
+      !Number.isFinite(sample.cancellation.finalizationStartMs) ||
+      sample.cancellation.finalizationStartMs < 0 ||
+      !Number.isFinite(sample.cancellation.terminalMs) ||
+      sample.cancellation.terminalMs < 0 ||
+      typeof sample.cancellation.finalization !== "string"
+    )
       throw new Error("benchmark child cancellation evidence is invalid");
   }
 }
@@ -447,7 +513,9 @@ function validateReport(report) {
     report.rawSchedule.length !== expected.rawSchedule.length
   )
     throw new Error("retry/discard evidence is invalid");
-  const fixtures = new Map(expected.fixtures.map((fixture) => [fixture.id, fixture]));
+  const fixtures = new Map(
+    expected.fixtures.map((fixture) => [fixture.id, fixture]),
+  );
   const retained = new Map();
   const runTokens = new Set();
   for (const [index, expectedRecord] of expected.rawSchedule.entries()) {
@@ -463,28 +531,55 @@ function validateReport(report) {
       !item.sample
     )
       throw new Error("raw alternating schedule is invalid");
-    validateChildSample(item.sample, expectedRecord, fixtures.get(expectedRecord.fixtureId), report, runTokens);
+    validateChildSample(
+      item.sample,
+      expectedRecord,
+      fixtures.get(expectedRecord.fixtureId),
+      report,
+      runTokens,
+    );
     if (!expectedRecord.warmup) {
       const key = `${expectedRecord.fixtureId}:${expectedRecord.version}`;
       retained.set(key, [...(retained.get(key) ?? []), item.sample]);
     }
   }
-  if (!Array.isArray(report.comparisons) || report.comparisons.length !== expected.comparisonFixtureIds.length ||
-    JSON.stringify(report.comparisons.map((item) => item?.fixtureId).sort()) !== JSON.stringify([...expected.comparisonFixtureIds].sort()))
+  if (
+    !Array.isArray(report.comparisons) ||
+    report.comparisons.length !== expected.comparisonFixtureIds.length ||
+    JSON.stringify(report.comparisons.map((item) => item?.fixtureId).sort()) !==
+      JSON.stringify([...expected.comparisonFixtureIds].sort())
+  )
     throw new Error("comparison evidence set is incomplete");
   for (const comparison of report.comparisons) {
     for (const side of ["baseline", "candidate"]) {
       const item = comparison[side];
       const source = retained.get(`${comparison.fixtureId}:${side}`);
-      const expectedSamples = source?.map((sample) => ({ ...sample, scaledElapsedNs: sample.elapsedNs * derived.runScale }));
-      if (!Array.isArray(item?.samples) || !sameJson(item.samples, expectedSamples))
-        throw new Error("comparison samples are not bound to retained raw evidence");
+      const expectedSamples = source?.map((sample) => ({
+        ...sample,
+        scaledElapsedNs: sample.elapsedNs * derived.runScale,
+      }));
+      if (
+        !Array.isArray(item?.samples) ||
+        !sameJson(item.samples, expectedSamples)
+      )
+        throw new Error(
+          "comparison samples are not bound to retained raw evidence",
+        );
       const scaled = item.samples.map((sample) => sample.scaledElapsedNs);
-      if (item.medianElapsedNs !== percentile(scaled, 0.5) || item.p95ElapsedNs !== percentile(scaled, 0.95))
+      if (
+        item.medianElapsedNs !== percentile(scaled, 0.5) ||
+        item.p95ElapsedNs !== percentile(scaled, 0.95)
+      )
         throw new Error("derived distribution mismatch");
     }
-    const timing = evaluateTiming({ baselineMedianNs: comparison.baseline.medianElapsedNs, candidateMedianNs: comparison.candidate.medianElapsedNs, baselineP95Ns: comparison.baseline.p95ElapsedNs, candidateP95Ns: comparison.candidate.p95ElapsedNs });
-    if (!sameJson(timing, comparison.timing)) throw new Error("D-23 verdict mismatch");
+    const timing = evaluateTiming({
+      baselineMedianNs: comparison.baseline.medianElapsedNs,
+      candidateMedianNs: comparison.candidate.medianElapsedNs,
+      baselineP95Ns: comparison.baseline.p95ElapsedNs,
+      candidateP95Ns: comparison.candidate.p95ElapsedNs,
+    });
+    if (!sameJson(timing, comparison.timing))
+      throw new Error("D-23 verdict mismatch");
   }
   validateCancellationEvidence(
     report.cancellation,
@@ -512,27 +607,61 @@ function assertEqual(left, right, label) {
 function requireWindowsPublicationEvidence(evidence) {
   if (typeof evidence !== "object" || evidence === null)
     throw new Error("Windows native publication evidence is absent");
-  const identities = [evidence.destinationParent, evidence.stageDirectory, evidence.stageFile, evidence.destinationFile];
-  if (evidence.primitive !== "CreateHardLinkW" || evidence.linkCalls !== 1 ||
-    evidence.destinationParentIdentityRechecked !== true || evidence.stageIdentityRechecked !== true ||
-    evidence.stageFileIdentityRechecked !== true || identities.some((identity) =>
-      typeof identity !== "object" || identity === null || !Number.isInteger(identity.volumeSerialNumber) ||
-      identity.volumeSerialNumber < 0 || typeof identity.fileId !== "string" || !/^[a-f0-9]{32}$/.test(identity.fileId)) ||
-    new Set(identities.map((identity) => identity.volumeSerialNumber)).size !== 1 ||
-    evidence.stageFile.fileId !== evidence.destinationFile.fileId)
-    throw new Error("Windows native publication evidence is incomplete or inconsistent");
-  return { primitive: "create-hard-link", publication: "pass", collision: "pass", identity: "pass", cleanup: "pass" };
+  const identities = [
+    evidence.destinationParent,
+    evidence.stageDirectory,
+    evidence.stageFile,
+    evidence.destinationFile,
+  ];
+  if (
+    evidence.primitive !== "CreateHardLinkW" ||
+    evidence.linkCalls !== 1 ||
+    evidence.destinationParentIdentityRechecked !== true ||
+    evidence.stageIdentityRechecked !== true ||
+    evidence.stageFileIdentityRechecked !== true ||
+    identities.some(
+      (identity) =>
+        typeof identity !== "object" ||
+        identity === null ||
+        !Number.isInteger(identity.volumeSerialNumber) ||
+        identity.volumeSerialNumber < 0 ||
+        typeof identity.fileId !== "string" ||
+        !/^[a-f0-9]{32}$/.test(identity.fileId),
+    ) ||
+    new Set(identities.map((identity) => identity.volumeSerialNumber)).size !==
+      1 ||
+    evidence.stageFile.fileId !== evidence.destinationFile.fileId
+  )
+    throw new Error(
+      "Windows native publication evidence is incomplete or inconsistent",
+    );
+  return {
+    primitive: "create-hard-link",
+    publication: "pass",
+    collision: "pass",
+    identity: "pass",
+    cleanup: "pass",
+  };
 }
 function validateInstalledReport(report, tuple, nodeMajor, candidate) {
-  if (typeof report !== "object" || report === null ||
-    report.evidenceScope !== "final-matching-host" || report.hostTuple !== tuple ||
+  if (
+    typeof report !== "object" ||
+    report === null ||
+    report.evidenceScope !== "final-matching-host" ||
+    report.hostTuple !== tuple ||
     !new RegExp(`^v${nodeMajor}\\.`).test(report.nodeVersion ?? "") ||
-    report.tarball?.sha256 !== candidate.tarballSha256 || report.manifestSha256 !== candidate.corpusManifestSha256 ||
+    report.tarball?.sha256 !== candidate.tarballSha256 ||
+    report.manifestSha256 !== candidate.corpusManifestSha256 ||
     report.selectedArtifact !== `prebuilds/${tuple}/publication.node` ||
-    report.cases?.sourcePreserved !== true || report.cases?.published !== true ||
-    report.cases?.collisionPreserved !== true || report.cases?.cancellation?.code !== "aborted")
+    report.cases?.sourcePreserved !== true ||
+    report.cases?.published !== true ||
+    report.cases?.collisionPreserved !== true ||
+    report.cases?.cancellation?.code !== "aborted"
+  )
     throw new Error("installed report binding is invalid");
-  return tuple.startsWith("win32") ? requireWindowsPublicationEvidence(report.windowsPublication) : undefined;
+  return tuple.startsWith("win32")
+    ? requireWindowsPublicationEvidence(report.windowsPublication)
+    : undefined;
 }
 function hostedLedger(filePath, memoryPath, windowsPath) {
   if (!memoryPath || !windowsPath)
@@ -614,10 +743,22 @@ function hostedLedger(filePath, memoryPath, windowsPath) {
   for (const tuple of tuples) {
     const item = ledger.tuples[tuple];
     const expectedWindowsSummary = {};
-    if (!item?.reports || JSON.stringify(Object.keys(item.reports).sort()) !== JSON.stringify(["node22", "node24"]))
+    if (
+      !item?.reports ||
+      JSON.stringify(Object.keys(item.reports).sort()) !==
+        JSON.stringify(["node22", "node24"])
+    )
       throw new Error("installed report map is incomplete");
-    for (const [nodeMajor, key] of [[22, "node22"], [24, "node24"]]) {
-      const summary = validateInstalledReport(item.reports[key], tuple, nodeMajor, ledger.candidate);
+    for (const [nodeMajor, key] of [
+      [22, "node22"],
+      [24, "node24"],
+    ]) {
+      const summary = validateInstalledReport(
+        item.reports[key],
+        tuple,
+        nodeMajor,
+        ledger.candidate,
+      );
       if (summary !== undefined) Object.assign(expectedWindowsSummary, summary);
     }
     if (
@@ -635,10 +776,19 @@ function hostedLedger(filePath, memoryPath, windowsPath) {
       JSON.stringify(item.nodeMajors) !== JSON.stringify([22, 24])
     )
       throw new Error("installed tuple binding is invalid");
-    if (tuple.startsWith("win32") && !sameJson(
-      { primitive: item.primitive, publication: item.publication, collision: item.collision, identity: item.identity, cleanup: item.cleanup },
-      expectedWindowsSummary,
-    ))
+    if (
+      tuple.startsWith("win32") &&
+      !sameJson(
+        {
+          primitive: item.primitive,
+          publication: item.publication,
+          collision: item.collision,
+          identity: item.identity,
+          cleanup: item.cleanup,
+        },
+        expectedWindowsSummary,
+      )
+    )
       throw new Error("Windows publication authority is invalid");
   }
   assertSha(ledger.candidate?.tarballSha256, "candidate tarball");

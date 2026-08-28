@@ -150,10 +150,26 @@ describe("paired benchmark admission", () => {
       finalization: "none",
       finalizationTruthful: true,
       correctnessKey: "2".repeat(64),
-      allocationPhases: ["package-load", "fixture-materialized", "sanitize-complete", "correctness-complete"].map(
-        (phase) => ({ phase, rss: 1, heapUsed: 1, external: 1, arrayBuffers: 1, maxRSSKiB: 1 }),
-      ),
-      environment: { nodeVersion: `v${nodeMajor}.0.0`, platform: process.platform, architecture: process.arch, runner: "test", cpu: "test" },
+      allocationPhases: [
+        "package-load",
+        "fixture-materialized",
+        "sanitize-complete",
+        "correctness-complete",
+      ].map((phase) => ({
+        phase,
+        rss: 1,
+        heapUsed: 1,
+        external: 1,
+        arrayBuffers: 1,
+        maxRSSKiB: 1,
+      })),
+      environment: {
+        nodeVersion: `v${nodeMajor}.0.0`,
+        platform: process.platform,
+        architecture: process.arch,
+        runner: "test",
+        cpu: "test",
+      },
     };
     const cancellationSample = {
       code: "aborted",
@@ -176,17 +192,33 @@ describe("paired benchmark admission", () => {
           ...sample,
           version: entry.version,
           fixtureId: entry.fixtureId,
-          packageSha: entry.version === "baseline" ? benchmark.BASELINE_TARBALL_SHA256 : "3".repeat(64),
+          packageSha:
+            entry.version === "baseline"
+              ? benchmark.BASELINE_TARBALL_SHA256
+              : "3".repeat(64),
           runToken: index.toString(16).padStart(32, "0"),
-          ...(manifest.fixtures.find((fixture) => fixture.id === entry.fixtureId)?.expected !== "success"
+          ...(manifest.fixtures.find(
+            (fixture) => fixture.id === entry.fixtureId,
+          )?.expected !== "success"
             ? { outputBytes: 0, outputSha256: null, destinationAbsent: true }
             : {}),
-          ...(entry.fixtureId === "cancellation-64m" ? { cancellation: cancellationSample } : {}),
+          ...(entry.fixtureId === "cancellation-64m"
+            ? { cancellation: cancellationSample }
+            : {}),
         },
       }));
-    const retainedSamples = (fixtureId: string, version: string) => rawSchedule
-      .filter((entry) => entry.fixtureId === fixtureId && entry.version === version && !entry.warmup)
-      .map((entry) => ({ ...entry.sample, scaledElapsedNs: entry.sample.elapsedNs }));
+    const retainedSamples = (fixtureId: string, version: string) =>
+      rawSchedule
+        .filter(
+          (entry) =>
+            entry.fixtureId === fixtureId &&
+            entry.version === version &&
+            !entry.warmup,
+        )
+        .map((entry) => ({
+          ...entry.sample,
+          scaledElapsedNs: entry.sample.elapsedNs,
+        }));
     const timing = report.evaluateTiming({
       baselineMedianNs: 1,
       candidateMedianNs: 1,
@@ -248,11 +280,11 @@ describe("paired benchmark admission", () => {
     ])
       expect(() => report.validateReport(incomplete)).toThrow();
     const rawSubstitution = structuredClone(complete);
-    rawSubstitution.rawSchedule[0].sample.fixtureId = "still-1m";
+    rawSubstitution.rawSchedule[0]!.sample.fixtureId = "still-1m";
     expect(() => report.validateReport(rawSubstitution)).toThrow();
     const comparisonSubstitution = structuredClone(complete);
-    comparisonSubstitution.comparisons[0].baseline.samples[0] = {
-      ...comparisonSubstitution.comparisons[0].baseline.samples[0],
+    comparisonSubstitution.comparisons[0]!.baseline.samples[0] = {
+      ...comparisonSubstitution.comparisons[0]!.baseline.samples[0]!,
       runToken: "f".repeat(32),
     };
     expect(() => report.validateReport(comparisonSubstitution)).toThrow();
