@@ -121,7 +121,7 @@ describe("current-host native publication addon", () => {
     let stageHandle = await open(stage, fsConstants.O_RDWR);
     if (process.platform === "win32") {
       await stageHandle.close();
-      stageHandle = await open(stage, WINDOWS_REOPEN_FLAGS);
+      stageHandle = await open(stage, fsConstants.O_RDONLY);
       expect(
         binding.capturePrivateStageCleanup(
           stageDirectoryCapability!,
