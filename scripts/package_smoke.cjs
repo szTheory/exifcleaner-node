@@ -22,6 +22,9 @@ const { tmpdir } = require("node:os");
 const { basename, dirname, join, relative, resolve } = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { pathToFileURL } = require("node:url");
+const {
+  validateTerminalCleanupRecord,
+} = require("./qualification/benchmark-report.cjs");
 
 const DEVELOPMENT_SCOPE = "development-current-host";
 const FINAL_SCOPE = "final-matching-host";
@@ -83,7 +86,7 @@ function exists(path) {
   }
 }
 
-function isTerminalCleanupRecord(record) {
+function legacyTerminalCleanupRecord(record) {
   const keys = (value) => Object.keys(value);
   const isHex = (value, length) =>
     typeof value === "string" &&
@@ -251,6 +254,15 @@ function isTerminalCleanupRecord(record) {
     nativeLifetime.handlesAfter === nativeLifetime.handlesBefore &&
     nativeLifetime.finalizersAfter === nativeLifetime.finalizersBefore
   );
+}
+
+function isTerminalCleanupRecord(record) {
+  try {
+    validateTerminalCleanupRecord(record, "control");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /* Compatibility test seam: observations can only classify retention. It never
@@ -599,12 +611,14 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
     identityModule,
     transactionModule,
     fallbackModule,
+    nativePublicationModule,
   ] = await Promise.all([
     import(moduleUrl("admission/webp-handler.js")),
     import(moduleUrl("transaction/file-ops.js")),
     import(moduleUrl("transaction/identity.js")),
     import(moduleUrl("transaction/safe-transaction.js")),
     import(moduleUrl("fallback.js")),
+    import(moduleUrl("transaction/native-publication.js")),
   ]);
   const sourcePath = join(sandbox, "cancel-source.bin");
   const destinationPath = join(sandbox, "cancel-output.webp");
@@ -652,6 +666,38 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
       };
       controller.abort();
     },
+    beforeStageFinalization: async ({ stagePath }) => {
+      const observed = readFileSync(stagePath);
+      const observation = {
+        observationSequence: 2,
+        injectionSequence: 3,
+        identityBefore: null,
+        sha256Before: sha256Bytes(observed),
+        identityAfter: null,
+        sha256After: sha256Bytes(observed),
+      };
+      if (process.platform !== "win32") return observation;
+      const replacementPath = `${stagePath}.replacement`;
+      writeFileSync(replacementPath, Buffer.from("owned replacement survivor"));
+      unlinkSync(stagePath);
+      renameSync(replacementPath, stagePath);
+      const replacement = await open(stagePath, "r");
+      try {
+        const identity = nativePublicationModule.stageFileIdentity(replacement.fd);
+        if (identity === undefined)
+          throw new Error("Installed replacement identity is unavailable");
+        const digest = sha256Bytes(readFileSync(stagePath));
+        return {
+          ...observation,
+          identityBefore: identity,
+          sha256Before: digest,
+          identityAfter: identity,
+          sha256After: digest,
+        };
+      } finally {
+        await replacement.close();
+      }
+    },
     onTerminalCleanupRecord: (record) => {
       cleanupRecord = record;
     },
@@ -690,10 +736,13 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
     throw new Error(
       "Installed cancellation finalization residue is untruthful",
     );
-  if (!isTerminalCleanupRecord(cleanupRecord))
+  try {
+    validateTerminalCleanupRecord(cleanupRecord, "installed");
+  } catch (error) {
     throw new Error(
-      "Installed cancellation terminal cleanup record is invalid",
+      `Installed cancellation terminal cleanup record is invalid: ${error.message}`,
     );
+  }
   return {
     code: result.error.code,
     nativeWrite: result.error.nativeWrite,
@@ -1097,6 +1146,7 @@ module.exports = {
   installedPropertyFailure,
   isLoadedNativeCleanupLock,
   isTerminalCleanupRecord,
+  validateTerminalCleanupRecord,
   cleanupCapturedCancellationStage,
   parseArguments,
   runSmoke,
