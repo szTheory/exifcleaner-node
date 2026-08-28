@@ -421,7 +421,12 @@ describe("private automated qualification surface", () => {
     ])
       expect(admission).toContain(dependency);
     expect(admission).toContain("reports.length !== 12");
-    expect(admission).toContain("benchmarkReports.length !== 2");
+    expect(admission).toContain("benchmark artifact file set is not exact");
+    expect(admission).toContain(
+      "benchmark filename and Node authority disagree",
+    );
+    expect(admission).toContain("benchmark-linux-node22/benchmark-node22.json");
+    expect(admission).toContain("benchmark-linux-node24/benchmark-node24.json");
     expect(admission).toContain("'--phase-admission'");
     expect(admission).not.toContain("baseline median ×");
     expect(workflow).toContain("cancel-in-progress: false");

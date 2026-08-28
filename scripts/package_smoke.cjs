@@ -6,12 +6,15 @@ const {
   accessSync,
   constants: fsConstants,
   copyFileSync,
+  lstatSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   renameSync,
   rmSync,
+  rmdirSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } = require("node:fs");
 const { open } = require("node:fs/promises");
@@ -78,6 +81,50 @@ function exists(path) {
     if (error?.code === "ENOENT") return false;
     throw error;
   }
+}
+
+/**
+ * Remove only the cancellation transaction's captured private stage. The
+ * identity snapshots prevent a replacement entry from turning this bounded
+ * cleanup into deletion of an unrelated path.
+ */
+function cleanupCapturedCancellationStage(
+  { stageDirectoryPath, stagePath },
+  operations = { lstatSync, unlinkSync, rmdirSync },
+) {
+  if (
+    typeof stageDirectoryPath !== "string" ||
+    typeof stagePath !== "string" ||
+    dirname(stagePath) !== stageDirectoryPath ||
+    basename(stagePath) !== "output.webp" ||
+    !basename(stageDirectoryPath).startsWith(".exifcleaner-stage-")
+  )
+    throw new Error("Installed cancellation stage identity is invalid");
+  const directoryIdentity = operations.lstatSync(stageDirectoryPath);
+  const fileIdentity = operations.lstatSync(stagePath);
+  if (
+    !directoryIdentity.isDirectory() ||
+    !fileIdentity.isFile() ||
+    !Number.isInteger(directoryIdentity.dev) ||
+    !Number.isInteger(directoryIdentity.ino) ||
+    !Number.isInteger(fileIdentity.dev) ||
+    !Number.isInteger(fileIdentity.ino)
+  )
+    throw new Error("Installed cancellation stage is not an owned file");
+  const recheckedDirectory = operations.lstatSync(stageDirectoryPath);
+  const recheckedFile = operations.lstatSync(stagePath);
+  if (
+    recheckedDirectory.dev !== directoryIdentity.dev ||
+    recheckedDirectory.ino !== directoryIdentity.ino ||
+    recheckedFile.dev !== fileIdentity.dev ||
+    recheckedFile.ino !== fileIdentity.ino
+  )
+    throw new Error("Installed cancellation stage identity changed");
+  operations.unlinkSync(stagePath);
+  operations.rmdirSync(stageDirectoryPath);
+  if (exists(stagePath) || exists(stageDirectoryPath))
+    throw new Error("Installed cancellation stage cleanup did not complete");
+  return "pass";
 }
 
 function isLoadedNativeCleanupLock(
@@ -494,6 +541,7 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
     throw new Error(
       "Installed cancellation finalization residue is untruthful",
     );
+  cleanupCapturedCancellationStage(cancellationStage);
   return {
     code: result.error.code,
     nativeWrite: result.error.nativeWrite,
@@ -876,6 +924,7 @@ module.exports = {
   diagnoseWindowsNativePublication,
   installedPropertyFailure,
   isLoadedNativeCleanupLock,
+  cleanupCapturedCancellationStage,
   parseArguments,
   runSmoke,
 };

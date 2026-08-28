@@ -35,6 +35,19 @@ const helper = require("../scripts/package_smoke.cjs") as {
     arch?: string,
     loadedModulePaths?: string[],
   ): boolean;
+  cleanupCapturedCancellationStage(
+    paths: { stageDirectoryPath: string; stagePath: string },
+    operations?: {
+      lstatSync(path: string): {
+        isDirectory(): boolean;
+        isFile(): boolean;
+        dev: number;
+        ino: number;
+      };
+      unlinkSync(path: string): void;
+      rmdirSync(path: string): void;
+    },
+  ): "pass";
   installedPropertyFailure(
     index: number,
     result:
@@ -232,6 +245,40 @@ describe("installed package smoke", () => {
     ).toBe(false);
   });
 
+  it("cleans only the captured cancellation residue and fails closed on EPERM", async () => {
+    const sandbox = await mkdtemp(
+      join(tmpdir(), "exifcleaner-package-cancel-"),
+    );
+    temporaryDirectories.push(sandbox);
+    const stageDirectoryPath = join(sandbox, ".exifcleaner-stage-test");
+    const stagePath = join(stageDirectoryPath, "output.webp");
+    await mkdir(stageDirectoryPath);
+    await writeFile(stagePath, "partial");
+
+    expect(
+      helper.cleanupCapturedCancellationStage({
+        stageDirectoryPath,
+        stagePath,
+      }),
+    ).toBe("pass");
+    await mkdir(stageDirectoryPath);
+    await writeFile(stagePath, "partial");
+    expect(() =>
+      helper.cleanupCapturedCancellationStage(
+        { stageDirectoryPath, stagePath },
+        {
+          lstatSync: (path) => require("node:fs").lstatSync(path),
+          unlinkSync: () => {
+            const error = Object.assign(new Error("locked"), { code: "EPERM" });
+            throw error;
+          },
+          rmdirSync: (path) => require("node:fs").rmdirSync(path),
+        },
+      ),
+    ).toThrow("locked");
+    await rm(stageDirectoryPath, { recursive: true, force: true });
+  });
+
   it("requires an explicit supplied tarball instead of packing the checkout", async () => {
     await expect(runSmoke([])).resolves.toMatchObject({
       exitCode: 1,
@@ -419,5 +466,11 @@ describe("installed package smoke", () => {
     expect(workflow).toContain("QUALIFICATION_PROPERTY_RUNS=25");
     expect(workflow).toContain("build-oracles.cjs --verify-authority");
     expect(workflow).toContain("tests/qualification/oracles.test.ts");
+    expect(workflow).toContain("benchmark-linux-node22/benchmark-node22.json");
+    expect(workflow).toContain("benchmark-linux-node24/benchmark-node24.json");
+    expect(workflow).toContain("benchmark artifact file set is not exact");
+    expect(workflow).toContain(
+      "benchmark filename and Node authority disagree",
+    );
   });
 });

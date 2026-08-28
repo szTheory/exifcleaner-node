@@ -679,6 +679,129 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
   )
     throw new Error("installed report binding is invalid");
   exactKeys(
+    report,
+    [
+      "evidenceScope",
+      "hostTuple",
+      "nodeVersion",
+      "tarball",
+      "manifestSha256",
+      "propertySeed",
+      "propertyRuns",
+      "propertyOutputDigest",
+      "corpusCases",
+      "install",
+      "selectedArtifact",
+      "cases",
+      ...(tuple.startsWith("win32") ? ["windowsPublication"] : []),
+    ],
+    "installed report",
+  );
+  exactKeys(report.tarball, ["file", "sha256"], "installed tarball");
+  exactKeys(report.install, ["command", "arguments"], "installed command");
+  if (
+    typeof report.tarball.file !== "string" ||
+    report.tarball.file.length === 0 ||
+    report.tarball.file !== path.basename(report.tarball.file) ||
+    !report.tarball.file.endsWith(".tgz") ||
+    report.tarball.sha256 !== candidate.tarballSha256 ||
+    report.propertySeed !== 460_046 ||
+    report.propertyRuns !== 25 ||
+    !SHA256.test(report.propertyOutputDigest) ||
+    report.install.command !== "npm install --ignore-scripts" ||
+    JSON.stringify(report.install.arguments) !==
+      JSON.stringify([
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+        "<admitted-tarball>",
+      ])
+  )
+    throw new Error("installed command or property evidence is invalid");
+  if (!Array.isArray(report.corpusCases) || report.corpusCases.length !== 2)
+    throw new Error("installed corpus evidence is invalid");
+  const expectedCorpusIds = [
+    "derived-two-frame-animation",
+    "exifcleaner-sample",
+  ];
+  const expectedCorpus = {
+    "exifcleaner-sample": {
+      sourceSha256:
+        "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
+      outputSha256:
+        "a412e742b59ef1161af1410dd98b86c91acf85827a5f671d5f91712a4a282e1f",
+      removedNamespaces: ["EXIF"],
+      payloadDigests: [
+        {
+          fourCc: "VP8 ",
+          occurrence: 0,
+          sha256:
+            "1300ec4f408f0960b09a5265851b14e81ac0c120fae6c3d555306df849235697",
+        },
+      ],
+    },
+    "derived-two-frame-animation": {
+      sourceSha256:
+        "eb201feb6be2ed982cb48ccd3ec36f11e799a0ae9b4f2873af4898844c601f80",
+      outputSha256:
+        "eb201feb6be2ed982cb48ccd3ec36f11e799a0ae9b4f2873af4898844c601f80",
+      removedNamespaces: [],
+      payloadDigests: [
+        {
+          fourCc: "ANIM",
+          occurrence: 0,
+          sha256:
+            "ba3e4486d8c5bc4009da061168a88d776a1849bbc2596b474c9b05a9ff44a6c6",
+        },
+        {
+          fourCc: "ANMF",
+          occurrence: 0,
+          sha256:
+            "144759bea1ad5db4c4b1e20e4ffcbadd92ae4737d0559b28e5107871e3d89f96",
+        },
+        {
+          fourCc: "ANMF",
+          occurrence: 1,
+          sha256:
+            "a94c038e055c40ccc62f47ef3c6915fec89258e04d5fb7f5261920601dddef90",
+        },
+      ],
+    },
+  };
+  const corpusIds = [];
+  for (const corpusCase of report.corpusCases) {
+    exactKeys(
+      corpusCase,
+      [
+        "id",
+        "magicAdmission",
+        "sourceSha256",
+        "outputSha256",
+        "payloadDigests",
+        "removedNamespaces",
+        "finalization",
+      ],
+      "installed corpus case",
+    );
+    if (
+      typeof corpusCase.id !== "string" ||
+      corpusCase.magicAdmission !== true ||
+      !Object.hasOwn(expectedCorpus, corpusCase.id) ||
+      corpusCase.sourceSha256 !== expectedCorpus[corpusCase.id].sourceSha256 ||
+      corpusCase.outputSha256 !== expectedCorpus[corpusCase.id].outputSha256 ||
+      !Array.isArray(corpusCase.payloadDigests) ||
+      JSON.stringify(corpusCase.payloadDigests) !==
+        JSON.stringify(expectedCorpus[corpusCase.id].payloadDigests) ||
+      JSON.stringify(corpusCase.removedNamespaces) !==
+        JSON.stringify(expectedCorpus[corpusCase.id].removedNamespaces) ||
+      corpusCase.finalization !== expectedPostCommitResidue
+    )
+      throw new Error("installed corpus case is invalid");
+    corpusIds.push(corpusCase.id);
+  }
+  if (JSON.stringify(corpusIds.sort()) !== JSON.stringify(expectedCorpusIds))
+    throw new Error("installed corpus case set is invalid");
+  exactKeys(
     report.cases,
     [
       "sourcePreserved",

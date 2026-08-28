@@ -375,8 +375,73 @@ describe("paired benchmark admission", () => {
           evidenceScope: "final-matching-host",
           hostTuple: tuple,
           nodeVersion: `v${nodeMajor}.0.0`,
-          tarball: { sha256: candidate.tarballSha256 },
+          tarball: {
+            file: "exifcleaner-node-0.1.1.tgz",
+            sha256: candidate.tarballSha256,
+          },
           manifestSha256: candidate.corpusManifestSha256,
+          propertySeed: 460_046,
+          propertyRuns: 25,
+          propertyOutputDigest: "5".repeat(64),
+          corpusCases: [
+            {
+              id: "exifcleaner-sample",
+              magicAdmission: true,
+              sourceSha256:
+                "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
+              outputSha256:
+                "a412e742b59ef1161af1410dd98b86c91acf85827a5f671d5f91712a4a282e1f",
+              payloadDigests: [
+                {
+                  fourCc: "VP8 ",
+                  occurrence: 0,
+                  sha256:
+                    "1300ec4f408f0960b09a5265851b14e81ac0c120fae6c3d555306df849235697",
+                },
+              ],
+              removedNamespaces: ["EXIF"],
+              finalization: "none",
+            },
+            {
+              id: "derived-two-frame-animation",
+              magicAdmission: true,
+              sourceSha256:
+                "eb201feb6be2ed982cb48ccd3ec36f11e799a0ae9b4f2873af4898844c601f80",
+              outputSha256:
+                "eb201feb6be2ed982cb48ccd3ec36f11e799a0ae9b4f2873af4898844c601f80",
+              payloadDigests: [
+                {
+                  fourCc: "ANIM",
+                  occurrence: 0,
+                  sha256:
+                    "ba3e4486d8c5bc4009da061168a88d776a1849bbc2596b474c9b05a9ff44a6c6",
+                },
+                {
+                  fourCc: "ANMF",
+                  occurrence: 0,
+                  sha256:
+                    "144759bea1ad5db4c4b1e20e4ffcbadd92ae4737d0559b28e5107871e3d89f96",
+                },
+                {
+                  fourCc: "ANMF",
+                  occurrence: 1,
+                  sha256:
+                    "a94c038e055c40ccc62f47ef3c6915fec89258e04d5fb7f5261920601dddef90",
+                },
+              ],
+              removedNamespaces: [],
+              finalization: "none",
+            },
+          ],
+          install: {
+            command: "npm install --ignore-scripts",
+            arguments: [
+              "--ignore-scripts",
+              "--no-audit",
+              "--no-fund",
+              "<admitted-tarball>",
+            ],
+          },
           selectedArtifact: `prebuilds/${tuple}/publication.node`,
           cases: {
             sourcePreserved: true,
@@ -406,6 +471,29 @@ describe("paired benchmark admission", () => {
           ),
         ).not.toThrow();
         const mutations: readonly ((mutated: typeof installed) => void)[] = [
+          (mutated) => delete (mutated as Partial<typeof installed>).install,
+          (mutated) =>
+            delete (mutated as Partial<typeof installed>).propertySeed,
+          (mutated) =>
+            delete (mutated as Partial<typeof installed>).propertyRuns,
+          (mutated) =>
+            delete (mutated as Partial<typeof installed>).propertyOutputDigest,
+          (mutated) =>
+            delete (mutated as Partial<typeof installed>).corpusCases,
+          (mutated) => delete (mutated as Partial<typeof installed>).tarball,
+          (mutated) => Object.assign(mutated, { unexpected: "extra-field" }),
+          (mutated) =>
+            Object.assign(mutated.tarball, { unexpected: "extra-field" }),
+          (mutated) => (mutated.install.arguments[0] = "--foreground-scripts"),
+          (mutated) => (mutated.propertySeed = 1),
+          (mutated) => (mutated.propertyRuns = 24),
+          (mutated) => (mutated.propertyOutputDigest = "invalid"),
+          (mutated) => (mutated.corpusCases[0]!.sourceSha256 = "invalid"),
+          (mutated) => (mutated.corpusCases[0]!.id = "different-case"),
+          (mutated) =>
+            Object.assign(mutated.corpusCases[0]!, {
+              unexpected: "extra-field",
+            }),
           (mutated) => (mutated.cases.sourcePreserved = false),
           (mutated) => (mutated.cases.published = false),
           (mutated) => (mutated.cases.collisionPreserved = false),
