@@ -47,7 +47,6 @@ import {
   publishNoReplace,
   type NativeStageDirectoryCapability,
   type NativeStageCleanupCapability,
-  stageFileIdentity,
 } from "./native-publication.js";
 
 function aborted(signal: AbortSignal | undefined): boolean {
@@ -374,7 +373,7 @@ export async function runSafeTransaction(
       const captured = capturePrivateStageCleanup(
         directoryCapability,
         stagePath,
-        stageFileIdentity(stageFile.fd, platform),
+        stageFile.fd,
         platform,
       );
       if (captured.state !== "captured") {

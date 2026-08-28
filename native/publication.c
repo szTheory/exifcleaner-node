@@ -18,6 +18,7 @@
 #include <aclapi.h>
 #include <sddl.h>
 #include <stdlib.h>
+#include <string.h>
 #elif defined(__APPLE__)
 #include <errno.h>
 #include <stdio.h>
@@ -379,36 +380,6 @@ static napi_value remove_stage_file_binding(napi_env env, napi_callback_info inf
 #endif
 }
 
-#if defined(_WIN32)
-static int hex_value(char value) {
-  if (value >= '0' && value <= '9') return value - '0';
-  if (value >= 'a' && value <= 'f') return value - 'a' + 10;
-  return -1;
-}
-
-static BOOL read_file_id_info(napi_env env, napi_value value, FILE_ID_INFO *identity) {
-  napi_value volume;
-  napi_value file_id;
-  uint32_t serial;
-  size_t length = 0;
-  char text[sizeof(identity->FileId.Identifier) * 2 + 1];
-  size_t index;
-  if (identity == NULL || napi_get_named_property(env, value, "volumeSerialNumber", &volume) != napi_ok ||
-      napi_get_named_property(env, value, "fileId", &file_id) != napi_ok ||
-      napi_get_value_uint32(env, volume, &serial) != napi_ok ||
-      napi_get_value_string_utf8(env, file_id, text, sizeof(text), &length) != napi_ok ||
-      length != sizeof(identity->FileId.Identifier) * 2) return FALSE;
-  identity->VolumeSerialNumber = serial;
-  for (index = 0; index < sizeof(identity->FileId.Identifier); index += 1) {
-    int high = hex_value(text[index * 2]);
-    int low = hex_value(text[index * 2 + 1]);
-    if (high < 0 || low < 0) return FALSE;
-    identity->FileId.Identifier[index] = (BYTE)((high << 4) | low);
-  }
-  return TRUE;
-}
-#endif
-
 static napi_value stage_file_identity_binding(napi_env env, napi_callback_info info) {
 #if defined(_WIN32)
   size_t argc = 1;
@@ -434,11 +405,16 @@ static napi_value capture_stage_cleanup_binding(napi_env env, napi_callback_info
   napi_value args[3];
   void *data = NULL;
   WCHAR *stage_path;
+  int32_t stage_descriptor;
+  HANDLE stage_handle;
   FILE_ID_INFO expected;
   private_stage_directory *capability;
   if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc != 3 ||
       napi_get_value_external(env, args[0], &data) != napi_ok || data == NULL ||
-      (stage_path = read_path(env, args[1])) == NULL || !read_file_id_info(env, args[2], &expected)) {
+      (stage_path = read_path(env, args[1])) == NULL ||
+      napi_get_value_int32(env, args[2], &stage_descriptor) != napi_ok ||
+      (stage_handle = uv_get_osfhandle(stage_descriptor)) == INVALID_HANDLE_VALUE ||
+      !GetFileInformationByHandleEx(stage_handle, FileIdInfo, &expected, sizeof(expected))) {
     napi_value value; napi_get_undefined(env, &value); return value;
   }
   capability = capture_private_stage_cleanup((private_stage_directory *)data, stage_path, &expected);
@@ -465,21 +441,27 @@ static napi_value consume_stage_cleanup_binding(napi_env env, napi_callback_info
 #if defined(_WIN32)
 static napi_value file_id_info_value(napi_env env, const FILE_ID_INFO *identity) {
   static const char hex[] = "0123456789abcdef";
+  char serial[sizeof(identity->VolumeSerialNumber) * 2 + 1];
   char identifier[sizeof(identity->FileId.Identifier) * 2 + 1];
   size_t index;
   napi_value value;
   napi_value volume;
   napi_value file_id;
-  if (identity == NULL || napi_create_object(env, &value) != napi_ok ||
-      napi_create_uint32(env, identity->VolumeSerialNumber, &volume) != napi_ok) {
+  if (identity == NULL || napi_create_object(env, &value) != napi_ok) {
     return NULL;
   }
+  for (index = 0; index < sizeof(identity->VolumeSerialNumber) * 2; index += 1) {
+    size_t shift = (sizeof(identity->VolumeSerialNumber) * 2 - index - 1) * 4;
+    serial[index] = hex[(identity->VolumeSerialNumber >> shift) & 0x0f];
+  }
+  serial[sizeof(identity->VolumeSerialNumber) * 2] = '\0';
   for (index = 0; index < sizeof(identity->FileId.Identifier); index += 1) {
     identifier[index * 2] = hex[(identity->FileId.Identifier[index] >> 4) & 0x0f];
     identifier[index * 2 + 1] = hex[identity->FileId.Identifier[index] & 0x0f];
   }
   identifier[sizeof(identity->FileId.Identifier) * 2] = '\0';
-  if (napi_create_string_utf8(env, identifier, NAPI_AUTO_LENGTH, &file_id) != napi_ok ||
+  if (napi_create_string_utf8(env, serial, NAPI_AUTO_LENGTH, &volume) != napi_ok ||
+      napi_create_string_utf8(env, identifier, NAPI_AUTO_LENGTH, &file_id) != napi_ok ||
       napi_set_named_property(env, value, "volumeSerialNumber", volume) != napi_ok ||
       napi_set_named_property(env, value, "fileId", file_id) != napi_ok) {
     return NULL;

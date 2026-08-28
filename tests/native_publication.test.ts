@@ -12,6 +12,7 @@ import {
   mapNativePublicationCode,
   mapNativeStageDirectoryCode,
   publishNoReplace,
+  stageFileIdentity,
   type NativePublicationArguments,
   type NativeStageDirectoryCapability,
   setNativePublicationBindingForTests,
@@ -67,11 +68,9 @@ describe("current-host native publication addon", () => {
       "GetFileInformationByHandleEx(stage_handle, FileIdInfo, &expected",
     );
     expect(source).toContain(
-      "left->VolumeSerialNumber == right->VolumeSerialNumber",
+      "left->VolumeSerialNumber != right->VolumeSerialNumber",
     );
-    expect(source).toContain(
-      "memcmp(left->FileId.Identifier, right->FileId.Identifier, 16)",
-    );
+    expect(source).toContain("sizeof(left->FileId.Identifier)");
     expect(source).not.toContain("read_file_id_info(env, args[2]");
     expect(source).not.toMatch(
       /FileRenameInfo(?:Ex)?|ReplaceIfExists|ReOpenFile/u,
@@ -201,7 +200,7 @@ describe("current-host native publication addon", () => {
         capturePrivateStageCleanup(
           capability: unknown,
           stagePath: string,
-          identity: unknown,
+          stageDescriptor: number,
         ): unknown;
         consumePrivateStageCleanup(capability: unknown): string;
         stageFileIdentity(stageDescriptor: number): unknown;
@@ -237,7 +236,7 @@ describe("current-host native publication addon", () => {
         capturePrivateStageCleanup(
           capability: unknown,
           stagePath: string,
-          identity: unknown,
+          stageDescriptor: number,
         ): unknown;
         consumePrivateStageCleanup(capability: unknown): string;
         stageFileIdentity(stageDescriptor: number): unknown;
@@ -257,11 +256,7 @@ describe("current-host native publication addon", () => {
       const stage = await open(stagePath, WINDOWS_REOPEN_FLAGS);
       try {
         expect(
-          binding.capturePrivateStageCleanup(
-            capability,
-            stagePath,
-            binding.stageFileIdentity(stage.fd),
-          ),
+          binding.capturePrivateStageCleanup(capability, stagePath, stage.fd),
         ).toBeDefined();
         expect(
           binding.publishNoReplace(
@@ -461,6 +456,32 @@ describe("private native publication loader", () => {
     expect(restore).toBeTypeOf("function");
     restore();
   });
+
+  it.each([
+    ["0000000100000000", "a".repeat(32), true],
+    ["0000000000000001", "b".repeat(32), true],
+    ["100000000", "a".repeat(32), false],
+    ["0000000100000000", "A".repeat(32), false],
+    ["0000000100000000", "a".repeat(31), false],
+  ])(
+    "accepts only fixed-width non-authoritative Windows diagnostics (%s)",
+    (volumeSerialNumber, fileId, expected) => {
+      const restore = setNativePublicationBindingForTests({
+        publishNoReplace: () => "failed",
+        createPrivateStageDirectory: () => undefined,
+        removePrivateStageFile: () => "unsupported",
+        disposePrivateStageDirectory: () => "unsupported",
+        stageFileIdentity: () => ({ volumeSerialNumber, fileId }),
+      });
+      try {
+        expect(stageFileIdentity(7, "win32")).toEqual(
+          expected ? { volumeSerialNumber, fileId } : undefined,
+        );
+      } finally {
+        restore();
+      }
+    },
+  );
 
   it("passes the explicit POSIX directory-capability ABI to the binding", () => {
     const restore = setNativePublicationBindingForTests({

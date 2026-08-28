@@ -32,7 +32,7 @@ export interface NativePublicationBinding {
   readonly capturePrivateStageCleanup?: (
     capability: NativeStageDirectoryCapability,
     stagePath: string,
-    identity: NativeStageFileIdentity,
+    stageDescriptor: number,
   ) => unknown;
   readonly stageFileIdentity?: (stageDescriptor: number) => unknown;
   /** Consumes only the handle retained by capturePrivateStageCleanup. */
@@ -56,7 +56,7 @@ export type NativeStageCleanupCapability = {
   readonly [nativeStageCleanupCapability]: never;
 };
 export interface NativeStageFileIdentity {
-  readonly volumeSerialNumber: number;
+  readonly volumeSerialNumber: string;
   readonly fileId: string;
 }
 
@@ -300,11 +300,10 @@ export function removePrivateStageFile(
 export function capturePrivateStageCleanup(
   directoryCapability: NativeStageDirectoryCapability,
   stagePath: string,
-  identity: NativeStageFileIdentity | undefined,
+  stageDescriptor: number,
   platform = process.platform,
 ): NativeStageCleanupCapture {
-  if (platform !== "win32" || identity === undefined)
-    return { state: "unsupported-retained" };
+  if (platform !== "win32") return { state: "unsupported-retained" };
   try {
     if (
       nativeBinding().capturePrivateStageCleanup === undefined &&
@@ -318,7 +317,7 @@ export function capturePrivateStageCleanup(
     const result = nativeBinding().capturePrivateStageCleanup!(
       directoryCapability,
       stagePath,
-      identity,
+      stageDescriptor,
     );
     if (result === undefined) return { state: "capture-failed" };
     return {
@@ -340,7 +339,7 @@ export function stageFileIdentity(
       nativeBinding().stageFileIdentity === undefined &&
       injectedBinding !== undefined
     )
-      return { volumeSerialNumber: 0, fileId: "0".repeat(32) };
+      return { volumeSerialNumber: "0".repeat(16), fileId: "0".repeat(32) };
     const value = nativeBinding().stageFileIdentity!(
       stageDescriptor,
     ) as unknown;
@@ -348,7 +347,10 @@ export function stageFileIdentity(
       typeof value === "object" &&
       value !== null &&
       typeof (value as NativeStageFileIdentity).volumeSerialNumber ===
-        "number" &&
+        "string" &&
+      /^[a-f0-9]{16}$/u.test(
+        (value as NativeStageFileIdentity).volumeSerialNumber,
+      ) &&
       /^[a-f0-9]{32}$/u.test((value as NativeStageFileIdentity).fileId)
     )
       return value as NativeStageFileIdentity;
