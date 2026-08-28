@@ -107,6 +107,11 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     candidate: Record<string, unknown>,
   ): void;
   hostedLedger(filePath: string, memoryPath: string, windowsPath: string): void;
+  validateFinalCandidateManifest(input: {
+    repoRoot: string;
+    candidateSha: string;
+    repairProofSha: string;
+  }): void;
 };
 const calibration =
   require("../../scripts/qualification/benchmark-calibration.cjs") as {
@@ -115,6 +120,15 @@ const calibration =
   };
 
 describe("paired benchmark admission", () => {
+  it("fails closed when a final candidate manifest is absent", () => {
+    expect(() =>
+      report.validateFinalCandidateManifest({
+        repoRoot: projectRoot,
+        candidateSha: "0".repeat(40),
+        repairProofSha: "0".repeat(40),
+      }),
+    ).toThrow(/final candidate manifest/i);
+  });
   it("rejects incomplete, duplicate, and extra manifest evidence", () => {
     const manifest = benchmark.loadBenchmarkManifest();
     const reference = report.loadReference();
