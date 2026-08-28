@@ -62,6 +62,17 @@ describe("current-host native publication addon", () => {
     );
     expect(source).toContain("dispose_verified_stage_directory(directory)");
     expect(source).toContain("napi_get_boolean(env, TRUE, &value)");
+    expect(source).toContain("uv_get_osfhandle(stage_descriptor)");
+    expect(source).toContain(
+      "GetFileInformationByHandleEx(stage_handle, FileIdInfo, &expected",
+    );
+    expect(source).toContain(
+      "left->VolumeSerialNumber == right->VolumeSerialNumber",
+    );
+    expect(source).toContain(
+      "memcmp(left->FileId.Identifier, right->FileId.Identifier, 16)",
+    );
+    expect(source).not.toContain("read_file_id_info(env, args[2]");
     expect(source).not.toMatch(
       /FileRenameInfo(?:Ex)?|ReplaceIfExists|ReOpenFile/u,
     );
@@ -75,7 +86,7 @@ describe("current-host native publication addon", () => {
       capturePrivateStageCleanup(
         capability: unknown,
         stagePath: string,
-        identity: unknown,
+        stageDescriptor: number,
       ): unknown;
       consumePrivateStageCleanup(capability: unknown): string;
       stageFileIdentity(stageDescriptor: number): unknown;
@@ -126,7 +137,7 @@ describe("current-host native publication addon", () => {
         binding.capturePrivateStageCleanup(
           stageDirectoryCapability!,
           stage,
-          binding.stageFileIdentity(stageHandle.fd),
+          stageHandle.fd,
         ),
       ).toBeDefined();
     }

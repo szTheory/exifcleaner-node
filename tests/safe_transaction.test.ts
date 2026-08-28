@@ -86,10 +86,11 @@ describe("safe transaction file operations", () => {
         return "published";
       },
       stageFileIdentity() {
-        return { volumeSerialNumber: 0, fileId: "0".repeat(32) };
+        return { volumeSerialNumber: "0000000000000000", fileId: "0".repeat(32) };
       },
-      capturePrivateStageCleanup(received) {
+      capturePrivateStageCleanup(received, _stagePath, descriptor) {
         expect(received).toBe(capability);
+        expect(descriptor).toBe(reopenedStageDescriptor);
         return capability;
       },
       consumePrivateStageCleanup(received) {
