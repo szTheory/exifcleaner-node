@@ -4,6 +4,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 const {
   ALGORITHM_ID,
   OBSERVATION_COUNT,
@@ -773,6 +774,147 @@ function sha256File(filePath) {
     .update(fs.readFileSync(filePath))
     .digest("hex");
 }
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object")
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+      .join(",")}}`;
+  return JSON.stringify(value);
+}
+function git(repoRoot, args, encoding = "utf8") {
+  return execFileSync("git", ["-C", repoRoot, ...args], { encoding });
+}
+function gitBlob(repoRoot, revision, file) {
+  return Buffer.from(git(repoRoot, ["show", `${revision}:${file}`]));
+}
+function validateFinalCandidateManifest({
+  repoRoot,
+  candidateSha,
+  repairProofSha,
+}) {
+  if (
+    ![candidateSha, repairProofSha].every((sha) => /^[a-f0-9]{40}$/.test(sha))
+  )
+    throw new Error("final candidate manifest SHA is invalid");
+  const manifestPath = "native/phase-46-final-candidate.json";
+  let bytes;
+  try {
+    bytes = gitBlob(repoRoot, candidateSha, manifestPath);
+  } catch {
+    throw new Error("final candidate manifest is absent");
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(bytes.toString("utf8"));
+  } catch {
+    throw new Error("final candidate manifest is invalid JSON");
+  }
+  if (!bytes.equals(Buffer.from(`${canonicalJson(manifest)}\n`, "utf8")))
+    throw new Error("final candidate manifest bytes are not canonical");
+  exactKeys(
+    manifest,
+    [
+      "schemaVersion",
+      "phase",
+      "repairParentSha",
+      "nativeSource",
+      "nativeAuditManifest",
+      "nativeAuditAuthority",
+      "calibrationReference",
+      "calibrationAlgorithm",
+      "sourceDistTree",
+    ],
+    "final candidate manifest",
+  );
+  if (
+    manifest.schemaVersion !== "phase-46-final-candidate/v1" ||
+    manifest.phase !== 46 ||
+    manifest.repairParentSha !== repairProofSha
+  )
+    throw new Error("final candidate manifest repair parent is invalid");
+  const parent = git(repoRoot, ["rev-parse", `${candidateSha}^`]).trim();
+  if (parent !== repairProofSha)
+    throw new Error(
+      "final candidate manifest does not directly follow repair proof",
+    );
+  const diff = git(repoRoot, [
+    "diff-tree",
+    "--no-commit-id",
+    "--name-only",
+    "-r",
+    parent,
+    candidateSha,
+  ])
+    .trim()
+    .split("\n")
+    .filter(Boolean);
+  if (diff.length !== 1 || diff[0] !== manifestPath)
+    throw new Error("final candidate manifest commit diff is not exact");
+  const authorityPaths = [
+    ["nativeSource", "native/publication.c"],
+    ["nativeAuditManifest", "scripts/audit_native_source.cjs"],
+    ["nativeAuditAuthority", "scripts/audit_native_artifact.cjs"],
+    [
+      "calibrationReference",
+      "scripts/qualification/benchmark-calibration-reference.json",
+    ],
+    ["calibrationAlgorithm", "scripts/qualification/benchmark-calibration.cjs"],
+  ];
+  for (const [key, expectedPath] of authorityPaths) {
+    const value = manifest[key];
+    exactKeys(value, ["path", "sha256"], `final authority ${key}`);
+    if (
+      value.path !== expectedPath ||
+      !SHA256.test(value.sha256) ||
+      sha256FileFromBytes(gitBlob(repoRoot, candidateSha, value.path)) !==
+        value.sha256
+    )
+      throw new Error(`final authority ${key} is invalid`);
+  }
+  const tree = manifest.sourceDistTree;
+  exactKeys(
+    tree,
+    ["algorithm", "included", "excluded", "members", "sha256"],
+    "final candidate source/dist tree",
+  );
+  if (
+    tree.algorithm !== "phase-46-source-dist-tree/v1" ||
+    JSON.stringify(tree.included) !== JSON.stringify(["src", "dist"]) ||
+    JSON.stringify(tree.excluded) !== JSON.stringify([]) ||
+    !SHA256.test(tree.sha256) ||
+    !Array.isArray(tree.members)
+  )
+    throw new Error("final candidate source/dist tree contract is invalid");
+  const listing = git(repoRoot, ["ls-tree", "-r", "-z", candidateSha], "buffer")
+    .toString("utf8")
+    .split("\0")
+    .filter(Boolean);
+  const members = listing
+    .filter((entry) => /\t(?:src|dist)\//.test(entry))
+    .map((entry) => {
+      const match = /^(\d+) \w+ [0-9a-f]+\t(.+)$/.exec(entry);
+      if (!match || match[1] !== "100644" || !/^(src|dist)\//.test(match[2]))
+        throw new Error("final candidate tree member is invalid");
+      return {
+        path: match[2],
+        sha256: sha256FileFromBytes(gitBlob(repoRoot, candidateSha, match[2])),
+      };
+    })
+    .sort((a, b) => a.path.localeCompare(b.path));
+  if (
+    !members.length ||
+    JSON.stringify(tree.members) !== JSON.stringify(members) ||
+    tree.sha256 !==
+      sha256FileFromBytes(Buffer.from(`${canonicalJson(members)}\n`))
+  )
+    throw new Error("final candidate source/dist tree digest is invalid");
+  return manifest;
+}
+function sha256FileFromBytes(bytes) {
+  return crypto.createHash("sha256").update(bytes).digest("hex");
+}
 function assertEqual(left, right, label) {
   if (left !== right) throw new Error(`${label} mismatch`);
 }
@@ -1213,6 +1355,12 @@ function phaseAdmission(paths) {
   return phaseAdmissionReports(reports);
 }
 function main(args) {
+  if (args[0] === "--validate-final-candidate-manifest" && args.length === 4)
+    return validateFinalCandidateManifest({
+      repoRoot: args[1],
+      candidateSha: args[2],
+      repairProofSha: args[3],
+    });
   if (args[0] === "--validate-report" && args.length === 2)
     return validateReport(JSON.parse(fs.readFileSync(args[1], "utf8")));
   if (args[0] === "--phase-admission" && args.length === 3)
@@ -1225,7 +1373,7 @@ function main(args) {
   )
     return hostedLedger(args[1], args[3], args[5]);
   throw new Error(
-    "usage: --validate-report <file> | --phase-admission <node22> <node24> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
+    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --phase-admission <node22> <node24> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
   );
 }
 module.exports = {
@@ -1240,6 +1388,7 @@ module.exports = {
   validateCalibration,
   validateReport,
   hostedLedger,
+  validateFinalCandidateManifest,
   validateInstalledReport,
   phaseAdmission,
   deriveCorrectnessKey,

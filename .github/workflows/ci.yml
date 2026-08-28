@@ -57,9 +57,33 @@ jobs:
           path: qualification-linux.json
           if-no-files-found: error
 
+  identity-prebuild:
+    # phase-46-final-candidate/v1
+    # The final manifest is deliberately absent during the 46-18 repair proof.
+    # When Plan 46-11 adds it, this single shared validator fails closed before
+    # any matching-host native compiler can run.
+    needs: quality
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: "${{ github.sha }}"
+          fetch-depth: 2
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - name: Enforce dormant final-candidate identity gate
+        shell: bash
+        run: |
+          if test -f native/phase-46-final-candidate.json; then
+            node scripts/qualification/benchmark-report.cjs --validate-final-candidate-manifest . "$GITHUB_SHA" "$(git rev-parse HEAD^)"
+          else
+            printf '%s\n' 'phase-46 final-candidate manifest absent: repair-proof mode'
+          fi
+
   build-audit-native:
     name: build-audit-${{ matrix.tuple }}
-    needs: quality
+    needs: identity-prebuild
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false

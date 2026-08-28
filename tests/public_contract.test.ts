@@ -396,6 +396,7 @@ describe("private automated qualification surface", () => {
       return match[0];
     };
     const focused = job("qualification-linux");
+    const identityPrebuild = job("identity-prebuild");
     const benchmarkJob = job("benchmark-linux");
     const admission = job("phase-46-admission");
 
@@ -407,6 +408,9 @@ describe("private automated qualification surface", () => {
       "oracles.test.ts",
     ])
       expect(focused).toContain(authority);
+    expect(identityPrebuild).toContain("phase-46-final-candidate/v1");
+    expect(identityPrebuild).toContain("validate-final-candidate-manifest");
+    expect(identityPrebuild).toContain("repair-proof mode");
     expect(benchmarkJob).toContain("node: [22, 24]");
     expect(benchmarkJob).toContain("assemble-exact-native");
     expect(benchmarkJob).toContain("benchmark:qualify");
