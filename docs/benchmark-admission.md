@@ -31,6 +31,12 @@ fresh child process. Each fixture alternates baseline-first and candidate-first
 rounds, discards two warmups per version, and retains fifteen measurements per
 version.
 
+New runs emit only benchmark report version 3. Its closed
+`elapsedP95Estimator` declaration is exactly `method: Hyndman-Fan Type 7`,
+`quantile: 0.95`, `interpolation: linear`, and `retainedObservations: 15`.
+Missing, extra, renamed, mistyped, or legacy nearest-rank declarations are not
+accepted as fresh admission evidence.
+
 ## Runner-Speed Calibration
 
 Timing evidence has one package-independent `exifcleaner-run-calibration-v2`
@@ -113,6 +119,21 @@ inclusive limits:
 These are the D-23 factor-or-slack limits formerly described as baseline median
 × 1.20 and baseline p95 × 1.35; the literal `Math.max` expressions above are
 the sole admission implementation.
+
+Elapsed-time p95 alone uses Hyndman-Fan Type 7 linear interpolation. After
+sorting the fifteen retained scaled elapsed values, the authority computes
+`h = (n - 1) × 0.95`, takes `lower = floor(h)` and `upper = ceil(h)`, and returns
+`x[lower] + (h - lower) × (x[upper] - x[lower])`. With fifteen values this is
+30% of the interval from zero-based element 13 to element 14. The producer and
+independent report validator each recompute that value from the same bound
+`scaledElapsedNs` list; neither trusts a reported aggregate. All fifteen raw
+paired observations remain in the locked alternating schedule, with exactly
+zero retries and zero discarded retained observations.
+
+Timing median, calibration median and MAD, and peak-RSS median retain the
+existing nearest-rank estimator. The Type 7 change does not alter calibration,
+RSS or slope, correctness or finalization, cancellation or process evidence,
+nor either D-23 `Math.max` limit.
 
 RSS slope is `(RSS at 64 MiB - RSS at 1 MiB - 4 MiB tolerance) / 63 MiB`,
 clamped at zero. The middle point is retained in the evidence and guards the

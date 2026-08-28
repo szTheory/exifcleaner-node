@@ -20,6 +20,12 @@ const BASELINE_VERSION = "0.1.1";
 const BASELINE_TARBALL_SHA256 =
   "c2fc569b553cba360814bcce61d6882a02aba062e6d6da2193323915530a34bf";
 const BASELINE_EXPECTED_IDENTITY = `${BASELINE_PACKAGE_NAME}@${BASELINE_VERSION}#sha256:${BASELINE_TARBALL_SHA256}`;
+const ELAPSED_P95_ESTIMATOR = Object.freeze({
+  method: "Hyndman-Fan Type 7",
+  quantile: 0.95,
+  interpolation: "linear",
+  retainedObservations: MEASUREMENTS,
+});
 
 const BENCHMARK_THRESHOLDS = Object.freeze({
   medianRatio: 1.2,
@@ -797,7 +803,8 @@ async function executeBenchmark(options) {
       failures.push(...verdict.failures);
     }
     const report = {
-      version: 2,
+      version: 3,
+      elapsedP95Estimator: ELAPSED_P95_ESTIMATOR,
       mode: options.mode,
       pass: failures.length === 0,
       baselinePackageName: installed.baseline.baselinePackageName,

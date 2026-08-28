@@ -532,6 +532,7 @@ function validateReport(report) {
     report,
     [
       "version",
+      "elapsedP95Estimator",
       "mode",
       "pass",
       "baselinePackageName",
@@ -553,12 +554,21 @@ function validateReport(report) {
     "benchmark report",
   );
   exactKeys(
+    report.elapsedP95Estimator,
+    ["method", "quantile", "interpolation", "retainedObservations"],
+    "elapsed p95 estimator",
+  );
+  exactKeys(
     report.environment,
     ["nodeVersion", "platform", "architecture", "runner", "cpu"],
     "benchmark environment",
   );
   if (
-    report.version !== 2 ||
+    report.version !== 3 ||
+    report.elapsedP95Estimator.method !== "Hyndman-Fan Type 7" ||
+    report.elapsedP95Estimator.quantile !== 0.95 ||
+    report.elapsedP95Estimator.interpolation !== "linear" ||
+    report.elapsedP95Estimator.retainedObservations !== MEASUREMENTS ||
     !["report", "admit"].includes(report.mode) ||
     typeof report.pass !== "boolean" ||
     report.baselinePackageName !== "exifcleaner-node" ||

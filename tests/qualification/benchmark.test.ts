@@ -913,9 +913,7 @@ describe("paired benchmark admission", () => {
   });
 
   it("uses independent Type 7 elapsed p95 without changing nearest-rank authorities", () => {
-    const unsorted = [
-      15, 1, 14, 2, 13, 3, 12, 4, 11, 5, 10, 6, 9, 7, 8,
-    ];
+    const unsorted = [15, 1, 14, 2, 13, 3, 12, 4, 11, 5, 10, 6, 9, 7, 8];
     const original = [...unsorted];
     expect(benchmark.performanceP95(unsorted)).toBeCloseTo(14.3, 12);
     expect(report.performanceP95(unsorted)).toBeCloseTo(14.3, 12);
@@ -927,7 +925,10 @@ describe("paired benchmark admission", () => {
     });
     expect(
       benchmark.percentile(
-        [115, 101, 114, 102, 113, 103, 112, 104, 111, 105, 110, 106, 109, 107, 108],
+        [
+          115, 101, 114, 102, 113, 103, 112, 104, 111, 105, 110, 106, 109, 107,
+          108,
+        ],
         0.5,
       ),
     ).toBe(108);
