@@ -99,6 +99,7 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     referenceMedianNs: Record<string, number>;
   };
   validateReport(input: Record<string, unknown>): void;
+  hostedLedger(filePath: string, memoryPath: string, windowsPath: string): void;
 };
 const calibration =
   require("../../scripts/qualification/benchmark-calibration.cjs") as {
@@ -132,7 +133,28 @@ describe("paired benchmark admission", () => {
       workloadDigest: calibration.workloadDigest(),
       process: { execPath: process.execPath, clean: true },
     };
-    const sample = { elapsedNs: 1, scaledElapsedNs: 1 };
+    const sample = {
+      schemaVersion: 1,
+      version: "baseline",
+      fixtureId: "",
+      packageSha: benchmark.BASELINE_TARBALL_SHA256,
+      runToken: "0".repeat(32),
+      elapsedNs: 1,
+      maxRSSKiB: 1,
+      startedRss: 1,
+      endedRss: 1,
+      outputBytes: 1,
+      outputSha256: "1".repeat(64),
+      sourceUnchanged: true,
+      destinationAbsent: false,
+      finalization: "none",
+      finalizationTruthful: true,
+      correctnessKey: "2".repeat(64),
+      allocationPhases: ["package-load", "fixture-materialized", "sanitize-complete", "correctness-complete"].map(
+        (phase) => ({ phase, rss: 1, heapUsed: 1, external: 1, arrayBuffers: 1, maxRSSKiB: 1 }),
+      ),
+      environment: { nodeVersion: `v${nodeMajor}.0.0`, platform: process.platform, architecture: process.arch, runner: "test", cpu: "test" },
+    };
     const cancellationSample = {
       code: "aborted",
       destinationAbsent: true,
@@ -148,14 +170,23 @@ describe("paired benchmark admission", () => {
         2,
         15,
       )
-      .map((entry) => ({
+      .map((entry, index) => ({
         ...entry,
-        sample:
-          entry.fixtureId === "cancellation-64m"
-            ? { ...sample, cancellation: cancellationSample }
-            : sample,
+        sample: {
+          ...sample,
+          version: entry.version,
+          fixtureId: entry.fixtureId,
+          packageSha: entry.version === "baseline" ? benchmark.BASELINE_TARBALL_SHA256 : "3".repeat(64),
+          runToken: index.toString(16).padStart(32, "0"),
+          ...(manifest.fixtures.find((fixture) => fixture.id === entry.fixtureId)?.expected !== "success"
+            ? { outputBytes: 0, outputSha256: null, destinationAbsent: true }
+            : {}),
+          ...(entry.fixtureId === "cancellation-64m" ? { cancellation: cancellationSample } : {}),
+        },
       }));
-    const retainedSamples = Array.from({ length: 15 }, () => sample);
+    const retainedSamples = (fixtureId: string, version: string) => rawSchedule
+      .filter((entry) => entry.fixtureId === fixtureId && entry.version === version && !entry.warmup)
+      .map((entry) => ({ ...entry.sample, scaledElapsedNs: entry.sample.elapsedNs }));
     const timing = report.evaluateTiming({
       baselineMedianNs: 1,
       candidateMedianNs: 1,
@@ -167,12 +198,12 @@ describe("paired benchmark admission", () => {
       .map((fixture) => ({
         fixtureId: fixture.id,
         baseline: {
-          samples: retainedSamples,
+          samples: retainedSamples(String(fixture.id), "baseline"),
           medianElapsedNs: 1,
           p95ElapsedNs: 1,
         },
         candidate: {
-          samples: retainedSamples,
+          samples: retainedSamples(String(fixture.id), "candidate"),
           medianElapsedNs: 1,
           p95ElapsedNs: 1,
         },
@@ -189,7 +220,15 @@ describe("paired benchmark admission", () => {
           referenceMedianNs: normalizedNs,
         }),
       },
-      environment: { nodeVersion: `v${nodeMajor}.0.0` },
+      baselineSha256: benchmark.BASELINE_TARBALL_SHA256,
+      candidateSha256: "3".repeat(64),
+      environment: {
+        nodeVersion: `v${nodeMajor}.0.0`,
+        platform: process.platform,
+        architecture: process.arch,
+        runner: "test",
+        cpu: "test",
+      },
       comparisons,
       rawSchedule,
       collection: { retries: 0, discarded: 0 },
@@ -208,6 +247,15 @@ describe("paired benchmark admission", () => {
       { ...complete, cancellation: undefined },
     ])
       expect(() => report.validateReport(incomplete)).toThrow();
+    const rawSubstitution = structuredClone(complete);
+    rawSubstitution.rawSchedule[0].sample.fixtureId = "still-1m";
+    expect(() => report.validateReport(rawSubstitution)).toThrow();
+    const comparisonSubstitution = structuredClone(complete);
+    comparisonSubstitution.comparisons[0].baseline.samples[0] = {
+      ...comparisonSubstitution.comparisons[0].baseline.samples[0],
+      runToken: "f".repeat(32),
+    };
+    expect(() => report.validateReport(comparisonSubstitution)).toThrow();
   });
 
   it("uses the fixed v2 robust block estimator at every threshold in both drift directions", () => {

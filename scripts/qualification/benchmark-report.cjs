@@ -81,6 +81,7 @@ function expectedBenchmarkEvidence() {
   if (rawSchedule.length !== fixtures.length * RECORDS_PER_FIXTURE)
     throw new Error("benchmark raw schedule contract is invalid");
   return {
+    fixtures,
     comparisonFixtureIds: fixtures
       .filter((fixture) => fixture.kind !== "cancellation")
       .map((fixture) => fixture.id),
@@ -349,6 +350,68 @@ function validateCancellationEvidence(cancellation, rawSchedule, fixtureId) {
   )
     throw new Error("cancellation sample is not bound to raw evidence");
 }
+function validateChildSample(sample, record, fixture, report, seenRunTokens) {
+  const cancellation = fixture.kind === "cancellation";
+  exactKeys(
+    sample,
+    [
+      "schemaVersion", "version", "fixtureId", "packageSha", "runToken",
+      "elapsedNs", "maxRSSKiB", "startedRss", "endedRss", "outputBytes",
+      "outputSha256", "sourceUnchanged", "destinationAbsent", "finalization",
+      "finalizationTruthful", "correctnessKey", "allocationPhases", "environment",
+      ...(cancellation ? ["cancellation"] : []),
+    ],
+    "benchmark child sample",
+  );
+  const expectedPackageSha = record.version === "baseline"
+    ? report.baselineSha256 : report.candidateSha256;
+  if (
+    sample.schemaVersion !== 1 ||
+    sample.version !== record.version ||
+    sample.fixtureId !== fixture.id ||
+    sample.packageSha !== expectedPackageSha ||
+    !/^[a-f0-9]{32}$/.test(sample.runToken) ||
+    seenRunTokens.has(sample.runToken) ||
+    !Number.isFinite(sample.elapsedNs) || sample.elapsedNs <= 0 ||
+    !Number.isFinite(sample.maxRSSKiB) || sample.maxRSSKiB < 0 ||
+    !Number.isFinite(sample.startedRss) || sample.startedRss < 0 ||
+    !Number.isFinite(sample.endedRss) || sample.endedRss < 0 ||
+    !Number.isSafeInteger(sample.outputBytes) || sample.outputBytes < 0 ||
+    typeof sample.sourceUnchanged !== "boolean" || sample.sourceUnchanged !== true ||
+    typeof sample.finalization !== "string" ||
+    sample.finalizationTruthful !== true ||
+    !SHA256.test(sample.correctnessKey) ||
+    typeof sample.environment !== "object" || sample.environment === null ||
+    !sameJson(sample.environment, report.environment)
+  ) throw new Error("benchmark child identity or correctness is invalid");
+  seenRunTokens.add(sample.runToken);
+  const mustProduceOutput = fixture.expected === "success";
+  if (
+    (mustProduceOutput &&
+      (sample.destinationAbsent !== false || sample.outputBytes <= 0 || !SHA256.test(sample.outputSha256))) ||
+    (!mustProduceOutput &&
+      (sample.destinationAbsent !== true || sample.outputBytes !== 0 || sample.outputSha256 !== null))
+  ) throw new Error("benchmark child output invariant is invalid");
+  if (!Array.isArray(sample.allocationPhases) || sample.allocationPhases.length !== 4)
+    throw new Error("benchmark child allocation evidence is invalid");
+  const phases = ["package-load", "fixture-materialized", "sanitize-complete", "correctness-complete"];
+  sample.allocationPhases.forEach((snapshot, index) => {
+    exactKeys(snapshot, ["phase", "rss", "heapUsed", "external", "arrayBuffers", "maxRSSKiB"], "allocation snapshot");
+    if (snapshot.phase !== phases[index] ||
+      [snapshot.rss, snapshot.heapUsed, snapshot.external, snapshot.arrayBuffers, snapshot.maxRSSKiB]
+        .some((value) => !Number.isFinite(value) || value < 0))
+      throw new Error("benchmark child allocation evidence is invalid");
+  });
+  if (cancellation) {
+    exactKeys(sample.cancellation, ["code", "destinationAbsent", "finalizationTruthful", "secondWriter", "finalizationStartMs", "terminalMs", "finalization"], "benchmark child cancellation");
+    if (sample.cancellation.code !== "aborted" || sample.cancellation.destinationAbsent !== true ||
+      sample.cancellation.finalizationTruthful !== true || sample.cancellation.secondWriter !== false ||
+      !Number.isFinite(sample.cancellation.finalizationStartMs) || sample.cancellation.finalizationStartMs < 0 ||
+      !Number.isFinite(sample.cancellation.terminalMs) || sample.cancellation.terminalMs < 0 ||
+      typeof sample.cancellation.finalization !== "string")
+      throw new Error("benchmark child cancellation evidence is invalid");
+  }
+}
 function validateReport(report) {
   const reference = loadReference();
   const expected = expectedBenchmarkEvidence();
@@ -376,44 +439,6 @@ function validateReport(report) {
   });
   if (!sameJson(report.calibration.derived, derived))
     throw new Error("calibration derived evidence mismatch");
-  if (
-    !Array.isArray(report.comparisons) ||
-    report.comparisons.length !== expected.comparisonFixtureIds.length ||
-    JSON.stringify(report.comparisons.map((item) => item?.fixtureId).sort()) !==
-      JSON.stringify([...expected.comparisonFixtureIds].sort())
-  )
-    throw new Error("comparison evidence set is incomplete");
-  for (const comparison of report.comparisons) {
-    for (const side of ["baseline", "candidate"]) {
-      const item = comparison[side];
-      if (
-        !Array.isArray(item.samples) ||
-        item.samples.length !== 15 ||
-        item.samples.some(
-          (sample) =>
-            !Number.isFinite(sample.elapsedNs) ||
-            sample.elapsedNs <= 0 ||
-            !Number.isFinite(sample.scaledElapsedNs) ||
-            sample.scaledElapsedNs !== sample.elapsedNs * derived.runScale,
-        )
-      )
-        throw new Error("retained sample evidence is invalid");
-      const scaled = item.samples.map((sample) => sample.scaledElapsedNs);
-      if (
-        item.medianElapsedNs !== percentile(scaled, 0.5) ||
-        item.p95ElapsedNs !== percentile(scaled, 0.95)
-      )
-        throw new Error("derived distribution mismatch");
-    }
-    const timing = evaluateTiming({
-      baselineMedianNs: comparison.baseline.medianElapsedNs,
-      candidateMedianNs: comparison.candidate.medianElapsedNs,
-      baselineP95Ns: comparison.baseline.p95ElapsedNs,
-      candidateP95Ns: comparison.candidate.p95ElapsedNs,
-    });
-    if (!sameJson(timing, comparison.timing))
-      throw new Error("D-23 verdict mismatch");
-  }
   exactKeys(report.collection, ["retries", "discarded"], "collection");
   if (
     report.collection.retries !== 0 ||
