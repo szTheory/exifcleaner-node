@@ -109,7 +109,10 @@ async function closePostPublicationResources({
 
   if (directoryCapability !== undefined) {
     if (cleanupCapability === undefined)
-      return stageResidue({ code: "unsupported-retained", message: "No captured cleanup authority." });
+      return stageResidue({
+        code: "unsupported-retained",
+        message: "No captured cleanup authority.",
+      });
     const stageFileResult = consumePrivateStageCleanup(cleanupCapability);
     if (stageFileResult.state !== "disposed")
       return stageResidue({
@@ -358,7 +361,14 @@ export async function runSafeTransaction(
     }
     if (platform === "win32") {
       if (directoryCapability === undefined) {
-        failure = executionError({ code: "write-failed", detail: "Private cleanup authority was unavailable.", path: destinationPath }, "started");
+        failure = executionError(
+          {
+            code: "write-failed",
+            detail: "Private cleanup authority was unavailable.",
+            path: destinationPath,
+          },
+          "started",
+        );
         throw new Error("Cleanup authority unavailable.");
       }
       const captured = capturePrivateStageCleanup(
@@ -368,7 +378,14 @@ export async function runSafeTransaction(
         platform,
       );
       if (captured.state !== "captured") {
-        failure = executionError({ code: "write-failed", detail: "Private cleanup identity capture did not complete.", path: destinationPath }, "started");
+        failure = executionError(
+          {
+            code: "write-failed",
+            detail: "Private cleanup identity capture did not complete.",
+            path: destinationPath,
+          },
+          "started",
+        );
         throw new Error("Cleanup identity capture failed.");
       }
       cleanupCapability = captured.capability;
@@ -524,12 +541,15 @@ export async function runSafeTransaction(
     beforeStageFinalization?.({ stageDirectoryPath, stagePath }),
   ).catch(() => undefined);
   if (
-    platform === "win32" && cleanupCapability !== undefined &&
+    platform === "win32" &&
+    cleanupCapability !== undefined &&
     consumePrivateStageCleanup(cleanupCapability).state === "disposed" &&
     directoryCapability !== undefined &&
     disposePrivateStageDirectory(directoryCapability).state === "disposed"
   ) {
-    return err(withDestinationFinalization(failure!, { state: "owned-partial-removed" }));
+    return err(
+      withDestinationFinalization(failure!, { state: "owned-partial-removed" }),
+    );
   }
   if (
     directoryCreated &&

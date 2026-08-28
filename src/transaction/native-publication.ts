@@ -88,7 +88,10 @@ export type NativeStageDirectoryDisposition =
   | { readonly state: "disposition-failed" };
 
 export type NativeStageCleanupCapture =
-  | { readonly state: "captured"; readonly capability: NativeStageCleanupCapability }
+  | {
+      readonly state: "captured";
+      readonly capability: NativeStageCleanupCapability;
+    }
   | { readonly state: "unsupported-retained" }
   | { readonly state: "capture-failed" };
 
@@ -125,15 +128,16 @@ function isNativePublicationBinding(
     names[3] === "removePrivateStageFile" &&
     names[4] === "takeLastWindowsPublicationEvidence";
   return (
-    (legacy || (names.length === 8 &&
-    names[0] === "capturePrivateStageCleanup" &&
-    names[1] === "consumePrivateStageCleanup" &&
-    names[2] === "createPrivateStageDirectory" &&
-    names[3] === "disposePrivateStageDirectory" &&
-    names[4] === "publishNoReplace" &&
-    names[5] === "removePrivateStageFile" &&
-    names[6] === "stageFileIdentity" &&
-    names[7] === "takeLastWindowsPublicationEvidence")) &&
+    (legacy ||
+      (names.length === 8 &&
+        names[0] === "capturePrivateStageCleanup" &&
+        names[1] === "consumePrivateStageCleanup" &&
+        names[2] === "createPrivateStageDirectory" &&
+        names[3] === "disposePrivateStageDirectory" &&
+        names[4] === "publishNoReplace" &&
+        names[5] === "removePrivateStageFile" &&
+        names[6] === "stageFileIdentity" &&
+        names[7] === "takeLastWindowsPublicationEvidence")) &&
     typeof binding.publishNoReplace === "function" &&
     typeof binding.createPrivateStageDirectory === "function" &&
     typeof binding.removePrivateStageFile === "function" &&
@@ -302,15 +306,25 @@ export function capturePrivateStageCleanup(
   if (platform !== "win32" || identity === undefined)
     return { state: "unsupported-retained" };
   try {
-    if (nativeBinding().capturePrivateStageCleanup === undefined && injectedBinding !== undefined)
-      return { state: "captured", capability: directoryCapability as unknown as NativeStageCleanupCapability };
+    if (
+      nativeBinding().capturePrivateStageCleanup === undefined &&
+      injectedBinding !== undefined
+    )
+      return {
+        state: "captured",
+        capability:
+          directoryCapability as unknown as NativeStageCleanupCapability,
+      };
     const result = nativeBinding().capturePrivateStageCleanup!(
       directoryCapability,
       stagePath,
       identity,
     );
     if (result === undefined) return { state: "capture-failed" };
-    return { state: "captured", capability: result as NativeStageCleanupCapability };
+    return {
+      state: "captured",
+      capability: result as NativeStageCleanupCapability,
+    };
   } catch {
     return { state: "capture-failed" };
   }
@@ -322,14 +336,22 @@ export function stageFileIdentity(
 ): NativeStageFileIdentity | undefined {
   if (platform !== "win32") return undefined;
   try {
-    if (nativeBinding().stageFileIdentity === undefined && injectedBinding !== undefined)
-      return { volumeSerialNumber: 0, fileId: "0".repeat(32) };
-    const value = nativeBinding().stageFileIdentity!(stageDescriptor) as unknown;
     if (
-      typeof value === "object" && value !== null &&
-      typeof (value as NativeStageFileIdentity).volumeSerialNumber === "number" &&
+      nativeBinding().stageFileIdentity === undefined &&
+      injectedBinding !== undefined
+    )
+      return { volumeSerialNumber: 0, fileId: "0".repeat(32) };
+    const value = nativeBinding().stageFileIdentity!(
+      stageDescriptor,
+    ) as unknown;
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      typeof (value as NativeStageFileIdentity).volumeSerialNumber ===
+        "number" &&
       /^[a-f0-9]{32}$/u.test((value as NativeStageFileIdentity).fileId)
-    ) return value as NativeStageFileIdentity;
+    )
+      return value as NativeStageFileIdentity;
   } catch {
     // Capture remains fail-closed at the caller.
   }
@@ -340,10 +362,14 @@ export function consumePrivateStageCleanup(
   capability: NativeStageCleanupCapability,
 ): NativeStageDirectoryDisposition {
   try {
-    if (nativeBinding().consumePrivateStageCleanup === undefined && injectedBinding !== undefined)
+    if (
+      nativeBinding().consumePrivateStageCleanup === undefined &&
+      injectedBinding !== undefined
+    )
       return { state: "disposed" };
     const code = nativeBinding().consumePrivateStageCleanup!(capability);
-    if (code === "already-consumed") return { state: "disposition-unsupported" };
+    if (code === "already-consumed")
+      return { state: "disposition-unsupported" };
     return mapNativeStageDirectoryCode(code);
   } catch {
     return { state: "disposition-failed" };

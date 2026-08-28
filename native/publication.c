@@ -379,6 +379,7 @@ static napi_value remove_stage_file_binding(napi_env env, napi_callback_info inf
 #endif
 }
 
+#if defined(_WIN32)
 static int hex_value(char value) {
   if (value >= '0' && value <= '9') return value - '0';
   if (value >= 'a' && value <= 'f') return value - 'a' + 10;
@@ -406,6 +407,7 @@ static BOOL read_file_id_info(napi_env env, napi_value value, FILE_ID_INFO *iden
   }
   return TRUE;
 }
+#endif
 
 static napi_value stage_file_identity_binding(napi_env env, napi_callback_info info) {
 #if defined(_WIN32)
