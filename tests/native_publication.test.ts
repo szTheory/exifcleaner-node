@@ -220,6 +220,13 @@ describe("current-host native publication addon", () => {
         ): string;
         createPrivateStageDirectory(stageDirectoryPath: string): unknown;
         removePrivateStageFile(capability: unknown, stagePath: string): string;
+        capturePrivateStageCleanup(
+          capability: unknown,
+          stagePath: string,
+          identity: unknown,
+        ): unknown;
+        consumePrivateStageCleanup(capability: unknown): string;
+        stageFileIdentity(stageDescriptor: number): unknown;
         disposePrivateStageDirectory(capability: unknown): string;
       };
       const parent = await mkdtemp(
