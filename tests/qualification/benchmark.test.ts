@@ -118,7 +118,72 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
   validateWindowsPublicationDiagnosticLedger(
     input: Record<string, unknown>,
   ): void;
+  validateWindowsCancellationDiagnosticLedger(
+    input: Record<string, unknown>,
+  ): void;
 };
+
+function cancellationObservation(reason = "native-write") {
+  return {
+    reason,
+    resultOk: false,
+    errorCode: "aborted",
+    nativeWrite: reason === "native-write" ? "not-started" : "started",
+    fallback: "do-not-fallback",
+    finalizationState: "owned-partial-removed",
+    beforePublishHookSeen: true,
+    cancellationStageCaptured: true,
+    cleanupRecordPresent: true,
+    cleanupValidation: "accepted",
+    residue: { directory: false, file: false },
+    keyCounts: {
+      result: 2,
+      error: 3,
+      finalization: 1,
+      cancellationStage: 4,
+      cleanupRecord: 8,
+      residue: 2,
+    },
+  };
+}
+
+function cancellationDiagnosticLedger() {
+  const headSha = "d".repeat(40);
+  const record = (tuple: "win32-x64" | "win32-arm64") => ({
+    tuple,
+    nodeMajor: 22,
+    job: { name: `installed-${tuple}`, conclusion: "failure" },
+    artifact: {
+      name: `windows-cancellation-installed-node22-${tuple}`,
+      sha256: tuple === "win32-x64" ? "a".repeat(64) : "b".repeat(64),
+    },
+    diagnostic: {
+      schemaVersion: "phase-46-windows-cancellation-diagnostic/v1",
+      diagnosticOnly: true,
+      tuple,
+      nodeMajor: 22,
+      observation: cancellationObservation(),
+    },
+  });
+  return {
+    schemaVersion: "phase-46-windows-cancellation-diagnostic-ledger/v1",
+    diagnosticOnly: true,
+    run: {
+      repository: "szTheory/exifcleaner-node",
+      workflow: ".github/workflows/ci.yml",
+      event: "workflow_dispatch",
+      attempt: 1,
+      id: 123457,
+      url: "https://github.com/szTheory/exifcleaner-node/actions/runs/123457",
+      ref: `refs/heads/proof/46-27-cancellation-diagnostic-${headSha.slice(0, 7)}`,
+      headSha,
+    },
+    records: {
+      "win32-x64": record("win32-x64"),
+      "win32-arm64": record("win32-arm64"),
+    },
+  };
+}
 
 function acceptedWindowsPublicationObservation() {
   const identity = {
@@ -292,6 +357,100 @@ const calibration =
   };
 
 describe("paired benchmark admission", () => {
+  it("accepts only one exact two-tuple cancellation diagnostic run", () => {
+    const ledger = cancellationDiagnosticLedger();
+    expect(() =>
+      report.validateWindowsCancellationDiagnosticLedger(ledger),
+    ).not.toThrow();
+
+    const mutations = [
+      { ...ledger, diagnosticOnly: false },
+      { ...ledger, admission: false },
+      { ...ledger, productSuccess: false },
+      { ...ledger, retry: 0 },
+      { ...ledger, run: { ...ledger.run, event: "push" } },
+      { ...ledger, run: { ...ledger.run, attempt: 2 } },
+      { ...ledger, run: { ...ledger.run, ref: "refs/heads/main" } },
+      {
+        ...ledger,
+        records: { "win32-x64": ledger.records["win32-x64"] },
+      },
+      {
+        ...ledger,
+        records: {
+          ...ledger.records,
+          "win32-x64": {
+            ...ledger.records["win32-x64"],
+            tuple: "win32-arm64",
+          },
+        },
+      },
+      {
+        ...ledger,
+        records: {
+          ...ledger.records,
+          "win32-x64": {
+            ...ledger.records["win32-x64"],
+            artifact: {
+              ...ledger.records["win32-x64"].artifact,
+              sha256: "unhashed",
+            },
+          },
+        },
+      },
+      {
+        ...ledger,
+        records: {
+          ...ledger.records,
+          "win32-x64": {
+            ...ledger.records["win32-x64"],
+            job: {
+              ...ledger.records["win32-x64"].job,
+              conclusion: "success",
+            },
+          },
+        },
+      },
+      {
+        ...ledger,
+        records: {
+          ...ledger.records,
+          "win32-x64": {
+            ...ledger.records["win32-x64"],
+            diagnostic: {
+              ...ledger.records["win32-x64"].diagnostic,
+              path: "C:\\private\\cancel.webp",
+            },
+          },
+        },
+      },
+    ];
+    for (const mutation of mutations)
+      expect(() =>
+        report.validateWindowsCancellationDiagnosticLedger(mutation),
+      ).toThrow();
+  });
+
+  it("rejects accepted-only, mixed, extra, and arbitrary cancellation payloads", () => {
+    const ledger = cancellationDiagnosticLedger();
+    const acceptedOnly = structuredClone(ledger);
+    for (const record of Object.values(acceptedOnly.records)) {
+      record.diagnostic.observation = cancellationObservation("accepted");
+      record.diagnostic.observation.nativeWrite = "started";
+    }
+    const mixed = structuredClone(ledger);
+    mixed.records["win32-arm64"].diagnostic.tuple = "win32-x64";
+    const extra = structuredClone(ledger);
+    Object.assign(extra.records, { "win32-x86": extra.records["win32-x64"] });
+    const arbitrary = structuredClone(ledger);
+    arbitrary.records["win32-x64"].diagnostic.observation.errorCode =
+      "arbitrary-message-sentinel";
+    for (const mutation of [acceptedOnly, mixed, extra, arbitrary])
+      expect(() =>
+        report.validateWindowsCancellationDiagnosticLedger(mutation),
+      ).toThrow();
+  });
+
   it("accepts exact run 33200060244 only as publication hypothesis-refuted", () => {
     const ledger = hypothesisRefutedLedger();
     expect(() =>

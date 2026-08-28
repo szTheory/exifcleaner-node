@@ -20,6 +20,18 @@ const smoke = join(packageRoot, "scripts", "package_smoke.cjs");
 const temporaryDirectories: string[] = [];
 const require = createRequire(import.meta.url);
 const helper = require("../scripts/package_smoke.cjs") as {
+  classifyDeterministicCancellation(input: {
+    result: unknown;
+    fallback: unknown;
+    expectedFinalizationState:
+      | "owned-partial-removed"
+      | "owned-partial-remains";
+    beforePublishHookSeen: unknown;
+    cancellationStage: unknown;
+    cleanupRecord: unknown;
+    cleanupValidation: unknown;
+    residue: unknown;
+  }): Record<string, unknown>;
   assertWindowsPrivateStageCleanup(sandbox: string): "pass";
   assertWindowsPrivateStageResidue(sandbox: string): "pass";
   requireWindowsPublicationEvidence(value: unknown): Record<string, unknown>;
@@ -128,6 +140,130 @@ async function runSmoke(
 }
 
 describe("installed package smoke", () => {
+  it("classifies the first deterministic-cancellation failure with closed facts", () => {
+    const accepted = {
+      result: {
+        ok: false,
+        error: {
+          code: "aborted",
+          nativeWrite: "started",
+          finalization: { state: "owned-partial-removed" },
+        },
+      },
+      fallback: "do-not-fallback",
+      expectedFinalizationState: "owned-partial-removed" as const,
+      beforePublishHookSeen: true,
+      cancellationStage: { private: true },
+      cleanupRecord: { closed: true },
+      cleanupValidation: "accepted",
+      residue: { stageDirectoryExists: false, stageFileExists: false },
+    };
+    const cases: readonly [string, Record<string, unknown>][] = [
+      ["result-shape", { result: [] }],
+      ["unexpected-ok", { result: { ok: true } }],
+      [
+        "error-code",
+        { result: { ok: false, error: { code: "sentinel-error-code" } } },
+      ],
+      [
+        "native-write",
+        {
+          result: {
+            ok: false,
+            error: { code: "aborted", nativeWrite: "sentinel-native-write" },
+          },
+        },
+      ],
+      ["fallback", { fallback: "sentinel-fallback" }],
+      [
+        "finalization-state",
+        {
+          result: {
+            ok: false,
+            error: {
+              code: "aborted",
+              nativeWrite: "started",
+              finalization: { state: "sentinel-finalization" },
+            },
+          },
+        },
+      ],
+      ["hook-missing", { beforePublishHookSeen: false }],
+      ["capture-missing", { cancellationStage: undefined }],
+      ["cleanup-record", { cleanupRecord: undefined }],
+      ["cleanup-record", { cleanupValidation: "sentinel-cleanup" }],
+      [
+        "residue",
+        {
+          residue: { stageDirectoryExists: true, stageFileExists: false },
+        },
+      ],
+    ];
+
+    expect(helper.classifyDeterministicCancellation(accepted)).toMatchObject({
+      reason: "accepted",
+    });
+    for (const [reason, mutation] of cases)
+      expect(
+        helper.classifyDeterministicCancellation({ ...accepted, ...mutation }),
+      ).toMatchObject({ reason });
+  });
+
+  it("renders deterministic-cancellation diagnostics without raw disclosure", () => {
+    const sentinels = [
+      "C:\\private\\cancel.webp",
+      "/tmp/private/cancel.webp",
+      "content-sentinel",
+      "digest-sentinel",
+      "handle-sentinel",
+      "token-sentinel",
+      "stack-sentinel",
+      "arbitrary-message-sentinel",
+    ] as const;
+    const observation = helper.classifyDeterministicCancellation({
+      result: {
+        ok: false,
+        error: {
+          code: sentinels[7],
+          nativeWrite: sentinels[4],
+          finalization: { state: sentinels[3], path: sentinels[0] },
+          message: sentinels[7],
+          stack: sentinels[6],
+        },
+        content: sentinels[2],
+      },
+      fallback: sentinels[5],
+      expectedFinalizationState: "owned-partial-removed",
+      beforePublishHookSeen: true,
+      cancellationStage: { path: sentinels[1], handle: sentinels[4] },
+      cleanupRecord: { token: sentinels[5], digest: sentinels[3] },
+      cleanupValidation: "closed-reason",
+      residue: {
+        stageDirectoryExists: false,
+        stageFileExists: false,
+        path: sentinels[0],
+      },
+    });
+    const rendered = JSON.stringify(observation);
+    expect(Object.keys(observation)).toEqual([
+      "reason",
+      "resultOk",
+      "errorCode",
+      "nativeWrite",
+      "fallback",
+      "finalizationState",
+      "beforePublishHookSeen",
+      "cancellationStageCaptured",
+      "cleanupRecordPresent",
+      "cleanupValidation",
+      "residue",
+      "keyCounts",
+    ]);
+    expect(rendered.length).toBeLessThanOrEqual(700);
+    for (const sentinel of sentinels) expect(rendered).not.toContain(sentinel);
+    expect(JSON.parse(rendered)).toEqual(observation);
+  });
+
   it("classifies every Windows publication mismatch with one closed reason", () => {
     const accepted = windowsPublicationEvidence();
     const cases: [string, unknown][] = [
