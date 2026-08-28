@@ -22,6 +22,12 @@ import { vp8, vp8x, webp } from "./fixtures.js";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const require = createRequire(import.meta.url);
+const smokeHelper = require("../scripts/package_smoke.cjs") as {
+  classifyWindowsPublicationEvidence(value: unknown): {
+    status: "accepted" | "rejected";
+    reason: string;
+  };
+};
 const hostArtifact = join(
   packageRoot,
   "prebuilds",
@@ -91,6 +97,7 @@ describe("current-host native publication addon", () => {
       consumePrivateStageCleanup(capability: unknown): string;
       stageFileIdentity(stageDescriptor: number): unknown;
       disposePrivateStageDirectory(capability: unknown): string;
+      takeLastWindowsPublicationEvidence(): unknown;
     };
     expect(Object.getOwnPropertyNames(binding).sort()).toEqual([
       "capturePrivateStageCleanup",
@@ -166,6 +173,30 @@ describe("current-host native publication addon", () => {
     expect(publish(stageHandle.fd, "stage.webp", "destination.webp")).toBe(
       "published",
     );
+    if (process.platform === "win32") {
+      const observation = smokeHelper.classifyWindowsPublicationEvidence(
+        binding.takeLastWindowsPublicationEvidence(),
+      );
+      const diagnosticPath = process.env.WINDOWS_PUBLICATION_DIAGNOSTIC_PATH;
+      if (diagnosticPath)
+        await writeFile(
+          diagnosticPath,
+          `${JSON.stringify(
+            {
+              schemaVersion:
+                "phase-46-windows-publication-observation/v1",
+              boundary: "matching-host",
+              tuple: `${process.platform}-${process.arch}`,
+              nodeMajor: Number(process.versions.node.split(".")[0]),
+              observation,
+            },
+            null,
+            2,
+          )}\n`,
+        );
+      expect(observation).toMatchObject({ status: "accepted", reason: "accepted" });
+      expect(binding.takeLastWindowsPublicationEvidence()).toBeUndefined();
+    }
     await expect(
       cp(destination, join(directory, "published-copy.webp")),
     ).resolves.toBeUndefined();
@@ -176,6 +207,8 @@ describe("current-host native publication addon", () => {
     expect(
       publish(collisionHandle.fd, "collision-stage.webp", "destination.webp"),
     ).toBe("collision");
+    if (process.platform === "win32")
+      expect(binding.takeLastWindowsPublicationEvidence()).toBeUndefined();
     await collisionHandle.close();
     await stageHandle.close();
     await stageDirectory.close();

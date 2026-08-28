@@ -115,7 +115,94 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     candidateSha: string;
     repairProofSha: string;
   }): void;
+  validateWindowsPublicationDiagnosticLedger(
+    input: Record<string, unknown>,
+  ): void;
 };
+
+function acceptedWindowsPublicationObservation() {
+  const identity = {
+    keysOk: true,
+    volumeLength: 16,
+    volumeLowerHex: true,
+    fileIdLength: 32,
+    fileIdLowerHex: true,
+  };
+  return {
+    status: "accepted",
+    reason: "accepted",
+    topLevelType: "object",
+    topLevelKeys: {
+      primitive: true,
+      linkCalls: true,
+      destinationParentIdentityRechecked: true,
+      stageIdentityRechecked: true,
+      stageFileIdentityRechecked: true,
+      destinationParent: true,
+      stageDirectory: true,
+      stageFile: true,
+      destinationFile: true,
+    },
+    unexpectedTopLevelKeyCount: 0,
+    primitiveIsCreateHardLinkW: true,
+    linkCallsIsOne: true,
+    destinationParentIdentityRecheckedIsTrue: true,
+    stageIdentityRecheckedIsTrue: true,
+    stageFileIdentityRecheckedIsTrue: true,
+    identities: {
+      destinationParent: identity,
+      stageDirectory: identity,
+      stageFile: identity,
+      destinationFile: identity,
+    },
+    equalities: {
+      destinationParentVolumeEqualsStageDirectoryVolume: true,
+      stageDirectoryVolumeEqualsStageFileVolume: true,
+      stageFileVolumeEqualsDestinationFileVolume: true,
+      stageFileIdEqualsDestinationFileId: true,
+    },
+  };
+}
+
+function diagnosticLedger() {
+  const record = (tuple: "win32-x64" | "win32-arm64", boundary: string) => ({
+    tuple,
+    boundary,
+    nodeMajor: 22,
+    job: {
+      name: boundary === "matching-host" ? `build-audit-${tuple}` : `installed-${tuple}`,
+      conclusion: "failure",
+    },
+    artifact: {
+      name: `windows-publication-${boundary}-${tuple}`,
+      sha256: tuple === "win32-x64" ? "a".repeat(64) : "b".repeat(64),
+    },
+    observation: {
+      ...acceptedWindowsPublicationObservation(),
+      status: "rejected",
+      reason: "stage-file-id-format",
+    },
+  });
+  return {
+    schemaVersion: "phase-46-windows-publication-diagnostic-ledger/v1",
+    diagnosticOnly: true,
+    run: {
+      repository: "szTheory/exifcleaner-node",
+      workflow: ".github/workflows/ci.yml",
+      event: "workflow_dispatch",
+      id: 123456,
+      url: "https://github.com/szTheory/exifcleaner-node/actions/runs/123456",
+      ref: "refs/heads/proof/46-25-windows-diagnostic-abcdef0",
+      headSha: "c".repeat(40),
+    },
+    selectedBoundary: "matching-host",
+    matchingHost: {
+      "win32-x64": record("win32-x64", "matching-host"),
+      "win32-arm64": record("win32-arm64", "matching-host"),
+    },
+    installedNode22: null,
+  };
+}
 const calibration =
   require("../../scripts/qualification/benchmark-calibration.cjs") as {
     workloadDigest(): string;
@@ -123,6 +210,121 @@ const calibration =
   };
 
 describe("paired benchmark admission", () => {
+  it("accepts only one complete diagnostic-only Windows boundary", () => {
+    const ledger = diagnosticLedger();
+    expect(() =>
+      report.validateWindowsPublicationDiagnosticLedger(ledger),
+    ).not.toThrow();
+
+    const installed = {
+      "win32-x64": {
+        ...ledger.matchingHost["win32-x64"],
+        boundary: "installed-node22",
+        job: { name: "installed-win32-x64", conclusion: "failure" },
+        artifact: {
+          name: "windows-publication-installed-node22-win32-x64",
+          sha256: "d".repeat(64),
+        },
+      },
+      "win32-arm64": {
+        ...ledger.matchingHost["win32-arm64"],
+        boundary: "installed-node22",
+        job: { name: "installed-win32-arm64", conclusion: "success" },
+        artifact: {
+          name: "windows-publication-installed-node22-win32-arm64",
+          sha256: "e".repeat(64),
+        },
+      },
+    };
+    const installedLedger = {
+      ...ledger,
+      selectedBoundary: "installed-node22",
+      matchingHost: Object.fromEntries(
+        Object.entries(ledger.matchingHost).map(([tuple, value]) => [
+          tuple,
+          {
+            ...value,
+            job: { ...value.job, conclusion: "success" },
+            observation: acceptedWindowsPublicationObservation(),
+          },
+        ]),
+      ),
+      installedNode22: installed,
+    };
+    expect(() =>
+      report.validateWindowsPublicationDiagnosticLedger(installedLedger),
+    ).not.toThrow();
+  });
+
+  it("rejects partial, mixed, raw, unbound, or authority-claiming diagnostics", () => {
+    const base = diagnosticLedger();
+    const mutations = [
+      { ...base, diagnosticOnly: false },
+      { ...base, admission: true },
+      { ...base, run: { ...base.run, event: "push" } },
+      { ...base, run: { ...base.run, headSha: "d".repeat(40) } },
+      { ...base, matchingHost: { "win32-x64": base.matchingHost["win32-x64"] } },
+      { ...base, installedNode22: base.matchingHost },
+      {
+        ...base,
+        matchingHost: {
+          ...base.matchingHost,
+          "win32-x64": {
+            ...base.matchingHost["win32-x64"],
+            artifact: {
+              ...base.matchingHost["win32-x64"].artifact,
+              sha256: "unhashed",
+            },
+          },
+        },
+      },
+      {
+        ...base,
+        matchingHost: {
+          ...base.matchingHost,
+          "win32-x64": {
+            ...base.matchingHost["win32-x64"],
+            observation: {
+              ...base.matchingHost["win32-x64"].observation,
+              reason: "unknown-reason",
+            },
+          },
+        },
+      },
+      {
+        ...base,
+        matchingHost: {
+          ...base.matchingHost,
+          "win32-x64": {
+            ...base.matchingHost["win32-x64"],
+            observation: {
+              ...base.matchingHost["win32-x64"].observation,
+              rawValue: "C:\\private\\image.webp",
+            },
+          },
+        },
+      },
+    ];
+    for (const mutation of mutations)
+      expect(() =>
+        report.validateWindowsPublicationDiagnosticLedger(mutation),
+      ).toThrow();
+
+    const noRejection = diagnosticLedger();
+    noRejection.matchingHost = Object.fromEntries(
+      Object.entries(noRejection.matchingHost).map(([tuple, value]) => [
+        tuple,
+        {
+          ...value,
+          job: { ...value.job, conclusion: "success" },
+          observation: acceptedWindowsPublicationObservation(),
+        },
+      ]),
+    ) as typeof noRejection.matchingHost;
+    expect(() =>
+      report.validateWindowsPublicationDiagnosticLedger(noRejection),
+    ).toThrow();
+  });
   it("fails closed when a final candidate manifest is absent", () => {
     expect(() =>
       report.validateFinalCandidateManifest({

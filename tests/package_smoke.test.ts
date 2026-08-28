@@ -23,6 +23,7 @@ const helper = require("../scripts/package_smoke.cjs") as {
   assertWindowsPrivateStageCleanup(sandbox: string): "pass";
   assertWindowsPrivateStageResidue(sandbox: string): "pass";
   requireWindowsPublicationEvidence(value: unknown): Record<string, unknown>;
+  classifyWindowsPublicationEvidence(value: unknown): Record<string, unknown>;
   createDevelopmentTarballForTests(input: {
     packageRoot: string;
     tarball: string;
@@ -75,6 +76,30 @@ const helper = require("../scripts/package_smoke.cjs") as {
   ): Error;
 };
 
+const windowsPublicationEvidence = () => ({
+  primitive: "CreateHardLinkW",
+  linkCalls: 1,
+  destinationParentIdentityRechecked: true,
+  stageIdentityRechecked: true,
+  stageFileIdentityRechecked: true,
+  destinationParent: {
+    volumeSerialNumber: "0".repeat(16),
+    fileId: "1".repeat(32),
+  },
+  stageDirectory: {
+    volumeSerialNumber: "0".repeat(16),
+    fileId: "2".repeat(32),
+  },
+  stageFile: {
+    volumeSerialNumber: "0".repeat(16),
+    fileId: "3".repeat(32),
+  },
+  destinationFile: {
+    volumeSerialNumber: "0".repeat(16),
+    fileId: "3".repeat(32),
+  },
+});
+
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories
@@ -103,6 +128,136 @@ async function runSmoke(
 }
 
 describe("installed package smoke", () => {
+  it("classifies every Windows publication mismatch with one closed reason", () => {
+    const accepted = windowsPublicationEvidence();
+    const cases: [string, unknown][] = [
+      ["absent", undefined],
+      ["top-level-shape", []],
+      ["top-level-keys", { ...accepted, extra: "secret-key-name" }],
+      ["primitive", { ...accepted, primitive: "sentinel-primitive" }],
+      ["link-count", { ...accepted, linkCalls: 2 }],
+      [
+        "destination-parent-recheck",
+        { ...accepted, destinationParentIdentityRechecked: false },
+      ],
+      ["stage-directory-recheck", { ...accepted, stageIdentityRechecked: 1 }],
+      ["stage-file-recheck", { ...accepted, stageFileIdentityRechecked: null }],
+      [
+        "destination-parent-identity-shape",
+        { ...accepted, destinationParent: { ...accepted.destinationParent, extra: true } },
+      ],
+      [
+        "stage-directory-volume-format",
+        {
+          ...accepted,
+          stageDirectory: {
+            ...accepted.stageDirectory,
+            volumeSerialNumber: "SERIAL-SENTINEL",
+          },
+        },
+      ],
+      [
+        "stage-file-id-format",
+        {
+          ...accepted,
+          stageFile: { ...accepted.stageFile, fileId: "FILE-ID-SENTINEL" },
+        },
+      ],
+      [
+        "destination-parent-stage-directory-volume-mismatch",
+        {
+          ...accepted,
+          destinationParent: {
+            ...accepted.destinationParent,
+            volumeSerialNumber: "1".repeat(16),
+          },
+        },
+      ],
+      [
+        "stage-directory-stage-file-volume-mismatch",
+        {
+          ...accepted,
+          stageFile: {
+            ...accepted.stageFile,
+            volumeSerialNumber: "1".repeat(16),
+          },
+        },
+      ],
+      [
+        "stage-file-destination-file-volume-mismatch",
+        {
+          ...accepted,
+          destinationFile: {
+            ...accepted.destinationFile,
+            volumeSerialNumber: "1".repeat(16),
+          },
+        },
+      ],
+      [
+        "stage-destination-file-id-mismatch",
+        {
+          ...accepted,
+          destinationFile: {
+            ...accepted.destinationFile,
+            fileId: "4".repeat(32),
+          },
+        },
+      ],
+    ];
+
+    expect(helper.classifyWindowsPublicationEvidence(accepted)).toMatchObject({
+      status: "accepted",
+      reason: "accepted",
+    });
+    for (const [reason, value] of cases)
+      expect(helper.classifyWindowsPublicationEvidence(value)).toMatchObject({
+        status: "rejected",
+        reason,
+      });
+  });
+
+  it("renders only bounded structural Windows publication facts", () => {
+    const sentinels = [
+      "secret-key-name",
+      "sentinel-primitive",
+      "SERIAL-SENTINEL",
+      "FILE-ID-SENTINEL",
+      "C:\\private\\image.webp",
+      "/tmp/private/image.webp",
+      "token-12345",
+    ];
+    const evidence = {
+      ...windowsPublicationEvidence(),
+      primitive: sentinels[1],
+      [sentinels[0]]: sentinels[6],
+      stageFile: {
+        volumeSerialNumber: sentinels[2],
+        fileId: sentinels[3],
+        path: sentinels[4],
+        content: sentinels[5],
+      },
+    };
+    const observation = helper.classifyWindowsPublicationEvidence(evidence);
+    const rendered = JSON.stringify(observation);
+    expect(rendered.length).toBeLessThanOrEqual(1800);
+    for (const sentinel of sentinels) expect(rendered).not.toContain(sentinel);
+    expect(JSON.parse(rendered)).toEqual(observation);
+    expect(Object.keys(observation)).toEqual([
+      "status",
+      "reason",
+      "topLevelType",
+      "topLevelKeys",
+      "unexpectedTopLevelKeyCount",
+      "primitiveIsCreateHardLinkW",
+      "linkCallsIsOne",
+      "destinationParentIdentityRecheckedIsTrue",
+      "stageIdentityRecheckedIsTrue",
+      "stageFileIdentityRecheckedIsTrue",
+      "identities",
+      "equalities",
+    ]);
+  });
+
   it("rejects forged terminal cleanup lifecycle relations", () => {
     const token = "a".repeat(64);
     const capability = "b".repeat(64);
