@@ -43,13 +43,16 @@ describe("current-host native publication addon", () => {
 
     expect(source).toContain("CreateHardLinkW(destination, stage_path, NULL)");
     expect(source).toContain(
+      "GetFileInformationByHandleEx(capability->cleanup_handle, FileIdInfo",
+    );
+    expect(source).toContain(
       "GetFileInformationByHandleEx(parent_handle, FileIdInfo",
     );
     expect(source).toContain(
       "GetFileInformationByHandleEx(stage_directory, FileIdInfo",
     );
     expect(source).toContain(
-      "GetFileInformationByHandleEx(stage_handle, FileIdInfo",
+      "GetFileInformationByHandleEx(capability->cleanup_handle, FileIdInfo",
     );
     expect(source.indexOf("FileIdInfo")).toBeLessThan(
       source.indexOf("CreateHardLinkW(destination, stage_path, NULL)"),

@@ -635,7 +635,8 @@ static publication_result publish_no_replace(HANDLE stage_handle,
   if (stage_handle == INVALID_HANDLE_VALUE || stage_handle == NULL || destination == NULL ||
       stage_path == NULL || capability == NULL ||
       capability->handle == INVALID_HANDLE_VALUE ||
-      capability->parent_handle == INVALID_HANDLE_VALUE) goto done;
+      capability->parent_handle == INVALID_HANDLE_VALUE ||
+      capability->cleanup_handle == INVALID_HANDLE_VALUE) goto done;
   destination_parent = parent_path(destination);
   stage_parent = parent_path(stage_path);
   if (destination_parent == NULL || stage_parent == NULL) goto done;
@@ -646,7 +647,9 @@ static publication_result publish_no_replace(HANDLE stage_handle,
                                     sizeof(parent_identity)) ||
       !GetFileInformationByHandleEx(stage_directory, FileIdInfo, &stage_identity,
                                     sizeof(stage_identity)) ||
-      !GetFileInformationByHandleEx(stage_handle, FileIdInfo, &stage_file_identity,
+      /* The Node write descriptor need not have FILE_READ_ATTRIBUTES. The
+       * pre-hook capture handle is the exact identity-verified authority. */
+      !GetFileInformationByHandleEx(capability->cleanup_handle, FileIdInfo, &stage_file_identity,
                                     sizeof(stage_file_identity)) ||
       !file_identity_matches(&parent_identity, &capability->parent_identity) ||
       !file_identity_matches(&stage_identity, &capability->identity) ||
