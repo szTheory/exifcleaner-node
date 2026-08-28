@@ -84,14 +84,15 @@ function exists(path) {
 }
 
 /**
- * Remove only the cancellation transaction's captured private stage. The
- * identity snapshots prevent a replacement entry from turning this bounded
- * cleanup into deletion of an unrelated path.
+ * Cancellation observation never becomes pathname deletion authority. The
+ * owned smoke sandbox is torn down only after helper quiescence.
  */
-function cleanupCapturedCancellationStage(
-  { stageDirectoryPath, stagePath, stageDirectoryIdentity, stageFileIdentity },
-  operations = { lstatSync, unlinkSync, rmdirSync },
-) {
+function cleanupCapturedCancellationStage({
+  stageDirectoryPath,
+  stagePath,
+  stageDirectoryIdentity,
+  stageFileIdentity,
+}) {
   if (
     typeof stageDirectoryPath !== "string" ||
     typeof stagePath !== "string" ||
@@ -110,34 +111,7 @@ function cleanupCapturedCancellationStage(
     !isExpectedIdentity(stageFileIdentity)
   )
     throw new Error("Installed cancellation stage identity is invalid");
-  const fileIdentity = operations.lstatSync(stagePath);
-  if (
-    !fileIdentity.isFile() ||
-    !Number.isInteger(fileIdentity.dev) ||
-    !Number.isInteger(fileIdentity.ino) ||
-    fileIdentity.dev !== stageFileIdentity.dev ||
-    fileIdentity.ino !== stageFileIdentity.ino
-  )
-    throw new Error("Installed cancellation stage identity changed");
-  const recheckedDirectory = operations.lstatSync(stageDirectoryPath);
-  if (
-    !recheckedDirectory.isDirectory() ||
-    recheckedDirectory.dev !== stageDirectoryIdentity.dev ||
-    recheckedDirectory.ino !== stageDirectoryIdentity.ino
-  )
-    throw new Error("Installed cancellation stage identity changed");
-  operations.unlinkSync(stagePath);
-  const directoryBeforeRemoval = operations.lstatSync(stageDirectoryPath);
-  if (
-    !directoryBeforeRemoval.isDirectory() ||
-    directoryBeforeRemoval.dev !== stageDirectoryIdentity.dev ||
-    directoryBeforeRemoval.ino !== stageDirectoryIdentity.ino
-  )
-    throw new Error("Installed cancellation stage identity changed");
-  operations.rmdirSync(stageDirectoryPath);
-  if (exists(stagePath) || exists(stageDirectoryPath))
-    throw new Error("Installed cancellation stage cleanup did not complete");
-  return "pass";
+  return "retained";
 }
 
 function isLoadedNativeCleanupLock(

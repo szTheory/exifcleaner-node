@@ -270,7 +270,7 @@ describe("installed package smoke", () => {
     ).toBe(false);
   });
 
-  it("cleans only the captured cancellation residue and fails closed on EPERM", async () => {
+  it("retains cancellation residue until the owned sandbox is quiescent", async () => {
     const sandbox = await mkdtemp(
       join(tmpdir(), "exifcleaner-package-cancel-"),
     );
@@ -290,19 +290,8 @@ describe("installed package smoke", () => {
       };
     };
 
-    expect(helper.cleanupCapturedCancellationStage(capture())).toBe("pass");
-    await mkdir(stageDirectoryPath);
-    await writeFile(stagePath, "partial");
-    expect(() =>
-      helper.cleanupCapturedCancellationStage(capture(), {
-        lstatSync: (path) => require("node:fs").lstatSync(path),
-        unlinkSync: () => {
-          const error = Object.assign(new Error("locked"), { code: "EPERM" });
-          throw error;
-        },
-        rmdirSync: (path) => require("node:fs").rmdirSync(path),
-      }),
-    ).toThrow("locked");
+    expect(helper.cleanupCapturedCancellationStage(capture())).toBe("retained");
+    expect(await readFile(stagePath, "utf8")).toBe("partial");
     await rm(stageDirectoryPath, { recursive: true, force: true });
 
     await mkdir(stageDirectoryPath);
@@ -311,9 +300,7 @@ describe("installed package smoke", () => {
     await rm(stageDirectoryPath, { recursive: true, force: true });
     await mkdir(stageDirectoryPath);
     await writeFile(stagePath, "replacement");
-    expect(() => helper.cleanupCapturedCancellationStage(captured)).toThrow(
-      "identity changed",
-    );
+    expect(helper.cleanupCapturedCancellationStage(captured)).toBe("retained");
     expect(await readFile(stagePath, "utf8")).toBe("replacement");
     await rm(stageDirectoryPath, { recursive: true, force: true });
   });
