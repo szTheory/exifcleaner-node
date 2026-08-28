@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -110,6 +111,143 @@ function immutableEvidenceHeredoc(workflow: string): string {
     .split("\n")
     .map((line) => line.replace(/^ {10}/u, ""))
     .join("\n");
+}
+
+function phaseAdmissionHeredoc(workflow: string): string {
+  const job = workflowJob(workflow, "phase-46-admission");
+  const heredoc = job.match(/node - <<'NODE'\n([\s\S]*?)\n\s+NODE/u)?.[1];
+  if (heredoc === undefined)
+    throw new Error("phase-46-admission Node heredoc is absent");
+  return heredoc
+    .split("\n")
+    .map((line) => line.replace(/^ {10}/u, ""))
+    .join("\n");
+}
+
+type PhaseAdmissionScenario = {
+  tupleOrder?: string[];
+  omitTuple?: string;
+  extraTuple?: string;
+  substituteTuple?: string;
+  malformedTuples?: "array" | "null" | "string";
+  malformedItemTuple?: string;
+  missingReport?: { tuple: string; key: "node22" | "node24" };
+  rawDuplicateTuple?: boolean;
+};
+
+type PhaseAdmissionOutcome = {
+  ok: boolean;
+  pid: number;
+  error?: string;
+  installedValidations: string[];
+  outputWrites: number;
+};
+
+function executePhaseAdmissionHeredoc(
+  workflow: string,
+  scenario: PhaseAdmissionScenario = {},
+): PhaseAdmissionOutcome {
+  const heredoc = phaseAdmissionHeredoc(workflow);
+  const runner = `
+    const {createRequire}=require('node:module');
+    const {join}=require('node:path');
+    const scenario=${JSON.stringify(scenario)};
+    const heredoc=${JSON.stringify(heredoc)};
+    const packageRoot=${JSON.stringify(packageRoot)};
+    const canonical=['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64'];
+    const tarballSha256='a'.repeat(64), corpusManifestSha256='b'.repeat(64), baselineSha256='c2fc569b553cba360814bcce61d6882a02aba062e6d6da2193323915530a34bf';
+    const makeReport=(tuple,nodeMajor)=>({version:1,tuple,nodeMajor,implementationSha:'d'.repeat(40),tarballSha256,corpusManifestSha256,conclusion:'pass'});
+    let order=[...(scenario.tupleOrder??canonical)];
+    if(scenario.omitTuple) order=order.filter(tuple=>tuple!==scenario.omitTuple);
+    if(scenario.substituteTuple) order=order.map((tuple,index)=>index===order.length-1?scenario.substituteTuple:tuple);
+    if(scenario.extraTuple) order.push(scenario.extraTuple);
+    const tuples=Object.fromEntries(order.map(tuple=>[tuple,{reports:{node22:makeReport(tuple,22),node24:makeReport(tuple,24)}}]));
+    if(scenario.malformedItemTuple) tuples[scenario.malformedItemTuple]=null;
+    if(scenario.missingReport) delete tuples[scenario.missingReport.tuple]?.reports?.[scenario.missingReport.key];
+    let tupleContainer=tuples;
+    if(scenario.malformedTuples==='array') tupleContainer=[];
+    if(scenario.malformedTuples==='null') tupleContainer=null;
+    if(scenario.malformedTuples==='string') tupleContainer='six tuples';
+    const native={version:1,tarballSha256,corpusManifestSha256,tuples:tupleContainer};
+    let nativeBytes=JSON.stringify(native);
+    if(scenario.rawDuplicateTuple){
+      const entries=canonical.slice(0,-1).map(tuple=>[tuple,tuples[tuple]]);
+      entries.push([canonical[0],tuples[canonical[0]]]);
+      nativeBytes=\`{"version":1,"tarballSha256":"\${tarballSha256}","corpusManifestSha256":"\${corpusManifestSha256}","tuples":{\${entries.map(([tuple,value])=>\`\${JSON.stringify(tuple)}:\${JSON.stringify(value)}\`).join(',')}}\`;
+    }
+    const focused={seed:460046,propertyRuns:200,authority:{decoder:'independent'},manifestSha256:'e'.repeat(64)};
+    const benchmark=(nodeMajor)=>({version:4,warmups:2,measurements:100,elapsedP95Estimator:{retainedObservations:100},collection:{retries:0,discarded:0},environment:{nodeVersion:\`v\${nodeMajor}.0.0\`},pass:true,mode:'admit',baselinePackageName:'exifcleaner-node',baselineVersion:'0.1.1',baselineExpectedIdentity:\`exifcleaner-node@0.1.1#sha256:\${baselineSha256}\`,baselineSha256,candidateSha256:tarballSha256});
+    const benchmarkFiles=['benchmark-linux-node22/benchmark-node22.json','benchmark-linux-node22/benchmark-node22.json.md','benchmark-linux-node24/benchmark-node24.json','benchmark-linux-node24/benchmark-node24.json.md'];
+    const reads=new Map([
+      ['final-native/identity-cleanup-ledger.json',JSON.stringify({schemaVersion:'phase-46-identity-cleanup-ledger/v1'})],
+      ['final-native/admission.json',nativeBytes],
+      ['focused/qualification-linux.json',JSON.stringify(focused)],
+      ['benchmarks/benchmark-linux-node22/benchmark-node22.json',JSON.stringify(benchmark(22))],
+      ['benchmarks/benchmark-linux-node24/benchmark-node24.json',JSON.stringify(benchmark(24))],
+    ]);
+    const installedValidations=[], writes=[];
+    let ledgerValidations=0, phaseAdmissions=0;
+    const nativeRequire=createRequire(join(packageRoot,'tests','release_workflow_gate.test.ts'));
+    const strictFs={
+      readFileSync(path,encoding){
+        if(encoding!=='utf8'||!reads.has(path)) throw new Error(\`HARNESS unexpected read \${path} \${encoding}\`);
+        return reads.get(path);
+      },
+      readdirSync(path,options){
+        if(path!=='benchmarks'||options?.recursive!==true) throw new Error(\`HARNESS unexpected readdir \${path}\`);
+        return [...benchmarkFiles];
+      },
+      writeFileSync(path,bytes){
+        if(path!=='phase-46-admission.json'||typeof bytes!=='string') throw new Error(\`HARNESS unexpected write \${path}\`);
+        writes.push({path,value:JSON.parse(bytes)});
+      },
+    };
+    const strictBenchmark={
+      validateIdentityCleanupLedger(value){
+        if(value?.schemaVersion!=='phase-46-identity-cleanup-ledger/v1') throw new Error('AUTHORITY identity cleanup ledger rejected');
+        ledgerValidations+=1;
+      },
+      validateInstalledReport(report,tuple,nodeMajor,candidate){
+        if(!canonical.includes(tuple)||report?.tuple!==tuple||report?.nodeMajor!==nodeMajor||report?.tarballSha256!==candidate?.tarballSha256||report?.corpusManifestSha256!==candidate?.corpusManifestSha256) throw new Error(\`AUTHORITY installed report rejected for \${tuple}/node\${nodeMajor}\`);
+        installedValidations.push(\`\${tuple}/node\${nodeMajor}\`);
+      },
+    };
+    const strictChildProcess={execFileSync(file,args,options){
+      const expected=['scripts/qualification/benchmark-report.cjs','--phase-admission','benchmarks/benchmark-linux-node22/benchmark-node22.json','benchmarks/benchmark-linux-node24/benchmark-node24.json'];
+      if(file!==process.execPath||JSON.stringify(args)!==JSON.stringify(expected)||options?.stdio!=='inherit') throw new Error('AUTHORITY phase-admission child invocation rejected');
+      phaseAdmissions+=1;
+    }};
+    const strictRequire=(specifier)=>{
+      if(specifier==='node:fs') return strictFs;
+      if(specifier==='node:path') return nativeRequire('node:path');
+      if(specifier==='node:child_process') return strictChildProcess;
+      if(specifier==='./scripts/qualification/benchmark-report.cjs') return strictBenchmark;
+      if(specifier==='./scripts/release_workflow_gate.cjs') return nativeRequire(join(packageRoot,'scripts','release_workflow_gate.cjs'));
+      throw new Error(\`HARNESS unexpected require \${specifier}\`);
+    };
+    process.env.NEEDS_JSON=JSON.stringify({quality:{result:'success'},'qualification-linux':{result:'success'},'immutable-sha-evidence':{result:'success'},'benchmark-linux':{result:'success'}});
+    process.env.GITHUB_SHA='d'.repeat(40);
+    try{
+      new Function('require',heredoc)(strictRequire);
+      const expectedValidations=canonical.flatMap(tuple=>[\`\${tuple}/node22\`,\`\${tuple}/node24\`]);
+      if(JSON.stringify(installedValidations)!==JSON.stringify(expectedValidations)) throw new Error('AUTHORITY installed validation order/count rejected');
+      if(ledgerValidations!==1||phaseAdmissions!==1||writes.length!==1) throw new Error('AUTHORITY aggregate side-effect contract rejected');
+      process.stdout.write(JSON.stringify({ok:true,pid:process.pid,installedValidations,outputWrites:writes.length}));
+    }catch(error){
+      process.stdout.write(JSON.stringify({ok:false,pid:process.pid,error:String(error?.message??error),installedValidations,outputWrites:writes.length}));
+    }
+  `;
+  const child = spawnSync(process.execPath, ["--input-type=commonjs"], {
+    cwd: packageRoot,
+    input: runner,
+    encoding: "utf8",
+  });
+  if (child.error !== undefined) throw child.error;
+  if (child.status !== 0 || child.stderr !== "")
+    throw new Error(
+      `phase admission child failed (${child.status}): ${child.stderr}`,
+    );
+  return JSON.parse(child.stdout) as PhaseAdmissionOutcome;
 }
 
 function executeProductionTupleStage(
@@ -297,6 +435,45 @@ function greenGraph(): WorkflowGraph {
 }
 
 describe("release workflow authority gate", () => {
+  it("executes the real final-admission heredoc in isolated children for exact-six permutations and invalid envelopes", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const canonical = [...gate.CANONICAL_NATIVE_TUPLES];
+    const valid = [
+      {},
+      { tupleOrder: [...canonical].reverse() },
+      { tupleOrder: [...canonical.slice(2), ...canonical.slice(0, 2)] },
+    ].map((scenario) => executePhaseAdmissionHeredoc(workflow, scenario));
+    for (const outcome of valid) {
+      expect(outcome.ok, outcome.error).toBe(true);
+      expect(outcome.installedValidations).toEqual(
+        canonical.flatMap((tuple) => [`${tuple}/node22`, `${tuple}/node24`]),
+      );
+      expect(outcome.outputWrites).toBe(1);
+    }
+
+    const invalid = [
+      { omitTuple: "win32-arm64" },
+      { extraTuple: "linux-riscv64" },
+      { substituteTuple: "linux-riscv64" },
+      { malformedTuples: "array" as const },
+      { malformedTuples: "null" as const },
+      { malformedTuples: "string" as const },
+      { malformedItemTuple: "darwin-arm64" },
+      { missingReport: { tuple: "linux-x64", key: "node22" as const } },
+      { rawDuplicateTuple: true },
+    ].map((scenario) => executePhaseAdmissionHeredoc(workflow, scenario));
+    for (const outcome of invalid) {
+      expect(outcome.ok).toBe(false);
+      expect(outcome.outputWrites).toBe(0);
+    }
+    expect(
+      new Set([...valid, ...invalid].map((outcome) => outcome.pid)).size,
+    ).toBe(valid.length + invalid.length);
+  });
+
   it("accepts a permuted exact-six manifest through the production immutable tuple stage", () => {
     const workflow = readFileSync(
       join(packageRoot, ".github", "workflows", "ci.yml"),
