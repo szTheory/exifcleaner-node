@@ -83,6 +83,7 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     runScale: number;
   };
   validateCalibration(input: Record<string, unknown>): void;
+  deriveCorrectnessKey(input: Record<string, unknown>): string;
   deriveBlockEstimate(values: readonly number[]): {
     medianNs: number;
     madNs: number;
@@ -145,11 +146,13 @@ describe("paired benchmark admission", () => {
       endedRss: 1,
       outputBytes: 1,
       outputSha256: "1".repeat(64),
+      status: "success",
+      code: null,
       sourceUnchanged: true,
       destinationAbsent: false,
       finalization: "none",
       finalizationTruthful: true,
-      correctnessKey: "2".repeat(64),
+      correctnessKey: "",
       allocationPhases: [
         "package-load",
         "fixture-materialized",
@@ -200,13 +203,28 @@ describe("paired benchmark admission", () => {
           ...(manifest.fixtures.find(
             (fixture) => fixture.id === entry.fixtureId,
           )?.expected !== "success"
-            ? { outputBytes: 0, outputSha256: null, destinationAbsent: true }
+            ? {
+                status: manifest.fixtures.find(
+                  (fixture) => fixture.id === entry.fixtureId,
+                )?.expected,
+                code:
+                  manifest.fixtures.find(
+                    (fixture) => fixture.id === entry.fixtureId,
+                  )?.expected === "aborted"
+                    ? "aborted"
+                    : "refused",
+                outputBytes: 0,
+                outputSha256: null,
+                destinationAbsent: true,
+              }
             : {}),
           ...(entry.fixtureId === "cancellation-64m"
             ? { cancellation: cancellationSample }
             : {}),
         },
       }));
+    for (const entry of rawSchedule)
+      entry.sample.correctnessKey = report.deriveCorrectnessKey(entry.sample);
     const retainedSamples = (fixtureId: string, version: string) =>
       rawSchedule
         .filter(
@@ -288,6 +306,20 @@ describe("paired benchmark admission", () => {
       runToken: "f".repeat(32),
     };
     expect(() => report.validateReport(comparisonSubstitution)).toThrow();
+    for (const [field, value] of [
+      ["outputSha256", "f".repeat(64)],
+      ["status", "refused"],
+      ["code", "different-error"],
+      ["finalizationTruthful", false],
+    ] as const) {
+      const preservedKey = structuredClone(complete);
+      (preservedKey.rawSchedule[0]!.sample as Record<string, unknown>)[field] =
+        value;
+      expect(() => report.validateReport(preservedKey)).toThrow();
+      const replacementKey = structuredClone(preservedKey);
+      replacementKey.rawSchedule[0]!.sample.correctnessKey = "e".repeat(64);
+      expect(() => report.validateReport(replacementKey)).toThrow();
+    }
   });
 
   it("uses the fixed v2 robust block estimator at every threshold in both drift directions", () => {

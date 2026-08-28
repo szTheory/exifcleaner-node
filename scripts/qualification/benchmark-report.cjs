@@ -11,6 +11,7 @@ const {
   workloadDigest,
   workloadResultDigest,
 } = require("./benchmark-calibration.cjs");
+const { deriveCorrectnessKey } = require("./benchmark-correctness.cjs");
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const MEDIAN_RATIO = 1.2;
@@ -54,7 +55,8 @@ function expectedBenchmarkEvidence() {
         "cancellation",
         "malformed",
         "metadata-sentinel",
-      ].includes(fixture.kind)
+      ].includes(fixture.kind) ||
+      !["success", "aborted", "refused"].includes(fixture.expected)
     )
       throw new Error("benchmark manifest fixture is invalid");
     fixtureIds.add(fixture.id);
@@ -366,6 +368,8 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
       "endedRss",
       "outputBytes",
       "outputSha256",
+      "status",
+      "code",
       "sourceUnchanged",
       "destinationAbsent",
       "finalization",
@@ -398,11 +402,16 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
     sample.endedRss < 0 ||
     !Number.isSafeInteger(sample.outputBytes) ||
     sample.outputBytes < 0 ||
+    sample.status !== fixture.expected ||
+    (sample.status === "success"
+      ? sample.code !== null
+      : typeof sample.code !== "string") ||
     typeof sample.sourceUnchanged !== "boolean" ||
     sample.sourceUnchanged !== true ||
     typeof sample.finalization !== "string" ||
     sample.finalizationTruthful !== true ||
     !SHA256.test(sample.correctnessKey) ||
+    sample.correctnessKey !== deriveCorrectnessKey(sample) ||
     typeof sample.environment !== "object" ||
     sample.environment === null ||
     !sameJson(sample.environment, report.environment)
@@ -889,6 +898,7 @@ module.exports = {
   validateReport,
   hostedLedger,
   phaseAdmission,
+  deriveCorrectnessKey,
 };
 if (require.main === module) {
   try {

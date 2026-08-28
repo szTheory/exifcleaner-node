@@ -573,7 +573,12 @@ function measureChild(version, installed, fixture) {
     record.startedRss < 0 ||
     !Number.isFinite(record.endedRss) ||
     record.endedRss < 0 ||
+    !["success", "aborted", "refused"].includes(record.status) ||
+    (record.status === "success"
+      ? record.code !== null
+      : typeof record.code !== "string") ||
     !SHA256.test(record.correctnessKey) ||
+    record.correctnessKey !== reportValidator.deriveCorrectnessKey(record) ||
     !validAllocationPhases ||
     record.environment?.nodeVersion !== process.version ||
     record.environment?.platform !== process.platform ||

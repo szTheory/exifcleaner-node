@@ -1,19 +1,15 @@
 #!/usr/bin/env node
 "use strict";
 
-const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsPromises = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { materializeFixture } = require("./benchmark.cjs");
+const { deriveCorrectnessKey } = require("./benchmark-correctness.cjs");
 
 const SHA256 = /^[a-f0-9]{64}$/;
-
-function digest(bytes) {
-  return crypto.createHash("sha256").update(bytes).digest("hex");
-}
 
 async function digestFile(filePath) {
   const hash = crypto.createHash("sha256");
@@ -308,19 +304,16 @@ async function main() {
             finalization: measured.cancellation.finalization,
             finalizationTruthful: measured.cancellation.finalizationTruthful,
           };
-    const correctnessKey = digest(
-      Buffer.from(
-        JSON.stringify({
-          status,
-          code: measured.result.ok ? null : measured.result.error.code,
-          outputBytes,
-          outputSha256,
-          sourceUnchanged,
-          destinationAbsent,
-          finalizationTruthful: finalization.finalizationTruthful,
-        }),
-      ),
-    );
+    const code = measured.result.ok ? null : measured.result.error.code;
+    const correctnessKey = deriveCorrectnessKey({
+      status,
+      code,
+      outputBytes,
+      outputSha256,
+      sourceUnchanged,
+      destinationAbsent,
+      finalizationTruthful: finalization.finalizationTruthful,
+    });
     allocationPhases.push(memorySnapshot("correctness-complete"));
     const record = {
       schemaVersion: 1,
@@ -337,6 +330,8 @@ async function main() {
       endedRss: process.memoryUsage().rss,
       outputBytes,
       outputSha256,
+      status,
+      code,
       sourceUnchanged,
       destinationAbsent,
       finalization: finalization.finalization,
