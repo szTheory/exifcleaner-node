@@ -25,12 +25,12 @@ const authorities = [
 
 type WorkflowJob = { needs?: string[]; script?: string };
 type WorkflowGraph = { jobs: Record<string, WorkflowJob> };
+const matchingPath =
+  "windows-publication-matching-host-${{ matrix.tuple }}.json";
+const installedPath =
+  "windows-publication-installed-node22-${{ matrix.tuple }}.json";
 
 function validateWindowsDiagnosticWorkflow(workflow: string): void {
-  const matchingPath =
-    "windows-publication-matching-host-${{ matrix.tuple }}.json";
-  const installedPath =
-    "windows-publication-installed-node22-${{ matrix.tuple }}.json";
   const matchingUpload = workflow.match(
     /if: always\(\) && matrix\.os == 'win32'[\s\S]{0,300}name: windows-publication-matching-host-\$\{\{ matrix\.tuple \}\}[\s\S]{0,200}path: windows-publication-matching-host-\$\{\{ matrix\.tuple \}\}\.json/u,
   );
@@ -56,7 +56,10 @@ function validateWindowsDiagnosticWorkflow(workflow: string): void {
     "windows-publication-matching-host-*",
     "windows-publication-installed-node22-*",
   ])
-    if (workflow.includes(`pattern: ${name}`) || workflow.includes(`needs: ${name}`))
+    if (
+      workflow.includes(`pattern: ${name}`) ||
+      workflow.includes(`needs: ${name}`)
+    )
       throw new Error("diagnostic artifact entered an authority graph");
 }
 
@@ -94,17 +97,26 @@ describe("release workflow authority gate", () => {
     );
     expect(() => validateWindowsDiagnosticWorkflow(workflow)).not.toThrow();
     const mutations = [
-      workflow.replace("if: always() && matrix.os == 'win32'", "if: matrix.os == 'win32'"),
+      workflow.replace(
+        "if: always() && matrix.os == 'win32'",
+        "if: matrix.os == 'win32'",
+      ),
       workflow.replaceAll(
         "if: always() && matrix.os == 'win32'",
         "if: matrix.os == 'win32'",
       ),
-      workflow.replace("WINDOWS_PUBLICATION_DIAGNOSTIC_PATH", "WINDOWS_PUBLICATION_LATE_PATH"),
-      workflow.replace("--windows-publication-diagnostic-output", "--ignored-output"),
-      workflow.replace("win32-x64", "win32-x86"),
-      workflow.replace("win32-arm64", "win32-arm"),
-      workflow.replace(matchingPath, "renamed-matching.json"),
-      workflow.replace(installedPath, "renamed-installed.json"),
+      workflow.replace(
+        "WINDOWS_PUBLICATION_DIAGNOSTIC_PATH",
+        "WINDOWS_PUBLICATION_LATE_PATH",
+      ),
+      workflow.replace(
+        "--windows-publication-diagnostic-output",
+        "--ignored-output",
+      ),
+      workflow.replaceAll("win32-x64", "win32-x86"),
+      workflow.replaceAll("win32-arm64", "win32-arm"),
+      workflow.replaceAll(matchingPath, "renamed-matching.json"),
+      workflow.replaceAll(installedPath, "renamed-installed.json"),
       `${workflow}\n# pattern: windows-publication-matching-host-*`,
       `${workflow}\n# needs: windows-publication-installed-node22-*`,
       `${workflow}\ncontinue-on-error: true`,
@@ -116,8 +128,9 @@ describe("release workflow authority gate", () => {
       join(packageRoot, "tests", "native_publication.test.ts"),
       "utf8",
     );
-    expect(nativeTest.indexOf("takeLastWindowsPublicationEvidence()"))
-      .toBeLessThan(nativeTest.indexOf("status: \"accepted\""));
+    expect(nativeTest).toMatch(
+      /const observation = smokeHelper\.classifyWindowsPublicationEvidence\([\s\S]{0,160}binding\.takeLastWindowsPublicationEvidence\(\)[\s\S]{0,900}await writeFile\([\s\S]{0,900}expect\(observation\)\.toMatchObject/u,
+    );
     expect(nativeTest).toContain(
       "expect(binding.takeLastWindowsPublicationEvidence()).toBeUndefined()",
     );
