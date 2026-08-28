@@ -1255,10 +1255,10 @@ describe("paired benchmark admission", () => {
               code: "aborted",
               nativeWrite: "started",
               fallback: "do-not-fallback",
-              finalization: "owned-partial-removed",
+              finalization: "owned-partial-remains",
               residue: {
-                stageDirectoryExists: false,
-                stageFileExists: false,
+                stageDirectoryExists: true,
+                stageFileExists: true,
               },
               cleanup: {
                 schemaVersion: "phase-46-terminal-cleanup/v2",
@@ -1368,9 +1368,9 @@ describe("paired benchmark admission", () => {
           (mutated) => (mutated.cases.cancellation.fallback = "fallback"),
           (mutated) => (mutated.cases.cancellation.finalization = "none"),
           (mutated) =>
-            (mutated.cases.cancellation.residue.stageDirectoryExists = true),
+            (mutated.cases.cancellation.residue.stageDirectoryExists = false),
           (mutated) =>
-            (mutated.cases.cancellation.residue.stageFileExists = true),
+            (mutated.cases.cancellation.residue.stageFileExists = false),
           (mutated) =>
             (mutated.cases.postCommitResidue =
               "private-empty-stage-directory-remains"),
