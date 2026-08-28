@@ -14,6 +14,39 @@ const REQUIRED_AUTHORITIES = Object.freeze([
   "installed-win32-arm64",
 ]);
 
+const CANONICAL_NATIVE_TUPLES = Object.freeze([
+  "linux-x64",
+  "linux-arm64",
+  "darwin-x64",
+  "darwin-arm64",
+  "win32-x64",
+  "win32-arm64",
+]);
+
+function validateExactNativeManifestTuples(manifest) {
+  if (!Array.isArray(manifest))
+    throw new Error("native manifest must be an array");
+  if (manifest.length !== CANONICAL_NATIVE_TUPLES.length)
+    throw new Error("native manifest tuple count is not exact");
+  const observed = new Map();
+  for (const record of manifest) {
+    if (record === null || typeof record !== "object" || Array.isArray(record))
+      throw new Error("native manifest record shape is invalid");
+    if (typeof record.tuple !== "string")
+      throw new Error("native manifest tuple must be a string");
+    if (observed.has(record.tuple))
+      throw new Error(`native manifest tuple is duplicated: ${record.tuple}`);
+    observed.set(record.tuple, record);
+  }
+  const actualTuples = [...observed.keys()].sort();
+  const expectedTuples = [...CANONICAL_NATIVE_TUPLES].sort();
+  if (JSON.stringify(actualTuples) !== JSON.stringify(expectedTuples))
+    throw new Error("native manifest tuple set is not exact");
+  return new Map(
+    CANONICAL_NATIVE_TUPLES.map((tuple) => [tuple, observed.get(tuple)]),
+  );
+}
+
 function closure(jobs, start, seen = new Set(), visiting = new Set()) {
   if (visiting.has(start))
     throw new Error(`Release graph contains cycle at ${start}`);
@@ -124,7 +157,13 @@ function main() {
   console.log("Release workflow gate passed");
 }
 
-module.exports = { REQUIRED_AUTHORITIES, parseWorkflow, validateReleaseGraph };
+module.exports = {
+  CANONICAL_NATIVE_TUPLES,
+  REQUIRED_AUTHORITIES,
+  parseWorkflow,
+  validateExactNativeManifestTuples,
+  validateReleaseGraph,
+};
 if (require.main === module) {
   try {
     main();

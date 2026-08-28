@@ -8,7 +8,11 @@ import { describe, expect, it } from "vitest";
 const require = createRequire(import.meta.url);
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const gate = require("../scripts/release_workflow_gate.cjs") as {
+  CANONICAL_NATIVE_TUPLES: readonly string[];
   REQUIRED_AUTHORITIES: string[];
+  validateExactNativeManifestTuples(
+    manifest: readonly Record<string, unknown>[],
+  ): Map<string, Record<string, unknown>>;
   validateReleaseGraph(graph: {
     jobs: Record<string, { needs?: string[]; script?: string }>;
   }): void;
@@ -122,6 +126,7 @@ function executeProductionTupleStage(
           };
         if (specifier === "node:path" || specifier === "node:crypto")
           return require(specifier);
+        if (specifier === "./scripts/release_workflow_gate.cjs") return gate;
         if (specifier === "./scripts/qualification/benchmark-report.cjs")
           return { validateIdentityCleanupLedger() {} };
         throw new Error(`unexpected tuple-stage require: ${specifier}`);
@@ -217,8 +222,45 @@ describe("release workflow authority gate", () => {
 
     expect(executeProductionTupleStage(workflow, manifest)).toEqual({
       tuples: canonical,
-      mappedTuples: [...canonical].reverse(),
+      mappedTuples: canonical,
     });
+  });
+
+  it("canonicalizes exact-six manifest permutations and rejects malformed membership", () => {
+    const canonical = [...gate.CANONICAL_NATIVE_TUPLES];
+    const records = canonical.map((tuple) => ({ tuple, marker: tuple }));
+    const permutations = [
+      records,
+      [...records].reverse(),
+      [...records.slice(2), ...records.slice(0, 2)],
+      [records[5]!, records[0]!, records[3]!, records[1]!, records[4]!, records[2]!],
+    ];
+    for (const manifest of permutations) {
+      const byTuple = gate.validateExactNativeManifestTuples(manifest);
+      expect([...byTuple.keys()]).toEqual(canonical);
+      expect([...byTuple.values()].map((record) => record.tuple)).toEqual(
+        canonical,
+      );
+    }
+    expect(Object.isFrozen(gate.CANONICAL_NATIVE_TUPLES)).toBe(true);
+
+    const invalid: unknown[] = [
+      records.slice(1),
+      [...records, { tuple: "linux-riscv64" }],
+      [...records.slice(0, -1), records[0]],
+      [...records.slice(0, -1), { tuple: "linux-riscv64" }],
+      [...records.slice(0, -1), { tuple: 22 }],
+      [...records.slice(0, -1), {}],
+      [...records.slice(0, -1), null],
+      [...records.slice(0, -1), []],
+      { records },
+    ];
+    for (const manifest of invalid)
+      expect(() =>
+        gate.validateExactNativeManifestTuples(
+          manifest as readonly Record<string, unknown>[],
+        ),
+      ).toThrow();
   });
 
   it("keeps complete Windows diagnostics outside every authority path", () => {

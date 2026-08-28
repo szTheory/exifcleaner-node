@@ -2051,7 +2051,9 @@ function validateIdentityCleanupLedger(ledger) {
     !Number.isSafeInteger(ledger.run.id) ||
     ledger.run.id <= 0 ||
     !/^https:\/\//u.test(ledger.run.url) ||
-    !/^proof\/46-18-repair-[0-9a-f]+$/u.test(ledger.run.ref) ||
+    !/^(?:proof\/46-18-repair-[0-9a-f]+|proof\/46-11-final-[0-9a-f]+)$/u.test(
+      ledger.run.ref,
+    ) ||
     !/^[a-f0-9]{40}$/u.test(ledger.run.headSha) ||
     ledger.candidate.implementationSha !== ledger.run.headSha ||
     !SHA256.test(ledger.candidate.tarballSha256) ||

@@ -121,6 +121,7 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
   validateWindowsCancellationDiagnosticLedger(
     input: Record<string, unknown>,
   ): void;
+  validateIdentityCleanupLedger(input: Record<string, unknown>): void;
 };
 
 function cancellationObservation(reason = "native-write") {
@@ -357,6 +358,56 @@ const calibration =
   };
 
 describe("paired benchmark admission", () => {
+  it("accepts only exact short repair and final identity-ledger refs", () => {
+    const base = {
+      schemaVersion: "phase-46-identity-cleanup-ledger/v1",
+      run: {
+        id: 123,
+        url: "https://github.com/szTheory/exifcleaner-node/actions/runs/123",
+        ref: "proof/46-18-repair-abc123",
+        headSha: "a".repeat(40),
+      },
+      candidate: {
+        implementationSha: "a".repeat(40),
+        tarballSha256: "b".repeat(64),
+        corpusManifestSha256: "c".repeat(64),
+        nativeManifestSha256: "d".repeat(64),
+      },
+      artifacts: {},
+      installed: {},
+    };
+    for (const ref of [
+      "proof/46-18-repair-abc123",
+      "proof/46-11-final-def456",
+    ]) {
+      try {
+        report.validateIdentityCleanupLedger({
+          ...base,
+          run: { ...base.run, ref },
+        });
+        throw new Error("partial identity ledger unexpectedly validated");
+      } catch (error) {
+        expect(String(error)).toMatch(/artifacts/u);
+      }
+    }
+    for (const ref of [
+      "refs/heads/proof/46-18-repair-abc123",
+      "refs/heads/proof/46-11-final-def456",
+      "proof/46-18-repair-",
+      "proof/46-18-repair-ABC123",
+      "proof/46-11-final-xyz",
+      "proof/46-25-windows-diagnostic-abc123",
+      "proof/46-18-repair-abc123/extra",
+      "",
+    ])
+      expect(() =>
+        report.validateIdentityCleanupLedger({
+          ...base,
+          run: { ...base.run, ref },
+        }),
+      ).toThrow("identity cleanup ledger run/candidate binding is invalid");
+  });
+
   it("accepts only one exact two-tuple cancellation diagnostic run", () => {
     const ledger = cancellationDiagnosticLedger();
     expect(() =>
