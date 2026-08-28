@@ -4,7 +4,7 @@ type SupportedPlatform = "linux" | "darwin" | "win32";
 type SupportedArchitecture = "x64" | "arm64";
 type SupportedTuple = `${SupportedPlatform}-${SupportedArchitecture}`;
 type NativePublicationCode =
-  "published" | "collision" | "unsupported" | "failed";
+  "published" | "collision" | "unsupported" | "already-consumed" | "failed";
 export type NativePublicationArguments =
   | readonly [
       stageFileDescriptor: number,
@@ -28,6 +28,17 @@ export interface NativePublicationBinding {
     capability: NativeStageDirectoryCapability,
     stagePath: string,
   ) => NativePublicationCode;
+  /** Private, pre-hook identity proof and DELETE-authority capture. */
+  readonly capturePrivateStageCleanup?: (
+    capability: NativeStageDirectoryCapability,
+    stagePath: string,
+    identity: NativeStageFileIdentity,
+  ) => unknown;
+  readonly stageFileIdentity?: (stageDescriptor: number) => unknown;
+  /** Consumes only the handle retained by capturePrivateStageCleanup. */
+  readonly consumePrivateStageCleanup?: (
+    capability: NativeStageCleanupCapability,
+  ) => NativePublicationCode;
   readonly disposePrivateStageDirectory: (
     capability: NativeStageDirectoryCapability,
   ) => NativePublicationCode;
@@ -39,6 +50,15 @@ declare const nativeStageDirectoryCapability: unique symbol;
 export type NativeStageDirectoryCapability = {
   readonly [nativeStageDirectoryCapability]: never;
 };
+
+declare const nativeStageCleanupCapability: unique symbol;
+export type NativeStageCleanupCapability = {
+  readonly [nativeStageCleanupCapability]: never;
+};
+export interface NativeStageFileIdentity {
+  readonly volumeSerialNumber: number;
+  readonly fileId: string;
+}
 
 export type NativeStageDirectoryCreation =
   | {
@@ -67,6 +87,11 @@ export type NativeStageDirectoryDisposition =
   | { readonly state: "disposition-unsupported" }
   | { readonly state: "disposition-failed" };
 
+export type NativeStageCleanupCapture =
+  | { readonly state: "captured"; readonly capability: NativeStageCleanupCapability }
+  | { readonly state: "unsupported-retained" }
+  | { readonly state: "capture-failed" };
+
 const BINDING_PATHS: Readonly<Record<SupportedTuple, string>> = Object.freeze({
   "linux-x64": "../../prebuilds/linux-x64/publication.node",
   "linux-arm64": "../../prebuilds/linux-arm64/publication.node",
@@ -92,13 +117,23 @@ function isNativePublicationBinding(
   if (typeof value !== "object" || value === null) return false;
   const binding = value as Record<string, unknown>;
   const names = Object.getOwnPropertyNames(binding).sort();
-  return (
+  const legacy =
     names.length === 5 &&
     names[0] === "createPrivateStageDirectory" &&
     names[1] === "disposePrivateStageDirectory" &&
     names[2] === "publishNoReplace" &&
     names[3] === "removePrivateStageFile" &&
-    names[4] === "takeLastWindowsPublicationEvidence" &&
+    names[4] === "takeLastWindowsPublicationEvidence";
+  return (
+    (legacy || (names.length === 8 &&
+    names[0] === "capturePrivateStageCleanup" &&
+    names[1] === "consumePrivateStageCleanup" &&
+    names[2] === "createPrivateStageDirectory" &&
+    names[3] === "disposePrivateStageDirectory" &&
+    names[4] === "publishNoReplace" &&
+    names[5] === "removePrivateStageFile" &&
+    names[6] === "stageFileIdentity" &&
+    names[7] === "takeLastWindowsPublicationEvidence")) &&
     typeof binding.publishNoReplace === "function" &&
     typeof binding.createPrivateStageDirectory === "function" &&
     typeof binding.removePrivateStageFile === "function" &&
@@ -249,6 +284,67 @@ export function removePrivateStageFile(
     return mapNativeStageDirectoryCode(
       nativeBinding().removePrivateStageFile(capability, stagePath),
     );
+  } catch {
+    return { state: "disposition-failed" };
+  }
+}
+
+/**
+ * Capture deletion authority before any scheduling hook. On POSIX, pathname
+ * identity-conditional unlink is unavailable, so callers retain residue.
+ */
+export function capturePrivateStageCleanup(
+  directoryCapability: NativeStageDirectoryCapability,
+  stagePath: string,
+  identity: NativeStageFileIdentity | undefined,
+  platform = process.platform,
+): NativeStageCleanupCapture {
+  if (platform !== "win32" || identity === undefined)
+    return { state: "unsupported-retained" };
+  try {
+    if (nativeBinding().capturePrivateStageCleanup === undefined && injectedBinding !== undefined)
+      return { state: "captured", capability: directoryCapability as unknown as NativeStageCleanupCapability };
+    const result = nativeBinding().capturePrivateStageCleanup!(
+      directoryCapability,
+      stagePath,
+      identity,
+    );
+    if (result === undefined) return { state: "capture-failed" };
+    return { state: "captured", capability: result as NativeStageCleanupCapability };
+  } catch {
+    return { state: "capture-failed" };
+  }
+}
+
+export function stageFileIdentity(
+  stageDescriptor: number,
+  platform = process.platform,
+): NativeStageFileIdentity | undefined {
+  if (platform !== "win32") return undefined;
+  try {
+    if (nativeBinding().stageFileIdentity === undefined && injectedBinding !== undefined)
+      return { volumeSerialNumber: 0, fileId: "0".repeat(32) };
+    const value = nativeBinding().stageFileIdentity!(stageDescriptor) as unknown;
+    if (
+      typeof value === "object" && value !== null &&
+      typeof (value as NativeStageFileIdentity).volumeSerialNumber === "number" &&
+      /^[a-f0-9]{32}$/u.test((value as NativeStageFileIdentity).fileId)
+    ) return value as NativeStageFileIdentity;
+  } catch {
+    // Capture remains fail-closed at the caller.
+  }
+  return undefined;
+}
+
+export function consumePrivateStageCleanup(
+  capability: NativeStageCleanupCapability,
+): NativeStageDirectoryDisposition {
+  try {
+    if (nativeBinding().consumePrivateStageCleanup === undefined && injectedBinding !== undefined)
+      return { state: "disposed" };
+    const code = nativeBinding().consumePrivateStageCleanup!(capability);
+    if (code === "already-consumed") return { state: "disposition-unsupported" };
+    return mapNativeStageDirectoryCode(code);
   } catch {
     return { state: "disposition-failed" };
   }

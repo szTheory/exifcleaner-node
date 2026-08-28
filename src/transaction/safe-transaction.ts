@@ -40,10 +40,14 @@ import {
 } from "./identity.js";
 import {
   createPrivateStageDirectory,
+  capturePrivateStageCleanup,
+  consumePrivateStageCleanup,
   disposePrivateStageDirectory,
   removePrivateStageFile,
   publishNoReplace,
   type NativeStageDirectoryCapability,
+  type NativeStageCleanupCapability,
+  stageFileIdentity,
 } from "./native-publication.js";
 
 function aborted(signal: AbortSignal | undefined): boolean {
@@ -74,6 +78,7 @@ interface PostPublicationResources {
   readonly stageFile: FileHandle;
   readonly sourceHandle: FileHandle;
   readonly directoryCapability: NativeStageDirectoryCapability | undefined;
+  readonly cleanupCapability: NativeStageCleanupCapability | undefined;
   readonly stagePath: string;
   readonly platform: NodeJS.Platform;
 }
@@ -85,6 +90,7 @@ async function closePostPublicationResources({
   stageFile,
   sourceHandle,
   directoryCapability,
+  cleanupCapability,
   stagePath,
   platform,
 }: PostPublicationResources): Promise<PostCommitResidue> {
@@ -101,11 +107,10 @@ async function closePostPublicationResources({
   await close(stageFile);
   await close(sourceHandle);
 
-  if (platform === "win32" && directoryCapability !== undefined) {
-    const stageFileResult = removePrivateStageFile(
-      directoryCapability,
-      stagePath,
-    );
+  if (directoryCapability !== undefined) {
+    if (cleanupCapability === undefined)
+      return stageResidue({ code: "unsupported-retained", message: "No captured cleanup authority." });
+    const stageFileResult = consumePrivateStageCleanup(cleanupCapability);
     if (stageFileResult.state !== "disposed")
       return stageResidue({
         code: stageFileResult.state,
@@ -187,6 +192,7 @@ export async function runSafeTransaction(
   let stageFile: FileHandle | undefined;
   let directoryCreated = false;
   let directoryCapability: NativeStageDirectoryCapability | undefined;
+  let cleanupCapability: NativeStageCleanupCapability | undefined;
   let fileCreated = false;
   let fileIdentity: FileIdentity | undefined;
   let stageDirectoryIdentity: FileIdentity | undefined;
@@ -350,6 +356,23 @@ export async function runSafeTransaction(
         DESTINATION_DIRECTORY_FLAGS,
       );
     }
+    if (platform === "win32") {
+      if (directoryCapability === undefined) {
+        failure = executionError({ code: "write-failed", detail: "Private cleanup authority was unavailable.", path: destinationPath }, "started");
+        throw new Error("Cleanup authority unavailable.");
+      }
+      const captured = capturePrivateStageCleanup(
+        directoryCapability,
+        stagePath,
+        stageFileIdentity(stageFile.fd, platform),
+        platform,
+      );
+      if (captured.state !== "captured") {
+        failure = executionError({ code: "write-failed", detail: "Private cleanup identity capture did not complete.", path: destinationPath }, "started");
+        throw new Error("Cleanup identity capture failed.");
+      }
+      cleanupCapability = captured.capability;
+    }
     await beforePublish?.({ stageDirectoryPath, stagePath });
     if (aborted(signal)) throw new DOMException("Aborted", "AbortError");
     if (
@@ -433,6 +456,7 @@ export async function runSafeTransaction(
       stageFile,
       sourceHandle,
       directoryCapability,
+      cleanupCapability,
       stagePath,
       platform,
     };
@@ -499,6 +523,14 @@ export async function runSafeTransaction(
   await Promise.resolve(
     beforeStageFinalization?.({ stageDirectoryPath, stagePath }),
   ).catch(() => undefined);
+  if (
+    platform === "win32" && cleanupCapability !== undefined &&
+    consumePrivateStageCleanup(cleanupCapability).state === "disposed" &&
+    directoryCapability !== undefined &&
+    disposePrivateStageDirectory(directoryCapability).state === "disposed"
+  ) {
+    return err(withDestinationFinalization(failure!, { state: "owned-partial-removed" }));
+  }
   if (
     directoryCreated &&
     !fileCreated &&

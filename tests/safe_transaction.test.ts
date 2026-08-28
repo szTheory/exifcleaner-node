@@ -85,6 +85,18 @@ describe("safe transaction file operations", () => {
         unlinkSync(stagePath);
         return "published";
       },
+      stageFileIdentity() {
+        return { volumeSerialNumber: 0, fileId: "0".repeat(32) };
+      },
+      capturePrivateStageCleanup(received) {
+        expect(received).toBe(capability);
+        return capability;
+      },
+      consumePrivateStageCleanup(received) {
+        expect(received).toBe(capability);
+        unlinkSync(join(capability.path!, "output.webp"));
+        return "published";
+      },
       disposePrivateStageDirectory(received) {
         expect(received).toBe(capability);
         rmdirSync(capability.path!);

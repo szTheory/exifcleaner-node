@@ -331,6 +331,9 @@ describe("private native publication loader", () => {
         publishNoReplace: () => "published",
         createPrivateStageDirectory: () => undefined,
         removePrivateStageFile: () => "unsupported",
+        capturePrivateStageCleanup: () => undefined,
+        consumePrivateStageCleanup: () => "unsupported",
+        stageFileIdentity: () => undefined,
         disposePrivateStageDirectory: () => "unsupported",
         takeLastWindowsPublicationEvidence: () => undefined,
       };

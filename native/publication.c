@@ -57,6 +57,10 @@ typedef struct private_stage_directory {
   FILE_ID_INFO identity;
   HANDLE parent_handle;
   FILE_ID_INFO parent_identity;
+  /* Set only by the pre-hook capture operation. Never reopen the stage path
+   * after this handle has proved its identity and DELETE authority. */
+  HANDLE cleanup_handle;
+  FILE_ID_INFO cleanup_identity;
 } private_stage_directory;
 
 /* Bounded, per-addon evidence for the most recent successful Windows link.
@@ -80,6 +84,11 @@ static private_stage_directory *create_private_stage_directory(const WCHAR *path
                                                                BOOL *residue_remains);
 static publication_result remove_private_stage_file(
     private_stage_directory *capability, const WCHAR *stage_path);
+static private_stage_directory *capture_private_stage_cleanup(
+    private_stage_directory *capability, const WCHAR *stage_path,
+    const FILE_ID_INFO *expected);
+static publication_result consume_private_stage_cleanup(
+    private_stage_directory *capability);
 static publication_result dispose_private_stage_directory(
     private_stage_directory *capability);
 #else
@@ -99,6 +108,7 @@ static const char *publication_result_name(publication_result result) {
 }
 
 #if defined(_WIN32)
+static napi_value file_id_info_value(napi_env env, const FILE_ID_INFO *identity);
 static napi_value native_diagnostic_result(napi_env env, DWORD diagnostic) {
   const char *operation = "link:";
   char value[64];
@@ -183,6 +193,8 @@ static void finalize_stage_directory(napi_env env, void *data, void *hint) {
     if (capability->handle != INVALID_HANDLE_VALUE) CloseHandle(capability->handle);
     if (capability->parent_handle != INVALID_HANDLE_VALUE)
       CloseHandle(capability->parent_handle);
+    if (capability->cleanup_handle != INVALID_HANDLE_VALUE)
+      CloseHandle(capability->cleanup_handle);
     publication_free(capability);
   }
 }
@@ -367,6 +379,87 @@ static napi_value remove_stage_file_binding(napi_env env, napi_callback_info inf
 #endif
 }
 
+static int hex_value(char value) {
+  if (value >= '0' && value <= '9') return value - '0';
+  if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+  return -1;
+}
+
+static BOOL read_file_id_info(napi_env env, napi_value value, FILE_ID_INFO *identity) {
+  napi_value volume;
+  napi_value file_id;
+  uint32_t serial;
+  size_t length = 0;
+  char text[sizeof(identity->FileId.Identifier) * 2 + 1];
+  size_t index;
+  if (identity == NULL || napi_get_named_property(env, value, "volumeSerialNumber", &volume) != napi_ok ||
+      napi_get_named_property(env, value, "fileId", &file_id) != napi_ok ||
+      napi_get_value_uint32(env, volume, &serial) != napi_ok ||
+      napi_get_value_string_utf8(env, file_id, text, sizeof(text), &length) != napi_ok ||
+      length != sizeof(identity->FileId.Identifier) * 2) return FALSE;
+  identity->VolumeSerialNumber = serial;
+  for (index = 0; index < sizeof(identity->FileId.Identifier); index += 1) {
+    int high = hex_value(text[index * 2]);
+    int low = hex_value(text[index * 2 + 1]);
+    if (high < 0 || low < 0) return FALSE;
+    identity->FileId.Identifier[index] = (BYTE)((high << 4) | low);
+  }
+  return TRUE;
+}
+
+static napi_value stage_file_identity_binding(napi_env env, napi_callback_info info) {
+#if defined(_WIN32)
+  size_t argc = 1;
+  napi_value args[1];
+  int32_t descriptor;
+  HANDLE handle;
+  FILE_ID_INFO identity;
+  if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc != 1 ||
+      napi_get_value_int32(env, args[0], &descriptor) != napi_ok ||
+      (handle = uv_get_osfhandle(descriptor)) == INVALID_HANDLE_VALUE ||
+      !GetFileInformationByHandleEx(handle, FileIdInfo, &identity, sizeof(identity))) {
+    napi_value value; napi_get_undefined(env, &value); return value;
+  }
+  return file_id_info_value(env, &identity);
+#else
+  napi_value value; (void)info; napi_get_undefined(env, &value); return value;
+#endif
+}
+
+static napi_value capture_stage_cleanup_binding(napi_env env, napi_callback_info info) {
+#if defined(_WIN32)
+  size_t argc = 3;
+  napi_value args[3];
+  void *data = NULL;
+  WCHAR *stage_path;
+  FILE_ID_INFO expected;
+  private_stage_directory *capability;
+  if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc != 3 ||
+      napi_get_value_external(env, args[0], &data) != napi_ok || data == NULL ||
+      (stage_path = read_path(env, args[1])) == NULL || !read_file_id_info(env, args[2], &expected)) {
+    napi_value value; napi_get_undefined(env, &value); return value;
+  }
+  capability = capture_private_stage_cleanup((private_stage_directory *)data, stage_path, &expected);
+  publication_free(stage_path);
+  if (capability == NULL) { napi_value value; napi_get_undefined(env, &value); return value; }
+  return args[0];
+#else
+  napi_value value; (void)info; napi_get_undefined(env, &value); return value;
+#endif
+}
+
+static napi_value consume_stage_cleanup_binding(napi_env env, napi_callback_info info) {
+#if defined(_WIN32)
+  size_t argc = 1; napi_value args[1]; void *data = NULL;
+  if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc != 1 ||
+      napi_get_value_external(env, args[0], &data) != napi_ok || data == NULL)
+    return publication_result_value(env, PUBLICATION_FAILED, ERROR_SUCCESS);
+  return publication_result_value(env, consume_private_stage_cleanup((private_stage_directory *)data), ERROR_SUCCESS);
+#else
+  (void)info; return publication_result_value(env, PUBLICATION_UNSUPPORTED);
+#endif
+}
+
 #if defined(_WIN32)
 static napi_value file_id_info_value(napi_env env, const FILE_ID_INFO *identity) {
   static const char hex[] = "0123456789abcdef";
@@ -447,6 +540,9 @@ NAPI_MODULE_INIT() {
     { "createPrivateStageDirectory", NULL, create_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
     { "disposePrivateStageDirectory", NULL, dispose_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
     { "removePrivateStageFile", NULL, remove_stage_file_binding, NULL, NULL, NULL, napi_default, NULL },
+    { "capturePrivateStageCleanup", NULL, capture_stage_cleanup_binding, NULL, NULL, NULL, napi_default, NULL },
+    { "consumePrivateStageCleanup", NULL, consume_stage_cleanup_binding, NULL, NULL, NULL, napi_default, NULL },
+    { "stageFileIdentity", NULL, stage_file_identity_binding, NULL, NULL, NULL, napi_default, NULL },
     { "takeLastWindowsPublicationEvidence", NULL, take_last_windows_publication_evidence_binding, NULL, NULL, NULL, napi_default, NULL },
   };
   napi_define_properties(env, exports, sizeof(properties) / sizeof(properties[0]), properties);
@@ -740,6 +836,7 @@ static private_stage_directory *create_private_stage_directory(const WCHAR *path
   }
   capability->handle = directory;
   capability->parent_handle = parent;
+  capability->cleanup_handle = INVALID_HANDLE_VALUE;
   directory = INVALID_HANDLE_VALUE;
   parent = INVALID_HANDLE_VALUE;
 
@@ -765,51 +862,60 @@ done:
 
 static publication_result remove_private_stage_file(
     private_stage_directory *capability, const WCHAR *stage_path) {
-  HANDLE stage_directory = INVALID_HANDLE_VALUE;
-  HANDLE stage_file = INVALID_HANDLE_VALUE;
-  FILE_ID_INFO stage_identity;
-  FILE_DISPOSITION_INFO_EX disposition = {0};
-  FILE_DISPOSITION_INFO legacy = {0};
-  WCHAR *stage_parent = NULL;
-  publication_result result = PUBLICATION_FAILED;
+  (void)capability;
+  (void)stage_path;
+  /* Legacy private entrypoint is deliberately non-authoritative. Deletion
+   * requires the pre-hook retained-handle capability below. */
+  return PUBLICATION_UNSUPPORTED;
+}
 
+static private_stage_directory *capture_private_stage_cleanup(
+    private_stage_directory *capability, const WCHAR *stage_path,
+    const FILE_ID_INFO *expected) {
+  HANDLE stage_file = INVALID_HANDLE_VALUE;
+  FILE_ID_INFO observed;
   if (capability == NULL || capability->handle == INVALID_HANDLE_VALUE ||
-      stage_path == NULL || (stage_parent = parent_path(stage_path)) == NULL) {
-    goto done;
-  }
-  stage_directory = open_directory_no_reparse(stage_parent);
-  if (stage_directory == INVALID_HANDLE_VALUE ||
-      !GetFileInformationByHandleEx(stage_directory, FileIdInfo, &stage_identity,
-                                    sizeof(stage_identity)) ||
-      !file_identity_matches(&stage_identity, &capability->identity)) {
-    result = PUBLICATION_UNSUPPORTED;
-    goto done;
-  }
-  stage_file = CreateFileW(
-      stage_path, DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+      capability->cleanup_handle != INVALID_HANDLE_VALUE || stage_path == NULL ||
+      expected == NULL) return NULL;
+  /* This is the single pathname-to-authority transition: required rights,
+   * all sharing, reparse refusal, and identity proof occur before the hook. */
+  stage_file = CreateFileW(stage_path,
+      DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
       FILE_FLAG_OPEN_REPARSE_POINT, NULL);
-  if (stage_file == INVALID_HANDLE_VALUE) {
-    result = map_windows_error(GetLastError());
-    goto done;
+  if (stage_file == INVALID_HANDLE_VALUE ||
+      !GetFileInformationByHandleEx(stage_file, FileIdInfo, &observed, sizeof(observed)) ||
+      !file_identity_matches(&observed, expected)) {
+    if (stage_file != INVALID_HANDLE_VALUE) CloseHandle(stage_file);
+    return NULL;
   }
+  capability->cleanup_identity = observed;
+  capability->cleanup_handle = stage_file;
+  return capability;
+}
+
+static publication_result consume_private_stage_cleanup(
+    private_stage_directory *capability) {
+  FILE_DISPOSITION_INFO_EX disposition = {0};
+  FILE_DISPOSITION_INFO legacy = {0};
+  publication_result result = PUBLICATION_FAILED;
+  if (capability == NULL || capability->cleanup_handle == INVALID_HANDLE_VALUE)
+    return PUBLICATION_UNSUPPORTED;
   disposition.Flags = FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_POSIX_SEMANTICS;
-  if (SetFileInformationByHandle(stage_file, FileDispositionInfoEx, &disposition,
+  if (SetFileInformationByHandle(capability->cleanup_handle, FileDispositionInfoEx, &disposition,
                                  sizeof(disposition))) {
     result = PUBLICATION_PUBLISHED;
   } else {
     legacy.DeleteFile = TRUE;
-    if (SetFileInformationByHandle(stage_file, FileDispositionInfo, &legacy,
+    if (SetFileInformationByHandle(capability->cleanup_handle, FileDispositionInfo, &legacy,
                                    sizeof(legacy))) {
       result = PUBLICATION_PUBLISHED;
     } else {
       result = map_windows_error(GetLastError());
     }
   }
-done:
-  if (stage_file != INVALID_HANDLE_VALUE) CloseHandle(stage_file);
-  if (stage_directory != INVALID_HANDLE_VALUE) CloseHandle(stage_directory);
-  publication_free(stage_parent);
+  CloseHandle(capability->cleanup_handle);
+  capability->cleanup_handle = INVALID_HANDLE_VALUE;
   return result;
 }
 
