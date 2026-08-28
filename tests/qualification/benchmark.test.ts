@@ -19,8 +19,8 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
   };
   buildSchedule(
     fixtureIds: readonly string[],
-    warmups: number,
-    measurements: number,
+    warmups?: number,
+    measurements?: number,
   ): readonly {
     fixtureId: string;
     round: number;
@@ -1434,14 +1434,10 @@ describe("paired benchmark admission", () => {
     expect(schedule.filter((item) => item.warmup)).toHaveLength(4);
     expect(schedule.filter((item) => !item.warmup)).toHaveLength(200);
     expect(
-      schedule.filter(
-        (item) => !item.warmup && item.version === "baseline",
-      ),
+      schedule.filter((item) => !item.warmup && item.version === "baseline"),
     ).toHaveLength(100);
     expect(
-      schedule.filter(
-        (item) => !item.warmup && item.version === "candidate",
-      ),
+      schedule.filter((item) => !item.warmup && item.version === "candidate"),
     ).toHaveLength(100);
     expect(schedule.slice(0, 8).map((item) => item.version)).toEqual([
       "baseline",
@@ -1519,7 +1515,7 @@ describe("paired benchmark admission", () => {
     ).toMatchObject({
       pass: false,
       p95LimitNs: 135_000_000,
-      failures: ["p95 time threshold exceeded"],
+      failures: ["p95 threshold exceeded"],
     });
   });
 
@@ -1773,7 +1769,8 @@ describe("paired benchmark admission", () => {
     const normalized = documentation.replace(/\s+/gu, " ");
     for (const claim of [
       "packed `v0.1.1` baseline",
-      "fifteen measurements",
+      "100 measurements per version",
+      "evidence adequacy, not a pass waiver",
       "baseline median × 1.20",
       "baseline p95 × 1.35",
       "16 MiB",

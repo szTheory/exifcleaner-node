@@ -28,12 +28,13 @@ scripts disabled. The baseline must identify itself as version `0.1.1` and have
 SHA-256 `c2fc569b553cba360814bcce61d6882a02aba062e6d6da2193323915530a34bf`; the
 two archive SHA-256 values must differ. Every sample runs one operation in a
 fresh child process. Each fixture alternates baseline-first and candidate-first
-rounds, discards two warmups per version, and retains fifteen measurements per
-version.
+rounds, discards two warmups per version, and retains 100 measurements per
+version. Every fixture therefore produces exactly 204 fresh-child records: four
+warmup records plus 100 retained baseline and 100 retained candidate records.
 
-New runs emit only benchmark report version 3. Its closed
+New runs emit only benchmark report version 4. Its closed
 `elapsedP95Estimator` declaration is exactly `method: Hyndman-Fan Type 7`,
-`quantile: 0.95`, `interpolation: linear`, and `retainedObservations: 15`.
+`quantile: 0.95`, `interpolation: linear`, and `retainedObservations: 100`.
 Missing, extra, renamed, mistyped, or legacy nearest-rank declarations are not
 accepted as fresh admission evidence.
 
@@ -68,16 +69,16 @@ once and applies that same scale to every baseline and candidate raw elapsed
 value. A global positive runner factor cancels; candidate-only work remains
 visible. There is no side-specific, fixture-specific, retry-produced,
 discarded, or package-controlled denominator. Raw calibration blocks and the
-original 2-warmup/15-measurement alternating package record remain evidence.
+original 2-warmup/100-measurement alternating package record remain evidence.
 
 `benchmark-report.cjs` is the dependency-free fail-closed authority for local
 output, each Node benchmark job, phase admission, and the final hosted ledger.
 It recomputes calibration, scaled distributions, the raw schedule, and all
 unchanged correctness, RSS, cancellation, cleanup, tarball, and fixture gates.
 Admission accepts only the committed twelve-fixture manifest: every fixture has
-exactly 34 ordered raw records (two warmups plus fifteen baseline/candidate
-pairs), every non-cancellation fixture has one comparison, and the cancellation
-sample and passing verdict are bound to the retained candidate raw record.
+exactly 204 ordered raw records (two warmups plus 100 baseline/candidate pairs),
+every non-cancellation fixture has one comparison, and the cancellation sample
+and passing verdict are bound to the retained candidate raw record.
 
 ## Committed Workload
 
@@ -121,14 +122,16 @@ These are the D-23 factor-or-slack limits formerly described as baseline median
 the sole admission implementation.
 
 Elapsed-time p95 alone uses Hyndman-Fan Type 7 linear interpolation. After
-sorting the fifteen retained scaled elapsed values, the authority computes
+sorting the 100 retained scaled elapsed values, the authority computes
 `h = (n - 1) × 0.95`, takes `lower = floor(h)` and `upper = ceil(h)`, and returns
-`x[lower] + (h - lower) × (x[upper] - x[lower])`. With fifteen values this is
-30% of the interval from zero-based element 13 to element 14. The producer and
-independent report validator each recompute that value from the same bound
-`scaledElapsedNs` list; neither trusts a reported aggregate. All fifteen raw
-paired observations remain in the locked alternating schedule, with exactly
-zero retries and zero discarded retained observations.
+`x[lower] + (h - lower) × (x[upper] - x[lower])`. With 100 values, `h = 94.05`,
+so this is 5% of the interval from zero-based element 94 to element 95. The
+producer and independent report validator each recompute that value from the
+same bound `scaledElapsedNs` list; neither trusts a reported aggregate. All 100
+raw observations per side remain in the locked alternating schedule, with
+exactly zero retries and zero discarded retained observations. The larger
+sample is evidence adequacy, not a pass waiver: the unchanged Type 7 tail and
+unchanged D-23 limits may still reject the candidate.
 
 Timing median, calibration median and MAD, and peak-RSS median retain the
 existing nearest-rank estimator. The Type 7 change does not alter calibration,

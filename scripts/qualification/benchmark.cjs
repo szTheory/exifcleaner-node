@@ -14,7 +14,7 @@ const childPath = path.join(__dirname, "benchmark-child.cjs");
 const calibrationPath = path.join(__dirname, "benchmark-calibration.cjs");
 const SHA256 = /^[a-f0-9]{64}$/;
 const WARMUPS = 2;
-const MEASUREMENTS = 15;
+const MEASUREMENTS = 100;
 const BASELINE_PACKAGE_NAME = "exifcleaner-node";
 const BASELINE_VERSION = "0.1.1";
 const BASELINE_TARBALL_SHA256 =
@@ -803,7 +803,7 @@ async function executeBenchmark(options) {
       failures.push(...verdict.failures);
     }
     const report = {
-      version: 3,
+      version: 4,
       elapsedP95Estimator: ELAPSED_P95_ESTIMATOR,
       mode: options.mode,
       pass: failures.length === 0,

@@ -23,7 +23,7 @@ const MEDIAN_SLACK_NS = 15_000_000;
 const P95_RATIO = 1.35;
 const P95_SLACK_NS = 30_000_000;
 const WARMUPS = 2;
-const MEASUREMENTS = 15;
+const MEASUREMENTS = 100;
 const RECORDS_PER_FIXTURE = (WARMUPS + MEASUREMENTS) * 2;
 
 function expectedBenchmarkEvidence() {
@@ -564,7 +564,7 @@ function validateReport(report) {
     "benchmark environment",
   );
   if (
-    report.version !== 3 ||
+    report.version !== 4 ||
     report.elapsedP95Estimator.method !== "Hyndman-Fan Type 7" ||
     report.elapsedP95Estimator.quantile !== 0.95 ||
     report.elapsedP95Estimator.interpolation !== "linear" ||
