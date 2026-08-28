@@ -905,6 +905,30 @@ describe("sanitizeFile", () => {
     expect(await readFile(destinationPath, "utf8")).toBe("do not replace");
   });
 
+  it("sanitizes a relative destination through the public transaction", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const previousDirectory = process.cwd();
+    await writeFile(sourcePath, metadataWebp());
+    process.chdir(directory);
+    try {
+      const result = await sanitizeFile({
+        sourcePath: "source.webp",
+        destinationPath: "relative-clean.webp",
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      });
+      expect(result).toMatchObject({ ok: true });
+      await expect(
+        readFile(join(directory, "relative-clean.webp")),
+      ).resolves.toBeInstanceOf(Buffer);
+      await expect(readFile(sourcePath)).resolves.toEqual(metadataWebp());
+    } finally {
+      process.chdir(previousDirectory);
+    }
+  });
+
   it.each([
     ["malformed EXIF", Buffer.from("bad")],
     ["non-SHORT Orientation", orientationVariant(4, 1, 6)],

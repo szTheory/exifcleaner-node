@@ -317,6 +317,9 @@ describe("published format-neutral declaration contract", () => {
     expect(declaration).not.toMatch(
       /(?:handler|registry|register|transaction|file-operations|WebpInspection|WebpSanitizeResult|Webp.*Error)/i,
     );
+    expect(declaration).not.toMatch(
+      /(?:cleanup|stageFileIdentity|NativeStage|descriptor|publicationEvidence)/i,
+    );
   });
 });
 
