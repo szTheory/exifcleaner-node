@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
@@ -86,6 +87,49 @@ function workflowJob(
   return workflow.slice(start, end);
 }
 
+function immutableEvidenceHeredoc(workflow: string): string {
+  const job = workflowJob(workflow, "immutable-sha-evidence", "benchmark-linux");
+  const heredoc = job.match(/node - <<'NODE'\n([\s\S]*?)\n\s+NODE/u)?.[1];
+  if (heredoc === undefined)
+    throw new Error("immutable evidence Node heredoc is absent");
+  return heredoc
+    .split("\n")
+    .map((line) => line.replace(/^ {10}/u, ""))
+    .join("\n");
+}
+
+function executeProductionTupleStage(
+  workflow: string,
+  manifest: readonly Record<string, unknown>[],
+): { tuples: string[]; mappedTuples: string[] } {
+  const heredoc = immutableEvidenceHeredoc(workflow);
+  const tupleStage = heredoc.split(" const candidate=")[0];
+  if (tupleStage === heredoc)
+    throw new Error("immutable evidence tuple stage boundary is absent");
+  return runInNewContext(
+    `${tupleStage}; ({tuples:[...tuples],mappedTuples:[...byTuple.keys()]})`,
+    {
+      require(specifier: string) {
+        if (specifier === "node:fs")
+          return {
+            readFileSync(path: string) {
+              if (path === "admitted/tarball.sha256") return `${"a".repeat(64)}  candidate.tgz\n`;
+              if (path === "admitted/native-manifest.json")
+                return JSON.stringify(manifest);
+              if (path === "tests/corpus/manifest.json") return "{}";
+              throw new Error(`unexpected tuple-stage read: ${path}`);
+            },
+          };
+        if (specifier === "node:path" || specifier === "node:crypto")
+          return require(specifier);
+        if (specifier === "./scripts/qualification/benchmark-report.cjs")
+          return { validateIdentityCleanupLedger() {} };
+        throw new Error(`unexpected tuple-stage require: ${specifier}`);
+      },
+    },
+  ) as { tuples: string[]; mappedTuples: string[] };
+}
+
 function validateBenchmarkWorkflow(workflow: string): void {
   const benchmarkJob = workflowJob(
     workflow,
@@ -154,6 +198,29 @@ function greenGraph(): WorkflowGraph {
 }
 
 describe("release workflow authority gate", () => {
+  it("accepts a permuted exact-six manifest through the production immutable tuple stage", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const canonical = [
+      "linux-x64",
+      "linux-arm64",
+      "darwin-x64",
+      "darwin-arm64",
+      "win32-x64",
+      "win32-arm64",
+    ];
+    const manifest = [...canonical]
+      .reverse()
+      .map((tuple) => ({ tuple, sha256: "a".repeat(64), auditReportSha256: "b".repeat(64) }));
+
+    expect(executeProductionTupleStage(workflow, manifest)).toEqual({
+      tuples: canonical,
+      mappedTuples: [...canonical].reverse(),
+    });
+  });
+
   it("keeps complete Windows diagnostics outside every authority path", () => {
     const workflow = readFileSync(
       join(packageRoot, ".github", "workflows", "ci.yml"),
