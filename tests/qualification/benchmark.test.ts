@@ -276,8 +276,8 @@ describe("paired benchmark admission", () => {
         fixtureId: fixture.id,
         baseline: {
           samples: retainedSamples(String(fixture.id), "baseline"),
-          correctnessKey: retainedSamples(String(fixture.id), "baseline")[0]
-            ?.correctnessKey,
+          correctnessKey: retainedSamples(String(fixture.id), "baseline")[0]!
+            .correctnessKey,
           medianElapsedNs: 1,
           p95ElapsedNs: 1,
           medianMaxRSSKiB: 1,
@@ -285,8 +285,8 @@ describe("paired benchmark admission", () => {
         },
         candidate: {
           samples: retainedSamples(String(fixture.id), "candidate"),
-          correctnessKey: retainedSamples(String(fixture.id), "candidate")[0]
-            ?.correctnessKey,
+          correctnessKey: retainedSamples(String(fixture.id), "candidate")[0]!
+            .correctnessKey,
           medianElapsedNs: 1,
           p95ElapsedNs: 1,
           medianMaxRSSKiB: 1,
@@ -295,16 +295,18 @@ describe("paired benchmark admission", () => {
         timing,
         verdict: benchmark.evaluatePair({
           baseline: {
-            correctnessKey: retainedSamples(String(fixture.id), "baseline")[0]
-              ?.correctnessKey,
+            correctnessKey:
+              retainedSamples(String(fixture.id), "baseline")[0]
+                ?.correctnessKey ?? "",
             medianElapsedNs: 1,
             p95ElapsedNs: 1,
             medianMaxRSSKiB: 1,
             rssSlope: 0,
           },
           candidate: {
-            correctnessKey: retainedSamples(String(fixture.id), "candidate")[0]
-              ?.correctnessKey,
+            correctnessKey:
+              retainedSamples(String(fixture.id), "candidate")[0]
+                ?.correctnessKey ?? "",
             medianElapsedNs: 1,
             p95ElapsedNs: 1,
             medianMaxRSSKiB: 1,
