@@ -342,6 +342,20 @@ function percentile(values, quantile) {
   return sorted[Math.ceil(quantile * sorted.length) - 1];
 }
 
+function performanceP95(values) {
+  if (
+    !Array.isArray(values) ||
+    values.length !== MEASUREMENTS ||
+    values.some((value) => !Number.isFinite(value) || value <= 0)
+  )
+    throw new Error("Performance p95 input is invalid");
+  const sorted = [...values].sort((left, right) => left - right);
+  const h = (sorted.length - 1) * 0.95;
+  const lower = Math.floor(h);
+  const upper = Math.ceil(h);
+  return sorted[lower] + (h - lower) * (sorted[upper] - sorted[lower]);
+}
+
 function evaluatePair({ baseline, candidate }) {
   const failures = [];
   if (baseline.correctnessKey !== candidate.correctnessKey)
@@ -641,7 +655,7 @@ function aggregate(samples) {
     correctnessKey: [...keys][0],
     finalizationKey: [...finalizationKeys][0],
     medianElapsedNs: percentile(elapsed, 0.5),
-    p95ElapsedNs: percentile(elapsed, 0.95),
+    p95ElapsedNs: performanceP95(elapsed),
     medianMaxRSSKiB: percentile(maxRss, 0.5),
     samples,
   };
@@ -725,9 +739,8 @@ async function executeBenchmark(options) {
           scaledSamples.map((sample) => sample.scaledElapsedNs),
           0.5,
         ),
-        p95ElapsedNs: percentile(
+        p95ElapsedNs: performanceP95(
           scaledSamples.map((sample) => sample.scaledElapsedNs),
-          0.95,
         ),
         samples: scaledSamples,
       });
@@ -835,6 +848,7 @@ module.exports = {
   materializeFixture,
   loadBenchmarkManifest,
   parseArguments,
+  performanceP95,
   percentile,
   renderSummary,
   rssSlope,

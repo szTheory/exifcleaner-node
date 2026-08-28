@@ -884,8 +884,8 @@ describe("paired benchmark admission", () => {
       15, 1, 14, 2, 13, 3, 12, 4, 11, 5, 10, 6, 9, 7, 8,
     ];
     const original = [...unsorted];
-    expect(benchmark.performanceP95(unsorted)).toBe(14.3);
-    expect(report.performanceP95(unsorted)).toBe(14.3);
+    expect(benchmark.performanceP95(unsorted)).toBeCloseTo(14.3, 12);
+    expect(report.performanceP95(unsorted)).toBeCloseTo(14.3, 12);
     expect(unsorted).toEqual(original);
     expect(benchmark.percentile(unsorted, 0.95)).toBe(15);
     expect(report.deriveBlockEstimate(unsorted)).toMatchObject({

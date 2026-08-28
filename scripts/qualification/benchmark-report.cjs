@@ -120,6 +120,19 @@ function percentile(values, quantile, allowZero = false) {
     Math.ceil(values.length * quantile) - 1
   ];
 }
+function performanceP95(values) {
+  if (
+    !Array.isArray(values) ||
+    values.length !== MEASUREMENTS ||
+    values.some((value) => !Number.isFinite(value) || value <= 0)
+  )
+    throw new Error("performance p95 values are invalid");
+  const sorted = [...values].sort((left, right) => left - right);
+  const h = (sorted.length - 1) * 0.95;
+  const lower = Math.floor(h);
+  const upper = Math.ceil(h);
+  return sorted[lower] + (h - lower) * (sorted[upper] - sorted[lower]);
+}
 function deriveBlockEstimate(values) {
   if (
     !Array.isArray(values) ||
@@ -659,9 +672,8 @@ function validateReport(report) {
         samples.map((sample) => sample.elapsedNs * runScale),
         0.5,
       ),
-      p95ElapsedNs: percentile(
+      p95ElapsedNs: performanceP95(
         samples.map((sample) => sample.elapsedNs * runScale),
-        0.95,
       ),
       medianMaxRSSKiB: percentile(
         samples.map((sample) => sample.maxRSSKiB),
@@ -711,7 +723,7 @@ function validateReport(report) {
       const scaled = item.samples.map((sample) => sample.scaledElapsedNs);
       if (
         item.medianElapsedNs !== percentile(scaled, 0.5) ||
-        item.p95ElapsedNs !== percentile(scaled, 0.95)
+        item.p95ElapsedNs !== performanceP95(scaled)
       )
         throw new Error("derived distribution mismatch");
       exactKeys(
@@ -1731,6 +1743,7 @@ module.exports = {
   deriveRunScale,
   evaluateTiming,
   loadReference,
+  performanceP95,
   validateCalibration,
   validateReport,
   hostedLedger,
