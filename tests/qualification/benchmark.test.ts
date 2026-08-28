@@ -551,6 +551,68 @@ describe("paired benchmark admission", () => {
                 stageDirectoryExists: false,
                 stageFileExists: false,
               },
+              cleanup: {
+                schemaVersion: "phase-46-terminal-cleanup/v2",
+                abiVersion: "native-publication/v2",
+                platform: "win32",
+                ownership: {
+                  helperToken: "6".repeat(64),
+                  captureOwnershipToken: "6".repeat(64),
+                  terminalOwnershipToken: "6".repeat(64),
+                  captureCapabilityId: "7".repeat(64),
+                  terminalCapabilityId: "7".repeat(64),
+                },
+                capture: {
+                  result: "captured",
+                  directoryIdentity: {
+                    volumeSerialNumber: "0000000000000000",
+                    fileId: "d".repeat(32),
+                  },
+                  fileIdentity: {
+                    volumeSerialNumber: "0000000000000000",
+                    fileId: "e".repeat(32),
+                  },
+                },
+                helper: {
+                  ownershipToken: "6".repeat(64),
+                  quiescenceSequence: 1,
+                  terminalSequence: 4,
+                },
+                terminal: {
+                  identityBefore: {
+                    volumeSerialNumber: "0000000000000000",
+                    fileId: "e".repeat(32),
+                  },
+                  removalIdentity: {
+                    volumeSerialNumber: "0000000000000000",
+                    fileId: "f".repeat(32),
+                  },
+                  outcome: "replacement-retained",
+                  consumeCount: 1,
+                  replayCount: 1,
+                  replayOutcome: "no-action",
+                },
+                replacement: {
+                  observationSequence: 2,
+                  injectionSequence: 3,
+                  identityBefore: {
+                    volumeSerialNumber: "0000000000000000",
+                    fileId: "f".repeat(32),
+                  },
+                  sha256Before: "8".repeat(64),
+                  identityAfter: {
+                    volumeSerialNumber: "0000000000000000",
+                    fileId: "f".repeat(32),
+                  },
+                  sha256After: "8".repeat(64),
+                },
+                nativeLifetime: {
+                  handlesBefore: 2,
+                  handlesAfter: 2,
+                  finalizersBefore: 0,
+                  finalizersAfter: 1,
+                },
+              },
             },
             postCommitResidue: "none",
             collisionFinalization: "owned-partial-removed",

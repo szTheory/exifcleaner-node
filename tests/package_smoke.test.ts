@@ -54,6 +54,10 @@ const helper = require("../scripts/package_smoke.cjs") as {
     },
   ): "pass";
   isTerminalCleanupRecord(value: unknown): boolean;
+  validateTerminalCleanupRecord(
+    value: unknown,
+    scenario?: "control" | "installed",
+  ): void;
   installedPropertyFailure(
     index: number,
     result:
@@ -151,6 +155,9 @@ describe("installed package smoke", () => {
       },
     };
     expect(helper.isTerminalCleanupRecord(record)).toBe(true);
+    expect(() =>
+      helper.validateTerminalCleanupRecord(record, "control"),
+    ).not.toThrow();
     expect(
       helper.isTerminalCleanupRecord({
         ...record,
@@ -166,6 +173,12 @@ describe("installed package smoke", () => {
         terminal: { ...record.terminal, replayOutcome: "filesystem-action" },
       }),
     ).toBe(false);
+    expect(() =>
+      helper.validateTerminalCleanupRecord(
+        { ...record, authentic: true },
+        "control",
+      ),
+    ).toThrow();
   });
 
   it("rejects missing and fabricated Windows publication proof", () => {
