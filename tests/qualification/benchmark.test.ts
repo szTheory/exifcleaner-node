@@ -276,17 +276,49 @@ describe("paired benchmark admission", () => {
         fixtureId: fixture.id,
         baseline: {
           samples: retainedSamples(String(fixture.id), "baseline"),
+          correctnessKey: retainedSamples(String(fixture.id), "baseline")[0]
+            ?.correctnessKey,
           medianElapsedNs: 1,
           p95ElapsedNs: 1,
+          medianMaxRSSKiB: 1,
+          rssSlope: 0,
         },
         candidate: {
           samples: retainedSamples(String(fixture.id), "candidate"),
+          correctnessKey: retainedSamples(String(fixture.id), "candidate")[0]
+            ?.correctnessKey,
           medianElapsedNs: 1,
           p95ElapsedNs: 1,
+          medianMaxRSSKiB: 1,
+          rssSlope: 0,
         },
         timing,
+        verdict: benchmark.evaluatePair({
+          baseline: {
+            correctnessKey: retainedSamples(String(fixture.id), "baseline")[0]
+              ?.correctnessKey,
+            medianElapsedNs: 1,
+            p95ElapsedNs: 1,
+            medianMaxRSSKiB: 1,
+            rssSlope: 0,
+          },
+          candidate: {
+            correctnessKey: retainedSamples(String(fixture.id), "candidate")[0]
+              ?.correctnessKey,
+            medianElapsedNs: 1,
+            p95ElapsedNs: 1,
+            medianMaxRSSKiB: 1,
+            rssSlope: 0,
+          },
+        }),
       }));
     const complete = {
+      version: 1,
+      mode: "admit",
+      pass: false,
+      baselinePackageName: "exifcleaner-node",
+      baselineVersion: "0.1.1",
+      baselineExpectedIdentity: `exifcleaner-node@0.1.1#sha256:${benchmark.BASELINE_TARBALL_SHA256}`,
       calibration: {
         before: calibrationEvidence,
         after: calibrationEvidence,
@@ -313,6 +345,14 @@ describe("paired benchmark admission", () => {
         sample: cancellationSample,
         verdict: { pass: true, failures: [] },
       },
+      failures: comparisons.flatMap((comparison) =>
+        comparison.verdict.failures.map(
+          (failure) => `${comparison.fixtureId}: ${failure}`,
+        ),
+      ),
+      warmups: 2,
+      measurements: 15,
+      thresholds: benchmark.BENCHMARK_THRESHOLDS,
     };
     expect(() => report.validateReport(complete)).not.toThrow();
     for (const incomplete of [
@@ -351,6 +391,20 @@ describe("paired benchmark admission", () => {
     finalizationMutation.rawSchedule[0]!.sample.correctnessKey =
       report.deriveCorrectnessKey(finalizationMutation.rawSchedule[0]!.sample);
     expect(() => report.validateReport(finalizationMutation)).toThrow();
+    for (const mutate of [
+      (mutated: typeof complete) => (mutated.pass = true),
+      (mutated: typeof complete) => (mutated.failures = ["forged failure"]),
+      (mutated: typeof complete) =>
+        (mutated.comparisons[0]!.verdict.failures = []),
+      (mutated: typeof complete) =>
+        (mutated.comparisons[0]!.candidate.samples[0]!.maxRSSKiB = 1 + 16_385),
+      (mutated: typeof complete) =>
+        Object.assign(mutated, { unexpected: true }),
+    ]) {
+      const mutated = structuredClone(complete);
+      mutate(mutated);
+      expect(() => report.validateReport(mutated)).toThrow();
+    }
   });
 
   it("binds every installed finalization and cancellation contract field on Windows", () => {
@@ -513,6 +567,14 @@ describe("paired benchmark admission", () => {
             Object.assign(mutated.cases, { unexpected: "extra-field" }),
           (mutated) =>
             Object.assign(mutated.cases.cancellation, {
+              unexpected: "extra-field",
+            }),
+          (mutated) =>
+            Object.assign(mutated.windowsPublication, {
+              unexpected: "extra-field",
+            }),
+          (mutated) =>
+            Object.assign(mutated.windowsPublication.stageFile, {
               unexpected: "extra-field",
             }),
         ];

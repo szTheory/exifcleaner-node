@@ -501,6 +501,59 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
 function validateReport(report) {
   const reference = loadReference();
   const expected = expectedBenchmarkEvidence();
+  const benchmark = require("./benchmark.cjs");
+  exactKeys(
+    report,
+    [
+      "version",
+      "mode",
+      "pass",
+      "baselinePackageName",
+      "baselineVersion",
+      "baselineExpectedIdentity",
+      "baselineSha256",
+      "candidateSha256",
+      "warmups",
+      "measurements",
+      "thresholds",
+      "calibration",
+      "rawSchedule",
+      "collection",
+      "environment",
+      "comparisons",
+      "cancellation",
+      "failures",
+    ],
+    "benchmark report",
+  );
+  exactKeys(
+    report.environment,
+    ["nodeVersion", "platform", "architecture", "runner", "cpu"],
+    "benchmark environment",
+  );
+  if (
+    report.version !== 1 ||
+    !["report", "admit"].includes(report.mode) ||
+    typeof report.pass !== "boolean" ||
+    report.baselinePackageName !== "exifcleaner-node" ||
+    report.baselineVersion !== "0.1.1" ||
+    report.baselineExpectedIdentity !==
+      `exifcleaner-node@0.1.1#sha256:${report.baselineSha256}` ||
+    !SHA256.test(report.baselineSha256) ||
+    !SHA256.test(report.candidateSha256) ||
+    report.baselineSha256 === report.candidateSha256 ||
+    report.warmups !== WARMUPS ||
+    report.measurements !== MEASUREMENTS ||
+    !sameJson(report.thresholds, benchmark.BENCHMARK_THRESHOLDS) ||
+    typeof report.environment.nodeVersion !== "string" ||
+    !/^v\d+\./.test(report.environment.nodeVersion) ||
+    ["platform", "architecture", "runner", "cpu"].some(
+      (key) =>
+        typeof report.environment[key] !== "string" ||
+        report.environment[key].length === 0,
+    )
+  )
+    throw new Error("benchmark report envelope is invalid");
   exactKeys(
     report.calibration,
     ["before", "after", "reference", "derived"],
@@ -566,11 +619,57 @@ function validateReport(report) {
   if (
     !Array.isArray(report.comparisons) ||
     report.comparisons.length !== expected.comparisonFixtureIds.length ||
-    JSON.stringify(report.comparisons.map((item) => item?.fixtureId).sort()) !==
-      JSON.stringify([...expected.comparisonFixtureIds].sort())
+    JSON.stringify(report.comparisons.map((item) => item?.fixtureId)) !==
+      JSON.stringify(expected.comparisonFixtureIds)
   )
     throw new Error("comparison evidence set is incomplete");
+  const aggregate = (samples, runScale) => {
+    const correctnessKeys = new Set(
+      samples.map((sample) => sample.correctnessKey),
+    );
+    if (correctnessKeys.size !== 1)
+      throw new Error("retained correctness evidence is unstable");
+    return {
+      correctnessKey: [...correctnessKeys][0],
+      medianElapsedNs: percentile(
+        samples.map((sample) => sample.elapsedNs * runScale),
+        0.5,
+      ),
+      p95ElapsedNs: percentile(
+        samples.map((sample) => sample.elapsedNs * runScale),
+        0.95,
+      ),
+      medianMaxRSSKiB: percentile(
+        samples.map((sample) => sample.maxRSSKiB),
+        0.5,
+      ),
+    };
+  };
+  const aggregates = new Map(
+    [...retained].map(([key, samples]) => [
+      key,
+      aggregate(samples, derived.runScale),
+    ]),
+  );
+  const slopes = { baseline: 0, candidate: 0 };
+  for (const version of ["baseline", "candidate"])
+    slopes[version] = benchmark.rssSlope(
+      new Map(
+        [...aggregates]
+          .filter(
+            ([key]) => key.startsWith("still-") && key.endsWith(`:${version}`),
+          )
+          .map(([key, value]) => [key.slice(0, key.lastIndexOf(":")), value]),
+      ),
+      "still",
+    );
+  const failures = [];
   for (const comparison of report.comparisons) {
+    exactKeys(
+      comparison,
+      ["fixtureId", "baseline", "candidate", "timing", "verdict"],
+      "benchmark comparison",
+    );
     for (const side of ["baseline", "candidate"]) {
       const item = comparison[side];
       const source = retained.get(`${comparison.fixtureId}:${side}`);
@@ -591,6 +690,27 @@ function validateReport(report) {
         item.p95ElapsedNs !== percentile(scaled, 0.95)
       )
         throw new Error("derived distribution mismatch");
+      exactKeys(
+        item,
+        [
+          "correctnessKey",
+          "medianElapsedNs",
+          "p95ElapsedNs",
+          "medianMaxRSSKiB",
+          "rssSlope",
+          "samples",
+        ],
+        "benchmark comparison side",
+      );
+      const expectedAggregate = {
+        ...aggregates.get(`${comparison.fixtureId}:${side}`),
+        rssSlope: slopes[side],
+      };
+      for (const [key, value] of Object.entries(expectedAggregate))
+        if (item[key] !== value)
+          throw new Error(
+            "comparison aggregate is not bound to retained raw evidence",
+          );
     }
     const timing = evaluateTiming({
       baselineMedianNs: comparison.baseline.medianElapsedNs,
@@ -600,12 +720,39 @@ function validateReport(report) {
     });
     if (!sameJson(timing, comparison.timing))
       throw new Error("D-23 verdict mismatch");
+    const verdict = benchmark.evaluatePair({
+      baseline: comparison.baseline,
+      candidate: comparison.candidate,
+    });
+    if (!sameJson(verdict, comparison.verdict))
+      throw new Error(
+        "comparison verdict is not bound to retained raw evidence",
+      );
+    failures.push(
+      ...verdict.failures.map(
+        (failure) => `${comparison.fixtureId}: ${failure}`,
+      ),
+    );
   }
   validateCancellationEvidence(
     report.cancellation,
     report.rawSchedule,
     expected.cancellationFixtureId,
   );
+  const cancellationVerdict = benchmark.evaluateCancellation(
+    report.cancellation.sample,
+  );
+  if (!sameJson(cancellationVerdict, report.cancellation.verdict))
+    throw new Error("cancellation verdict is not bound to raw evidence");
+  failures.push(...cancellationVerdict.failures);
+  if (
+    !Array.isArray(report.failures) ||
+    !sameJson(report.failures, failures) ||
+    report.pass !== (failures.length === 0)
+  )
+    throw new Error(
+      "benchmark admission conclusion is not bound to raw evidence",
+    );
   return report;
 }
 function readJson(filePath) {
@@ -627,12 +774,34 @@ function assertEqual(left, right, label) {
 function requireWindowsPublicationEvidence(evidence) {
   if (typeof evidence !== "object" || evidence === null)
     throw new Error("Windows native publication evidence is absent");
+  exactKeys(
+    evidence,
+    [
+      "primitive",
+      "linkCalls",
+      "destinationParentIdentityRechecked",
+      "stageIdentityRechecked",
+      "stageFileIdentityRechecked",
+      "destinationParent",
+      "stageDirectory",
+      "stageFile",
+      "destinationFile",
+    ],
+    "Windows native publication evidence",
+  );
   const identities = [
     evidence.destinationParent,
     evidence.stageDirectory,
     evidence.stageFile,
     evidence.destinationFile,
   ];
+  identities.forEach((identity) =>
+    exactKeys(
+      identity,
+      ["volumeSerialNumber", "fileId"],
+      "Windows native publication identity",
+    ),
+  );
   if (
     evidence.primitive !== "CreateHardLinkW" ||
     evidence.linkCalls !== 1 ||
