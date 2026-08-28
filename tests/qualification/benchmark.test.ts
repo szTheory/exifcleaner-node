@@ -100,6 +100,12 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     referenceMedianNs: Record<string, number>;
   };
   validateReport(input: Record<string, unknown>): void;
+  validateInstalledReport(
+    input: Record<string, unknown>,
+    tuple: string,
+    nodeMajor: number,
+    candidate: Record<string, unknown>,
+  ): void;
   hostedLedger(filePath: string, memoryPath: string, windowsPath: string): void;
 };
 const calibration =
@@ -223,6 +229,27 @@ describe("paired benchmark admission", () => {
             : {}),
         },
       }));
+    for (const entry of rawSchedule) {
+      const fixture = manifest.fixtures.find(
+        (item) => item.id === entry.fixtureId,
+      )!;
+      const finalization =
+        fixture.kind === "cancellation"
+          ? entry.version === "candidate"
+            ? "owned-partial-remains"
+            : "not-started"
+          : fixture.expected === "success"
+            ? entry.version === "candidate"
+              ? "private-empty-stage-directory-remains"
+              : "none"
+            : "not-started";
+      entry.sample.finalization = finalization;
+      if (entry.sample.cancellation)
+        entry.sample.cancellation = {
+          ...cancellationSample,
+          finalization,
+        };
+    }
     for (const entry of rawSchedule)
       entry.sample.correctnessKey = report.deriveCorrectnessKey(entry.sample);
     const retainedSamples = (fixtureId: string, version: string) =>
@@ -310,15 +337,90 @@ describe("paired benchmark admission", () => {
       ["outputSha256", "f".repeat(64)],
       ["status", "refused"],
       ["code", "different-error"],
+      ["finalization", "arbitrary-residue"],
       ["finalizationTruthful", false],
     ] as const) {
       const preservedKey = structuredClone(complete);
       (preservedKey.rawSchedule[0]!.sample as Record<string, unknown>)[field] =
         value;
       expect(() => report.validateReport(preservedKey)).toThrow();
-      const replacementKey = structuredClone(preservedKey);
-      replacementKey.rawSchedule[0]!.sample.correctnessKey = "e".repeat(64);
-      expect(() => report.validateReport(replacementKey)).toThrow();
+    }
+    const finalizationMutation = structuredClone(complete);
+    finalizationMutation.rawSchedule[0]!.sample.finalization =
+      "arbitrary-residue";
+    finalizationMutation.rawSchedule[0]!.sample.correctnessKey =
+      report.deriveCorrectnessKey(finalizationMutation.rawSchedule[0]!.sample);
+    expect(() => report.validateReport(finalizationMutation)).toThrow();
+  });
+
+  it("binds every installed finalization and cancellation contract field on Windows", () => {
+    const candidate = {
+      tarballSha256: "3".repeat(64),
+      corpusManifestSha256: "4".repeat(64),
+    };
+    const windowsPublication = {
+      primitive: "CreateHardLinkW",
+      linkCalls: 1,
+      destinationParentIdentityRechecked: true,
+      stageIdentityRechecked: true,
+      stageFileIdentityRechecked: true,
+      destinationParent: { volumeSerialNumber: 1, fileId: "a".repeat(32) },
+      stageDirectory: { volumeSerialNumber: 1, fileId: "b".repeat(32) },
+      stageFile: { volumeSerialNumber: 1, fileId: "c".repeat(32) },
+      destinationFile: { volumeSerialNumber: 1, fileId: "c".repeat(32) },
+    };
+    for (const tuple of ["win32-x64", "win32-arm64"]) {
+      const installed = {
+        evidenceScope: "final-matching-host",
+        hostTuple: tuple,
+        nodeVersion: "v22.0.0",
+        tarball: { sha256: candidate.tarballSha256 },
+        manifestSha256: candidate.corpusManifestSha256,
+        selectedArtifact: `prebuilds/${tuple}/publication.node`,
+        cases: {
+          sourcePreserved: true,
+          published: true,
+          collisionPreserved: true,
+          cancellation: {
+            code: "aborted",
+            nativeWrite: "started",
+            fallback: "do-not-fallback",
+            finalization: "owned-partial-remains",
+          },
+          postCommitResidue: "none",
+          collisionFinalization: "owned-partial-remains",
+        },
+        windowsPublication,
+      };
+      expect(() =>
+        report.validateInstalledReport(installed, tuple, 22, candidate),
+      ).not.toThrow();
+      const mutations: readonly ((mutated: typeof installed) => void)[] = [
+        (mutated) => (mutated.cases.sourcePreserved = false),
+        (mutated) => (mutated.cases.published = false),
+        (mutated) => (mutated.cases.collisionPreserved = false),
+        (mutated) => (mutated.cases.cancellation.code = "refused"),
+        (mutated) => (mutated.cases.cancellation.nativeWrite = "not-started"),
+        (mutated) => (mutated.cases.cancellation.fallback = "fallback"),
+        (mutated) => (mutated.cases.cancellation.finalization = "none"),
+        (mutated) =>
+          (mutated.cases.postCommitResidue =
+            "private-empty-stage-directory-remains"),
+        (mutated) => (mutated.cases.collisionFinalization = "none"),
+        (mutated) =>
+          Object.assign(mutated.cases, { unexpected: "extra-field" }),
+        (mutated) =>
+          Object.assign(mutated.cases.cancellation, {
+            unexpected: "extra-field",
+          }),
+      ];
+      for (const mutate of mutations) {
+        const mutated = structuredClone(installed);
+        mutate(mutated);
+        expect(() =>
+          report.validateInstalledReport(mutated, tuple, 22, candidate),
+        ).toThrow();
+      }
     }
   });
 

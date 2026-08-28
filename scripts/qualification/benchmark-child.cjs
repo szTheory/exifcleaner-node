@@ -312,6 +312,7 @@ async function main() {
       outputSha256,
       sourceUnchanged,
       destinationAbsent,
+      finalization: finalization.finalization,
       finalizationTruthful: finalization.finalizationTruthful,
     });
     allocationPhases.push(memorySnapshot("correctness-complete"));

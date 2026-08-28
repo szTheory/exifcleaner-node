@@ -327,7 +327,7 @@ function validateCancellationEvidence(cancellation, rawSchedule, fixtureId) {
     cancellation.sample.destinationAbsent !== true ||
     cancellation.sample.finalizationTruthful !== true ||
     cancellation.sample.secondWriter !== false ||
-    typeof cancellation.sample.finalization !== "string" ||
+    cancellation.sample.finalization !== "owned-partial-remains" ||
     !Number.isFinite(cancellation.sample.finalizationStartMs) ||
     cancellation.sample.finalizationStartMs < 0 ||
     cancellation.sample.finalizationStartMs > 250 ||
@@ -351,6 +351,16 @@ function validateCancellationEvidence(cancellation, rawSchedule, fixtureId) {
     !sameJson(cancellation.sample, retainedCandidate.sample.cancellation)
   )
     throw new Error("cancellation sample is not bound to raw evidence");
+}
+function expectedChildFinalization(record, fixture) {
+  if (fixture.kind === "cancellation")
+    return record.version === "candidate"
+      ? "owned-partial-remains"
+      : "not-started";
+  if (fixture.expected !== "success") return "not-started";
+  return record.version === "candidate"
+    ? "private-empty-stage-directory-remains"
+    : "none";
 }
 function validateChildSample(sample, record, fixture, report, seenRunTokens) {
   const cancellation = fixture.kind === "cancellation";
@@ -385,6 +395,7 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
     record.version === "baseline"
       ? report.baselineSha256
       : report.candidateSha256;
+  const expectedFinalization = expectedChildFinalization(record, fixture);
   if (
     sample.schemaVersion !== 1 ||
     sample.version !== record.version ||
@@ -408,7 +419,7 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
       : typeof sample.code !== "string") ||
     typeof sample.sourceUnchanged !== "boolean" ||
     sample.sourceUnchanged !== true ||
-    typeof sample.finalization !== "string" ||
+    sample.finalization !== expectedFinalization ||
     sample.finalizationTruthful !== true ||
     !SHA256.test(sample.correctnessKey) ||
     sample.correctnessKey !== deriveCorrectnessKey(sample) ||
@@ -482,7 +493,7 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
       sample.cancellation.finalizationStartMs < 0 ||
       !Number.isFinite(sample.cancellation.terminalMs) ||
       sample.cancellation.terminalMs < 0 ||
-      typeof sample.cancellation.finalization !== "string"
+      sample.cancellation.finalization !== expectedFinalization
     )
       throw new Error("benchmark child cancellation evidence is invalid");
   }
@@ -653,6 +664,9 @@ function requireWindowsPublicationEvidence(evidence) {
   };
 }
 function validateInstalledReport(report, tuple, nodeMajor, candidate) {
+  const expectedPostCommitResidue = tuple.startsWith("win32")
+    ? "none"
+    : "private-empty-stage-directory-remains";
   if (
     typeof report !== "object" ||
     report === null ||
@@ -661,13 +675,38 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
     !new RegExp(`^v${nodeMajor}\\.`).test(report.nodeVersion ?? "") ||
     report.tarball?.sha256 !== candidate.tarballSha256 ||
     report.manifestSha256 !== candidate.corpusManifestSha256 ||
-    report.selectedArtifact !== `prebuilds/${tuple}/publication.node` ||
-    report.cases?.sourcePreserved !== true ||
-    report.cases?.published !== true ||
-    report.cases?.collisionPreserved !== true ||
-    report.cases?.cancellation?.code !== "aborted"
+    report.selectedArtifact !== `prebuilds/${tuple}/publication.node`
   )
     throw new Error("installed report binding is invalid");
+  exactKeys(
+    report.cases,
+    [
+      "sourcePreserved",
+      "published",
+      "collisionPreserved",
+      "cancellation",
+      "postCommitResidue",
+      "collisionFinalization",
+    ],
+    "installed report cases",
+  );
+  exactKeys(
+    report.cases.cancellation,
+    ["code", "nativeWrite", "fallback", "finalization"],
+    "installed cancellation",
+  );
+  if (
+    report.cases.sourcePreserved !== true ||
+    report.cases.published !== true ||
+    report.cases.collisionPreserved !== true ||
+    report.cases.cancellation.code !== "aborted" ||
+    report.cases.cancellation.nativeWrite !== "started" ||
+    report.cases.cancellation.fallback !== "do-not-fallback" ||
+    report.cases.cancellation.finalization !== "owned-partial-remains" ||
+    report.cases.postCommitResidue !== expectedPostCommitResidue ||
+    report.cases.collisionFinalization !== "owned-partial-remains"
+  )
+    throw new Error("installed report contract is invalid");
   return tuple.startsWith("win32")
     ? requireWindowsPublicationEvidence(report.windowsPublication)
     : undefined;
@@ -897,6 +936,7 @@ module.exports = {
   validateCalibration,
   validateReport,
   hostedLedger,
+  validateInstalledReport,
   phaseAdmission,
   deriveCorrectnessKey,
 };

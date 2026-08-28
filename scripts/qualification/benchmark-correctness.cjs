@@ -17,6 +17,7 @@ function deriveCorrectnessKey(sample) {
         outputSha256: sample.outputSha256,
         sourceUnchanged: sample.sourceUnchanged,
         destinationAbsent: sample.destinationAbsent,
+        finalization: sample.finalization,
         finalizationTruthful: sample.finalizationTruthful,
       }),
     )
