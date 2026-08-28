@@ -624,6 +624,11 @@ describe("paired benchmark admission", () => {
                 serial as string;
             },
           ),
+          ...["a".repeat(31), "A".repeat(32), 1].map(
+            (fileId) => (mutated: typeof installed) => {
+              mutated.windowsPublication.stageFile.fileId = fileId as string;
+            },
+          ),
         ];
         for (const mutate of mutations) {
           const mutated = structuredClone(installed);

@@ -139,6 +139,31 @@ describe("installed package smoke", () => {
         "Windows native publication evidence is incomplete or inconsistent",
       );
     }
+    for (const fileId of ["a".repeat(31), "A".repeat(32), 1]) {
+      const evidence = {
+        primitive: "CreateHardLinkW",
+        linkCalls: 1,
+        destinationParentIdentityRechecked: true,
+        stageIdentityRechecked: true,
+        stageFileIdentityRechecked: true,
+        destinationParent: {
+          volumeSerialNumber: "0000000000000000",
+          fileId: "0".repeat(32),
+        },
+        stageDirectory: {
+          volumeSerialNumber: "0000000000000000",
+          fileId: "1".repeat(32),
+        },
+        stageFile: { volumeSerialNumber: "0000000000000000", fileId },
+        destinationFile: {
+          volumeSerialNumber: "0000000000000000",
+          fileId: "2".repeat(32),
+        },
+      };
+      expect(() => helper.requireWindowsPublicationEvidence(evidence)).toThrow(
+        "Windows native publication evidence is incomplete or inconsistent",
+      );
+    }
     expect(() =>
       helper.requireWindowsPublicationEvidence({
         primitive: "CreateHardLinkW",
