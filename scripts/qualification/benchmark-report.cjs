@@ -692,8 +692,13 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
   );
   exactKeys(
     report.cases.cancellation,
-    ["code", "nativeWrite", "fallback", "finalization"],
+    ["code", "nativeWrite", "fallback", "finalization", "residue"],
     "installed cancellation",
+  );
+  exactKeys(
+    report.cases.cancellation.residue,
+    ["stageDirectoryExists", "stageFileExists"],
+    "installed cancellation residue",
   );
   if (
     report.cases.sourcePreserved !== true ||
@@ -703,6 +708,8 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
     report.cases.cancellation.nativeWrite !== "started" ||
     report.cases.cancellation.fallback !== "do-not-fallback" ||
     report.cases.cancellation.finalization !== "owned-partial-remains" ||
+    report.cases.cancellation.residue.stageDirectoryExists !== true ||
+    report.cases.cancellation.residue.stageFileExists !== true ||
     report.cases.postCommitResidue !== expectedPostCommitResidue ||
     report.cases.collisionFinalization !== "owned-partial-remains"
   )

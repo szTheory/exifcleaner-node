@@ -289,6 +289,10 @@ describe("installed package smoke", () => {
           code: "aborted",
           nativeWrite: "started",
           fallback: "do-not-fallback",
+          residue: {
+            stageDirectoryExists: true,
+            stageFileExists: true,
+          },
         },
         postCommitResidue: expect.any(String),
       },

@@ -369,57 +369,77 @@ describe("paired benchmark admission", () => {
       stageFile: { volumeSerialNumber: 1, fileId: "c".repeat(32) },
       destinationFile: { volumeSerialNumber: 1, fileId: "c".repeat(32) },
     };
-    for (const tuple of ["win32-x64", "win32-arm64"]) {
-      const installed = {
-        evidenceScope: "final-matching-host",
-        hostTuple: tuple,
-        nodeVersion: "v22.0.0",
-        tarball: { sha256: candidate.tarballSha256 },
-        manifestSha256: candidate.corpusManifestSha256,
-        selectedArtifact: `prebuilds/${tuple}/publication.node`,
-        cases: {
-          sourcePreserved: true,
-          published: true,
-          collisionPreserved: true,
-          cancellation: {
-            code: "aborted",
-            nativeWrite: "started",
-            fallback: "do-not-fallback",
-            finalization: "owned-partial-remains",
+    for (const nodeMajor of [22, 24]) {
+      for (const tuple of ["win32-x64", "win32-arm64"]) {
+        const installed = {
+          evidenceScope: "final-matching-host",
+          hostTuple: tuple,
+          nodeVersion: `v${nodeMajor}.0.0`,
+          tarball: { sha256: candidate.tarballSha256 },
+          manifestSha256: candidate.corpusManifestSha256,
+          selectedArtifact: `prebuilds/${tuple}/publication.node`,
+          cases: {
+            sourcePreserved: true,
+            published: true,
+            collisionPreserved: true,
+            cancellation: {
+              code: "aborted",
+              nativeWrite: "started",
+              fallback: "do-not-fallback",
+              finalization: "owned-partial-remains",
+              residue: {
+                stageDirectoryExists: true,
+                stageFileExists: true,
+              },
+            },
+            postCommitResidue: "none",
+            collisionFinalization: "owned-partial-remains",
           },
-          postCommitResidue: "none",
-          collisionFinalization: "owned-partial-remains",
-        },
-        windowsPublication,
-      };
-      expect(() =>
-        report.validateInstalledReport(installed, tuple, 22, candidate),
-      ).not.toThrow();
-      const mutations: readonly ((mutated: typeof installed) => void)[] = [
-        (mutated) => (mutated.cases.sourcePreserved = false),
-        (mutated) => (mutated.cases.published = false),
-        (mutated) => (mutated.cases.collisionPreserved = false),
-        (mutated) => (mutated.cases.cancellation.code = "refused"),
-        (mutated) => (mutated.cases.cancellation.nativeWrite = "not-started"),
-        (mutated) => (mutated.cases.cancellation.fallback = "fallback"),
-        (mutated) => (mutated.cases.cancellation.finalization = "none"),
-        (mutated) =>
-          (mutated.cases.postCommitResidue =
-            "private-empty-stage-directory-remains"),
-        (mutated) => (mutated.cases.collisionFinalization = "none"),
-        (mutated) =>
-          Object.assign(mutated.cases, { unexpected: "extra-field" }),
-        (mutated) =>
-          Object.assign(mutated.cases.cancellation, {
-            unexpected: "extra-field",
-          }),
-      ];
-      for (const mutate of mutations) {
-        const mutated = structuredClone(installed);
-        mutate(mutated);
+          windowsPublication,
+        };
         expect(() =>
-          report.validateInstalledReport(mutated, tuple, 22, candidate),
-        ).toThrow();
+          report.validateInstalledReport(
+            installed,
+            tuple,
+            nodeMajor,
+            candidate,
+          ),
+        ).not.toThrow();
+        const mutations: readonly ((mutated: typeof installed) => void)[] = [
+          (mutated) => (mutated.cases.sourcePreserved = false),
+          (mutated) => (mutated.cases.published = false),
+          (mutated) => (mutated.cases.collisionPreserved = false),
+          (mutated) => (mutated.cases.cancellation.code = "refused"),
+          (mutated) => (mutated.cases.cancellation.nativeWrite = "not-started"),
+          (mutated) => (mutated.cases.cancellation.fallback = "fallback"),
+          (mutated) => (mutated.cases.cancellation.finalization = "none"),
+          (mutated) =>
+            (mutated.cases.cancellation.residue.stageDirectoryExists = false),
+          (mutated) =>
+            (mutated.cases.cancellation.residue.stageFileExists = false),
+          (mutated) =>
+            (mutated.cases.postCommitResidue =
+              "private-empty-stage-directory-remains"),
+          (mutated) => (mutated.cases.collisionFinalization = "none"),
+          (mutated) =>
+            Object.assign(mutated.cases, { unexpected: "extra-field" }),
+          (mutated) =>
+            Object.assign(mutated.cases.cancellation, {
+              unexpected: "extra-field",
+            }),
+        ];
+        for (const mutate of mutations) {
+          const mutated = structuredClone(installed);
+          mutate(mutated);
+          expect(() =>
+            report.validateInstalledReport(
+              mutated,
+              tuple,
+              nodeMajor,
+              candidate,
+            ),
+          ).toThrow();
+        }
       }
     }
   });

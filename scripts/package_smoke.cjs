@@ -70,6 +70,16 @@ function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+function exists(path) {
+  try {
+    accessSync(path);
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
 function isLoadedNativeCleanupLock(
   error,
   sandbox,
@@ -430,6 +440,7 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
     undefined,
   );
   const controller = new AbortController();
+  let cancellationStage;
   const result = await transactionModule.runSafeTransaction({
     sourceHandle: source,
     sourceSnapshot: identityModule.snapshotSource(stats),
@@ -447,7 +458,10 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
       signal: controller.signal,
     },
     fileOps: fileOpsModule.NODE_FILE_OPS,
-    beforePublish: () => controller.abort(),
+    beforePublish: ({ stageDirectoryPath, stagePath }) => {
+      cancellationStage = { stageDirectoryPath, stagePath };
+      controller.abort();
+    },
   });
   if (
     result.ok ||
@@ -465,11 +479,27 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
   }
   if (!readFileSync(sourcePath).equals(sourceBytes))
     throw new Error("Installed cancellation changed source bytes");
+  if (cancellationStage === undefined)
+    throw new Error("Installed cancellation did not expose its private stage");
+  const residue = {
+    stageDirectoryExists: exists(cancellationStage.stageDirectoryPath),
+    stageFileExists: exists(cancellationStage.stagePath),
+  };
+  const retainsOwnedStage =
+    result.error.finalization.state === "owned-partial-remains";
+  if (
+    residue.stageDirectoryExists !== retainsOwnedStage ||
+    residue.stageFileExists !== retainsOwnedStage
+  )
+    throw new Error(
+      "Installed cancellation finalization residue is untruthful",
+    );
   return {
     code: result.error.code,
     nativeWrite: result.error.nativeWrite,
     fallback: "do-not-fallback",
     finalization: result.error.finalization.state,
+    residue,
   };
 }
 
