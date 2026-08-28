@@ -560,7 +560,7 @@ function measureChild(version, installed, fixture) {
         ),
     );
   if (
-    record.schemaVersion !== 1 ||
+    record.schemaVersion !== 2 ||
     record.version !== version ||
     record.fixtureId !== fixture.id ||
     record.packageSha !== installed.sha256 ||
@@ -579,6 +579,8 @@ function measureChild(version, installed, fixture) {
       : typeof record.code !== "string") ||
     !SHA256.test(record.correctnessKey) ||
     record.correctnessKey !== reportValidator.deriveCorrectnessKey(record) ||
+    !SHA256.test(record.finalizationKey) ||
+    record.finalizationKey !== reportValidator.deriveFinalizationKey(record) ||
     !validAllocationPhases ||
     record.environment?.nodeVersion !== process.version ||
     record.environment?.platform !== process.platform ||
@@ -630,8 +632,14 @@ function aggregate(samples) {
   const maxRss = samples.map((sample) => sample.maxRSSKiB);
   const keys = new Set(samples.map((sample) => sample.correctnessKey));
   if (keys.size !== 1) throw new Error("Benchmark correctness was unstable");
+  const finalizationKeys = new Set(
+    samples.map((sample) => sample.finalizationKey),
+  );
+  if (finalizationKeys.size !== 1)
+    throw new Error("Benchmark finalization was unstable");
   return {
     correctnessKey: [...keys][0],
+    finalizationKey: [...finalizationKeys][0],
     medianElapsedNs: percentile(elapsed, 0.5),
     p95ElapsedNs: percentile(elapsed, 0.95),
     medianMaxRSSKiB: percentile(maxRss, 0.5),
@@ -776,7 +784,7 @@ async function executeBenchmark(options) {
       failures.push(...verdict.failures);
     }
     const report = {
-      version: 1,
+      version: 2,
       mode: options.mode,
       pass: failures.length === 0,
       baselinePackageName: installed.baseline.baselinePackageName,

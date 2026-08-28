@@ -8,7 +8,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { materializeFixture } = require("./benchmark.cjs");
-const { deriveCorrectnessKey } = require("./benchmark-correctness.cjs");
+const {
+  deriveCorrectnessKey,
+  deriveFinalizationKey,
+} = require("./benchmark-correctness.cjs");
 
 const SHA256 = /^[a-f0-9]{64}$/;
 
@@ -313,12 +316,16 @@ async function main() {
       outputSha256,
       sourceUnchanged,
       destinationAbsent,
+    });
+    const finalizationKey = deriveFinalizationKey({
+      version: options.version,
+      fixtureId: options.fixture.id,
       finalization: finalization.finalization,
-      finalizationTruthful: finalization.finalizationTruthful,
+      truthful: finalization.finalizationTruthful,
     });
     allocationPhases.push(memorySnapshot("correctness-complete"));
     const record = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       version: options.version,
       fixtureId: options.fixture.id,
       packageSha: options.packageSha,
@@ -339,6 +346,7 @@ async function main() {
       finalization: finalization.finalization,
       finalizationTruthful: finalization.finalizationTruthful,
       correctnessKey,
+      finalizationKey,
       cancellation: measured.cancellation,
       allocationPhases,
       environment: {

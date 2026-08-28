@@ -694,7 +694,7 @@ function requireWindowsPublicationEvidence(value) {
       (identity) =>
         !hasExactKeys(identity, ["volumeSerialNumber", "fileId"]) ||
         typeof identity.volumeSerialNumber !== "string" ||
-        !/^[a-f0-9]{8}$/u.test(identity.volumeSerialNumber) ||
+        !/^[a-f0-9]{16}$/u.test(identity.volumeSerialNumber) ||
         typeof identity.fileId !== "string" ||
         !/^[a-f0-9]{32}$/u.test(identity.fileId),
     ) ||

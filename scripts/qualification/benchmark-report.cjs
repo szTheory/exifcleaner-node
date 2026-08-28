@@ -12,7 +12,10 @@ const {
   workloadDigest,
   workloadResultDigest,
 } = require("./benchmark-calibration.cjs");
-const { deriveCorrectnessKey } = require("./benchmark-correctness.cjs");
+const {
+  deriveCorrectnessKey,
+  deriveFinalizationKey,
+} = require("./benchmark-correctness.cjs");
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const MEDIAN_RATIO = 1.2;
@@ -386,6 +389,7 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
       "finalization",
       "finalizationTruthful",
       "correctnessKey",
+      "finalizationKey",
       "allocationPhases",
       "environment",
       ...(cancellation ? ["cancellation"] : []),
@@ -398,7 +402,7 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
       : report.candidateSha256;
   const expectedFinalization = expectedChildFinalization(record, fixture);
   if (
-    sample.schemaVersion !== 1 ||
+    sample.schemaVersion !== 2 ||
     sample.version !== record.version ||
     sample.fixtureId !== fixture.id ||
     sample.packageSha !== expectedPackageSha ||
@@ -424,6 +428,14 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
     sample.finalizationTruthful !== true ||
     !SHA256.test(sample.correctnessKey) ||
     sample.correctnessKey !== deriveCorrectnessKey(sample) ||
+    !SHA256.test(sample.finalizationKey) ||
+    sample.finalizationKey !==
+      deriveFinalizationKey({
+        version: sample.version,
+        fixtureId: sample.fixtureId,
+        finalization: sample.finalization,
+        truthful: sample.finalizationTruthful,
+      }) ||
     typeof sample.environment !== "object" ||
     sample.environment === null ||
     !sameJson(sample.environment, report.environment)
@@ -533,7 +545,7 @@ function validateReport(report) {
     "benchmark environment",
   );
   if (
-    report.version !== 1 ||
+    report.version !== 2 ||
     !["report", "admit"].includes(report.mode) ||
     typeof report.pass !== "boolean" ||
     report.baselinePackageName !== "exifcleaner-node" ||
@@ -635,8 +647,14 @@ function validateReport(report) {
     );
     if (correctnessKeys.size !== 1)
       throw new Error("retained correctness evidence is unstable");
+    const finalizationKeys = new Set(
+      samples.map((sample) => sample.finalizationKey),
+    );
+    if (finalizationKeys.size !== 1)
+      throw new Error("retained finalization evidence is unstable");
     return {
       correctnessKey: [...correctnessKeys][0],
+      finalizationKey: [...finalizationKeys][0],
       medianElapsedNs: percentile(
         samples.map((sample) => sample.elapsedNs * runScale),
         0.5,
@@ -700,6 +718,7 @@ function validateReport(report) {
         item,
         [
           "correctnessKey",
+          "finalizationKey",
           "medianElapsedNs",
           "p95ElapsedNs",
           "medianMaxRSSKiB",
@@ -960,7 +979,7 @@ function requireWindowsPublicationEvidence(evidence) {
         typeof identity !== "object" ||
         identity === null ||
         typeof identity.volumeSerialNumber !== "string" ||
-        !/^[a-f0-9]{8}$/.test(identity.volumeSerialNumber) ||
+        !/^[a-f0-9]{16}$/.test(identity.volumeSerialNumber) ||
         typeof identity.fileId !== "string" ||
         !/^[a-f0-9]{32}$/.test(identity.fileId),
     ) ||
@@ -1399,6 +1418,7 @@ module.exports = {
   validateInstalledReport,
   phaseAdmission,
   deriveCorrectnessKey,
+  deriveFinalizationKey,
 };
 if (require.main === module) {
   try {

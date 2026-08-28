@@ -337,9 +337,9 @@ describe("paired benchmark admission", () => {
         }),
       }));
     const complete = {
-      version: 1,
+      version: 2,
       mode: "admit",
-      pass: false,
+      pass: true,
       baselinePackageName: "exifcleaner-node",
       baselineVersion: "0.1.1",
       baselineExpectedIdentity: `exifcleaner-node@0.1.1#sha256:${benchmark.BASELINE_TARBALL_SHA256}`,
@@ -417,16 +417,14 @@ describe("paired benchmark admission", () => {
     const finalizationMutation = structuredClone(complete);
     finalizationMutation.rawSchedule[0]!.sample.finalization =
       "arbitrary-residue";
-      finalizationMutation.rawSchedule[0]!.sample.correctnessKey =
+    finalizationMutation.rawSchedule[0]!.sample.correctnessKey =
       report.deriveCorrectnessKey(finalizationMutation.rawSchedule[0]!.sample);
-    finalizationMutation.rawSchedule[0]!.sample.finalizationKey =
-      report.deriveFinalizationKey(finalizationMutation.rawSchedule[0]!.sample);
     expect(() => report.validateReport(finalizationMutation)).toThrow();
     for (const mutate of [
-      (mutated: typeof complete) => (mutated.pass = true),
+      (mutated: typeof complete) => (mutated.pass = false),
       (mutated: typeof complete) => (mutated.failures = ["forged failure"]),
       (mutated: typeof complete) =>
-        (mutated.comparisons[0]!.verdict.failures = []),
+        (mutated.comparisons[0]!.verdict.pass = false),
       (mutated: typeof complete) =>
         (mutated.comparisons[0]!.candidate.samples[0]!.maxRSSKiB = 1 + 16_385),
       (mutated: typeof complete) =>
@@ -457,7 +455,10 @@ describe("paired benchmark admission", () => {
         volumeSerialNumber: "0000000000000000",
         fileId: "b".repeat(32),
       },
-      stageFile: { volumeSerialNumber: "0000000000000000", fileId: "c".repeat(32) },
+      stageFile: {
+        volumeSerialNumber: "0000000000000000",
+        fileId: "c".repeat(32),
+      },
       destinationFile: {
         volumeSerialNumber: "0000000000000000",
         fileId: "c".repeat(32),
@@ -617,6 +618,12 @@ describe("paired benchmark admission", () => {
             Object.assign(mutated.windowsPublication.stageFile, {
               unexpected: "extra-field",
             }),
+          ...["00000000", 1, "A".repeat(16), "0".repeat(17)].map(
+            (serial) => (mutated: typeof installed) => {
+              mutated.windowsPublication.destinationParent.volumeSerialNumber =
+                serial as string;
+            },
+          ),
         ];
         for (const mutate of mutations) {
           const mutated = structuredClone(installed);
