@@ -1,7 +1,11 @@
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
+const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const gate = require("../scripts/release_workflow_gate.cjs") as {
   REQUIRED_AUTHORITIES: string[];
   validateReleaseGraph(graph: {
@@ -49,6 +53,29 @@ function greenGraph(): WorkflowGraph {
 }
 
 describe("release workflow authority gate", () => {
+  it("makes the raw identity-cleanup ledger a non-optional CI authority", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    for (const required of [
+      "validateIdentityCleanupLedger",
+      "identity-cleanup-ledger.json",
+      "--ignore-scripts",
+      "fail-fast: false",
+      "implementation.sha",
+      "auditReportSha256",
+      "linux-x64",
+      "linux-arm64",
+      "darwin-x64",
+      "darwin-arm64",
+      "win32-x64",
+      "win32-arm64",
+    ])
+      expect(workflow).toContain(required);
+    for (const forbidden of ["npm install --foreground-scripts", "retry vote"])
+      expect(workflow).not.toContain(forbidden);
+  });
   it("accepts the production graph only with all immutable installed authorities", () => {
     expect(() => gate.validateReleaseGraph(greenGraph())).not.toThrow();
   });
