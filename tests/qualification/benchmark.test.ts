@@ -369,6 +369,11 @@ describe("paired benchmark admission", () => {
     const rawSubstitution = structuredClone(complete);
     rawSubstitution.rawSchedule[0]!.sample.fixtureId = "still-1m";
     expect(() => report.validateReport(rawSubstitution)).toThrow();
+    const rawRecordExtraField = structuredClone(complete);
+    Object.assign(rawRecordExtraField.rawSchedule[0]!, { forged: true });
+    expect(() => report.validateReport(rawRecordExtraField)).toThrow(
+      "raw schedule record fields are not exact",
+    );
     const comparisonSubstitution = structuredClone(complete);
     comparisonSubstitution.comparisons[0]!.baseline.samples[0] = {
       ...comparisonSubstitution.comparisons[0]!.baseline.samples[0]!,

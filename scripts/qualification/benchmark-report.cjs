@@ -593,6 +593,11 @@ function validateReport(report) {
   const runTokens = new Set();
   for (const [index, expectedRecord] of expected.rawSchedule.entries()) {
     const item = report.rawSchedule[index];
+    exactKeys(
+      item,
+      ["fixtureId", "round", "warmup", "version", "sample"],
+      "raw schedule record",
+    );
     if (
       typeof item !== "object" ||
       item === null ||
