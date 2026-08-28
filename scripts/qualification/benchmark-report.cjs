@@ -857,6 +857,25 @@ const WINDOWS_PUBLICATION_DIAGNOSTIC_IDENTITIES = Object.freeze([
   "stageFile",
   "destinationFile",
 ]);
+const WINDOWS_PUBLICATION_REFUTATION_RUN = Object.freeze({
+  id: 33200060244,
+  headSha: "ba1f4c67403daf82c7de996bb210bc0efae8b63e",
+  ref: "refs/heads/proof/46-25-windows-diagnostic-ba1f4c6",
+  artifacts: Object.freeze({
+    "matching-host": Object.freeze({
+      "win32-x64":
+        "d3a83a61db1443f96ad2518bcb0336e71c5855e4ba93b2f77495aa0baf4a2c14",
+      "win32-arm64":
+        "e757e4aba6b643a3ca75b8fba77a5778792d83fef39cbae7f18ae4e3eec93726",
+    }),
+    "installed-node22": Object.freeze({
+      "win32-x64":
+        "2e13fc5dfbd0baccc69c6305ccc9ef7b5e431d53afb560f081b213a1c999e070",
+      "win32-arm64":
+        "0111e778fe6b6c89d9afd7b9909ba5059f2d1ac1c87e6ab85f5263421224a88a",
+    }),
+  }),
+});
 
 function diagnosticReason(observation) {
   if (observation.topLevelType === "undefined") return "absent";
@@ -1061,15 +1080,26 @@ function validateWindowsPublicationDiagnosticLedger(ledger) {
       "schemaVersion",
       "diagnosticOnly",
       "run",
+      "outcome",
       "selectedBoundary",
       "matchingHost",
       "installedNode22",
+      "laterFailures",
     ],
     "Windows publication diagnostic ledger",
   );
   exactKeys(
     ledger.run,
-    ["repository", "workflow", "event", "id", "url", "ref", "headSha"],
+    [
+      "repository",
+      "workflow",
+      "event",
+      "attempt",
+      "id",
+      "url",
+      "ref",
+      "headSha",
+    ],
     "Windows publication diagnostic run",
   );
   if (
@@ -1079,6 +1109,7 @@ function validateWindowsPublicationDiagnosticLedger(ledger) {
     ledger.run.repository !== "szTheory/exifcleaner-node" ||
     ledger.run.workflow !== ".github/workflows/ci.yml" ||
     ledger.run.event !== "workflow_dispatch" ||
+    ledger.run.attempt !== 1 ||
     !Number.isSafeInteger(ledger.run.id) ||
     ledger.run.id <= 0 ||
     ledger.run.url !==
@@ -1095,14 +1126,21 @@ function validateWindowsPublicationDiagnosticLedger(ledger) {
   const matchingRejected = WINDOWS_PUBLICATION_DIAGNOSTIC_TUPLES.some(
     (tuple) => matching[tuple].observation.status === "rejected",
   );
-  if (matchingRejected) {
+  if (ledger.outcome === "rejection-observed") {
+    if (ledger.laterFailures !== null)
+      throw new Error("rejection-observed cannot claim a later failure");
+    if (matchingRejected) {
+      if (
+        ledger.selectedBoundary !== "matching-host" ||
+        ledger.installedNode22 !== null
+      )
+        throw new Error("Windows diagnostic boundaries are mixed");
+      return ledger;
+    }
     if (
-      ledger.selectedBoundary !== "matching-host" ||
-      ledger.installedNode22 !== null
+      ledger.selectedBoundary !== "installed-node22" ||
+      ledger.installedNode22 === null
     )
-      throw new Error("Windows diagnostic boundaries are mixed");
-  } else {
-    if (ledger.selectedBoundary !== "installed-node22")
       throw new Error("Windows diagnostic selected boundary is invalid");
     const installed = validateWindowsPublicationDiagnosticPair(
       ledger.installedNode22,
@@ -1114,6 +1152,42 @@ function validateWindowsPublicationDiagnosticLedger(ledger) {
       )
     )
       throw new Error("Windows diagnostic selected boundary has no rejection");
+    return ledger;
+  }
+  if (ledger.outcome !== "hypothesis-refuted")
+    throw new Error("Windows publication diagnostic outcome is invalid");
+  if (
+    ledger.selectedBoundary !== null ||
+    matchingRejected ||
+    ledger.run.id !== WINDOWS_PUBLICATION_REFUTATION_RUN.id ||
+    ledger.run.headSha !== WINDOWS_PUBLICATION_REFUTATION_RUN.headSha ||
+    ledger.run.ref !== WINDOWS_PUBLICATION_REFUTATION_RUN.ref
+  )
+    throw new Error("Windows publication refutation identity is invalid");
+  const installed = validateWindowsPublicationDiagnosticPair(
+    ledger.installedNode22,
+    "installed-node22",
+  );
+  exactKeys(
+    ledger.laterFailures,
+    WINDOWS_PUBLICATION_DIAGNOSTIC_TUPLES,
+    "Windows publication refutation later failures",
+  );
+  for (const tuple of WINDOWS_PUBLICATION_DIAGNOSTIC_TUPLES) {
+    if (
+      matching[tuple].observation.status !== "accepted" ||
+      matching[tuple].job.conclusion !== "success" ||
+      installed[tuple].observation.status !== "accepted" ||
+      installed[tuple].job.conclusion !== "failure" ||
+      matching[tuple].artifact.sha256 !==
+        WINDOWS_PUBLICATION_REFUTATION_RUN.artifacts["matching-host"][tuple] ||
+      installed[tuple].artifact.sha256 !==
+        WINDOWS_PUBLICATION_REFUTATION_RUN.artifacts["installed-node22"][
+          tuple
+        ] ||
+      ledger.laterFailures[tuple] !== "deterministic-cancellation"
+    )
+      throw new Error("Windows publication refutation facts are invalid");
   }
   return ledger;
 }
