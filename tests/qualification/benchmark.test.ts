@@ -127,6 +127,12 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
 
 function loadIdentityLedgerValidator(source: string): {
   validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+  validateInstalledReport(
+    input: Record<string, unknown>,
+    tuple: string,
+    nodeMajor: number,
+    candidate: Record<string, unknown>,
+  ): void;
 } {
   const filename = join(
     projectRoot,
@@ -146,6 +152,252 @@ function loadIdentityLedgerValidator(source: string): {
   });
   return freshModule.exports as {
     validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+    validateInstalledReport(
+      input: Record<string, unknown>,
+      tuple: string,
+      nodeMajor: number,
+      candidate: Record<string, unknown>,
+    ): void;
+  };
+}
+
+const installedTuples = [
+  "linux-x64",
+  "linux-arm64",
+  "darwin-x64",
+  "darwin-arm64",
+  "win32-x64",
+  "win32-arm64",
+] as const;
+
+const installedCandidate = {
+  implementationSha: "1".repeat(40),
+  tarballSha256: "3".repeat(64),
+  corpusManifestSha256: "4".repeat(64),
+  nativeManifestSha256: "9".repeat(64),
+};
+
+function terminalCleanupRecord(platform: "linux" | "darwin" | "win32") {
+  const windows = platform === "win32";
+  return {
+    schemaVersion: "phase-46-terminal-cleanup/v2",
+    abiVersion: "native-publication/v2",
+    platform,
+    ownership: {
+      helperToken: "6".repeat(64),
+      captureOwnershipToken: "6".repeat(64),
+      terminalOwnershipToken: "6".repeat(64),
+      captureCapabilityId: "7".repeat(64),
+      terminalCapabilityId: "7".repeat(64),
+    },
+    capture: {
+      result: windows ? "captured" : "unsupported",
+      directoryIdentity: windows
+        ? { volumeSerialNumber: "0".repeat(16), fileId: "d".repeat(32) }
+        : null,
+      fileIdentity: windows
+        ? { volumeSerialNumber: "0".repeat(16), fileId: "e".repeat(32) }
+        : null,
+    },
+    helper: {
+      ownershipToken: "6".repeat(64),
+      quiescenceSequence: 1,
+      terminalSequence: 4,
+    },
+    terminal: {
+      identityBefore: windows
+        ? { volumeSerialNumber: "0".repeat(16), fileId: "e".repeat(32) }
+        : null,
+      removalIdentity: windows
+        ? { volumeSerialNumber: "0".repeat(16), fileId: "f".repeat(32) }
+        : null,
+      outcome: windows ? "replacement-retained" : "unsupported-retained",
+      consumeCount: 1,
+      replayCount: 1,
+      replayOutcome: "no-action",
+    },
+    replacement: {
+      observationSequence: 2,
+      injectionSequence: 3,
+      identityBefore: windows
+        ? { volumeSerialNumber: "0".repeat(16), fileId: "f".repeat(32) }
+        : null,
+      sha256Before: "8".repeat(64),
+      identityAfter: windows
+        ? { volumeSerialNumber: "0".repeat(16), fileId: "f".repeat(32) }
+        : null,
+      sha256After: "8".repeat(64),
+    },
+    nativeLifetime: {
+      handlesBefore: 2,
+      handlesAfter: 2,
+      finalizersBefore: 0,
+      finalizersAfter: windows ? 1 : 0,
+    },
+  };
+}
+
+function installedReport(
+  tuple: (typeof installedTuples)[number],
+  nodeMajor: 22 | 24,
+) {
+  const windows = tuple.startsWith("win32");
+  const platform = tuple.split("-")[0] as "linux" | "darwin" | "win32";
+  const base = {
+    evidenceScope: "final-matching-host",
+    hostTuple: tuple,
+    nodeVersion: `v${nodeMajor}.0.0`,
+    tarball: {
+      file: "exifcleaner-node-0.1.1.tgz",
+      sha256: installedCandidate.tarballSha256,
+    },
+    manifestSha256: installedCandidate.corpusManifestSha256,
+    propertySeed: 460_046,
+    propertyRuns: 25,
+    propertyOutputDigest: "5".repeat(64),
+    corpusCases: [
+      {
+        id: "exifcleaner-sample",
+        magicAdmission: true,
+        sourceSha256:
+          "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
+        outputSha256:
+          "a412e742b59ef1161af1410dd98b86c91acf85827a5f671d5f91712a4a282e1f",
+        payloadDigests: [
+          {
+            fourCc: "VP8 ",
+            occurrence: 0,
+            sha256:
+              "1300ec4f408f0960b09a5265851b14e81ac0c120fae6c3d555306df849235697",
+          },
+        ],
+        removedNamespaces: ["EXIF"],
+        finalization: windows
+          ? "none"
+          : "private-empty-stage-directory-remains",
+      },
+      {
+        id: "derived-two-frame-animation",
+        magicAdmission: true,
+        sourceSha256:
+          "eb201feb6be2ed982cb48ccd3ec36f11e799a0ae9b4f2873af4898844c601f80",
+        outputSha256:
+          "eb201feb6be2ed982cb48ccd3ec36f11e799a0ae9b4f2873af4898844c601f80",
+        payloadDigests: [
+          {
+            fourCc: "ANIM",
+            occurrence: 0,
+            sha256:
+              "ba3e4486d8c5bc4009da061168a88d776a1849bbc2596b474c9b05a9ff44a6c6",
+          },
+          {
+            fourCc: "ANMF",
+            occurrence: 0,
+            sha256:
+              "144759bea1ad5db4c4b1e20e4ffcbadd92ae4737d0559b28e5107871e3d89f96",
+          },
+          {
+            fourCc: "ANMF",
+            occurrence: 1,
+            sha256:
+              "a94c038e055c40ccc62f47ef3c6915fec89258e04d5fb7f5261920601dddef90",
+          },
+        ],
+        removedNamespaces: [],
+        finalization: windows
+          ? "none"
+          : "private-empty-stage-directory-remains",
+      },
+    ],
+    install: {
+      command: "npm install --ignore-scripts",
+      arguments: [
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+        "<admitted-tarball>",
+      ],
+    },
+    selectedArtifact: `prebuilds/${tuple}/publication.node`,
+    cases: {
+      sourcePreserved: true,
+      published: true,
+      collisionPreserved: true,
+      cancellation: {
+        code: "aborted",
+        nativeWrite: "started",
+        fallback: "do-not-fallback",
+        finalization: "owned-partial-remains",
+        residue: { stageDirectoryExists: true, stageFileExists: true },
+        cleanup: terminalCleanupRecord(platform),
+      },
+      postCommitResidue: windows
+        ? "none"
+        : "private-empty-stage-directory-remains",
+      collisionFinalization: windows
+        ? "owned-partial-removed"
+        : "owned-partial-remains",
+    },
+  };
+  return windows
+    ? {
+        ...base,
+        windowsPublication: {
+          primitive: "CreateHardLinkW",
+          linkCalls: 1,
+          destinationParentIdentityRechecked: true,
+          stageIdentityRechecked: true,
+          stageFileIdentityRechecked: true,
+          destinationParent: {
+            volumeSerialNumber: "0".repeat(16),
+            fileId: "a".repeat(32),
+          },
+          stageDirectory: {
+            volumeSerialNumber: "0".repeat(16),
+            fileId: "b".repeat(32),
+          },
+          stageFile: {
+            volumeSerialNumber: "0".repeat(16),
+            fileId: "c".repeat(32),
+          },
+          destinationFile: {
+            volumeSerialNumber: "0".repeat(16),
+            fileId: "c".repeat(32),
+          },
+        },
+      }
+    : base;
+}
+
+function identityCleanupLedger() {
+  return {
+    schemaVersion: "phase-46-identity-cleanup-ledger/v1",
+    run: {
+      id: 123,
+      url: "https://github.com/szTheory/exifcleaner-node/actions/runs/123",
+      ref: "proof/46-18-repair-abc123",
+      headSha: installedCandidate.implementationSha,
+    },
+    candidate: installedCandidate,
+    artifacts: Object.fromEntries(
+      installedTuples.map((tuple) => [
+        tuple,
+        {
+          binarySha256: "a".repeat(64),
+          auditReportSha256: "b".repeat(64),
+          implementationSha: installedCandidate.implementationSha,
+        },
+      ]),
+    ),
+    installed: Object.fromEntries(
+      installedTuples.map((tuple) => [
+        tuple,
+        {
+          node22: installedReport(tuple, 22),
+          node24: installedReport(tuple, 24),
+        },
+      ]),
+    ),
   };
 }
 
@@ -1414,6 +1666,146 @@ describe("paired benchmark admission", () => {
           ).toThrow();
         }
       }
+    }
+  });
+
+  it("keeps cancellation retention independent from platform collision finalization", () => {
+    const ledger = identityCleanupLedger();
+    expect(() => report.validateIdentityCleanupLedger(ledger)).not.toThrow();
+
+    for (const tuple of installedTuples) {
+      for (const nodeMajor of [22, 24] as const) {
+        const installed = installedReport(tuple, nodeMajor);
+        expect(() =>
+          report.validateInstalledReport(
+            installed,
+            tuple,
+            nodeMajor,
+            installedCandidate,
+          ),
+        ).not.toThrow();
+
+        const mutations = [
+          (mutated: ReturnType<typeof installedReport>) => {
+            mutated.cases.cancellation.finalization = "owned-partial-removed";
+          },
+          (mutated: ReturnType<typeof installedReport>) => {
+            mutated.cases.cancellation.residue.stageDirectoryExists = false;
+          },
+          (mutated: ReturnType<typeof installedReport>) => {
+            mutated.cases.cancellation.residue.stageFileExists = false;
+          },
+          (mutated: ReturnType<typeof installedReport>) => {
+            mutated.cases.collisionFinalization = tuple.startsWith("win32")
+              ? "owned-partial-remains"
+              : "owned-partial-removed";
+          },
+        ];
+        for (const mutate of mutations) {
+          const mutated = structuredClone(installed);
+          mutate(mutated);
+          expect(() =>
+            report.validateInstalledReport(
+              mutated,
+              tuple,
+              nodeMajor,
+              installedCandidate,
+            ),
+          ).toThrow("installed report contract is invalid");
+        }
+      }
+    }
+  });
+
+  it("kills fresh validator mutants that recouple or weaken installed authorities", async () => {
+    const source = await readFile(
+      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+      "utf8",
+    );
+    const directOrder = [
+      "win32-x64",
+      "win32-arm64",
+      "linux-x64",
+      "linux-arm64",
+      "darwin-x64",
+      "darwin-arm64",
+    ] as const;
+    const assertInstalledAuthority = (validator: {
+      validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+      validateInstalledReport(
+        input: Record<string, unknown>,
+        tuple: string,
+        nodeMajor: number,
+        candidate: Record<string, unknown>,
+      ): void;
+    }): void => {
+      validator.validateIdentityCleanupLedger(identityCleanupLedger());
+      for (const tuple of directOrder) {
+        for (const nodeMajor of [22, 24] as const)
+          validator.validateInstalledReport(
+            installedReport(tuple, nodeMajor),
+            tuple,
+            nodeMajor,
+            installedCandidate,
+          );
+      }
+
+      const negativeCases = [
+        (mutated: ReturnType<typeof installedReport>) => {
+          mutated.cases.cancellation.residue.stageDirectoryExists = false;
+        },
+        (mutated: ReturnType<typeof installedReport>) => {
+          mutated.cases.cancellation.residue.stageFileExists = false;
+        },
+      ];
+      for (const mutate of negativeCases) {
+        const mutated = installedReport("win32-x64", 22);
+        mutate(mutated);
+        try {
+          validator.validateInstalledReport(
+            mutated,
+            "win32-x64",
+            22,
+            installedCandidate,
+          );
+        } catch {
+          continue;
+        }
+        throw new Error("weakened cancellation residue was admitted");
+      }
+    };
+
+    expect(() =>
+      assertInstalledAuthority(loadIdentityLedgerValidator(source)),
+    ).not.toThrow();
+
+    const mutations = [
+      source.replace(
+        'const expectedCancellationFinalization = "owned-partial-remains";',
+        'const expectedCancellationFinalization = "owned-partial-removed";',
+      ),
+      source.replace(
+        "report.cases.cancellation.residue.stageDirectoryExists !==\n      expectedCancellationResidue ||",
+        "false ||",
+      ),
+      source.replace(
+        "report.cases.cancellation.residue.stageFileExists !==\n      expectedCancellationResidue ||",
+        "false ||",
+      ),
+      source.replace(
+        'const expectedCollisionFinalization = windows\n    ? "owned-partial-removed"\n    : "owned-partial-remains";',
+        "const expectedCollisionFinalization = expectedCancellationFinalization;",
+      ),
+      source.replace(
+        'const expectedCollisionFinalization = windows\n    ? "owned-partial-removed"\n    : "owned-partial-remains";',
+        'const expectedCollisionFinalization = "owned-partial-removed";',
+      ),
+    ];
+    for (const mutation of mutations) {
+      expect(mutation).not.toBe(source);
+      expect(() =>
+        assertInstalledAuthority(loadIdentityLedgerValidator(mutation)),
+      ).toThrow();
     }
   });
 
