@@ -84,6 +84,7 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
   };
   validateCalibration(input: Record<string, unknown>): void;
   deriveCorrectnessKey(input: Record<string, unknown>): string;
+  deriveFinalizationKey(input: Record<string, unknown>): string;
   deriveBlockEstimate(values: readonly number[]): {
     medianNs: number;
     madNs: number;
@@ -155,7 +156,7 @@ describe("paired benchmark admission", () => {
       process: { execPath: process.execPath, clean: true },
     };
     const sample = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       version: "baseline",
       fixtureId: "",
       packageSha: benchmark.BASELINE_TARBALL_SHA256,
@@ -173,6 +174,7 @@ describe("paired benchmark admission", () => {
       finalization: "none",
       finalizationTruthful: true,
       correctnessKey: "",
+      finalizationKey: "",
       allocationPhases: [
         "package-load",
         "fixture-materialized",
@@ -264,8 +266,10 @@ describe("paired benchmark admission", () => {
           finalization,
         };
     }
-    for (const entry of rawSchedule)
+    for (const entry of rawSchedule) {
       entry.sample.correctnessKey = report.deriveCorrectnessKey(entry.sample);
+      entry.sample.finalizationKey = report.deriveFinalizationKey(entry.sample);
+    }
     const retainedSamples = (fixtureId: string, version: string) =>
       rawSchedule
         .filter(
@@ -292,6 +296,8 @@ describe("paired benchmark admission", () => {
           samples: retainedSamples(String(fixture.id), "baseline"),
           correctnessKey: retainedSamples(String(fixture.id), "baseline")[0]!
             .correctnessKey,
+          finalizationKey: retainedSamples(String(fixture.id), "baseline")[0]!
+            .finalizationKey,
           medianElapsedNs: 1,
           p95ElapsedNs: 1,
           medianMaxRSSKiB: 1,
@@ -301,6 +307,8 @@ describe("paired benchmark admission", () => {
           samples: retainedSamples(String(fixture.id), "candidate"),
           correctnessKey: retainedSamples(String(fixture.id), "candidate")[0]!
             .correctnessKey,
+          finalizationKey: retainedSamples(String(fixture.id), "candidate")[0]!
+            .finalizationKey,
           medianElapsedNs: 1,
           p95ElapsedNs: 1,
           medianMaxRSSKiB: 1,
@@ -409,8 +417,10 @@ describe("paired benchmark admission", () => {
     const finalizationMutation = structuredClone(complete);
     finalizationMutation.rawSchedule[0]!.sample.finalization =
       "arbitrary-residue";
-    finalizationMutation.rawSchedule[0]!.sample.correctnessKey =
+      finalizationMutation.rawSchedule[0]!.sample.correctnessKey =
       report.deriveCorrectnessKey(finalizationMutation.rawSchedule[0]!.sample);
+    finalizationMutation.rawSchedule[0]!.sample.finalizationKey =
+      report.deriveFinalizationKey(finalizationMutation.rawSchedule[0]!.sample);
     expect(() => report.validateReport(finalizationMutation)).toThrow();
     for (const mutate of [
       (mutated: typeof complete) => (mutated.pass = true),
@@ -440,16 +450,16 @@ describe("paired benchmark admission", () => {
       stageIdentityRechecked: true,
       stageFileIdentityRechecked: true,
       destinationParent: {
-        volumeSerialNumber: "00000000",
+        volumeSerialNumber: "0000000000000000",
         fileId: "a".repeat(32),
       },
       stageDirectory: {
-        volumeSerialNumber: "00000000",
+        volumeSerialNumber: "0000000000000000",
         fileId: "b".repeat(32),
       },
-      stageFile: { volumeSerialNumber: "00000000", fileId: "c".repeat(32) },
+      stageFile: { volumeSerialNumber: "0000000000000000", fileId: "c".repeat(32) },
       destinationFile: {
-        volumeSerialNumber: "00000000",
+        volumeSerialNumber: "0000000000000000",
         fileId: "c".repeat(32),
       },
     };

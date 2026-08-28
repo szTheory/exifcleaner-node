@@ -119,16 +119,16 @@ describe("installed package smoke", () => {
         stageIdentityRechecked: true,
         stageFileIdentityRechecked: true,
         destinationParent: {
-          volumeSerialNumber: "00000000",
+          volumeSerialNumber: "0000000000000000",
           fileId: "0".repeat(32),
         },
         stageDirectory: {
-          volumeSerialNumber: "00000000",
+          volumeSerialNumber: "0000000000000000",
           fileId: "1".repeat(32),
         },
-        stageFile: { volumeSerialNumber: "00000000", fileId: "2".repeat(32) },
+        stageFile: { volumeSerialNumber: "0000000000000000", fileId: "2".repeat(32) },
         destinationFile: {
-          volumeSerialNumber: "00000000",
+          volumeSerialNumber: "0000000000000000",
           fileId: "3".repeat(32),
         },
       }),
@@ -143,20 +143,20 @@ describe("installed package smoke", () => {
         stageIdentityRechecked: true,
         stageFileIdentityRechecked: true,
         destinationParent: {
-          volumeSerialNumber: "00000000",
+          volumeSerialNumber: "0000000000000000",
           fileId: "0".repeat(32),
         },
         stageDirectory: {
-          volumeSerialNumber: "00000000",
+          volumeSerialNumber: "0000000000000000",
           fileId: "1".repeat(32),
         },
         stageFile: {
-          volumeSerialNumber: "00000000",
+          volumeSerialNumber: "0000000000000000",
           fileId: "2".repeat(32),
           extra: true,
         },
         destinationFile: {
-          volumeSerialNumber: "00000000",
+          volumeSerialNumber: "0000000000000000",
           fileId: "2".repeat(32),
         },
         extra: true,
