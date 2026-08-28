@@ -72,6 +72,9 @@ describe("current-host native publication addon", () => {
       publishNoReplace(...args: NativePublicationArguments): string;
       createPrivateStageDirectory(stageDirectoryPath: string): unknown;
       removePrivateStageFile(capability: unknown, stagePath: string): string;
+      capturePrivateStageCleanup(capability: unknown, stagePath: string, identity: unknown): unknown;
+      consumePrivateStageCleanup(capability: unknown): string;
+      stageFileIdentity(stageDescriptor: number): unknown;
       disposePrivateStageDirectory(capability: unknown): string;
     };
     expect(Object.getOwnPropertyNames(binding).sort()).toEqual([
@@ -112,6 +115,8 @@ describe("current-host native publication addon", () => {
       fsConstants.O_RDONLY | fsConstants.O_DIRECTORY,
     );
     const stageHandle = await open(stage, fsConstants.O_RDWR);
+    if (process.platform === "win32")
+      expect(binding.capturePrivateStageCleanup(stageDirectoryCapability!, stage, binding.stageFileIdentity(stageHandle.fd))).toBeDefined();
     const publish = (
       stageDescriptor: number,
       stageEntry: string,
@@ -153,7 +158,8 @@ describe("current-host native publication addon", () => {
     if (process.platform === "win32") {
       expect(
         binding.removePrivateStageFile(stageDirectoryCapability!, stage),
-      ).toBe("published");
+      ).toBe("unsupported");
+      expect(binding.consumePrivateStageCleanup(stageDirectoryCapability!)).toBe("published");
       expect(
         binding.disposePrivateStageDirectory(stageDirectoryCapability!),
       ).toBe("published");
@@ -166,6 +172,9 @@ describe("current-host native publication addon", () => {
       const binding = require(hostArtifact) as {
         createPrivateStageDirectory(stageDirectoryPath: string): unknown;
         removePrivateStageFile(capability: unknown, stagePath: string): string;
+        capturePrivateStageCleanup(capability: unknown, stagePath: string, identity: unknown): unknown;
+        consumePrivateStageCleanup(capability: unknown): string;
+        stageFileIdentity(stageDescriptor: number): unknown;
         disposePrivateStageDirectory(capability: unknown): string;
       };
       const parent = await mkdtemp(
@@ -210,6 +219,7 @@ describe("current-host native publication addon", () => {
       await writeFile(stagePath, "verified private stage");
       const stage = await open(stagePath, WINDOWS_REOPEN_FLAGS);
       try {
+        expect(binding.capturePrivateStageCleanup(capability, stagePath, binding.stageFileIdentity(stage.fd))).toBeDefined();
         expect(
           binding.publishNoReplace(
             stage.fd,
@@ -224,8 +234,9 @@ describe("current-host native publication addon", () => {
       } finally {
         await stage.close();
         expect(binding.removePrivateStageFile(capability, stagePath)).toBe(
-          "published",
+          "unsupported",
         );
+        expect(binding.consumePrivateStageCleanup(capability)).toBe("published");
         expect(binding.disposePrivateStageDirectory(capability)).toBe(
           "published",
         );
