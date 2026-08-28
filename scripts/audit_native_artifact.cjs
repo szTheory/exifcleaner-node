@@ -2,7 +2,19 @@
 "use strict";
 
 const { execFileSync } = require("node:child_process");
-const { join } = require("node:path");
+const { createRequire } = require("node:module");
+const { join, resolve } = require("node:path");
+
+const PRIVATE_NATIVE_EXPORTS = Object.freeze([
+  "capturePrivateStageCleanup",
+  "consumePrivateStageCleanup",
+  "createPrivateStageDirectory",
+  "disposePrivateStageDirectory",
+  "publishNoReplace",
+  "removePrivateStageFile",
+  "stageFileIdentity",
+  "takeLastWindowsPublicationEvidence",
+]);
 
 const LINUX_LIBRARIES = new Set([
   "libc.so.6",
@@ -68,12 +80,28 @@ const WINDOWS_IMPORTS = new Set([
   "uv_get_osfhandle",
 ]);
 
-function stableReport(auditTool, libraries, imports) {
+function stableReport(auditTool, libraries, imports, exports = []) {
   return JSON.stringify({
     auditTool,
+    exports: [...exports].sort(),
     libraries: [...libraries].sort(),
     imports: [...imports].sort(),
   });
+}
+
+function auditNativeExports(path) {
+  const requireNative = createRequire(__filename);
+  const binding = requireNative(resolve(path));
+  if (typeof binding !== "object" || binding === null)
+    throw new Error("Native addon exports must be an object");
+  const exports = Object.getOwnPropertyNames(binding).sort();
+  if (exports.join("\n") !== PRIVATE_NATIVE_EXPORTS.join("\n"))
+    throw new Error(
+      `Native exports are not the exact private capability surface: ${exports.join(", ")}`,
+    );
+  if (!exports.every((name) => typeof binding[name] === "function"))
+    throw new Error("Native exports must all be functions");
+  return exports;
 }
 
 function assertAllowlisted(values, allowlist, predicate, kind) {
@@ -238,26 +266,31 @@ function resolveDumpbin({
 }
 
 function auditHostArtifact(path) {
+  let report;
   if (process.platform === "linux") {
-    return auditLinux(
+    report = auditLinux(
       execFileSync("readelf", ["-dW", path], { encoding: "utf8" }),
       execFileSync("readelf", ["-Ws", path], { encoding: "utf8" }),
     );
-  }
-  if (process.platform === "darwin") {
-    return auditDarwin(
+  } else if (process.platform === "darwin") {
+    report = auditDarwin(
       execFileSync("otool", ["-L", path], { encoding: "utf8" }),
       execFileSync("nm", ["-u", path], { encoding: "utf8" }),
     );
-  }
-  if (process.platform === "win32") {
+  } else if (process.platform === "win32") {
     const dumpbin = resolveDumpbin();
-    return auditWindows(
+    report = auditWindows(
       execFileSync(dumpbin, ["/dependents", path], { encoding: "utf8" }),
       execFileSync(dumpbin, ["/imports", path], { encoding: "utf8" }),
     );
-  }
-  throw new Error(`Unsupported audit platform: ${process.platform}`);
+  } else throw new Error(`Unsupported audit platform: ${process.platform}`);
+  const parsed = JSON.parse(report);
+  return stableReport(
+    parsed.auditTool,
+    parsed.libraries,
+    parsed.imports,
+    auditNativeExports(path),
+  );
 }
 
 if (require.main === module) {
@@ -273,6 +306,7 @@ module.exports = {
   auditLinux,
   auditDarwin,
   auditWindows,
+  auditNativeExports,
   auditHostArtifact,
   chooseDumpbinPath,
   resolveDumpbin,

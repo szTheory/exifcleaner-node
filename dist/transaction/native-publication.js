@@ -19,12 +19,22 @@ function isNativePublicationBinding(value) {
         return false;
     const binding = value;
     const names = Object.getOwnPropertyNames(binding).sort();
-    return (names.length === 5 &&
+    const legacy = names.length === 5 &&
         names[0] === "createPrivateStageDirectory" &&
         names[1] === "disposePrivateStageDirectory" &&
         names[2] === "publishNoReplace" &&
         names[3] === "removePrivateStageFile" &&
-        names[4] === "takeLastWindowsPublicationEvidence" &&
+        names[4] === "takeLastWindowsPublicationEvidence";
+    return ((legacy ||
+        (names.length === 8 &&
+            names[0] === "capturePrivateStageCleanup" &&
+            names[1] === "consumePrivateStageCleanup" &&
+            names[2] === "createPrivateStageDirectory" &&
+            names[3] === "disposePrivateStageDirectory" &&
+            names[4] === "publishNoReplace" &&
+            names[5] === "removePrivateStageFile" &&
+            names[6] === "stageFileIdentity" &&
+            names[7] === "takeLastWindowsPublicationEvidence")) &&
         typeof binding.publishNoReplace === "function" &&
         typeof binding.createPrivateStageDirectory === "function" &&
         typeof binding.removePrivateStageFile === "function" &&
@@ -119,6 +129,66 @@ export function disposePrivateStageDirectory(capability) {
 export function removePrivateStageFile(capability, stagePath) {
     try {
         return mapNativeStageDirectoryCode(nativeBinding().removePrivateStageFile(capability, stagePath));
+    }
+    catch {
+        return { state: "disposition-failed" };
+    }
+}
+/**
+ * Capture deletion authority before any scheduling hook. On POSIX, pathname
+ * identity-conditional unlink is unavailable, so callers retain residue.
+ */
+export function capturePrivateStageCleanup(directoryCapability, stagePath, identity, platform = process.platform) {
+    if (platform !== "win32" || identity === undefined)
+        return { state: "unsupported-retained" };
+    try {
+        if (nativeBinding().capturePrivateStageCleanup === undefined &&
+            injectedBinding !== undefined)
+            return {
+                state: "captured",
+                capability: directoryCapability,
+            };
+        const result = nativeBinding().capturePrivateStageCleanup(directoryCapability, stagePath, identity);
+        if (result === undefined)
+            return { state: "capture-failed" };
+        return {
+            state: "captured",
+            capability: result,
+        };
+    }
+    catch {
+        return { state: "capture-failed" };
+    }
+}
+export function stageFileIdentity(stageDescriptor, platform = process.platform) {
+    if (platform !== "win32")
+        return undefined;
+    try {
+        if (nativeBinding().stageFileIdentity === undefined &&
+            injectedBinding !== undefined)
+            return { volumeSerialNumber: 0, fileId: "0".repeat(32) };
+        const value = nativeBinding().stageFileIdentity(stageDescriptor);
+        if (typeof value === "object" &&
+            value !== null &&
+            typeof value.volumeSerialNumber ===
+                "number" &&
+            /^[a-f0-9]{32}$/u.test(value.fileId))
+            return value;
+    }
+    catch {
+        // Capture remains fail-closed at the caller.
+    }
+    return undefined;
+}
+export function consumePrivateStageCleanup(capability) {
+    try {
+        if (nativeBinding().consumePrivateStageCleanup === undefined &&
+            injectedBinding !== undefined)
+            return { state: "disposed" };
+        const code = nativeBinding().consumePrivateStageCleanup(capability);
+        if (code === "already-consumed")
+            return { state: "disposition-unsupported" };
+        return mapNativeStageDirectoryCode(code);
     }
     catch {
         return { state: "disposition-failed" };

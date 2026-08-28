@@ -4,7 +4,7 @@ import { executionError, jsonSafeCause, withDestinationFinalization, } from "../
 import { err, ok } from "../result.js";
 import { DIRECT_FINAL_FLAGS, DESTINATION_DIRECTORY_FLAGS, REOPEN_FLAGS, STAGE_DIRECTORY_FLAGS, WINDOWS_REOPEN_FLAGS, } from "./file-ops.js";
 import { identitiesDistinct, identityMatches, identityOf, sourcePathMatchesSnapshot, timestampsMatchAtMillisecondPrecision, } from "./identity.js";
-import { createPrivateStageDirectory, disposePrivateStageDirectory, removePrivateStageFile, publishNoReplace, } from "./native-publication.js";
+import { createPrivateStageDirectory, capturePrivateStageCleanup, consumePrivateStageCleanup, disposePrivateStageDirectory, removePrivateStageFile, publishNoReplace, stageFileIdentity, } from "./native-publication.js";
 function aborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -21,7 +21,7 @@ function isVerifiedPosixStageDirectory(stats) {
         stats.uid === euid &&
         (stats.mode & 0o077) === 0);
 }
-async function closePostPublicationResources({ fileOps, stageDirectory, destinationDirectory, stageFile, sourceHandle, directoryCapability, stagePath, platform, }) {
+async function closePostPublicationResources({ fileOps, stageDirectory, destinationDirectory, stageFile, sourceHandle, directoryCapability, cleanupCapability, stagePath, platform, }) {
     let stageDirectoryCloseCause;
     const close = async (handle, stage = false) => {
         if (handle === undefined)
@@ -35,8 +35,13 @@ async function closePostPublicationResources({ fileOps, stageDirectory, destinat
     await close(destinationDirectory);
     await close(stageFile);
     await close(sourceHandle);
-    if (platform === "win32" && directoryCapability !== undefined) {
-        const stageFileResult = removePrivateStageFile(directoryCapability, stagePath);
+    if (directoryCapability !== undefined) {
+        if (cleanupCapability === undefined)
+            return stageResidue({
+                code: "unsupported-retained",
+                message: "No captured cleanup authority.",
+            });
+        const stageFileResult = consumePrivateStageCleanup(cleanupCapability);
         if (stageFileResult.state !== "disposed")
             return stageResidue({
                 code: stageFileResult.state,
@@ -72,6 +77,7 @@ export async function runSafeTransaction(input) {
     let stageFile;
     let directoryCreated = false;
     let directoryCapability;
+    let cleanupCapability;
     let fileCreated = false;
     let fileIdentity;
     let stageDirectoryIdentity;
@@ -168,6 +174,26 @@ export async function runSafeTransaction(input) {
         if (platform !== "win32") {
             destinationDirectory = await fileOps.open(dirname(resolvedDestinationPath), DESTINATION_DIRECTORY_FLAGS);
         }
+        if (platform === "win32") {
+            if (directoryCapability === undefined) {
+                failure = executionError({
+                    code: "write-failed",
+                    detail: "Private cleanup authority was unavailable.",
+                    path: destinationPath,
+                }, "started");
+                throw new Error("Cleanup authority unavailable.");
+            }
+            const captured = capturePrivateStageCleanup(directoryCapability, stagePath, stageFileIdentity(stageFile.fd, platform), platform);
+            if (captured.state !== "captured") {
+                failure = executionError({
+                    code: "write-failed",
+                    detail: "Private cleanup identity capture did not complete.",
+                    path: destinationPath,
+                }, "started");
+                throw new Error("Cleanup identity capture failed.");
+            }
+            cleanupCapability = captured.capability;
+        }
         await beforePublish?.({ stageDirectoryPath, stagePath });
         if (aborted(signal))
             throw new DOMException("Aborted", "AbortError");
@@ -218,6 +244,7 @@ export async function runSafeTransaction(input) {
             stageFile,
             sourceHandle,
             directoryCapability,
+            cleanupCapability,
             stagePath,
             platform,
         };
@@ -276,6 +303,13 @@ export async function runSafeTransaction(input) {
             await fileOps.close(sourceHandle).catch(() => undefined);
     }
     await Promise.resolve(beforeStageFinalization?.({ stageDirectoryPath, stagePath })).catch(() => undefined);
+    if (platform === "win32" &&
+        cleanupCapability !== undefined &&
+        consumePrivateStageCleanup(cleanupCapability).state === "disposed" &&
+        directoryCapability !== undefined &&
+        disposePrivateStageDirectory(directoryCapability).state === "disposed") {
+        return err(withDestinationFinalization(failure, { state: "owned-partial-removed" }));
+    }
     if (directoryCreated &&
         !fileCreated &&
         platform === "win32" &&
