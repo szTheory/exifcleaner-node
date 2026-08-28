@@ -72,10 +72,13 @@ describe("current-host native publication addon", () => {
       disposePrivateStageDirectory(capability: unknown): string;
     };
     expect(Object.getOwnPropertyNames(binding).sort()).toEqual([
+      "capturePrivateStageCleanup",
+      "consumePrivateStageCleanup",
       "createPrivateStageDirectory",
       "disposePrivateStageDirectory",
       "publishNoReplace",
       "removePrivateStageFile",
+      "stageFileIdentity",
       "takeLastWindowsPublicationEvidence",
     ]);
 
