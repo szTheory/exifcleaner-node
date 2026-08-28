@@ -200,17 +200,89 @@ function diagnosticLedger() {
       repository: "szTheory/exifcleaner-node",
       workflow: ".github/workflows/ci.yml",
       event: "workflow_dispatch",
+      attempt: 1,
       id: 123456,
       url: "https://github.com/szTheory/exifcleaner-node/actions/runs/123456",
       ref: "refs/heads/proof/46-25-windows-diagnostic-ccccccc",
       headSha: "c".repeat(40),
     },
+    outcome: "rejection-observed",
     selectedBoundary: "matching-host",
     matchingHost: {
       "win32-x64": record("win32-x64", "matching-host"),
       "win32-arm64": record("win32-arm64", "matching-host"),
     },
     installedNode22: null,
+    laterFailures: null,
+  };
+}
+
+const exactDiagnosticHashes = {
+  matchingHost: {
+    "win32-x64":
+      "d3a83a61db1443f96ad2518bcb0336e71c5855e4ba93b2f77495aa0baf4a2c14",
+    "win32-arm64":
+      "e757e4aba6b643a3ca75b8fba77a5778792d83fef39cbae7f18ae4e3eec93726",
+  },
+  installedNode22: {
+    "win32-x64":
+      "2e13fc5dfbd0baccc69c6305ccc9ef7b5e431d53afb560f081b213a1c999e070",
+    "win32-arm64":
+      "0111e778fe6b6c89d9afd7b9909ba5059f2d1ac1c87e6ab85f5263421224a88a",
+  },
+} as const;
+
+function hypothesisRefutedLedger() {
+  const record = (
+    tuple: "win32-x64" | "win32-arm64",
+    boundary: "matching-host" | "installed-node22",
+  ) => ({
+    tuple,
+    boundary,
+    nodeMajor: 22,
+    job: {
+      name:
+        boundary === "matching-host"
+          ? `build-audit-${tuple}`
+          : `installed-${tuple}`,
+      conclusion: boundary === "matching-host" ? "success" : "failure",
+    },
+    artifact: {
+      name: `windows-publication-${boundary}-${tuple}`,
+      sha256:
+        boundary === "matching-host"
+          ? exactDiagnosticHashes.matchingHost[tuple]
+          : exactDiagnosticHashes.installedNode22[tuple],
+    },
+    observation: acceptedWindowsPublicationObservation(),
+  });
+  return {
+    schemaVersion: "phase-46-windows-publication-diagnostic-ledger/v1",
+    diagnosticOnly: true,
+    run: {
+      repository: "szTheory/exifcleaner-node",
+      workflow: ".github/workflows/ci.yml",
+      event: "workflow_dispatch",
+      attempt: 1,
+      id: 33200060244,
+      url: "https://github.com/szTheory/exifcleaner-node/actions/runs/33200060244",
+      ref: "refs/heads/proof/46-25-windows-diagnostic-ba1f4c6",
+      headSha: "ba1f4c67403daf82c7de996bb210bc0efae8b63e",
+    },
+    outcome: "hypothesis-refuted",
+    selectedBoundary: null,
+    matchingHost: {
+      "win32-x64": record("win32-x64", "matching-host"),
+      "win32-arm64": record("win32-arm64", "matching-host"),
+    },
+    installedNode22: {
+      "win32-x64": record("win32-x64", "installed-node22"),
+      "win32-arm64": record("win32-arm64", "installed-node22"),
+    },
+    laterFailures: {
+      "win32-x64": "deterministic-cancellation",
+      "win32-arm64": "deterministic-cancellation",
+    },
   };
 }
 const calibration =
@@ -220,6 +292,74 @@ const calibration =
   };
 
 describe("paired benchmark admission", () => {
+  it("accepts exact run 33200060244 only as publication hypothesis-refuted", () => {
+    const ledger = hypothesisRefutedLedger();
+    expect(() =>
+      report.validateWindowsPublicationDiagnosticLedger(ledger),
+    ).not.toThrow();
+
+    const mutations = [
+      { ...ledger, outcome: "rejection-observed" },
+      { ...ledger, selectedBoundary: "installed-node22" },
+      { ...ledger, laterFailures: null },
+      {
+        ...ledger,
+        laterFailures: {
+          ...ledger.laterFailures,
+          "win32-arm64": "installed-smoke",
+        },
+      },
+      { ...ledger, run: { ...ledger.run, attempt: 2 } },
+      { ...ledger, run: { ...ledger.run, id: 33200060245 } },
+      { ...ledger, run: { ...ledger.run, headSha: "0".repeat(40) } },
+      {
+        ...ledger,
+        installedNode22: {
+          ...ledger.installedNode22,
+          "win32-x64": {
+            ...ledger.installedNode22["win32-x64"],
+            job: {
+              ...ledger.installedNode22["win32-x64"].job,
+              conclusion: "success",
+            },
+          },
+        },
+      },
+      {
+        ...ledger,
+        installedNode22: {
+          ...ledger.installedNode22,
+          "win32-arm64": {
+            ...ledger.installedNode22["win32-arm64"],
+            observation: {
+              ...diagnosticLedger().matchingHost["win32-arm64"].observation,
+            },
+          },
+        },
+      },
+      {
+        ...ledger,
+        matchingHost: {
+          ...ledger.matchingHost,
+          "win32-x64": {
+            ...ledger.matchingHost["win32-x64"],
+            artifact: {
+              ...ledger.matchingHost["win32-x64"].artifact,
+              sha256: "f".repeat(64),
+            },
+          },
+        },
+      },
+      { ...ledger, productSuccess: false },
+      { ...ledger, admission: false },
+      { ...ledger, retry: 0 },
+    ];
+    for (const mutation of mutations)
+      expect(() =>
+        report.validateWindowsPublicationDiagnosticLedger(mutation),
+      ).toThrow();
+  });
+
   it("accepts only one complete diagnostic-only Windows boundary", () => {
     const ledger = diagnosticLedger();
     expect(() =>
