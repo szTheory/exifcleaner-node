@@ -4,7 +4,7 @@ import { executionError, jsonSafeCause, withDestinationFinalization, } from "../
 import { err, ok } from "../result.js";
 import { DIRECT_FINAL_FLAGS, DESTINATION_DIRECTORY_FLAGS, REOPEN_FLAGS, STAGE_DIRECTORY_FLAGS, WINDOWS_REOPEN_FLAGS, } from "./file-ops.js";
 import { identitiesDistinct, identityMatches, identityOf, sourcePathMatchesSnapshot, timestampsMatchAtMillisecondPrecision, } from "./identity.js";
-import { createPrivateStageDirectory, capturePrivateStageCleanup, consumePrivateStageCleanup, disposePrivateStageDirectory, removePrivateStageFile, publishNoReplace, stageFileIdentity, } from "./native-publication.js";
+import { createPrivateStageDirectory, capturePrivateStageCleanup, consumePrivateStageCleanup, disposePrivateStageDirectory, removePrivateStageFile, publishNoReplace, } from "./native-publication.js";
 function aborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -183,7 +183,7 @@ export async function runSafeTransaction(input) {
                 }, "started");
                 throw new Error("Cleanup authority unavailable.");
             }
-            const captured = capturePrivateStageCleanup(directoryCapability, stagePath, stageFileIdentity(stageFile.fd, platform), platform);
+            const captured = capturePrivateStageCleanup(directoryCapability, stagePath, stageFile.fd, platform);
             if (captured.state !== "captured") {
                 failure = executionError({
                     code: "write-failed",

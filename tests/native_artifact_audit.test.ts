@@ -90,9 +90,9 @@ describe("native compiled artifact audits", () => {
       "disposePrivateStageDirectory",
       "publishNoReplace",
       "removePrivateStageFile",
+      "stageFileIdentity",
       "takeLastWindowsPublicationEvidence",
     ]);
-    expect(audit.PRIVATE_NATIVE_EXPORTS).not.toContain("stageFileIdentity");
   });
 
   it.runIf(process.platform === "darwin")(

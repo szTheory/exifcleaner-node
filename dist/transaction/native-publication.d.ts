@@ -15,7 +15,7 @@ export interface NativePublicationBinding {
     readonly createPrivateStageDirectory: (stageDirectoryPath: string) => unknown;
     readonly removePrivateStageFile: (capability: NativeStageDirectoryCapability, stagePath: string) => NativePublicationCode;
     /** Private, pre-hook identity proof and DELETE-authority capture. */
-    readonly capturePrivateStageCleanup?: (capability: NativeStageDirectoryCapability, stagePath: string, identity: NativeStageFileIdentity) => unknown;
+    readonly capturePrivateStageCleanup?: (capability: NativeStageDirectoryCapability, stagePath: string, stageDescriptor: number) => unknown;
     readonly stageFileIdentity?: (stageDescriptor: number) => unknown;
     /** Consumes only the handle retained by capturePrivateStageCleanup. */
     readonly consumePrivateStageCleanup?: (capability: NativeStageCleanupCapability) => NativePublicationCode;
@@ -32,7 +32,7 @@ export type NativeStageCleanupCapability = {
     readonly [nativeStageCleanupCapability]: never;
 };
 export interface NativeStageFileIdentity {
-    readonly volumeSerialNumber: number;
+    readonly volumeSerialNumber: string;
     readonly fileId: string;
 }
 export type NativeStageDirectoryCreation = {
@@ -86,7 +86,7 @@ export declare function removePrivateStageFile(capability: NativeStageDirectoryC
  * Capture deletion authority before any scheduling hook. On POSIX, pathname
  * identity-conditional unlink is unavailable, so callers retain residue.
  */
-export declare function capturePrivateStageCleanup(directoryCapability: NativeStageDirectoryCapability, stagePath: string, identity: NativeStageFileIdentity | undefined, platform?: NodeJS.Platform): NativeStageCleanupCapture;
+export declare function capturePrivateStageCleanup(directoryCapability: NativeStageDirectoryCapability, stagePath: string, stageDescriptor: number, platform?: NodeJS.Platform): NativeStageCleanupCapture;
 export declare function stageFileIdentity(stageDescriptor: number, platform?: NodeJS.Platform): NativeStageFileIdentity | undefined;
 export declare function consumePrivateStageCleanup(capability: NativeStageCleanupCapability): NativeStageDirectoryDisposition;
 /**

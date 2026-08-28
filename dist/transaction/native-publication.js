@@ -138,8 +138,8 @@ export function removePrivateStageFile(capability, stagePath) {
  * Capture deletion authority before any scheduling hook. On POSIX, pathname
  * identity-conditional unlink is unavailable, so callers retain residue.
  */
-export function capturePrivateStageCleanup(directoryCapability, stagePath, identity, platform = process.platform) {
-    if (platform !== "win32" || identity === undefined)
+export function capturePrivateStageCleanup(directoryCapability, stagePath, stageDescriptor, platform = process.platform) {
+    if (platform !== "win32")
         return { state: "unsupported-retained" };
     try {
         if (nativeBinding().capturePrivateStageCleanup === undefined &&
@@ -148,7 +148,7 @@ export function capturePrivateStageCleanup(directoryCapability, stagePath, ident
                 state: "captured",
                 capability: directoryCapability,
             };
-        const result = nativeBinding().capturePrivateStageCleanup(directoryCapability, stagePath, identity);
+        const result = nativeBinding().capturePrivateStageCleanup(directoryCapability, stagePath, stageDescriptor);
         if (result === undefined)
             return { state: "capture-failed" };
         return {
@@ -166,12 +166,13 @@ export function stageFileIdentity(stageDescriptor, platform = process.platform) 
     try {
         if (nativeBinding().stageFileIdentity === undefined &&
             injectedBinding !== undefined)
-            return { volumeSerialNumber: 0, fileId: "0".repeat(32) };
+            return { volumeSerialNumber: "0".repeat(16), fileId: "0".repeat(32) };
         const value = nativeBinding().stageFileIdentity(stageDescriptor);
         if (typeof value === "object" &&
             value !== null &&
             typeof value.volumeSerialNumber ===
-                "number" &&
+                "string" &&
+            /^[a-f0-9]{16}$/u.test(value.volumeSerialNumber) &&
             /^[a-f0-9]{32}$/u.test(value.fileId))
             return value;
     }

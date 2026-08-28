@@ -12,6 +12,7 @@ const PRIVATE_NATIVE_EXPORTS = Object.freeze([
   "disposePrivateStageDirectory",
   "publishNoReplace",
   "removePrivateStageFile",
+  "stageFileIdentity",
   "takeLastWindowsPublicationEvidence",
 ]);
 
