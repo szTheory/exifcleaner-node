@@ -72,6 +72,7 @@ describe("native source capability audit", () => {
     expect(source).toContain("FileIdInfo");
     expect(source).not.toMatch(/FileRenameInfo|ReOpenFile/);
     expect(source).not.toMatch(/\b_get_osfhandle\b/);
+    expect(source).not.toMatch(/\bmemcpy\b/);
     expect(configuration).not.toContain('"ucrt.lib"');
   });
 
@@ -174,6 +175,14 @@ describe("native source capability audit", () => {
         source.replace(
           "return capability;\n}\n\nstatic publication_result consume_private_stage_cleanup",
           "return capability;\n  ReOpenFile(stage_file, 0, 0, 0);\n}\n\nstatic publication_result consume_private_stage_cleanup",
+        ),
+    ],
+    [
+      "CRT pathname copy",
+      (source: string) =>
+        source.replace(
+          "path_destination[path_index] = path_source[path_index];",
+          "memcpy(path_copy, stage_path, (path_length + 1) * sizeof(WCHAR));",
         ),
     ],
   ])("rejects a missing or unsafe %s", async (_name, mutate) => {

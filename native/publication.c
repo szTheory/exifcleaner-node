@@ -18,7 +18,6 @@
 #include <aclapi.h>
 #include <sddl.h>
 #include <stdlib.h>
-#include <string.h>
 #elif defined(__APPLE__)
 #include <errno.h>
 #include <stdio.h>
@@ -594,7 +593,7 @@ static napi_value take_last_terminal_cleanup_evidence_binding(
 #endif
 
 NAPI_MODULE_INIT() {
-  napi_property_descriptor properties[] = {
+  static const napi_property_descriptor properties[] = {
     { "publishNoReplace", NULL, publish_no_replace_binding, NULL, NULL, NULL, napi_default, NULL },
     { "createPrivateStageDirectory", NULL, create_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
     { "disposePrivateStageDirectory", NULL, dispose_stage_directory_binding, NULL, NULL, NULL, napi_default, NULL },
@@ -940,7 +939,10 @@ static private_stage_directory *capture_private_stage_cleanup(
   HANDLE stage_file = INVALID_HANDLE_VALUE;
   FILE_ID_INFO observed;
   size_t path_length = 0;
+  size_t path_index;
   WCHAR *path_copy = NULL;
+  volatile const WCHAR *path_source;
+  volatile WCHAR *path_destination;
   last_windows_terminal_cleanup_evidence.available = FALSE;
   if (capability == NULL || capability->handle == INVALID_HANDLE_VALUE ||
       capability->cleanup_handle != INVALID_HANDLE_VALUE || stage_path == NULL ||
@@ -967,7 +969,12 @@ static private_stage_directory *capture_private_stage_cleanup(
     CloseHandle(stage_file);
     return NULL;
   }
-  memcpy(path_copy, stage_path, (path_length + 1) * sizeof(WCHAR));
+  /* Copy the checked UTF-16 pathname and its terminator without a CRT call:
+   * this addon intentionally links without default runtime libraries. */
+  path_source = stage_path;
+  path_destination = path_copy;
+  for (path_index = 0; path_index <= path_length; path_index += 1)
+    path_destination[path_index] = path_source[path_index];
   capability->cleanup_identity = observed;
   capability->cleanup_handle = stage_file;
   capability->cleanup_path = path_copy;

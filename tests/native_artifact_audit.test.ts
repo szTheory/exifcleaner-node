@@ -91,6 +91,7 @@ describe("native compiled artifact audits", () => {
       "publishNoReplace",
       "removePrivateStageFile",
       "stageFileIdentity",
+      "takeLastTerminalCleanupEvidence",
       "takeLastWindowsPublicationEvidence",
     ]);
   });

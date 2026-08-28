@@ -13,6 +13,7 @@ const PRIVATE_NATIVE_EXPORTS = Object.freeze([
   "publishNoReplace",
   "removePrivateStageFile",
   "stageFileIdentity",
+  "takeLastTerminalCleanupEvidence",
   "takeLastWindowsPublicationEvidence",
 ]);
 
@@ -26,7 +27,6 @@ const LINUX_IMPORTS = new Set([
   "__errno_location",
   "malloc",
   "free",
-  "memcpy",
   "memset",
   "strlen",
   "syscall",
@@ -39,7 +39,6 @@ const DARWIN_IMPORTS = new Set([
   "___error",
   "_malloc",
   "_free",
-  "_memcpy",
   "_memset",
   "_strlen",
   "___stack_chk_fail",
