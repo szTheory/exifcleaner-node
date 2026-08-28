@@ -82,14 +82,27 @@ async function cleanManifest(root: string) {
 }
 
 describe("native compiled artifact audits", () => {
+  it("pins the corrected private native export surface", () => {
+    expect(audit.PRIVATE_NATIVE_EXPORTS).toEqual([
+      "capturePrivateStageCleanup",
+      "consumePrivateStageCleanup",
+      "createPrivateStageDirectory",
+      "disposePrivateStageDirectory",
+      "publishNoReplace",
+      "removePrivateStageFile",
+      "takeLastWindowsPublicationEvidence",
+    ]);
+    expect(audit.PRIVATE_NATIVE_EXPORTS).not.toContain("stageFileIdentity");
+  });
+
   it.runIf(process.platform === "darwin")(
-    "accepts the compiled matching-host artifact",
+    "rejects the stale matching-host artifact before successor builds",
     () => {
-      expect(
+      expect(() =>
         audit.auditHostArtifact(
           join(packageRoot, "prebuilds", "darwin-arm64", "publication.node"),
         ),
-      ).toContain('"auditTool":"otool-nm"');
+      ).toThrow(/exact private capability surface/i);
     },
   );
 
