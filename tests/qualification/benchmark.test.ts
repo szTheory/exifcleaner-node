@@ -726,7 +726,7 @@ describe("paired benchmark admission", () => {
       .buildSchedule(
         manifest.fixtures.map((fixture) => String(fixture.id)),
         2,
-        15,
+        100,
       )
       .map((entry, index) => ({
         ...entry,
@@ -854,12 +854,12 @@ describe("paired benchmark admission", () => {
         }),
       }));
     const complete = {
-      version: 3,
+      version: 4,
       elapsedP95Estimator: {
         method: "Hyndman-Fan Type 7",
         quantile: 0.95,
         interpolation: "linear",
-        retainedObservations: 15,
+        retainedObservations: 100,
       },
       mode: "admit",
       pass: true,
@@ -898,7 +898,7 @@ describe("paired benchmark admission", () => {
         ),
       ),
       warmups: 2,
-      measurements: 15,
+      measurements: 100,
       thresholds: benchmark.BENCHMARK_THRESHOLDS,
     };
     expect(() => report.validateReport(complete)).not.toThrow();
@@ -937,8 +937,15 @@ describe("paired benchmark admission", () => {
       (mutated: typeof complete) =>
         (mutated.elapsedP95Estimator.quantile = "0.95" as unknown as number),
       (mutated: typeof complete) =>
-        (mutated.elapsedP95Estimator.retainedObservations = 14),
-      (mutated: typeof complete) => (mutated.version = 2),
+        (mutated.elapsedP95Estimator.retainedObservations = 15),
+      (mutated: typeof complete) =>
+        (mutated.elapsedP95Estimator.retainedObservations = 99),
+      (mutated: typeof complete) =>
+        (mutated.elapsedP95Estimator.retainedObservations = 101),
+      (mutated: typeof complete) => (mutated.version = 3),
+      (mutated: typeof complete) => (mutated.measurements = 15),
+      (mutated: typeof complete) => (mutated.measurements = 99),
+      (mutated: typeof complete) => (mutated.measurements = 101),
       (mutated: typeof complete) => (mutated.collection.retries = 1),
       (mutated: typeof complete) => (mutated.collection.discarded = 1),
       (mutated: typeof complete) =>
@@ -947,6 +954,22 @@ describe("paired benchmark admission", () => {
         (mutated.comparisons[0]!.baseline.samples[0]!.scaledElapsedNs = 2),
       (mutated: typeof complete) =>
         (mutated.comparisons[0]!.baseline.p95ElapsedNs = 2),
+    ]) {
+      const mutated = structuredClone(complete);
+      mutate(mutated);
+      expect(() => report.validateReport(mutated)).toThrow();
+    }
+    for (const mutate of [
+      (mutated: typeof complete) => mutated.rawSchedule.pop(),
+      (mutated: typeof complete) =>
+        mutated.rawSchedule.push(mutated.rawSchedule[0]!),
+      (mutated: typeof complete) =>
+        mutated.rawSchedule.splice(
+          0,
+          2,
+          mutated.rawSchedule[1]!,
+          mutated.rawSchedule[0]!,
+        ),
     ]) {
       const mutated = structuredClone(complete);
       mutate(mutated);
@@ -1405,11 +1428,21 @@ describe("paired benchmark admission", () => {
       }),
     ).toThrow();
   });
-  it("alternates baseline/candidate in fresh-child order with locked 2/15 counts", () => {
-    const schedule = benchmark.buildSchedule(["still-64k"], 2, 15);
-    expect(schedule).toHaveLength(34);
+  it("alternates baseline/candidate in fresh-child order with locked 2/100 counts", () => {
+    const schedule = benchmark.buildSchedule(["still-64k"]);
+    expect(schedule).toHaveLength(204);
     expect(schedule.filter((item) => item.warmup)).toHaveLength(4);
-    expect(schedule.filter((item) => !item.warmup)).toHaveLength(30);
+    expect(schedule.filter((item) => !item.warmup)).toHaveLength(200);
+    expect(
+      schedule.filter(
+        (item) => !item.warmup && item.version === "baseline",
+      ),
+    ).toHaveLength(100);
+    expect(
+      schedule.filter(
+        (item) => !item.warmup && item.version === "candidate",
+      ),
+    ).toHaveLength(100);
     expect(schedule.slice(0, 8).map((item) => item.version)).toEqual([
       "baseline",
       "candidate",
@@ -1427,14 +1460,19 @@ describe("paired benchmark admission", () => {
     expect(benchmark.percentile([5, 1, 4, 2, 3], 0.95)).toBe(5);
   });
 
-  it("uses independent Type 7 elapsed p95 without changing nearest-rank authorities", () => {
-    const unsorted = [15, 1, 14, 2, 13, 3, 12, 4, 11, 5, 10, 6, 9, 7, 8];
+  it("uses independent Type 7 elapsed p95 at n=100 without changing nearest-rank authorities", () => {
+    const unsorted = Array.from({ length: 100 }, (_, index) =>
+      index % 2 === 0 ? 100 - index / 2 : (index + 1) / 2,
+    );
     const original = [...unsorted];
-    expect(benchmark.performanceP95(unsorted)).toBeCloseTo(14.3, 12);
-    expect(report.performanceP95(unsorted)).toBeCloseTo(14.3, 12);
+    expect(benchmark.performanceP95(unsorted)).toBeCloseTo(95.05, 12);
+    expect(report.performanceP95(unsorted)).toBeCloseTo(95.05, 12);
     expect(unsorted).toEqual(original);
-    expect(benchmark.percentile(unsorted, 0.95)).toBe(15);
-    expect(report.deriveBlockEstimate(unsorted)).toMatchObject({
+    expect(benchmark.percentile(unsorted, 0.95)).toBe(95);
+    const calibrationBlock = [
+      15, 1, 14, 2, 13, 3, 12, 4, 11, 5, 10, 6, 9, 7, 8,
+    ];
+    expect(report.deriveBlockEstimate(calibrationBlock)).toMatchObject({
       medianNs: 8,
       madNs: 4,
     });
@@ -1450,67 +1488,39 @@ describe("paired benchmark admission", () => {
 
     for (const invalid of [
       [],
-      Array<number>(15).fill(0),
-      [...Array<number>(14).fill(1), Number.NaN],
-      [...Array<number>(14).fill(1), Number.POSITIVE_INFINITY],
-      Array<number>(14).fill(1),
-      Array<number>(16).fill(1),
+      Array<number>(100).fill(0),
+      [...Array<number>(99).fill(1), Number.NaN],
+      [...Array<number>(99).fill(1), Number.POSITIVE_INFINITY],
+      Array<number>(15).fill(1),
+      Array<number>(99).fill(1),
+      Array<number>(101).fill(1),
     ]) {
       expect(() => benchmark.performanceP95(invalid)).toThrow();
       expect(() => report.performanceP95(invalid)).toThrow();
     }
   });
 
-  it("recomputes the three run 33195035464 tails under Type 7 and unchanged D-23 limits", () => {
-    const cases = [
-      {
-        samples: [
-          1746107.8110271415, 3834702.3809682354, 1793725.6552867293,
-          1613275.4394768018, 6245380.378521082, 48018949.079978295,
-          1630800.252865623, 2020430.5459561914, 117022162.23018709,
-          1774026.1246135011, 17124852.688771266, 1716577.0653179681,
-          1869987.3853720138, 1801906.6711206543, 28401734.421791334,
-        ],
-        expected: 68719913.02504086,
-        limit: 71890114.5754981,
-        formerMaximum: 117022162.23018709,
-      },
-      {
-        samples: [
-          45061318.68851223, 2446649.8075409876, 2511467.2239896446,
-          21226718.27724751, 2561773.4178108433, 22076786.36079869,
-          62887867.26914674, 2299202.909293596, 3110336.022253979,
-          45787039.330254965, 24831938.332109604, 2685504.367591075,
-          2393077.4278463237, 13676636.380470043, 2474473.703429332,
-        ],
-        expected: 50917287.71192248,
-        limit: 60790045.19992326,
-        formerMaximum: 62887867.26914674,
-      },
-      {
-        samples: [
-          2139224.6116122776, 2167404.685943493, 2073253.8819358994,
-          2154051.290184479, 2080493.8938322135, 2123925.932965205,
-          2348999.7922231248, 37352680.9165311, 2080148.718676699,
-          2073988.620968703, 2092009.8078846217, 2080800.8101370556,
-          2754792.397567925, 2069144.9659236243, 2058082.239583049,
-        ],
-        expected: 13134158.953256842,
-        limit: 31798657.63954264,
-        formerMaximum: 37352680.9165311,
-      },
+  it("still rejects a 100-sample Type 7 tail above the unchanged D-23 limit", () => {
+    const baseline = Array<number>(100).fill(100_000_000);
+    const candidate = [
+      ...Array<number>(94).fill(100_000_000),
+      ...Array<number>(6).fill(135_000_001),
     ];
-    for (const diagnostic of cases) {
-      expect(benchmark.performanceP95(diagnostic.samples)).toBe(
-        diagnostic.expected,
-      );
-      expect(report.performanceP95(diagnostic.samples)).toBe(
-        diagnostic.expected,
-      );
-      expect(diagnostic.expected).toBeLessThanOrEqual(diagnostic.limit);
-      expect(Math.max(...diagnostic.samples)).toBe(diagnostic.formerMaximum);
-      expect(diagnostic.formerMaximum).toBeGreaterThan(diagnostic.limit);
-    }
+    const baselineP95Ns = benchmark.performanceP95(baseline);
+    const candidateP95Ns = benchmark.performanceP95(candidate);
+    expect(candidateP95Ns).toBe(135_000_001);
+    expect(
+      report.evaluateTiming({
+        baselineMedianNs: 100_000_000,
+        candidateMedianNs: 100_000_000,
+        baselineP95Ns,
+        candidateP95Ns,
+      }),
+    ).toMatchObject({
+      pass: false,
+      p95LimitNs: 135_000_000,
+      failures: ["p95 time threshold exceeded"],
+    });
   });
 
   it("calculates byte-per-byte RSS slope after the locked 4 MiB tolerance", () => {
