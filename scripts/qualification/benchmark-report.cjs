@@ -17,6 +17,77 @@ const MEDIAN_RATIO = 1.2;
 const MEDIAN_SLACK_NS = 15_000_000;
 const P95_RATIO = 1.35;
 const P95_SLACK_NS = 30_000_000;
+const WARMUPS = 2;
+const MEASUREMENTS = 15;
+const RECORDS_PER_FIXTURE = (WARMUPS + MEASUREMENTS) * 2;
+
+function expectedBenchmarkEvidence() {
+  const manifest = JSON.parse(
+    fs.readFileSync(
+      path.join(__dirname, "../../tests/corpus/manifest.json"),
+      "utf8",
+    ),
+  );
+  const benchmark = manifest.benchmarks;
+  exactKeys(benchmark, ["schemaVersion", "seed", "fixtures"], "benchmarks");
+  if (
+    benchmark.schemaVersion !== 1 ||
+    benchmark.seed !== 460_070 ||
+    !Array.isArray(benchmark.fixtures) ||
+    benchmark.fixtures.length !== 12
+  )
+    throw new Error("benchmark manifest is not exact");
+  const fixtureIds = new Set();
+  const fixtures = benchmark.fixtures.map((fixture) => {
+    exactKeys(
+      fixture,
+      ["id", "kind", "seed", "targetBytes", "sha256", "expected"],
+      "benchmark fixture",
+    );
+    if (
+      typeof fixture.id !== "string" ||
+      fixtureIds.has(fixture.id) ||
+      ![
+        "still",
+        "metadata-still",
+        "animation-alpha",
+        "cancellation",
+        "malformed",
+        "metadata-sentinel",
+      ].includes(fixture.kind)
+    )
+      throw new Error("benchmark manifest fixture is invalid");
+    fixtureIds.add(fixture.id);
+    return fixture;
+  });
+  const cancellation = fixtures.filter(
+    (fixture) => fixture.kind === "cancellation",
+  );
+  if (cancellation.length !== 1)
+    throw new Error("benchmark manifest cancellation fixture is invalid");
+  const rawSchedule = [];
+  for (const fixture of fixtures)
+    for (let round = 0; round < WARMUPS + MEASUREMENTS; round += 1) {
+      const versions =
+        round % 2 === 0 ? ["baseline", "candidate"] : ["candidate", "baseline"];
+      for (const version of versions)
+        rawSchedule.push({
+          fixtureId: fixture.id,
+          round,
+          warmup: round < WARMUPS,
+          version,
+        });
+    }
+  if (rawSchedule.length !== fixtures.length * RECORDS_PER_FIXTURE)
+    throw new Error("benchmark raw schedule contract is invalid");
+  return {
+    comparisonFixtureIds: fixtures
+      .filter((fixture) => fixture.kind !== "cancellation")
+      .map((fixture) => fixture.id),
+    cancellationFixtureId: cancellation[0].id,
+    rawSchedule,
+  };
+}
 
 function exactKeys(value, expected, label) {
   if (
@@ -232,8 +303,55 @@ function validateCalibration(value, reference = loadReference()) {
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
+function validateCancellationEvidence(cancellation, rawSchedule, fixtureId) {
+  exactKeys(cancellation, ["sample", "verdict"], "cancellation evidence");
+  exactKeys(
+    cancellation.sample,
+    [
+      "code",
+      "destinationAbsent",
+      "finalizationTruthful",
+      "secondWriter",
+      "finalizationStartMs",
+      "terminalMs",
+      "finalization",
+    ],
+    "cancellation sample",
+  );
+  exactKeys(cancellation.verdict, ["pass", "failures"], "cancellation verdict");
+  if (
+    cancellation.sample.code !== "aborted" ||
+    cancellation.sample.destinationAbsent !== true ||
+    cancellation.sample.finalizationTruthful !== true ||
+    cancellation.sample.secondWriter !== false ||
+    typeof cancellation.sample.finalization !== "string" ||
+    !Number.isFinite(cancellation.sample.finalizationStartMs) ||
+    cancellation.sample.finalizationStartMs < 0 ||
+    cancellation.sample.finalizationStartMs > 250 ||
+    !Number.isFinite(cancellation.sample.terminalMs) ||
+    cancellation.sample.terminalMs < 0 ||
+    cancellation.sample.terminalMs > 2_000 ||
+    cancellation.verdict.pass !== true ||
+    !Array.isArray(cancellation.verdict.failures) ||
+    cancellation.verdict.failures.length !== 0
+  )
+    throw new Error("cancellation evidence is invalid");
+  const retainedCandidate = rawSchedule.find(
+    (item) =>
+      item.fixtureId === fixtureId &&
+      item.round === WARMUPS &&
+      item.version === "candidate",
+  );
+  if (
+    !retainedCandidate ||
+    !retainedCandidate.sample ||
+    !sameJson(cancellation.sample, retainedCandidate.sample.cancellation)
+  )
+    throw new Error("cancellation sample is not bound to raw evidence");
+}
 function validateReport(report) {
   const reference = loadReference();
+  const expected = expectedBenchmarkEvidence();
   exactKeys(
     report.calibration,
     ["before", "after", "reference", "derived"],
@@ -258,6 +376,13 @@ function validateReport(report) {
   });
   if (!sameJson(report.calibration.derived, derived))
     throw new Error("calibration derived evidence mismatch");
+  if (
+    !Array.isArray(report.comparisons) ||
+    report.comparisons.length !== expected.comparisonFixtureIds.length ||
+    JSON.stringify(report.comparisons.map((item) => item?.fixtureId).sort()) !==
+      JSON.stringify([...expected.comparisonFixtureIds].sort())
+  )
+    throw new Error("comparison evidence set is incomplete");
   for (const comparison of report.comparisons) {
     for (const side of ["baseline", "candidate"]) {
       const item = comparison[side];
@@ -293,36 +418,30 @@ function validateReport(report) {
   if (
     report.collection.retries !== 0 ||
     report.collection.discarded !== 0 ||
-    !Array.isArray(report.rawSchedule)
+    !Array.isArray(report.rawSchedule) ||
+    report.rawSchedule.length !== expected.rawSchedule.length
   )
     throw new Error("retry/discard evidence is invalid");
-  const fixtureIds = new Set(report.rawSchedule.map((item) => item.fixtureId));
-  for (const fixtureId of fixtureIds) {
-    const records = report.rawSchedule.filter(
-      (item) => item.fixtureId === fixtureId,
-    );
+  for (const [index, expectedRecord] of expected.rawSchedule.entries()) {
+    const item = report.rawSchedule[index];
     if (
-      records.length !== 34 ||
-      records.filter((item) => item.warmup).length !== 4 ||
-      records.filter((item) => !item.warmup).length !== 30 ||
-      records.some((item, index) => {
-        const round = Math.floor(index / 2);
-        const expectedVersion = (
-          round % 2 === 0
-            ? ["baseline", "candidate"]
-            : ["candidate", "baseline"]
-        )[index % 2];
-        return (
-          item.round !== round ||
-          item.warmup !== round < 2 ||
-          item.version !== expectedVersion ||
-          !item.sample ||
-          Object.hasOwn(item.sample, "calibration")
-        );
-      })
+      typeof item !== "object" ||
+      item === null ||
+      Array.isArray(item) ||
+      item.fixtureId !== expectedRecord.fixtureId ||
+      item.round !== expectedRecord.round ||
+      item.warmup !== expectedRecord.warmup ||
+      item.version !== expectedRecord.version ||
+      !item.sample ||
+      Object.hasOwn(item.sample, "calibration")
     )
       throw new Error("raw alternating schedule is invalid");
   }
+  validateCancellationEvidence(
+    report.cancellation,
+    report.rawSchedule,
+    expected.cancellationFixtureId,
+  );
   return report;
 }
 function readJson(filePath) {
@@ -488,6 +607,7 @@ function hostedLedger(filePath, memoryPath, windowsPath) {
 function phaseAdmissionReports(reports) {
   if (reports.length !== 2)
     throw new Error("both Node benchmark reports are required");
+  for (const report of reports) validateReport(report);
   const majors = reports
     .map((report) => Number(report.environment.nodeVersion.match(/^v(\d+)/)[1]))
     .sort()

@@ -68,6 +68,10 @@ original 2-warmup/15-measurement alternating package record remain evidence.
 output, each Node benchmark job, phase admission, and the final hosted ledger.
 It recomputes calibration, scaled distributions, the raw schedule, and all
 unchanged correctness, RSS, cancellation, cleanup, tarball, and fixture gates.
+Admission accepts only the committed twelve-fixture manifest: every fixture has
+exactly 34 ordered raw records (two warmups plus fifteen baseline/candidate
+pairs), every non-cancellation fixture has one comparison, and the cancellation
+sample and passing verdict are bound to the retained candidate raw record.
 
 ## Committed Workload
 

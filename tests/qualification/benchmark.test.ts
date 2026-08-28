@@ -90,13 +90,126 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     centralValues: readonly number[];
     centralRangeRatio: number;
   };
+  loadReference(): {
+    algorithmId: string;
+    observationCount: number;
+    workloadUnitCount: number;
+    workloadDigest: string;
+    workloadResultDigest: string;
+    referenceMedianNs: Record<string, number>;
+  };
+  validateReport(input: Record<string, unknown>): void;
 };
 const calibration =
   require("../../scripts/qualification/benchmark-calibration.cjs") as {
     workloadDigest(): string;
+    workloadResultDigest(): string;
   };
 
 describe("paired benchmark admission", () => {
+  it("rejects incomplete, duplicate, and extra manifest evidence", () => {
+    const manifest = benchmark.loadBenchmarkManifest();
+    const reference = report.loadReference();
+    const nodeMajor = Number(process.versions.node.split(".")[0]);
+    const normalizedNs = reference.referenceMedianNs[String(nodeMajor)];
+    if (typeof normalizedNs !== "number")
+      throw new Error("current Node major lacks a calibration reference");
+    const observations = Array.from(
+      { length: reference.observationCount },
+      (_, index) => ({
+        ordinal: index + 1,
+        elapsedNs: normalizedNs * reference.workloadUnitCount,
+        unitCount: reference.workloadUnitCount,
+        normalizedNs,
+        resultDigest: calibration.workloadResultDigest(),
+      }),
+    );
+    const calibrationEvidence = {
+      schemaVersion: 2,
+      algorithmId: reference.algorithmId,
+      nodeMajor,
+      observations,
+      workloadDigest: calibration.workloadDigest(),
+      process: { execPath: process.execPath, clean: true },
+    };
+    const sample = { elapsedNs: 1, scaledElapsedNs: 1 };
+    const cancellationSample = {
+      code: "aborted",
+      destinationAbsent: true,
+      finalizationTruthful: true,
+      secondWriter: false,
+      finalizationStartMs: 0,
+      terminalMs: 0,
+      finalization: "owned-partial-remains",
+    };
+    const rawSchedule = benchmark
+      .buildSchedule(
+        manifest.fixtures.map((fixture) => String(fixture.id)),
+        2,
+        15,
+      )
+      .map((entry) => ({
+        ...entry,
+        sample:
+          entry.fixtureId === "cancellation-64m"
+            ? { ...sample, cancellation: cancellationSample }
+            : sample,
+      }));
+    const retainedSamples = Array.from({ length: 15 }, () => sample);
+    const timing = report.evaluateTiming({
+      baselineMedianNs: 1,
+      candidateMedianNs: 1,
+      baselineP95Ns: 1,
+      candidateP95Ns: 1,
+    });
+    const comparisons = manifest.fixtures
+      .filter((fixture) => fixture.kind !== "cancellation")
+      .map((fixture) => ({
+        fixtureId: fixture.id,
+        baseline: {
+          samples: retainedSamples,
+          medianElapsedNs: 1,
+          p95ElapsedNs: 1,
+        },
+        candidate: {
+          samples: retainedSamples,
+          medianElapsedNs: 1,
+          p95ElapsedNs: 1,
+        },
+        timing,
+      }));
+    const complete = {
+      calibration: {
+        before: calibrationEvidence,
+        after: calibrationEvidence,
+        reference,
+        derived: report.deriveRunScale({
+          before: observations.map((item) => item.normalizedNs),
+          after: observations.map((item) => item.normalizedNs),
+          referenceMedianNs: normalizedNs,
+        }),
+      },
+      environment: { nodeVersion: `v${nodeMajor}.0.0` },
+      comparisons,
+      rawSchedule,
+      collection: { retries: 0, discarded: 0 },
+      cancellation: {
+        sample: cancellationSample,
+        verdict: { pass: true, failures: [] },
+      },
+    };
+    expect(() => report.validateReport(complete)).not.toThrow();
+    for (const incomplete of [
+      { ...complete, comparisons: [], rawSchedule: [] },
+      { ...complete, comparisons: comparisons.slice(1) },
+      { ...complete, comparisons: [...comparisons, comparisons[0]] },
+      { ...complete, rawSchedule: rawSchedule.slice(1) },
+      { ...complete, rawSchedule: [...rawSchedule, rawSchedule[0]] },
+      { ...complete, cancellation: undefined },
+    ])
+      expect(() => report.validateReport(incomplete)).toThrow();
+  });
+
   it("uses the fixed v2 robust block estimator at every threshold in both drift directions", () => {
     const nextUp = (value: number): number => {
       const bytes = new ArrayBuffer(8);
