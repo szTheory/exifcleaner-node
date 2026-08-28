@@ -1045,14 +1045,65 @@ function validateTerminalCleanupRecord(record, scenario = "installed") {
     !["control", "installed"].includes(scenario)
   )
     throw new Error("terminal cleanup schema is invalid");
-  const { ownership, capture, helper, terminal, replacement, nativeLifetime } = record;
-  orderedKeys(ownership, ["helperToken", "captureOwnershipToken", "terminalOwnershipToken", "captureCapabilityId", "terminalCapabilityId"], "terminal cleanup ownership");
-  orderedKeys(capture, ["result", "directoryIdentity", "fileIdentity"], "terminal cleanup capture");
-  orderedKeys(helper, ["ownershipToken", "quiescenceSequence", "terminalSequence"], "terminal cleanup helper");
-  orderedKeys(terminal, ["identityBefore", "removalIdentity", "outcome", "consumeCount", "replayCount", "replayOutcome"], "terminal cleanup terminal");
-  orderedKeys(replacement, ["observationSequence", "injectionSequence", "identityBefore", "sha256Before", "identityAfter", "sha256After"], "terminal cleanup replacement");
-  orderedKeys(nativeLifetime, ["handlesBefore", "handlesAfter", "finalizersBefore", "finalizersAfter"], "terminal cleanup lifetime");
-  const hashes = [ownership.helperToken, ownership.captureOwnershipToken, ownership.terminalOwnershipToken, ownership.captureCapabilityId, ownership.terminalCapabilityId];
+  const { ownership, capture, helper, terminal, replacement, nativeLifetime } =
+    record;
+  orderedKeys(
+    ownership,
+    [
+      "helperToken",
+      "captureOwnershipToken",
+      "terminalOwnershipToken",
+      "captureCapabilityId",
+      "terminalCapabilityId",
+    ],
+    "terminal cleanup ownership",
+  );
+  orderedKeys(
+    capture,
+    ["result", "directoryIdentity", "fileIdentity"],
+    "terminal cleanup capture",
+  );
+  orderedKeys(
+    helper,
+    ["ownershipToken", "quiescenceSequence", "terminalSequence"],
+    "terminal cleanup helper",
+  );
+  orderedKeys(
+    terminal,
+    [
+      "identityBefore",
+      "removalIdentity",
+      "outcome",
+      "consumeCount",
+      "replayCount",
+      "replayOutcome",
+    ],
+    "terminal cleanup terminal",
+  );
+  orderedKeys(
+    replacement,
+    [
+      "observationSequence",
+      "injectionSequence",
+      "identityBefore",
+      "sha256Before",
+      "identityAfter",
+      "sha256After",
+    ],
+    "terminal cleanup replacement",
+  );
+  orderedKeys(
+    nativeLifetime,
+    ["handlesBefore", "handlesAfter", "finalizersBefore", "finalizersAfter"],
+    "terminal cleanup lifetime",
+  );
+  const hashes = [
+    ownership.helperToken,
+    ownership.captureOwnershipToken,
+    ownership.terminalOwnershipToken,
+    ownership.captureCapabilityId,
+    ownership.terminalCapabilityId,
+  ];
   if (
     hashes.some((value) => !SHA256.test(value)) ||
     ownership.helperToken !== ownership.captureOwnershipToken ||
@@ -1060,50 +1111,113 @@ function validateTerminalCleanupRecord(record, scenario = "installed") {
     ownership.helperToken !== helper.ownershipToken ||
     ownership.captureCapabilityId !== ownership.terminalCapabilityId ||
     ownership.captureCapabilityId === ownership.helperToken
-  ) throw new Error("terminal cleanup ownership/capability binding is invalid");
-  for (const value of [helper.quiescenceSequence, helper.terminalSequence, replacement.observationSequence, replacement.injectionSequence, terminal.consumeCount, terminal.replayCount, ...Object.values(nativeLifetime)])
-    if (!Number.isSafeInteger(value) || value < 0) throw new Error("terminal cleanup sequence or lifetime is invalid");
+  )
+    throw new Error("terminal cleanup ownership/capability binding is invalid");
+  for (const value of [
+    helper.quiescenceSequence,
+    helper.terminalSequence,
+    replacement.observationSequence,
+    replacement.injectionSequence,
+    terminal.consumeCount,
+    terminal.replayCount,
+    ...Object.values(nativeLifetime),
+  ])
+    if (!Number.isSafeInteger(value) || value < 0)
+      throw new Error("terminal cleanup sequence or lifetime is invalid");
   if (
     helper.quiescenceSequence <= 0 ||
-    !(helper.quiescenceSequence <= replacement.observationSequence && replacement.observationSequence < replacement.injectionSequence && replacement.injectionSequence < helper.terminalSequence) ||
-    terminal.consumeCount !== 1 || terminal.replayCount !== 1 || terminal.replayOutcome !== "no-action"
-  ) throw new Error("terminal cleanup quiescence or single-use relation is invalid");
+    !(
+      helper.quiescenceSequence <= replacement.observationSequence &&
+      replacement.observationSequence < replacement.injectionSequence &&
+      replacement.injectionSequence < helper.terminalSequence
+    ) ||
+    terminal.consumeCount !== 1 ||
+    terminal.replayCount !== 1 ||
+    terminal.replayOutcome !== "no-action"
+  )
+    throw new Error(
+      "terminal cleanup quiescence or single-use relation is invalid",
+    );
   if (record.platform === "win32") {
-    if (capture.result !== "captured") throw new Error("Windows capture is not authentic");
-    cleanupIdentity(capture.directoryIdentity, false, "captured directory identity");
+    if (capture.result !== "captured")
+      throw new Error("Windows capture is not authentic");
+    cleanupIdentity(
+      capture.directoryIdentity,
+      false,
+      "captured directory identity",
+    );
     cleanupIdentity(capture.fileIdentity, false, "captured file identity");
     cleanupIdentity(terminal.identityBefore, true, "terminal identity before");
-    cleanupIdentity(terminal.removalIdentity, true, "terminal removal identity");
-    const replacementOutcome = ["replacement-retained", "identity-mismatch"].includes(terminal.outcome);
+    cleanupIdentity(
+      terminal.removalIdentity,
+      true,
+      "terminal removal identity",
+    );
+    const replacementOutcome = [
+      "replacement-retained",
+      "identity-mismatch",
+    ].includes(terminal.outcome);
     if (scenario === "installed" && !replacementOutcome)
-      throw new Error("installed Windows record did not preserve the replacement");
+      throw new Error(
+        "installed Windows record did not preserve the replacement",
+      );
     if (replacementOutcome) {
-      cleanupIdentity(replacement.identityBefore, false, "replacement identity before");
-      cleanupIdentity(replacement.identityAfter, false, "replacement identity after");
+      cleanupIdentity(
+        replacement.identityBefore,
+        false,
+        "replacement identity before",
+      );
+      cleanupIdentity(
+        replacement.identityAfter,
+        false,
+        "replacement identity after",
+      );
       if (
         !sameCleanupIdentity(terminal.identityBefore, capture.fileIdentity) ||
-        !sameCleanupIdentity(terminal.removalIdentity, replacement.identityBefore) ||
+        !sameCleanupIdentity(
+          terminal.removalIdentity,
+          replacement.identityBefore,
+        ) ||
         sameCleanupIdentity(terminal.removalIdentity, capture.fileIdentity) ||
-        !sameCleanupIdentity(replacement.identityBefore, replacement.identityAfter) ||
-        !SHA256.test(replacement.sha256Before) || replacement.sha256Before !== replacement.sha256After
-      ) throw new Error("Windows replacement survivor proof is invalid");
+        !sameCleanupIdentity(
+          replacement.identityBefore,
+          replacement.identityAfter,
+        ) ||
+        !SHA256.test(replacement.sha256Before) ||
+        replacement.sha256Before !== replacement.sha256After
+      )
+        throw new Error("Windows replacement survivor proof is invalid");
     } else if (terminal.outcome === "removed") {
-      if (!sameCleanupIdentity(terminal.identityBefore, capture.fileIdentity) || !sameCleanupIdentity(terminal.removalIdentity, capture.fileIdentity))
+      if (
+        !sameCleanupIdentity(terminal.identityBefore, capture.fileIdentity) ||
+        !sameCleanupIdentity(terminal.removalIdentity, capture.fileIdentity)
+      )
         throw new Error("Windows removal identity is invalid");
     } else if (terminal.outcome === "absent") {
       if (terminal.identityBefore !== null || terminal.removalIdentity !== null)
         throw new Error("Windows absent identity is invalid");
     } else throw new Error("Windows terminal outcome is invalid");
-    if (nativeLifetime.handlesAfter !== nativeLifetime.handlesBefore || nativeLifetime.finalizersAfter !== nativeLifetime.finalizersBefore + 1)
+    if (
+      nativeLifetime.handlesAfter !== nativeLifetime.handlesBefore ||
+      nativeLifetime.finalizersAfter !== nativeLifetime.finalizersBefore + 1
+    )
       throw new Error("Windows native lifetime is imbalanced");
   } else {
     if (
-      capture.result !== "unsupported" || capture.directoryIdentity !== null || capture.fileIdentity !== null ||
-      terminal.outcome !== "unsupported-retained" || terminal.identityBefore !== null || terminal.removalIdentity !== null ||
-      replacement.identityBefore !== null || replacement.identityAfter !== null ||
-      !SHA256.test(replacement.sha256Before) || replacement.sha256Before !== replacement.sha256After ||
-      nativeLifetime.handlesAfter !== nativeLifetime.handlesBefore || nativeLifetime.finalizersAfter !== nativeLifetime.finalizersBefore
-    ) throw new Error("POSIX retained cleanup record is invalid");
+      capture.result !== "unsupported" ||
+      capture.directoryIdentity !== null ||
+      capture.fileIdentity !== null ||
+      terminal.outcome !== "unsupported-retained" ||
+      terminal.identityBefore !== null ||
+      terminal.removalIdentity !== null ||
+      replacement.identityBefore !== null ||
+      replacement.identityAfter !== null ||
+      !SHA256.test(replacement.sha256Before) ||
+      replacement.sha256Before !== replacement.sha256After ||
+      nativeLifetime.handlesAfter !== nativeLifetime.handlesBefore ||
+      nativeLifetime.finalizersAfter !== nativeLifetime.finalizersBefore
+    )
+      throw new Error("POSIX retained cleanup record is invalid");
   }
 }
 
@@ -1290,50 +1404,102 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
     throw new Error("installed report contract is invalid");
   validateTerminalCleanupRecord(report.cases.cancellation.cleanup, "installed");
   if (
-    report.cases.cancellation.cleanup.platform !== (windows ? "win32" : report.cases.cancellation.cleanup.platform) ||
-    (!windows && !["linux", "darwin"].includes(report.cases.cancellation.cleanup.platform))
-  ) throw new Error("installed cleanup platform is invalid");
+    report.cases.cancellation.cleanup.platform !==
+      (windows ? "win32" : report.cases.cancellation.cleanup.platform) ||
+    (!windows &&
+      !["linux", "darwin"].includes(report.cases.cancellation.cleanup.platform))
+  )
+    throw new Error("installed cleanup platform is invalid");
   return tuple.startsWith("win32")
     ? requireWindowsPublicationEvidence(report.windowsPublication)
     : undefined;
 }
 
 const D18_TUPLES = Object.freeze([
-  "linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64", "win32-x64", "win32-arm64",
+  "linux-x64",
+  "linux-arm64",
+  "darwin-x64",
+  "darwin-arm64",
+  "win32-x64",
+  "win32-arm64",
 ]);
 
 function validateIdentityCleanupLedger(ledger) {
-  orderedKeys(ledger, ["schemaVersion", "run", "candidate", "artifacts", "installed"], "identity cleanup ledger");
-  orderedKeys(ledger.run, ["id", "url", "ref", "headSha"], "identity cleanup ledger run");
-  orderedKeys(ledger.candidate, ["implementationSha", "tarballSha256", "corpusManifestSha256", "nativeManifestSha256"], "identity cleanup ledger candidate");
+  orderedKeys(
+    ledger,
+    ["schemaVersion", "run", "candidate", "artifacts", "installed"],
+    "identity cleanup ledger",
+  );
+  orderedKeys(
+    ledger.run,
+    ["id", "url", "ref", "headSha"],
+    "identity cleanup ledger run",
+  );
+  orderedKeys(
+    ledger.candidate,
+    [
+      "implementationSha",
+      "tarballSha256",
+      "corpusManifestSha256",
+      "nativeManifestSha256",
+    ],
+    "identity cleanup ledger candidate",
+  );
   if (
     ledger.schemaVersion !== "phase-46-identity-cleanup-ledger/v1" ||
-    !Number.isSafeInteger(ledger.run.id) || ledger.run.id <= 0 ||
-    !/^https:\/\//u.test(ledger.run.url) || !/^proof\/46-18-repair-[0-9a-f]+$/u.test(ledger.run.ref) ||
+    !Number.isSafeInteger(ledger.run.id) ||
+    ledger.run.id <= 0 ||
+    !/^https:\/\//u.test(ledger.run.url) ||
+    !/^proof\/46-18-repair-[0-9a-f]+$/u.test(ledger.run.ref) ||
     !/^[a-f0-9]{40}$/u.test(ledger.run.headSha) ||
     ledger.candidate.implementationSha !== ledger.run.headSha ||
-    !SHA256.test(ledger.candidate.tarballSha256) || !SHA256.test(ledger.candidate.corpusManifestSha256) || !SHA256.test(ledger.candidate.nativeManifestSha256)
-  ) throw new Error("identity cleanup ledger run/candidate binding is invalid");
-  orderedKeys(ledger.artifacts, D18_TUPLES, "identity cleanup ledger artifacts");
-  orderedKeys(ledger.installed, D18_TUPLES, "identity cleanup ledger installed");
+    !SHA256.test(ledger.candidate.tarballSha256) ||
+    !SHA256.test(ledger.candidate.corpusManifestSha256) ||
+    !SHA256.test(ledger.candidate.nativeManifestSha256)
+  )
+    throw new Error("identity cleanup ledger run/candidate binding is invalid");
+  orderedKeys(
+    ledger.artifacts,
+    D18_TUPLES,
+    "identity cleanup ledger artifacts",
+  );
+  orderedKeys(
+    ledger.installed,
+    D18_TUPLES,
+    "identity cleanup ledger installed",
+  );
   const observed = new Set();
   for (const tuple of D18_TUPLES) {
     const artifact = ledger.artifacts[tuple];
-    orderedKeys(artifact, ["binarySha256", "auditReportSha256", "implementationSha"], `identity artifact ${tuple}`);
-    if (!SHA256.test(artifact.binarySha256) || !SHA256.test(artifact.auditReportSha256) || artifact.implementationSha !== ledger.run.headSha)
+    orderedKeys(
+      artifact,
+      ["binarySha256", "auditReportSha256", "implementationSha"],
+      `identity artifact ${tuple}`,
+    );
+    if (
+      !SHA256.test(artifact.binarySha256) ||
+      !SHA256.test(artifact.auditReportSha256) ||
+      artifact.implementationSha !== ledger.run.headSha
+    )
       throw new Error(`identity artifact ${tuple} is stale or incomplete`);
     const installed = ledger.installed[tuple];
     orderedKeys(installed, ["node22", "node24"], `identity installed ${tuple}`);
-    for (const [nodeMajor, key] of [[22, "node22"], [24, "node24"]])
-      {
-        const report = installed[key];
-        validateInstalledReport(report, tuple, nodeMajor, ledger.candidate);
-        const identity = `${tuple}/node${nodeMajor}`;
-        if (observed.has(identity)) throw new Error("identity cleanup ledger has duplicate installed evidence");
-        observed.add(identity);
-      }
+    for (const [nodeMajor, key] of [
+      [22, "node22"],
+      [24, "node24"],
+    ]) {
+      const report = installed[key];
+      validateInstalledReport(report, tuple, nodeMajor, ledger.candidate);
+      const identity = `${tuple}/node${nodeMajor}`;
+      if (observed.has(identity))
+        throw new Error(
+          "identity cleanup ledger has duplicate installed evidence",
+        );
+      observed.add(identity);
+    }
   }
-  if (observed.size !== 12) throw new Error("identity cleanup ledger is incomplete");
+  if (observed.size !== 12)
+    throw new Error("identity cleanup ledger is incomplete");
 }
 function hostedLedger(filePath, memoryPath, windowsPath) {
   if (!memoryPath || !windowsPath)

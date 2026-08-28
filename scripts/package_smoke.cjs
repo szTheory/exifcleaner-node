@@ -683,7 +683,9 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
       renameSync(replacementPath, stagePath);
       const replacement = await open(stagePath, "r");
       try {
-        const identity = nativePublicationModule.stageFileIdentity(replacement.fd);
+        const identity = nativePublicationModule.stageFileIdentity(
+          replacement.fd,
+        );
         if (identity === undefined)
           throw new Error("Installed replacement identity is unavailable");
         const digest = sha256Bytes(readFileSync(stagePath));
