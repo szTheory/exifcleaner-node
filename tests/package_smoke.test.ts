@@ -36,7 +36,12 @@ const helper = require("../scripts/package_smoke.cjs") as {
     loadedModulePaths?: string[],
   ): boolean;
   cleanupCapturedCancellationStage(
-    paths: { stageDirectoryPath: string; stagePath: string },
+    paths: {
+      stageDirectoryPath: string;
+      stagePath: string;
+      stageDirectoryIdentity: { dev: number; ino: number };
+      stageFileIdentity: { dev: number; ino: number };
+    },
     operations?: {
       lstatSync(path: string): {
         isDirectory(): boolean;
@@ -117,6 +122,26 @@ describe("installed package smoke", () => {
         stageDirectory: { volumeSerialNumber: 1, fileId: "1".repeat(32) },
         stageFile: { volumeSerialNumber: 1, fileId: "2".repeat(32) },
         destinationFile: { volumeSerialNumber: 1, fileId: "3".repeat(32) },
+      }),
+    ).toThrow(
+      "Windows native publication evidence is incomplete or inconsistent",
+    );
+    expect(() =>
+      helper.requireWindowsPublicationEvidence({
+        primitive: "CreateHardLinkW",
+        linkCalls: 1,
+        destinationParentIdentityRechecked: true,
+        stageIdentityRechecked: true,
+        stageFileIdentityRechecked: true,
+        destinationParent: { volumeSerialNumber: 1, fileId: "0".repeat(32) },
+        stageDirectory: { volumeSerialNumber: 1, fileId: "1".repeat(32) },
+        stageFile: {
+          volumeSerialNumber: 1,
+          fileId: "2".repeat(32),
+          extra: true,
+        },
+        destinationFile: { volumeSerialNumber: 1, fileId: "2".repeat(32) },
+        extra: true,
       }),
     ).toThrow(
       "Windows native publication evidence is incomplete or inconsistent",
@@ -254,28 +279,42 @@ describe("installed package smoke", () => {
     const stagePath = join(stageDirectoryPath, "output.webp");
     await mkdir(stageDirectoryPath);
     await writeFile(stagePath, "partial");
-
-    expect(
-      helper.cleanupCapturedCancellationStage({
+    const capture = () => {
+      const directory = require("node:fs").lstatSync(stageDirectoryPath);
+      const file = require("node:fs").lstatSync(stagePath);
+      return {
         stageDirectoryPath,
         stagePath,
-      }),
-    ).toBe("pass");
+        stageDirectoryIdentity: { dev: directory.dev, ino: directory.ino },
+        stageFileIdentity: { dev: file.dev, ino: file.ino },
+      };
+    };
+
+    expect(helper.cleanupCapturedCancellationStage(capture())).toBe("pass");
     await mkdir(stageDirectoryPath);
     await writeFile(stagePath, "partial");
     expect(() =>
-      helper.cleanupCapturedCancellationStage(
-        { stageDirectoryPath, stagePath },
-        {
-          lstatSync: (path) => require("node:fs").lstatSync(path),
-          unlinkSync: () => {
-            const error = Object.assign(new Error("locked"), { code: "EPERM" });
-            throw error;
-          },
-          rmdirSync: (path) => require("node:fs").rmdirSync(path),
+      helper.cleanupCapturedCancellationStage(capture(), {
+        lstatSync: (path) => require("node:fs").lstatSync(path),
+        unlinkSync: () => {
+          const error = Object.assign(new Error("locked"), { code: "EPERM" });
+          throw error;
         },
-      ),
+        rmdirSync: (path) => require("node:fs").rmdirSync(path),
+      }),
     ).toThrow("locked");
+    await rm(stageDirectoryPath, { recursive: true, force: true });
+
+    await mkdir(stageDirectoryPath);
+    await writeFile(stagePath, "owned-partial");
+    const captured = capture();
+    await rm(stageDirectoryPath, { recursive: true, force: true });
+    await mkdir(stageDirectoryPath);
+    await writeFile(stagePath, "replacement");
+    expect(() => helper.cleanupCapturedCancellationStage(captured)).toThrow(
+      "identity changed",
+    );
+    expect(await readFile(stagePath, "utf8")).toBe("replacement");
     await rm(stageDirectoryPath, { recursive: true, force: true });
   });
 

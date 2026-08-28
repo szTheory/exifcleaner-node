@@ -89,7 +89,7 @@ function exists(path) {
  * cleanup into deletion of an unrelated path.
  */
 function cleanupCapturedCancellationStage(
-  { stageDirectoryPath, stagePath },
+  { stageDirectoryPath, stagePath, stageDirectoryIdentity, stageFileIdentity },
   operations = { lstatSync, unlinkSync, rmdirSync },
 ) {
   if (
@@ -100,27 +100,40 @@ function cleanupCapturedCancellationStage(
     !basename(stageDirectoryPath).startsWith(".exifcleaner-stage-")
   )
     throw new Error("Installed cancellation stage identity is invalid");
-  const directoryIdentity = operations.lstatSync(stageDirectoryPath);
+  const isExpectedIdentity = (identity) =>
+    typeof identity === "object" &&
+    identity !== null &&
+    Number.isInteger(identity.dev) &&
+    Number.isInteger(identity.ino);
+  if (
+    !isExpectedIdentity(stageDirectoryIdentity) ||
+    !isExpectedIdentity(stageFileIdentity)
+  )
+    throw new Error("Installed cancellation stage identity is invalid");
   const fileIdentity = operations.lstatSync(stagePath);
   if (
-    !directoryIdentity.isDirectory() ||
     !fileIdentity.isFile() ||
-    !Number.isInteger(directoryIdentity.dev) ||
-    !Number.isInteger(directoryIdentity.ino) ||
     !Number.isInteger(fileIdentity.dev) ||
-    !Number.isInteger(fileIdentity.ino)
+    !Number.isInteger(fileIdentity.ino) ||
+    fileIdentity.dev !== stageFileIdentity.dev ||
+    fileIdentity.ino !== stageFileIdentity.ino
   )
-    throw new Error("Installed cancellation stage is not an owned file");
+    throw new Error("Installed cancellation stage identity changed");
   const recheckedDirectory = operations.lstatSync(stageDirectoryPath);
-  const recheckedFile = operations.lstatSync(stagePath);
   if (
-    recheckedDirectory.dev !== directoryIdentity.dev ||
-    recheckedDirectory.ino !== directoryIdentity.ino ||
-    recheckedFile.dev !== fileIdentity.dev ||
-    recheckedFile.ino !== fileIdentity.ino
+    !recheckedDirectory.isDirectory() ||
+    recheckedDirectory.dev !== stageDirectoryIdentity.dev ||
+    recheckedDirectory.ino !== stageDirectoryIdentity.ino
   )
     throw new Error("Installed cancellation stage identity changed");
   operations.unlinkSync(stagePath);
+  const directoryBeforeRemoval = operations.lstatSync(stageDirectoryPath);
+  if (
+    !directoryBeforeRemoval.isDirectory() ||
+    directoryBeforeRemoval.dev !== stageDirectoryIdentity.dev ||
+    directoryBeforeRemoval.ino !== stageDirectoryIdentity.ino
+  )
+    throw new Error("Installed cancellation stage identity changed");
   operations.rmdirSync(stageDirectoryPath);
   if (exists(stagePath) || exists(stageDirectoryPath))
     throw new Error("Installed cancellation stage cleanup did not complete");
@@ -506,7 +519,17 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
     },
     fileOps: fileOpsModule.NODE_FILE_OPS,
     beforePublish: ({ stageDirectoryPath, stagePath }) => {
-      cancellationStage = { stageDirectoryPath, stagePath };
+      const stageDirectory = lstatSync(stageDirectoryPath);
+      const stageFile = lstatSync(stagePath);
+      cancellationStage = {
+        stageDirectoryPath,
+        stagePath,
+        stageDirectoryIdentity: {
+          dev: stageDirectory.dev,
+          ino: stageDirectory.ino,
+        },
+        stageFileIdentity: { dev: stageFile.dev, ino: stageFile.ino },
+      };
       controller.abort();
     },
   });
@@ -661,6 +684,11 @@ function requireWindowsPublicationEvidence(value) {
   if (typeof value !== "object" || value === null)
     throw new Error("Windows native publication evidence is absent");
   const evidence = value;
+  const hasExactKeys = (record, expected) =>
+    typeof record === "object" &&
+    record !== null &&
+    JSON.stringify(Object.keys(record).sort()) ===
+      JSON.stringify([...expected].sort());
   const identities = [
     evidence.destinationParent,
     evidence.stageDirectory,
@@ -668,6 +696,17 @@ function requireWindowsPublicationEvidence(value) {
     evidence.destinationFile,
   ];
   if (
+    !hasExactKeys(evidence, [
+      "primitive",
+      "linkCalls",
+      "destinationParentIdentityRechecked",
+      "stageIdentityRechecked",
+      "stageFileIdentityRechecked",
+      "destinationParent",
+      "stageDirectory",
+      "stageFile",
+      "destinationFile",
+    ]) ||
     evidence.primitive !== "CreateHardLinkW" ||
     evidence.linkCalls !== 1 ||
     evidence.destinationParentIdentityRechecked !== true ||
@@ -675,8 +714,7 @@ function requireWindowsPublicationEvidence(value) {
     evidence.stageFileIdentityRechecked !== true ||
     identities.some(
       (identity) =>
-        typeof identity !== "object" ||
-        identity === null ||
+        !hasExactKeys(identity, ["volumeSerialNumber", "fileId"]) ||
         !Number.isInteger(identity.volumeSerialNumber) ||
         identity.volumeSerialNumber < 0 ||
         typeof identity.fileId !== "string" ||
