@@ -339,7 +339,13 @@ describe("paired benchmark admission", () => {
         }),
       }));
     const complete = {
-      version: 2,
+      version: 3,
+      elapsedP95Estimator: {
+        method: "Hyndman-Fan Type 7",
+        quantile: 0.95,
+        interpolation: "linear",
+        retainedObservations: 15,
+      },
       mode: "admit",
       pass: true,
       baselinePackageName: "exifcleaner-node",
@@ -404,6 +410,33 @@ describe("paired benchmark admission", () => {
       runToken: "f".repeat(32),
     };
     expect(() => report.validateReport(comparisonSubstitution)).toThrow();
+    for (const mutate of [
+      (mutated: typeof complete) =>
+        delete (mutated as Partial<typeof complete>).elapsedP95Estimator,
+      (mutated: typeof complete) =>
+        Object.assign(mutated.elapsedP95Estimator, { unexpected: true }),
+      (mutated: typeof complete) =>
+        (mutated.elapsedP95Estimator.method = "nearest-rank"),
+      (mutated: typeof complete) =>
+        (mutated.elapsedP95Estimator.interpolation = "nearest-rank"),
+      (mutated: typeof complete) =>
+        (mutated.elapsedP95Estimator.quantile = "0.95" as unknown as number),
+      (mutated: typeof complete) =>
+        (mutated.elapsedP95Estimator.retainedObservations = 14),
+      (mutated: typeof complete) => (mutated.version = 2),
+      (mutated: typeof complete) => (mutated.collection.retries = 1),
+      (mutated: typeof complete) => (mutated.collection.discarded = 1),
+      (mutated: typeof complete) =>
+        mutated.comparisons[0]!.baseline.samples.pop(),
+      (mutated: typeof complete) =>
+        (mutated.comparisons[0]!.baseline.samples[0]!.scaledElapsedNs = 2),
+      (mutated: typeof complete) =>
+        (mutated.comparisons[0]!.baseline.p95ElapsedNs = 2),
+    ]) {
+      const mutated = structuredClone(complete);
+      mutate(mutated);
+      expect(() => report.validateReport(mutated)).toThrow();
+    }
     for (const [field, value] of [
       ["outputSha256", "f".repeat(64)],
       ["status", "refused"],
