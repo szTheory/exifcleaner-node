@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
@@ -123,6 +124,30 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
   ): void;
   validateIdentityCleanupLedger(input: Record<string, unknown>): void;
 };
+
+function loadIdentityLedgerValidator(source: string): {
+  validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+} {
+  const filename = join(
+    projectRoot,
+    "scripts",
+    "qualification",
+    "benchmark-report.cjs",
+  );
+  const localRequire = createRequire(filename);
+  const freshModule: { exports: unknown } = { exports: {} };
+  runInNewContext(source, {
+    __dirname: dirname(filename),
+    __filename: filename,
+    console,
+    module: freshModule,
+    exports: freshModule.exports,
+    require: localRequire,
+  });
+  return freshModule.exports as {
+    validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+  };
+}
 
 function cancellationObservation(reason = "native-write") {
   return {
@@ -358,7 +383,7 @@ const calibration =
   };
 
 describe("paired benchmark admission", () => {
-  it("accepts only exact short repair and final identity-ledger refs", () => {
+  it("accepts only exact short repair and final identity-ledger refs", async () => {
     const base = {
       schemaVersion: "phase-46-identity-cleanup-ledger/v1",
       run: {
@@ -406,6 +431,66 @@ describe("paired benchmark admission", () => {
           run: { ...base.run, ref },
         }),
       ).toThrow("identity cleanup ledger run/candidate binding is invalid");
+
+    const source = await readFile(
+      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+      "utf8",
+    );
+    const assertRefAuthority = (candidate: {
+      validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+    }): void => {
+      for (const ref of [
+        "proof/46-18-repair-abc123",
+        "proof/46-11-final-def456",
+      ]) {
+        try {
+          candidate.validateIdentityCleanupLedger({
+            ...base,
+            run: { ...base.run, ref },
+          });
+          throw new Error("partial identity ledger unexpectedly validated");
+        } catch (error) {
+          if (!/artifacts/u.test(String(error)))
+            throw new Error(`accepted identity ref was rejected: ${ref}`);
+        }
+      }
+      for (const ref of [
+        "refs/heads/proof/46-18-repair-abc123",
+        "proof/46-25-windows-diagnostic-abc123",
+        "proof/46-11-final-xyz",
+        "",
+      ]) {
+        try {
+          candidate.validateIdentityCleanupLedger({
+            ...base,
+            run: { ...base.run, ref },
+          });
+          throw new Error("invalid identity ref unexpectedly validated");
+        } catch (error) {
+          if (!/run\/candidate binding is invalid/u.test(String(error)))
+            throw new Error(`invalid identity ref reached later gates: ${ref}`);
+        }
+      }
+    };
+    expect(() =>
+      assertRefAuthority(loadIdentityLedgerValidator(source)),
+    ).not.toThrow();
+    const mutations = [
+      source.replace(
+        "proof\\/46-18-repair-[0-9a-f]+|proof\\/46-11-final-[0-9a-f]+",
+        "proof\\/46-18-repair-[0-9a-f]+",
+      ),
+      source.replace(
+        "proof\\/46-18-repair-[0-9a-f]+|proof\\/46-11-final-[0-9a-f]+",
+        "proof\\/.*",
+      ),
+    ];
+    for (const mutation of mutations) {
+      expect(mutation).not.toBe(source);
+      expect(() =>
+        assertRefAuthority(loadIdentityLedgerValidator(mutation)),
+      ).toThrow();
+    }
   });
 
   it("accepts only one exact two-tuple cancellation diagnostic run", () => {

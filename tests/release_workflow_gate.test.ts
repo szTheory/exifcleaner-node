@@ -30,6 +30,12 @@ const authorities = [
 
 type WorkflowJob = { needs?: string[]; script?: string };
 type WorkflowGraph = { jobs: Record<string, WorkflowJob> };
+type TupleGate = {
+  CANONICAL_NATIVE_TUPLES: readonly string[];
+  validateExactNativeManifestTuples(
+    manifest: readonly Record<string, unknown>[],
+  ): Map<string, Record<string, unknown>>;
+};
 const matchingPath =
   "windows-publication-matching-host-${{ matrix.tuple }}.json";
 const installedPath =
@@ -92,7 +98,11 @@ function workflowJob(
 }
 
 function immutableEvidenceHeredoc(workflow: string): string {
-  const job = workflowJob(workflow, "immutable-sha-evidence", "benchmark-linux");
+  const job = workflowJob(
+    workflow,
+    "immutable-sha-evidence",
+    "benchmark-linux",
+  );
   const heredoc = job.match(/node - <<'NODE'\n([\s\S]*?)\n\s+NODE/u)?.[1];
   if (heredoc === undefined)
     throw new Error("immutable evidence Node heredoc is absent");
@@ -117,7 +127,8 @@ function executeProductionTupleStage(
         if (specifier === "node:fs")
           return {
             readFileSync(path: string) {
-              if (path === "admitted/tarball.sha256") return `${"a".repeat(64)}  candidate.tgz\n`;
+              if (path === "admitted/tarball.sha256")
+                return `${"a".repeat(64)}  candidate.tgz\n`;
               if (path === "admitted/native-manifest.json")
                 return JSON.stringify(manifest);
               if (path === "tests/corpus/manifest.json") return "{}";
@@ -135,8 +146,87 @@ function executeProductionTupleStage(
   ) as { tuples: string[]; mappedTuples: string[] };
 }
 
-function validateImmutableEvidenceWorkflow(_workflow: string): void {
-  throw new Error("immutable evidence workflow validator not implemented");
+function validateImmutableEvidenceWorkflow(workflow: string): void {
+  const heredoc = immutableEvidenceHeredoc(workflow);
+  for (const required of [
+    "CANONICAL_NATIVE_TUPLES:tuples,validateExactNativeManifestTuples",
+    "const byTuple=validateExactNativeManifestTuples(manifest)",
+    "ref:process.env.GITHUB_REF_NAME",
+    "for(const tuple of tuples)",
+    "record.sha256",
+    "record.auditReportSha256",
+    "implementationSha:process.env.GITHUB_SHA",
+    "validateIdentityCleanupLedger(ledger)",
+    "['node-22.json','node-24.json']",
+  ])
+    if (!heredoc.includes(required))
+      throw new Error(`immutable evidence workflow lacks ${required}`);
+  if (heredoc.includes("ref:process.env.GITHUB_REF,"))
+    throw new Error("immutable evidence workflow serializes a full ref");
+
+  const canonical = [
+    "linux-x64",
+    "linux-arm64",
+    "darwin-x64",
+    "darwin-arm64",
+    "win32-x64",
+    "win32-arm64",
+  ];
+  const manifest = [...canonical].reverse().map((tuple) => ({
+    tuple,
+    sha256: "a".repeat(64),
+    auditReportSha256: "b".repeat(64),
+  }));
+  const result = executeProductionTupleStage(workflow, manifest);
+  if (
+    result.tuples.join(",") !== canonical.join(",") ||
+    result.mappedTuples.join(",") !== canonical.join(",")
+  )
+    throw new Error("immutable evidence workflow lost canonical tuple order");
+}
+
+function loadTupleGate(source: string): TupleGate {
+  const freshModule: { exports: unknown } = { exports: {} };
+  runInNewContext(source, {
+    console,
+    module: freshModule,
+    exports: freshModule.exports,
+    require,
+  });
+  return freshModule.exports as TupleGate;
+}
+
+function validateTupleGateAuthority(candidate: TupleGate): void {
+  const canonical = [
+    "linux-x64",
+    "linux-arm64",
+    "darwin-x64",
+    "darwin-arm64",
+    "win32-x64",
+    "win32-arm64",
+  ];
+  const records = canonical.map((tuple) => ({ tuple }));
+  const byTuple = candidate.validateExactNativeManifestTuples(
+    [...records].reverse(),
+  );
+  if (
+    candidate.CANONICAL_NATIVE_TUPLES.join(",") !== canonical.join(",") ||
+    [...byTuple.keys()].join(",") !== canonical.join(",")
+  )
+    throw new Error("tuple gate canonical authority changed");
+  for (const invalid of [
+    records.slice(1),
+    [...records.slice(0, -1), records[0]!],
+    [...records.slice(0, -1), { tuple: "linux-riscv64" }],
+  ]) {
+    let rejected = false;
+    try {
+      candidate.validateExactNativeManifestTuples(invalid);
+    } catch {
+      rejected = true;
+    }
+    if (!rejected) throw new Error("tuple gate accepted softened membership");
+  }
 }
 
 function validateBenchmarkWorkflow(workflow: string): void {
@@ -220,9 +310,11 @@ describe("release workflow authority gate", () => {
       "win32-x64",
       "win32-arm64",
     ];
-    const manifest = [...canonical]
-      .reverse()
-      .map((tuple) => ({ tuple, sha256: "a".repeat(64), auditReportSha256: "b".repeat(64) }));
+    const manifest = [...canonical].reverse().map((tuple) => ({
+      tuple,
+      sha256: "a".repeat(64),
+      auditReportSha256: "b".repeat(64),
+    }));
 
     expect(executeProductionTupleStage(workflow, manifest)).toEqual({
       tuples: canonical,
@@ -237,7 +329,14 @@ describe("release workflow authority gate", () => {
       records,
       [...records].reverse(),
       [...records.slice(2), ...records.slice(0, 2)],
-      [records[5]!, records[0]!, records[3]!, records[1]!, records[4]!, records[2]!],
+      [
+        records[5]!,
+        records[0]!,
+        records[3]!,
+        records[1]!,
+        records[4]!,
+        records[2]!,
+      ],
     ];
     for (const manifest of permutations) {
       const byTuple = gate.validateExactNativeManifestTuples(manifest);
@@ -287,6 +386,40 @@ describe("release workflow authority gate", () => {
     for (const mutation of mutations) {
       expect(mutation).not.toBe(workflow);
       expect(() => validateImmutableEvidenceWorkflow(mutation)).toThrow();
+    }
+  });
+
+  it("executes every tuple-helper mutation in a fresh VM and rejects softening", () => {
+    const source = readFileSync(
+      join(packageRoot, "scripts", "release_workflow_gate.cjs"),
+      "utf8",
+    );
+    expect(() =>
+      validateTupleGateAuthority(loadTupleGate(source)),
+    ).not.toThrow();
+    const mutations = [
+      ...[
+        "linux-x64",
+        "linux-arm64",
+        "darwin-x64",
+        "darwin-arm64",
+        "win32-x64",
+        "win32-arm64",
+      ].map((tuple) => source.replace(`"${tuple}"`, `"${tuple}-forged"`)),
+      source.replace(
+        "if (JSON.stringify(actualTuples) !== JSON.stringify(expectedTuples))",
+        "if (manifest.length !== CANONICAL_NATIVE_TUPLES.length)",
+      ),
+      source.replace(
+        "return new Map(\n    CANONICAL_NATIVE_TUPLES.map((tuple) => [tuple, observed.get(tuple)]),\n  );",
+        "return observed;",
+      ),
+    ];
+    for (const mutation of mutations) {
+      expect(mutation).not.toBe(source);
+      expect(() =>
+        validateTupleGateAuthority(loadTupleGate(mutation)),
+      ).toThrow();
     }
   });
 
