@@ -122,7 +122,11 @@ describe("installed package smoke", () => {
         directoryIdentity: identity,
         fileIdentity: identity,
       },
-      helper: { ownershipToken: token, quiescenceSequence: 1, terminalSequence: 4 },
+      helper: {
+        ownershipToken: token,
+        quiescenceSequence: 1,
+        terminalSequence: 4,
+      },
       terminal: {
         identityBefore: identity,
         removalIdentity: identity,
@@ -150,7 +154,10 @@ describe("installed package smoke", () => {
     expect(
       helper.isTerminalCleanupRecord({
         ...record,
-        ownership: { ...record.ownership, terminalOwnershipToken: "c".repeat(64) },
+        ownership: {
+          ...record.ownership,
+          terminalOwnershipToken: "c".repeat(64),
+        },
       }),
     ).toBe(false);
     expect(

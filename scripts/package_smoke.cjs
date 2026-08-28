@@ -88,20 +88,169 @@ function isTerminalCleanupRecord(record) {
   const isHex = (value, length) =>
     typeof value === "string" &&
     new RegExp(`^[a-f0-9]{${length}}$`, "u").test(value);
-  const identity = (value) => value !== null && typeof value === "object" &&
-    JSON.stringify(keys(value)) === JSON.stringify(["volumeSerialNumber", "fileId"]) &&
-    isHex(value.volumeSerialNumber, 16) && isHex(value.fileId, 32);
-  if (!record || typeof record !== "object" ||
-      JSON.stringify(keys(record)) !== JSON.stringify(["schemaVersion", "abiVersion", "platform", "ownership", "capture", "helper", "terminal", "replacement", "nativeLifetime"])) return false;
-  if (record.schemaVersion !== "phase-46-terminal-cleanup/v2" || record.abiVersion !== "native-publication/v2" || !["win32", "linux", "darwin"].includes(record.platform)) return false;
-  const { ownership, capture, helper, terminal, replacement, nativeLifetime } = record;
-  if (!ownership || JSON.stringify(keys(ownership)) !== JSON.stringify(["helperToken", "captureOwnershipToken", "terminalOwnershipToken", "captureCapabilityId", "terminalCapabilityId"])) return false;
-  if (!isHex(ownership.helperToken, 64) || ownership.helperToken !== ownership.captureOwnershipToken || ownership.helperToken !== ownership.terminalOwnershipToken || !isHex(ownership.captureCapabilityId, 64) || ownership.captureCapabilityId !== ownership.terminalCapabilityId || ownership.captureCapabilityId === ownership.helperToken) return false;
-  if (!capture || JSON.stringify(keys(capture)) !== JSON.stringify(["result", "directoryIdentity", "fileIdentity"]) || !helper || JSON.stringify(keys(helper)) !== JSON.stringify(["ownershipToken", "quiescenceSequence", "terminalSequence"]) || !terminal || JSON.stringify(keys(terminal)) !== JSON.stringify(["identityBefore", "removalIdentity", "outcome", "consumeCount", "replayCount", "replayOutcome"])) return false;
-  if (helper.ownershipToken !== ownership.helperToken || !Number.isSafeInteger(helper.quiescenceSequence) || !Number.isSafeInteger(helper.terminalSequence) || helper.quiescenceSequence <= 0 || helper.terminalSequence <= helper.quiescenceSequence || terminal.replayOutcome !== "no-action") return false;
-  if (!replacement || JSON.stringify(keys(replacement)) !== JSON.stringify(["observationSequence", "injectionSequence", "identityBefore", "sha256Before", "identityAfter", "sha256After"]) || !Number.isSafeInteger(replacement.observationSequence) || !Number.isSafeInteger(replacement.injectionSequence) || helper.quiescenceSequence > replacement.observationSequence || replacement.observationSequence >= replacement.injectionSequence || replacement.injectionSequence >= helper.terminalSequence || !nativeLifetime || JSON.stringify(keys(nativeLifetime)) !== JSON.stringify(["handlesBefore", "handlesAfter", "finalizersBefore", "finalizersAfter"]) || !Object.values(nativeLifetime).every((value) => Number.isSafeInteger(value) && value >= 0) || !Number.isSafeInteger(terminal.consumeCount) || !Number.isSafeInteger(terminal.replayCount) || terminal.consumeCount < 0 || terminal.replayCount < 0) return false;
-  if (record.platform === "win32") return capture.result === "captured" && identity(capture.directoryIdentity) && identity(capture.fileIdentity) && ["removed", "absent", "replacement-retained", "identity-mismatch"].includes(terminal.outcome) && nativeLifetime.handlesAfter === nativeLifetime.handlesBefore && nativeLifetime.finalizersAfter === nativeLifetime.finalizersBefore + 1 && (terminal.outcome === "removed" ? identity(terminal.identityBefore) && JSON.stringify(terminal.identityBefore) === JSON.stringify(capture.fileIdentity) && JSON.stringify(terminal.removalIdentity) === JSON.stringify(capture.fileIdentity) : terminal.outcome === "absent" ? terminal.identityBefore === null && terminal.removalIdentity === null : identity(terminal.identityBefore) && identity(terminal.removalIdentity) && JSON.stringify(terminal.identityBefore) === JSON.stringify(capture.fileIdentity) && JSON.stringify(terminal.removalIdentity) !== JSON.stringify(capture.fileIdentity) && identity(replacement.identityBefore) && identity(replacement.identityAfter) && JSON.stringify(replacement.identityBefore) === JSON.stringify(replacement.identityAfter) && isHex(replacement.sha256Before, 64) && replacement.sha256Before === replacement.sha256After);
-  return capture.result === "unsupported" && capture.directoryIdentity === null && capture.fileIdentity === null && terminal.outcome === "unsupported-retained" && terminal.identityBefore === null && terminal.removalIdentity === null && nativeLifetime.handlesAfter === nativeLifetime.handlesBefore && nativeLifetime.finalizersAfter === nativeLifetime.finalizersBefore;
+  const identity = (value) =>
+    value !== null &&
+    typeof value === "object" &&
+    JSON.stringify(keys(value)) ===
+      JSON.stringify(["volumeSerialNumber", "fileId"]) &&
+    isHex(value.volumeSerialNumber, 16) &&
+    isHex(value.fileId, 32);
+  if (
+    !record ||
+    typeof record !== "object" ||
+    JSON.stringify(keys(record)) !==
+      JSON.stringify([
+        "schemaVersion",
+        "abiVersion",
+        "platform",
+        "ownership",
+        "capture",
+        "helper",
+        "terminal",
+        "replacement",
+        "nativeLifetime",
+      ])
+  )
+    return false;
+  if (
+    record.schemaVersion !== "phase-46-terminal-cleanup/v2" ||
+    record.abiVersion !== "native-publication/v2" ||
+    !["win32", "linux", "darwin"].includes(record.platform)
+  )
+    return false;
+  const { ownership, capture, helper, terminal, replacement, nativeLifetime } =
+    record;
+  if (
+    !ownership ||
+    JSON.stringify(keys(ownership)) !==
+      JSON.stringify([
+        "helperToken",
+        "captureOwnershipToken",
+        "terminalOwnershipToken",
+        "captureCapabilityId",
+        "terminalCapabilityId",
+      ])
+  )
+    return false;
+  if (
+    !isHex(ownership.helperToken, 64) ||
+    ownership.helperToken !== ownership.captureOwnershipToken ||
+    ownership.helperToken !== ownership.terminalOwnershipToken ||
+    !isHex(ownership.captureCapabilityId, 64) ||
+    ownership.captureCapabilityId !== ownership.terminalCapabilityId ||
+    ownership.captureCapabilityId === ownership.helperToken
+  )
+    return false;
+  if (
+    !capture ||
+    JSON.stringify(keys(capture)) !==
+      JSON.stringify(["result", "directoryIdentity", "fileIdentity"]) ||
+    !helper ||
+    JSON.stringify(keys(helper)) !==
+      JSON.stringify([
+        "ownershipToken",
+        "quiescenceSequence",
+        "terminalSequence",
+      ]) ||
+    !terminal ||
+    JSON.stringify(keys(terminal)) !==
+      JSON.stringify([
+        "identityBefore",
+        "removalIdentity",
+        "outcome",
+        "consumeCount",
+        "replayCount",
+        "replayOutcome",
+      ])
+  )
+    return false;
+  if (
+    helper.ownershipToken !== ownership.helperToken ||
+    !Number.isSafeInteger(helper.quiescenceSequence) ||
+    !Number.isSafeInteger(helper.terminalSequence) ||
+    helper.quiescenceSequence <= 0 ||
+    helper.terminalSequence <= helper.quiescenceSequence ||
+    terminal.replayOutcome !== "no-action"
+  )
+    return false;
+  if (
+    !replacement ||
+    JSON.stringify(keys(replacement)) !==
+      JSON.stringify([
+        "observationSequence",
+        "injectionSequence",
+        "identityBefore",
+        "sha256Before",
+        "identityAfter",
+        "sha256After",
+      ]) ||
+    !Number.isSafeInteger(replacement.observationSequence) ||
+    !Number.isSafeInteger(replacement.injectionSequence) ||
+    helper.quiescenceSequence > replacement.observationSequence ||
+    replacement.observationSequence >= replacement.injectionSequence ||
+    replacement.injectionSequence >= helper.terminalSequence ||
+    !nativeLifetime ||
+    JSON.stringify(keys(nativeLifetime)) !==
+      JSON.stringify([
+        "handlesBefore",
+        "handlesAfter",
+        "finalizersBefore",
+        "finalizersAfter",
+      ]) ||
+    !Object.values(nativeLifetime).every(
+      (value) => Number.isSafeInteger(value) && value >= 0,
+    ) ||
+    !Number.isSafeInteger(terminal.consumeCount) ||
+    !Number.isSafeInteger(terminal.replayCount) ||
+    terminal.consumeCount < 0 ||
+    terminal.replayCount < 0
+  )
+    return false;
+  if (record.platform === "win32")
+    return (
+      capture.result === "captured" &&
+      identity(capture.directoryIdentity) &&
+      identity(capture.fileIdentity) &&
+      [
+        "removed",
+        "absent",
+        "replacement-retained",
+        "identity-mismatch",
+      ].includes(terminal.outcome) &&
+      nativeLifetime.handlesAfter === nativeLifetime.handlesBefore &&
+      nativeLifetime.finalizersAfter === nativeLifetime.finalizersBefore + 1 &&
+      (terminal.outcome === "removed"
+        ? identity(terminal.identityBefore) &&
+          JSON.stringify(terminal.identityBefore) ===
+            JSON.stringify(capture.fileIdentity) &&
+          JSON.stringify(terminal.removalIdentity) ===
+            JSON.stringify(capture.fileIdentity)
+        : terminal.outcome === "absent"
+          ? terminal.identityBefore === null &&
+            terminal.removalIdentity === null
+          : identity(terminal.identityBefore) &&
+            identity(terminal.removalIdentity) &&
+            JSON.stringify(terminal.identityBefore) ===
+              JSON.stringify(capture.fileIdentity) &&
+            JSON.stringify(terminal.removalIdentity) !==
+              JSON.stringify(capture.fileIdentity) &&
+            identity(replacement.identityBefore) &&
+            identity(replacement.identityAfter) &&
+            JSON.stringify(replacement.identityBefore) ===
+              JSON.stringify(replacement.identityAfter) &&
+            isHex(replacement.sha256Before, 64) &&
+            replacement.sha256Before === replacement.sha256After)
+    );
+  return (
+    capture.result === "unsupported" &&
+    capture.directoryIdentity === null &&
+    capture.fileIdentity === null &&
+    terminal.outcome === "unsupported-retained" &&
+    terminal.identityBefore === null &&
+    terminal.removalIdentity === null &&
+    nativeLifetime.handlesAfter === nativeLifetime.handlesBefore &&
+    nativeLifetime.finalizersAfter === nativeLifetime.finalizersBefore
+  );
 }
 
 /* Compatibility test seam: observations can only classify retention. It never
@@ -542,7 +691,9 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
       "Installed cancellation finalization residue is untruthful",
     );
   if (!isTerminalCleanupRecord(cleanupRecord))
-    throw new Error("Installed cancellation terminal cleanup record is invalid");
+    throw new Error(
+      "Installed cancellation terminal cleanup record is invalid",
+    );
   return {
     code: result.error.code,
     nativeWrite: result.error.nativeWrite,

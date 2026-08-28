@@ -169,17 +169,14 @@ export interface SafeTransactionInput {
         identityAfter: NativeStageFileIdentity | null;
         sha256After: string | null;
       }>
-    | Promise<
-        | void
-        | Readonly<{
-            observationSequence: number;
-            injectionSequence: number;
-            identityBefore: NativeStageFileIdentity | null;
-            sha256Before: string | null;
-            identityAfter: NativeStageFileIdentity | null;
-            sha256After: string | null;
-          }>
-      >;
+    | Promise<void | Readonly<{
+        observationSequence: number;
+        injectionSequence: number;
+        identityBefore: NativeStageFileIdentity | null;
+        sha256Before: string | null;
+        identityAfter: NativeStageFileIdentity | null;
+        sha256After: string | null;
+      }>>;
   /** Private installed-evidence sink; never threaded through sanitizeFile. */
   readonly onTerminalCleanupRecord?: (record: TerminalCleanupRecord) => void;
   /** Private platform seam for deterministic capability-finalization coverage. */
@@ -578,10 +575,20 @@ export async function runSafeTransaction(
       ? consumePrivateStageCleanup(cleanupCapability)
       : undefined;
   if (cleanupResult !== undefined) {
-    const record = takeTerminalCleanupRecord(platform, replacement ?? defaultReplacement, 1, 4);
+    const record = takeTerminalCleanupRecord(
+      platform,
+      replacement ?? defaultReplacement,
+      1,
+      4,
+    );
     if (record !== undefined) onTerminalCleanupRecord?.(record);
   } else if (platform !== "win32") {
-    const record = takeTerminalCleanupRecord(platform, replacement ?? defaultReplacement, 1, 4);
+    const record = takeTerminalCleanupRecord(
+      platform,
+      replacement ?? defaultReplacement,
+      1,
+      4,
+    );
     if (record !== undefined) onTerminalCleanupRecord?.(record);
   }
   if (

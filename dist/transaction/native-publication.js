@@ -212,9 +212,12 @@ function terminalEvidence(value) {
     return isNativeIdentity(evidence.directoryIdentity) &&
         isNativeIdentity(evidence.captureIdentity) &&
         isNativeIdentity(evidence.identityBefore) &&
-        (evidence.removalIdentity === null || isNativeIdentity(evidence.removalIdentity)) &&
-        (evidence.outcome === "published" || evidence.outcome === "absent" ||
-            evidence.outcome === "replacement-retained" || evidence.outcome === "identity-mismatch")
+        (evidence.removalIdentity === null ||
+            isNativeIdentity(evidence.removalIdentity)) &&
+        (evidence.outcome === "published" ||
+            evidence.outcome === "absent" ||
+            evidence.outcome === "replacement-retained" ||
+            evidence.outcome === "identity-mismatch")
         ? evidence
         : undefined;
 }
@@ -241,8 +244,16 @@ export function takeTerminalCleanupRecord(platform, replacement, quiescenceSeque
             ? "removed"
             : evidence.outcome;
     const capture = posix
-        ? { result: "unsupported", directoryIdentity: null, fileIdentity: null }
-        : { result: "captured", directoryIdentity: evidence.directoryIdentity, fileIdentity: evidence.captureIdentity };
+        ? {
+            result: "unsupported",
+            directoryIdentity: null,
+            fileIdentity: null,
+        }
+        : {
+            result: "captured",
+            directoryIdentity: evidence.directoryIdentity,
+            fileIdentity: evidence.captureIdentity,
+        };
     return {
         schemaVersion: "phase-46-terminal-cleanup/v2",
         abiVersion: "native-publication/v2",
@@ -255,7 +266,11 @@ export function takeTerminalCleanupRecord(platform, replacement, quiescenceSeque
             terminalCapabilityId: capabilityId,
         },
         capture,
-        helper: { ownershipToken: helperToken, quiescenceSequence, terminalSequence },
+        helper: {
+            ownershipToken: helperToken,
+            quiescenceSequence,
+            terminalSequence,
+        },
         terminal: {
             identityBefore: posix ? null : evidence.identityBefore,
             removalIdentity: posix ? null : evidence.removalIdentity,
@@ -266,8 +281,18 @@ export function takeTerminalCleanupRecord(platform, replacement, quiescenceSeque
         },
         replacement,
         nativeLifetime: posix
-            ? { handlesBefore: 0, handlesAfter: 0, finalizersBefore: 0, finalizersAfter: 0 }
-            : { handlesBefore: 2, handlesAfter: 2, finalizersBefore: 0, finalizersAfter: 1 },
+            ? {
+                handlesBefore: 0,
+                handlesAfter: 0,
+                finalizersBefore: 0,
+                finalizersAfter: 0,
+            }
+            : {
+                handlesBefore: 2,
+                handlesAfter: 2,
+                finalizersBefore: 0,
+                finalizersAfter: 1,
+            },
     };
 }
 /**

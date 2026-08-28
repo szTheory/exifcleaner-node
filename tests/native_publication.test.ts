@@ -483,10 +483,15 @@ describe("private native publication loader", () => {
       );
       expect(record).toMatchObject({
         schemaVersion: "phase-46-terminal-cleanup/v2",
-        terminal: { outcome: "replacement-retained", replayOutcome: "no-action" },
+        terminal: {
+          outcome: "replacement-retained",
+          replayOutcome: "no-action",
+        },
       });
       expect(record?.ownership.helperToken).toHaveLength(64);
-      expect(record?.ownership.captureCapabilityId).not.toBe(record?.ownership.helperToken);
+      expect(record?.ownership.captureCapabilityId).not.toBe(
+        record?.ownership.helperToken,
+      );
     } finally {
       restore();
     }

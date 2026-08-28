@@ -117,7 +117,8 @@ type NativeTerminalEvidence = {
   readonly captureIdentity: NativeStageFileIdentity;
   readonly identityBefore: NativeStageFileIdentity;
   readonly removalIdentity: NativeStageFileIdentity | null;
-  readonly outcome: "published" | "absent" | "replacement-retained" | "identity-mismatch";
+  readonly outcome:
+    "published" | "absent" | "replacement-retained" | "identity-mismatch";
 };
 
 /** Private, closed terminal-cleanup evidence. It is intentionally not exported
@@ -126,12 +127,48 @@ export type TerminalCleanupRecord = Readonly<{
   schemaVersion: "phase-46-terminal-cleanup/v2";
   abiVersion: "native-publication/v2";
   platform: "win32" | "linux" | "darwin";
-  ownership: Readonly<Record<"helperToken" | "captureOwnershipToken" | "terminalOwnershipToken" | "captureCapabilityId" | "terminalCapabilityId", string>>;
-  capture: Readonly<{ result: "captured" | "unsupported"; directoryIdentity: NativeStageFileIdentity | null; fileIdentity: NativeStageFileIdentity | null }>;
-  helper: Readonly<{ ownershipToken: string; quiescenceSequence: number; terminalSequence: number }>;
-  terminal: Readonly<{ identityBefore: NativeStageFileIdentity | null; removalIdentity: NativeStageFileIdentity | null; outcome: NativeCleanupOutcome; consumeCount: number; replayCount: number; replayOutcome: "no-action" }>;
-  replacement: Readonly<{ observationSequence: number; injectionSequence: number; identityBefore: NativeStageFileIdentity | null; sha256Before: string | null; identityAfter: NativeStageFileIdentity | null; sha256After: string | null }>;
-  nativeLifetime: Readonly<{ handlesBefore: number; handlesAfter: number; finalizersBefore: number; finalizersAfter: number }>;
+  ownership: Readonly<
+    Record<
+      | "helperToken"
+      | "captureOwnershipToken"
+      | "terminalOwnershipToken"
+      | "captureCapabilityId"
+      | "terminalCapabilityId",
+      string
+    >
+  >;
+  capture: Readonly<{
+    result: "captured" | "unsupported";
+    directoryIdentity: NativeStageFileIdentity | null;
+    fileIdentity: NativeStageFileIdentity | null;
+  }>;
+  helper: Readonly<{
+    ownershipToken: string;
+    quiescenceSequence: number;
+    terminalSequence: number;
+  }>;
+  terminal: Readonly<{
+    identityBefore: NativeStageFileIdentity | null;
+    removalIdentity: NativeStageFileIdentity | null;
+    outcome: NativeCleanupOutcome;
+    consumeCount: number;
+    replayCount: number;
+    replayOutcome: "no-action";
+  }>;
+  replacement: Readonly<{
+    observationSequence: number;
+    injectionSequence: number;
+    identityBefore: NativeStageFileIdentity | null;
+    sha256Before: string | null;
+    identityAfter: NativeStageFileIdentity | null;
+    sha256After: string | null;
+  }>;
+  nativeLifetime: Readonly<{
+    handlesBefore: number;
+    handlesAfter: number;
+    finalizersBefore: number;
+    finalizersAfter: number;
+  }>;
 }>;
 
 const BINDING_PATHS: Readonly<Record<SupportedTuple, string>> = Object.freeze({
@@ -423,7 +460,9 @@ function isNativeIdentity(value: unknown): value is NativeStageFileIdentity {
     typeof value === "object" &&
     value !== null &&
     typeof (value as NativeStageFileIdentity).volumeSerialNumber === "string" &&
-    /^[a-f0-9]{16}$/u.test((value as NativeStageFileIdentity).volumeSerialNumber) &&
+    /^[a-f0-9]{16}$/u.test(
+      (value as NativeStageFileIdentity).volumeSerialNumber,
+    ) &&
     typeof (value as NativeStageFileIdentity).fileId === "string" &&
     /^[a-f0-9]{32}$/u.test((value as NativeStageFileIdentity).fileId)
   );
@@ -435,10 +474,13 @@ function terminalEvidence(value: unknown): NativeTerminalEvidence | undefined {
   return isNativeIdentity(evidence.directoryIdentity) &&
     isNativeIdentity(evidence.captureIdentity) &&
     isNativeIdentity(evidence.identityBefore) &&
-    (evidence.removalIdentity === null || isNativeIdentity(evidence.removalIdentity)) &&
-    (evidence.outcome === "published" || evidence.outcome === "absent" ||
-      evidence.outcome === "replacement-retained" || evidence.outcome === "identity-mismatch")
-    ? evidence as NativeTerminalEvidence
+    (evidence.removalIdentity === null ||
+      isNativeIdentity(evidence.removalIdentity)) &&
+    (evidence.outcome === "published" ||
+      evidence.outcome === "absent" ||
+      evidence.outcome === "replacement-retained" ||
+      evidence.outcome === "identity-mismatch")
+    ? (evidence as NativeTerminalEvidence)
     : undefined;
 }
 
@@ -477,8 +519,16 @@ export function takeTerminalCleanupRecord(
       ? "removed"
       : evidence!.outcome;
   const capture = posix
-    ? { result: "unsupported" as const, directoryIdentity: null, fileIdentity: null }
-    : { result: "captured" as const, directoryIdentity: evidence!.directoryIdentity, fileIdentity: evidence!.captureIdentity };
+    ? {
+        result: "unsupported" as const,
+        directoryIdentity: null,
+        fileIdentity: null,
+      }
+    : {
+        result: "captured" as const,
+        directoryIdentity: evidence!.directoryIdentity,
+        fileIdentity: evidence!.captureIdentity,
+      };
   return {
     schemaVersion: "phase-46-terminal-cleanup/v2",
     abiVersion: "native-publication/v2",
@@ -491,7 +541,11 @@ export function takeTerminalCleanupRecord(
       terminalCapabilityId: capabilityId,
     },
     capture,
-    helper: { ownershipToken: helperToken, quiescenceSequence, terminalSequence },
+    helper: {
+      ownershipToken: helperToken,
+      quiescenceSequence,
+      terminalSequence,
+    },
     terminal: {
       identityBefore: posix ? null : evidence!.identityBefore,
       removalIdentity: posix ? null : evidence!.removalIdentity,
@@ -502,8 +556,18 @@ export function takeTerminalCleanupRecord(
     },
     replacement,
     nativeLifetime: posix
-      ? { handlesBefore: 0, handlesAfter: 0, finalizersBefore: 0, finalizersAfter: 0 }
-      : { handlesBefore: 2, handlesAfter: 2, finalizersBefore: 0, finalizersAfter: 1 },
+      ? {
+          handlesBefore: 0,
+          handlesAfter: 0,
+          finalizersBefore: 0,
+          finalizersAfter: 0,
+        }
+      : {
+          handlesBefore: 2,
+          handlesAfter: 2,
+          finalizersBefore: 0,
+          finalizersAfter: 1,
+        },
   };
 }
 
