@@ -1827,10 +1827,11 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
   const expectedPostCommitResidue = windows
     ? "none"
     : "private-empty-stage-directory-remains";
-  const expectedFailureFinalization = windows
+  const expectedCancellationFinalization = "owned-partial-remains";
+  const expectedCancellationResidue = true;
+  const expectedCollisionFinalization = windows
     ? "owned-partial-removed"
     : "owned-partial-remains";
-  const expectedFailureResidue = !windows;
   if (
     typeof report !== "object" ||
     report === null ||
@@ -1994,13 +1995,14 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
     report.cases.cancellation.code !== "aborted" ||
     report.cases.cancellation.nativeWrite !== "started" ||
     report.cases.cancellation.fallback !== "do-not-fallback" ||
-    report.cases.cancellation.finalization !== expectedFailureFinalization ||
+    report.cases.cancellation.finalization !==
+      expectedCancellationFinalization ||
     report.cases.cancellation.residue.stageDirectoryExists !==
-      expectedFailureResidue ||
+      expectedCancellationResidue ||
     report.cases.cancellation.residue.stageFileExists !==
-      expectedFailureResidue ||
+      expectedCancellationResidue ||
     report.cases.postCommitResidue !== expectedPostCommitResidue ||
-    report.cases.collisionFinalization !== expectedFailureFinalization
+    report.cases.collisionFinalization !== expectedCollisionFinalization
   )
     throw new Error("installed report contract is invalid");
   validateTerminalCleanupRecord(report.cases.cancellation.cleanup, "installed");
