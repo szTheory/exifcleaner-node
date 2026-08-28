@@ -118,8 +118,10 @@ describe("current-host native publication addon", () => {
       directory,
       fsConstants.O_RDONLY | fsConstants.O_DIRECTORY,
     );
-    const stageHandle = await open(stage, fsConstants.O_RDWR);
-    if (process.platform === "win32")
+    let stageHandle = await open(stage, fsConstants.O_RDWR);
+    if (process.platform === "win32") {
+      await stageHandle.close();
+      stageHandle = await open(stage, WINDOWS_REOPEN_FLAGS);
       expect(
         binding.capturePrivateStageCleanup(
           stageDirectoryCapability!,
@@ -127,6 +129,7 @@ describe("current-host native publication addon", () => {
           binding.stageFileIdentity(stageHandle.fd),
         ),
       ).toBeDefined();
+    }
     const publish = (
       stageDescriptor: number,
       stageEntry: string,
