@@ -959,8 +959,8 @@ function requireWindowsPublicationEvidence(evidence) {
       (identity) =>
         typeof identity !== "object" ||
         identity === null ||
-        !Number.isInteger(identity.volumeSerialNumber) ||
-        identity.volumeSerialNumber < 0 ||
+        typeof identity.volumeSerialNumber !== "string" ||
+        !/^[a-f0-9]{8}$/.test(identity.volumeSerialNumber) ||
         typeof identity.fileId !== "string" ||
         !/^[a-f0-9]{32}$/.test(identity.fileId),
     ) ||
@@ -980,9 +980,14 @@ function requireWindowsPublicationEvidence(evidence) {
   };
 }
 function validateInstalledReport(report, tuple, nodeMajor, candidate) {
-  const expectedPostCommitResidue = tuple.startsWith("win32")
+  const windows = tuple.startsWith("win32");
+  const expectedPostCommitResidue = windows
     ? "none"
     : "private-empty-stage-directory-remains";
+  const expectedFailureFinalization = windows
+    ? "owned-partial-removed"
+    : "owned-partial-remains";
+  const expectedFailureResidue = !windows;
   if (
     typeof report !== "object" ||
     report === null ||
@@ -1146,11 +1151,13 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
     report.cases.cancellation.code !== "aborted" ||
     report.cases.cancellation.nativeWrite !== "started" ||
     report.cases.cancellation.fallback !== "do-not-fallback" ||
-    report.cases.cancellation.finalization !== "owned-partial-remains" ||
-    report.cases.cancellation.residue.stageDirectoryExists !== true ||
-    report.cases.cancellation.residue.stageFileExists !== true ||
+    report.cases.cancellation.finalization !== expectedFailureFinalization ||
+    report.cases.cancellation.residue.stageDirectoryExists !==
+      expectedFailureResidue ||
+    report.cases.cancellation.residue.stageFileExists !==
+      expectedFailureResidue ||
     report.cases.postCommitResidue !== expectedPostCommitResidue ||
-    report.cases.collisionFinalization !== "owned-partial-remains"
+    report.cases.collisionFinalization !== expectedFailureFinalization
   )
     throw new Error("installed report contract is invalid");
   return tuple.startsWith("win32")

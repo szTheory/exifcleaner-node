@@ -3,6 +3,7 @@
 
 const fs = require("node:fs");
 const fsPromises = require("node:fs/promises");
+const crypto = require("node:crypto");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");

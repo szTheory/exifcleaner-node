@@ -439,10 +439,19 @@ describe("paired benchmark admission", () => {
       destinationParentIdentityRechecked: true,
       stageIdentityRechecked: true,
       stageFileIdentityRechecked: true,
-      destinationParent: { volumeSerialNumber: 1, fileId: "a".repeat(32) },
-      stageDirectory: { volumeSerialNumber: 1, fileId: "b".repeat(32) },
-      stageFile: { volumeSerialNumber: 1, fileId: "c".repeat(32) },
-      destinationFile: { volumeSerialNumber: 1, fileId: "c".repeat(32) },
+      destinationParent: {
+        volumeSerialNumber: "00000000",
+        fileId: "a".repeat(32),
+      },
+      stageDirectory: {
+        volumeSerialNumber: "00000000",
+        fileId: "b".repeat(32),
+      },
+      stageFile: { volumeSerialNumber: "00000000", fileId: "c".repeat(32) },
+      destinationFile: {
+        volumeSerialNumber: "00000000",
+        fileId: "c".repeat(32),
+      },
     };
     for (const nodeMajor of [22, 24]) {
       for (const tuple of ["win32-x64", "win32-arm64"]) {
@@ -526,14 +535,14 @@ describe("paired benchmark admission", () => {
               code: "aborted",
               nativeWrite: "started",
               fallback: "do-not-fallback",
-              finalization: "owned-partial-remains",
+              finalization: "owned-partial-removed",
               residue: {
-                stageDirectoryExists: true,
-                stageFileExists: true,
+                stageDirectoryExists: false,
+                stageFileExists: false,
               },
             },
             postCommitResidue: "none",
-            collisionFinalization: "owned-partial-remains",
+            collisionFinalization: "owned-partial-removed",
           },
           windowsPublication,
         };
@@ -577,9 +586,9 @@ describe("paired benchmark admission", () => {
           (mutated) => (mutated.cases.cancellation.fallback = "fallback"),
           (mutated) => (mutated.cases.cancellation.finalization = "none"),
           (mutated) =>
-            (mutated.cases.cancellation.residue.stageDirectoryExists = false),
+            (mutated.cases.cancellation.residue.stageDirectoryExists = true),
           (mutated) =>
-            (mutated.cases.cancellation.residue.stageFileExists = false),
+            (mutated.cases.cancellation.residue.stageFileExists = true),
           (mutated) =>
             (mutated.cases.postCommitResidue =
               "private-empty-stage-directory-remains"),
@@ -920,6 +929,7 @@ describe("paired benchmark admission", () => {
       "utf8",
     );
     expect(child).toContain("materializeFixture");
+    expect(child).toContain('const crypto = require("node:crypto")');
     expect(child).toContain("package-load");
     expect(child).toContain("fixture-materialized");
     expect(child).toContain("sanitize-complete");

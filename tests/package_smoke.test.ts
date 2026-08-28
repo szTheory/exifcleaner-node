@@ -118,10 +118,19 @@ describe("installed package smoke", () => {
         destinationParentIdentityRechecked: true,
         stageIdentityRechecked: true,
         stageFileIdentityRechecked: true,
-        destinationParent: { volumeSerialNumber: 1, fileId: "0".repeat(32) },
-        stageDirectory: { volumeSerialNumber: 1, fileId: "1".repeat(32) },
-        stageFile: { volumeSerialNumber: 1, fileId: "2".repeat(32) },
-        destinationFile: { volumeSerialNumber: 1, fileId: "3".repeat(32) },
+        destinationParent: {
+          volumeSerialNumber: "00000000",
+          fileId: "0".repeat(32),
+        },
+        stageDirectory: {
+          volumeSerialNumber: "00000000",
+          fileId: "1".repeat(32),
+        },
+        stageFile: { volumeSerialNumber: "00000000", fileId: "2".repeat(32) },
+        destinationFile: {
+          volumeSerialNumber: "00000000",
+          fileId: "3".repeat(32),
+        },
       }),
     ).toThrow(
       "Windows native publication evidence is incomplete or inconsistent",
@@ -133,14 +142,23 @@ describe("installed package smoke", () => {
         destinationParentIdentityRechecked: true,
         stageIdentityRechecked: true,
         stageFileIdentityRechecked: true,
-        destinationParent: { volumeSerialNumber: 1, fileId: "0".repeat(32) },
-        stageDirectory: { volumeSerialNumber: 1, fileId: "1".repeat(32) },
+        destinationParent: {
+          volumeSerialNumber: "00000000",
+          fileId: "0".repeat(32),
+        },
+        stageDirectory: {
+          volumeSerialNumber: "00000000",
+          fileId: "1".repeat(32),
+        },
         stageFile: {
-          volumeSerialNumber: 1,
+          volumeSerialNumber: "00000000",
           fileId: "2".repeat(32),
           extra: true,
         },
-        destinationFile: { volumeSerialNumber: 1, fileId: "2".repeat(32) },
+        destinationFile: {
+          volumeSerialNumber: "00000000",
+          fileId: "2".repeat(32),
+        },
         extra: true,
       }),
     ).toThrow(

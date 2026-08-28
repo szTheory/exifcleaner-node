@@ -512,7 +512,10 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
     result.error.code !== "aborted" ||
     result.error.nativeWrite !== "started" ||
     fallbackModule.classifyFallback(result.error) !== "do-not-fallback" ||
-    result.error.finalization?.state !== "owned-partial-remains"
+    result.error.finalization?.state !==
+      (process.platform === "win32"
+        ? "owned-partial-removed"
+        : "owned-partial-remains")
   )
     throw new Error("Installed deterministic cancellation contract failed");
   try {
@@ -538,7 +541,8 @@ async function runDeterministicCancellation(packageRoot, sandbox, sourceBytes) {
     throw new Error(
       "Installed cancellation finalization residue is untruthful",
     );
-  cleanupCapturedCancellationStage(cancellationStage);
+  if (process.platform !== "win32")
+    cleanupCapturedCancellationStage(cancellationStage);
   return {
     code: result.error.code,
     nativeWrite: result.error.nativeWrite,
@@ -689,8 +693,8 @@ function requireWindowsPublicationEvidence(value) {
     identities.some(
       (identity) =>
         !hasExactKeys(identity, ["volumeSerialNumber", "fileId"]) ||
-        !Number.isInteger(identity.volumeSerialNumber) ||
-        identity.volumeSerialNumber < 0 ||
+        typeof identity.volumeSerialNumber !== "string" ||
+        !/^[a-f0-9]{8}$/u.test(identity.volumeSerialNumber) ||
         typeof identity.fileId !== "string" ||
         !/^[a-f0-9]{32}$/u.test(identity.fileId),
     ) ||
@@ -772,11 +776,15 @@ async function runTransactions(packageRoot, sandbox, corpus) {
   if (!readFileSync(competitorPath).equals(competitor))
     throw new Error("Installed transaction replaced competing destination");
   const finalization = collision.error.finalization;
-  if (finalization?.state !== "owned-partial-remains")
+  const expectedCollisionFinalization =
+    process.platform === "win32"
+      ? "owned-partial-removed"
+      : "owned-partial-remains";
+  if (finalization?.state !== expectedCollisionFinalization)
     throw new Error(
       "Installed collision did not preserve bounded D-52 residue truth",
     );
-  if (process.platform === "win32") assertWindowsPrivateStageResidue(sandbox);
+  if (process.platform === "win32") assertWindowsPrivateStageCleanup(sandbox);
   const cancellation = await runDeterministicCancellation(
     packageRoot,
     sandbox,
