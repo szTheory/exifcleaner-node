@@ -20,6 +20,9 @@ const smoke = join(packageRoot, "scripts", "package_smoke.cjs");
 const temporaryDirectories: string[] = [];
 const require = createRequire(import.meta.url);
 const helper = require("../scripts/package_smoke.cjs") as {
+  expectedDeterministicCancellationFinalization(
+    tuple: "win32-x64" | "win32-arm64",
+  ): "owned-partial-remains";
   classifyDeterministicCancellation(input: {
     result: unknown;
     fallback: unknown;
@@ -139,6 +142,39 @@ async function runSmoke(
 }
 
 describe("installed package smoke", () => {
+  it.each(["win32-x64", "win32-arm64"] as const)(
+    "accepts the exact %s finalization-state diagnosis as truthful retained replacement residue",
+    (tuple) => {
+      const expectedFinalizationState =
+        helper.expectedDeterministicCancellationFinalization(tuple);
+
+      expect(expectedFinalizationState).toBe("owned-partial-remains");
+      expect(
+        helper.classifyDeterministicCancellation({
+          result: {
+            ok: false,
+            error: {
+              code: "aborted",
+              nativeWrite: "started",
+              finalization: { state: "owned-partial-remains" },
+            },
+          },
+          fallback: "do-not-fallback",
+          expectedFinalizationState,
+          beforePublishHookSeen: true,
+          cancellationStage: { captured: true },
+          cleanupRecord: { terminal: true },
+          cleanupValidation: "accepted",
+          residue: { stageDirectoryExists: true, stageFileExists: true },
+        }),
+      ).toMatchObject({
+        reason: "accepted",
+        finalizationState: "owned-partial-remains",
+        residue: { directory: true, file: true },
+      });
+    },
+  );
+
   it("classifies the first deterministic-cancellation failure with closed facts", () => {
     const accepted = {
       result: {
