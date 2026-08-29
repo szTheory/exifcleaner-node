@@ -15,6 +15,16 @@ const calibrationPath = path.join(__dirname, "benchmark-calibration.cjs");
 const SHA256 = /^[a-f0-9]{64}$/;
 const WARMUPS = 2;
 const MEASUREMENTS = 100;
+const DIAGNOSTIC_PROFILE_ID = "phase-46-performance-p95-diagnostic/v1";
+const DIAGNOSTIC_FIXTURE_IDS = Object.freeze([
+  "metadata-still-1m",
+  "metadata-still-16m",
+  "animation-alpha-16m",
+  "still-1m",
+  "still-16m",
+  "still-64m",
+  "cancellation-64m",
+]);
 const BASELINE_PACKAGE_NAME = "exifcleaner-node";
 const BASELINE_VERSION = "0.1.1";
 const BASELINE_TARBALL_SHA256 =
@@ -436,6 +446,7 @@ function parseArguments(args) {
         "--baseline-tarball",
         "--candidate-tarball",
         "--fixture",
+        "--profile",
         "--mode",
         "--output",
       ]).has(flag)
@@ -452,10 +463,21 @@ function parseArguments(args) {
   const mode = values["--mode"] ?? "report";
   if (mode !== "report" && mode !== "admit")
     throw new Error("--mode must be report or admit");
+  const profile = values["--profile"];
+  if (
+    profile !== undefined &&
+    (profile !== DIAGNOSTIC_PROFILE_ID ||
+      values["--fixture"] !== undefined ||
+      mode !== "report")
+  )
+    throw new Error(
+      "--profile accepts only the frozen performance p95 diagnostic in report mode",
+    );
   return {
     baselineTarball: path.resolve(values["--baseline-tarball"]),
     candidateTarball: path.resolve(values["--candidate-tarball"]),
     fixture: values["--fixture"],
+    profile,
     mode,
     output: path.resolve(values["--output"] ?? "qualification-benchmark.json"),
   };
@@ -683,10 +705,17 @@ function rssSlope(aggregates, prefix) {
 
 async function executeBenchmark(options) {
   const manifest = loadBenchmarkManifest();
-  const fixtures = manifest.fixtures.filter(
-    (fixture) =>
-      options.fixture === undefined || fixture.id === options.fixture,
-  );
+  const fixtures =
+    options.profile === DIAGNOSTIC_PROFILE_ID
+      ? DIAGNOSTIC_FIXTURE_IDS.map((fixtureId) =>
+          manifest.fixtures.find((fixture) => fixture.id === fixtureId),
+        )
+      : manifest.fixtures.filter(
+          (fixture) =>
+            options.fixture === undefined || fixture.id === options.fixture,
+        );
+  if (fixtures.some((fixture) => fixture === undefined))
+    throw new Error("Diagnostic benchmark fixture manifest drift");
   if (fixtures.length === 0) throw new Error("Unknown benchmark fixture");
   const sandbox = fs.mkdtempSync(
     path.join(os.tmpdir(), "exifcleaner-benchmark-"),
@@ -834,7 +863,9 @@ async function executeBenchmark(options) {
       cancellation,
       failures,
     };
-    reportValidator.validateReport(report);
+    if (options.profile === DIAGNOSTIC_PROFILE_ID)
+      reportValidator.validatePerformanceP95DiagnosticReport(report);
+    else reportValidator.validateReport(report);
     fs.writeFileSync(options.output, `${JSON.stringify(report, null, 2)}\n`);
     fs.writeFileSync(`${options.output}.md`, renderSummary(report));
     return report;
@@ -846,6 +877,7 @@ async function executeBenchmark(options) {
 module.exports = {
   BASELINE_TARBALL_SHA256,
   BENCHMARK_THRESHOLDS,
+  DIAGNOSTIC_PROFILE_ID,
   buildSchedule,
   evaluateCancellation,
   evaluatePair,

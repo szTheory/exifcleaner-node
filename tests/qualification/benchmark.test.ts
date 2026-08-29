@@ -105,9 +105,7 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     referenceMedianNs: Record<string, number>;
   };
   validateReport(input: Record<string, unknown>): void;
-  validatePerformanceP95DiagnosticReport(
-    input: Record<string, unknown>,
-  ): void;
+  validatePerformanceP95DiagnosticReport(input: Record<string, unknown>): void;
   derivePerformanceP95DiagnosticView(
     input: Record<string, unknown>,
   ): Record<string, unknown>;
@@ -119,9 +117,7 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
   actionableBranchForPerformanceP95Diagnostic(
     pattern: "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown",
   ): "collector" | "candidate-runtime" | null;
-  validatePerformanceP95DiagnosticLedger(
-    input: Record<string, unknown>,
-  ): void;
+  validatePerformanceP95DiagnosticLedger(input: Record<string, unknown>): void;
   validateInstalledReport(
     input: Record<string, unknown>,
     tuple: string,
@@ -1371,15 +1367,15 @@ describe("paired benchmark admission", () => {
 
     const makeDiagnosticReport = (major: 22 | 24) => {
       const diagnostic = structuredClone(complete);
-      const diagnosticReferenceMedian = reference.referenceMedianNs[String(major)];
+      const diagnosticReferenceMedian =
+        reference.referenceMedianNs[String(major)];
       if (typeof diagnosticReferenceMedian !== "number")
         throw new Error("diagnostic Node major lacks a calibration reference");
       const diagnosticObservations = Array.from(
         { length: reference.observationCount },
         (_, index) => ({
           ordinal: index + 1,
-          elapsedNs:
-            diagnosticReferenceMedian * reference.workloadUnitCount,
+          elapsedNs: diagnosticReferenceMedian * reference.workloadUnitCount,
           unitCount: reference.workloadUnitCount,
           normalizedNs: diagnosticReferenceMedian,
           resultDigest: calibration.workloadResultDigest(),
@@ -1405,10 +1401,10 @@ describe("paired benchmark admission", () => {
           referenceMedianNs: diagnosticReferenceMedian,
         }),
       };
-      diagnostic.rawSchedule = diagnostic.rawSchedule
-        .filter((entry) =>
-          diagnosticFixtureIds.includes(
-            entry.fixtureId as (typeof diagnosticFixtureIds)[number],
+      diagnostic.rawSchedule = diagnosticFixtureIds
+        .flatMap((fixtureId) =>
+          diagnostic.rawSchedule.filter(
+            (entry) => entry.fixtureId === fixtureId,
           ),
         )
         .map((entry, index) => ({
@@ -1434,21 +1430,22 @@ describe("paired benchmark admission", () => {
             scaledElapsedNs:
               entry.sample.elapsedNs * diagnostic.calibration.derived.runScale,
           }));
-      diagnostic.comparisons = diagnostic.comparisons
-        .filter((comparison) =>
-          diagnosticFixtureIds.includes(
-            comparison.fixtureId as (typeof diagnosticFixtureIds)[number],
-          ),
+      diagnostic.comparisons = diagnosticFixtureIds
+        .filter((fixtureId) => fixtureId !== "cancellation-64m")
+        .map((fixtureId) =>
+          diagnostic.comparisons.find(
+            (comparison) => comparison.fixtureId === fixtureId,
+          )!,
         )
         .map((comparison) => ({
           ...comparison,
           baseline: {
             ...comparison.baseline,
-            samples: retained(comparison.fixtureId, "baseline"),
+            samples: retained(String(comparison.fixtureId), "baseline"),
           },
           candidate: {
             ...comparison.candidate,
-            samples: retained(comparison.fixtureId, "candidate"),
+            samples: retained(String(comparison.fixtureId), "candidate"),
           },
         }));
       diagnostic.cancellation = {
@@ -1457,7 +1454,7 @@ describe("paired benchmark admission", () => {
             entry.fixtureId === "cancellation-64m" &&
             entry.version === "candidate" &&
             !entry.warmup,
-        )!.sample.cancellation,
+        )!.sample.cancellation!,
         verdict: { pass: true, failures: [] },
       };
       diagnostic.failures = [];
@@ -1484,10 +1481,8 @@ describe("paired benchmark admission", () => {
       (value: typeof node22Diagnostic) => (value.warmups = 1),
       (value: typeof node22Diagnostic) =>
         (value.elapsedP95Estimator.method = "nearest-rank"),
-      (value: typeof node22Diagnostic) =>
-        (value.thresholds.p95Ratio = 1.36),
-      (value: typeof node22Diagnostic) =>
-        (value.collection.retries = 1),
+      (value: typeof node22Diagnostic) => (value.thresholds.p95Ratio = 1.36),
+      (value: typeof node22Diagnostic) => (value.collection.retries = 1),
       (value: typeof node22Diagnostic) =>
         (value.cancellation.verdict.pass = false),
       (value: typeof node22Diagnostic) =>
@@ -1531,19 +1526,12 @@ describe("paired benchmark admission", () => {
       }),
     ).toBe("unknown");
     expect(
-      [
-        "concentrated-tail",
-        "sustained-candidate",
-        "mixed",
-        "unknown",
-      ].map((pattern) =>
-        report.actionableBranchForPerformanceP95Diagnostic(
-          pattern as
-            | "concentrated-tail"
-            | "sustained-candidate"
-            | "mixed"
-            | "unknown",
-        ),
+      ["concentrated-tail", "sustained-candidate", "mixed", "unknown"].map(
+        (pattern) =>
+          report.actionableBranchForPerformanceP95Diagnostic(
+            pattern as
+              "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown",
+          ),
       ),
     ).toEqual(["collector", "candidate-runtime", null, null]);
 
@@ -1551,12 +1539,10 @@ describe("paired benchmark admission", () => {
       `${JSON.stringify(value, null, 2)}\n`;
     const reportSha = (value: unknown) =>
       createHash("sha256").update(reportBytes(value)).digest("hex");
-    const node22View = report.derivePerformanceP95DiagnosticView(
-      node22Diagnostic,
-    );
-    const node24View = report.derivePerformanceP95DiagnosticView(
-      node24Diagnostic,
-    );
+    const node22View =
+      report.derivePerformanceP95DiagnosticView(node22Diagnostic);
+    const node24View =
+      report.derivePerformanceP95DiagnosticView(node24Diagnostic);
     const headSha = "a".repeat(40);
     const ledger = {
       schemaVersion: "phase-46-performance-p95-diagnostic-ledger/v1",
@@ -1639,9 +1625,8 @@ describe("paired benchmark admission", () => {
         (value.derived.node22 = structuredClone(value.derived.node24)),
       (value: typeof ledger) => (value.pattern = "concentrated-tail"),
       (value: typeof ledger) =>
-        (value.actionableBranch = "collector" as null),
-      (value: typeof ledger) =>
-        Object.assign(value, { admission: false }),
+        (value.actionableBranch = "collector" as unknown as null),
+      (value: typeof ledger) => Object.assign(value, { admission: false }),
       (value: typeof ledger) =>
         Object.assign(value.artifacts.node22, { retry: 0 }),
     ]) {

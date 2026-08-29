@@ -25,8 +25,21 @@ const P95_SLACK_NS = 30_000_000;
 const WARMUPS = 2;
 const MEASUREMENTS = 100;
 const RECORDS_PER_FIXTURE = (WARMUPS + MEASUREMENTS) * 2;
+const PERFORMANCE_P95_DIAGNOSTIC_FIXTURE_IDS = Object.freeze([
+  "metadata-still-1m",
+  "metadata-still-16m",
+  "animation-alpha-16m",
+  "still-1m",
+  "still-16m",
+  "still-64m",
+  "cancellation-64m",
+]);
+const PERFORMANCE_P95_EXPECTED_FAILURES = Object.freeze({
+  22: Object.freeze(["metadata-still-1m"]),
+  24: Object.freeze(["metadata-still-16m", "animation-alpha-16m"]),
+});
 
-function expectedBenchmarkEvidence() {
+function expectedBenchmarkEvidence(frozenFixtureIds) {
   const manifest = JSON.parse(
     fs.readFileSync(
       path.join(__dirname, "../../tests/corpus/manifest.json"),
@@ -66,13 +79,25 @@ function expectedBenchmarkEvidence() {
     fixtureIds.add(fixture.id);
     return fixture;
   });
-  const cancellation = fixtures.filter(
+  const selectedFixtures =
+    frozenFixtureIds === undefined
+      ? fixtures
+      : frozenFixtureIds.map((fixtureId) =>
+          fixtures.find((fixture) => fixture.id === fixtureId),
+        );
+  if (
+    selectedFixtures.some((fixture) => fixture === undefined) ||
+    new Set(selectedFixtures.map((fixture) => fixture.id)).size !==
+      selectedFixtures.length
+  )
+    throw new Error("frozen benchmark fixture profile is invalid");
+  const cancellation = selectedFixtures.filter(
     (fixture) => fixture.kind === "cancellation",
   );
   if (cancellation.length !== 1)
     throw new Error("benchmark manifest cancellation fixture is invalid");
   const rawSchedule = [];
-  for (const fixture of fixtures)
+  for (const fixture of selectedFixtures)
     for (let round = 0; round < WARMUPS + MEASUREMENTS; round += 1) {
       const versions =
         round % 2 === 0 ? ["baseline", "candidate"] : ["candidate", "baseline"];
@@ -84,11 +109,11 @@ function expectedBenchmarkEvidence() {
           version,
         });
     }
-  if (rawSchedule.length !== fixtures.length * RECORDS_PER_FIXTURE)
+  if (rawSchedule.length !== selectedFixtures.length * RECORDS_PER_FIXTURE)
     throw new Error("benchmark raw schedule contract is invalid");
   return {
-    fixtures,
-    comparisonFixtureIds: fixtures
+    fixtures: selectedFixtures,
+    comparisonFixtureIds: selectedFixtures
       .filter((fixture) => fixture.kind !== "cancellation")
       .map((fixture) => fixture.id),
     cancellationFixtureId: cancellation[0].id,
@@ -524,9 +549,8 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
       throw new Error("benchmark child cancellation evidence is invalid");
   }
 }
-function validateReport(report) {
+function validateReportAgainstExpected(report, expected, diagnosticOnly) {
   const reference = loadReference();
-  const expected = expectedBenchmarkEvidence();
   const benchmark = require("./benchmark.cjs");
   exactKeys(
     report,
@@ -569,7 +593,9 @@ function validateReport(report) {
     report.elapsedP95Estimator.quantile !== 0.95 ||
     report.elapsedP95Estimator.interpolation !== "linear" ||
     report.elapsedP95Estimator.retainedObservations !== MEASUREMENTS ||
-    !["report", "admit"].includes(report.mode) ||
+    (diagnosticOnly
+      ? report.mode !== "report"
+      : !["report", "admit"].includes(report.mode)) ||
     typeof report.pass !== "boolean" ||
     report.baselinePackageName !== "exifcleaner-node" ||
     report.baselineVersion !== "0.1.1" ||
@@ -801,6 +827,444 @@ function validateReport(report) {
       "benchmark admission conclusion is not bound to raw evidence",
     );
   return report;
+}
+function validateReport(report) {
+  return validateReportAgainstExpected(
+    report,
+    expectedBenchmarkEvidence(),
+    false,
+  );
+}
+function validatePerformanceP95DiagnosticReport(report) {
+  return validateReportAgainstExpected(
+    report,
+    expectedBenchmarkEvidence(PERFORMANCE_P95_DIAGNOSTIC_FIXTURE_IDS),
+    true,
+  );
+}
+function classifyPerformanceP95DiagnosticFixture({
+  observedP95Failure,
+  positiveBlockCount,
+  positiveCandidateTailCount,
+}) {
+  if (
+    typeof observedP95Failure !== "boolean" ||
+    !Number.isSafeInteger(positiveBlockCount) ||
+    positiveBlockCount < 0 ||
+    positiveBlockCount > 10 ||
+    !Number.isSafeInteger(positiveCandidateTailCount) ||
+    positiveCandidateTailCount < 0 ||
+    positiveCandidateTailCount > 6
+  )
+    throw new Error(
+      "performance p95 diagnostic classification input is invalid",
+    );
+  if (!observedP95Failure) return "unknown";
+  if (positiveBlockCount >= 8) return "sustained-candidate";
+  if (positiveBlockCount <= 2 && positiveCandidateTailCount >= 5)
+    return "concentrated-tail";
+  return "mixed";
+}
+function actionableBranchForPerformanceP95Diagnostic(pattern) {
+  if (pattern === "concentrated-tail") return "collector";
+  if (pattern === "sustained-candidate") return "candidate-runtime";
+  if (pattern === "mixed" || pattern === "unknown") return null;
+  throw new Error("performance p95 diagnostic pattern is invalid");
+}
+function diagnosticSide(record, runScale) {
+  return {
+    runToken: record.sample.runToken,
+    elapsedNs: record.sample.elapsedNs,
+    scaledElapsedNs: record.sample.elapsedNs * runScale,
+  };
+}
+function diagnosticMedian(values) {
+  if (
+    !Array.isArray(values) ||
+    values.length !== 10 ||
+    values.some((value) => !Number.isFinite(value))
+  )
+    throw new Error("performance p95 diagnostic block is invalid");
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.ceil(sorted.length * 0.5) - 1];
+}
+function diagnosticTail(records, peerByRound, runScale) {
+  return [...records]
+    .sort(
+      (left, right) =>
+        left.sample.elapsedNs * runScale - right.sample.elapsedNs * runScale ||
+        left.scheduleIndex - right.scheduleIndex,
+    )
+    .slice(-6)
+    .map((record, index) => {
+      const peer = peerByRound.get(record.round);
+      if (peer === undefined)
+        throw new Error("performance p95 diagnostic paired peer is absent");
+      return {
+        rank: MEASUREMENTS - 5 + index,
+        round: record.round,
+        scheduleIndex: record.scheduleIndex,
+        order:
+          record.scheduleIndex < peer.scheduleIndex
+            ? `${record.version}-first`
+            : `${peer.version}-first`,
+        ...diagnosticSide(record, runScale),
+        pairedPeer: {
+          version: peer.version,
+          scheduleIndex: peer.scheduleIndex,
+          ...diagnosticSide(peer, runScale),
+        },
+      };
+    });
+}
+function derivePerformanceP95DiagnosticView(input) {
+  const report = validatePerformanceP95DiagnosticReport(input);
+  const nodeMajor = Number(report.environment.nodeVersion.match(/^v(\d+)/)[1]);
+  if (nodeMajor !== 22 && nodeMajor !== 24)
+    throw new Error("performance p95 diagnostic Node major is invalid");
+  const runScale = report.calibration.derived.runScale;
+  const comparisons = new Map(
+    report.comparisons.map((comparison) => [comparison.fixtureId, comparison]),
+  );
+  const fixtures = PERFORMANCE_P95_DIAGNOSTIC_FIXTURE_IDS.map((fixtureId) => {
+    const retained = report.rawSchedule
+      .map((record, scheduleIndex) => ({ ...record, scheduleIndex }))
+      .filter((record) => record.fixtureId === fixtureId && !record.warmup);
+    const baseline = retained.filter((record) => record.version === "baseline");
+    const candidate = retained.filter(
+      (record) => record.version === "candidate",
+    );
+    if (baseline.length !== MEASUREMENTS || candidate.length !== MEASUREMENTS)
+      throw new Error("performance p95 diagnostic retained count is invalid");
+    const baselineByRound = new Map(
+      baseline.map((record) => [record.round, record]),
+    );
+    const candidateByRound = new Map(
+      candidate.map((record) => [record.round, record]),
+    );
+    const pairs = [];
+    for (let round = WARMUPS; round < WARMUPS + MEASUREMENTS; round += 1) {
+      const baselineRecord = baselineByRound.get(round);
+      const candidateRecord = candidateByRound.get(round);
+      if (baselineRecord === undefined || candidateRecord === undefined)
+        throw new Error("performance p95 diagnostic pair is incomplete");
+      const baselineSide = diagnosticSide(baselineRecord, runScale);
+      const candidateSide = diagnosticSide(candidateRecord, runScale);
+      pairs.push({
+        round,
+        scheduleIndex: Math.min(
+          baselineRecord.scheduleIndex,
+          candidateRecord.scheduleIndex,
+        ),
+        order:
+          baselineRecord.scheduleIndex < candidateRecord.scheduleIndex
+            ? "baseline-first"
+            : "candidate-first",
+        baseline: baselineSide,
+        candidate: candidateSide,
+        rawDeltaNs: candidateSide.elapsedNs - baselineSide.elapsedNs,
+        scaledDeltaNs:
+          candidateSide.scaledElapsedNs - baselineSide.scaledElapsedNs,
+      });
+    }
+    const blocks = Array.from({ length: 10 }, (_, index) => {
+      const blockPairs = pairs.slice(index * 10, index * 10 + 10);
+      return {
+        index,
+        startRound: WARMUPS + index * 10,
+        endRound: WARMUPS + index * 10 + 9,
+        baselineFirst: blockPairs.filter(
+          (pair) => pair.order === "baseline-first",
+        ).length,
+        candidateFirst: blockPairs.filter(
+          (pair) => pair.order === "candidate-first",
+        ).length,
+        medianRawDeltaNs: diagnosticMedian(
+          blockPairs.map((pair) => pair.rawDeltaNs),
+        ),
+        medianScaledDeltaNs: diagnosticMedian(
+          blockPairs.map((pair) => pair.scaledDeltaNs),
+        ),
+      };
+    });
+    const candidateTail = diagnosticTail(candidate, baselineByRound, runScale);
+    const baselineTail = diagnosticTail(baseline, candidateByRound, runScale);
+    const comparison = comparisons.get(fixtureId);
+    const observedP95Failure =
+      comparison?.timing.failures.includes("p95 threshold exceeded") === true;
+    const otherAuthorityFailure =
+      comparison !== undefined &&
+      comparison.verdict.failures.some(
+        (failure) => failure !== "p95 threshold exceeded",
+      );
+    const expectedFailure =
+      PERFORMANCE_P95_EXPECTED_FAILURES[nodeMajor].includes(fixtureId);
+    const positiveBlockCount = blocks.filter(
+      (block) => block.medianRawDeltaNs > 0,
+    ).length;
+    const positiveCandidateTailCount = candidateTail.filter(
+      (tail) =>
+        tail.elapsedNs - tail.pairedPeer.elapsedNs > 0 &&
+        tail.scaledElapsedNs - tail.pairedPeer.scaledElapsedNs > 0,
+    ).length;
+    let attribution = "control";
+    if (expectedFailure)
+      attribution = otherAuthorityFailure
+        ? "mixed"
+        : classifyPerformanceP95DiagnosticFixture({
+            observedP95Failure,
+            positiveBlockCount,
+            positiveCandidateTailCount,
+          });
+    return {
+      fixtureId,
+      role: expectedFailure ? "observed-failure" : "control",
+      orderCounts: {
+        baselineFirst: pairs.filter((pair) => pair.order === "baseline-first")
+          .length,
+        candidateFirst: pairs.filter((pair) => pair.order === "candidate-first")
+          .length,
+        baselineObservations: baseline.length,
+        candidateObservations: candidate.length,
+      },
+      pairs,
+      blocks,
+      tail: { baseline: baselineTail, candidate: candidateTail },
+      observed: {
+        medianFailure:
+          comparison?.timing.failures.includes("median threshold exceeded") ===
+          true,
+        p95Failure: observedP95Failure,
+        authorityFailures:
+          comparison === undefined
+            ? [...report.cancellation.verdict.failures]
+            : [...comparison.verdict.failures],
+      },
+      attribution,
+    };
+  });
+  return {
+    nodeMajor,
+    fixtureOrder: [...PERFORMANCE_P95_DIAGNOSTIC_FIXTURE_IDS],
+    environment: report.environment,
+    calibration: {
+      beforeMedianNs: report.calibration.derived.beforeMedianNs,
+      afterMedianNs: report.calibration.derived.afterMedianNs,
+      driftRatio: report.calibration.derived.driftRatio,
+      observedCalibrationNs: report.calibration.derived.observedCalibrationNs,
+      runScale,
+    },
+    orderCounts: {
+      baselineFirst: fixtures.reduce(
+        (sum, fixture) => sum + fixture.orderCounts.baselineFirst,
+        0,
+      ),
+      candidateFirst: fixtures.reduce(
+        (sum, fixture) => sum + fixture.orderCounts.candidateFirst,
+        0,
+      ),
+      baselineObservations: fixtures.reduce(
+        (sum, fixture) => sum + fixture.orderCounts.baselineObservations,
+        0,
+      ),
+      candidateObservations: fixtures.reduce(
+        (sum, fixture) => sum + fixture.orderCounts.candidateObservations,
+        0,
+      ),
+    },
+    fixtures,
+  };
+}
+function performanceP95DiagnosticPattern(views) {
+  const expectedAttributions = [];
+  for (const view of views) {
+    const expectedFailures = new Set(
+      PERFORMANCE_P95_EXPECTED_FAILURES[view.nodeMajor],
+    );
+    for (const fixture of view.fixtures) {
+      if (expectedFailures.has(fixture.fixtureId))
+        expectedAttributions.push(fixture.attribution);
+      else if (
+        fixture.attribution !== "control" ||
+        fixture.observed.authorityFailures.length !== 0
+      )
+        return "mixed";
+    }
+  }
+  if (expectedAttributions.includes("mixed")) return "mixed";
+  const known = new Set(
+    expectedAttributions.filter(
+      (value) =>
+        value === "concentrated-tail" || value === "sustained-candidate",
+    ),
+  );
+  if (known.size > 1) return "mixed";
+  if (expectedAttributions.includes("unknown")) return "unknown";
+  if (known.size === 1) return [...known][0];
+  return "unknown";
+}
+function canonicalJsonSha(value) {
+  return crypto
+    .createHash("sha256")
+    .update(`${JSON.stringify(value, null, 2)}\n`)
+    .digest("hex");
+}
+function validatePerformanceP95DiagnosticLedger(ledger) {
+  exactKeys(
+    ledger,
+    [
+      "schemaVersion",
+      "diagnosticOnly",
+      "run",
+      "packages",
+      "artifacts",
+      "reports",
+      "derived",
+      "pattern",
+      "actionableBranch",
+    ],
+    "performance p95 diagnostic ledger",
+  );
+  exactKeys(
+    ledger.run,
+    [
+      "repository",
+      "workflow",
+      "event",
+      "attempt",
+      "id",
+      "url",
+      "ref",
+      "headSha",
+    ],
+    "performance p95 diagnostic run",
+  );
+  if (
+    ledger.schemaVersion !== "phase-46-performance-p95-diagnostic-ledger/v1" ||
+    ledger.diagnosticOnly !== true ||
+    ledger.run.repository !== "szTheory/exifcleaner-node" ||
+    ledger.run.workflow !== ".github/workflows/performance-diagnostic.yml" ||
+    ledger.run.event !== "workflow_dispatch" ||
+    ledger.run.attempt !== 1 ||
+    !Number.isSafeInteger(ledger.run.id) ||
+    ledger.run.id <= 0 ||
+    ledger.run.url !==
+      `https://github.com/szTheory/exifcleaner-node/actions/runs/${ledger.run.id}` ||
+    !/^[a-f0-9]{40}$/.test(ledger.run.headSha) ||
+    ledger.run.ref !==
+      `refs/heads/diagnostic/46-p95-${ledger.run.headSha.slice(0, 7)}`
+  )
+    throw new Error("performance p95 diagnostic run identity is invalid");
+  exactKeys(ledger.packages, ["baseline", "candidate"], "diagnostic packages");
+  exactKeys(
+    ledger.packages.baseline,
+    ["name", "version", "expectedIdentity", "sha256"],
+    "diagnostic baseline package",
+  );
+  exactKeys(
+    ledger.packages.candidate,
+    ["sha256"],
+    "diagnostic candidate package",
+  );
+  if (
+    ledger.packages.baseline.name !== "exifcleaner-node" ||
+    ledger.packages.baseline.version !== "0.1.1" ||
+    ledger.packages.baseline.expectedIdentity !==
+      `exifcleaner-node@0.1.1#sha256:${ledger.packages.baseline.sha256}` ||
+    !SHA256.test(ledger.packages.baseline.sha256) ||
+    !SHA256.test(ledger.packages.candidate.sha256) ||
+    ledger.packages.baseline.sha256 === ledger.packages.candidate.sha256
+  )
+    throw new Error("performance p95 diagnostic package identity is invalid");
+  exactKeys(ledger.reports, ["node22", "node24"], "diagnostic reports");
+  exactKeys(ledger.derived, ["node22", "node24"], "diagnostic derived views");
+  exactKeys(
+    ledger.artifacts,
+    ["node22", "node24", "envelope"],
+    "diagnostic artifacts",
+  );
+  const reports = [];
+  const views = [];
+  for (const [key, nodeMajor] of [
+    ["node22", 22],
+    ["node24", 24],
+  ]) {
+    const report = validatePerformanceP95DiagnosticReport(ledger.reports[key]);
+    const observedMajor = Number(
+      report.environment.nodeVersion.match(/^v(\d+)/)[1],
+    );
+    if (
+      observedMajor !== nodeMajor ||
+      report.baselineSha256 !== ledger.packages.baseline.sha256 ||
+      report.candidateSha256 !== ledger.packages.candidate.sha256
+    )
+      throw new Error("performance p95 diagnostic report identity is invalid");
+    const artifact = ledger.artifacts[key];
+    exactKeys(
+      artifact,
+      ["job", "artifact", "report", "summary"],
+      "diagnostic node artifact",
+    );
+    exactKeys(artifact.job, ["name", "conclusion"], "diagnostic job");
+    exactKeys(artifact.artifact, ["name", "sha256"], "diagnostic artifact");
+    exactKeys(
+      artifact.report,
+      ["file", "sha256"],
+      "diagnostic report artifact",
+    );
+    exactKeys(
+      artifact.summary,
+      ["file", "sha256"],
+      "diagnostic summary artifact",
+    );
+    if (
+      artifact.job.name !== `diagnostic (${nodeMajor})` ||
+      artifact.job.conclusion !== "success" ||
+      artifact.artifact.name !==
+        `performance-p95-diagnostic-node-${nodeMajor}` ||
+      artifact.report.file !==
+        `qualification-benchmark-node-${nodeMajor}.json` ||
+      artifact.summary.file !==
+        `qualification-benchmark-node-${nodeMajor}.json.md` ||
+      artifact.report.sha256 !== canonicalJsonSha(report)
+    )
+      throw new Error("performance p95 diagnostic artifact binding is invalid");
+    for (const value of [
+      artifact.artifact.sha256,
+      artifact.report.sha256,
+      artifact.summary.sha256,
+    ])
+      assertSha(value, "performance p95 diagnostic artifact");
+    const view = derivePerformanceP95DiagnosticView(report);
+    if (!sameJson(ledger.derived[key], view))
+      throw new Error("performance p95 diagnostic derived view mismatch");
+    reports.push(report);
+    views.push(view);
+  }
+  if (
+    new Set(reports.map((report) => report.baselineSha256)).size !== 1 ||
+    new Set(reports.map((report) => report.candidateSha256)).size !== 1
+  )
+    throw new Error("performance p95 diagnostic reports are mixed");
+  exactKeys(
+    ledger.artifacts.envelope,
+    ["name", "sha256"],
+    "diagnostic envelope artifact",
+  );
+  if (ledger.artifacts.envelope.name !== "performance-p95-diagnostic-envelope")
+    throw new Error("performance p95 diagnostic envelope is invalid");
+  assertSha(
+    ledger.artifacts.envelope.sha256,
+    "performance p95 diagnostic envelope artifact",
+  );
+  const pattern = performanceP95DiagnosticPattern(views);
+  const actionableBranch = actionableBranchForPerformanceP95Diagnostic(pattern);
+  if (
+    ledger.pattern !== pattern ||
+    ledger.actionableBranch !== actionableBranch
+  )
+    throw new Error("performance p95 diagnostic classification mismatch");
+  return ledger;
 }
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -2312,6 +2776,10 @@ function main(args) {
     });
   if (args[0] === "--validate-report" && args.length === 2)
     return validateReport(JSON.parse(fs.readFileSync(args[1], "utf8")));
+  if (args[0] === "--validate-diagnostic-report" && args.length === 2)
+    return validatePerformanceP95DiagnosticReport(readJson(args[1]));
+  if (args[0] === "--performance-p95-diagnostic-ledger" && args.length === 2)
+    return validatePerformanceP95DiagnosticLedger(readJson(args[1]));
   if (args[0] === "--phase-admission" && args.length === 3)
     return phaseAdmission(args.slice(1));
   if (args[0] === "--identity-cleanup-ledger" && args.length === 2)
@@ -2334,7 +2802,7 @@ function main(args) {
   )
     return hostedLedger(args[1], args[3], args[5]);
   throw new Error(
-    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --windows-publication-diagnostic-ledger <file> | --windows-cancellation-diagnostic-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
+    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --validate-diagnostic-report <file> | --performance-p95-diagnostic-ledger <file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --windows-publication-diagnostic-ledger <file> | --windows-cancellation-diagnostic-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
   );
 }
 module.exports = {
@@ -2349,6 +2817,11 @@ module.exports = {
   performanceP95,
   validateCalibration,
   validateReport,
+  validatePerformanceP95DiagnosticReport,
+  derivePerformanceP95DiagnosticView,
+  classifyPerformanceP95DiagnosticFixture,
+  actionableBranchForPerformanceP95Diagnostic,
+  validatePerformanceP95DiagnosticLedger,
   hostedLedger,
   validateFinalCandidateManifest,
   validateInstalledReport,
