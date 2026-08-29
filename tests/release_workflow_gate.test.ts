@@ -133,6 +133,30 @@ type PhaseAdmissionScenario = {
   malformedItemTuple?: string;
   missingReport?: { tuple: string; key: "node22" | "node24" };
   rawDuplicateTuple?: boolean;
+  requiredSourceFragments?: string[];
+  sourceAuthority?: string;
+  needsFailure?: boolean;
+  invalidLedger?: boolean;
+  nativeVersion?: number;
+  tarballSha256?: string;
+  corpusManifestSha256?: string;
+  tamperInstalledReport?: {
+    tuple: string;
+    key: "node22" | "node24";
+    property: string;
+    value: unknown;
+  };
+  focusedSeed?: number;
+  focusedPropertyRuns?: number;
+  focusedAuthority?: unknown;
+  benchmarkFiles?: string[];
+  benchmarkOverride?: {
+    nodeMajor: 22 | 24;
+    property: string;
+    value: unknown;
+  };
+  rejectPhaseAdmissionChild?: boolean;
+  rejectOutput?: boolean;
 };
 
 type PhaseAdmissionOutcome = {
@@ -146,8 +170,9 @@ type PhaseAdmissionOutcome = {
 function executePhaseAdmissionHeredoc(
   workflow: string,
   scenario: PhaseAdmissionScenario = {},
+  heredocOverride?: string,
 ): PhaseAdmissionOutcome {
-  const heredoc = phaseAdmissionHeredoc(workflow);
+  const heredoc = heredocOverride ?? phaseAdmissionHeredoc(workflow);
   const runner = `
     const {createRequire}=require('node:module');
     const {join}=require('node:path');
@@ -155,7 +180,7 @@ function executePhaseAdmissionHeredoc(
     const heredoc=${JSON.stringify(heredoc)};
     const packageRoot=${JSON.stringify(packageRoot)};
     const canonical=['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64'];
-    const tarballSha256='a'.repeat(64), corpusManifestSha256='b'.repeat(64), baselineSha256='c2fc569b553cba360814bcce61d6882a02aba062e6d6da2193323915530a34bf';
+    const tarballSha256=scenario.tarballSha256??'a'.repeat(64), corpusManifestSha256=scenario.corpusManifestSha256??'b'.repeat(64), baselineSha256='c2fc569b553cba360814bcce61d6882a02aba062e6d6da2193323915530a34bf';
     const makeReport=(tuple,nodeMajor)=>({version:1,tuple,nodeMajor,implementationSha:'d'.repeat(40),tarballSha256,corpusManifestSha256,conclusion:'pass'});
     let order=[...(scenario.tupleOrder??canonical)];
     if(scenario.omitTuple) order=order.filter(tuple=>tuple!==scenario.omitTuple);
@@ -164,22 +189,23 @@ function executePhaseAdmissionHeredoc(
     const tuples=Object.fromEntries(order.map(tuple=>[tuple,{reports:{node22:makeReport(tuple,22),node24:makeReport(tuple,24)}}]));
     if(scenario.malformedItemTuple) tuples[scenario.malformedItemTuple]=null;
     if(scenario.missingReport) delete tuples[scenario.missingReport.tuple]?.reports?.[scenario.missingReport.key];
+    if(scenario.tamperInstalledReport) tuples[scenario.tamperInstalledReport.tuple].reports[scenario.tamperInstalledReport.key][scenario.tamperInstalledReport.property]=scenario.tamperInstalledReport.value;
     let tupleContainer=tuples;
     if(scenario.malformedTuples==='array') tupleContainer=[];
     if(scenario.malformedTuples==='null') tupleContainer=null;
     if(scenario.malformedTuples==='string') tupleContainer='six tuples';
-    const native={version:1,tarballSha256,corpusManifestSha256,tuples:tupleContainer};
+    const native={version:scenario.nativeVersion??1,tarballSha256,corpusManifestSha256,tuples:tupleContainer};
     let nativeBytes=JSON.stringify(native);
     if(scenario.rawDuplicateTuple){
       const entries=canonical.slice(0,-1).map(tuple=>[tuple,tuples[tuple]]);
       entries.push([canonical[0],tuples[canonical[0]]]);
       nativeBytes=\`{"version":1,"tarballSha256":"\${tarballSha256}","corpusManifestSha256":"\${corpusManifestSha256}","tuples":{\${entries.map(([tuple,value])=>\`\${JSON.stringify(tuple)}:\${JSON.stringify(value)}\`).join(',')}}\`;
     }
-    const focused={seed:460046,propertyRuns:200,authority:{decoder:'independent'},manifestSha256:'e'.repeat(64)};
-    const benchmark=(nodeMajor)=>({version:4,warmups:2,measurements:100,elapsedP95Estimator:{retainedObservations:100},collection:{retries:0,discarded:0},environment:{nodeVersion:\`v\${nodeMajor}.0.0\`},pass:true,mode:'admit',baselinePackageName:'exifcleaner-node',baselineVersion:'0.1.1',baselineExpectedIdentity:\`exifcleaner-node@0.1.1#sha256:\${baselineSha256}\`,baselineSha256,candidateSha256:tarballSha256});
-    const benchmarkFiles=['benchmark-linux-node22/benchmark-node22.json','benchmark-linux-node22/benchmark-node22.json.md','benchmark-linux-node24/benchmark-node24.json','benchmark-linux-node24/benchmark-node24.json.md'];
+    const focused={seed:scenario.focusedSeed??460046,propertyRuns:scenario.focusedPropertyRuns??200,authority:scenario.focusedAuthority===undefined?{decoder:'independent'}:scenario.focusedAuthority,manifestSha256:'e'.repeat(64)};
+    const benchmark=(nodeMajor)=>{const report={version:4,warmups:2,measurements:100,elapsedP95Estimator:{retainedObservations:100},collection:{retries:0,discarded:0},environment:{nodeVersion:\`v\${nodeMajor}.0.0\`},pass:true,mode:'admit',baselinePackageName:'exifcleaner-node',baselineVersion:'0.1.1',baselineExpectedIdentity:\`exifcleaner-node@0.1.1#sha256:\${baselineSha256}\`,baselineSha256,candidateSha256:tarballSha256}; if(scenario.benchmarkOverride?.nodeMajor===nodeMajor){const parts=scenario.benchmarkOverride.property.split('.'); let target=report; for(const part of parts.slice(0,-1)) target=target[part]; target[parts.at(-1)]=scenario.benchmarkOverride.value;} return report;};
+    const benchmarkFiles=scenario.benchmarkFiles??['benchmark-linux-node22/benchmark-node22.json','benchmark-linux-node22/benchmark-node22.json.md','benchmark-linux-node24/benchmark-node24.json','benchmark-linux-node24/benchmark-node24.json.md'];
     const reads=new Map([
-      ['final-native/identity-cleanup-ledger.json',JSON.stringify({schemaVersion:'phase-46-identity-cleanup-ledger/v1'})],
+      ['final-native/identity-cleanup-ledger.json',JSON.stringify({schemaVersion:scenario.invalidLedger?'forged-ledger':'phase-46-identity-cleanup-ledger/v1'})],
       ['final-native/admission.json',nativeBytes],
       ['focused/qualification-linux.json',JSON.stringify(focused)],
       ['benchmarks/benchmark-linux-node22/benchmark-node22.json',JSON.stringify(benchmark(22))],
@@ -199,6 +225,7 @@ function executePhaseAdmissionHeredoc(
       },
       writeFileSync(path,bytes){
         if(path!=='phase-46-admission.json'||typeof bytes!=='string') throw new Error(\`HARNESS unexpected write \${path}\`);
+        if(scenario.rejectOutput) throw new Error('AUTHORITY aggregate output emission rejected');
         writes.push({path,value:JSON.parse(bytes)});
       },
     };
@@ -215,9 +242,15 @@ function executePhaseAdmissionHeredoc(
     const strictChildProcess={execFileSync(file,args,options){
       const expected=['scripts/qualification/benchmark-report.cjs','--phase-admission','benchmarks/benchmark-linux-node22/benchmark-node22.json','benchmarks/benchmark-linux-node24/benchmark-node24.json'];
       if(file!==process.execPath||JSON.stringify(args)!==JSON.stringify(expected)||options?.stdio!=='inherit') throw new Error('AUTHORITY phase-admission child invocation rejected');
+      if(scenario.rejectPhaseAdmissionChild) throw new Error('AUTHORITY phase-admission child rejected');
       phaseAdmissions+=1;
     }};
+    let sourceContractChecked=false;
     const strictRequire=(specifier)=>{
+      if(!sourceContractChecked){
+        sourceContractChecked=true;
+        if((scenario.requiredSourceFragments??[]).some(fragment=>!heredoc.includes(fragment))) throw new Error(\`AUTHORITY source \${scenario.sourceAuthority??'contract'} rejected\`);
+      }
       if(specifier==='node:fs') return strictFs;
       if(specifier==='node:path') return nativeRequire('node:path');
       if(specifier==='node:child_process') return strictChildProcess;
@@ -225,7 +258,7 @@ function executePhaseAdmissionHeredoc(
       if(specifier==='./scripts/release_workflow_gate.cjs') return nativeRequire(join(packageRoot,'scripts','release_workflow_gate.cjs'));
       throw new Error(\`HARNESS unexpected require \${specifier}\`);
     };
-    process.env.NEEDS_JSON=JSON.stringify({quality:{result:'success'},'qualification-linux':{result:'success'},'immutable-sha-evidence':{result:'success'},'benchmark-linux':{result:'success'}});
+    process.env.NEEDS_JSON=JSON.stringify({quality:{result:scenario.needsFailure?'failure':'success'},'qualification-linux':{result:'success'},'immutable-sha-evidence':{result:'success'},'benchmark-linux':{result:'success'}});
     process.env.GITHUB_SHA='d'.repeat(40);
     try{
       new Function('require',heredoc)(strictRequire);
@@ -472,6 +505,252 @@ describe("release workflow authority gate", () => {
     expect(
       new Set([...valid, ...invalid].map((outcome) => outcome.pid)).size,
     ).toBe(valid.length + invalid.length);
+  });
+
+  it("rejects every non-tuple authority failure before aggregate output in isolated children", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const cases: PhaseAdmissionScenario[] = [
+      { needsFailure: true },
+      { invalidLedger: true },
+      { nativeVersion: 2 },
+      { tarballSha256: "not-a-sha" },
+      { corpusManifestSha256: "not-a-sha" },
+      {
+        tamperInstalledReport: {
+          tuple: "linux-x64",
+          key: "node22",
+          property: "tarballSha256",
+          value: "f".repeat(64),
+        },
+      },
+      { focusedSeed: 46 },
+      { focusedPropertyRuns: 199 },
+      { focusedAuthority: null },
+      {
+        benchmarkFiles: [
+          "benchmark-linux-node22/benchmark-node22.json",
+          "benchmark-linux-node24/benchmark-node24.json",
+        ],
+      },
+      { benchmarkOverride: { nodeMajor: 22, property: "version", value: 3 } },
+      {
+        benchmarkOverride: {
+          nodeMajor: 22,
+          property: "measurements",
+          value: 99,
+        },
+      },
+      {
+        benchmarkOverride: {
+          nodeMajor: 22,
+          property: "elapsedP95Estimator.retainedObservations",
+          value: 99,
+        },
+      },
+      {
+        benchmarkOverride: {
+          nodeMajor: 22,
+          property: "collection.retries",
+          value: 1,
+        },
+      },
+      {
+        benchmarkOverride: {
+          nodeMajor: 22,
+          property: "collection.discarded",
+          value: 1,
+        },
+      },
+      {
+        benchmarkOverride: {
+          nodeMajor: 22,
+          property: "environment.nodeVersion",
+          value: "v24.0.0",
+        },
+      },
+      {
+        benchmarkOverride: {
+          nodeMajor: 24,
+          property: "candidateSha256",
+          value: "f".repeat(64),
+        },
+      },
+      { rejectPhaseAdmissionChild: true },
+      { rejectOutput: true },
+    ];
+    const outcomes = cases.map((scenario) =>
+      executePhaseAdmissionHeredoc(workflow, scenario),
+    );
+    for (const outcome of outcomes) {
+      expect(outcome.ok).toBe(false);
+      expect(outcome.error).not.toMatch(/^HARNESS|SyntaxError/u);
+      expect(outcome.outputWrites).toBe(0);
+    }
+    expect(new Set(outcomes.map((outcome) => outcome.pid)).size).toBe(
+      outcomes.length,
+    );
+  });
+
+  it("executes no-op-guarded final-admission source mutants in isolated children and rejects each named authority", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const heredoc = phaseAdmissionHeredoc(workflow);
+    const mutations = [
+      {
+        authority: "shared tuple import",
+        from: "const {CANONICAL_NATIVE_TUPLES:tuples,validateExactNativeManifestTuples}=require('./scripts/release_workflow_gate.cjs')",
+        to: "const tuples=['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64'],validateExactNativeManifestTuples=records=>new Map(records.map(record=>[record.tuple,record]))",
+      },
+      {
+        authority: "exact tuple validator",
+        from: "validateExactNativeManifestTuples(Object.entries(native.tuples).map(([tuple,value])=>({tuple,value})))",
+        to: "new Map(Object.entries(native.tuples).map(([tuple,value])=>[tuple,{tuple,value}]))",
+      },
+      {
+        authority: "asymmetric tuple sort",
+        from: "native.tuples===null||typeof native.tuples!=='object'||Array.isArray(native.tuples)",
+        to: "Object.prototype.toString.call(native.tuples)!=='[object Object]'||JSON.stringify(Object.keys(native.tuples).sort())!==JSON.stringify(tuples)",
+      },
+      {
+        authority: "canonical tuple result",
+        from: "JSON.stringify([...byTuple.keys()])!==JSON.stringify(tuples)",
+        to: "JSON.stringify(Object.keys(native.tuples))!==JSON.stringify(tuples)",
+      },
+      {
+        authority: "canonical tuple traversal",
+        from: "for(const [tuple,record] of byTuple)",
+        to: "for(const [tuple,record] of Object.entries(native.tuples).map(([tuple,value])=>[tuple,{tuple,value}]))",
+      },
+      {
+        authority: "validated tuple map consumption",
+        from: "const item=record.value",
+        to: "const item=native.tuples[tuple]",
+      },
+      {
+        authority: "native admission version",
+        from: "native.version!==1",
+        to: "false",
+      },
+      {
+        authority: "native tarball SHA",
+        from: "!sha(native.tarballSha256)",
+        to: "false",
+      },
+      {
+        authority: "native corpus SHA",
+        from: "!sha(native.corpusManifestSha256)",
+        to: "false",
+      },
+      {
+        authority: "identity cleanup ledger",
+        from: "validateIdentityCleanupLedger(JSON.parse(fs.readFileSync('final-native/identity-cleanup-ledger.json','utf8')))",
+        to: "JSON.parse(fs.readFileSync('final-native/identity-cleanup-ledger.json','utf8'))",
+      },
+      {
+        authority: "exact installed report map",
+        from: "JSON.stringify(Object.keys(item.reports??{}).sort())!==JSON.stringify(['node22','node24'])",
+        to: "false",
+      },
+      {
+        authority: "twelve installed reports",
+        from: "reports.length !== 12",
+        to: "false",
+      },
+      {
+        authority: "focused seed",
+        from: "focused.seed!==460046",
+        to: "false",
+      },
+      {
+        authority: "focused property runs",
+        from: "focused.propertyRuns!==200",
+        to: "false",
+      },
+      {
+        authority: "focused oracle",
+        from: "!focused.authority",
+        to: "false",
+      },
+      {
+        authority: "exact benchmark files",
+        from: "JSON.stringify(actualBenchmarkFiles)!==JSON.stringify(expectedBenchmarkFiles)",
+        to: "false",
+      },
+      {
+        authority: "benchmark schema v4",
+        from: "report.version!==4",
+        to: "false",
+      },
+      {
+        authority: "benchmark sample count",
+        from: "report.measurements!==100",
+        to: "false",
+      },
+      {
+        authority: "benchmark retained observations",
+        from: "report.elapsedP95Estimator?.retainedObservations!==100",
+        to: "false",
+      },
+      {
+        authority: "benchmark retry exclusion",
+        from: "report.collection?.retries!==0",
+        to: "false",
+      },
+      {
+        authority: "benchmark discard exclusion",
+        from: "report.collection?.discarded!==0",
+        to: "false",
+      },
+      {
+        authority: "benchmark Node major",
+        from: "Number(report.environment?.nodeVersion?.match(/^v(\\d+)/)?.[1])!==[22,24][index]",
+        to: "false",
+      },
+      {
+        authority: "benchmark package digest",
+        from: "report.candidateSha256!==native.tarballSha256",
+        to: "false",
+      },
+      {
+        authority: "upstream needs graph",
+        from: "Object.values(needs).some(value=>value.result!=='success')",
+        to: "false",
+      },
+      {
+        authority: "phase admission child",
+        from: "require('node:child_process').execFileSync(process.execPath,['scripts/qualification/benchmark-report.cjs','--phase-admission',...files.map(file=>path.join('benchmarks',file))],{stdio:'inherit'})",
+        to: "void 0",
+      },
+      {
+        authority: "aggregate output emission",
+        from: "fs.writeFileSync('phase-46-admission.json'",
+        to: "void ('phase-46-admission.json'",
+      },
+    ];
+    const outcomes = mutations.map(({ authority, from, to }) => {
+      const mutation = heredoc.replace(from, to);
+      expect(mutation, authority).not.toBe(heredoc);
+      const outcome = executePhaseAdmissionHeredoc(
+        workflow,
+        {
+          requiredSourceFragments: [from],
+          sourceAuthority: authority,
+        },
+        mutation,
+      );
+      expect(outcome.ok, authority).toBe(false);
+      expect(outcome.error).toBe(`AUTHORITY source ${authority} rejected`);
+      expect(outcome.outputWrites).toBe(0);
+      return outcome;
+    });
+    expect(new Set(outcomes.map((outcome) => outcome.pid)).size).toBe(
+      outcomes.length,
+    );
   });
 
   it("accepts a permuted exact-six manifest through the production immutable tuple stage", () => {
