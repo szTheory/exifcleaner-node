@@ -53,6 +53,7 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
   };
   renderSummary(report: Record<string, unknown>): string;
   parseArguments(args: readonly string[]): Record<string, unknown>;
+  DIAGNOSTIC_PROFILE_ID: string;
   validateBaselinePackage(
     packageJson: { name?: unknown; version?: unknown },
     sha256: string,
@@ -104,6 +105,23 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     referenceMedianNs: Record<string, number>;
   };
   validateReport(input: Record<string, unknown>): void;
+  validatePerformanceP95DiagnosticReport(
+    input: Record<string, unknown>,
+  ): void;
+  derivePerformanceP95DiagnosticView(
+    input: Record<string, unknown>,
+  ): Record<string, unknown>;
+  classifyPerformanceP95DiagnosticFixture(input: {
+    observedP95Failure: boolean;
+    positiveBlockCount: number;
+    positiveCandidateTailCount: number;
+  }): "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown";
+  actionableBranchForPerformanceP95Diagnostic(
+    pattern: "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown",
+  ): "collector" | "candidate-runtime" | null;
+  validatePerformanceP95DiagnosticLedger(
+    input: Record<string, unknown>,
+  ): void;
   validateInstalledReport(
     input: Record<string, unknown>,
     tuple: string,
@@ -1290,6 +1308,349 @@ describe("paired benchmark admission", () => {
       thresholds: benchmark.BENCHMARK_THRESHOLDS,
     };
     expect(() => report.validateReport(complete)).not.toThrow();
+
+    const diagnosticFixtureIds = [
+      "metadata-still-1m",
+      "metadata-still-16m",
+      "animation-alpha-16m",
+      "still-1m",
+      "still-16m",
+      "still-64m",
+      "cancellation-64m",
+    ] as const;
+    expect(benchmark.DIAGNOSTIC_PROFILE_ID).toBe(
+      "phase-46-performance-p95-diagnostic/v1",
+    );
+    expect(
+      benchmark.parseArguments([
+        "--baseline-tarball",
+        "baseline.tgz",
+        "--candidate-tarball",
+        "candidate.tgz",
+        "--profile",
+        benchmark.DIAGNOSTIC_PROFILE_ID,
+        "--mode",
+        "report",
+      ]),
+    ).toMatchObject({
+      profile: benchmark.DIAGNOSTIC_PROFILE_ID,
+      fixture: undefined,
+      mode: "report",
+    });
+    for (const arguments_ of [
+      [
+        "--baseline-tarball",
+        "baseline.tgz",
+        "--candidate-tarball",
+        "candidate.tgz",
+        "--profile",
+        "caller-selected",
+      ],
+      [
+        "--baseline-tarball",
+        "baseline.tgz",
+        "--candidate-tarball",
+        "candidate.tgz",
+        "--profile",
+        benchmark.DIAGNOSTIC_PROFILE_ID,
+        "--fixture",
+        "still-1m",
+      ],
+      [
+        "--baseline-tarball",
+        "baseline.tgz",
+        "--candidate-tarball",
+        "candidate.tgz",
+        "--profile",
+        benchmark.DIAGNOSTIC_PROFILE_ID,
+        "--mode",
+        "admit",
+      ],
+    ])
+      expect(() => benchmark.parseArguments(arguments_)).toThrow();
+
+    const makeDiagnosticReport = (major: 22 | 24) => {
+      const diagnostic = structuredClone(complete);
+      const diagnosticReferenceMedian = reference.referenceMedianNs[String(major)];
+      if (typeof diagnosticReferenceMedian !== "number")
+        throw new Error("diagnostic Node major lacks a calibration reference");
+      const diagnosticObservations = Array.from(
+        { length: reference.observationCount },
+        (_, index) => ({
+          ordinal: index + 1,
+          elapsedNs:
+            diagnosticReferenceMedian * reference.workloadUnitCount,
+          unitCount: reference.workloadUnitCount,
+          normalizedNs: diagnosticReferenceMedian,
+          resultDigest: calibration.workloadResultDigest(),
+        }),
+      );
+      const diagnosticCalibration = {
+        schemaVersion: 2,
+        algorithmId: reference.algorithmId,
+        nodeMajor: major,
+        observations: diagnosticObservations,
+        workloadDigest: calibration.workloadDigest(),
+        process: { execPath: process.execPath, clean: true },
+      };
+      diagnostic.mode = "report";
+      diagnostic.environment.nodeVersion = `v${major}.0.0`;
+      diagnostic.calibration = {
+        before: diagnosticCalibration,
+        after: diagnosticCalibration,
+        reference,
+        derived: report.deriveRunScale({
+          before: diagnosticObservations.map((item) => item.normalizedNs),
+          after: diagnosticObservations.map((item) => item.normalizedNs),
+          referenceMedianNs: diagnosticReferenceMedian,
+        }),
+      };
+      diagnostic.rawSchedule = diagnostic.rawSchedule
+        .filter((entry) =>
+          diagnosticFixtureIds.includes(
+            entry.fixtureId as (typeof diagnosticFixtureIds)[number],
+          ),
+        )
+        .map((entry, index) => ({
+          ...entry,
+          sample: {
+            ...entry.sample,
+            runToken: `${major === 22 ? "2" : "4"}${index
+              .toString(16)
+              .padStart(31, "0")}`,
+            environment: { ...diagnostic.environment },
+          },
+        }));
+      const retained = (fixtureId: string, version: string) =>
+        diagnostic.rawSchedule
+          .filter(
+            (entry) =>
+              entry.fixtureId === fixtureId &&
+              entry.version === version &&
+              !entry.warmup,
+          )
+          .map((entry) => ({
+            ...entry.sample,
+            scaledElapsedNs:
+              entry.sample.elapsedNs * diagnostic.calibration.derived.runScale,
+          }));
+      diagnostic.comparisons = diagnostic.comparisons
+        .filter((comparison) =>
+          diagnosticFixtureIds.includes(
+            comparison.fixtureId as (typeof diagnosticFixtureIds)[number],
+          ),
+        )
+        .map((comparison) => ({
+          ...comparison,
+          baseline: {
+            ...comparison.baseline,
+            samples: retained(comparison.fixtureId, "baseline"),
+          },
+          candidate: {
+            ...comparison.candidate,
+            samples: retained(comparison.fixtureId, "candidate"),
+          },
+        }));
+      diagnostic.cancellation = {
+        sample: diagnostic.rawSchedule.find(
+          (entry) =>
+            entry.fixtureId === "cancellation-64m" &&
+            entry.version === "candidate" &&
+            !entry.warmup,
+        )!.sample.cancellation,
+        verdict: { pass: true, failures: [] },
+      };
+      diagnostic.failures = [];
+      diagnostic.pass = true;
+      return diagnostic;
+    };
+    const node22Diagnostic = makeDiagnosticReport(22);
+    const node24Diagnostic = makeDiagnosticReport(24);
+    expect(node22Diagnostic.rawSchedule).toHaveLength(1_428);
+    expect(() =>
+      report.validatePerformanceP95DiagnosticReport(node22Diagnostic),
+    ).not.toThrow();
+    expect(() => report.validateReport(node22Diagnostic)).toThrow();
+    for (const mutate of [
+      (value: typeof node22Diagnostic) => value.rawSchedule.pop(),
+      (value: typeof node22Diagnostic) =>
+        value.rawSchedule.splice(
+          0,
+          2,
+          value.rawSchedule[1]!,
+          value.rawSchedule[0]!,
+        ),
+      (value: typeof node22Diagnostic) => (value.measurements = 99),
+      (value: typeof node22Diagnostic) => (value.warmups = 1),
+      (value: typeof node22Diagnostic) =>
+        (value.elapsedP95Estimator.method = "nearest-rank"),
+      (value: typeof node22Diagnostic) =>
+        (value.thresholds.p95Ratio = 1.36),
+      (value: typeof node22Diagnostic) =>
+        (value.collection.retries = 1),
+      (value: typeof node22Diagnostic) =>
+        (value.cancellation.verdict.pass = false),
+      (value: typeof node22Diagnostic) =>
+        (value.environment.runner = "substituted"),
+      (value: typeof node22Diagnostic) =>
+        (value.calibration.derived.runScale = 2),
+    ]) {
+      const mutation = structuredClone(node22Diagnostic);
+      mutate(mutation);
+      expect(() =>
+        report.validatePerformanceP95DiagnosticReport(mutation),
+      ).toThrow();
+    }
+
+    expect(
+      report.classifyPerformanceP95DiagnosticFixture({
+        observedP95Failure: true,
+        positiveBlockCount: 1,
+        positiveCandidateTailCount: 6,
+      }),
+    ).toBe("concentrated-tail");
+    expect(
+      report.classifyPerformanceP95DiagnosticFixture({
+        observedP95Failure: true,
+        positiveBlockCount: 9,
+        positiveCandidateTailCount: 6,
+      }),
+    ).toBe("sustained-candidate");
+    expect(
+      report.classifyPerformanceP95DiagnosticFixture({
+        observedP95Failure: true,
+        positiveBlockCount: 5,
+        positiveCandidateTailCount: 4,
+      }),
+    ).toBe("mixed");
+    expect(
+      report.classifyPerformanceP95DiagnosticFixture({
+        observedP95Failure: false,
+        positiveBlockCount: 0,
+        positiveCandidateTailCount: 0,
+      }),
+    ).toBe("unknown");
+    expect(
+      [
+        "concentrated-tail",
+        "sustained-candidate",
+        "mixed",
+        "unknown",
+      ].map((pattern) =>
+        report.actionableBranchForPerformanceP95Diagnostic(
+          pattern as
+            | "concentrated-tail"
+            | "sustained-candidate"
+            | "mixed"
+            | "unknown",
+        ),
+      ),
+    ).toEqual(["collector", "candidate-runtime", null, null]);
+
+    const reportBytes = (value: unknown) =>
+      `${JSON.stringify(value, null, 2)}\n`;
+    const reportSha = (value: unknown) =>
+      createHash("sha256").update(reportBytes(value)).digest("hex");
+    const node22View = report.derivePerformanceP95DiagnosticView(
+      node22Diagnostic,
+    );
+    const node24View = report.derivePerformanceP95DiagnosticView(
+      node24Diagnostic,
+    );
+    const headSha = "a".repeat(40);
+    const ledger = {
+      schemaVersion: "phase-46-performance-p95-diagnostic-ledger/v1",
+      diagnosticOnly: true,
+      run: {
+        repository: "szTheory/exifcleaner-node",
+        workflow: ".github/workflows/performance-diagnostic.yml",
+        event: "workflow_dispatch",
+        attempt: 1,
+        id: 123456789,
+        url: "https://github.com/szTheory/exifcleaner-node/actions/runs/123456789",
+        ref: `refs/heads/diagnostic/46-p95-${headSha.slice(0, 7)}`,
+        headSha,
+      },
+      packages: {
+        baseline: {
+          name: "exifcleaner-node",
+          version: "0.1.1",
+          expectedIdentity: `exifcleaner-node@0.1.1#sha256:${benchmark.BASELINE_TARBALL_SHA256}`,
+          sha256: benchmark.BASELINE_TARBALL_SHA256,
+        },
+        candidate: { sha256: "3".repeat(64) },
+      },
+      artifacts: {
+        node22: {
+          job: { name: "diagnostic (22)", conclusion: "success" },
+          artifact: {
+            name: "performance-p95-diagnostic-node-22",
+            sha256: "5".repeat(64),
+          },
+          report: {
+            file: "qualification-benchmark-node-22.json",
+            sha256: reportSha(node22Diagnostic),
+          },
+          summary: {
+            file: "qualification-benchmark-node-22.json.md",
+            sha256: "6".repeat(64),
+          },
+        },
+        node24: {
+          job: { name: "diagnostic (24)", conclusion: "success" },
+          artifact: {
+            name: "performance-p95-diagnostic-node-24",
+            sha256: "7".repeat(64),
+          },
+          report: {
+            file: "qualification-benchmark-node-24.json",
+            sha256: reportSha(node24Diagnostic),
+          },
+          summary: {
+            file: "qualification-benchmark-node-24.json.md",
+            sha256: "8".repeat(64),
+          },
+        },
+        envelope: {
+          name: "performance-p95-diagnostic-envelope",
+          sha256: "9".repeat(64),
+        },
+      },
+      reports: { node22: node22Diagnostic, node24: node24Diagnostic },
+      derived: { node22: node22View, node24: node24View },
+      pattern: "unknown",
+      actionableBranch: null,
+    };
+    expect(() =>
+      report.validatePerformanceP95DiagnosticLedger(ledger),
+    ).not.toThrow();
+    for (const mutate of [
+      (value: typeof ledger) => (value.diagnosticOnly = false),
+      (value: typeof ledger) => (value.run.attempt = 2),
+      (value: typeof ledger) => (value.run.event = "push"),
+      (value: typeof ledger) => (value.run.headSha = "b".repeat(40)),
+      (value: typeof ledger) =>
+        (value.run.ref = "refs/heads/diagnostic/46-p95-substitute"),
+      (value: typeof ledger) =>
+        (value.reports.node24.candidateSha256 = "4".repeat(64)),
+      (value: typeof ledger) =>
+        (value.artifacts.node22.report.sha256 = "0".repeat(64)),
+      (value: typeof ledger) =>
+        (value.derived.node22 = structuredClone(value.derived.node24)),
+      (value: typeof ledger) => (value.pattern = "concentrated-tail"),
+      (value: typeof ledger) =>
+        (value.actionableBranch = "collector" as null),
+      (value: typeof ledger) =>
+        Object.assign(value, { admission: false }),
+      (value: typeof ledger) =>
+        Object.assign(value.artifacts.node22, { retry: 0 }),
+    ]) {
+      const mutation = structuredClone(ledger);
+      mutate(mutation);
+      expect(() =>
+        report.validatePerformanceP95DiagnosticLedger(mutation),
+      ).toThrow();
+    }
     for (const incomplete of [
       { ...complete, comparisons: [], rawSchedule: [] },
       { ...complete, comparisons: comparisons.slice(1) },
