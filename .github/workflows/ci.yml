@@ -32,17 +32,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build && npm run build:native
+      - name: Prepare distinct pack destinations
+        run: mkdir -p "$GITHUB_WORKSPACE/.baseline-pack" "$GITHUB_WORKSPACE/.candidate-pack"
       - name: Pack immutable v0.1.1 baseline
         working-directory: .benchmark-baseline
-        run: npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE"
+        run: npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE/.baseline-pack"
       - name: Pack freshly built candidate
-        run: npm pack --json > pack.json
+        run: npm pack --pack-destination "$GITHUB_WORKSPACE/.candidate-pack" --json > pack.json
       - name: Run the frozen seven-fixture diagnostic profile once
         shell: bash
         run: |
-          baseline="$(find . -maxdepth 1 -name 'exifcleaner-node-0.1.1.tgz' -print -quit)"
-          candidate="$(node -p "require('./pack.json')[0].filename")"
-          test -n "$baseline" && test -n "$candidate"
+          baseline="$GITHUB_WORKSPACE/.baseline-pack/exifcleaner-node-0.1.1.tgz"
+          candidate="$GITHUB_WORKSPACE/.candidate-pack/$(node -p "require('./pack.json')[0].filename")"
+          test -f "$baseline" && test -f "$candidate"
+          test "$baseline" != "$candidate"
           npm run benchmark:qualify -- --baseline-tarball "$baseline" --candidate-tarball "$candidate" --profile phase-46-performance-p95-diagnostic/v1 --mode report --output "qualification-benchmark-node-${{ matrix.node }}.json"
           node scripts/qualification/benchmark-report.cjs --validate-diagnostic-report "qualification-benchmark-node-${{ matrix.node }}.json"
       - name: Hash the diagnostic report and summary
