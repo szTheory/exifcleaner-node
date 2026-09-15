@@ -1549,7 +1549,7 @@ describe("paired benchmark admission", () => {
       diagnosticOnly: true,
       run: {
         repository: "szTheory/exifcleaner-node",
-        workflow: ".github/workflows/performance-diagnostic.yml",
+        workflow: ".github/workflows/ci.yml",
         event: "workflow_dispatch",
         attempt: 1,
         id: 123456789,
@@ -1614,6 +1614,8 @@ describe("paired benchmark admission", () => {
       (value: typeof ledger) => (value.diagnosticOnly = false),
       (value: typeof ledger) => (value.run.attempt = 2),
       (value: typeof ledger) => (value.run.event = "push"),
+      (value: typeof ledger) =>
+        (value.run.workflow = ".github/workflows/performance-diagnostic.yml"),
       (value: typeof ledger) => (value.run.headSha = "b".repeat(40)),
       (value: typeof ledger) =>
         (value.run.ref = "refs/heads/diagnostic/46-p95-substitute"),
