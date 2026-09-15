@@ -1097,9 +1097,25 @@ function validateDiagnosticOnlyCiWorkflow(workflow: string): void {
     "node scripts/qualification/benchmark-report.cjs --validate-diagnostic-report",
     "performance-p95-diagnostic-node-${{ matrix.node }}",
     "if-no-files-found: error",
+    "--pack-destination",
+    'test "$baseline" != "$candidate"',
   ])
     if (!diagnosticJob.includes(required))
       throw new Error(`diagnostic job lacks ${required}`);
+  const packDestinations = [
+    ...diagnosticJob.matchAll(/--pack-destination "([^"]+)"/gu),
+  ].map((match) => match[1]);
+  if (
+    packDestinations.length !== 2 ||
+    packDestinations[0] === packDestinations[1]
+  )
+    throw new Error(
+      "diagnostic job must give baseline and candidate packs distinct --pack-destination values",
+    );
+  if (/find\s+\.\s+-maxdepth\s+1\s+-name/u.test(diagnosticJob))
+    throw new Error(
+      "diagnostic job must resolve tarballs by explicit path, not a name glob that cannot distinguish baseline from candidate",
+    );
   for (const required of [
     "needs: diagnostic",
     "pattern: performance-p95-diagnostic-node-*",
@@ -1168,11 +1184,47 @@ describe("performance p95 diagnostic-only CI dispatch gate (D-36)", () => {
       `${workflow}\n  phase-46-admission:\n    runs-on: ubuntu-24.04\n`,
       `${workflow}\ncontinue-on-error: true`,
       `${workflow}\n# || true`,
+      workflow.replace(
+        '--pack-destination "$GITHUB_WORKSPACE/.candidate-pack"',
+        '--pack-destination "$GITHUB_WORKSPACE/.baseline-pack"',
+      ),
+      workflow.replace('test "$baseline" != "$candidate"\n          ', ""),
+      workflow.replace(
+        'baseline="$GITHUB_WORKSPACE/.baseline-pack/exifcleaner-node-0.1.1.tgz"',
+        "baseline=\"$(find . -maxdepth 1 -name 'exifcleaner-node-0.1.1.tgz' -print -quit)\"",
+      ),
     ];
     for (const mutation of mutations) {
       expect(mutation).not.toBe(workflow);
       expect(() => validateDiagnosticOnlyCiWorkflow(mutation)).toThrow();
     }
+  });
+
+  it("resolves baseline and candidate tarballs to distinct explicit paths, never a same-directory name collision", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const diagnosticJob = workflowJob(workflow, "diagnostic", "envelope");
+    // Regression coverage for the run-35012975938 failure mode: both packs
+    // wrote the literal filename exifcleaner-node-0.1.1.tgz into the same
+    // directory, so the candidate pack silently overwrote the baseline
+    // tarball before benchmark.cjs ever read it. A green run cannot catch
+    // this — only a structural assertion that the two destinations (and
+    // therefore the two resolved paths) can never collide can.
+    const packDestinations = [
+      ...diagnosticJob.matchAll(/--pack-destination "([^"]+)"/gu),
+    ].map((match) => match[1]);
+    expect(packDestinations).toHaveLength(2);
+    expect(packDestinations[0]).not.toBe(packDestinations[1]);
+    expect(diagnosticJob).toContain(
+      'baseline="$GITHUB_WORKSPACE/.baseline-pack/exifcleaner-node-0.1.1.tgz"',
+    );
+    expect(diagnosticJob).toContain(
+      'candidate="$GITHUB_WORKSPACE/.candidate-pack/$(node -p "require(\'./pack.json\')[0].filename")"',
+    );
+    expect(diagnosticJob).toContain('test "$baseline" != "$candidate"');
+    expect(diagnosticJob).not.toMatch(/find\s+\.\s+-maxdepth\s+1\s+-name/u);
   });
 
   it("keeps the diagnostic pattern vocabulary out of the admission validator's CLI surface", () => {
