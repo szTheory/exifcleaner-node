@@ -1143,7 +1143,7 @@ function validatePerformanceP95DiagnosticLedger(ledger) {
     ledger.schemaVersion !== "phase-46-performance-p95-diagnostic-ledger/v1" ||
     ledger.diagnosticOnly !== true ||
     ledger.run.repository !== "szTheory/exifcleaner-node" ||
-    ledger.run.workflow !== ".github/workflows/performance-diagnostic.yml" ||
+    ledger.run.workflow !== ".github/workflows/ci.yml" ||
     ledger.run.event !== "workflow_dispatch" ||
     ledger.run.attempt !== 1 ||
     !Number.isSafeInteger(ledger.run.id) ||
