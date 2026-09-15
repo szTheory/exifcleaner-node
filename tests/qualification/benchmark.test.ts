@@ -1,6 +1,9 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
@@ -65,6 +68,11 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
   };
   BASELINE_TARBALL_SHA256: string;
 };
+type PrerequisiteEntry = {
+  sha256: string;
+  ledger: Record<string, unknown>;
+};
+
 const report = require("../../scripts/qualification/benchmark-report.cjs") as {
   performanceP95(values: readonly number[]): number;
   evaluateTiming(input: {
@@ -124,7 +132,16 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     nodeMajor: number,
     candidate: Record<string, unknown>,
   ): void;
-  hostedLedger(filePath: string, memoryPath: string, windowsPath: string): void;
+  hostedLedger(
+    filePath: string,
+    memoryPath: string,
+    windowsPath: string,
+    identityCleanupPath: string,
+  ): void;
+  validatePrerequisiteLedgerBindings(
+    hosted: Record<string, unknown>,
+    prerequisites: Record<string, PrerequisiteEntry>,
+  ): void;
   validateFinalCandidateManifest(input: {
     repoRoot: string;
     candidateSha: string;
@@ -143,7 +160,7 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
   ): Record<string, unknown>;
 };
 
-function loadIdentityLedgerValidator(source: string): {
+type IdentityLedgerValidator = {
   validateIdentityCleanupLedger(input: Record<string, unknown>): void;
   validateInstalledReport(
     input: Record<string, unknown>,
@@ -151,7 +168,13 @@ function loadIdentityLedgerValidator(source: string): {
     nodeMajor: number,
     candidate: Record<string, unknown>,
   ): void;
-} {
+  validatePrerequisiteLedgerBindings(
+    hosted: Record<string, unknown>,
+    prerequisites: Record<string, PrerequisiteEntry>,
+  ): void;
+};
+
+function loadIdentityLedgerValidator(source: string): IdentityLedgerValidator {
   const filename = join(
     projectRoot,
     "scripts",
@@ -168,15 +191,7 @@ function loadIdentityLedgerValidator(source: string): {
     exports: freshModule.exports,
     require: localRequire,
   });
-  return freshModule.exports as {
-    validateIdentityCleanupLedger(input: Record<string, unknown>): void;
-    validateInstalledReport(
-      input: Record<string, unknown>,
-      tuple: string,
-      nodeMajor: number,
-      candidate: Record<string, unknown>,
-    ): void;
-  };
+  return freshModule.exports as IdentityLedgerValidator;
 }
 
 const installedTuples = [
@@ -2765,5 +2780,262 @@ describe("paired benchmark admission", () => {
     expect(validator).toMatch(
       /animation\.baseline\.samples\.length !== 100[\s\S]{0,120}animation\.candidate\.samples\.length !== 100/u,
     );
+  });
+
+  it("rejects every hosted ledger prerequisite binding divergence", async () => {
+    const fixture = () => {
+      const memory = { runId: 4242, headSha: "a".repeat(40) };
+      const windows = { runId: 5353, headSha: "b".repeat(40) };
+      const identity = identityCleanupLedger();
+      const digests = {
+        memory: "1".repeat(64),
+        windows: "2".repeat(64),
+        identityCleanup: "3".repeat(64),
+      };
+      return {
+        hosted: {
+          repairs: {
+            memory: {
+              sha256: digests.memory,
+              runId: memory.runId,
+              headSha: memory.headSha,
+            },
+            windows: {
+              sha256: digests.windows,
+              runId: windows.runId,
+              headSha: windows.headSha,
+            },
+            identityCleanup: {
+              sha256: digests.identityCleanup,
+              runId: identity.run.id,
+              headSha: identity.run.headSha,
+            },
+          },
+        },
+        prerequisites: {
+          memory: { sha256: digests.memory, ledger: memory },
+          windows: { sha256: digests.windows, ledger: windows },
+          identityCleanup: {
+            sha256: digests.identityCleanup,
+            ledger: identity,
+          },
+        },
+      };
+    };
+
+    // POSITIVE CONTROL: every slot matches and the identity-cleanup ledger is
+    // valid, so a function that merely rejects everything cannot pass here.
+    const positive = structuredClone(fixture());
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        positive.hosted,
+        positive.prerequisites,
+      ),
+    ).not.toThrow();
+
+    // CONTROL A: identity-cleanup runId mismatch.
+    const controlA = structuredClone(fixture());
+    controlA.hosted.repairs.identityCleanup.runId = 999_999;
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlA.hosted,
+        controlA.prerequisites,
+      ),
+    ).toThrow(
+      /^prerequisite ledger binding is invalid: identityCleanup\.runId$/u,
+    );
+
+    // CONTROL B: identity-cleanup headSha mismatch.
+    const controlB = structuredClone(fixture());
+    controlB.hosted.repairs.identityCleanup.headSha = "e".repeat(40);
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlB.hosted,
+        controlB.prerequisites,
+      ),
+    ).toThrow(
+      /^prerequisite ledger binding is invalid: identityCleanup\.headSha$/u,
+    );
+
+    // CONTROL C: the supplied identity-cleanup ledger fails the shared
+    // validator on its own terms, so the shared validator's own message is
+    // thrown and no binding reason is reached.
+    const controlC = structuredClone(fixture());
+    delete (
+      controlC.prerequisites.identityCleanup.ledger.installed as Record<
+        string,
+        unknown
+      >
+    )["win32-arm64"];
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlC.hosted,
+        controlC.prerequisites,
+      ),
+    ).toThrow(
+      /^identity cleanup ledger installed fields are not exact and ordered$/u,
+    );
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlC.hosted,
+        controlC.prerequisites,
+      ),
+    ).not.toThrow(/prerequisite ledger binding is invalid/u);
+
+    // CONTROL D: the identity-cleanup slot is absent entirely.
+    const controlD = structuredClone(fixture());
+    delete (controlD.hosted.repairs as Record<string, unknown>).identityCleanup;
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlD.hosted,
+        controlD.prerequisites,
+      ),
+    ).toThrow(
+      /^prerequisite ledger binding is invalid: identityCleanup\.missing$/u,
+    );
+
+    // CONTROL E: identity-cleanup file digest mismatch.
+    const controlE = structuredClone(fixture());
+    controlE.hosted.repairs.identityCleanup.sha256 = "7".repeat(64);
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlE.hosted,
+        controlE.prerequisites,
+      ),
+    ).toThrow(
+      /^prerequisite ledger binding is invalid: identityCleanup\.sha256$/u,
+    );
+
+    // CONTROL F: the existing memory arm still rejects a digest mismatch.
+    const controlF = structuredClone(fixture());
+    controlF.hosted.repairs.memory.sha256 = "8".repeat(64);
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlF.hosted,
+        controlF.prerequisites,
+      ),
+    ).toThrow(/^prerequisite ledger binding is invalid: memory\.sha256$/u);
+
+    // CONTROL G: the existing memory arm still rejects a runId mismatch.
+    const controlG = structuredClone(fixture());
+    controlG.hosted.repairs.memory.runId = 1;
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlG.hosted,
+        controlG.prerequisites,
+      ),
+    ).toThrow(/^prerequisite ledger binding is invalid: memory\.runId$/u);
+
+    // CONTROL H: the existing memory arm still rejects a headSha mismatch.
+    const controlH = structuredClone(fixture());
+    controlH.hosted.repairs.memory.headSha = "c".repeat(40);
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlH.hosted,
+        controlH.prerequisites,
+      ),
+    ).toThrow(/^prerequisite ledger binding is invalid: memory\.headSha$/u);
+
+    // CONTROL I: the existing Windows arm still rejects a digest mismatch.
+    const controlI = structuredClone(fixture());
+    controlI.hosted.repairs.windows.sha256 = "9".repeat(64);
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlI.hosted,
+        controlI.prerequisites,
+      ),
+    ).toThrow(/^prerequisite ledger binding is invalid: windows\.sha256$/u);
+
+    // CONTROL J: the existing Windows arm still rejects a runId mismatch.
+    const controlJ = structuredClone(fixture());
+    controlJ.hosted.repairs.windows.runId = 2;
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlJ.hosted,
+        controlJ.prerequisites,
+      ),
+    ).toThrow(/^prerequisite ledger binding is invalid: windows\.runId$/u);
+
+    // CONTROL K: the existing Windows arm still rejects a headSha mismatch.
+    const controlK = structuredClone(fixture());
+    controlK.hosted.repairs.windows.headSha = "d".repeat(40);
+    expect(() =>
+      report.validatePrerequisiteLedgerBindings(
+        controlK.hosted,
+        controlK.prerequisites,
+      ),
+    ).toThrow(/^prerequisite ledger binding is invalid: windows\.headSha$/u);
+
+    // DELEGATION MUTANT: the binding must CALL validateIdentityCleanupLedger,
+    // so mutating that validator's completeness constant in a fresh VM copy
+    // must change the binding's outcome. A reimplementation cannot move.
+    const source = await readFile(
+      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+      "utf8",
+    );
+    const pristine = loadIdentityLedgerValidator(source);
+    const pristineFixture = structuredClone(fixture());
+    expect(() =>
+      pristine.validatePrerequisiteLedgerBindings(
+        pristineFixture.hosted,
+        pristineFixture.prerequisites,
+      ),
+    ).not.toThrow();
+    const mutatedSource = source.replace(
+      "observed.size !== 12",
+      "observed.size !== 13",
+    );
+    expect(mutatedSource).not.toBe(source);
+    const mutant = loadIdentityLedgerValidator(mutatedSource);
+    const mutantFixture = structuredClone(fixture());
+    expect(() =>
+      mutant.validatePrerequisiteLedgerBindings(
+        mutantFixture.hosted,
+        mutantFixture.prerequisites,
+      ),
+    ).toThrow(/^identity cleanup ledger is incomplete$/u);
+
+    // DISPATCH: the four-flag eight-argument form parses ledgers; the removed
+    // three-flag six-argument form exits at usage and parses nothing.
+    const stubDirectory = mkdtempSync(join(tmpdir(), "phase-46-hosted-"));
+    try {
+      const script = join(
+        projectRoot,
+        "scripts",
+        "qualification",
+        "benchmark-report.cjs",
+      );
+      const stub = (name: string): string => {
+        const file = join(stubDirectory, `${name}.json`);
+        writeFileSync(file, "{}");
+        return file;
+      };
+      const threeFlagArguments = [
+        script,
+        "--hosted-ledger",
+        stub("hosted"),
+        "--memory-ledger",
+        stub("memory"),
+        "--windows-ledger",
+        stub("windows"),
+      ];
+      const accepted = spawnSync(
+        process.execPath,
+        [...threeFlagArguments, "--identity-cleanup-ledger", stub("identity")],
+        { encoding: "utf8" },
+      );
+      const acceptedText = `${accepted.stdout}${accepted.stderr}`;
+      expect(acceptedText).toContain("hosted run identity is invalid");
+      expect(acceptedText).not.toMatch(/^usage:/mu);
+
+      const rejected = spawnSync(process.execPath, threeFlagArguments, {
+        encoding: "utf8",
+      });
+      const rejectedText = `${rejected.stdout}${rejected.stderr}`;
+      expect(rejectedText).toMatch(/^usage:/mu);
+      expect(rejectedText).not.toContain("hosted run identity is invalid");
+    } finally {
+      rmSync(stubDirectory, { recursive: true, force: true });
+    }
   });
 });
