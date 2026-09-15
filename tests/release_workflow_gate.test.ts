@@ -1053,3 +1053,135 @@ describe("release workflow authority gate", () => {
     }
   });
 });
+
+const FORBIDDEN_ADMISSION_JOB_NAMES = [
+  "quality",
+  "qualification-linux",
+  "identity-prebuild",
+  "build-audit-native",
+  "assemble-exact-native",
+  "installed-native",
+  "immutable-sha-evidence",
+  "benchmark-linux",
+  "phase-46-admission",
+];
+
+function validateDiagnosticOnlyCiWorkflow(workflow: string): void {
+  if (!workflow.startsWith("name: CI\n"))
+    throw new Error(
+      "diagnostic-only ci.yml must keep the registered workflow name CI",
+    );
+  const onBlock = workflow.match(/\non:\n([\s\S]*?)\n\npermissions:/u)?.[1];
+  if (onBlock === undefined)
+    throw new Error("diagnostic-only ci.yml on: block is absent");
+  if (onBlock.trim() !== "workflow_dispatch:")
+    throw new Error(
+      "diagnostic-only ci.yml must trigger only on workflow_dispatch",
+    );
+  for (const jobName of FORBIDDEN_ADMISSION_JOB_NAMES)
+    if (workflow.match(new RegExp(`\\n  ${jobName}:\\n`, "u")))
+      throw new Error(
+        `diagnostic-only ci.yml must not contain admission job ${jobName}`,
+      );
+  const diagnosticJob = workflowJob(workflow, "diagnostic", "envelope");
+  const envelopeJob = workflowJob(workflow, "envelope");
+  for (const required of [
+    "fail-fast: false",
+    "node: [22, 24]",
+    "runs-on: ubuntu-24.04",
+    "ref: 411fdbdad3faa2e5dd5033bea5def435b4d03323",
+    "npm pack --ignore-scripts --pack-destination",
+    "npm run benchmark:qualify -- --baseline-tarball",
+    "--profile phase-46-performance-p95-diagnostic/v1",
+    "--mode report",
+    "node scripts/qualification/benchmark-report.cjs --validate-diagnostic-report",
+    "performance-p95-diagnostic-node-${{ matrix.node }}",
+    "if-no-files-found: error",
+  ])
+    if (!diagnosticJob.includes(required))
+      throw new Error(`diagnostic job lacks ${required}`);
+  for (const required of [
+    "needs: diagnostic",
+    "pattern: performance-p95-diagnostic-node-*",
+    "validatePerformanceP95DiagnosticReport",
+    "performance-p95-diagnostic-envelope",
+    "diagnosticOnly: true",
+    "if-no-files-found: error",
+  ])
+    if (!envelopeJob.includes(required))
+      throw new Error(`envelope job lacks ${required}`);
+  for (const forbidden of [
+    /\bpush:\n/u,
+    /\bpull_request:\n/u,
+    /\bworkflow_call:\n/u,
+    /--mode admit/u,
+    /BENCHMARK_MODE/u,
+    /--phase-admission/u,
+    /--validate-report\b/u,
+    /--identity-cleanup-ledger/u,
+    /--windows-publication-diagnostic-ledger/u,
+    /phase-46-admission/u,
+    /identity-cleanup/u,
+    /final-native-admission/u,
+    /final-candidate/u,
+    /approval/u,
+    /continue-on-error:\s*true/u,
+    /\|\|\s*true/u,
+  ])
+    if (forbidden.test(workflow))
+      throw new Error(
+        `diagnostic-only ci.yml contains forbidden admission-shaped content: ${forbidden}`,
+      );
+}
+
+describe("performance p95 diagnostic-only CI dispatch gate (D-36)", () => {
+  it("wholesale-replaces ci.yml with a diagnostic-only Node 22/24 collector under the registered CI identity and no admission authority", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    expect(() => validateDiagnosticOnlyCiWorkflow(workflow)).not.toThrow();
+
+    const mutations = [
+      workflow.replace("name: CI\n", "name: Performance P95 Diagnostic\n"),
+      workflow.replace(
+        "on:\n  workflow_dispatch:",
+        "on:\n  push:\n  workflow_dispatch:",
+      ),
+      workflow.replace("node: [22, 24]", "node: [24]"),
+      workflow.replace("fail-fast: false", "fail-fast: true"),
+      workflow.replace(
+        "ref: 411fdbdad3faa2e5dd5033bea5def435b4d03323",
+        "ref: main",
+      ),
+      workflow.replace("--mode report", "--mode admit"),
+      workflow.replace("--profile phase-46-performance-p95-diagnostic/v1", ""),
+      workflow.replace(
+        "node scripts/qualification/benchmark-report.cjs --validate-diagnostic-report",
+        "node scripts/qualification/benchmark-report.cjs --validate-report",
+      ),
+      workflow.replace("needs: diagnostic", ""),
+      workflow.replace(
+        "pattern: performance-p95-diagnostic-node-*",
+        "pattern: performance-p95-diagnostic-node-22",
+      ),
+      `${workflow}\n  phase-46-admission:\n    runs-on: ubuntu-24.04\n`,
+      `${workflow}\ncontinue-on-error: true`,
+      `${workflow}\n# || true`,
+    ];
+    for (const mutation of mutations) {
+      expect(mutation).not.toBe(workflow);
+      expect(() => validateDiagnosticOnlyCiWorkflow(mutation)).toThrow();
+    }
+  });
+
+  it("keeps the diagnostic pattern vocabulary out of the admission validator's CLI surface", () => {
+    const script = readFileSync(
+      join(packageRoot, "scripts", "qualification", "benchmark-report.cjs"),
+      "utf8",
+    );
+    expect(script).toContain("--performance-p95-diagnostic-ledger");
+    expect(script).toContain("validatePerformanceP95DiagnosticLedger");
+    expect(script).toContain("ledger.diagnosticOnly !== true");
+  });
+});
