@@ -183,6 +183,9 @@ function executePhaseAdmissionHeredoc(
   const runner = `
     const {createRequire}=require('node:module');
     const {join}=require('node:path');
+    const nodeFs=require('node:fs');
+    const nodeOs=require('node:os');
+    const nodePath=require('node:path');
     const scenario=${JSON.stringify(scenario)};
     const heredoc=${JSON.stringify(heredoc)};
     const packageRoot=${JSON.stringify(packageRoot)};
@@ -228,7 +231,7 @@ function executePhaseAdmissionHeredoc(
       },
       readdirSync(path,options){
         if(path!=='benchmarks'||options?.recursive!==true) throw new Error(\`HARNESS unexpected readdir \${path}\`);
-        return [...benchmarkFiles];
+        return nodeFs.readdirSync(path,options);
       },
       writeFileSync(path,bytes){
         if(path!=='phase-46-admission.json'||typeof bytes!=='string') throw new Error(\`HARNESS unexpected write \${path}\`);
@@ -267,6 +270,16 @@ function executePhaseAdmissionHeredoc(
     };
     process.env.NEEDS_JSON=JSON.stringify({quality:{result:scenario.needsFailure?'failure':'success'},'qualification-linux':{result:'success'},'immutable-sha-evidence':{result:'success'},'benchmark-linux':{result:'success'}});
     process.env.GITHUB_SHA='d'.repeat(40);
+    const previousCwd=process.cwd();
+    const tempRoot=nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(),'phase-46-benchmarks-'));
+    nodeFs.mkdirSync(nodePath.join(tempRoot,'benchmarks'),{recursive:true});
+    for(const relative of benchmarkFiles){
+      const target=nodePath.join(tempRoot,'benchmarks',relative);
+      nodeFs.mkdirSync(nodePath.dirname(target),{recursive:true});
+      nodeFs.writeFileSync(target,'');
+    }
+    process.chdir(tempRoot);
+    try{
     try{
       new Function('require',heredoc)(strictRequire);
       const expectedValidations=canonical.flatMap(tuple=>[\`\${tuple}/node22\`,\`\${tuple}/node24\`]);
@@ -275,6 +288,10 @@ function executePhaseAdmissionHeredoc(
       process.stdout.write(JSON.stringify({ok:true,pid:process.pid,installedValidations,outputWrites:writes.length}));
     }catch(error){
       process.stdout.write(JSON.stringify({ok:false,pid:process.pid,error:String(error?.message??error),installedValidations,outputWrites:writes.length}));
+    }
+    }finally{
+      process.chdir(previousCwd);
+      nodeFs.rmSync(tempRoot,{recursive:true,force:true});
     }
   `;
   const child = spawnSync(process.execPath, ["--input-type=commonjs"], {
@@ -512,6 +529,43 @@ describe("release workflow authority gate", () => {
     expect(
       new Set([...valid, ...invalid].map((outcome) => outcome.pid)).size,
     ).toBe(valid.length + invalid.length);
+  });
+
+  it("compares the benchmark artifact file set against a real directory tree", () => {
+    const workflow = readFileSync(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const expected = [
+      "benchmark-linux-node22/benchmark-node22.json",
+      "benchmark-linux-node22/benchmark-node22.json.md",
+      "benchmark-linux-node24/benchmark-node24.json",
+      "benchmark-linux-node24/benchmark-node24.json.md",
+    ];
+
+    const accept = executePhaseAdmissionHeredoc(workflow, {
+      benchmarkFiles: [...expected],
+    });
+    expect(accept.ok, accept.error).toBe(true);
+    expect(accept.outputWrites).toBe(1);
+
+    const stray = executePhaseAdmissionHeredoc(workflow, {
+      benchmarkFiles: [...expected, "benchmark-linux-node22/stray.json"],
+    });
+    expect(stray.ok).toBe(false);
+    expect(stray.error).toMatch(/benchmark artifact file set is not exact/u);
+    expect(stray.error).not.toMatch(/^HARNESS|SyntaxError/u);
+    expect(stray.outputWrites).toBe(0);
+
+    const missing = executePhaseAdmissionHeredoc(workflow, {
+      benchmarkFiles: expected.filter(
+        (file) => file !== "benchmark-linux-node24/benchmark-node24.json.md",
+      ),
+    });
+    expect(missing.ok).toBe(false);
+    expect(missing.error).toMatch(/benchmark artifact file set is not exact/u);
+    expect(missing.error).not.toMatch(/^HARNESS|SyntaxError/u);
+    expect(missing.outputWrites).toBe(0);
   });
 
   it("rejects every non-tuple authority failure before aggregate output in isolated children", () => {
