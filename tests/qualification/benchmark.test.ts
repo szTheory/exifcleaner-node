@@ -1747,9 +1747,12 @@ describe("paired benchmark admission", () => {
       mutate(mutated);
       expect(() => report.validateReport(mutated)).toThrow();
     }
-  });
+  }, 20_000);
 
   it("validateP95NullBranchClosure accepts only a null-branch closure bound to the real sealed ledger and rejects any overclaim or identity mismatch", async () => {
+    // The real sealed ledger is ~14 MB; each mutation case re-validates it in
+    // full via validatePerformanceP95DiagnosticLedger (~0.5s), so 18 calls
+    // exceed the default 5s test timeout.
     const ledgerPath = join(
       projectRoot,
       "..",
@@ -1838,7 +1841,7 @@ describe("paired benchmark admission", () => {
         report.validateP95NullBranchClosure(mutation, ledger),
       ).toThrow();
     }
-  });
+  }, 30_000);
 
   it("binds every installed finalization and cancellation contract field on Windows", () => {
     const candidate = {

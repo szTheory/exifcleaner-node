@@ -1266,6 +1266,85 @@ function validatePerformanceP95DiagnosticLedger(ledger) {
     throw new Error("performance p95 diagnostic classification mismatch");
   return ledger;
 }
+const P95_NULL_BRANCH_SOURCE_TIP_HEAD_SHA =
+  "1a7cd0a6f0a2a5da0a259652dc24318db689f02e";
+const P95_NULL_BRANCH_FORBIDDEN_CLAIM_TERMS =
+  /flak|noise|environmental|transient|confirmed|proven|non-issue/iu;
+function validateP95NullBranchClosure(closure, ledger) {
+  validatePerformanceP95DiagnosticLedger(ledger);
+  if (ledger.actionableBranch !== null)
+    throw new Error(
+      "p95 null-branch closure requires a null-branch diagnostic ledger",
+    );
+  exactKeys(
+    closure,
+    [
+      "schemaVersion",
+      "diagnosticOnly",
+      "ledger",
+      "pattern",
+      "actionableBranch",
+      "sourceTip",
+      "claim",
+      "nextGate",
+    ],
+    "p95 null-branch closure",
+  );
+  exactKeys(
+    closure.ledger,
+    ["file", "sha256"],
+    "p95 null-branch closure ledger binding",
+  );
+  exactKeys(
+    closure.sourceTip,
+    ["headSha"],
+    "p95 null-branch closure source tip",
+  );
+  exactKeys(
+    closure.claim,
+    ["established", "notEstablished"],
+    "p95 null-branch closure claim",
+  );
+  exactKeys(
+    closure.nextGate,
+    ["owner", "authority", "onFailure"],
+    "p95 null-branch closure next gate",
+  );
+  if (
+    closure.schemaVersion !== "phase-46-p95-null-branch-closure/v1" ||
+    closure.diagnosticOnly !== true ||
+    closure.ledger.file !== "46-PERFORMANCE-P95-DIAGNOSTIC.json" ||
+    !SHA256.test(closure.ledger.sha256) ||
+    closure.ledger.sha256 !== canonicalJsonSha(ledger) ||
+    closure.pattern !== ledger.pattern ||
+    closure.actionableBranch !== null
+  )
+    throw new Error("p95 null-branch closure ledger binding is invalid");
+  if (
+    typeof closure.sourceTip.headSha !== "string" ||
+    !/^[a-f0-9]{40}$/u.test(closure.sourceTip.headSha) ||
+    closure.sourceTip.headSha !== P95_NULL_BRANCH_SOURCE_TIP_HEAD_SHA
+  )
+    throw new Error("p95 null-branch closure source tip is invalid");
+  if (
+    typeof closure.claim.established !== "string" ||
+    closure.claim.established.length === 0 ||
+    typeof closure.claim.notEstablished !== "string" ||
+    closure.claim.notEstablished.length === 0 ||
+    !closure.claim.notEstablished.includes("does not establish") ||
+    P95_NULL_BRANCH_FORBIDDEN_CLAIM_TERMS.test(closure.claim.established)
+  )
+    throw new Error("p95 null-branch closure claim language is invalid");
+  if (
+    closure.nextGate.owner !== "46-26" ||
+    typeof closure.nextGate.authority !== "string" ||
+    closure.nextGate.authority.length === 0 ||
+    typeof closure.nextGate.onFailure !== "string" ||
+    !closure.nextGate.onFailure.includes("new diagnostic-only run")
+  )
+    throw new Error("p95 null-branch closure next gate is invalid");
+  return closure;
+}
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
@@ -2780,6 +2859,8 @@ function main(args) {
     return validatePerformanceP95DiagnosticReport(readJson(args[1]));
   if (args[0] === "--performance-p95-diagnostic-ledger" && args.length === 2)
     return validatePerformanceP95DiagnosticLedger(readJson(args[1]));
+  if (args[0] === "--p95-null-branch-closure" && args.length === 3)
+    return validateP95NullBranchClosure(readJson(args[1]), readJson(args[2]));
   if (args[0] === "--phase-admission" && args.length === 3)
     return phaseAdmission(args.slice(1));
   if (args[0] === "--identity-cleanup-ledger" && args.length === 2)
@@ -2802,7 +2883,7 @@ function main(args) {
   )
     return hostedLedger(args[1], args[3], args[5]);
   throw new Error(
-    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --validate-diagnostic-report <file> | --performance-p95-diagnostic-ledger <file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --windows-publication-diagnostic-ledger <file> | --windows-cancellation-diagnostic-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
+    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --validate-diagnostic-report <file> | --performance-p95-diagnostic-ledger <file> | --p95-null-branch-closure <closure-file> <ledger-file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --windows-publication-diagnostic-ledger <file> | --windows-cancellation-diagnostic-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
   );
 }
 module.exports = {
@@ -2822,6 +2903,7 @@ module.exports = {
   classifyPerformanceP95DiagnosticFixture,
   actionableBranchForPerformanceP95Diagnostic,
   validatePerformanceP95DiagnosticLedger,
+  validateP95NullBranchClosure,
   hostedLedger,
   validateFinalCandidateManifest,
   validateInstalledReport,
