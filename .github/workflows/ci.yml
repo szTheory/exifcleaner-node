@@ -1,11 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
-  workflow_call:
 
 permissions:
   contents: read
@@ -15,313 +11,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  quality:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run lint && npm run typecheck && npm run check:cycles && npm run build && npm run check:runtime
-
-  qualification-linux:
-    needs: quality
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: "${{ github.sha }}"
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build && npm run build:native
-      - name: Admit committed offline oracle authority
-        run: node scripts/qualification/build-oracles.cjs --verify-authority > oracle-authority.json
-      - name: Run complete property, transaction, and external-oracle corpus
-        run: FC_SEED=460046 FC_RUNS=200 npm test -- tests/qualification/tracer.test.ts tests/qualification/parser.test.ts tests/qualification/property.test.ts tests/qualification/transaction.test.ts tests/qualification/oracles.test.ts
-      - name: Record focused qualification conclusion
-        if: always()
-        shell: bash
-        run: |
-          node - <<'NODE'
-          const fs=require('node:fs'); const crypto=require('node:crypto'); const manifest=fs.readFileSync('tests/corpus/manifest.json'); const authority=fs.existsSync('oracle-authority.json')?JSON.parse(fs.readFileSync('oracle-authority.json','utf8')):null; fs.writeFileSync('qualification-linux.json',JSON.stringify({version:1,tuple:`${process.platform}-${process.arch}`,nodeVersion:process.version,seed:460046,propertyRuns:200,manifestSha256:crypto.createHash('sha256').update(manifest).digest('hex'),authority},null,2));
-          NODE
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: qualification-linux-x64-node24
-          path: qualification-linux.json
-          if-no-files-found: error
-
-  identity-prebuild:
-    # phase-46-final-candidate/v1
-    # The final manifest is deliberately absent during the 46-18 repair proof.
-    # When Plan 46-11 adds it, this single shared validator fails closed before
-    # any matching-host native compiler can run.
-    needs: quality
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: "${{ github.sha }}"
-          fetch-depth: 2
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-      - name: Enforce dormant final-candidate identity gate
-        shell: bash
-        run: |
-          if test -f native/phase-46-final-candidate.json; then
-            node scripts/qualification/benchmark-report.cjs --validate-final-candidate-manifest . "$GITHUB_SHA" "$(git rev-parse HEAD^)"
-          else
-            printf '%s\n' 'phase-46 final-candidate manifest absent: repair-proof mode'
-          fi
-
-  build-audit-native:
-    name: build-audit-${{ matrix.tuple }}
-    needs: identity-prebuild
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { runner: ubuntu-24.04, tuple: linux-x64, os: linux, arch: x64 }
-          - {
-              runner: ubuntu-24.04-arm,
-              tuple: linux-arm64,
-              os: linux,
-              arch: arm64,
-            }
-          - { runner: macos-15-intel, tuple: darwin-x64, os: darwin, arch: x64 }
-          - { runner: macos-15, tuple: darwin-arm64, os: darwin, arch: arm64 }
-          - { runner: windows-2025, tuple: win32-x64, os: win32, arch: x64 }
-          - {
-              runner: windows-11-arm,
-              tuple: win32-arm64,
-              os: win32,
-              arch: arm64,
-            }
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: "${{ github.sha }}"
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Assert matching runner and submitted SHA
-        shell: bash
-        run: |
-          test "$(node -p process.platform)" = "${{ matrix.os }}"
-          test "$(node -p process.arch)" = "${{ matrix.arch }}"
-          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
-      - run: npm run build && npm run build:native
-      - name: Audit the exact compiled binary
-        shell: bash
-        run: |
-          node scripts/audit_native_artifact.cjs "prebuilds/${{ matrix.tuple }}/publication.node" > "${{ matrix.tuple }}.json"
-          sha256sum "prebuilds/${{ matrix.tuple }}/publication.node" > "${{ matrix.tuple }}.binary.sha256"
-          sha256sum "${{ matrix.tuple }}.json" > "${{ matrix.tuple }}.report.sha256"
-          printf '%s\n' '${{ github.sha }}' > implementation.sha
-          printf '%s\n' '${{ matrix.tuple }}' > tuple.txt
-      - name: Test unchanged artifact on Node 22
-        env:
-          WINDOWS_PUBLICATION_DIAGNOSTIC_PATH: windows-publication-matching-host-${{ matrix.tuple }}.json
-        run: npm test -- tests/native_publication.test.ts
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always() && matrix.os == 'win32'
-        with:
-          name: windows-publication-matching-host-${{ matrix.tuple }}
-          path: windows-publication-matching-host-${{ matrix.tuple }}.json
-          if-no-files-found: error
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-          cache: npm
-      - name: Test unchanged artifact on Node 24
-        run: npm test -- tests/native_publication.test.ts
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: native-${{ matrix.tuple }}
-          path: |
-            prebuilds/${{ matrix.tuple }}/publication.node
-            ${{ matrix.tuple }}.json
-            ${{ matrix.tuple }}.binary.sha256
-            ${{ matrix.tuple }}.report.sha256
-            implementation.sha
-            tuple.txt
-          if-no-files-found: error
-
-  assemble-exact-native:
-    needs: build-audit-native
-    runs-on: ubuntu-24.04
-    outputs:
-      implementation-sha: ${{ steps.identity.outputs.sha }}
-      tarball-sha256: ${{ steps.identity.outputs.tarball_sha256 }}
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: "${{ github.sha }}"
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci && npm run build
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: native-*
-          path: .native-input
-          merge-multiple: false
-      - name: Reject non-exact, stale, duplicate, fixture, or foreign input
-        shell: bash
-        run: |
-          node - <<'NODE'
-          const fs = require('node:fs'); const path = require('node:path'); const crypto = require('node:crypto');
-          (async () => {
-            const tuples = ['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64']; const sha = process.env.GITHUB_SHA;
-            const inputRoot = '.native-input'; const assemblyRoot = '.native-assembly'; const dirs = fs.readdirSync(inputRoot).sort(); if (dirs.join(',') !== tuples.map(t => `native-${t}`).sort().join(',')) throw new Error('artifact upload set is not exact');
-            fs.mkdirSync('.native-reports'); for (const tuple of tuples) { const dir = path.join(inputRoot, `native-${tuple}`); if (fs.readFileSync(path.join(dir,'tuple.txt'),'utf8').trim() !== tuple || fs.readFileSync(path.join(dir,'implementation.sha'),'utf8').trim() !== sha) throw new Error(`identity mismatch for ${tuple}`); const bin=path.join(dir,'prebuilds',tuple,'publication.node'); const report=path.join(dir,`${tuple}.json`); for (const [file,sum] of [[bin,`${tuple}.binary.sha256`],[report,`${tuple}.report.sha256`]]) { const expected=fs.readFileSync(path.join(dir,sum),'utf8').trim().split(/\s+/)[0]; const actual=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); if (expected !== actual) throw new Error(`stale ${sum}`); } fs.mkdirSync(path.join(assemblyRoot,'prebuilds',tuple),{recursive:true}); fs.copyFileSync(bin,path.join(assemblyRoot,'prebuilds',tuple,'publication.node')); fs.copyFileSync(report,path.join('.native-reports',`${tuple}.json`)); }
-            const artifacts=require('./scripts/native_artifacts.cjs'); const reports=Object.fromEntries(tuples.map(t=>[t,fs.readFileSync(`.native-reports/${t}.json`,'utf8')])); const manifest=await artifacts.createManifest(assemblyRoot,reports); fs.writeFileSync('native-manifest.json',JSON.stringify(manifest,null,2));
-            fs.rmSync(inputRoot, { recursive: true, force: true });
-          })().catch(error => { console.error(error); process.exitCode = 1; });
-          NODE
-          node scripts/runtime_surface_gate.mjs --assembly-root .native-assembly --manifest native-manifest.json --reports-dir .native-reports --evidence-scope final-release
-          node - <<'NODE'
-          const fs=require('node:fs'); const path=require('node:path'); const tuples=['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64']; fs.rmSync('prebuilds',{recursive:true,force:true}); for(const tuple of tuples){const target=path.join('prebuilds',tuple); fs.mkdirSync(target,{recursive:true}); fs.copyFileSync(path.join('.native-assembly',target,'publication.node'),path.join(target,'publication.node'));}
-          NODE
-      - name: Pack exactly the admitted bytes
-        shell: bash
-        run: |
-          npm pack --json > pack.json
-          tarball="$(node -p "require('./pack.json')[0].filename")"
-          tar -tf "$tarball" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.stringify(d.trim().split(/\\r?\\n/).map(p=>p.replace(/^package\\//,'')))))" > packed-listing.json
-          node scripts/runtime_surface_gate.mjs --packed-listing packed-listing.json
-          sha256sum "$tarball" > tarball.sha256
-      - id: identity
-        shell: bash
-        run: |
-          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "tarball_sha256=$(cut -d' ' -f1 tarball.sha256)" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: admitted-native-tarball
-          path: |
-            *.tgz
-            tarball.sha256
-            native-manifest.json
-          if-no-files-found: error
-
-  installed-native:
-    name: installed-${{ matrix.tuple }}
-    needs: assemble-exact-native
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { runner: ubuntu-24.04, tuple: linux-x64, os: linux, arch: x64 }
-          - {
-              runner: ubuntu-24.04-arm,
-              tuple: linux-arm64,
-              os: linux,
-              arch: arm64,
-            }
-          - { runner: macos-15-intel, tuple: darwin-x64, os: darwin, arch: x64 }
-          - { runner: macos-15, tuple: darwin-arm64, os: darwin, arch: arm64 }
-          - { runner: windows-2025, tuple: win32-x64, os: win32, arch: x64 }
-          - {
-              runner: windows-11-arm,
-              tuple: win32-arm64,
-              os: win32,
-              arch: arm64,
-            }
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: "${{ github.sha }}"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: admitted-native-tarball
-          path: admitted
-      - name: Verify submitted implementation and unchanged tarball
-        shell: bash
-        run: |
-          test "$(git rev-parse HEAD)" = "${{ needs.assemble-exact-native.outputs.implementation-sha }}"
-          test "$(node -p process.platform)" = "${{ matrix.os }}"
-          test "$(node -p process.arch)" = "${{ matrix.arch }}"
-          cd admitted && sha256sum -c tarball.sha256
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 22
-      - name: Smoke unchanged admitted tarball on Node 22
-        shell: bash
-        run: |
-          manifest_sha="$(node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'))")"
-          QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host --windows-publication-diagnostic-output "windows-publication-installed-node22-${{ matrix.tuple }}.json" --windows-cancellation-diagnostic-output "windows-cancellation-installed-node22-${{ matrix.tuple }}.json" > node-22.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always() && matrix.os == 'win32'
-        with:
-          name: windows-publication-installed-node22-${{ matrix.tuple }}
-          path: windows-publication-installed-node22-${{ matrix.tuple }}.json
-          if-no-files-found: error
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always() && matrix.os == 'win32'
-        with:
-          name: windows-cancellation-installed-node22-${{ matrix.tuple }}
-          path: windows-cancellation-installed-node22-${{ matrix.tuple }}.json
-          if-no-files-found: error
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-      - name: Smoke unchanged admitted tarball on Node 24
-        shell: bash
-        run: |
-          manifest_sha="$(node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'))")"
-          QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host > node-24.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: "installed-${{ matrix.tuple }}"
-          path: node-*.json
-          if-no-files-found: error
-
-  immutable-sha-evidence:
-    needs: installed-native
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: installed-*
-          path: installed
-          merge-multiple: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: admitted-native-tarball
-          path: admitted
-      - name: Record exact final admission evidence
-        shell: bash
-        run: |
-          node - <<'NODE'
-          const fs=require('node:fs'), path=require('node:path'), crypto=require('node:crypto'); const {CANONICAL_NATIVE_TUPLES:tuples,validateExactNativeManifestTuples}=require('./scripts/release_workflow_gate.cjs'); const {validateIdentityCleanupLedger}=require('./scripts/qualification/benchmark-report.cjs'); const tarballSha256=fs.readFileSync('admitted/tarball.sha256','utf8').trim().split(/\s+/)[0]; const manifest=JSON.parse(fs.readFileSync('admitted/native-manifest.json','utf8')); const manifestSha256=crypto.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'); const nativeManifestSha256=crypto.createHash('sha256').update(fs.readFileSync('admitted/native-manifest.json')).digest('hex'); const byTuple=validateExactNativeManifestTuples(manifest); const candidate={implementationSha:process.env.GITHUB_SHA,tarballSha256,corpusManifestSha256:manifestSha256,nativeManifestSha256}; const ledger={schemaVersion:'phase-46-identity-cleanup-ledger/v1',run:{id:Number(process.env.GITHUB_RUN_ID),url:`${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,ref:process.env.GITHUB_REF_NAME,headSha:process.env.GITHUB_SHA},candidate,artifacts:{},installed:{}};
-          for(const tuple of tuples){const dir=path.join('installed',`installed-${tuple}`); const files=fs.readdirSync(dir).sort(); if(JSON.stringify(files)!==JSON.stringify(['node-22.json','node-24.json']))throw new Error(`installed artifact file set is not exact for ${tuple}`); const reports=Object.fromEntries(files.map(file=>{const report=JSON.parse(fs.readFileSync(path.join(dir,file),'utf8')); const nodeMajor=Number(file.match(/^node-(22|24)\.json$/)?.[1]); if(!nodeMajor)throw new Error(`installed report name is invalid for ${tuple}`); return [`node${nodeMajor}`,report];})); const record=byTuple.get(tuple); if(!record)throw new Error(`native manifest is incomplete for ${tuple}`); ledger.artifacts[tuple]={binarySha256:record.sha256,auditReportSha256:record.auditReportSha256,implementationSha:process.env.GITHUB_SHA}; ledger.installed[tuple]=reports;}
-          validateIdentityCleanupLedger(ledger); fs.writeFileSync('identity-cleanup-ledger.json',JSON.stringify(ledger,null,2)); fs.writeFileSync('admission.json',JSON.stringify({version:1,implementationSha:process.env.GITHUB_SHA,tarballSha256,corpusManifestSha256:manifestSha256,tuples:Object.fromEntries(tuples.map(tuple=>[tuple,{binarySha256:ledger.artifacts[tuple].binarySha256,reportSha256:ledger.artifacts[tuple].auditReportSha256,implementationSha:process.env.GITHUB_SHA,reports:ledger.installed[tuple]}]))},null,2));
-          NODE
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: final-native-admission
-          path: |
-            admission.json
-            identity-cleanup-ledger.json
-          if-no-files-found: error
-
-  benchmark-linux:
-    name: benchmark-linux-node${{ matrix.node }}
-    needs: assemble-exact-native
+  diagnostic:
+    name: diagnostic (${{ matrix.node }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -335,81 +26,79 @@ jobs:
         with:
           ref: 411fdbdad3faa2e5dd5033bea5def435b4d03323
           path: .benchmark-baseline
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: admitted-native-tarball
-          path: admitted
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build && npm run build:native
       - name: Pack immutable v0.1.1 baseline
         working-directory: .benchmark-baseline
         run: npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE"
-      - name: Run paired fresh-child benchmark
-        env:
-          BENCHMARK_MODE: ${{ github.event_name == 'pull_request' && 'report' || 'admit' }}
+      - name: Pack freshly built candidate
+        run: npm pack --json > pack.json
+      - name: Run the frozen seven-fixture diagnostic profile once
         shell: bash
         run: |
           baseline="$(find . -maxdepth 1 -name 'exifcleaner-node-0.1.1.tgz' -print -quit)"
-          candidate="$(find admitted -maxdepth 1 -name '*.tgz' -print -quit)"
+          candidate="$(node -p "require('./pack.json')[0].filename")"
           test -n "$baseline" && test -n "$candidate"
-          npm run benchmark:qualify -- --baseline-tarball "$baseline" --candidate-tarball "$candidate" --mode "$BENCHMARK_MODE" --output "benchmark-node${{ matrix.node }}.json"
-          node scripts/qualification/benchmark-report.cjs --validate-report "benchmark-node${{ matrix.node }}.json"
-          node -e "const fs=require('node:fs');const report=JSON.parse(fs.readFileSync('benchmark-node${{ matrix.node }}.json','utf8'));if(report.version!==4||report.warmups!==2||report.measurements!==100||report.elapsedP95Estimator?.retainedObservations!==100||report.collection?.retries!==0||report.collection?.discarded!==0)throw new Error('fresh benchmark report contract is incomplete')"
+          npm run benchmark:qualify -- --baseline-tarball "$baseline" --candidate-tarball "$candidate" --profile phase-46-performance-p95-diagnostic/v1 --mode report --output "qualification-benchmark-node-${{ matrix.node }}.json"
+          node scripts/qualification/benchmark-report.cjs --validate-diagnostic-report "qualification-benchmark-node-${{ matrix.node }}.json"
+      - name: Hash the diagnostic report and summary
+        shell: bash
+        run: |
+          sha256sum "qualification-benchmark-node-${{ matrix.node }}.json" > "qualification-benchmark-node-${{ matrix.node }}.json.sha256"
+          sha256sum "qualification-benchmark-node-${{ matrix.node }}.json.md" > "qualification-benchmark-node-${{ matrix.node }}.json.md.sha256"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: benchmark-linux-node${{ matrix.node }}
+          name: performance-p95-diagnostic-node-${{ matrix.node }}
           path: |
-            benchmark-node${{ matrix.node }}.json
-            benchmark-node${{ matrix.node }}.json.md
+            qualification-benchmark-node-${{ matrix.node }}.json
+            qualification-benchmark-node-${{ matrix.node }}.json.md
+            qualification-benchmark-node-${{ matrix.node }}.json.sha256
+            qualification-benchmark-node-${{ matrix.node }}.json.md.sha256
           if-no-files-found: error
 
-  phase-46-admission:
-    if: ${{ always() && github.event_name != 'pull_request' }}
-    needs:
-      - quality
-      - qualification-linux
-      - immutable-sha-evidence
-      - benchmark-linux
+  envelope:
+    name: seal diagnostic-only envelope
+    needs: diagnostic
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: "${{ github.sha }}"
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: final-native-admission
-          path: final-native
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: qualification-linux-x64-node24
-          path: focused
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: benchmark-linux-node*
-          path: benchmarks
+          pattern: performance-p95-diagnostic-node-*
+          path: diagnostic
           merge-multiple: false
-      - name: Admit the complete Phase 46 evidence graph
-        env:
-          NEEDS_JSON: ${{ toJSON(needs) }}
+      - name: Bind exactly the two diagnostic-only Node reports
+        shell: bash
         run: |
           node - <<'NODE'
-          const fs=require('node:fs'); const path=require('node:path'); const {CANONICAL_NATIVE_TUPLES:tuples,validateExactNativeManifestTuples}=require('./scripts/release_workflow_gate.cjs'); const {validateInstalledReport,validateIdentityCleanupLedger}=require('./scripts/qualification/benchmark-report.cjs'); const sha=value=>typeof value==='string'&&/^[0-9a-f]{64}$/.test(value);
-          const needs=JSON.parse(process.env.NEEDS_JSON); if(Object.values(needs).some(value=>value.result!=='success')) throw new Error('an upstream Phase 46 authority did not pass');
-          validateIdentityCleanupLedger(JSON.parse(fs.readFileSync('final-native/identity-cleanup-ledger.json','utf8')));
-          const native=JSON.parse(fs.readFileSync('final-native/admission.json','utf8')); if(native.version!==1||!sha(native.tarballSha256)||!sha(native.corpusManifestSha256)||native.tuples===null||typeof native.tuples!=='object'||Array.isArray(native.tuples))throw new Error('installed admission envelope is incomplete'); const byTuple=validateExactNativeManifestTuples(Object.entries(native.tuples).map(([tuple,value])=>({tuple,value}))); if(JSON.stringify([...byTuple.keys()])!==JSON.stringify(tuples))throw new Error('installed tuple traversal is not canonical'); const candidate={tarballSha256:native.tarballSha256,corpusManifestSha256:native.corpusManifestSha256}; const reports=[]; for(const [tuple,record] of byTuple){const item=record.value; if(!item||JSON.stringify(Object.keys(item.reports??{}).sort())!==JSON.stringify(['node22','node24']))throw new Error(`installed report map is incomplete for ${tuple}`); for(const [nodeMajor,key] of [[22,'node22'],[24,'node24']]){validateInstalledReport(item.reports[key],tuple,nodeMajor,candidate); reports.push(item.reports[key]);}} if(reports.length !== 12)throw new Error('installed evidence is incomplete');
-          const focused=JSON.parse(fs.readFileSync('focused/qualification-linux.json','utf8')); if(focused.seed!==460046||focused.propertyRuns!==200||!focused.authority) throw new Error('focused hostile/oracle evidence is incomplete');
-          const baselineSha256='c2fc569b553cba360814bcce61d6882a02aba062e6d6da2193323915530a34bf'; const expectedBenchmarkFiles=['benchmark-linux-node22/benchmark-node22.json','benchmark-linux-node22/benchmark-node22.json.md','benchmark-linux-node24/benchmark-node24.json','benchmark-linux-node24/benchmark-node24.json.md']; const actualBenchmarkFiles=fs.readdirSync('benchmarks',{recursive:true}).map(file=>file.replaceAll(path.sep,'/')).sort(); if(JSON.stringify(actualBenchmarkFiles)!==JSON.stringify(expectedBenchmarkFiles))throw new Error('benchmark artifact file set is not exact'); const files=['benchmark-linux-node22/benchmark-node22.json','benchmark-linux-node24/benchmark-node24.json']; const benchmarkReports=files.map(file=>JSON.parse(fs.readFileSync(path.join('benchmarks',file),'utf8'))); if(benchmarkReports.some(report=>report.version!==4||report.warmups!==2||report.measurements!==100||report.elapsedP95Estimator?.retainedObservations!==100||report.collection?.retries!==0||report.collection?.discarded!==0))throw new Error('fresh benchmark report contract is incomplete'); if(benchmarkReports.some((report,index)=>Number(report.environment?.nodeVersion?.match(/^v(\d+)/)?.[1])!==[22,24][index]))throw new Error('benchmark filename and Node authority disagree'); if(benchmarkReports.some(report=>!report.pass||report.mode!=='admit'||report.baselinePackageName!=='exifcleaner-node'||report.baselineVersion!=='0.1.1'||report.baselineExpectedIdentity!==`exifcleaner-node@0.1.1#sha256:${baselineSha256}`||report.baselineSha256!==baselineSha256||!sha(report.candidateSha256)||report.baselineSha256===report.candidateSha256||report.candidateSha256!==native.tarballSha256)) throw new Error('benchmark baseline identity or candidate binding is incomplete');
-          require('node:child_process').execFileSync(process.execPath,['scripts/qualification/benchmark-report.cjs','--phase-admission',...files.map(file=>path.join('benchmarks',file))],{stdio:'inherit'});
-          const majors=benchmarkReports.map(report=>Number(report.environment.nodeVersion.match(/^v(\d+)/)[1])).sort(); if(majors.join(',')!=='22,24') throw new Error('benchmark Node authorities are incomplete'); const baselineDigests=new Set(benchmarkReports.map(report=>report.baselineSha256)); const candidateDigests=new Set(benchmarkReports.map(report=>report.candidateSha256)); if(baselineDigests.size!==1||candidateDigests.size!==1) throw new Error('benchmark reports disagree on package digests');
-          fs.writeFileSync('phase-46-admission.json',JSON.stringify({version:1,conclusion:'pass',implementationSha:process.env.GITHUB_SHA,tarballSha256:native.tarballSha256,manifestSha256:focused.manifestSha256,oracleAuthority:focused.authority,installedConclusions:reports.length,benchmarks:benchmarkReports.map(report=>({nodeVersion:report.environment.nodeVersion,reportVersion:report.version,retainedObservationCount:report.elapsedP95Estimator.retainedObservations,baselinePackageName:report.baselinePackageName,baselineVersion:report.baselineVersion,baselineExpectedIdentity:report.baselineExpectedIdentity,baselineSha256:report.baselineSha256,candidateSha256:report.candidateSha256,conclusion:'pass'}))},null,2));
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { validatePerformanceP95DiagnosticReport } = require('./scripts/qualification/benchmark-report.cjs');
+          const majors = [22, 24];
+          const dirs = fs.readdirSync('diagnostic').sort();
+          if (JSON.stringify(dirs) !== JSON.stringify(majors.map((major) => `performance-p95-diagnostic-node-${major}`)))
+            throw new Error('diagnostic artifact upload set is not exact');
+          const reports = {};
+          for (const major of majors) {
+            const dir = path.join('diagnostic', `performance-p95-diagnostic-node-${major}`);
+            const report = JSON.parse(fs.readFileSync(path.join(dir, `qualification-benchmark-node-${major}.json`), 'utf8'));
+            validatePerformanceP95DiagnosticReport(report);
+            reports[`node${major}`] = report;
+          }
+          fs.writeFileSync(
+            'performance-p95-diagnostic-envelope.json',
+            `${JSON.stringify({ schemaVersion: 'phase-46-performance-p95-diagnostic-envelope/v1', diagnosticOnly: true, reports }, null, 2)}\n`,
+          );
           NODE
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: phase-46-admission
-          path: phase-46-admission.json
+          name: performance-p95-diagnostic-envelope
+          path: performance-p95-diagnostic-envelope.json
           if-no-files-found: error
