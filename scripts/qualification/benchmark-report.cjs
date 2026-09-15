@@ -2649,12 +2649,48 @@ function validateIdentityCleanupLedger(ledger) {
   if (observed.size !== 12)
     throw new Error("identity cleanup ledger is incomplete");
 }
-function hostedLedger(filePath, memoryPath, windowsPath) {
-  if (!memoryPath || !windowsPath)
-    throw new Error("hosted ledger requires memory and Windows ledgers");
+const PREREQUISITE_SLOTS = Object.freeze([
+  "memory",
+  "windows",
+  "identityCleanup",
+]);
+const PREREQUISITE_FIELDS = Object.freeze(["sha256", "runId", "headSha"]);
+function prerequisiteRunIdentity(slot, ledger) {
+  return slot === "identityCleanup"
+    ? { runId: ledger?.run?.id, headSha: ledger?.run?.headSha }
+    : { runId: ledger?.runId, headSha: ledger?.headSha };
+}
+function validatePrerequisiteLedgerBindings(hosted, prerequisites) {
+  validateIdentityCleanupLedger(prerequisites?.identityCleanup?.ledger);
+  for (const slot of PREREQUISITE_SLOTS) {
+    const entry = prerequisites?.[slot];
+    const bound = hosted?.repairs?.[slot];
+    if (typeof bound !== "object" || bound === null)
+      throw new Error(
+        `prerequisite ledger binding is invalid: ${slot}.missing`,
+      );
+    const identity = prerequisiteRunIdentity(slot, entry?.ledger);
+    const expected = {
+      sha256: entry?.sha256,
+      runId: identity.runId,
+      headSha: identity.headSha,
+    };
+    for (const field of PREREQUISITE_FIELDS)
+      if (bound[field] !== expected[field])
+        throw new Error(
+          `prerequisite ledger binding is invalid: ${slot}.${field}`,
+        );
+  }
+}
+function hostedLedger(filePath, memoryPath, windowsPath, identityCleanupPath) {
+  if (!memoryPath || !windowsPath || !identityCleanupPath)
+    throw new Error(
+      "hosted ledger requires memory, Windows, and identity cleanup ledgers",
+    );
   const ledger = readJson(filePath);
   const memory = readJson(memoryPath);
   const windows = readJson(windowsPath);
+  const identityCleanup = readJson(identityCleanupPath);
   const tuples = [
     "linux-x64",
     "linux-arm64",
@@ -2780,15 +2816,14 @@ function hostedLedger(filePath, memoryPath, windowsPath) {
   assertSha(ledger.candidate?.tarballSha256, "candidate tarball");
   assertSha(ledger.candidate?.corpusManifestSha256, "corpus manifest");
   assertSha(ledger.candidate?.nativeManifestSha256, "native manifest");
-  if (
-    ledger.repairs?.memory?.sha256 !== sha256File(memoryPath) ||
-    ledger.repairs?.windows?.sha256 !== sha256File(windowsPath) ||
-    ledger.repairs.memory?.runId !== memory.runId ||
-    ledger.repairs.windows?.runId !== windows.runId ||
-    ledger.repairs.memory?.headSha !== memory.headSha ||
-    ledger.repairs.windows?.headSha !== windows.headSha
-  )
-    throw new Error("prerequisite ledger binding is invalid");
+  validatePrerequisiteLedgerBindings(ledger, {
+    memory: { sha256: sha256File(memoryPath), ledger: memory },
+    windows: { sha256: sha256File(windowsPath), ledger: windows },
+    identityCleanup: {
+      sha256: sha256File(identityCleanupPath),
+      ledger: identityCleanup,
+    },
+  });
   if (
     JSON.stringify(ledger.finalizationContracts) !==
     JSON.stringify(memory.finalizationContracts)
@@ -2879,11 +2914,12 @@ function main(args) {
     args[0] === "--hosted-ledger" &&
     args[2] === "--memory-ledger" &&
     args[4] === "--windows-ledger" &&
-    args.length === 6
+    args[6] === "--identity-cleanup-ledger" &&
+    args.length === 8
   )
-    return hostedLedger(args[1], args[3], args[5]);
+    return hostedLedger(args[1], args[3], args[5], args[7]);
   throw new Error(
-    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --validate-diagnostic-report <file> | --performance-p95-diagnostic-ledger <file> | --p95-null-branch-closure <closure-file> <ledger-file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --windows-publication-diagnostic-ledger <file> | --windows-cancellation-diagnostic-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file>",
+    "usage: --validate-final-candidate-manifest <repo> <candidate-sha> <repair-proof-sha> | --validate-report <file> | --validate-diagnostic-report <file> | --performance-p95-diagnostic-ledger <file> | --p95-null-branch-closure <closure-file> <ledger-file> | --phase-admission <node22> <node24> | --identity-cleanup-ledger <file> | --windows-publication-diagnostic-ledger <file> | --windows-cancellation-diagnostic-ledger <file> | --hosted-ledger <file> --memory-ledger <file> --windows-ledger <file> --identity-cleanup-ledger <file>",
   );
 }
 module.exports = {
@@ -2905,6 +2941,7 @@ module.exports = {
   validatePerformanceP95DiagnosticLedger,
   validateP95NullBranchClosure,
   hostedLedger,
+  validatePrerequisiteLedgerBindings,
   validateFinalCandidateManifest,
   validateInstalledReport,
   validateTerminalCleanupRecord,
