@@ -137,6 +137,10 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     input: Record<string, unknown>,
   ): void;
   validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+  validateP95NullBranchClosure(
+    closure: Record<string, unknown>,
+    ledger: Record<string, unknown>,
+  ): Record<string, unknown>;
 };
 
 function loadIdentityLedgerValidator(source: string): {
@@ -1742,6 +1746,97 @@ describe("paired benchmark admission", () => {
       const mutated = structuredClone(complete);
       mutate(mutated);
       expect(() => report.validateReport(mutated)).toThrow();
+    }
+  });
+
+  it("validateP95NullBranchClosure accepts only a null-branch closure bound to the real sealed ledger and rejects any overclaim or identity mismatch", async () => {
+    const ledgerPath = join(
+      projectRoot,
+      "..",
+      ".planning",
+      "phases",
+      "46-webp-requalification",
+      "46-PERFORMANCE-P95-DIAGNOSTIC.json",
+    );
+    const ledgerBytes = await readFile(ledgerPath, "utf8");
+    const ledger = JSON.parse(ledgerBytes) as Record<string, unknown> & {
+      pattern: string;
+      actionableBranch: string | null;
+    };
+    expect(ledger.actionableBranch).toBeNull();
+    const ledgerSha256 = createHash("sha256")
+      .update(`${JSON.stringify(ledger, null, 2)}\n`)
+      .digest("hex");
+    const sourceTipHeadSha = "1a7cd0a6f0a2a5da0a259652dc24318db689f02e";
+    const closure = {
+      schemaVersion: "phase-46-p95-null-branch-closure/v1",
+      diagnosticOnly: true,
+      ledger: {
+        file: "46-PERFORMANCE-P95-DIAGNOSTIC.json",
+        sha256: ledgerSha256,
+      },
+      pattern: ledger.pattern,
+      actionableBranch: null,
+      sourceTip: { headSha: sourceTipHeadSha },
+      claim: {
+        established:
+          "Run 35014506364 (Node 22 and Node 24) recorded report.pass === true on both Node majors; every fixture, including the three that failed p95 in run 33223033591, returned attribution of control or unknown.",
+        notEstablished:
+          "This one clean run does not establish that the earlier tail failures were noise, flaky, or environmental; no such causal claim is made.",
+      },
+      nextGate: {
+        owner: "46-26",
+        authority:
+          "Plan 46-26's whole exact-six admission run re-measures p95 independently under unchanged schema-v4/Type-7/100-sample/D-23 rigor; that run's own benchmark gate is the deciding WEBP-06 evidence for this cycle, not this diagnostic or this closure.",
+        onFailure:
+          "If the admission run's p95 gate rejects any fixture, admission halts again; no blind retry or threshold change is authorized, and a new diagnostic-only run (Plan-46-32-shaped) is required before any further repair or dispatch attempt.",
+      },
+    };
+    expect(() =>
+      report.validateP95NullBranchClosure(closure, ledger),
+    ).not.toThrow();
+
+    const nonNullLedger = structuredClone(ledger);
+    nonNullLedger.actionableBranch = "collector";
+    nonNullLedger.pattern = "concentrated-tail";
+    expect(() =>
+      report.validateP95NullBranchClosure(closure, nonNullLedger),
+    ).toThrow();
+
+    for (const mutate of [
+      (value: typeof closure) =>
+        (value.actionableBranch = "collector" as unknown as null),
+      (value: typeof closure) => (value.ledger.sha256 = "0".repeat(64)),
+      (value: typeof closure) => (value.ledger.file = "wrong-file.json"),
+      (value: typeof closure) => (value.sourceTip.headSha = "b".repeat(40)),
+      (value: typeof closure) =>
+        (value.pattern = value.pattern === "unknown" ? "mixed" : "unknown"),
+      (value: typeof closure) => Object.assign(value, { unexpected: true }),
+      (value: typeof closure) =>
+        (value.claim.notEstablished = "one clean run settles nothing further"),
+      (value: typeof closure) => (value.nextGate.owner = "46-99"),
+      (value: typeof closure) =>
+        (value.nextGate.onFailure = "investigate further"),
+      (value: typeof closure) =>
+        (value.claim.established = `${value.claim.established} This was flaky.`),
+      (value: typeof closure) =>
+        (value.claim.established = `${value.claim.established} likely noise.`),
+      (value: typeof closure) =>
+        (value.claim.established = `${value.claim.established} environmental factors.`),
+      (value: typeof closure) =>
+        (value.claim.established = `${value.claim.established} a transient blip.`),
+      (value: typeof closure) =>
+        (value.claim.established = `${value.claim.established} confirmed clean.`),
+      (value: typeof closure) =>
+        (value.claim.established = `${value.claim.established} proven safe.`),
+      (value: typeof closure) =>
+        (value.claim.established = `${value.claim.established} a non-issue.`),
+    ]) {
+      const mutation = structuredClone(closure);
+      mutate(mutation);
+      expect(() =>
+        report.validateP95NullBranchClosure(mutation, ledger),
+      ).toThrow();
     }
   });
 
