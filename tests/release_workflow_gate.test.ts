@@ -1056,9 +1056,12 @@ describe("release workflow authority gate", () => {
 
 function validatePerformanceDiagnosticWorkflow(workflow: string): void {
   const onBlock = workflow.match(/\non:\n([\s\S]*?)\n\npermissions:/u)?.[1];
-  if (onBlock === undefined) throw new Error("diagnostic workflow on: block is absent");
+  if (onBlock === undefined)
+    throw new Error("diagnostic workflow on: block is absent");
   if (onBlock.trim() !== "workflow_dispatch:")
-    throw new Error("diagnostic workflow must trigger only on workflow_dispatch");
+    throw new Error(
+      "diagnostic workflow must trigger only on workflow_dispatch",
+    );
   const diagnosticJob = workflowJob(workflow, "diagnostic", "envelope");
   const envelopeJob = workflowJob(workflow, "envelope");
   for (const required of [
@@ -1119,7 +1122,10 @@ describe("performance p95 diagnostic workflow gate", () => {
     expect(() => validatePerformanceDiagnosticWorkflow(workflow)).not.toThrow();
 
     const mutations = [
-      workflow.replace("on:\n  workflow_dispatch:", "on:\n  push:\n  workflow_dispatch:"),
+      workflow.replace(
+        "on:\n  workflow_dispatch:",
+        "on:\n  push:\n  workflow_dispatch:",
+      ),
       workflow.replace("node: [22, 24]", "node: [24]"),
       workflow.replace("fail-fast: false", "fail-fast: true"),
       workflow.replace(
@@ -1127,10 +1133,7 @@ describe("performance p95 diagnostic workflow gate", () => {
         "ref: main",
       ),
       workflow.replace("--mode report", "--mode admit"),
-      workflow.replace(
-        "--profile phase-46-performance-p95-diagnostic/v1",
-        "",
-      ),
+      workflow.replace("--profile phase-46-performance-p95-diagnostic/v1", ""),
       workflow.replace(
         "node scripts/qualification/benchmark-report.cjs --validate-diagnostic-report",
         "node scripts/qualification/benchmark-report.cjs --validate-report",
