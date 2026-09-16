@@ -27,37 +27,33 @@
 // (wired into `npm run verify`, and deliberately NOT into `npm test` or
 // `.github/workflows/ci.yml`) hard-fails when the directory or any required
 // ledger is absent.
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import { it } from "vitest";
 
-const packageRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+const require = createRequire(import.meta.url);
+
+// `scripts/check_evidence_present.cjs` is the SINGLE SOURCE of the required
+// ledger list, the resolved directory, and the presence predicate.  It is
+// required here rather than restated so the `npm run verify` hard-fail gate and
+// this suite's availability predicate cannot drift apart.
+const evidenceCheck = require("../../scripts/check_evidence_present.cjs") as {
+  EVIDENCE_DIRECTORY: string;
+  REQUIRED_EVIDENCE_FILES: readonly string[];
+  missingEvidence(): string[];
+};
 
 /**
  * Every phase-46 ledger file the test suite reads from the sibling planning
  * directory.  Measured from the call sites, not asserted:
- *   `tests/release_workflow_gate.test.ts` reads the first two,
+ *   `tests/release_workflow_gate.test.ts` reads
+ *   `46-P95-NULL-BRANCH-CLOSURE.json` and `46-PERFORMANCE-P95-DIAGNOSTIC.json`;
  *   `tests/qualification/benchmark.test.ts` reads the other four plus
- *   `46-PERFORMANCE-P95-DIAGNOSTIC.json`.
+ *   `46-PERFORMANCE-P95-DIAGNOSTIC.json` again.
  */
-export const PHASE_46_EVIDENCE_FILES = [
-  "46-P95-NULL-BRANCH-CLOSURE.json",
-  "46-PERFORMANCE-P95-DIAGNOSTIC.json",
-  "46-NODE22-MEMORY-EVIDENCE.json",
-  "46-WINDOWS-PUBLICATION-EVIDENCE.json",
-  "46-IDENTITY-CLEANUP-EVIDENCE.json",
-  "46-HOSTED-EVIDENCE.json",
-] as const;
+export const PHASE_46_EVIDENCE_FILES = evidenceCheck.REQUIRED_EVIDENCE_FILES;
 
 /** The single resolution point for the sibling phase-46 evidence directory. */
-export const phase46EvidenceDirectory = join(
-  packageRoot,
-  "..",
-  ".planning",
-  "phases",
-  "46-webp-requalification",
-);
+export const phase46EvidenceDirectory = evidenceCheck.EVIDENCE_DIRECTORY;
 
 /**
  * Absolute paths that the evidence contract requires and that are absent.
@@ -65,13 +61,7 @@ export const phase46EvidenceDirectory = join(
  * environment variable and no shell env syntax in any npm script.
  */
 export function missingPhase46Evidence(): string[] {
-  if (!existsSync(phase46EvidenceDirectory)) return [phase46EvidenceDirectory];
-  const missing: string[] = [];
-  for (const file of PHASE_46_EVIDENCE_FILES) {
-    const path = join(phase46EvidenceDirectory, file);
-    if (!existsSync(path)) missing.push(path);
-  }
-  return missing;
+  return evidenceCheck.missingEvidence();
 }
 
 /** True only when the directory AND every required ledger file are present. */
