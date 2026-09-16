@@ -154,6 +154,11 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     input: Record<string, unknown>,
   ): void;
   validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+  validateTerminalCleanupRecord(
+    input: Record<string, unknown>,
+    scenario?: string,
+  ): void;
+  canonicalJson(value: unknown): string;
   validateP95NullBranchClosure(
     closure: Record<string, unknown>,
     ledger: Record<string, unknown>,
@@ -172,6 +177,11 @@ type IdentityLedgerValidator = {
     hosted: Record<string, unknown>,
     prerequisites: Record<string, PrerequisiteEntry>,
   ): void;
+  validateTerminalCleanupRecord(
+    input: Record<string, unknown>,
+    scenario?: string,
+  ): void;
+  canonicalJson(value: unknown): string;
 };
 
 function loadIdentityLedgerValidator(source: string): IdentityLedgerValidator {
@@ -3036,6 +3046,141 @@ describe("paired benchmark admission", () => {
       expect(rejectedText).not.toContain("hosted run identity is invalid");
     } finally {
       rmSync(stubDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("shared validator primitives enforce key order, canonical key sorting, and digest anchoring", async () => {
+    // D-39 clause (e): the read-only mutation sweep killed only 28 of 78 source
+    // mutations.  Three shared primitives every admission validator builds on
+    // were unprotected: `orderedKeys` survived having its key-sequence
+    // comparison replaced by a sorted comparison, `canonicalJson` survived
+    // losing its `.sort()`, and `SHA256` survived losing its `^`/`$` anchors.
+    // Each assertion below pairs a POSITIVE control with the exact surviving
+    // mutation, because negative controls without a positive control are
+    // satisfied by a reject-everything implementation.
+    const source = await readFile(
+      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+      "utf8",
+    );
+    const unmutated = loadIdentityLedgerValidator(source);
+
+    // ORDERED KEYS ---------------------------------------------------------
+    const orderedFieldsMessage =
+      /^terminal cleanup record fields are not exact and ordered$/u;
+    const cleanupRecord = terminalCleanupRecord("win32");
+    expect(() =>
+      report.validateTerminalCleanupRecord(structuredClone(cleanupRecord)),
+    ).not.toThrow();
+    const reversedRecord = Object.fromEntries(
+      Object.entries(structuredClone(cleanupRecord)).reverse(),
+    );
+    // The reversal changes ONLY key order: the sorted key lists are identical,
+    // so `exactKeys` semantics alone cannot reject the reversed record.
+    expect(Object.keys(reversedRecord).sort()).toEqual(
+      Object.keys(cleanupRecord).sort(),
+    );
+    expect(Object.keys(reversedRecord)).not.toEqual(Object.keys(cleanupRecord));
+    expect(() => report.validateTerminalCleanupRecord(reversedRecord)).toThrow(
+      orderedFieldsMessage,
+    );
+    expect(() =>
+      unmutated.validateTerminalCleanupRecord(structuredClone(reversedRecord)),
+    ).toThrow(orderedFieldsMessage);
+    const orderingMutant = source.replace(
+      "JSON.stringify(Object.keys(value)) !== JSON.stringify(expected)",
+      "JSON.stringify([...Object.keys(value)].sort()) !== JSON.stringify([...expected].sort())",
+    );
+    expect(orderingMutant).not.toBe(source);
+    expect(() =>
+      loadIdentityLedgerValidator(orderingMutant).validateTerminalCleanupRecord(
+        structuredClone(reversedRecord),
+      ),
+    ).not.toThrow();
+
+    // CANONICAL JSON -------------------------------------------------------
+    const forwardOrder = { alpha: 1, beta: { gamma: 2, delta: 3 } };
+    const reverseOrder = { beta: { delta: 3, gamma: 2 }, alpha: 1 };
+    expect(Object.keys(reverseOrder)).not.toEqual(Object.keys(forwardOrder));
+    expect(report.canonicalJson(forwardOrder)).toBe(
+      report.canonicalJson(reverseOrder),
+    );
+    expect(report.canonicalJson(reverseOrder)).toBe(
+      '{"alpha":1,"beta":{"delta":3,"gamma":2}}',
+    );
+    const sortMutant = source.replace(
+      "Object.keys(value)\n      .sort()\n      .map(",
+      "Object.keys(value)\n      .map(",
+    );
+    expect(sortMutant).not.toBe(source);
+    const mutantCanonicalJson =
+      loadIdentityLedgerValidator(sortMutant).canonicalJson;
+    expect(mutantCanonicalJson(forwardOrder)).not.toBe(
+      mutantCanonicalJson(reverseOrder),
+    );
+
+    // SHA256 ANCHORS -------------------------------------------------------
+    const anchoredDigest = "a1b2c3d4".repeat(8);
+    const appendedDigest = `${anchoredDigest}zz`;
+    const prependedDigest = `zz${anchoredDigest}`;
+    // The fixture's own discriminating power is established before it is used.
+    expect(anchoredDigest).toMatch(/^[a-f0-9]{64}$/u);
+    for (const padded of [appendedDigest, prependedDigest]) {
+      expect(padded).not.toMatch(/^[a-f0-9]{64}$/u);
+      expect(padded).toMatch(/[a-f0-9]{64}/u);
+    }
+    const ledgerWithDigest = (digest: string): Record<string, unknown> =>
+      JSON.parse(
+        JSON.stringify(identityCleanupLedger())
+          .split(installedCandidate.tarballSha256)
+          .join(digest),
+      ) as Record<string, unknown>;
+    const recordWithToken = (token: string): Record<string, unknown> =>
+      JSON.parse(
+        JSON.stringify(terminalCleanupRecord("win32"))
+          .split("6".repeat(64))
+          .join(token),
+      ) as Record<string, unknown>;
+    const ledgerBindingMessage =
+      /^identity cleanup ledger run\/candidate binding is invalid$/u;
+    const ownershipBindingMessage =
+      /^terminal cleanup ownership\/capability binding is invalid$/u;
+    expect(String(ledgerBindingMessage)).not.toBe(
+      String(ownershipBindingMessage),
+    );
+    expect(() =>
+      report.validateIdentityCleanupLedger(ledgerWithDigest(anchoredDigest)),
+    ).not.toThrow();
+    expect(() =>
+      report.validateTerminalCleanupRecord(recordWithToken(anchoredDigest)),
+    ).not.toThrow();
+    expect(() =>
+      report.validateIdentityCleanupLedger(ledgerWithDigest(appendedDigest)),
+    ).toThrow(ledgerBindingMessage);
+    expect(() =>
+      report.validateIdentityCleanupLedger(ledgerWithDigest(prependedDigest)),
+    ).toThrow(ledgerBindingMessage);
+    expect(() =>
+      report.validateTerminalCleanupRecord(recordWithToken(appendedDigest)),
+    ).toThrow(ownershipBindingMessage);
+    const anchorMutant = source.replace(
+      "const SHA256 = /^[a-f0-9]{64}$/;",
+      "const SHA256 = /[a-f0-9]{64}/;",
+    );
+    expect(anchorMutant).not.toBe(source);
+    const unanchored = loadIdentityLedgerValidator(anchorMutant);
+    for (const padded of [appendedDigest, prependedDigest]) {
+      expect(() =>
+        unmutated.validateIdentityCleanupLedger(ledgerWithDigest(padded)),
+      ).toThrow(ledgerBindingMessage);
+      expect(() =>
+        unanchored.validateIdentityCleanupLedger(ledgerWithDigest(padded)),
+      ).not.toThrow();
+      expect(() =>
+        unmutated.validateTerminalCleanupRecord(recordWithToken(padded)),
+      ).toThrow(ownershipBindingMessage);
+      expect(() =>
+        unanchored.validateTerminalCleanupRecord(recordWithToken(padded)),
+      ).not.toThrow();
     }
   });
 });
