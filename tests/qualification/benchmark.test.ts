@@ -2071,6 +2071,20 @@ describe("paired benchmark admission", () => {
     }
   });
   it("accepts only exact short repair and final identity-ledger refs", async () => {
+    // D-39 (a), a TAKEN decision.  The proof-branch namespace constraint has
+    // been RELOCATED out of `validateIdentityCleanupLedger`.  `ci.yml:310`
+    // builds this ledger from `GITHUB_REF_NAME` and `release.yml` delegates to
+    // `ci.yml` on `v*` tags, so demanding a proof branch here made continuous
+    // integration on the default branch and the ENTIRE publish path
+    // unreachable; every green run in repository history is on a proof branch,
+    // which is why it was never observed.  `hostedLedger` already carries its
+    // own `^proof/46-11-final-[0-9a-f]+$` check and is now the constraint's
+    // new and only home, so final admission still requires a proof ref -- that
+    // is asserted positively at the end of this test.
+    //
+    // D-34 SURVIVES the relocation: GitHub supplies the SHORT `GITHUB_REF_NAME`
+    // and full refs are still rejected, along with empty, whitespace-bearing
+    // and slash-shaped values.  Both directions are explicit lists.
     const base = {
       schemaVersion: "phase-46-identity-cleanup-ledger/v1",
       run: {
@@ -2088,10 +2102,25 @@ describe("paired benchmark admission", () => {
       artifacts: {},
       installed: {},
     };
-    for (const ref of [
-      "proof/46-18-repair-abc123",
-      "proof/46-11-final-def456",
-    ]) {
+    const acceptedRefs = [
+      "main",
+      "v4.1.0",
+      "proof/46-18-repair-dd1b6a1",
+      "proof/46-11-final-1c6fcfb",
+      "proof/46-25-windows-diagnostic-abc123",
+    ];
+    const rejectedRefs = [
+      "refs/heads/main",
+      "refs/tags/v4.1.0",
+      "refs/heads/proof/46-18-repair-abc123",
+      "",
+      "   ",
+      "main branch",
+      "/main",
+      "main/",
+      "proof//46-18-repair-abc123",
+    ];
+    for (const ref of acceptedRefs) {
       try {
         report.validateIdentityCleanupLedger({
           ...base,
@@ -2102,16 +2131,7 @@ describe("paired benchmark admission", () => {
         expect(String(error)).toMatch(/artifacts/u);
       }
     }
-    for (const ref of [
-      "refs/heads/proof/46-18-repair-abc123",
-      "refs/heads/proof/46-11-final-def456",
-      "proof/46-18-repair-",
-      "proof/46-18-repair-ABC123",
-      "proof/46-11-final-xyz",
-      "proof/46-25-windows-diagnostic-abc123",
-      "proof/46-18-repair-abc123/extra",
-      "",
-    ])
+    for (const ref of rejectedRefs)
       expect(() =>
         report.validateIdentityCleanupLedger({
           ...base,
@@ -2126,10 +2146,7 @@ describe("paired benchmark admission", () => {
     const assertRefAuthority = (candidate: {
       validateIdentityCleanupLedger(input: Record<string, unknown>): void;
     }): void => {
-      for (const ref of [
-        "proof/46-18-repair-abc123",
-        "proof/46-11-final-def456",
-      ]) {
+      for (const ref of acceptedRefs) {
         try {
           candidate.validateIdentityCleanupLedger({
             ...base,
@@ -2141,12 +2158,7 @@ describe("paired benchmark admission", () => {
             throw new Error(`accepted identity ref was rejected: ${ref}`);
         }
       }
-      for (const ref of [
-        "refs/heads/proof/46-18-repair-abc123",
-        "proof/46-25-windows-diagnostic-abc123",
-        "proof/46-11-final-xyz",
-        "",
-      ]) {
+      for (const ref of rejectedRefs) {
         try {
           candidate.validateIdentityCleanupLedger({
             ...base,
@@ -2162,14 +2174,14 @@ describe("paired benchmark admission", () => {
     expect(() =>
       assertRefAuthority(loadIdentityLedgerValidator(source)),
     ).not.toThrow();
+    // The two namespace mutants this test used to carry are gone with the
+    // namespace rule; these two mutate the SHORT-REF rule that replaced it --
+    // one admits full refs, one admits the empty string.  Each must be killed.
     const mutations = [
+      source.replace("/^refs\\//u.test(ledger.run.ref) ||", "false ||"),
       source.replace(
-        "proof\\/46-18-repair-[0-9a-f]+|proof\\/46-11-final-[0-9a-f]+",
-        "proof\\/46-18-repair-[0-9a-f]+",
-      ),
-      source.replace(
-        "proof\\/46-18-repair-[0-9a-f]+|proof\\/46-11-final-[0-9a-f]+",
-        "proof\\/.*",
+        "!/^[\\w.\\-][\\w.\\-/]*$/u.test(ledger.run.ref) ||",
+        "!/^[\\w.\\-/]*$/u.test(ledger.run.ref) ||",
       ),
     ];
     for (const mutation of mutations) {
@@ -2178,7 +2190,38 @@ describe("paired benchmark admission", () => {
         assertRefAuthority(loadIdentityLedgerValidator(mutation)),
       ).toThrow();
     }
-  });
+
+    // THE CONSTRAINT IS STILL ENFORCED WHERE IT BELONGS.  The accepting hosted
+    // ledger rejects `main`, a version tag, a repair-namespace ref and a full
+    // ref, and a conjunct mutant of the hosted ref check makes all four accept.
+    const fixture = acceptingHostedLedger();
+    try {
+      const hostedRefConjunct =
+        '!/^proof\\/46-11-final-[0-9a-f]+$/.test(ledger.ref ?? "") ||';
+      expect(source.split(hostedRefConjunct).length - 1).toBe(1);
+      const withoutHostedRefLock = loadIdentityLedgerValidator(
+        source.replace(hostedRefConjunct, "false ||"),
+      );
+      for (const ref of RELOCATED_HOSTED_REF_REJECTIONS) {
+        const clone = structuredClone(fixture.hosted) as JsonRecord;
+        clone.ref = ref;
+        fixture.writeHosted(clone);
+        expect(() => fixture.validate()).toThrow(
+          anchoredMessage("hosted run identity is invalid"),
+        );
+        expect(() =>
+          withoutHostedRefLock.hostedLedger(
+            fixture.hostedPath,
+            fixture.memoryPath,
+            fixture.windowsPath,
+            fixture.identityPath,
+          ),
+        ).not.toThrow();
+      }
+    } finally {
+      fixture.cleanup();
+    }
+  }, 120_000);
 
   it("accepts only one exact two-tuple cancellation diagnostic run", () => {
     const ledger = cancellationDiagnosticLedger();
