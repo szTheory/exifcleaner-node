@@ -68,15 +68,22 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: "${{ github.sha }}"
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
       - name: Enforce dormant final-candidate identity gate
         shell: bash
         run: |
+          set -euo pipefail
           if test -f native/phase-46-final-candidate.json; then
-            node scripts/qualification/benchmark-report.cjs --validate-final-candidate-manifest . "$GITHUB_SHA" "$(git rev-parse HEAD^)"
+            additions="$(git log --diff-filter=A --format=%H -- native/phase-46-final-candidate.json)"
+            test "$(printf '%s\n' "$additions" | wc -l | tr -d ' ')" = "1"
+            candidate="$(printf '%s\n' "$additions" | tail -1)"
+            printf '%s' "$candidate" | grep -Eq '^[0-9a-f]{40}$'
+            git merge-base --is-ancestor "$candidate" "$GITHUB_SHA"
+            test "$(git rev-parse "$GITHUB_SHA:native/phase-46-final-candidate.json")" = "$(git rev-parse "$candidate:native/phase-46-final-candidate.json")"
+            node scripts/qualification/benchmark-report.cjs --validate-final-candidate-manifest . "$candidate" "$(git rev-parse "$candidate^")"
           else
             printf '%s\n' 'phase-46 final-candidate manifest absent: repair-proof mode'
           fi
