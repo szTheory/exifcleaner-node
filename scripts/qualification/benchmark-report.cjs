@@ -2927,6 +2927,7 @@ module.exports = {
   MEDIAN_SLACK_NS,
   P95_RATIO,
   P95_SLACK_NS,
+  canonicalJson,
   deriveBlockEstimate,
   deriveRunScale,
   evaluateTiming,

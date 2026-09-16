@@ -3065,8 +3065,13 @@ describe("paired benchmark admission", () => {
     const unmutated = loadIdentityLedgerValidator(source);
 
     // ORDERED KEYS ---------------------------------------------------------
+    // The expected messages are held as plain strings and anchored at use, so
+    // the exact message text appears verbatim in this file rather than in a
+    // regex-escaped form a reviewer or a grep gate would miss.
     const orderedFieldsMessage =
-      /^terminal cleanup record fields are not exact and ordered$/u;
+      "terminal cleanup record fields are not exact and ordered";
+    const anchored = (message: string): RegExp =>
+      new RegExp(`^${message}$`, "u");
     const cleanupRecord = terminalCleanupRecord("win32");
     expect(() =>
       report.validateTerminalCleanupRecord(structuredClone(cleanupRecord)),
@@ -3081,11 +3086,11 @@ describe("paired benchmark admission", () => {
     );
     expect(Object.keys(reversedRecord)).not.toEqual(Object.keys(cleanupRecord));
     expect(() => report.validateTerminalCleanupRecord(reversedRecord)).toThrow(
-      orderedFieldsMessage,
+      anchored(orderedFieldsMessage),
     );
     expect(() =>
       unmutated.validateTerminalCleanupRecord(structuredClone(reversedRecord)),
-    ).toThrow(orderedFieldsMessage);
+    ).toThrow(anchored(orderedFieldsMessage));
     const orderingMutant = source.replace(
       "JSON.stringify(Object.keys(value)) !== JSON.stringify(expected)",
       "JSON.stringify([...Object.keys(value)].sort()) !== JSON.stringify([...expected].sort())",
@@ -3141,12 +3146,10 @@ describe("paired benchmark admission", () => {
           .join(token),
       ) as Record<string, unknown>;
     const ledgerBindingMessage =
-      /^identity cleanup ledger run\/candidate binding is invalid$/u;
+      "identity cleanup ledger run/candidate binding is invalid";
     const ownershipBindingMessage =
-      /^terminal cleanup ownership\/capability binding is invalid$/u;
-    expect(String(ledgerBindingMessage)).not.toBe(
-      String(ownershipBindingMessage),
-    );
+      "terminal cleanup ownership/capability binding is invalid";
+    expect(ledgerBindingMessage).not.toBe(ownershipBindingMessage);
     expect(() =>
       report.validateIdentityCleanupLedger(ledgerWithDigest(anchoredDigest)),
     ).not.toThrow();
@@ -3155,13 +3158,13 @@ describe("paired benchmark admission", () => {
     ).not.toThrow();
     expect(() =>
       report.validateIdentityCleanupLedger(ledgerWithDigest(appendedDigest)),
-    ).toThrow(ledgerBindingMessage);
+    ).toThrow(anchored(ledgerBindingMessage));
     expect(() =>
       report.validateIdentityCleanupLedger(ledgerWithDigest(prependedDigest)),
-    ).toThrow(ledgerBindingMessage);
+    ).toThrow(anchored(ledgerBindingMessage));
     expect(() =>
       report.validateTerminalCleanupRecord(recordWithToken(appendedDigest)),
-    ).toThrow(ownershipBindingMessage);
+    ).toThrow(anchored(ownershipBindingMessage));
     const anchorMutant = source.replace(
       "const SHA256 = /^[a-f0-9]{64}$/;",
       "const SHA256 = /[a-f0-9]{64}/;",
@@ -3171,13 +3174,13 @@ describe("paired benchmark admission", () => {
     for (const padded of [appendedDigest, prependedDigest]) {
       expect(() =>
         unmutated.validateIdentityCleanupLedger(ledgerWithDigest(padded)),
-      ).toThrow(ledgerBindingMessage);
+      ).toThrow(anchored(ledgerBindingMessage));
       expect(() =>
         unanchored.validateIdentityCleanupLedger(ledgerWithDigest(padded)),
       ).not.toThrow();
       expect(() =>
         unmutated.validateTerminalCleanupRecord(recordWithToken(padded)),
-      ).toThrow(ownershipBindingMessage);
+      ).toThrow(anchored(ownershipBindingMessage));
       expect(() =>
         unanchored.validateTerminalCleanupRecord(recordWithToken(padded)),
       ).not.toThrow();
