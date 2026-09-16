@@ -931,17 +931,26 @@ describe("installed package smoke", () => {
     const tarball = join(temporary, "not-a-tarball.tgz");
     await copyFile(join(packageRoot, "package.json"), tarball);
 
-    await expect(
-      runSmoke([
-        "--tarball",
-        tarball,
-        "--evidence-scope",
-        "development-current-host",
-      ]),
-    ).resolves.toMatchObject({
-      exitCode: 1,
-      output: expect.stringContaining("Unrecognized archive format"),
-    });
+    const result = await runSmoke([
+      "--tarball",
+      tarball,
+      "--evidence-scope",
+      "development-current-host",
+    ]);
+
+    // The rejection must be an ARCHIVE-FORMAT rejection at the listing step,
+    // not merely a non-zero exit.  `scripts/package_smoke.cjs:102` owns the
+    // prefix, so it is implementation-independent and asserted exactly; only
+    // the diagnostic tail varies by tar implementation — bsdtar (macOS)
+    // reports `Unrecognized archive format`, GNU tar (Linux runners) reports
+    // `gzip: stdin: not in gzip format`.  Run 35116391808 failed here because
+    // this test asserted bsdtar's wording on a GNU tar host.
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("tar -tf not-a-tarball.tgz failed:");
+    expect(
+      result.output.includes("Unrecognized archive format") ||
+        result.output.includes("not in gzip format"),
+    ).toBe(true);
   }, 120_000);
 
   it("rejects missing, neighboring-only, and wrong-shape host artifacts before loading", async () => {

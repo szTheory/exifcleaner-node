@@ -15,6 +15,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
+import {
+  evidenceGatedIt,
+  evidenceGatedTestTitles,
+  phase46EvidenceDirectory,
+} from "../support/phase46-evidence.js";
 
 const require = createRequire(import.meta.url);
 const projectRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
@@ -1037,12 +1042,7 @@ function completeBenchmarkReport(options: BenchmarkReportOptions = {}) {
 // `^proof/46-11-final-[0-9a-f]+$`, which a repair-namespace identity ledger
 // cannot carry, so it is derived from the short head sha.
 // ---------------------------------------------------------------------------
-const evidenceDirectory = join(
-  dirname(projectRoot),
-  ".planning",
-  "phases",
-  "46-webp-requalification",
-);
+const evidenceDirectory = phase46EvidenceDirectory;
 const PREREQUISITE_LEDGER_FILES = {
   memory: "46-NODE22-MEMORY-EVIDENCE.json",
   windows: "46-WINDOWS-PUBLICATION-EVIDENCE.json",
@@ -1491,6 +1491,25 @@ function finalCandidateRepository(
 }
 
 describe("paired benchmark admission", () => {
+  // ALWAYS RUNS, including in a hosted checkout where the gated tests below are
+  // skipped.  The titles are LITERAL strings, deliberately not derived from the
+  // same values `evidenceGatedIt` registers, so a change cannot move both sides
+  // silently — the discipline Plan 46-42 applied to `focusedAuthorityMessages`.
+  // Gating a seventh test in this file, or ungating one of these six, fails
+  // here until the list below is updated on purpose.
+  it("pins the evidence-gated test registry for this file", () => {
+    const pinned = [
+      "rejects every hosted ledger clause tamper it can reach",
+      "resolves each shared-message hosted ledger clause with a conjunct mutant",
+      "binds the hosted ledger clause on animation samples and RSS behaviorally",
+      "accepts a hosted ledger built from run 35030048631 real artifacts",
+      "accepts only exact short repair and final identity-ledger refs",
+      "validateP95NullBranchClosure accepts only a null-branch closure bound to the real sealed ledger and rejects any overclaim or identity mismatch",
+    ];
+    expect(pinned).toHaveLength(6);
+    expect([...evidenceGatedTestTitles()].sort()).toEqual([...pinned].sort());
+  });
+
   it("rejects every hosted ledger clause tamper it can reach", async () => {
     // D-39 clause (e): `hostedLedger` was 100% unexercised.  Every assertion
     // below is a SEPARATE tamper carrying that clause's anchored exact message,
@@ -3913,11 +3932,7 @@ describe("paired benchmark admission", () => {
     // full via validatePerformanceP95DiagnosticLedger (~0.5s), so 18 calls
     // exceed the default 5s test timeout.
     const ledgerPath = join(
-      projectRoot,
-      "..",
-      ".planning",
-      "phases",
-      "46-webp-requalification",
+      phase46EvidenceDirectory,
       "46-PERFORMANCE-P95-DIAGNOSTIC.json",
     );
     const ledgerBytes = await readFile(ledgerPath, "utf8");

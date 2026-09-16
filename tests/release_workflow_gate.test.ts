@@ -14,6 +14,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { beforeAll, describe, expect, it } from "vitest";
+import {
+  evidenceGatedIt,
+  evidenceGatedTestTitles,
+  phase46EvidenceDirectory,
+} from "./support/phase46-evidence.js";
 
 const require = createRequire(import.meta.url);
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -1194,19 +1199,25 @@ describe("release workflow authority gate", () => {
 });
 
 describe("p95 null-branch closure gate (46-33)", () => {
-  const planningRoot = join(packageRoot, "..", ".planning");
   const closurePath = join(
-    planningRoot,
-    "phases",
-    "46-webp-requalification",
+    phase46EvidenceDirectory,
     "46-P95-NULL-BRANCH-CLOSURE.json",
   );
   const ledgerPath = join(
-    planningRoot,
-    "phases",
-    "46-webp-requalification",
+    phase46EvidenceDirectory,
     "46-PERFORMANCE-P95-DIAGNOSTIC.json",
   );
+
+  // ALWAYS RUNS, including in a hosted checkout where the gated test below is
+  // skipped.  The title is a LITERAL string, deliberately not derived from the
+  // value `evidenceGatedIt` registers.
+  it("pins the evidence-gated test registry for this file", () => {
+    const pinned = [
+      "seals a real null-branch closure record bound to the sealed ledger and fails closed on drift (null-branch closure)",
+    ];
+    expect(pinned).toHaveLength(1);
+    expect([...evidenceGatedTestTitles()].sort()).toEqual([...pinned].sort());
+  });
 
   it("seals a real null-branch closure record bound to the sealed ledger and fails closed on drift (null-branch closure)", () => {
     const closure = JSON.parse(readFileSync(closurePath, "utf8")) as {
