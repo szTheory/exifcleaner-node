@@ -197,6 +197,11 @@ type IdentityLedgerValidator = {
   ): void;
   canonicalJson(value: unknown): string;
   requireWindowsNativePublicationEvidence(evidence: unknown): unknown;
+  validateFinalCandidateManifest(input: {
+    repoRoot: string;
+    candidateSha: string;
+    repairProofSha: string;
+  }): unknown;
   hostedLedger(
     filePath: string,
     memoryPath: string,
@@ -218,6 +223,12 @@ function loadIdentityLedgerValidator(source: string): IdentityLedgerValidator {
     __dirname: dirname(filename),
     __filename: filename,
     console,
+    // `Buffer` and `process` are NOT ambient inside `runInNewContext`, and
+    // `validateFinalCandidateManifest` reads git blobs through `Buffer.from`.
+    // Without them the mutant harness silently reported every manifest as
+    // ABSENT -- a harness defect masquerading as a validator verdict.
+    Buffer,
+    process,
     module: freshModule,
     exports: freshModule.exports,
     require: localRequire,
@@ -1371,6 +1382,9 @@ type ManifestRepositoryOptions = {
   omitManifest?: boolean;
   /** Inserts a commit between the repair proof and the candidate. */
   insertIntermediateCommit?: boolean;
+  /** Commits no `src/` or `dist/` files at all, so the repository-derived
+   * member list is empty. */
+  omitTreeFiles?: boolean;
 };
 
 type ManifestRepository = {
@@ -1400,8 +1414,9 @@ function finalCandidateRepository(
   run("config", "core.autocrlf", "false");
   for (const [key, authorityPath] of FINAL_AUTHORITY_PATHS)
     write(authorityPath, `// ${key} authority fixture\n`);
-  for (const member of FINAL_TREE_MEMBER_FILES)
-    write(member, `// ${member} fixture\n`);
+  if (!options.omitTreeFiles)
+    for (const member of FINAL_TREE_MEMBER_FILES)
+      write(member, `// ${member} fixture\n`);
   run("add", "-A");
   run("commit", "-q", "-m", "repair proof");
   const repairProofSha = run("rev-parse", "HEAD").trim();
@@ -1417,10 +1432,9 @@ function finalCandidateRepository(
         ),
       )
       .digest("hex");
-  const members = FINAL_TREE_MEMBER_FILES.map((path) => ({
-    path,
-    sha256: blobDigest(path),
-  })).sort((left, right) => left.path.localeCompare(right.path));
+  const members = (options.omitTreeFiles ? [] : [...FINAL_TREE_MEMBER_FILES])
+    .map((path) => ({ path, sha256: blobDigest(path) }))
+    .sort((left, right) => left.path.localeCompare(right.path));
   const manifest: JsonRecord = {
     schemaVersion: "phase-46-final-candidate/v1",
     phase: 46,
@@ -2843,6 +2857,593 @@ describe("paired benchmark admission", () => {
       }),
     ).toThrow(anchoredMessage("final candidate manifest is absent"));
   });
+
+  it("rejects every windows terminal cleanup relation tamper", async () => {
+    // D-39 clause (e).  The win32 branch was POSITIVE-ONLY: eleven mutations
+    // survived, including the relation requiring an INSTALLED Windows record
+    // to preserve the replacement -- the single relation that makes Windows
+    // installed-smoke cleanup evidence mean anything.
+    const source = await readFile(
+      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+      "utf8",
+    );
+    const mutantFor = (
+      original: string,
+      replacement: string,
+    ): IdentityLedgerValidator => {
+      expect(source.split(original).length - 1).toBe(1);
+      const mutated = source.replace(original, replacement);
+      expect(mutated).not.toBe(source);
+      return loadIdentityLedgerValidator(mutated);
+    };
+    const serial = "0".repeat(16);
+    const identity = (fileId: string): JsonRecord => ({
+      volumeSerialNumber: serial,
+      fileId: fileId.repeat(32),
+    });
+    const retained = (): JsonRecord =>
+      terminalCleanupRecord("win32") as unknown as JsonRecord;
+    const removed = (): JsonRecord => {
+      const record = retained();
+      record.terminal.outcome = "removed";
+      record.terminal.identityBefore = identity("e");
+      record.terminal.removalIdentity = identity("e");
+      return record;
+    };
+    const absent = (): JsonRecord => {
+      const record = retained();
+      record.terminal.outcome = "absent";
+      record.terminal.identityBefore = null;
+      record.terminal.removalIdentity = null;
+      return record;
+    };
+
+    // THREE OUTCOME POSITIVE CONTROLS, each proved acceptable where permitted.
+    expect(() =>
+      report.validateTerminalCleanupRecord(retained(), "installed"),
+    ).not.toThrow();
+    for (const build of [retained, removed, absent])
+      expect(() =>
+        report.validateTerminalCleanupRecord(build(), "control"),
+      ).not.toThrow();
+
+    const rejects = (record: JsonRecord, message: string): void =>
+      expect(() =>
+        report.validateTerminalCleanupRecord(record, "control"),
+      ).toThrow(anchoredMessage(message));
+
+    // THE INSTALLED-SCENARIO RELATION, asserted against BOTH non-preserving
+    // outcomes, with a conjunct mutant that makes both accept.
+    for (const build of [removed, absent])
+      expect(() =>
+        report.validateTerminalCleanupRecord(build(), "installed"),
+      ).toThrow(
+        anchoredMessage(
+          "installed Windows record did not preserve the replacement",
+        ),
+      );
+    const withoutInstalledRelation = mutantFor(
+      `    if (scenario === "installed" && !replacementOutcome)
+      throw new Error(
+        "installed Windows record did not preserve the replacement",
+      );
+`,
+      "",
+    );
+    for (const build of [removed, absent])
+      expect(() =>
+        withoutInstalledRelation.validateTerminalCleanupRecord(
+          build(),
+          "installed",
+        ),
+      ).not.toThrow();
+
+    // SHAPE RELATIONS, each tampered separately with its anchored message.
+    const captureNotAuthentic = retained();
+    captureNotAuthentic.capture.result = "unsupported";
+    rejects(captureNotAuthentic, "Windows capture is not authentic");
+    const shapeRelations: [string, (record: JsonRecord) => void][] = [
+      [
+        "captured directory identity",
+        (record) => (record.capture.directoryIdentity.fileId = "z".repeat(32)),
+      ],
+      [
+        "captured file identity",
+        (record) => (record.capture.fileIdentity.fileId = "z".repeat(32)),
+      ],
+      [
+        "terminal identity before",
+        (record) => (record.terminal.identityBefore.fileId = "z".repeat(32)),
+      ],
+      [
+        "terminal removal identity",
+        (record) =>
+          (record.terminal.removalIdentity.volumeSerialNumber = "z".repeat(16)),
+      ],
+      [
+        "replacement identity before",
+        (record) => (record.replacement.identityBefore.fileId = "z".repeat(32)),
+      ],
+      [
+        "replacement identity after",
+        (record) => (record.replacement.identityAfter.fileId = "z".repeat(32)),
+      ],
+    ];
+    for (const [label, tamper] of shapeRelations) {
+      const record = retained();
+      tamper(record);
+      rejects(record, `${label} is not a Windows FileIdInfo identity`);
+    }
+
+    // THE SURVIVOR PROOF: five identity relations plus the digest pair, all
+    // behind ONE message, so each is resolved by its own conjunct mutant that
+    // makes only its own control accept.
+    const survivorCondition = `        !sameCleanupIdentity(terminal.identityBefore, capture.fileIdentity) ||
+        !sameCleanupIdentity(
+          terminal.removalIdentity,
+          replacement.identityBefore,
+        ) ||
+        sameCleanupIdentity(terminal.removalIdentity, capture.fileIdentity) ||
+        !sameCleanupIdentity(
+          replacement.identityBefore,
+          replacement.identityAfter,
+        ) ||
+        !SHA256.test(replacement.sha256Before) ||
+        replacement.sha256Before !== replacement.sha256After
+`;
+    expect(source.split(survivorCondition).length - 1).toBe(1);
+    const survivorRelations: [string, string, (record: JsonRecord) => void][] =
+      [
+        [
+          "terminal identity before equals the captured file identity",
+          "        !sameCleanupIdentity(terminal.identityBefore, capture.fileIdentity) ||\n",
+          (record) => (record.terminal.identityBefore = identity("1")),
+        ],
+        [
+          "removal identity equals the replacement identity before",
+          "        !sameCleanupIdentity(\n          terminal.removalIdentity,\n          replacement.identityBefore,\n        ) ||\n",
+          (record) => (record.terminal.removalIdentity = identity("2")),
+        ],
+        [
+          "removal identity differs from the captured file identity",
+          "        sameCleanupIdentity(terminal.removalIdentity, capture.fileIdentity) ||\n",
+          (record) => {
+            record.terminal.removalIdentity = identity("e");
+            record.replacement.identityBefore = identity("e");
+            record.replacement.identityAfter = identity("e");
+          },
+        ],
+        [
+          "replacement identities are equal",
+          "        !sameCleanupIdentity(\n          replacement.identityBefore,\n          replacement.identityAfter,\n        ) ||\n",
+          (record) => (record.replacement.identityAfter = identity("3")),
+        ],
+        [
+          "replacement digest is well formed",
+          "        !SHA256.test(replacement.sha256Before) ||\n",
+          (record) => {
+            record.replacement.sha256Before = "not-a-digest";
+            record.replacement.sha256After = "not-a-digest";
+          },
+        ],
+        [
+          "replacement digests are equal",
+          "        replacement.sha256Before !== replacement.sha256After\n",
+          (record) => (record.replacement.sha256After = "4".repeat(64)),
+        ],
+      ];
+    for (const [, , tamper] of survivorRelations) {
+      const record = retained();
+      tamper(record);
+      rejects(record, "Windows replacement survivor proof is invalid");
+    }
+    for (const [label, conjunct, tamper] of survivorRelations) {
+      const remainder = survivorCondition.replace(
+        conjunct,
+        conjunct.trimEnd().endsWith("||") ? "" : "        false\n",
+      );
+      expect(remainder).not.toBe(survivorCondition);
+      const mutant = loadIdentityLedgerValidator(
+        source.replace(survivorCondition, remainder),
+      );
+      const own = retained();
+      tamper(own);
+      expect(() =>
+        mutant.validateTerminalCleanupRecord(own, "control"),
+      ).not.toThrow();
+      for (const [siblingLabel, , siblingTamper] of survivorRelations) {
+        if (siblingLabel === label) continue;
+        const sibling = retained();
+        siblingTamper(sibling);
+        expect(() =>
+          mutant.validateTerminalCleanupRecord(sibling, "control"),
+        ).toThrow(
+          anchoredMessage("Windows replacement survivor proof is invalid"),
+        );
+      }
+    }
+
+    // REMOVED AND ABSENT OUTCOMES, AND THE UNKNOWN OUTCOME.
+    const removedCondition = `        !sameCleanupIdentity(terminal.identityBefore, capture.fileIdentity) ||
+        !sameCleanupIdentity(terminal.removalIdentity, capture.fileIdentity)
+`;
+    const removedRelations: [string, (record: JsonRecord) => void][] = [
+      [
+        "        !sameCleanupIdentity(terminal.identityBefore, capture.fileIdentity) ||\n",
+        (record) => (record.terminal.identityBefore = identity("1")),
+      ],
+      [
+        "        !sameCleanupIdentity(terminal.removalIdentity, capture.fileIdentity)\n",
+        (record) => (record.terminal.removalIdentity = identity("2")),
+      ],
+    ];
+    for (const [conjunct, tamper] of removedRelations) {
+      const record = removed();
+      tamper(record);
+      rejects(record, "Windows removal identity is invalid");
+      const remainder = removedCondition.replace(
+        conjunct,
+        conjunct.trimEnd().endsWith("||") ? "" : "        false\n",
+      );
+      expect(remainder).not.toBe(removedCondition);
+      const mutant = loadIdentityLedgerValidator(
+        source.replace(removedCondition, remainder),
+      );
+      const own = removed();
+      tamper(own);
+      expect(() =>
+        mutant.validateTerminalCleanupRecord(own, "control"),
+      ).not.toThrow();
+    }
+    for (const field of ["identityBefore", "removalIdentity"] as const) {
+      const record = absent();
+      record.terminal[field] = identity("e");
+      rejects(record, "Windows absent identity is invalid");
+    }
+    const unknownOutcome = absent();
+    unknownOutcome.terminal.outcome = "vanished";
+    rejects(unknownOutcome, "Windows terminal outcome is invalid");
+
+    // NATIVE LIFETIME BALANCE.
+    for (const tamper of [
+      (record: JsonRecord) => (record.nativeLifetime.handlesAfter = 3),
+      (record: JsonRecord) => (record.nativeLifetime.finalizersAfter = 0),
+    ]) {
+      const record = retained();
+      tamper(record);
+      rejects(record, "Windows native lifetime is imbalanced");
+    }
+
+    // THE POSIX BRANCH IS NOT WEAKENED.
+    for (const platform of ["linux", "darwin"] as const) {
+      const posix = (): JsonRecord =>
+        terminalCleanupRecord(platform) as unknown as JsonRecord;
+      expect(() =>
+        report.validateTerminalCleanupRecord(posix(), "installed"),
+      ).not.toThrow();
+      for (const tamper of [
+        (record: JsonRecord) => (record.capture.result = "captured"),
+        (record: JsonRecord) => (record.capture.fileIdentity = identity("e")),
+        (record: JsonRecord) => (record.nativeLifetime.finalizersAfter = 1),
+      ]) {
+        const record = posix();
+        tamper(record);
+        rejects(record, "POSIX retained cleanup record is invalid");
+      }
+    }
+  }, 300_000);
+
+  it("rejects every final candidate manifest clause tamper", async () => {
+    // D-39 clause (e).  The sweep reported eight surviving mutations here
+    // because only the absent path was tested, behind a matcher five different
+    // messages satisfy.  Each tamper below is SEPARATE and names that clause's
+    // anchored exact message; every clause sharing a message with a sibling is
+    // resolved by a fresh-VM conjunct mutant.
+    const source = await readFile(
+      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+      "utf8",
+    );
+    const mutantFor = (
+      conjunct: string,
+      replacement: string,
+    ): IdentityLedgerValidator => {
+      expect(source.split(conjunct).length - 1).toBe(1);
+      const mutated = source.replace(conjunct, replacement);
+      expect(mutated).not.toBe(source);
+      return loadIdentityLedgerValidator(mutated);
+    };
+    const drive = (
+      options: ManifestRepositoryOptions,
+      assertion: (call: () => unknown) => void,
+      validator: {
+        validateFinalCandidateManifest(input: {
+          repoRoot: string;
+          candidateSha: string;
+          repairProofSha: string;
+        }): unknown;
+      } = report,
+    ): void => {
+      const repository = finalCandidateRepository(options);
+      try {
+        assertion(() =>
+          validator.validateFinalCandidateManifest({
+            repoRoot: repository.root,
+            candidateSha: repository.candidateSha,
+            repairProofSha: repository.repairProofSha,
+          }),
+        );
+      } finally {
+        repository.cleanup();
+      }
+    };
+    const rejects = (
+      options: ManifestRepositoryOptions,
+      message: string,
+    ): void =>
+      drive(options, (call) => expect(call).toThrow(anchoredMessage(message)));
+    const acceptsUnder = (
+      options: ManifestRepositoryOptions,
+      validator: IdentityLedgerValidator,
+    ): void => drive(options, (call) => expect(call).not.toThrow(), validator);
+
+    // SHA SHAPE, before any git call, for both arguments separately.
+    for (const shas of [
+      { candidateSha: "z".repeat(40), repairProofSha: "0".repeat(40) },
+      { candidateSha: "0".repeat(40), repairProofSha: "0".repeat(39) },
+    ])
+      expect(() =>
+        report.validateFinalCandidateManifest({
+          repoRoot: projectRoot,
+          ...shas,
+        }),
+      ).toThrow(anchoredMessage("final candidate manifest SHA is invalid"));
+
+    // CANONICAL BYTES.  The committed bytes differ from the canonical
+    // serialization ONLY by key order, which is the behavioral proof that the
+    // key sort is load-bearing at the gate.  This closes the deferral Plan
+    // 46-38 recorded.
+    const keyOrderOnly: ManifestRepositoryOptions = {
+      serialize: (manifest) =>
+        `${JSON.stringify(Object.fromEntries(Object.entries(manifest).reverse()))}\n`,
+    };
+    rejects(keyOrderOnly, "final candidate manifest bytes are not canonical");
+    acceptsUnder(
+      keyOrderOnly,
+      mutantFor(
+        '  if (!bytes.equals(Buffer.from(`${canonicalJson(manifest)}\\n`, "utf8")))\n    throw new Error("final candidate manifest bytes are not canonical");\n',
+        "",
+      ),
+    );
+
+    // COMMIT DIFF EXACTNESS.
+    const twoFileCommit: ManifestRepositoryOptions = {
+      extraCandidateFiles: { "native/extra.txt": "extra\n" },
+    };
+    rejects(twoFileCommit, "final candidate manifest commit diff is not exact");
+    rejects(
+      { ...twoFileCommit, omitManifest: true },
+      "final candidate manifest is absent",
+    );
+    acceptsUnder(
+      twoFileCommit,
+      mutantFor(
+        "if (diff.length !== 1 || diff[0] !== manifestPath)",
+        "if (false)",
+      ),
+    );
+
+    // REPAIR PARENT: the RECORDED value and the ACTUAL ancestry are asserted
+    // separately so neither can substitute for the other.
+    const repairParentInvalid =
+      "final candidate manifest repair parent is invalid";
+    const repairParentClauses: [string, ManifestRepositoryOptions, string][] = [
+      [
+        '    manifest.schemaVersion !== "phase-46-final-candidate/v1" ||\n',
+        {
+          manifestOverride: (manifest) =>
+            (manifest.schemaVersion = "phase-46-final-candidate/v2"),
+        },
+        "",
+      ],
+      [
+        "    manifest.phase !== 46 ||\n",
+        { manifestOverride: (manifest) => (manifest.phase = 45) },
+        "",
+      ],
+      [
+        "    manifest.repairParentSha !== repairProofSha\n",
+        {
+          manifestOverride: (manifest) =>
+            (manifest.repairParentSha = "0".repeat(40)),
+        },
+        "    false\n",
+      ],
+    ];
+    for (const [conjunct, options, replacement] of repairParentClauses) {
+      rejects(options, repairParentInvalid);
+      acceptsUnder(options, mutantFor(conjunct, replacement));
+    }
+    rejects(
+      { insertIntermediateCommit: true },
+      "final candidate manifest does not directly follow repair proof",
+    );
+    acceptsUnder(
+      { insertIntermediateCommit: true },
+      mutantFor("  if (parent !== repairProofSha)", "  if (false)"),
+    );
+
+    // AUTHORITY TRIPLE, one tamper per entry per direction.  The digests of the
+    // fixture's own tree members are reused so a path tamper leaves the
+    // recorded digest CONSISTENT with the file it now names; otherwise the
+    // digest conjunct fires too and the path conjunct cannot be resolved.
+    const treeMemberDigest = (manifest: JsonRecord, path: string): string =>
+      ((manifest.sourceDistTree as JsonRecord).members as JsonRecord[]).find(
+        (member) => member.path === path,
+      )!.sha256 as string;
+    for (const [key] of FINAL_AUTHORITY_PATHS) {
+      const wrongPath: ManifestRepositoryOptions = {
+        manifestOverride: (manifest) =>
+          (manifest[key] = {
+            path: "src/index.ts",
+            sha256: treeMemberDigest(manifest, "src/index.ts"),
+          }),
+      };
+      const wrongDigest: ManifestRepositoryOptions = {
+        manifestOverride: (manifest) =>
+          ((manifest[key] as JsonRecord).sha256 = "7".repeat(64)),
+      };
+      rejects(wrongPath, `final authority ${key} is invalid`);
+      rejects(wrongDigest, `final authority ${key} is invalid`);
+    }
+    // The authority loop is shared by all five entries, so one mutant per
+    // conjunct resolves the whole triple.
+    const nativeSourcePath: ManifestRepositoryOptions = {
+      manifestOverride: (manifest) =>
+        (manifest.nativeSource = {
+          path: "src/index.ts",
+          sha256: treeMemberDigest(manifest, "src/index.ts"),
+        }),
+    };
+    acceptsUnder(
+      nativeSourcePath,
+      mutantFor("      value.path !== expectedPath ||\n", ""),
+    );
+    acceptsUnder(
+      {
+        manifestOverride: (manifest) =>
+          ((manifest.nativeSource as JsonRecord).sha256 = "7".repeat(64)),
+      },
+      mutantFor(
+        "      sha256FileFromBytes(gitBlob(repoRoot, candidateSha, value.path)) !==\n        value.sha256\n",
+        "      false\n",
+      ),
+    );
+    // A MALFORMED authority digest trips the shape conjunct AND the digest
+    // comparison, so neither single mutant flips it; the pair is resolved
+    // jointly, which is the honest statement of what covers it.
+    const malformedAuthorityDigest: ManifestRepositoryOptions = {
+      manifestOverride: (manifest) =>
+        ((manifest.nativeSource as JsonRecord).sha256 = "not-a-digest"),
+    };
+    rejects(
+      malformedAuthorityDigest,
+      "final authority nativeSource is invalid",
+    );
+    acceptsUnder(
+      malformedAuthorityDigest,
+      loadIdentityLedgerValidator(
+        source
+          .replace("      !SHA256.test(value.sha256) ||\n", "")
+          .replace(
+            "      sha256FileFromBytes(gitBlob(repoRoot, candidateSha, value.path)) !==\n        value.sha256\n",
+            "      false\n",
+          ),
+      ),
+    );
+
+    // SOURCE AND DIST TREE CONTRACT.
+    const treeContractInvalid =
+      "final candidate source/dist tree contract is invalid";
+    const treeOf = (manifest: JsonRecord): JsonRecord =>
+      manifest.sourceDistTree as JsonRecord;
+    const treeContractClauses: [string, ManifestRepositoryOptions][] = [
+      [
+        '    tree.algorithm !== "phase-46-source-dist-tree/v1" ||\n',
+        {
+          manifestOverride: (manifest) =>
+            (treeOf(manifest).algorithm = "phase-46-source-dist-tree/v2"),
+        },
+      ],
+      [
+        '    JSON.stringify(tree.included) !== JSON.stringify(["src", "dist"]) ||\n',
+        {
+          manifestOverride: (manifest) => (treeOf(manifest).included = ["src"]),
+        },
+      ],
+      [
+        "    JSON.stringify(tree.excluded) !== JSON.stringify([]) ||\n",
+        {
+          manifestOverride: (manifest) =>
+            (treeOf(manifest).excluded = ["src/skip.ts"]),
+        },
+      ],
+    ];
+    for (const [conjunct, options] of treeContractClauses) {
+      rejects(options, treeContractInvalid);
+      acceptsUnder(options, mutantFor(conjunct, ""));
+    }
+    // A malformed tree digest and a non-array member list each trip the
+    // contract clause AND the digest clause, so each is resolved by the PAIR.
+    const malformedTreeDigest: ManifestRepositoryOptions = {
+      manifestOverride: (manifest) =>
+        (treeOf(manifest).sha256 = "not-a-digest"),
+    };
+    const nonArrayMembers: ManifestRepositoryOptions = {
+      manifestOverride: (manifest) => (treeOf(manifest).members = {}),
+    };
+    rejects(malformedTreeDigest, treeContractInvalid);
+    rejects(nonArrayMembers, treeContractInvalid);
+    const treeDigestComparison = `    tree.sha256 !==
+      sha256FileFromBytes(Buffer.from(\`\${canonicalJson(members)}\\n\`))\n`;
+    acceptsUnder(
+      malformedTreeDigest,
+      loadIdentityLedgerValidator(
+        source
+          .replace("    !SHA256.test(tree.sha256) ||\n", "")
+          .replace(treeDigestComparison, "    false\n"),
+      ),
+    );
+    acceptsUnder(
+      nonArrayMembers,
+      loadIdentityLedgerValidator(
+        source
+          .replace("    !Array.isArray(tree.members)\n", "    false\n")
+          .replace(
+            "    JSON.stringify(tree.members) !== JSON.stringify(members) ||\n",
+            "",
+          ),
+      ),
+    );
+
+    // SOURCE AND DIST TREE DIGEST, including the tree-members comparison the
+    // sweep reported surviving.
+    const treeDigestInvalid =
+      "final candidate source/dist tree digest is invalid";
+    rejects({ omitTreeFiles: true }, treeDigestInvalid);
+    acceptsUnder(
+      { omitTreeFiles: true },
+      mutantFor("    !members.length ||\n", ""),
+    );
+    const omittedMember: ManifestRepositoryOptions = {
+      manifestOverride: (manifest) =>
+        (treeOf(manifest).members = (
+          treeOf(manifest).members as JsonRecord[]
+        ).slice(1)),
+    };
+    const wrongMemberDigest: ManifestRepositoryOptions = {
+      manifestOverride: (manifest) =>
+        ((treeOf(manifest).members as JsonRecord[])[0]!.sha256 = "7".repeat(
+          64,
+        )),
+    };
+    rejects(omittedMember, treeDigestInvalid);
+    rejects(wrongMemberDigest, treeDigestInvalid);
+    const membersComparisonMutant = mutantFor(
+      "    JSON.stringify(tree.members) !== JSON.stringify(members) ||\n",
+      "",
+    );
+    acceptsUnder(omittedMember, membersComparisonMutant);
+    acceptsUnder(wrongMemberDigest, membersComparisonMutant);
+    const wrongTreeDigest: ManifestRepositoryOptions = {
+      manifestOverride: (manifest) =>
+        (treeOf(manifest).sha256 = "7".repeat(64)),
+    };
+    rejects(wrongTreeDigest, treeDigestInvalid);
+    acceptsUnder(
+      wrongTreeDigest,
+      mutantFor(treeDigestComparison, "    false\n"),
+    );
+  }, 300_000);
 
   it("accepts a canonical final candidate manifest in a synthetic repository", () => {
     // POSITIVE CONTROL.  Until this is green the tampers that follow are
