@@ -164,6 +164,13 @@ const report = require("../../scripts/qualification/benchmark-report.cjs") as {
     input: Record<string, unknown>,
     scenario?: string,
   ): void;
+  requireWindowsNativePublicationEvidence(evidence: unknown): {
+    primitive: string;
+    publication: string;
+    collision: string;
+    identity: string;
+    cleanup: string;
+  };
   canonicalJson(value: unknown): string;
   validateP95NullBranchClosure(
     closure: Record<string, unknown>,
@@ -188,6 +195,7 @@ type IdentityLedgerValidator = {
     scenario?: string,
   ): void;
   canonicalJson(value: unknown): string;
+  requireWindowsNativePublicationEvidence(evidence: unknown): unknown;
   hostedLedger(
     filePath: string,
     memoryPath: string,
@@ -2221,6 +2229,182 @@ describe("paired benchmark admission", () => {
     } finally {
       fixture.cleanup();
     }
+  }, 120_000);
+
+  it("covers the renamed windows native publication evidence gate", async () => {
+    // D-39 (e).  Two different functions were named
+    // `requireWindowsPublicationEvidence`: this one in `benchmark-report.cjs`
+    // and an unrelated one in `scripts/package_smoke.cjs`.  They are NOT the
+    // same function and are not related by import -- unlike
+    // `validateTerminalCleanupRecord`, which `package_smoke.cjs` genuinely
+    // imports from this module.  `package_smoke.test.ts` tested the
+    // package-smoke copy while READING as coverage of this one, and mutations
+    // to this copy survived.  Converging the two was rejected:
+    // `scripts/package_smoke.cjs` is outside this plan's ownership and the two
+    // have genuinely different contracts -- this one validates a raw hosted
+    // evidence object and returns a five-field summary, the other validates an
+    // installed-smoke value and throws a `rejected:`-worded message.  This one
+    // is therefore RENAMED to match the `Windows native publication evidence`
+    // wording of every message it already throws, and exported so it can be
+    // covered directly.
+    const source = await readFile(
+      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+      "utf8",
+    );
+    const evidence = (): JsonRecord =>
+      structuredClone(
+        (installedReport("win32-x64", 22) as JsonRecord)
+          .windowsPublication as JsonRecord,
+      );
+    const inconsistent =
+      "Windows native publication evidence is incomplete or inconsistent";
+
+    // POSITIVE CONTROL: the five-field summary with its expected values.
+    expect(report.requireWindowsNativePublicationEvidence(evidence())).toEqual({
+      primitive: "create-hard-link",
+      publication: "pass",
+      collision: "pass",
+      identity: "pass",
+      cleanup: "pass",
+    });
+
+    // ABSENT.
+    for (const absent of [undefined, null, "CreateHardLinkW"])
+      expect(() =>
+        report.requireWindowsNativePublicationEvidence(absent),
+      ).toThrow(
+        anchoredMessage("Windows native publication evidence is absent"),
+      );
+
+    // ONE TAMPER PER CLAUSE, each with its own conjunct mutant.  The
+    // recheck-boolean and link-call tampers are the surviving mutations the
+    // D-39 sweep reported by name.
+    const clauses: {
+      label: string;
+      conjunct: string;
+      replacement: string;
+      tampers: ((value: JsonRecord) => void)[];
+    }[] = [
+      {
+        label: "primitive",
+        conjunct: 'evidence.primitive !== "CreateHardLinkW" ||',
+        replacement: "false ||",
+        tampers: [(value) => (value.primitive = "MoveFileExW")],
+      },
+      {
+        label: "linkCalls",
+        conjunct: "evidence.linkCalls !== 1 ||",
+        replacement: "false ||",
+        tampers: [
+          (value) => (value.linkCalls = 0),
+          (value) => (value.linkCalls = 2),
+        ],
+      },
+      {
+        label: "destinationParentIdentityRechecked",
+        conjunct: "evidence.destinationParentIdentityRechecked !== true ||",
+        replacement: "false ||",
+        tampers: [
+          (value) => (value.destinationParentIdentityRechecked = false),
+        ],
+      },
+      {
+        label: "stageIdentityRechecked",
+        conjunct: "evidence.stageIdentityRechecked !== true ||",
+        replacement: "false ||",
+        tampers: [(value) => (value.stageIdentityRechecked = false)],
+      },
+      {
+        label: "stageFileIdentityRechecked",
+        conjunct: "evidence.stageFileIdentityRechecked !== true ||",
+        replacement: "false ||",
+        tampers: [(value) => (value.stageFileIdentityRechecked = false)],
+      },
+      {
+        label: "identity shape",
+        conjunct: `identities.some(
+      (identity) =>
+        typeof identity !== "object" ||
+        identity === null ||
+        typeof identity.volumeSerialNumber !== "string" ||
+        !/^[a-f0-9]{16}$/.test(identity.volumeSerialNumber) ||
+        typeof identity.fileId !== "string" ||
+        !/^[a-f0-9]{32}$/.test(identity.fileId),
+    ) ||`,
+        replacement: "false ||",
+        tampers: [
+          // Malformed but MUTUALLY CONSISTENT, so the single-volume-serial and
+          // stage/destination conjuncts stay satisfied and the shape conjunct
+          // is the only one that can fire.
+          (value) => {
+            for (const key of [
+              "destinationParent",
+              "stageDirectory",
+              "stageFile",
+              "destinationFile",
+            ])
+              (value[key] as JsonRecord).volumeSerialNumber = "z".repeat(16);
+          },
+          (value) => {
+            value.stageFile.fileId = "z".repeat(32);
+            value.destinationFile.fileId = "z".repeat(32);
+          },
+        ],
+      },
+      {
+        label: "single volume serial",
+        conjunct: `new Set(identities.map((identity) => identity.volumeSerialNumber)).size !==
+      1 ||`,
+        replacement: "false ||",
+        tampers: [
+          (value) =>
+            (value.destinationParent.volumeSerialNumber = "1".repeat(16)),
+        ],
+      },
+      {
+        label: "stage/destination file identity",
+        conjunct:
+          "evidence.stageFile.fileId !== evidence.destinationFile.fileId",
+        replacement: "false",
+        tampers: [(value) => (value.stageFile.fileId = "9".repeat(32))],
+      },
+    ];
+    const siblingTamper = (value: JsonRecord): void => {
+      value.primitive = "MoveFileExW";
+    };
+    const alternateSibling = (value: JsonRecord): void => {
+      value.stageIdentityRechecked = false;
+    };
+    for (const clause of clauses) {
+      expect(source.split(clause.conjunct).length - 1).toBe(1);
+      const mutated = source.replace(clause.conjunct, clause.replacement);
+      expect(mutated).not.toBe(source);
+      const mutant = loadIdentityLedgerValidator(mutated);
+      for (const tamper of clause.tampers) {
+        const tampered = evidence();
+        tamper(tampered);
+        expect(() =>
+          report.requireWindowsNativePublicationEvidence(tampered),
+        ).toThrow(anchoredMessage(inconsistent));
+        expect(() =>
+          mutant.requireWindowsNativePublicationEvidence(
+            structuredClone(tampered),
+          ),
+        ).not.toThrow();
+      }
+      const sibling = evidence();
+      (clause.label === "primitive" ? alternateSibling : siblingTamper)(
+        sibling,
+      );
+      expect(() =>
+        mutant.requireWindowsNativePublicationEvidence(sibling),
+      ).toThrow(anchoredMessage(inconsistent));
+    }
+
+    // The package-smoke copy and its test stay untouched; its distinct
+    // `rejected:` message vocabulary keeps the two unambiguous, and no two
+    // functions in the repository now share the name.
+    expect(source).not.toContain("requireWindowsPublicationEvidence");
   }, 120_000);
 
   it("accepts only one exact two-tuple cancellation diagnostic run", () => {

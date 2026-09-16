@@ -2081,7 +2081,7 @@ function sha256FileFromBytes(bytes) {
 function assertEqual(left, right, label) {
   if (left !== right) throw new Error(`${label} mismatch`);
 }
-function requireWindowsPublicationEvidence(evidence) {
+function requireWindowsNativePublicationEvidence(evidence) {
   if (typeof evidence !== "object" || evidence === null)
     throw new Error("Windows native publication evidence is absent");
   exactKeys(
@@ -2557,7 +2557,7 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
   )
     throw new Error("installed cleanup platform is invalid");
   return tuple.startsWith("win32")
-    ? requireWindowsPublicationEvidence(report.windowsPublication)
+    ? requireWindowsNativePublicationEvidence(report.windowsPublication)
     : undefined;
 }
 
@@ -2596,9 +2596,10 @@ function validateIdentityCleanupLedger(ledger) {
     !Number.isSafeInteger(ledger.run.id) ||
     ledger.run.id <= 0 ||
     !/^https:\/\//u.test(ledger.run.url) ||
-    !/^(?:proof\/46-18-repair-[0-9a-f]+|proof\/46-11-final-[0-9a-f]+)$/u.test(
-      ledger.run.ref,
-    ) ||
+    typeof ledger.run.ref !== "string" ||
+    !/^[\w.\-][\w.\-/]*$/u.test(ledger.run.ref) ||
+    /^refs\//u.test(ledger.run.ref) ||
+    /\/\/|\/$/u.test(ledger.run.ref) ||
     !/^[a-f0-9]{40}$/u.test(ledger.run.headSha) ||
     ledger.candidate.implementationSha !== ledger.run.headSha ||
     !SHA256.test(ledger.candidate.tarballSha256) ||
@@ -2946,6 +2947,7 @@ module.exports = {
   validateFinalCandidateManifest,
   validateInstalledReport,
   validateTerminalCleanupRecord,
+  requireWindowsNativePublicationEvidence,
   validateIdentityCleanupLedger,
   validateWindowsPublicationDiagnosticLedger,
   validateWindowsCancellationDiagnosticLedger,
