@@ -427,7 +427,8 @@ describe("private automated qualification surface", () => {
       "benchmark-linux",
     ])
       expect(admission).toContain(dependency);
-    expect(admission).toContain("reports.length !== 12");
+    expect(admission).toContain("envelopeReportCount!==2*tuples.length");
+    expect(admission).toContain("reports.length!==2*tuples.length");
     expect(admission).toContain("benchmark artifact file set is not exact");
     expect(admission).toContain(
       "benchmark filename and Node authority disagree",

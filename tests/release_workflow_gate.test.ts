@@ -156,6 +156,14 @@ type PhaseAdmissionScenario = {
   focusedSeed?: number;
   focusedPropertyRuns?: number;
   focusedAuthority?: unknown;
+  focusedVersion?: number;
+  focusedTuple?: string;
+  focusedNodeVersion?: string;
+  focusedManifestSha256?: string;
+  envelopeImplementationSha?: string;
+  foreignTupleSha?: { tuple: string; value: string };
+  ledgerHeadSha?: string;
+  ledgerRunId?: string;
   benchmarkFiles?: string[];
   benchmarkOverride?: {
     nodeMajor: 22 | 24;
@@ -196,7 +204,8 @@ function executePhaseAdmissionHeredoc(
     if(scenario.omitTuple) order=order.filter(tuple=>tuple!==scenario.omitTuple);
     if(scenario.substituteTuple) order=order.map((tuple,index)=>index===order.length-1?scenario.substituteTuple:tuple);
     if(scenario.extraTuple) order.push(scenario.extraTuple);
-    const tuples=Object.fromEntries(order.map(tuple=>[tuple,{reports:{node22:makeReport(tuple,22),node24:makeReport(tuple,24)}}]));
+    const runSha=scenario.envelopeImplementationSha??'d'.repeat(40), runId='35030048631';
+    const tuples=Object.fromEntries(order.map(tuple=>[tuple,{implementationSha:scenario.foreignTupleSha?.tuple===tuple?scenario.foreignTupleSha.value:runSha,reports:{node22:makeReport(tuple,22),node24:makeReport(tuple,24)}}]));
     if(scenario.malformedItemTuple) tuples[scenario.malformedItemTuple]=null;
     if(scenario.missingReport) delete tuples[scenario.missingReport.tuple]?.reports?.[scenario.missingReport.key];
     if(scenario.tamperInstalledReport) tuples[scenario.tamperInstalledReport.tuple].reports[scenario.tamperInstalledReport.key][scenario.tamperInstalledReport.property]=scenario.tamperInstalledReport.value;
@@ -204,18 +213,18 @@ function executePhaseAdmissionHeredoc(
     if(scenario.malformedTuples==='array') tupleContainer=[];
     if(scenario.malformedTuples==='null') tupleContainer=null;
     if(scenario.malformedTuples==='string') tupleContainer='six tuples';
-    const native={version:scenario.nativeVersion??1,tarballSha256,corpusManifestSha256,tuples:tupleContainer};
+    const native={version:scenario.nativeVersion??1,implementationSha:runSha,tarballSha256,corpusManifestSha256,tuples:tupleContainer};
     let nativeBytes=JSON.stringify(native);
     if(scenario.rawDuplicateTuple){
       const entries=canonical.slice(0,-1).map(tuple=>[tuple,tuples[tuple]]);
       entries.push([canonical[0],tuples[canonical[0]]]);
       nativeBytes=\`{"version":1,"tarballSha256":"\${tarballSha256}","corpusManifestSha256":"\${corpusManifestSha256}","tuples":{\${entries.map(([tuple,value])=>\`\${JSON.stringify(tuple)}:\${JSON.stringify(value)}\`).join(',')}}\`;
     }
-    const focused={seed:scenario.focusedSeed??460046,propertyRuns:scenario.focusedPropertyRuns??200,authority:scenario.focusedAuthority===undefined?{decoder:'independent'}:scenario.focusedAuthority,manifestSha256:'e'.repeat(64)};
+    const focused={version:scenario.focusedVersion??1,tuple:scenario.focusedTuple??'linux-x64',nodeVersion:scenario.focusedNodeVersion??'v24.11.1',seed:scenario.focusedSeed??460046,propertyRuns:scenario.focusedPropertyRuns??200,authority:scenario.focusedAuthority===undefined?{decoder:'independent'}:scenario.focusedAuthority,manifestSha256:scenario.focusedManifestSha256??corpusManifestSha256};
     const benchmark=(nodeMajor)=>{const report={version:4,warmups:2,measurements:100,elapsedP95Estimator:{retainedObservations:100},collection:{retries:0,discarded:0},environment:{nodeVersion:\`v\${nodeMajor}.0.0\`},pass:true,mode:'admit',baselinePackageName:'exifcleaner-node',baselineVersion:'0.1.1',baselineExpectedIdentity:\`exifcleaner-node@0.1.1#sha256:\${baselineSha256}\`,baselineSha256,candidateSha256:tarballSha256}; if(scenario.benchmarkOverride?.nodeMajor===nodeMajor){const parts=scenario.benchmarkOverride.property.split('.'); let target=report; for(const part of parts.slice(0,-1)) target=target[part]; target[parts.at(-1)]=scenario.benchmarkOverride.value;} return report;};
     const benchmarkFiles=scenario.benchmarkFiles??['benchmark-linux-node22/benchmark-node22.json','benchmark-linux-node22/benchmark-node22.json.md','benchmark-linux-node24/benchmark-node24.json','benchmark-linux-node24/benchmark-node24.json.md'];
     const reads=new Map([
-      ['final-native/identity-cleanup-ledger.json',JSON.stringify({schemaVersion:scenario.invalidLedger?'forged-ledger':'phase-46-identity-cleanup-ledger/v1'})],
+      ['final-native/identity-cleanup-ledger.json',JSON.stringify({schemaVersion:scenario.invalidLedger?'forged-ledger':'phase-46-identity-cleanup-ledger/v1',run:{id:Number(scenario.ledgerRunId??runId),headSha:scenario.ledgerHeadSha??runSha}})],
       ['final-native/admission.json',nativeBytes],
       ['focused/qualification-linux.json',JSON.stringify(focused)],
       ['benchmarks/benchmark-linux-node22/benchmark-node22.json',JSON.stringify(benchmark(22))],
@@ -270,6 +279,7 @@ function executePhaseAdmissionHeredoc(
     };
     process.env.NEEDS_JSON=JSON.stringify({quality:{result:scenario.needsFailure?'failure':'success'},'qualification-linux':{result:'success'},'immutable-sha-evidence':{result:'success'},'benchmark-linux':{result:'success'}});
     process.env.GITHUB_SHA='d'.repeat(40);
+    process.env.GITHUB_RUN_ID=runId;
     const previousCwd=process.cwd();
     const tempRoot=nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(),'phase-46-benchmarks-'));
     nodeFs.mkdirSync(nodePath.join(tempRoot,'benchmarks'),{recursive:true});
@@ -498,11 +508,20 @@ describe("release workflow authority gate", () => {
       "utf8",
     );
     const canonical = [...gate.CANONICAL_NATIVE_TUPLES];
-    const valid = [
-      {},
-      { tupleOrder: [...canonical].reverse() },
-      { tupleOrder: [...canonical.slice(2), ...canonical.slice(0, 2)] },
-    ].map((scenario) => executePhaseAdmissionHeredoc(workflow, scenario));
+    const valid = [{}].map((scenario) =>
+      executePhaseAdmissionHeredoc(workflow, scenario),
+    );
+
+    for (const tupleOrder of [
+      [...canonical].reverse(),
+      [...canonical.slice(2), ...canonical.slice(0, 2)],
+    ]) {
+      const permuted = executePhaseAdmissionHeredoc(workflow, { tupleOrder });
+      expect(permuted.ok).toBe(false);
+      expect(permuted.error).toBe("installed tuple traversal is not canonical");
+      expect(permuted.error).not.toMatch(/^HARNESS|SyntaxError/u);
+      expect(permuted.outputWrites).toBe(0);
+    }
     for (const outcome of valid) {
       expect(outcome.ok, outcome.error).toBe(true);
       expect(outcome.installedValidations).toEqual(
@@ -669,8 +688,8 @@ describe("release workflow authority gate", () => {
       },
       {
         authority: "exact tuple validator",
-        from: "validateExactNativeManifestTuples(Object.entries(native.tuples).map(([tuple,value])=>({tuple,value})))",
-        to: "new Map(Object.entries(native.tuples).map(([tuple,value])=>[tuple,{tuple,value}]))",
+        from: "validateExactNativeManifestTuples(producerTuples.map(tuple=>({tuple,value:native.tuples[tuple]})))",
+        to: "new Map(producerTuples.map(tuple=>[tuple,{tuple,value:native.tuples[tuple]}]))",
       },
       {
         authority: "asymmetric tuple sort",
@@ -679,8 +698,8 @@ describe("release workflow authority gate", () => {
       },
       {
         authority: "canonical tuple result",
-        from: "JSON.stringify([...byTuple.keys()])!==JSON.stringify(tuples)",
-        to: "JSON.stringify(Object.keys(native.tuples))!==JSON.stringify(tuples)",
+        from: "JSON.stringify(producerTuples)!==JSON.stringify(tuples)",
+        to: "JSON.stringify([...byTuple.keys()])!==JSON.stringify(tuples)",
       },
       {
         authority: "canonical tuple traversal",
@@ -709,8 +728,8 @@ describe("release workflow authority gate", () => {
       },
       {
         authority: "identity cleanup ledger",
-        from: "validateIdentityCleanupLedger(JSON.parse(fs.readFileSync('final-native/identity-cleanup-ledger.json','utf8')))",
-        to: "JSON.parse(fs.readFileSync('final-native/identity-cleanup-ledger.json','utf8'))",
+        from: "validateIdentityCleanupLedger(ledger)",
+        to: "void ledger",
       },
       {
         authority: "exact installed report map",
@@ -719,7 +738,7 @@ describe("release workflow authority gate", () => {
       },
       {
         authority: "twelve installed reports",
-        from: "reports.length !== 12",
+        from: "reports.length!==2*tuples.length",
         to: "false",
       },
       {
@@ -734,7 +753,57 @@ describe("release workflow authority gate", () => {
       },
       {
         authority: "focused oracle",
-        from: "!focused.authority",
+        from: "typeof focused.authority!=='object'",
+        to: "false",
+      },
+      {
+        authority: "focused oracle emptiness",
+        from: "Object.keys(focused.authority).length===0",
+        to: "false",
+      },
+      {
+        authority: "focused conclusion version",
+        from: "focused.version!==1",
+        to: "false",
+      },
+      {
+        authority: "focused tuple",
+        from: "focused.tuple!=='linux-x64'",
+        to: "false",
+      },
+      {
+        authority: "focused Node major",
+        from: "!/^v24\\./.test(focused.nodeVersion??'')",
+        to: "false",
+      },
+      {
+        authority: "focused corpus digest binding",
+        from: "focused.manifestSha256!==native.corpusManifestSha256",
+        to: "false",
+      },
+      {
+        authority: "producer tuple key order",
+        from: "const producerTuples=Object.keys(native.tuples)",
+        to: "const producerTuples=[...tuples]",
+      },
+      {
+        authority: "envelope report count",
+        from: "envelopeReportCount!==2*tuples.length",
+        to: "false",
+      },
+      {
+        authority: "envelope run binding",
+        from: "native.implementationSha!==process.env.GITHUB_SHA",
+        to: "false",
+      },
+      {
+        authority: "per-tuple run binding",
+        from: "item.implementationSha!==process.env.GITHUB_SHA",
+        to: "false",
+      },
+      {
+        authority: "identity cleanup ledger run binding",
+        from: "ledger.run?.headSha!==process.env.GITHUB_SHA||String(ledger.run?.id)!==String(process.env.GITHUB_RUN_ID)",
         to: "false",
       },
       {

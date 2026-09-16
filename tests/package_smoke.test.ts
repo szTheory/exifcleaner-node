@@ -997,7 +997,8 @@ describe("installed package smoke", () => {
     expect(workflow).toContain("fail-fast: false");
     expect(workflow).toContain("node-22.json");
     expect(workflow).toContain("node-24.json");
-    expect(workflow).toContain("FC_RUNS=200");
+    expect(workflow).toContain('FC_SEED: "460046"');
+    expect(workflow).toContain('FC_RUNS: "200"');
     expect(workflow).toContain("QUALIFICATION_PROPERTY_RUNS=25");
     expect(workflow).toContain("build-oracles.cjs --verify-authority");
     expect(workflow).toContain("tests/qualification/oracles.test.ts");
