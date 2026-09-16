@@ -502,12 +502,31 @@ describe("installed package smoke", () => {
         terminal: { ...record.terminal, replayOutcome: "filesystem-action" },
       }),
     ).toBe(false);
+    // HARNESS DEFECT REPAIR (D-39e): this assertion was argument-free, so it was
+    // satisfied by any rejection at all. Both tampers below throw, so an
+    // unconstrained matcher cannot say which clause rejected. Each tamper now
+    // names its own exact anchored message and the two messages are asserted
+    // unequal, so the pair is a discrimination control and not two spellings of
+    // one matcher. `validateTerminalCleanupRecord` is ONE function:
+    // `scripts/package_smoke.cjs` imports it from
+    // `scripts/qualification/benchmark-report.cjs` and re-exports it, so this
+    // always was coverage of the benchmark-report implementation.
+    const orderedFieldsMessage =
+      "terminal cleanup record fields are not exact and ordered";
+    const quiescenceMessage =
+      "terminal cleanup quiescence or single-use relation is invalid";
+    expect(orderedFieldsMessage).not.toBe(quiescenceMessage);
     expect(() =>
       helper.validateTerminalCleanupRecord(
         { ...record, authentic: true },
         "control",
       ),
-    ).toThrow();
+    ).toThrow(new RegExp(`^${orderedFieldsMessage}$`, "u"));
+    const replayTampered = structuredClone(record);
+    replayTampered.terminal.replayOutcome = "filesystem-action";
+    expect(() =>
+      helper.validateTerminalCleanupRecord(replayTampered, "control"),
+    ).toThrow(new RegExp(`^${quiescenceMessage}$`, "u"));
   });
 
   it("rejects missing and fabricated Windows publication proof", () => {
@@ -785,12 +804,22 @@ describe("installed package smoke", () => {
     await rm(stageDirectoryPath, { recursive: true, force: true });
   });
 
+  // HARNESS DEFECT REPAIR (D-39e), NOT A PRODUCT CHANGE. The five tests below
+  // spawn a real `npm pack --ignore-scripts` and a real `npm install
+  // --ignore-scripts`. `vitest.config.ts` sets no `testTimeout`, so vitest's
+  // 5000 ms default applied and under parallel load these tests failed
+  // regardless of the code under test. During the D-39 mutation sweep that
+  // produced FALSE CONFIRMED results: a four-way parallel batch reported all
+  // four source mutants killed while the UNMUTATED control failed identically.
+  // Each spawning test therefore carries an explicit generous per-test timeout.
+  // The bound is per-test on purpose: `vitest.config.ts` and `package.json` are
+  // outside this plan's ownership, and a global bound would relax every test.
   it("requires an explicit supplied tarball instead of packing the checkout", async () => {
     await expect(runSmoke([])).resolves.toMatchObject({
       exitCode: 1,
       output: expect.stringContaining("--tarball is required"),
     });
-  });
+  }, 120_000);
 
   it("installs a current-host development tarball with scripts disabled and records bounded evidence", async () => {
     const temporary = await mkdtemp(
@@ -851,7 +880,7 @@ describe("installed package smoke", () => {
       },
     });
     expect(JSON.stringify(evidence)).not.toMatch(/\/(?:Users|home|tmp)\//u);
-  });
+  }, 120_000);
 
   it("rejects wrong tarball or manifest identity before installation", async () => {
     const temporary = await mkdtemp(
@@ -876,7 +905,7 @@ describe("installed package smoke", () => {
       );
       expect(result.output).not.toContain("npm install");
     }
-  });
+  }, 120_000);
 
   it("refuses final-release labeling for a current-host development tarball", async () => {
     const temporary = await mkdtemp(
@@ -892,7 +921,7 @@ describe("installed package smoke", () => {
       exitCode: 1,
       output: expect.stringContaining("final-release"),
     });
-  });
+  }, 120_000);
 
   it("fails before transaction work when the literal host tuple is absent", async () => {
     const temporary = await mkdtemp(
@@ -913,7 +942,7 @@ describe("installed package smoke", () => {
       exitCode: 1,
       output: expect.stringContaining("Unrecognized archive format"),
     });
-  });
+  }, 120_000);
 
   it("rejects missing, neighboring-only, and wrong-shape host artifacts before loading", async () => {
     const root = await mkdtemp(join(tmpdir(), "exifcleaner-package-artifact-"));
