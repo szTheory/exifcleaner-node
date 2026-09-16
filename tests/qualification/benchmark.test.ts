@@ -1,7 +1,8 @@
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   copyFileSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -1331,6 +1332,149 @@ const TUPLE_BINDING_TAMPERS: ((hosted: JsonRecord) => void)[] = [
   (hosted) => (hosted.tuples["linux-x64"].artifact.sha256 = "7".repeat(64)),
   (hosted) => (hosted.tuples["linux-x64"].nodeMajors = [22]),
 ];
+
+// ---------------------------------------------------------------------------
+// SYNTHETIC FINAL-CANDIDATE REPOSITORY (Plan 46-39, D-39 clause (e)).
+//
+// `validateFinalCandidateManifest` was tested only on its ABSENT path, behind a
+// matcher five different messages satisfy, so eight mutations survived.  A real
+// repository under `mkdtemp` is sufficient because the validator shells out
+// through `git -C repoRoot`, so the positive control below is built the way the
+// gate is actually driven rather than stubbed.
+// ---------------------------------------------------------------------------
+const FINAL_CANDIDATE_MANIFEST_PATH = "native/phase-46-final-candidate.json";
+const FINAL_AUTHORITY_PATHS: readonly (readonly [string, string])[] = [
+  ["nativeSource", "native/publication.c"],
+  ["nativeAuditManifest", "scripts/audit_native_source.cjs"],
+  ["nativeAuditAuthority", "scripts/audit_native_artifact.cjs"],
+  [
+    "calibrationReference",
+    "scripts/qualification/benchmark-calibration-reference.json",
+  ],
+  ["calibrationAlgorithm", "scripts/qualification/benchmark-calibration.cjs"],
+] as const;
+const FINAL_TREE_MEMBER_FILES = [
+  "src/index.ts",
+  "src/webp/riff.ts",
+  "dist/index.js",
+] as const;
+
+type ManifestRepositoryOptions = {
+  /** Applied to the manifest object BEFORE serialization, so the committed
+   * bytes stay canonical and the tamper reaches the clause it names. */
+  manifestOverride?: (manifest: JsonRecord) => void;
+  /** Replaces the canonical serialization, for the canonical-bytes tamper. */
+  serialize?: (manifest: JsonRecord) => string;
+  /** Extra paths committed alongside the manifest in the candidate commit. */
+  extraCandidateFiles?: Record<string, string>;
+  /** Commits the extra files INSTEAD of the manifest. */
+  omitManifest?: boolean;
+  /** Inserts a commit between the repair proof and the candidate. */
+  insertIntermediateCommit?: boolean;
+};
+
+type ManifestRepository = {
+  root: string;
+  candidateSha: string;
+  repairProofSha: string;
+  manifest: JsonRecord;
+  cleanup(): void;
+};
+
+function finalCandidateRepository(
+  options: ManifestRepositoryOptions = {},
+): ManifestRepository {
+  const root = mkdtempSync(join(tmpdir(), "phase-46-final-candidate-"));
+  const run = (...args: string[]): string =>
+    execFileSync("git", ["-C", root, ...args], { encoding: "utf8" });
+  const write = (relative: string, contents: string): void => {
+    mkdirSync(dirname(join(root, relative)), { recursive: true });
+    writeFileSync(join(root, relative), contents);
+  };
+  // A deterministic local identity and a fixed default branch, so nothing
+  // depends on the developer's global git configuration.
+  execFileSync("git", ["init", "-q", "-b", "main", root]);
+  run("config", "user.email", "phase-46@example.invalid");
+  run("config", "user.name", "Phase 46");
+  run("config", "commit.gpgsign", "false");
+  run("config", "core.autocrlf", "false");
+  for (const [key, authorityPath] of FINAL_AUTHORITY_PATHS)
+    write(authorityPath, `// ${key} authority fixture\n`);
+  for (const member of FINAL_TREE_MEMBER_FILES)
+    write(member, `// ${member} fixture\n`);
+  run("add", "-A");
+  run("commit", "-q", "-m", "repair proof");
+  const repairProofSha = run("rev-parse", "HEAD").trim();
+  const blobDigest = (relative: string): string =>
+    createHash("sha256")
+      .update(
+        execFileSync(
+          "git",
+          ["-C", root, "show", `${repairProofSha}:${relative}`],
+          {
+            encoding: "buffer",
+          },
+        ),
+      )
+      .digest("hex");
+  const members = FINAL_TREE_MEMBER_FILES.map((path) => ({
+    path,
+    sha256: blobDigest(path),
+  })).sort((left, right) => left.path.localeCompare(right.path));
+  const manifest: JsonRecord = {
+    schemaVersion: "phase-46-final-candidate/v1",
+    phase: 46,
+    repairParentSha: repairProofSha,
+    ...Object.fromEntries(
+      FINAL_AUTHORITY_PATHS.map(([key, authorityPath]) => [
+        key,
+        { path: authorityPath, sha256: blobDigest(authorityPath) },
+      ]),
+    ),
+    sourceDistTree: {
+      algorithm: "phase-46-source-dist-tree/v1",
+      included: ["src", "dist"],
+      excluded: [],
+      members,
+      sha256: createHash("sha256")
+        .update(`${report.canonicalJson(members)}\n`)
+        .digest("hex"),
+    },
+  };
+  options.manifestOverride?.(manifest);
+  if (options.insertIntermediateCommit) {
+    write("native/intermediate.txt", "intermediate\n");
+    run("add", "native/intermediate.txt");
+    run("commit", "-q", "-m", "intermediate");
+  }
+  const staged: string[] = [];
+  if (!options.omitManifest) {
+    write(
+      FINAL_CANDIDATE_MANIFEST_PATH,
+      options.serialize
+        ? options.serialize(manifest)
+        : `${report.canonicalJson(manifest)}\n`,
+    );
+    staged.push(FINAL_CANDIDATE_MANIFEST_PATH);
+  }
+  for (const [relative, contents] of Object.entries(
+    options.extraCandidateFiles ?? {},
+  )) {
+    write(relative, contents);
+    staged.push(relative);
+  }
+  run("add", ...staged);
+  run("commit", "-q", "-m", "final candidate");
+  return {
+    root,
+    candidateSha: run("rev-parse", "HEAD").trim(),
+    repairProofSha,
+    manifest,
+    cleanup(): void {
+      rmSync(root, { recursive: true, force: true });
+    },
+  };
+}
 
 describe("paired benchmark admission", () => {
   it("rejects every hosted ledger clause tamper it can reach", async () => {
@@ -2689,14 +2833,34 @@ describe("paired benchmark admission", () => {
     ).toThrow();
   });
   it("fails closed when a final candidate manifest is absent", () => {
+    // Tightened from a case-insensitive fragment matcher, which FIVE different
+    // messages satisfied, to an anchored exact matcher.
     expect(() =>
       report.validateFinalCandidateManifest({
         repoRoot: projectRoot,
         candidateSha: "0".repeat(40),
         repairProofSha: "0".repeat(40),
       }),
-    ).toThrow(/final candidate manifest/i);
+    ).toThrow(anchoredMessage("final candidate manifest is absent"));
   });
+
+  it("accepts a canonical final candidate manifest in a synthetic repository", () => {
+    // POSITIVE CONTROL.  Until this is green the tampers that follow are
+    // indistinguishable from what a reject-everything function produces, which
+    // is the state the D-39 sweep reported for this gate.
+    const repository = finalCandidateRepository();
+    try {
+      expect(() =>
+        report.validateFinalCandidateManifest({
+          repoRoot: repository.root,
+          candidateSha: repository.candidateSha,
+          repairProofSha: repository.repairProofSha,
+        }),
+      ).not.toThrow();
+    } finally {
+      repository.cleanup();
+    }
+  }, 60_000);
   it("rejects incomplete, duplicate, and extra manifest evidence", () => {
     const reference = report.loadReference();
     const complete = completeBenchmarkReport();
