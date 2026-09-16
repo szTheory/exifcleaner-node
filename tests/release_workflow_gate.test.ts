@@ -1,10 +1,19 @@
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -1241,4 +1250,304 @@ describe("p95 null-branch closure gate (46-33)", () => {
       ).toThrow();
     }
   }, 30_000);
+});
+
+const focusedConclusionStep =
+  "      - name: Record focused qualification conclusion";
+const focusedHeredocOpener = "node - <<'NODE'";
+
+function qualificationConclusionProducer(workflow: string): string {
+  const job = workflowJob(workflow, "qualification-linux", "identity-prebuild");
+  if (!job.includes(focusedConclusionStep))
+    throw new Error("focused qualification conclusion step is absent");
+  const openers = job.split(focusedHeredocOpener).length - 1;
+  if (openers !== 1)
+    throw new Error(
+      `qualification-linux must hold exactly one Node heredoc, found ${openers}`,
+    );
+  const heredoc = job.match(/node - <<'NODE'\n([\s\S]*?)\n\s+NODE/u)?.[1];
+  if (heredoc === undefined)
+    throw new Error("qualification-linux Node heredoc is absent");
+  return heredoc
+    .split("\n")
+    .map((line) => line.replace(/^ {10}/u, ""))
+    .join("\n");
+}
+
+type ProducerOutcome = {
+  status: number;
+  wroteConclusion: boolean;
+  conclusion: Record<string, unknown> | null;
+  errorLine: string | null;
+};
+
+function executeConclusionProducer(
+  body: string,
+  bindings: Readonly<Record<string, string>>,
+): ProducerOutcome {
+  const cwd = mkdtempSync(join(tmpdir(), "focused-authority-"));
+  try {
+    mkdirSync(join(cwd, "tests", "corpus"), { recursive: true });
+    copyFileSync(
+      join(packageRoot, "tests", "corpus", "manifest.json"),
+      join(cwd, "tests", "corpus", "manifest.json"),
+    );
+    writeFileSync(
+      join(cwd, "oracle-authority.json"),
+      JSON.stringify({ "offline-oracle": "stub" }),
+    );
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    delete env.FC_SEED;
+    delete env.FC_RUNS;
+    Object.assign(env, bindings);
+    const child = spawnSync(process.execPath, ["-"], {
+      cwd,
+      env,
+      input: body,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    if (child.error !== undefined) throw child.error;
+    if (child.signal !== null)
+      throw new Error(`conclusion producer was killed by ${child.signal}`);
+    if (child.status === null)
+      throw new Error("conclusion producer never exited");
+    if (/^HARNESS|SyntaxError/u.test(`${child.stdout}${child.stderr}`))
+      throw new Error(
+        `conclusion producer failed structurally: ${child.stderr}`,
+      );
+    const conclusionPath = join(cwd, "qualification-linux.json");
+    const wroteConclusion = existsSync(conclusionPath);
+    return {
+      status: child.status,
+      wroteConclusion,
+      conclusion: wroteConclusion
+        ? (JSON.parse(readFileSync(conclusionPath, "utf8")) as Record<
+            string,
+            unknown
+          >)
+        : null,
+      errorLine:
+        child.stderr
+          .split("\n")
+          .map((line) => line.trim())
+          .find((line) => /^Error: /u.test(line)) ?? null,
+    };
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+}
+
+const focusedAuthorityMessages = {
+  FC_SEED: {
+    absent: "Error: focused FC_SEED authority is absent",
+    notPositiveDecimal:
+      "Error: focused FC_SEED authority is not a positive decimal integer",
+    notSafeInteger: "Error: focused FC_SEED authority is not a safe integer",
+  },
+  FC_RUNS: {
+    absent: "Error: focused FC_RUNS authority is absent",
+    notPositiveDecimal:
+      "Error: focused FC_RUNS authority is not a positive decimal integer",
+    notSafeInteger: "Error: focused FC_RUNS authority is not a safe integer",
+  },
+} as const;
+
+const focusedRejections: readonly {
+  label: string;
+  bindings: Record<string, string>;
+  errorLine: string;
+}[] = [
+  {
+    label: "absent FC_SEED",
+    bindings: { FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.absent,
+  },
+  {
+    label: "empty FC_SEED",
+    bindings: { FC_SEED: "", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "whitespace-only FC_SEED",
+    bindings: { FC_SEED: "   ", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "whitespace-padded FC_SEED",
+    bindings: { FC_SEED: " 200 ", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "non-numeric FC_SEED",
+    bindings: { FC_SEED: "abc", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "negative FC_SEED",
+    bindings: { FC_SEED: "-5", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "zero FC_SEED",
+    bindings: { FC_SEED: "0", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "fractional FC_SEED",
+    bindings: { FC_SEED: "1.5", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "hexadecimal FC_SEED",
+    bindings: { FC_SEED: "0x10", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "exponential FC_SEED",
+    bindings: { FC_SEED: "1e3", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "leading-zero FC_SEED",
+    bindings: { FC_SEED: "0200", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "explicitly-signed FC_SEED",
+    bindings: { FC_SEED: "+200", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notPositiveDecimal,
+  },
+  {
+    label: "beyond-safe-integer FC_SEED",
+    bindings: { FC_SEED: "12345678901234567890123", FC_RUNS: "200" },
+    errorLine: focusedAuthorityMessages.FC_SEED.notSafeInteger,
+  },
+  {
+    label: "empty FC_RUNS beside a valid FC_SEED",
+    bindings: { FC_SEED: "460046", FC_RUNS: "" },
+    errorLine: focusedAuthorityMessages.FC_RUNS.notPositiveDecimal,
+  },
+];
+
+const focusedClauseMutants: readonly {
+  id: string;
+  description: string;
+  from: string;
+  to: string;
+  killedBy: string;
+}[] = [
+  {
+    id: "M1",
+    description: "digit class relaxed to admit empty, zero and leading zero",
+    from: "/^[1-9][0-9]*$/u.test(raw)",
+    to: "/^[0-9]*$/u.test(raw)",
+    killedBy: "empty FC_SEED",
+  },
+  {
+    id: "M2",
+    description: "pattern unanchored",
+    from: "/^[1-9][0-9]*$/u.test(raw)",
+    to: "/[1-9][0-9]*/u.test(raw)",
+    killedBy: "whitespace-padded FC_SEED",
+  },
+  {
+    id: "M3",
+    description: "absent clause deleted",
+    from: "if(typeof raw!=='string')throw new Error(`focused ${name} authority is absent`);",
+    to: "",
+    killedBy: "absent FC_SEED",
+  },
+  {
+    id: "M4",
+    description: "safe-integer clause deleted",
+    from: "if(!Number.isSafeInteger(value))throw new Error(`focused ${name} authority is not a safe integer`);",
+    to: "",
+    killedBy: "beyond-safe-integer FC_SEED",
+  },
+];
+
+describe("focused qualification conclusion producer authority gate (46-42)", () => {
+  const workflow = readFileSync(
+    join(packageRoot, ".github", "workflows", "ci.yml"),
+    "utf8",
+  );
+  let positiveControl: ProducerOutcome;
+
+  beforeAll(() => {
+    positiveControl = executeConclusionProducer(
+      qualificationConclusionProducer(workflow),
+      { FC_SEED: "460046", FC_RUNS: "200" },
+    );
+  }, 60_000);
+
+  it("holds exactly one conclusion producer heredoc, located by step name rather than line number", () => {
+    const body = qualificationConclusionProducer(workflow);
+    expect(body).toContain("readAuthority('FC_SEED')");
+    expect(body).toContain("readAuthority('FC_RUNS')");
+    expect(body).toContain("qualification-linux.json");
+    expect(body.split("\n")).toHaveLength(1);
+  });
+
+  it("accepts the real focused seed and run authority and records them unchanged (positive control)", () => {
+    expect(positiveControl.status).toBe(0);
+    expect(positiveControl.errorLine).toBeNull();
+    expect(positiveControl.wroteConclusion).toBe(true);
+    expect(positiveControl.conclusion).toMatchObject({
+      version: 1,
+      seed: 460046,
+      propertyRuns: 200,
+      tuple: `${process.platform}-${process.arch}`,
+      nodeVersion: process.version,
+    });
+    expect(
+      typeof (positiveControl.conclusion as { manifestSha256: unknown })
+        .manifestSha256,
+    ).toBe("string");
+  }, 60_000);
+
+  it.each(focusedRejections)(
+    "rejects $label on its own anchored message and writes no conclusion",
+    ({ bindings, errorLine }) => {
+      expect(positiveControl.status).toBe(0);
+      expect(positiveControl.conclusion).toMatchObject({
+        seed: 460046,
+        propertyRuns: 200,
+      });
+      const outcome = executeConclusionProducer(
+        qualificationConclusionProducer(workflow),
+        bindings,
+      );
+      expect(outcome.status).not.toBe(0);
+      expect(outcome.errorLine).toBe(errorLine);
+      expect(outcome.wroteConclusion).toBe(false);
+      expect(outcome.conclusion).toBeNull();
+    },
+    60_000,
+  );
+
+  it("kills every clause mutant with the rejection case named for it", () => {
+    expect(positiveControl.status).toBe(0);
+    const body = qualificationConclusionProducer(workflow);
+    const survivors: string[] = [];
+    for (const mutant of focusedClauseMutants) {
+      expect(body.split(mutant.from)).toHaveLength(2);
+      const scenario = focusedRejections.find(
+        (candidate) => candidate.label === mutant.killedBy,
+      );
+      if (scenario === undefined)
+        throw new Error(`mutant ${mutant.id} names no known rejection case`);
+      const outcome = executeConclusionProducer(
+        body.replace(mutant.from, mutant.to),
+        scenario.bindings,
+      );
+      const stillRejectsIdentically =
+        outcome.status !== 0 &&
+        outcome.wroteConclusion === false &&
+        outcome.errorLine === scenario.errorLine;
+      if (stillRejectsIdentically)
+        survivors.push(`${mutant.id} (${mutant.description})`);
+    }
+    expect(survivors).toStrictEqual([]);
+  }, 60_000);
 });
