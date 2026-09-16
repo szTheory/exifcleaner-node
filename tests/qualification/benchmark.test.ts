@@ -1510,691 +1510,724 @@ describe("paired benchmark admission", () => {
     expect([...evidenceGatedTestTitles()].sort()).toEqual([...pinned].sort());
   });
 
-  it("rejects every hosted ledger clause tamper it can reach", async () => {
-    // D-39 clause (e): `hostedLedger` was 100% unexercised.  Every assertion
-    // below is a SEPARATE tamper carrying that clause's anchored exact message,
-    // driven over `structuredClone`d copies of the accepting fixture above.
-    const fixture = acceptingHostedLedger();
-    try {
-      const rejects = (
-        mutate: (hosted: JsonRecord) => void,
-        message: string,
-      ): void => {
-        const clone = structuredClone(fixture.hosted) as JsonRecord;
-        mutate(clone);
-        fixture.writeHosted(clone);
-        expect(() => fixture.validate()).toThrow(anchoredMessage(message));
-      };
-      const identityInvalid = "hosted run identity is invalid";
-
-      // RUN IDENTITY --------------------------------------------------------
-      rejects((hosted) => (hosted.schemaVersion = 3), identityInvalid);
-      rejects(
-        (hosted) => (hosted.repository = "szTheory/exifcleaner-electron"),
-        identityInvalid,
-      );
-      rejects((hosted) => (hosted.workflow = "Release"), identityInvalid);
-      rejects(
-        (hosted) => (hosted.workflowPath = ".github/workflows/release.yml"),
-        identityInvalid,
-      );
-      rejects((hosted) => (hosted.event = "push"), identityInvalid);
-      rejects((hosted) => (hosted.conclusion = "failure"), identityInvalid);
-      rejects((hosted) => setHostedRunId(hosted, 1.5), identityInvalid);
-      rejects(
-        (hosted) =>
-          (hosted.runUrl =
-            "http://github.com/szTheory/exifcleaner-node/actions/runs/1"),
-        identityInvalid,
-      );
-      // The relocated proof-branch constraint (D-39 (a)): `hostedLedger` is the
-      // constraint's one remaining home, so the refs CI and releases supply are
-      // rejected HERE even though the identity ledger now accepts them.
-      for (const ref of RELOCATED_HOSTED_REF_REJECTIONS)
-        rejects((hosted) => (hosted.ref = ref), identityInvalid);
-      rejects(
-        (hosted) => setHostedHeadSha(hosted, `${hosted.headSha as string}zz`),
-        identityInvalid,
-      );
-      rejects(
-        (hosted) => (hosted.candidate.sha = "b".repeat(40)),
-        identityInvalid,
-      );
-
-      // ARTIFACT MAP --------------------------------------------------------
-      const artifactMapIncomplete = "hosted artifact map is incomplete";
-      rejects(
-        (hosted) => delete hosted.artifactSha256["final-native-admission"],
-        artifactMapIncomplete,
-      );
-      rejects(
-        (hosted) => (hosted.artifactSha256["extra-artifact"] = "7".repeat(64)),
-        artifactMapIncomplete,
-      );
-      rejects(
-        (hosted) =>
-          (hosted.artifactSha256["final-native-admission"] = "not-a-digest"),
-        artifactMapIncomplete,
-      );
-
-      // BENCHMARK BINDING ---------------------------------------------------
-      const benchmarkBindingInvalid = "hosted benchmark binding is invalid";
-      rejects(
-        (hosted) => setCandidateTarball(hosted, "7".repeat(64)),
-        benchmarkBindingInvalid,
-      );
-      rejects(
-        (hosted) => (hosted.baseline.tarballSha256 = "7".repeat(64)),
-        benchmarkBindingInvalid,
-      );
-      rejects(
-        (hosted) =>
-          (hosted.node22 = foreignEnvironmentReport(hosted, {
-            platform: "darwin",
-          })),
-        benchmarkBindingInvalid,
-      );
-      rejects(
-        (hosted) =>
-          (hosted.node22 = foreignEnvironmentReport(hosted, {
-            architecture: "arm64",
-          })),
-        benchmarkBindingInvalid,
-      );
-      rejects(
-        (hosted) => (hosted.benchmarks.node22.artifactSha256 = "7".repeat(64)),
-        benchmarkBindingInvalid,
-      );
-
-      // FOCUSED ADMISSION AUTHORITY -----------------------------------------
-      const focusedInvalid = "focused admission authority is invalid";
-      rejects((hosted) => (hosted.focused.tuple = "win32-x64"), focusedInvalid);
-      rejects((hosted) => (hosted.focused.nodeMajor = 22), focusedInvalid);
-      rejects((hosted) => (hosted.focused.seed = 460_047), focusedInvalid);
-      rejects((hosted) => (hosted.focused.propertyRuns = 25), focusedInvalid);
-      rejects(
-        (hosted) => delete hosted.focused.oracleAuthority,
-        focusedInvalid,
-      );
-      rejects(
-        (hosted) => (hosted.focused.manifestSha256 = "7".repeat(64)),
-        focusedInvalid,
-      );
-      // The exact surviving mutation the D-39 sweep reported by name: the
-      // twelve-installed-conclusion count could be deleted with nothing red.
-      rejects((hosted) => (hosted.installedConclusions = 13), focusedInvalid);
-
-      // TUPLE SET AND REPORT MAP --------------------------------------------
-      rejects(
-        (hosted) => delete hosted.tuples["win32-arm64"],
-        "installed tuple set is incomplete",
-      );
-      rejects(
-        (hosted) => (hosted.tuples["linux-riscv64"] = {}),
-        "installed tuple set is incomplete",
-      );
-      rejects(
-        (hosted) => delete hosted.tuples["linux-x64"].reports.node24,
-        "installed report map is incomplete",
-      );
-      rejects(
-        (hosted) => (hosted.tuples["linux-x64"].reports.node20 = {}),
-        "installed report map is incomplete",
-      );
-
-      // TUPLE BINDING -------------------------------------------------------
-      const tupleBindingInvalid = "installed tuple binding is invalid";
-      for (const mutate of TUPLE_BINDING_TAMPERS)
-        rejects(mutate, tupleBindingInvalid);
-
-      // WINDOWS PUBLICATION AUTHORITY ---------------------------------------
-      rejects(
-        (hosted) => (hosted.tuples["win32-x64"].cleanup = "fail"),
-        "Windows publication authority is invalid",
-      );
-
-      // FINALIZATION CONTRACTS ----------------------------------------------
-      rejects(
-        (hosted) => (hosted.finalizationContracts = { baseline: {} }),
-        "version-specific finalization contracts mismatch",
-      );
-
-      // PREREQUISITE BINDINGS, DRIVEN THROUGH THE FILES ----------------------
-      // The bytes of a copied prerequisite ledger FILE are altered while the
-      // hosted ledger's recorded digest is left alone, so `sha256File` is
-      // genuinely exercised rather than a constant being compared to a
-      // constant.
-      fixture.writeHosted(fixture.hosted);
-      for (const slot of ["memory", "windows", "identityCleanup"] as const) {
-        fixture.substitutePrerequisite(slot);
-        expect(() => fixture.validate()).toThrow(
-          anchoredMessage(
-            `prerequisite ledger binding is invalid: ${slot}.sha256`,
-          ),
-        );
-        fixture.restorePrerequisite(slot);
-      }
-      expect(() => fixture.validate()).not.toThrow();
-
-      // ANIMATION RSS CEILING -----------------------------------------------
-      // The ceiling VALUE is read from the validator and is not changed here.
-      // Both sides are raised together so the baseline-relative bound and the
-      // per-report peak-RSS verdict stay satisfied and the ceiling is the only
-      // clause that can fire.
-      const ceiling = acceptingHostedLedger({
-        animationBaselineMaxRSSKiB: 200_000,
-        animationCandidateMaxRSSKiB: 200_000,
-      });
+  evidenceGatedIt(
+    "rejects every hosted ledger clause tamper it can reach",
+    async () => {
+      // D-39 clause (e): `hostedLedger` was 100% unexercised.  Every assertion
+      // below is a SEPARATE tamper carrying that clause's anchored exact message,
+      // driven over `structuredClone`d copies of the accepting fixture above.
+      const fixture = acceptingHostedLedger();
       try {
-        expect(() => ceiling.validate()).toThrow(
-          anchoredMessage("Node 22 animation RSS authority is invalid"),
-        );
-      } finally {
-        ceiling.cleanup();
-      }
-    } finally {
-      fixture.cleanup();
-    }
-  }, 180_000);
-  it("resolves each shared-message hosted ledger clause with a conjunct mutant", async () => {
-    // `hostedLedger` bundles roughly ten clauses behind the single message
-    // `hosted run identity is invalid`, so an anchored message matcher alone
-    // cannot say WHICH clause rejected.  For every clause that shares a thrown
-    // message with a sibling, a fresh-VM mutant replaces exactly that conjunct
-    // with a constant-false term and must make that clause's tamper STOP
-    // rejecting while a sibling tamper keeps rejecting.
-    const source = await readFile(
-      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
-      "utf8",
-    );
-    const fixture = acceptingHostedLedger();
-    try {
-      const validateWith = (validator: IdentityLedgerValidator): unknown =>
-        validator.hostedLedger(
-          fixture.hostedPath,
-          fixture.memoryPath,
-          fixture.windowsPath,
-          fixture.identityPath,
-        );
-      const mutantFor = (
-        conjunct: string,
-        replacement = "false",
-      ): IdentityLedgerValidator => {
-        expect(source.split(conjunct).length - 1).toBe(1);
-        const mutated = source.replace(conjunct, replacement);
-        expect(mutated).not.toBe(source);
-        return loadIdentityLedgerValidator(mutated);
-      };
-      const writeTampered = (mutate: (hosted: JsonRecord) => void): void => {
-        const clone = structuredClone(fixture.hosted) as JsonRecord;
-        mutate(clone);
-        fixture.writeHosted(clone);
-      };
-      const resolves = (
-        conjunct: string,
-        tamper: (hosted: JsonRecord) => void,
-        sibling: (hosted: JsonRecord) => void,
-        replacement = "false ||",
-      ): void => {
-        const mutant = mutantFor(conjunct, replacement);
-        writeTampered(tamper);
-        expect(() => fixture.validate()).toThrow();
-        expect(() => validateWith(mutant)).not.toThrow();
-        writeTampered(sibling);
-        expect(() => validateWith(mutant)).toThrow();
-      };
+        const rejects = (
+          mutate: (hosted: JsonRecord) => void,
+          message: string,
+        ): void => {
+          const clone = structuredClone(fixture.hosted) as JsonRecord;
+          mutate(clone);
+          fixture.writeHosted(clone);
+          expect(() => fixture.validate()).toThrow(anchoredMessage(message));
+        };
+        const identityInvalid = "hosted run identity is invalid";
 
-      // RUN IDENTITY ---------------------------------------------------------
-      const repositoryTamper = (hosted: JsonRecord): void => {
-        hosted.repository = "szTheory/exifcleaner-electron";
-      };
-      const eventTamper = (hosted: JsonRecord): void => {
-        hosted.event = "push";
-      };
-      const runIdentityClauses: [string, (hosted: JsonRecord) => void][] = [
-        [
-          "ledger.schemaVersion !== 2 ||",
-          (hosted) => (hosted.schemaVersion = 3),
-        ],
-        [
-          'ledger.repository !== "szTheory/exifcleaner-node" ||',
-          repositoryTamper,
-        ],
-        [
-          'ledger.workflow !== "CI" ||',
-          (hosted) => (hosted.workflow = "Release"),
-        ],
-        [
-          'ledger.workflowPath !== ".github/workflows/ci.yml" ||',
+        // RUN IDENTITY --------------------------------------------------------
+        rejects((hosted) => (hosted.schemaVersion = 3), identityInvalid);
+        rejects(
+          (hosted) => (hosted.repository = "szTheory/exifcleaner-electron"),
+          identityInvalid,
+        );
+        rejects((hosted) => (hosted.workflow = "Release"), identityInvalid);
+        rejects(
           (hosted) => (hosted.workflowPath = ".github/workflows/release.yml"),
-        ],
-        ['ledger.event !== "workflow_dispatch" ||', eventTamper],
-        [
-          'ledger.conclusion !== "success" ||',
-          (hosted) => (hosted.conclusion = "failure"),
-        ],
-        [
-          "!Number.isSafeInteger(ledger.runId) ||",
-          (hosted) => setHostedRunId(hosted, 1.5),
-        ],
-        [
-          '!/^https:\\/\\//.test(ledger.runUrl ?? "") ||',
-          (hosted) => (hosted.runUrl = "http://example.invalid/runs/1"),
-        ],
-        [
-          '!/^[a-f0-9]{40}$/.test(ledger.headSha ?? "") ||',
+          identityInvalid,
+        );
+        rejects((hosted) => (hosted.event = "push"), identityInvalid);
+        rejects((hosted) => (hosted.conclusion = "failure"), identityInvalid);
+        rejects((hosted) => setHostedRunId(hosted, 1.5), identityInvalid);
+        rejects(
+          (hosted) =>
+            (hosted.runUrl =
+              "http://github.com/szTheory/exifcleaner-node/actions/runs/1"),
+          identityInvalid,
+        );
+        // The relocated proof-branch constraint (D-39 (a)): `hostedLedger` is the
+        // constraint's one remaining home, so the refs CI and releases supply are
+        // rejected HERE even though the identity ledger now accepts them.
+        for (const ref of RELOCATED_HOSTED_REF_REJECTIONS)
+          rejects((hosted) => (hosted.ref = ref), identityInvalid);
+        rejects(
           (hosted) => setHostedHeadSha(hosted, `${hosted.headSha as string}zz`),
-        ],
-      ];
-      for (const [conjunct, tamper] of runIdentityClauses)
-        resolves(
-          conjunct,
-          tamper,
-          tamper === repositoryTamper ? eventTamper : repositoryTamper,
+          identityInvalid,
         );
-      // The candidate/head-sha equality is the LAST conjunct of the clause and
-      // carries no trailing `||`.
-      resolves(
-        "ledger.candidate?.sha !== ledger.headSha",
-        (hosted) => (hosted.candidate.sha = "b".repeat(40)),
-        repositoryTamper,
-        "false",
-      );
-      // The relocated proof-branch ref check: one conjunct, four rejections.
-      // Its mutant must make ALL FOUR accept, which is what proves the four
-      // rejections are that clause and not some later gate.
-      const refMutant = mutantFor(
-        '!/^proof\\/46-11-final-[0-9a-f]+$/.test(ledger.ref ?? "") ||',
-        "false ||",
-      );
-      for (const ref of RELOCATED_HOSTED_REF_REJECTIONS) {
-        writeTampered((hosted) => (hosted.ref = ref));
-        expect(() => fixture.validate()).toThrow(
-          anchoredMessage("hosted run identity is invalid"),
+        rejects(
+          (hosted) => (hosted.candidate.sha = "b".repeat(40)),
+          identityInvalid,
         );
-        expect(() => validateWith(refMutant)).not.toThrow();
-      }
-      writeTampered(repositoryTamper);
-      expect(() => validateWith(refMutant)).toThrow();
 
-      // ARTIFACT MAP ---------------------------------------------------------
-      const artifactKeySetConjunct = `Object.keys(ledger.artifactSha256 ?? {})
-      .sort()
-      .join(",") !== artifacts.sort().join(",") ||`;
-      const artifactDigestConjunct =
-        "artifacts.some((name) => !SHA256.test(ledger.artifactSha256[name]))";
-      const extraArtifactKey = (hosted: JsonRecord): void => {
-        hosted.artifactSha256["extra-artifact"] = "7".repeat(64);
-      };
-      const nonDigestArtifact = (hosted: JsonRecord): void => {
-        hosted.artifactSha256["final-native-admission"] = "not-a-digest";
-      };
-      resolves(artifactKeySetConjunct, extraArtifactKey, nonDigestArtifact);
-      resolves(
-        artifactDigestConjunct,
-        nonDigestArtifact,
-        extraArtifactKey,
-        "false",
-      );
-      // A MISSING key trips BOTH conjuncts, so neither single mutant flips it.
-      // The pair is resolved jointly: with both conjuncts false the missing key
-      // is accepted, which is the honest statement of what covers it.
-      const bothArtifactConjunctsFalse = loadIdentityLedgerValidator(
-        source
-          .replace(artifactKeySetConjunct, "false ||")
-          .replace(artifactDigestConjunct, "false"),
-      );
-      writeTampered(
-        (hosted) => delete hosted.artifactSha256["final-native-admission"],
-      );
-      expect(() => fixture.validate()).toThrow(
-        anchoredMessage("hosted artifact map is incomplete"),
-      );
-      expect(() => validateWith(bothArtifactConjunctsFalse)).not.toThrow();
+        // ARTIFACT MAP --------------------------------------------------------
+        const artifactMapIncomplete = "hosted artifact map is incomplete";
+        rejects(
+          (hosted) => delete hosted.artifactSha256["final-native-admission"],
+          artifactMapIncomplete,
+        );
+        rejects(
+          (hosted) =>
+            (hosted.artifactSha256["extra-artifact"] = "7".repeat(64)),
+          artifactMapIncomplete,
+        );
+        rejects(
+          (hosted) =>
+            (hosted.artifactSha256["final-native-admission"] = "not-a-digest"),
+          artifactMapIncomplete,
+        );
 
-      // BENCHMARK BINDING ----------------------------------------------------
-      const baselineDigestTamper = (hosted: JsonRecord): void => {
-        hosted.baseline.tarballSha256 = "7".repeat(64);
-      };
-      resolves(
-        "report.candidateSha256 !== ledger.candidate.tarballSha256 ||",
-        (hosted) => setCandidateTarball(hosted, "7".repeat(64)),
-        baselineDigestTamper,
-      );
-      resolves(
-        "report.baselineSha256 !== ledger.baseline?.tarballSha256 ||",
-        baselineDigestTamper,
-        (hosted) => (hosted.benchmarks.node22.artifactSha256 = "7".repeat(64)),
-      );
-      resolves(
-        'report.environment.platform !== "linux" ||',
-        (hosted) =>
-          (hosted.node22 = foreignEnvironmentReport(hosted, {
-            platform: "darwin",
-          })),
-        baselineDigestTamper,
-      );
-      resolves(
-        'report.environment.architecture !== "x64" ||',
-        (hosted) =>
-          (hosted.node22 = foreignEnvironmentReport(hosted, {
-            architecture: "arm64",
-          })),
-        baselineDigestTamper,
-      );
-      resolves(
-        `ledger.artifactSha256[\`benchmark-linux-node\${nodeMajor}\`] !==
-        ledger.benchmarks?.[\`node\${nodeMajor}\`]?.artifactSha256`,
-        (hosted) => (hosted.benchmarks.node22.artifactSha256 = "7".repeat(64)),
-        baselineDigestTamper,
-        "false",
-      );
+        // BENCHMARK BINDING ---------------------------------------------------
+        const benchmarkBindingInvalid = "hosted benchmark binding is invalid";
+        rejects(
+          (hosted) => setCandidateTarball(hosted, "7".repeat(64)),
+          benchmarkBindingInvalid,
+        );
+        rejects(
+          (hosted) => (hosted.baseline.tarballSha256 = "7".repeat(64)),
+          benchmarkBindingInvalid,
+        );
+        rejects(
+          (hosted) =>
+            (hosted.node22 = foreignEnvironmentReport(hosted, {
+              platform: "darwin",
+            })),
+          benchmarkBindingInvalid,
+        );
+        rejects(
+          (hosted) =>
+            (hosted.node22 = foreignEnvironmentReport(hosted, {
+              architecture: "arm64",
+            })),
+          benchmarkBindingInvalid,
+        );
+        rejects(
+          (hosted) =>
+            (hosted.benchmarks.node22.artifactSha256 = "7".repeat(64)),
+          benchmarkBindingInvalid,
+        );
 
-      // FOCUSED ADMISSION AUTHORITY -----------------------------------------
-      const focusedTupleTamper = (hosted: JsonRecord): void => {
-        hosted.focused.tuple = "win32-x64";
-      };
-      const focusedSeedTamper = (hosted: JsonRecord): void => {
-        hosted.focused.seed = 460_047;
-      };
-      const focusedClauses: [string, (hosted: JsonRecord) => void, string][] = [
-        [
-          'ledger.focused?.tuple !== "linux-x64" ||',
-          focusedTupleTamper,
-          "false ||",
-        ],
-        [
-          "ledger.focused?.nodeMajor !== 24 ||",
-          (hosted) => (hosted.focused.nodeMajor = 22),
-          "false ||",
-        ],
-        ["ledger.focused?.seed !== 460046 ||", focusedSeedTamper, "false ||"],
-        [
-          "ledger.focused?.propertyRuns !== 200 ||",
-          (hosted) => (hosted.focused.propertyRuns = 25),
-          "false ||",
-        ],
-        [
-          "!ledger.focused?.oracleAuthority ||",
+        // FOCUSED ADMISSION AUTHORITY -----------------------------------------
+        const focusedInvalid = "focused admission authority is invalid";
+        rejects(
+          (hosted) => (hosted.focused.tuple = "win32-x64"),
+          focusedInvalid,
+        );
+        rejects((hosted) => (hosted.focused.nodeMajor = 22), focusedInvalid);
+        rejects((hosted) => (hosted.focused.seed = 460_047), focusedInvalid);
+        rejects((hosted) => (hosted.focused.propertyRuns = 25), focusedInvalid);
+        rejects(
           (hosted) => delete hosted.focused.oracleAuthority,
-          "false ||",
-        ],
-        [
-          "ledger.focused.manifestSha256 !== ledger.candidate.corpusManifestSha256 ||",
+          focusedInvalid,
+        );
+        rejects(
           (hosted) => (hosted.focused.manifestSha256 = "7".repeat(64)),
-          "false ||",
-        ],
-        [
-          "ledger.installedConclusions !== 12",
-          (hosted) => (hosted.installedConclusions = 13),
-          "false",
-        ],
-      ];
-      for (const [conjunct, tamper, replacement] of focusedClauses)
-        resolves(
-          conjunct,
-          tamper,
-          tamper === focusedTupleTamper
-            ? focusedSeedTamper
-            : focusedTupleTamper,
-          replacement,
+          focusedInvalid,
+        );
+        // The exact surviving mutation the D-39 sweep reported by name: the
+        // twelve-installed-conclusion count could be deleted with nothing red.
+        rejects((hosted) => (hosted.installedConclusions = 13), focusedInvalid);
+
+        // TUPLE SET AND REPORT MAP --------------------------------------------
+        rejects(
+          (hosted) => delete hosted.tuples["win32-arm64"],
+          "installed tuple set is incomplete",
+        );
+        rejects(
+          (hosted) => (hosted.tuples["linux-riscv64"] = {}),
+          "installed tuple set is incomplete",
+        );
+        rejects(
+          (hosted) => delete hosted.tuples["linux-x64"].reports.node24,
+          "installed report map is incomplete",
+        );
+        rejects(
+          (hosted) => (hosted.tuples["linux-x64"].reports.node20 = {}),
+          "installed report map is incomplete",
         );
 
-      // TUPLE SET ------------------------------------------------------------
-      // An EXTRA tuple is resolved by the key-set conjunct.  A MISSING tuple is
-      // caught by the report-map clause even with the key-set conjunct removed,
-      // so the key-set conjunct is not what covers it; that is stated rather
-      // than papered over.
-      const tupleKeySetConjunct = `Object.keys(ledger.tuples ?? {})
-      .sort()
-      .join(",") !== tuples.sort().join(",")`;
-      const tupleKeySetMutant = mutantFor(tupleKeySetConjunct, "false");
-      writeTampered((hosted) => (hosted.tuples["linux-riscv64"] = {}));
-      expect(() => fixture.validate()).toThrow(
-        anchoredMessage("installed tuple set is incomplete"),
-      );
-      expect(() => validateWith(tupleKeySetMutant)).not.toThrow();
-      writeTampered((hosted) => delete hosted.tuples["win32-arm64"]);
-      expect(() => validateWith(tupleKeySetMutant)).toThrow(
-        anchoredMessage("installed report map is incomplete"),
-      );
+        // TUPLE BINDING -------------------------------------------------------
+        const tupleBindingInvalid = "installed tuple binding is invalid";
+        for (const mutate of TUPLE_BINDING_TAMPERS)
+          rejects(mutate, tupleBindingInvalid);
 
-      // TUPLE BINDING --------------------------------------------------------
-      const tupleBindingConjuncts = [
-        "item?.jobName !== `installed-${tuple}` ||",
-        'item?.conclusion !== "success" ||',
-        "item?.runId !== ledger.runId ||",
-        "item?.headSha !== ledger.headSha ||",
-        "item?.candidateSha !== ledger.headSha ||",
-        "item?.candidateTarballSha256 !== ledger.candidate.tarballSha256 ||",
-        "item?.corpusManifestSha256 !== ledger.candidate.corpusManifestSha256 ||",
-        "item?.nativeManifestSha256 !== ledger.candidate.nativeManifestSha256 ||",
-        "item?.artifact?.name !== `installed-${tuple}` ||",
-        "item.artifact?.runId !== ledger.runId ||",
-        "item.artifact?.sha256 !== ledger.artifactSha256[`installed-${tuple}`] ||",
-        "JSON.stringify(item.nodeMajors) !== JSON.stringify([22, 24])",
-      ];
-      expect(tupleBindingConjuncts).toHaveLength(TUPLE_BINDING_TAMPERS.length);
-      for (const [index, conjunct] of tupleBindingConjuncts.entries())
-        resolves(
-          conjunct,
-          TUPLE_BINDING_TAMPERS[index]!,
-          TUPLE_BINDING_TAMPERS[(index + 1) % TUPLE_BINDING_TAMPERS.length]!,
-          index === tupleBindingConjuncts.length - 1 ? "false" : "false ||",
+        // WINDOWS PUBLICATION AUTHORITY ---------------------------------------
+        rejects(
+          (hosted) => (hosted.tuples["win32-x64"].cleanup = "fail"),
+          "Windows publication authority is invalid",
         );
 
-      // WINDOWS PUBLICATION AUTHORITY ---------------------------------------
-      const windowsMutant = mutantFor(
-        'tuple.startsWith("win32") &&',
-        "false &&",
-      );
-      writeTampered((hosted) => (hosted.tuples["win32-x64"].cleanup = "fail"));
-      expect(() => fixture.validate()).toThrow(
-        anchoredMessage("Windows publication authority is invalid"),
-      );
-      expect(() => validateWith(windowsMutant)).not.toThrow();
-
-      // FINALIZATION CONTRACTS ----------------------------------------------
-      const finalizationMutant = mutantFor(
-        `JSON.stringify(ledger.finalizationContracts) !==
-    JSON.stringify(memory.finalizationContracts)`,
-        "false",
-      );
-      writeTampered(
-        (hosted) => (hosted.finalizationContracts = { baseline: {} }),
-      );
-      expect(() => fixture.validate()).toThrow(
-        anchoredMessage("version-specific finalization contracts mismatch"),
-      );
-      expect(() => validateWith(finalizationMutant)).not.toThrow();
-
-      // PREREQUISITE FILE DIGESTS -------------------------------------------
-      // The surviving `sha256File` mutation the sweep reported: a binding that
-      // compares the hosted ledger's OWN recorded digest to itself cannot
-      // detect a substituted file.  Each slot gets its own mutant so the three
-      // bindings are resolved separately, and a combined mutant makes all
-      // three substitutions accept.
-      fixture.writeHosted(fixture.hosted);
-      const slots = ["memory", "windows", "identityCleanup"] as const;
-      const digestCallSite = (slot: (typeof slots)[number]): string =>
-        slot === "identityCleanup"
-          ? "sha256File(identityCleanupPath)"
-          : `sha256File(${slot}Path)`;
-      for (const slot of slots) {
-        const selfBoundDigest = loadIdentityLedgerValidator(
-          source.replace(digestCallSite(slot), `ledger.repairs.${slot}.sha256`),
+        // FINALIZATION CONTRACTS ----------------------------------------------
+        rejects(
+          (hosted) => (hosted.finalizationContracts = { baseline: {} }),
+          "version-specific finalization contracts mismatch",
         );
-        fixture.substitutePrerequisite(slot);
-        expect(() => fixture.validate()).toThrow(
-          anchoredMessage(
-            `prerequisite ledger binding is invalid: ${slot}.sha256`,
-          ),
-        );
-        expect(() => validateWith(selfBoundDigest)).not.toThrow();
-        for (const sibling of slots.filter((other) => other !== slot)) {
-          fixture.substitutePrerequisite(sibling);
-          expect(() => validateWith(selfBoundDigest)).toThrow(
+
+        // PREREQUISITE BINDINGS, DRIVEN THROUGH THE FILES ----------------------
+        // The bytes of a copied prerequisite ledger FILE are altered while the
+        // hosted ledger's recorded digest is left alone, so `sha256File` is
+        // genuinely exercised rather than a constant being compared to a
+        // constant.
+        fixture.writeHosted(fixture.hosted);
+        for (const slot of ["memory", "windows", "identityCleanup"] as const) {
+          fixture.substitutePrerequisite(slot);
+          expect(() => fixture.validate()).toThrow(
             anchoredMessage(
-              `prerequisite ledger binding is invalid: ${sibling}.sha256`,
+              `prerequisite ledger binding is invalid: ${slot}.sha256`,
             ),
           );
-          fixture.restorePrerequisite(sibling);
+          fixture.restorePrerequisite(slot);
         }
-        fixture.restorePrerequisite(slot);
-      }
-      const allDigestsSelfBound = loadIdentityLedgerValidator(
-        slots.reduce(
-          (text, slot) =>
-            text.replace(digestCallSite(slot), `ledger.repairs.${slot}.sha256`),
-          source,
-        ),
-      );
-      for (const slot of slots) fixture.substitutePrerequisite(slot);
-      expect(() => fixture.validate()).toThrow(
-        anchoredMessage(
-          "prerequisite ledger binding is invalid: memory.sha256",
-        ),
-      );
-      expect(() => validateWith(allDigestsSelfBound)).not.toThrow();
-      for (const slot of slots) fixture.restorePrerequisite(slot);
-    } finally {
-      fixture.cleanup();
-    }
-  }, 600_000);
-  it("binds the hosted ledger clause on animation samples and RSS behaviorally", async () => {
-    // D-39.  This file previously asserted the hundred-sample contract by
-    // READING `benchmark-report.cjs` as a string and matching a regular
-    // expression against it.  The sweep kept that source text byte-identical,
-    // appended a short always-false conjunction that made the check
-    // unreachable, and the suite stayed green: a check passing while
-    // inspecting something ADJACENT to the behavior.  That assertion is
-    // DELETED, not supplemented -- leaving it beside a behavioral assertion
-    // would preserve the illusion that the text matcher is doing work.
-    //
-    // Replacing it behaviorally also MEASURED where the contract is enforced,
-    // and the honest answer is not where the text matcher looked.  Findings
-    // are recorded as executable assertions rather than prose so they cannot
-    // drift.
-    const source = await readFile(
-      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
-      "utf8",
-    );
-    const fixture = acceptingHostedLedger();
-    try {
-      const validateWith = (validator: IdentityLedgerValidator): unknown =>
-        validator.hostedLedger(
-          fixture.hostedPath,
-          fixture.memoryPath,
-          fixture.windowsPath,
-          fixture.identityPath,
-        );
-      const mutate = (conjunct: string, replacement: string): string => {
-        expect(source.split(conjunct).length - 1).toBe(1);
-        return source.replace(conjunct, replacement);
-      };
-      const animationOf = (hosted: JsonRecord): JsonRecord =>
-        (hosted.node22.comparisons as JsonRecord[]).find(
-          (item) => item.fixtureId === "animation-alpha-16m",
-        )! as JsonRecord;
-      const writeTampered = (apply: (hosted: JsonRecord) => void): void => {
-        const clone = structuredClone(fixture.hosted) as JsonRecord;
-        apply(clone);
-        fixture.writeHosted(clone);
-      };
+        expect(() => fixture.validate()).not.toThrow();
 
-      // HUNDRED SAMPLES, PER SIDE.  Each side is asserted separately.
-      const hundredSampleConjuncts = `animation.baseline.samples.length !== 100 ||
-    animation.candidate.samples.length !== 100 ||`;
-      const withoutHundredSampleClauses = loadIdentityLedgerValidator(
-        mutate(hundredSampleConjuncts, ""),
+        // ANIMATION RSS CEILING -----------------------------------------------
+        // The ceiling VALUE is read from the validator and is not changed here.
+        // Both sides are raised together so the baseline-relative bound and the
+        // per-report peak-RSS verdict stay satisfied and the ceiling is the only
+        // clause that can fire.
+        const ceiling = acceptingHostedLedger({
+          animationBaselineMaxRSSKiB: 200_000,
+          animationCandidateMaxRSSKiB: 200_000,
+        });
+        try {
+          expect(() => ceiling.validate()).toThrow(
+            anchoredMessage("Node 22 animation RSS authority is invalid"),
+          );
+        } finally {
+          ceiling.cleanup();
+        }
+      } finally {
+        fixture.cleanup();
+      }
+    },
+    180_000,
+  );
+  evidenceGatedIt(
+    "resolves each shared-message hosted ledger clause with a conjunct mutant",
+    async () => {
+      // `hostedLedger` bundles roughly ten clauses behind the single message
+      // `hosted run identity is invalid`, so an anchored message matcher alone
+      // cannot say WHICH clause rejected.  For every clause that shares a thrown
+      // message with a sibling, a fresh-VM mutant replaces exactly that conjunct
+      // with a constant-false term and must make that clause's tamper STOP
+      // rejecting while a sibling tamper keeps rejecting.
+      const source = await readFile(
+        join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+        "utf8",
       );
-      for (const side of ["baseline", "candidate"] as const) {
-        writeTampered((hosted) =>
-          (animationOf(hosted)[side] as JsonRecord).samples.pop(),
+      const fixture = acceptingHostedLedger();
+      try {
+        const validateWith = (validator: IdentityLedgerValidator): unknown =>
+          validator.hostedLedger(
+            fixture.hostedPath,
+            fixture.memoryPath,
+            fixture.windowsPath,
+            fixture.identityPath,
+          );
+        const mutantFor = (
+          conjunct: string,
+          replacement = "false",
+        ): IdentityLedgerValidator => {
+          expect(source.split(conjunct).length - 1).toBe(1);
+          const mutated = source.replace(conjunct, replacement);
+          expect(mutated).not.toBe(source);
+          return loadIdentityLedgerValidator(mutated);
+        };
+        const writeTampered = (mutate: (hosted: JsonRecord) => void): void => {
+          const clone = structuredClone(fixture.hosted) as JsonRecord;
+          mutate(clone);
+          fixture.writeHosted(clone);
+        };
+        const resolves = (
+          conjunct: string,
+          tamper: (hosted: JsonRecord) => void,
+          sibling: (hosted: JsonRecord) => void,
+          replacement = "false ||",
+        ): void => {
+          const mutant = mutantFor(conjunct, replacement);
+          writeTampered(tamper);
+          expect(() => fixture.validate()).toThrow();
+          expect(() => validateWith(mutant)).not.toThrow();
+          writeTampered(sibling);
+          expect(() => validateWith(mutant)).toThrow();
+        };
+
+        // RUN IDENTITY ---------------------------------------------------------
+        const repositoryTamper = (hosted: JsonRecord): void => {
+          hosted.repository = "szTheory/exifcleaner-electron";
+        };
+        const eventTamper = (hosted: JsonRecord): void => {
+          hosted.event = "push";
+        };
+        const runIdentityClauses: [string, (hosted: JsonRecord) => void][] = [
+          [
+            "ledger.schemaVersion !== 2 ||",
+            (hosted) => (hosted.schemaVersion = 3),
+          ],
+          [
+            'ledger.repository !== "szTheory/exifcleaner-node" ||',
+            repositoryTamper,
+          ],
+          [
+            'ledger.workflow !== "CI" ||',
+            (hosted) => (hosted.workflow = "Release"),
+          ],
+          [
+            'ledger.workflowPath !== ".github/workflows/ci.yml" ||',
+            (hosted) => (hosted.workflowPath = ".github/workflows/release.yml"),
+          ],
+          ['ledger.event !== "workflow_dispatch" ||', eventTamper],
+          [
+            'ledger.conclusion !== "success" ||',
+            (hosted) => (hosted.conclusion = "failure"),
+          ],
+          [
+            "!Number.isSafeInteger(ledger.runId) ||",
+            (hosted) => setHostedRunId(hosted, 1.5),
+          ],
+          [
+            '!/^https:\\/\\//.test(ledger.runUrl ?? "") ||',
+            (hosted) => (hosted.runUrl = "http://example.invalid/runs/1"),
+          ],
+          [
+            '!/^[a-f0-9]{40}$/.test(ledger.headSha ?? "") ||',
+            (hosted) =>
+              setHostedHeadSha(hosted, `${hosted.headSha as string}zz`),
+          ],
+        ];
+        for (const [conjunct, tamper] of runIdentityClauses)
+          resolves(
+            conjunct,
+            tamper,
+            tamper === repositoryTamper ? eventTamper : repositoryTamper,
+          );
+        // The candidate/head-sha equality is the LAST conjunct of the clause and
+        // carries no trailing `||`.
+        resolves(
+          "ledger.candidate?.sha !== ledger.headSha",
+          (hosted) => (hosted.candidate.sha = "b".repeat(40)),
+          repositoryTamper,
+          "false",
+        );
+        // The relocated proof-branch ref check: one conjunct, four rejections.
+        // Its mutant must make ALL FOUR accept, which is what proves the four
+        // rejections are that clause and not some later gate.
+        const refMutant = mutantFor(
+          '!/^proof\\/46-11-final-[0-9a-f]+$/.test(ledger.ref ?? "") ||',
+          "false ||",
+        );
+        for (const ref of RELOCATED_HOSTED_REF_REJECTIONS) {
+          writeTampered((hosted) => (hosted.ref = ref));
+          expect(() => fixture.validate()).toThrow(
+            anchoredMessage("hosted run identity is invalid"),
+          );
+          expect(() => validateWith(refMutant)).not.toThrow();
+        }
+        writeTampered(repositoryTamper);
+        expect(() => validateWith(refMutant)).toThrow();
+
+        // ARTIFACT MAP ---------------------------------------------------------
+        const artifactKeySetConjunct = `Object.keys(ledger.artifactSha256 ?? {})
+      .sort()
+      .join(",") !== artifacts.sort().join(",") ||`;
+        const artifactDigestConjunct =
+          "artifacts.some((name) => !SHA256.test(ledger.artifactSha256[name]))";
+        const extraArtifactKey = (hosted: JsonRecord): void => {
+          hosted.artifactSha256["extra-artifact"] = "7".repeat(64);
+        };
+        const nonDigestArtifact = (hosted: JsonRecord): void => {
+          hosted.artifactSha256["final-native-admission"] = "not-a-digest";
+        };
+        resolves(artifactKeySetConjunct, extraArtifactKey, nonDigestArtifact);
+        resolves(
+          artifactDigestConjunct,
+          nonDigestArtifact,
+          extraArtifactKey,
+          "false",
+        );
+        // A MISSING key trips BOTH conjuncts, so neither single mutant flips it.
+        // The pair is resolved jointly: with both conjuncts false the missing key
+        // is accepted, which is the honest statement of what covers it.
+        const bothArtifactConjunctsFalse = loadIdentityLedgerValidator(
+          source
+            .replace(artifactKeySetConjunct, "false ||")
+            .replace(artifactDigestConjunct, "false"),
+        );
+        writeTampered(
+          (hosted) => delete hosted.artifactSha256["final-native-admission"],
         );
         expect(() => fixture.validate()).toThrow(
-          anchoredMessage(
-            "comparison samples are not bound to retained raw evidence",
+          anchoredMessage("hosted artifact map is incomplete"),
+        );
+        expect(() => validateWith(bothArtifactConjunctsFalse)).not.toThrow();
+
+        // BENCHMARK BINDING ----------------------------------------------------
+        const baselineDigestTamper = (hosted: JsonRecord): void => {
+          hosted.baseline.tarballSha256 = "7".repeat(64);
+        };
+        resolves(
+          "report.candidateSha256 !== ledger.candidate.tarballSha256 ||",
+          (hosted) => setCandidateTarball(hosted, "7".repeat(64)),
+          baselineDigestTamper,
+        );
+        resolves(
+          "report.baselineSha256 !== ledger.baseline?.tarballSha256 ||",
+          baselineDigestTamper,
+          (hosted) =>
+            (hosted.benchmarks.node22.artifactSha256 = "7".repeat(64)),
+        );
+        resolves(
+          'report.environment.platform !== "linux" ||',
+          (hosted) =>
+            (hosted.node22 = foreignEnvironmentReport(hosted, {
+              platform: "darwin",
+            })),
+          baselineDigestTamper,
+        );
+        resolves(
+          'report.environment.architecture !== "x64" ||',
+          (hosted) =>
+            (hosted.node22 = foreignEnvironmentReport(hosted, {
+              architecture: "arm64",
+            })),
+          baselineDigestTamper,
+        );
+        resolves(
+          `ledger.artifactSha256[\`benchmark-linux-node\${nodeMajor}\`] !==
+        ledger.benchmarks?.[\`node\${nodeMajor}\`]?.artifactSha256`,
+          (hosted) =>
+            (hosted.benchmarks.node22.artifactSha256 = "7".repeat(64)),
+          baselineDigestTamper,
+          "false",
+        );
+
+        // FOCUSED ADMISSION AUTHORITY -----------------------------------------
+        const focusedTupleTamper = (hosted: JsonRecord): void => {
+          hosted.focused.tuple = "win32-x64";
+        };
+        const focusedSeedTamper = (hosted: JsonRecord): void => {
+          hosted.focused.seed = 460_047;
+        };
+        const focusedClauses: [string, (hosted: JsonRecord) => void, string][] =
+          [
+            [
+              'ledger.focused?.tuple !== "linux-x64" ||',
+              focusedTupleTamper,
+              "false ||",
+            ],
+            [
+              "ledger.focused?.nodeMajor !== 24 ||",
+              (hosted) => (hosted.focused.nodeMajor = 22),
+              "false ||",
+            ],
+            [
+              "ledger.focused?.seed !== 460046 ||",
+              focusedSeedTamper,
+              "false ||",
+            ],
+            [
+              "ledger.focused?.propertyRuns !== 200 ||",
+              (hosted) => (hosted.focused.propertyRuns = 25),
+              "false ||",
+            ],
+            [
+              "!ledger.focused?.oracleAuthority ||",
+              (hosted) => delete hosted.focused.oracleAuthority,
+              "false ||",
+            ],
+            [
+              "ledger.focused.manifestSha256 !== ledger.candidate.corpusManifestSha256 ||",
+              (hosted) => (hosted.focused.manifestSha256 = "7".repeat(64)),
+              "false ||",
+            ],
+            [
+              "ledger.installedConclusions !== 12",
+              (hosted) => (hosted.installedConclusions = 13),
+              "false",
+            ],
+          ];
+        for (const [conjunct, tamper, replacement] of focusedClauses)
+          resolves(
+            conjunct,
+            tamper,
+            tamper === focusedTupleTamper
+              ? focusedSeedTamper
+              : focusedTupleTamper,
+            replacement,
+          );
+
+        // TUPLE SET ------------------------------------------------------------
+        // An EXTRA tuple is resolved by the key-set conjunct.  A MISSING tuple is
+        // caught by the report-map clause even with the key-set conjunct removed,
+        // so the key-set conjunct is not what covers it; that is stated rather
+        // than papered over.
+        const tupleKeySetConjunct = `Object.keys(ledger.tuples ?? {})
+      .sort()
+      .join(",") !== tuples.sort().join(",")`;
+        const tupleKeySetMutant = mutantFor(tupleKeySetConjunct, "false");
+        writeTampered((hosted) => (hosted.tuples["linux-riscv64"] = {}));
+        expect(() => fixture.validate()).toThrow(
+          anchoredMessage("installed tuple set is incomplete"),
+        );
+        expect(() => validateWith(tupleKeySetMutant)).not.toThrow();
+        writeTampered((hosted) => delete hosted.tuples["win32-arm64"]);
+        expect(() => validateWith(tupleKeySetMutant)).toThrow(
+          anchoredMessage("installed report map is incomplete"),
+        );
+
+        // TUPLE BINDING --------------------------------------------------------
+        const tupleBindingConjuncts = [
+          "item?.jobName !== `installed-${tuple}` ||",
+          'item?.conclusion !== "success" ||',
+          "item?.runId !== ledger.runId ||",
+          "item?.headSha !== ledger.headSha ||",
+          "item?.candidateSha !== ledger.headSha ||",
+          "item?.candidateTarballSha256 !== ledger.candidate.tarballSha256 ||",
+          "item?.corpusManifestSha256 !== ledger.candidate.corpusManifestSha256 ||",
+          "item?.nativeManifestSha256 !== ledger.candidate.nativeManifestSha256 ||",
+          "item?.artifact?.name !== `installed-${tuple}` ||",
+          "item.artifact?.runId !== ledger.runId ||",
+          "item.artifact?.sha256 !== ledger.artifactSha256[`installed-${tuple}`] ||",
+          "JSON.stringify(item.nodeMajors) !== JSON.stringify([22, 24])",
+        ];
+        expect(tupleBindingConjuncts).toHaveLength(
+          TUPLE_BINDING_TAMPERS.length,
+        );
+        for (const [index, conjunct] of tupleBindingConjuncts.entries())
+          resolves(
+            conjunct,
+            TUPLE_BINDING_TAMPERS[index]!,
+            TUPLE_BINDING_TAMPERS[(index + 1) % TUPLE_BINDING_TAMPERS.length]!,
+            index === tupleBindingConjuncts.length - 1 ? "false" : "false ||",
+          );
+
+        // WINDOWS PUBLICATION AUTHORITY ---------------------------------------
+        const windowsMutant = mutantFor(
+          'tuple.startsWith("win32") &&',
+          "false &&",
+        );
+        writeTampered(
+          (hosted) => (hosted.tuples["win32-x64"].cleanup = "fail"),
+        );
+        expect(() => fixture.validate()).toThrow(
+          anchoredMessage("Windows publication authority is invalid"),
+        );
+        expect(() => validateWith(windowsMutant)).not.toThrow();
+
+        // FINALIZATION CONTRACTS ----------------------------------------------
+        const finalizationMutant = mutantFor(
+          `JSON.stringify(ledger.finalizationContracts) !==
+    JSON.stringify(memory.finalizationContracts)`,
+          "false",
+        );
+        writeTampered(
+          (hosted) => (hosted.finalizationContracts = { baseline: {} }),
+        );
+        expect(() => fixture.validate()).toThrow(
+          anchoredMessage("version-specific finalization contracts mismatch"),
+        );
+        expect(() => validateWith(finalizationMutant)).not.toThrow();
+
+        // PREREQUISITE FILE DIGESTS -------------------------------------------
+        // The surviving `sha256File` mutation the sweep reported: a binding that
+        // compares the hosted ledger's OWN recorded digest to itself cannot
+        // detect a substituted file.  Each slot gets its own mutant so the three
+        // bindings are resolved separately, and a combined mutant makes all
+        // three substitutions accept.
+        fixture.writeHosted(fixture.hosted);
+        const slots = ["memory", "windows", "identityCleanup"] as const;
+        const digestCallSite = (slot: (typeof slots)[number]): string =>
+          slot === "identityCleanup"
+            ? "sha256File(identityCleanupPath)"
+            : `sha256File(${slot}Path)`;
+        for (const slot of slots) {
+          const selfBoundDigest = loadIdentityLedgerValidator(
+            source.replace(
+              digestCallSite(slot),
+              `ledger.repairs.${slot}.sha256`,
+            ),
+          );
+          fixture.substitutePrerequisite(slot);
+          expect(() => fixture.validate()).toThrow(
+            anchoredMessage(
+              `prerequisite ledger binding is invalid: ${slot}.sha256`,
+            ),
+          );
+          expect(() => validateWith(selfBoundDigest)).not.toThrow();
+          for (const sibling of slots.filter((other) => other !== slot)) {
+            fixture.substitutePrerequisite(sibling);
+            expect(() => validateWith(selfBoundDigest)).toThrow(
+              anchoredMessage(
+                `prerequisite ledger binding is invalid: ${sibling}.sha256`,
+              ),
+            );
+            fixture.restorePrerequisite(sibling);
+          }
+          fixture.restorePrerequisite(slot);
+        }
+        const allDigestsSelfBound = loadIdentityLedgerValidator(
+          slots.reduce(
+            (text, slot) =>
+              text.replace(
+                digestCallSite(slot),
+                `ledger.repairs.${slot}.sha256`,
+              ),
+            source,
           ),
         );
-        // NOT COVERED, stated plainly: the hosted ledger's own hundred-sample
-        // conjuncts are UNREACHABLE.  `validateReport` runs first inside
-        // `hostedLedger` and already binds each comparison side to exactly the
-        // hundred retained raw samples, so removing BOTH hosted conjuncts
-        // changes nothing.  They are redundant defence in depth, and no tamper
-        // can make them the clause that rejects.
-        expect(() => validateWith(withoutHundredSampleClauses)).toThrow(
+        for (const slot of slots) fixture.substitutePrerequisite(slot);
+        expect(() => fixture.validate()).toThrow(
           anchoredMessage(
-            "comparison samples are not bound to retained raw evidence",
+            "prerequisite ledger binding is invalid: memory.sha256",
           ),
         );
+        expect(() => validateWith(allDigestsSelfBound)).not.toThrow();
+        for (const slot of slots) fixture.restorePrerequisite(slot);
+      } finally {
+        fixture.cleanup();
       }
-
-      // THE ANIMATION COMPARISON ITSELF is likewise pinned by `validateReport`,
-      // so the `!animation` guard is unreachable for the same reason.
-      writeTampered((hosted) => {
-        hosted.node22.comparisons = (
-          hosted.node22.comparisons as JsonRecord[]
-        ).filter((item) => item.fixtureId !== "animation-alpha-16m");
-      });
-      expect(() => fixture.validate()).toThrow(
-        anchoredMessage("comparison evidence set is incomplete"),
+    },
+    600_000,
+  );
+  evidenceGatedIt(
+    "binds the hosted ledger clause on animation samples and RSS behaviorally",
+    async () => {
+      // D-39.  This file previously asserted the hundred-sample contract by
+      // READING `benchmark-report.cjs` as a string and matching a regular
+      // expression against it.  The sweep kept that source text byte-identical,
+      // appended a short always-false conjunction that made the check
+      // unreachable, and the suite stayed green: a check passing while
+      // inspecting something ADJACENT to the behavior.  That assertion is
+      // DELETED, not supplemented -- leaving it beside a behavioral assertion
+      // would preserve the illusion that the text matcher is doing work.
+      //
+      // Replacing it behaviorally also MEASURED where the contract is enforced,
+      // and the honest answer is not where the text matcher looked.  Findings
+      // are recorded as executable assertions rather than prose so they cannot
+      // drift.
+      const source = await readFile(
+        join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+        "utf8",
       );
-
-      // RSS CEILING: REACHABLE, and resolved by its own conjunct mutant.  Both
-      // sides are raised together so the baseline-relative bound and the
-      // per-report peak-RSS verdict stay satisfied.  The ceiling VALUE is read
-      // from the validator and is not changed.
-      const ceiling = acceptingHostedLedger({
-        animationBaselineMaxRSSKiB: 200_000,
-        animationCandidateMaxRSSKiB: 200_000,
-      });
+      const fixture = acceptingHostedLedger();
       try {
-        expect(() => ceiling.validate()).toThrow(
-          anchoredMessage("Node 22 animation RSS authority is invalid"),
+        const validateWith = (validator: IdentityLedgerValidator): unknown =>
+          validator.hostedLedger(
+            fixture.hostedPath,
+            fixture.memoryPath,
+            fixture.windowsPath,
+            fixture.identityPath,
+          );
+        const mutate = (conjunct: string, replacement: string): string => {
+          expect(source.split(conjunct).length - 1).toBe(1);
+          return source.replace(conjunct, replacement);
+        };
+        const animationOf = (hosted: JsonRecord): JsonRecord =>
+          (hosted.node22.comparisons as JsonRecord[]).find(
+            (item) => item.fixtureId === "animation-alpha-16m",
+          )! as JsonRecord;
+        const writeTampered = (apply: (hosted: JsonRecord) => void): void => {
+          const clone = structuredClone(fixture.hosted) as JsonRecord;
+          apply(clone);
+          fixture.writeHosted(clone);
+        };
+
+        // HUNDRED SAMPLES, PER SIDE.  Each side is asserted separately.
+        const hundredSampleConjuncts = `animation.baseline.samples.length !== 100 ||
+    animation.candidate.samples.length !== 100 ||`;
+        const withoutHundredSampleClauses = loadIdentityLedgerValidator(
+          mutate(hundredSampleConjuncts, ""),
         );
-        const withoutCeiling = loadIdentityLedgerValidator(
-          mutate(
-            `percentile(
+        for (const side of ["baseline", "candidate"] as const) {
+          writeTampered((hosted) =>
+            (animationOf(hosted)[side] as JsonRecord).samples.pop(),
+          );
+          expect(() => fixture.validate()).toThrow(
+            anchoredMessage(
+              "comparison samples are not bound to retained raw evidence",
+            ),
+          );
+          // NOT COVERED, stated plainly: the hosted ledger's own hundred-sample
+          // conjuncts are UNREACHABLE.  `validateReport` runs first inside
+          // `hostedLedger` and already binds each comparison side to exactly the
+          // hundred retained raw samples, so removing BOTH hosted conjuncts
+          // changes nothing.  They are redundant defence in depth, and no tamper
+          // can make them the clause that rejects.
+          expect(() => validateWith(withoutHundredSampleClauses)).toThrow(
+            anchoredMessage(
+              "comparison samples are not bound to retained raw evidence",
+            ),
+          );
+        }
+
+        // THE ANIMATION COMPARISON ITSELF is likewise pinned by `validateReport`,
+        // so the `!animation` guard is unreachable for the same reason.
+        writeTampered((hosted) => {
+          hosted.node22.comparisons = (
+            hosted.node22.comparisons as JsonRecord[]
+          ).filter((item) => item.fixtureId !== "animation-alpha-16m");
+        });
+        expect(() => fixture.validate()).toThrow(
+          anchoredMessage("comparison evidence set is incomplete"),
+        );
+
+        // RSS CEILING: REACHABLE, and resolved by its own conjunct mutant.  Both
+        // sides are raised together so the baseline-relative bound and the
+        // per-report peak-RSS verdict stay satisfied.  The ceiling VALUE is read
+        // from the validator and is not changed.
+        const ceiling = acceptingHostedLedger({
+          animationBaselineMaxRSSKiB: 200_000,
+          animationCandidateMaxRSSKiB: 200_000,
+        });
+        try {
+          expect(() => ceiling.validate()).toThrow(
+            anchoredMessage("Node 22 animation RSS authority is invalid"),
+          );
+          const withoutCeiling = loadIdentityLedgerValidator(
+            mutate(
+              `percentile(
       animation.candidate.samples.map((sample) => sample.maxRSSKiB),
       0.5,
     ) > 153500 ||`,
-            "false ||",
-          ),
-        );
-        expect(() =>
-          withoutCeiling.hostedLedger(
-            ceiling.hostedPath,
-            ceiling.memoryPath,
-            ceiling.windowsPath,
-            ceiling.identityPath,
-          ),
-        ).not.toThrow();
-      } finally {
-        ceiling.cleanup();
-      }
+              "false ||",
+            ),
+          );
+          expect(() =>
+            withoutCeiling.hostedLedger(
+              ceiling.hostedPath,
+              ceiling.memoryPath,
+              ceiling.windowsPath,
+              ceiling.identityPath,
+            ),
+          ).not.toThrow();
+        } finally {
+          ceiling.cleanup();
+        }
 
-      // BASELINE-RELATIVE BOUND: NOT COVERED, stated plainly.  The hosted
-      // clause bounds the candidate animation RSS median at the baseline
-      // median plus 16384 KiB, but `benchmark.evaluatePair` applies the
-      // IDENTICAL relation with the identical `peakRssSlackKiB` slack inside
-      // `validateReport`, so any ledger that trips the hosted bound has
-      // already produced a non-passing report and is rejected by
-      // `phaseAdmissionReports` first.  The clause therefore cannot be made
-      // the rejecting clause, and its control does not flip under its own
-      // conjunct mutant.  It is redundant defence in depth, not lethal, and is
-      // reported as not covered rather than quietly counted.
-      const slope = acceptingHostedLedger({
-        animationBaselineMaxRSSKiB: 1,
-        animationCandidateMaxRSSKiB: 20_000,
-      });
-      try {
-        expect(() => slope.validate()).toThrow(
-          anchoredMessage("Node benchmark admission is incomplete"),
-        );
-        const withoutSlopeBound = loadIdentityLedgerValidator(
-          mutate(
-            `percentile(
+        // BASELINE-RELATIVE BOUND: NOT COVERED, stated plainly.  The hosted
+        // clause bounds the candidate animation RSS median at the baseline
+        // median plus 16384 KiB, but `benchmark.evaluatePair` applies the
+        // IDENTICAL relation with the identical `peakRssSlackKiB` slack inside
+        // `validateReport`, so any ledger that trips the hosted bound has
+        // already produced a non-passing report and is rejected by
+        // `phaseAdmissionReports` first.  The clause therefore cannot be made
+        // the rejecting clause, and its control does not flip under its own
+        // conjunct mutant.  It is redundant defence in depth, not lethal, and is
+        // reported as not covered rather than quietly counted.
+        const slope = acceptingHostedLedger({
+          animationBaselineMaxRSSKiB: 1,
+          animationCandidateMaxRSSKiB: 20_000,
+        });
+        try {
+          expect(() => slope.validate()).toThrow(
+            anchoredMessage("Node benchmark admission is incomplete"),
+          );
+          const withoutSlopeBound = loadIdentityLedgerValidator(
+            mutate(
+              `percentile(
       animation.candidate.samples.map((sample) => sample.maxRSSKiB),
       0.5,
     ) >
@@ -2203,210 +2236,221 @@ describe("paired benchmark admission", () => {
         0.5,
       ) +
         16384`,
-            "false",
+              "false",
+            ),
+          );
+          expect(() =>
+            withoutSlopeBound.hostedLedger(
+              slope.hostedPath,
+              slope.memoryPath,
+              slope.windowsPath,
+              slope.identityPath,
+            ),
+          ).toThrow(anchoredMessage("Node benchmark admission is incomplete"));
+        } finally {
+          slope.cleanup();
+        }
+
+        // MODE AND PASS: NOT COVERED, stated plainly.  `phaseAdmissionReports`
+        // runs before the hosted binding clause and applies the same two
+        // requirements, so the hosted `report.mode !== "admit"` and
+        // `report.pass !== true` conjuncts can never be the rejecting clause.
+        writeTampered((hosted) => (hosted.node22.mode = "report"));
+        expect(() => fixture.validate()).toThrow(
+          anchoredMessage("Node benchmark admission is incomplete"),
+        );
+        const withoutModeAndPass = loadIdentityLedgerValidator(
+          mutate(
+            `report.mode !== "admit" ||
+      report.pass !== true ||`,
+            "",
           ),
         );
-        expect(() =>
-          withoutSlopeBound.hostedLedger(
-            slope.hostedPath,
-            slope.memoryPath,
-            slope.windowsPath,
-            slope.identityPath,
-          ),
-        ).toThrow(anchoredMessage("Node benchmark admission is incomplete"));
+        expect(() => validateWith(withoutModeAndPass)).toThrow(
+          anchoredMessage("Node benchmark admission is incomplete"),
+        );
       } finally {
-        slope.cleanup();
+        fixture.cleanup();
       }
-
-      // MODE AND PASS: NOT COVERED, stated plainly.  `phaseAdmissionReports`
-      // runs before the hosted binding clause and applies the same two
-      // requirements, so the hosted `report.mode !== "admit"` and
-      // `report.pass !== true` conjuncts can never be the rejecting clause.
-      writeTampered((hosted) => (hosted.node22.mode = "report"));
-      expect(() => fixture.validate()).toThrow(
-        anchoredMessage("Node benchmark admission is incomplete"),
-      );
-      const withoutModeAndPass = loadIdentityLedgerValidator(
-        mutate(
-          `report.mode !== "admit" ||
-      report.pass !== true ||`,
-          "",
-        ),
-      );
-      expect(() => validateWith(withoutModeAndPass)).toThrow(
-        anchoredMessage("Node benchmark admission is incomplete"),
-      );
-    } finally {
-      fixture.cleanup();
-    }
-  }, 300_000);
-  it("accepts a hosted ledger built from run 35030048631 real artifacts", () => {
-    // POSITIVE CONTROL.  Until this is green every hosted-ledger rejection in
-    // this file is indistinguishable from what a reject-everything function
-    // produces, which is exactly the state D-39 clause (e) reported.
-    const fixture = acceptingHostedLedger();
-    try {
-      expect(() => fixture.validate()).not.toThrow();
-      const accepted = fixture.validate() as Record<string, unknown>;
-      expect(accepted.runId).toBe(fixture.identity.run.id);
-      expect(accepted.headSha).toBe(fixture.identity.run.headSha);
-      expect(accepted.installedConclusions).toBe(12);
-    } finally {
-      fixture.cleanup();
-    }
-  });
-  it("accepts only exact short repair and final identity-ledger refs", async () => {
-    // D-39 (a), a TAKEN decision.  The proof-branch namespace constraint has
-    // been RELOCATED out of `validateIdentityCleanupLedger`.  `ci.yml:310`
-    // builds this ledger from `GITHUB_REF_NAME` and `release.yml` delegates to
-    // `ci.yml` on `v*` tags, so demanding a proof branch here made continuous
-    // integration on the default branch and the ENTIRE publish path
-    // unreachable; every green run in repository history is on a proof branch,
-    // which is why it was never observed.  `hostedLedger` already carries its
-    // own `^proof/46-11-final-[0-9a-f]+$` check and is now the constraint's
-    // new and only home, so final admission still requires a proof ref -- that
-    // is asserted positively at the end of this test.
-    //
-    // D-34 SURVIVES the relocation: GitHub supplies the SHORT `GITHUB_REF_NAME`
-    // and full refs are still rejected, along with empty, whitespace-bearing
-    // and slash-shaped values.  Both directions are explicit lists.
-    const base = {
-      schemaVersion: "phase-46-identity-cleanup-ledger/v1",
-      run: {
-        id: 123,
-        url: "https://github.com/szTheory/exifcleaner-node/actions/runs/123",
-        ref: "proof/46-18-repair-abc123",
-        headSha: "a".repeat(40),
-      },
-      candidate: {
-        implementationSha: "a".repeat(40),
-        tarballSha256: "b".repeat(64),
-        corpusManifestSha256: "c".repeat(64),
-        nativeManifestSha256: "d".repeat(64),
-      },
-      artifacts: {},
-      installed: {},
-    };
-    const acceptedRefs = [
-      "main",
-      "v4.1.0",
-      "proof/46-18-repair-dd1b6a1",
-      "proof/46-11-final-1c6fcfb",
-      "proof/46-25-windows-diagnostic-abc123",
-    ];
-    const rejectedRefs = [
-      "refs/heads/main",
-      "refs/tags/v4.1.0",
-      "refs/heads/proof/46-18-repair-abc123",
-      "",
-      "   ",
-      "main branch",
-      "/main",
-      "main/",
-      "proof//46-18-repair-abc123",
-    ];
-    for (const ref of acceptedRefs) {
+    },
+    300_000,
+  );
+  evidenceGatedIt(
+    "accepts a hosted ledger built from run 35030048631 real artifacts",
+    () => {
+      // POSITIVE CONTROL.  Until this is green every hosted-ledger rejection in
+      // this file is indistinguishable from what a reject-everything function
+      // produces, which is exactly the state D-39 clause (e) reported.
+      const fixture = acceptingHostedLedger();
       try {
-        report.validateIdentityCleanupLedger({
-          ...base,
-          run: { ...base.run, ref },
-        });
-        throw new Error("partial identity ledger unexpectedly validated");
-      } catch (error) {
-        expect(String(error)).toMatch(/artifacts/u);
+        expect(() => fixture.validate()).not.toThrow();
+        const accepted = fixture.validate() as Record<string, unknown>;
+        expect(accepted.runId).toBe(fixture.identity.run.id);
+        expect(accepted.headSha).toBe(fixture.identity.run.headSha);
+        expect(accepted.installedConclusions).toBe(12);
+      } finally {
+        fixture.cleanup();
       }
-    }
-    for (const ref of rejectedRefs)
-      expect(() =>
-        report.validateIdentityCleanupLedger({
-          ...base,
-          run: { ...base.run, ref },
-        }),
-      ).toThrow("identity cleanup ledger run/candidate binding is invalid");
-
-    const source = await readFile(
-      join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
-      "utf8",
-    );
-    const assertRefAuthority = (candidate: {
-      validateIdentityCleanupLedger(input: Record<string, unknown>): void;
-    }): void => {
+    },
+  );
+  evidenceGatedIt(
+    "accepts only exact short repair and final identity-ledger refs",
+    async () => {
+      // D-39 (a), a TAKEN decision.  The proof-branch namespace constraint has
+      // been RELOCATED out of `validateIdentityCleanupLedger`.  `ci.yml:310`
+      // builds this ledger from `GITHUB_REF_NAME` and `release.yml` delegates to
+      // `ci.yml` on `v*` tags, so demanding a proof branch here made continuous
+      // integration on the default branch and the ENTIRE publish path
+      // unreachable; every green run in repository history is on a proof branch,
+      // which is why it was never observed.  `hostedLedger` already carries its
+      // own `^proof/46-11-final-[0-9a-f]+$` check and is now the constraint's
+      // new and only home, so final admission still requires a proof ref -- that
+      // is asserted positively at the end of this test.
+      //
+      // D-34 SURVIVES the relocation: GitHub supplies the SHORT `GITHUB_REF_NAME`
+      // and full refs are still rejected, along with empty, whitespace-bearing
+      // and slash-shaped values.  Both directions are explicit lists.
+      const base = {
+        schemaVersion: "phase-46-identity-cleanup-ledger/v1",
+        run: {
+          id: 123,
+          url: "https://github.com/szTheory/exifcleaner-node/actions/runs/123",
+          ref: "proof/46-18-repair-abc123",
+          headSha: "a".repeat(40),
+        },
+        candidate: {
+          implementationSha: "a".repeat(40),
+          tarballSha256: "b".repeat(64),
+          corpusManifestSha256: "c".repeat(64),
+          nativeManifestSha256: "d".repeat(64),
+        },
+        artifacts: {},
+        installed: {},
+      };
+      const acceptedRefs = [
+        "main",
+        "v4.1.0",
+        "proof/46-18-repair-dd1b6a1",
+        "proof/46-11-final-1c6fcfb",
+        "proof/46-25-windows-diagnostic-abc123",
+      ];
+      const rejectedRefs = [
+        "refs/heads/main",
+        "refs/tags/v4.1.0",
+        "refs/heads/proof/46-18-repair-abc123",
+        "",
+        "   ",
+        "main branch",
+        "/main",
+        "main/",
+        "proof//46-18-repair-abc123",
+      ];
       for (const ref of acceptedRefs) {
         try {
-          candidate.validateIdentityCleanupLedger({
+          report.validateIdentityCleanupLedger({
             ...base,
             run: { ...base.run, ref },
           });
           throw new Error("partial identity ledger unexpectedly validated");
         } catch (error) {
-          if (!/artifacts/u.test(String(error)))
-            throw new Error(`accepted identity ref was rejected: ${ref}`);
+          expect(String(error)).toMatch(/artifacts/u);
         }
       }
-      for (const ref of rejectedRefs) {
-        try {
-          candidate.validateIdentityCleanupLedger({
+      for (const ref of rejectedRefs)
+        expect(() =>
+          report.validateIdentityCleanupLedger({
             ...base,
             run: { ...base.run, ref },
-          });
-          throw new Error("invalid identity ref unexpectedly validated");
-        } catch (error) {
-          if (!/run\/candidate binding is invalid/u.test(String(error)))
-            throw new Error(`invalid identity ref reached later gates: ${ref}`);
-        }
-      }
-    };
-    expect(() =>
-      assertRefAuthority(loadIdentityLedgerValidator(source)),
-    ).not.toThrow();
-    // The two namespace mutants this test used to carry are gone with the
-    // namespace rule; these two mutate the SHORT-REF rule that replaced it --
-    // one admits full refs, one admits the empty string.  Each must be killed.
-    const mutations = [
-      source.replace("/^refs\\//u.test(ledger.run.ref) ||", "false ||"),
-      source.replace(
-        "!/^[\\w.\\-][\\w.\\-/]*$/u.test(ledger.run.ref) ||",
-        "!/^[\\w.\\-/]*$/u.test(ledger.run.ref) ||",
-      ),
-    ];
-    for (const mutation of mutations) {
-      expect(mutation).not.toBe(source);
-      expect(() =>
-        assertRefAuthority(loadIdentityLedgerValidator(mutation)),
-      ).toThrow();
-    }
+          }),
+        ).toThrow("identity cleanup ledger run/candidate binding is invalid");
 
-    // THE CONSTRAINT IS STILL ENFORCED WHERE IT BELONGS.  The accepting hosted
-    // ledger rejects `main`, a version tag, a repair-namespace ref and a full
-    // ref, and a conjunct mutant of the hosted ref check makes all four accept.
-    const fixture = acceptingHostedLedger();
-    try {
-      const hostedRefConjunct =
-        '!/^proof\\/46-11-final-[0-9a-f]+$/.test(ledger.ref ?? "") ||';
-      expect(source.split(hostedRefConjunct).length - 1).toBe(1);
-      const withoutHostedRefLock = loadIdentityLedgerValidator(
-        source.replace(hostedRefConjunct, "false ||"),
+      const source = await readFile(
+        join(projectRoot, "scripts", "qualification", "benchmark-report.cjs"),
+        "utf8",
       );
-      for (const ref of RELOCATED_HOSTED_REF_REJECTIONS) {
-        const clone = structuredClone(fixture.hosted) as JsonRecord;
-        clone.ref = ref;
-        fixture.writeHosted(clone);
-        expect(() => fixture.validate()).toThrow(
-          anchoredMessage("hosted run identity is invalid"),
-        );
+      const assertRefAuthority = (candidate: {
+        validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+      }): void => {
+        for (const ref of acceptedRefs) {
+          try {
+            candidate.validateIdentityCleanupLedger({
+              ...base,
+              run: { ...base.run, ref },
+            });
+            throw new Error("partial identity ledger unexpectedly validated");
+          } catch (error) {
+            if (!/artifacts/u.test(String(error)))
+              throw new Error(`accepted identity ref was rejected: ${ref}`);
+          }
+        }
+        for (const ref of rejectedRefs) {
+          try {
+            candidate.validateIdentityCleanupLedger({
+              ...base,
+              run: { ...base.run, ref },
+            });
+            throw new Error("invalid identity ref unexpectedly validated");
+          } catch (error) {
+            if (!/run\/candidate binding is invalid/u.test(String(error)))
+              throw new Error(
+                `invalid identity ref reached later gates: ${ref}`,
+              );
+          }
+        }
+      };
+      expect(() =>
+        assertRefAuthority(loadIdentityLedgerValidator(source)),
+      ).not.toThrow();
+      // The two namespace mutants this test used to carry are gone with the
+      // namespace rule; these two mutate the SHORT-REF rule that replaced it --
+      // one admits full refs, one admits the empty string.  Each must be killed.
+      const mutations = [
+        source.replace("/^refs\\//u.test(ledger.run.ref) ||", "false ||"),
+        source.replace(
+          "!/^[\\w.\\-][\\w.\\-/]*$/u.test(ledger.run.ref) ||",
+          "!/^[\\w.\\-/]*$/u.test(ledger.run.ref) ||",
+        ),
+      ];
+      for (const mutation of mutations) {
+        expect(mutation).not.toBe(source);
         expect(() =>
-          withoutHostedRefLock.hostedLedger(
-            fixture.hostedPath,
-            fixture.memoryPath,
-            fixture.windowsPath,
-            fixture.identityPath,
-          ),
-        ).not.toThrow();
+          assertRefAuthority(loadIdentityLedgerValidator(mutation)),
+        ).toThrow();
       }
-    } finally {
-      fixture.cleanup();
-    }
-  }, 120_000);
+
+      // THE CONSTRAINT IS STILL ENFORCED WHERE IT BELONGS.  The accepting hosted
+      // ledger rejects `main`, a version tag, a repair-namespace ref and a full
+      // ref, and a conjunct mutant of the hosted ref check makes all four accept.
+      const fixture = acceptingHostedLedger();
+      try {
+        const hostedRefConjunct =
+          '!/^proof\\/46-11-final-[0-9a-f]+$/.test(ledger.ref ?? "") ||';
+        expect(source.split(hostedRefConjunct).length - 1).toBe(1);
+        const withoutHostedRefLock = loadIdentityLedgerValidator(
+          source.replace(hostedRefConjunct, "false ||"),
+        );
+        for (const ref of RELOCATED_HOSTED_REF_REJECTIONS) {
+          const clone = structuredClone(fixture.hosted) as JsonRecord;
+          clone.ref = ref;
+          fixture.writeHosted(clone);
+          expect(() => fixture.validate()).toThrow(
+            anchoredMessage("hosted run identity is invalid"),
+          );
+          expect(() =>
+            withoutHostedRefLock.hostedLedger(
+              fixture.hostedPath,
+              fixture.memoryPath,
+              fixture.windowsPath,
+              fixture.identityPath,
+            ),
+          ).not.toThrow();
+        }
+      } finally {
+        fixture.cleanup();
+      }
+    },
+    120_000,
+  );
 
   it("covers the renamed windows native publication evidence gate", async () => {
     // D-39 (e).  Two different functions were named
@@ -3927,95 +3971,100 @@ describe("paired benchmark admission", () => {
     }
   }, 20_000);
 
-  it("validateP95NullBranchClosure accepts only a null-branch closure bound to the real sealed ledger and rejects any overclaim or identity mismatch", async () => {
-    // The real sealed ledger is ~14 MB; each mutation case re-validates it in
-    // full via validatePerformanceP95DiagnosticLedger (~0.5s), so 18 calls
-    // exceed the default 5s test timeout.
-    const ledgerPath = join(
-      phase46EvidenceDirectory,
-      "46-PERFORMANCE-P95-DIAGNOSTIC.json",
-    );
-    const ledgerBytes = await readFile(ledgerPath, "utf8");
-    const ledger = JSON.parse(ledgerBytes) as Record<string, unknown> & {
-      pattern: string;
-      actionableBranch: string | null;
-    };
-    expect(ledger.actionableBranch).toBeNull();
-    const ledgerSha256 = createHash("sha256")
-      .update(`${JSON.stringify(ledger, null, 2)}\n`)
-      .digest("hex");
-    const sourceTipHeadSha = "1a7cd0a6f0a2a5da0a259652dc24318db689f02e";
-    const closure = {
-      schemaVersion: "phase-46-p95-null-branch-closure/v1",
-      diagnosticOnly: true,
-      ledger: {
-        file: "46-PERFORMANCE-P95-DIAGNOSTIC.json",
-        sha256: ledgerSha256,
-      },
-      pattern: ledger.pattern,
-      actionableBranch: null,
-      sourceTip: { headSha: sourceTipHeadSha },
-      claim: {
-        established:
-          "Run 35014506364 (Node 22 and Node 24) recorded report.pass === true on both Node majors; every fixture, including the three that failed p95 in run 33223033591, returned attribution of control or unknown.",
-        notEstablished:
-          "This one clean run does not establish that the earlier tail failures were noise, flaky, or environmental; no such causal claim is made.",
-      },
-      nextGate: {
-        owner: "46-26",
-        authority:
-          "Plan 46-26's whole exact-six admission run re-measures p95 independently under unchanged schema-v4/Type-7/100-sample/D-23 rigor; that run's own benchmark gate is the deciding WEBP-06 evidence for this cycle, not this diagnostic or this closure.",
-        onFailure:
-          "If the admission run's p95 gate rejects any fixture, admission halts again; no blind retry or threshold change is authorized, and a new diagnostic-only run (Plan-46-32-shaped) is required before any further repair or dispatch attempt.",
-      },
-    };
-    expect(() =>
-      report.validateP95NullBranchClosure(closure, ledger),
-    ).not.toThrow();
-
-    const nonNullLedger = structuredClone(ledger);
-    nonNullLedger.actionableBranch = "collector";
-    nonNullLedger.pattern = "concentrated-tail";
-    expect(() =>
-      report.validateP95NullBranchClosure(closure, nonNullLedger),
-    ).toThrow();
-
-    for (const mutate of [
-      (value: typeof closure) =>
-        (value.actionableBranch = "collector" as unknown as null),
-      (value: typeof closure) => (value.ledger.sha256 = "0".repeat(64)),
-      (value: typeof closure) => (value.ledger.file = "wrong-file.json"),
-      (value: typeof closure) => (value.sourceTip.headSha = "b".repeat(40)),
-      (value: typeof closure) =>
-        (value.pattern = value.pattern === "unknown" ? "mixed" : "unknown"),
-      (value: typeof closure) => Object.assign(value, { unexpected: true }),
-      (value: typeof closure) =>
-        (value.claim.notEstablished = "one clean run settles nothing further"),
-      (value: typeof closure) => (value.nextGate.owner = "46-99"),
-      (value: typeof closure) =>
-        (value.nextGate.onFailure = "investigate further"),
-      (value: typeof closure) =>
-        (value.claim.established = `${value.claim.established} This was flaky.`),
-      (value: typeof closure) =>
-        (value.claim.established = `${value.claim.established} likely noise.`),
-      (value: typeof closure) =>
-        (value.claim.established = `${value.claim.established} environmental factors.`),
-      (value: typeof closure) =>
-        (value.claim.established = `${value.claim.established} a transient blip.`),
-      (value: typeof closure) =>
-        (value.claim.established = `${value.claim.established} confirmed clean.`),
-      (value: typeof closure) =>
-        (value.claim.established = `${value.claim.established} proven safe.`),
-      (value: typeof closure) =>
-        (value.claim.established = `${value.claim.established} a non-issue.`),
-    ]) {
-      const mutation = structuredClone(closure);
-      mutate(mutation);
+  evidenceGatedIt(
+    "validateP95NullBranchClosure accepts only a null-branch closure bound to the real sealed ledger and rejects any overclaim or identity mismatch",
+    async () => {
+      // The real sealed ledger is ~14 MB; each mutation case re-validates it in
+      // full via validatePerformanceP95DiagnosticLedger (~0.5s), so 18 calls
+      // exceed the default 5s test timeout.
+      const ledgerPath = join(
+        phase46EvidenceDirectory,
+        "46-PERFORMANCE-P95-DIAGNOSTIC.json",
+      );
+      const ledgerBytes = await readFile(ledgerPath, "utf8");
+      const ledger = JSON.parse(ledgerBytes) as Record<string, unknown> & {
+        pattern: string;
+        actionableBranch: string | null;
+      };
+      expect(ledger.actionableBranch).toBeNull();
+      const ledgerSha256 = createHash("sha256")
+        .update(`${JSON.stringify(ledger, null, 2)}\n`)
+        .digest("hex");
+      const sourceTipHeadSha = "1a7cd0a6f0a2a5da0a259652dc24318db689f02e";
+      const closure = {
+        schemaVersion: "phase-46-p95-null-branch-closure/v1",
+        diagnosticOnly: true,
+        ledger: {
+          file: "46-PERFORMANCE-P95-DIAGNOSTIC.json",
+          sha256: ledgerSha256,
+        },
+        pattern: ledger.pattern,
+        actionableBranch: null,
+        sourceTip: { headSha: sourceTipHeadSha },
+        claim: {
+          established:
+            "Run 35014506364 (Node 22 and Node 24) recorded report.pass === true on both Node majors; every fixture, including the three that failed p95 in run 33223033591, returned attribution of control or unknown.",
+          notEstablished:
+            "This one clean run does not establish that the earlier tail failures were noise, flaky, or environmental; no such causal claim is made.",
+        },
+        nextGate: {
+          owner: "46-26",
+          authority:
+            "Plan 46-26's whole exact-six admission run re-measures p95 independently under unchanged schema-v4/Type-7/100-sample/D-23 rigor; that run's own benchmark gate is the deciding WEBP-06 evidence for this cycle, not this diagnostic or this closure.",
+          onFailure:
+            "If the admission run's p95 gate rejects any fixture, admission halts again; no blind retry or threshold change is authorized, and a new diagnostic-only run (Plan-46-32-shaped) is required before any further repair or dispatch attempt.",
+        },
+      };
       expect(() =>
-        report.validateP95NullBranchClosure(mutation, ledger),
+        report.validateP95NullBranchClosure(closure, ledger),
+      ).not.toThrow();
+
+      const nonNullLedger = structuredClone(ledger);
+      nonNullLedger.actionableBranch = "collector";
+      nonNullLedger.pattern = "concentrated-tail";
+      expect(() =>
+        report.validateP95NullBranchClosure(closure, nonNullLedger),
       ).toThrow();
-    }
-  }, 30_000);
+
+      for (const mutate of [
+        (value: typeof closure) =>
+          (value.actionableBranch = "collector" as unknown as null),
+        (value: typeof closure) => (value.ledger.sha256 = "0".repeat(64)),
+        (value: typeof closure) => (value.ledger.file = "wrong-file.json"),
+        (value: typeof closure) => (value.sourceTip.headSha = "b".repeat(40)),
+        (value: typeof closure) =>
+          (value.pattern = value.pattern === "unknown" ? "mixed" : "unknown"),
+        (value: typeof closure) => Object.assign(value, { unexpected: true }),
+        (value: typeof closure) =>
+          (value.claim.notEstablished =
+            "one clean run settles nothing further"),
+        (value: typeof closure) => (value.nextGate.owner = "46-99"),
+        (value: typeof closure) =>
+          (value.nextGate.onFailure = "investigate further"),
+        (value: typeof closure) =>
+          (value.claim.established = `${value.claim.established} This was flaky.`),
+        (value: typeof closure) =>
+          (value.claim.established = `${value.claim.established} likely noise.`),
+        (value: typeof closure) =>
+          (value.claim.established = `${value.claim.established} environmental factors.`),
+        (value: typeof closure) =>
+          (value.claim.established = `${value.claim.established} a transient blip.`),
+        (value: typeof closure) =>
+          (value.claim.established = `${value.claim.established} confirmed clean.`),
+        (value: typeof closure) =>
+          (value.claim.established = `${value.claim.established} proven safe.`),
+        (value: typeof closure) =>
+          (value.claim.established = `${value.claim.established} a non-issue.`),
+      ]) {
+        const mutation = structuredClone(closure);
+        mutate(mutation);
+        expect(() =>
+          report.validateP95NullBranchClosure(mutation, ledger),
+        ).toThrow();
+      }
+    },
+    30_000,
+  );
 
   it("binds every installed finalization and cancellation contract field on Windows", () => {
     const candidate = {

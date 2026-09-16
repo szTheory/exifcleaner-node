@@ -1219,48 +1219,52 @@ describe("p95 null-branch closure gate (46-33)", () => {
     expect([...evidenceGatedTestTitles()].sort()).toEqual([...pinned].sort());
   });
 
-  it("seals a real null-branch closure record bound to the sealed ledger and fails closed on drift (null-branch closure)", () => {
-    const closure = JSON.parse(readFileSync(closurePath, "utf8")) as {
-      ledger: { sha256: string };
-      sourceTip: { headSha: string };
-      claim: { established: string; notEstablished: string };
-    };
-    const ledger = JSON.parse(readFileSync(ledgerPath, "utf8")) as {
-      actionableBranch: string | null;
-    };
-    expect(ledger.actionableBranch).toBeNull();
-    expect(() =>
-      benchmarkReport.validateP95NullBranchClosure(closure, ledger),
-    ).not.toThrow();
-
-    const wrongLedgerSha256 = structuredClone(closure);
-    wrongLedgerSha256.ledger.sha256 = "0".repeat(64);
-    expect(() =>
-      benchmarkReport.validateP95NullBranchClosure(wrongLedgerSha256, ledger),
-    ).toThrow();
-
-    const wrongHeadSha = structuredClone(closure);
-    wrongHeadSha.sourceTip.headSha = "b".repeat(40);
-    expect(() =>
-      benchmarkReport.validateP95NullBranchClosure(wrongHeadSha, ledger),
-    ).toThrow();
-
-    for (const term of [
-      "flaky",
-      "noise",
-      "environmental",
-      "transient",
-      "confirmed",
-      "proven",
-      "non-issue",
-    ]) {
-      const reinjected = structuredClone(closure);
-      reinjected.claim.established = `${reinjected.claim.established} This was ${term}.`;
+  evidenceGatedIt(
+    "seals a real null-branch closure record bound to the sealed ledger and fails closed on drift (null-branch closure)",
+    () => {
+      const closure = JSON.parse(readFileSync(closurePath, "utf8")) as {
+        ledger: { sha256: string };
+        sourceTip: { headSha: string };
+        claim: { established: string; notEstablished: string };
+      };
+      const ledger = JSON.parse(readFileSync(ledgerPath, "utf8")) as {
+        actionableBranch: string | null;
+      };
+      expect(ledger.actionableBranch).toBeNull();
       expect(() =>
-        benchmarkReport.validateP95NullBranchClosure(reinjected, ledger),
+        benchmarkReport.validateP95NullBranchClosure(closure, ledger),
+      ).not.toThrow();
+
+      const wrongLedgerSha256 = structuredClone(closure);
+      wrongLedgerSha256.ledger.sha256 = "0".repeat(64);
+      expect(() =>
+        benchmarkReport.validateP95NullBranchClosure(wrongLedgerSha256, ledger),
       ).toThrow();
-    }
-  }, 30_000);
+
+      const wrongHeadSha = structuredClone(closure);
+      wrongHeadSha.sourceTip.headSha = "b".repeat(40);
+      expect(() =>
+        benchmarkReport.validateP95NullBranchClosure(wrongHeadSha, ledger),
+      ).toThrow();
+
+      for (const term of [
+        "flaky",
+        "noise",
+        "environmental",
+        "transient",
+        "confirmed",
+        "proven",
+        "non-issue",
+      ]) {
+        const reinjected = structuredClone(closure);
+        reinjected.claim.established = `${reinjected.claim.established} This was ${term}.`;
+        expect(() =>
+          benchmarkReport.validateP95NullBranchClosure(reinjected, ledger),
+        ).toThrow();
+      }
+    },
+    30_000,
+  );
 });
 
 const focusedConclusionStep =
