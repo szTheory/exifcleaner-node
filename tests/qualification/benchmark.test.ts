@@ -1,6 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -677,7 +683,563 @@ const calibration =
     workloadResultDigest(): string;
   };
 
+type BenchmarkReportOptions = {
+  nodeMajor?: number;
+  candidateSha256?: string;
+  platform?: string;
+  architecture?: string;
+  maxRSSKiB?: (fixtureId: string, version: string) => number;
+};
+
+/** The complete schema-v4 hundred-observation benchmark report, extracted
+ * verbatim from the manifest-evidence test so the hosted-ledger positive
+ * control is built from the same construction `validateReport` already
+ * accepts.  Defaults reproduce the original inline values exactly. */
+function completeBenchmarkReport(options: BenchmarkReportOptions = {}) {
+  const nodeMajor =
+    options.nodeMajor ?? Number(process.versions.node.split(".")[0]);
+  const candidateTarballSha256 = options.candidateSha256 ?? "3".repeat(64);
+  const reportPlatform = options.platform ?? process.platform;
+  const reportArchitecture = options.architecture ?? process.arch;
+  const maxRSSKiB = options.maxRSSKiB ?? ((): number => 1);
+  const manifest = benchmark.loadBenchmarkManifest();
+  const reference = report.loadReference();
+  const normalizedNs = reference.referenceMedianNs[String(nodeMajor)];
+  if (typeof normalizedNs !== "number")
+    throw new Error("current Node major lacks a calibration reference");
+  const observations = Array.from(
+    { length: reference.observationCount },
+    (_, index) => ({
+      ordinal: index + 1,
+      elapsedNs: normalizedNs * reference.workloadUnitCount,
+      unitCount: reference.workloadUnitCount,
+      normalizedNs,
+      resultDigest: calibration.workloadResultDigest(),
+    }),
+  );
+  const calibrationEvidence = {
+    schemaVersion: 2,
+    algorithmId: reference.algorithmId,
+    nodeMajor,
+    observations,
+    workloadDigest: calibration.workloadDigest(),
+    process: { execPath: process.execPath, clean: true },
+  };
+  const sample = {
+    schemaVersion: 2,
+    version: "baseline",
+    fixtureId: "",
+    packageSha: benchmark.BASELINE_TARBALL_SHA256,
+    runToken: "0".repeat(32),
+    elapsedNs: 1,
+    maxRSSKiB: 1,
+    startedRss: 1,
+    endedRss: 1,
+    outputBytes: 1,
+    outputSha256: "1".repeat(64),
+    status: "success",
+    code: null,
+    sourceUnchanged: true,
+    destinationAbsent: false,
+    finalization: "none",
+    finalizationTruthful: true,
+    correctnessKey: "",
+    finalizationKey: "",
+    allocationPhases: [
+      "package-load",
+      "fixture-materialized",
+      "sanitize-complete",
+      "correctness-complete",
+    ].map((phase) => ({
+      phase,
+      rss: 1,
+      heapUsed: 1,
+      external: 1,
+      arrayBuffers: 1,
+      maxRSSKiB: 1,
+    })),
+    environment: {
+      nodeVersion: `v${nodeMajor}.0.0`,
+      platform: reportPlatform,
+      architecture: reportArchitecture,
+      runner: "test",
+      cpu: "test",
+    },
+  };
+  const cancellationSample = {
+    code: "aborted",
+    destinationAbsent: true,
+    finalizationTruthful: true,
+    secondWriter: false,
+    finalizationStartMs: 0,
+    terminalMs: 0,
+    finalization: "owned-partial-remains",
+  };
+  const rawSchedule = benchmark
+    .buildSchedule(
+      manifest.fixtures.map((fixture) => String(fixture.id)),
+      2,
+      100,
+    )
+    .map((entry, index) => ({
+      ...entry,
+      sample: {
+        ...sample,
+        version: entry.version,
+        fixtureId: entry.fixtureId,
+        packageSha:
+          entry.version === "baseline"
+            ? benchmark.BASELINE_TARBALL_SHA256
+            : candidateTarballSha256,
+        runToken: index.toString(16).padStart(32, "0"),
+        maxRSSKiB: maxRSSKiB(entry.fixtureId, entry.version),
+        ...(manifest.fixtures.find((fixture) => fixture.id === entry.fixtureId)
+          ?.expected !== "success"
+          ? {
+              status: manifest.fixtures.find(
+                (fixture) => fixture.id === entry.fixtureId,
+              )?.expected,
+              code:
+                manifest.fixtures.find(
+                  (fixture) => fixture.id === entry.fixtureId,
+                )?.expected === "aborted"
+                  ? "aborted"
+                  : "refused",
+              outputBytes: 0,
+              outputSha256: null,
+              destinationAbsent: true,
+            }
+          : {}),
+        ...(entry.fixtureId === "cancellation-64m"
+          ? { cancellation: cancellationSample }
+          : {}),
+      },
+    }));
+  for (const entry of rawSchedule) {
+    const fixture = manifest.fixtures.find(
+      (item) => item.id === entry.fixtureId,
+    )!;
+    const finalization =
+      fixture.kind === "cancellation"
+        ? entry.version === "candidate"
+          ? "owned-partial-remains"
+          : "not-started"
+        : fixture.expected === "success"
+          ? entry.version === "candidate"
+            ? "private-empty-stage-directory-remains"
+            : "none"
+          : "not-started";
+    entry.sample.finalization = finalization;
+    if (entry.sample.cancellation)
+      entry.sample.cancellation = {
+        ...cancellationSample,
+        finalization,
+      };
+  }
+  for (const entry of rawSchedule) {
+    entry.sample.correctnessKey = report.deriveCorrectnessKey(entry.sample);
+    entry.sample.finalizationKey = report.deriveFinalizationKey(entry.sample);
+  }
+  const retainedSamples = (fixtureId: string, version: string) =>
+    rawSchedule
+      .filter(
+        (entry) =>
+          entry.fixtureId === fixtureId &&
+          entry.version === version &&
+          !entry.warmup,
+      )
+      .map((entry) => ({
+        ...entry.sample,
+        scaledElapsedNs: entry.sample.elapsedNs,
+      }));
+  const timing = report.evaluateTiming({
+    baselineMedianNs: 1,
+    candidateMedianNs: 1,
+    baselineP95Ns: 1,
+    candidateP95Ns: 1,
+  });
+  const comparisons = manifest.fixtures
+    .filter((fixture) => fixture.kind !== "cancellation")
+    .map((fixture) => ({
+      fixtureId: fixture.id,
+      baseline: {
+        samples: retainedSamples(String(fixture.id), "baseline"),
+        correctnessKey: retainedSamples(String(fixture.id), "baseline")[0]!
+          .correctnessKey,
+        finalizationKey: retainedSamples(String(fixture.id), "baseline")[0]!
+          .finalizationKey,
+        medianElapsedNs: 1,
+        p95ElapsedNs: 1,
+        medianMaxRSSKiB: 1,
+        rssSlope: 0,
+      },
+      candidate: {
+        samples: retainedSamples(String(fixture.id), "candidate"),
+        correctnessKey: retainedSamples(String(fixture.id), "candidate")[0]!
+          .correctnessKey,
+        finalizationKey: retainedSamples(String(fixture.id), "candidate")[0]!
+          .finalizationKey,
+        medianElapsedNs: 1,
+        p95ElapsedNs: 1,
+        medianMaxRSSKiB: 1,
+        rssSlope: 0,
+      },
+      timing,
+      verdict: benchmark.evaluatePair({
+        baseline: {
+          correctnessKey:
+            retainedSamples(String(fixture.id), "baseline")[0]
+              ?.correctnessKey ?? "",
+          medianElapsedNs: 1,
+          p95ElapsedNs: 1,
+          medianMaxRSSKiB: 1,
+          rssSlope: 0,
+        },
+        candidate: {
+          correctnessKey:
+            retainedSamples(String(fixture.id), "candidate")[0]
+              ?.correctnessKey ?? "",
+          medianElapsedNs: 1,
+          p95ElapsedNs: 1,
+          medianMaxRSSKiB: 1,
+          rssSlope: 0,
+        },
+      }),
+    }));
+  // The animation RSS tampers in the hosted-ledger coverage move real sample
+  // values, so every derived aggregate and verdict is recomputed from the
+  // samples rather than pinned at the default of one.
+  for (const comparison of comparisons) {
+    for (const side of ["baseline", "candidate"] as const)
+      comparison[side].medianMaxRSSKiB = benchmark.percentile(
+        comparison[side].samples.map((item) => item.maxRSSKiB),
+        0.5,
+      );
+    comparison.verdict = benchmark.evaluatePair({
+      baseline: {
+        correctnessKey: comparison.baseline.correctnessKey,
+        medianElapsedNs: 1,
+        p95ElapsedNs: 1,
+        medianMaxRSSKiB: comparison.baseline.medianMaxRSSKiB,
+        rssSlope: 0,
+      },
+      candidate: {
+        correctnessKey: comparison.candidate.correctnessKey,
+        medianElapsedNs: 1,
+        p95ElapsedNs: 1,
+        medianMaxRSSKiB: comparison.candidate.medianMaxRSSKiB,
+        rssSlope: 0,
+      },
+    });
+  }
+  const failures = comparisons.flatMap((comparison) =>
+    comparison.verdict.failures.map(
+      (failure) => `${comparison.fixtureId}: ${failure}`,
+    ),
+  );
+  const complete = {
+    version: 4,
+    elapsedP95Estimator: {
+      method: "Hyndman-Fan Type 7",
+      quantile: 0.95,
+      interpolation: "linear",
+      retainedObservations: 100,
+    },
+    mode: "admit",
+    pass: failures.length === 0,
+    baselinePackageName: "exifcleaner-node",
+    baselineVersion: "0.1.1",
+    baselineExpectedIdentity: `exifcleaner-node@0.1.1#sha256:${benchmark.BASELINE_TARBALL_SHA256}`,
+    calibration: {
+      before: calibrationEvidence,
+      after: calibrationEvidence,
+      reference,
+      derived: report.deriveRunScale({
+        before: observations.map((item) => item.normalizedNs),
+        after: observations.map((item) => item.normalizedNs),
+        referenceMedianNs: normalizedNs,
+      }),
+    },
+    baselineSha256: benchmark.BASELINE_TARBALL_SHA256,
+    candidateSha256: candidateTarballSha256,
+    environment: {
+      nodeVersion: `v${nodeMajor}.0.0`,
+      platform: reportPlatform,
+      architecture: reportArchitecture,
+      runner: "test",
+      cpu: "test",
+    },
+    comparisons,
+    rawSchedule,
+    collection: { retries: 0, discarded: 0 },
+    cancellation: {
+      sample: cancellationSample,
+      verdict: { pass: true, failures: [] },
+    },
+    failures,
+    warmups: 2,
+    measurements: 100,
+    thresholds: benchmark.BENCHMARK_THRESHOLDS,
+  };
+  return complete;
+}
+
+// ---------------------------------------------------------------------------
+// ACCEPTING HOSTED LEDGER (Plan 46-39, D-39 clause (e)).
+//
+// `hostedLedger` had no positive control at all: its only test spawned the CLI
+// over four `{}` stub files and asserted it died on the FIRST clause, so all
+// twenty-five of its mutations survived.  Twenty-five rejections are exactly
+// what a reject-everything function produces, so the accepting fixture below is
+// the enabling step and every negative control in this file depends on it.
+//
+// The fixture is built from REAL committed artifacts, not invented:
+//   * `46-IDENTITY-CLEANUP-EVIDENCE.json` is run 35030048631's real ledger and
+//     supplies the run identity, the four-field candidate, and the twelve real
+//     installed tuple reports.
+//   * `46-NODE22-MEMORY-EVIDENCE.json` supplies `finalizationContracts`.
+//   * `46-HOSTED-EVIDENCE.json` is the STRUCTURAL TEMPLATE only: its field
+//     vocabulary and its `artifactSha256`, `benchmarks` and `focused` shapes.
+//     It is the SUPERSEDED fifteen-measurement v1 ledger and does NOT
+//     re-validate against the current hundred-measurement contract.  That is
+//     EXPECTED because it predates the schema and is NOT a defect; Plan 46-11
+//     replaces it.  Nothing here fixes, regenerates, re-seals or deletes it.
+//   * The three `repairs` bindings are the real sha256 digests of the three
+//     copied ledger FILES, so the tampers below can substitute file bytes.
+//
+// ONLY `ref` is synthesized: `hostedLedger` requires the final-proof namespace
+// `^proof/46-11-final-[0-9a-f]+$`, which a repair-namespace identity ledger
+// cannot carry, so it is derived from the short head sha.
+// ---------------------------------------------------------------------------
+const evidenceDirectory = join(
+  dirname(projectRoot),
+  ".planning",
+  "phases",
+  "46-webp-requalification",
+);
+const PREREQUISITE_LEDGER_FILES = {
+  memory: "46-NODE22-MEMORY-EVIDENCE.json",
+  windows: "46-WINDOWS-PUBLICATION-EVIDENCE.json",
+  identityCleanup: "46-IDENTITY-CLEANUP-EVIDENCE.json",
+} as const;
+
+type JsonRecord = Record<string, any>;
+
+const benchmarkReportCache = new Map<string, JsonRecord>();
+function cachedBenchmarkReport(options: BenchmarkReportOptions): JsonRecord {
+  const key = JSON.stringify([
+    options.nodeMajor,
+    options.candidateSha256,
+    options.platform,
+    options.architecture,
+    (options as { rssKey?: string }).rssKey ?? "default",
+  ]);
+  const cached = benchmarkReportCache.get(key);
+  if (cached) return structuredClone(cached);
+  const built = completeBenchmarkReport(options) as JsonRecord;
+  benchmarkReportCache.set(key, built);
+  return structuredClone(built);
+}
+
+type HostedFixtureOptions = {
+  animationBaselineMaxRSSKiB?: number;
+  animationCandidateMaxRSSKiB?: number;
+};
+
+type HostedFixture = {
+  directory: string;
+  hostedPath: string;
+  memoryPath: string;
+  windowsPath: string;
+  identityPath: string;
+  hosted: JsonRecord;
+  memory: JsonRecord;
+  identity: JsonRecord;
+  writeHosted(value: unknown): void;
+  writePrerequisite(
+    slot: keyof typeof PREREQUISITE_LEDGER_FILES,
+    text: string,
+  ): void;
+  validate(): unknown;
+  cleanup(): void;
+};
+
+function acceptingHostedLedger(
+  options: HostedFixtureOptions = {},
+): HostedFixture {
+  const directory = mkdtempSync(join(tmpdir(), "phase-46-hosted-accepting-"));
+  const paths: Record<string, string> = {};
+  for (const [slot, file] of Object.entries(PREREQUISITE_LEDGER_FILES)) {
+    const target = join(directory, file);
+    copyFileSync(join(evidenceDirectory, file), target);
+    paths[slot] = target;
+  }
+  const readLedger = (file: string): JsonRecord =>
+    JSON.parse(readFileSync(file, "utf8")) as JsonRecord;
+  const memory = readLedger(paths.memory!);
+  const windows = readLedger(paths.windows!);
+  const identity = readLedger(paths.identityCleanup!);
+  const template = readLedger(
+    join(evidenceDirectory, "46-HOSTED-EVIDENCE.json"),
+  );
+  const digestOf = (file: string): string =>
+    createHash("sha256").update(readFileSync(file)).digest("hex");
+  const candidate = {
+    sha: identity.run.headSha,
+    tarballSha256: identity.candidate.tarballSha256,
+    corpusManifestSha256: identity.candidate.corpusManifestSha256,
+    nativeManifestSha256: identity.candidate.nativeManifestSha256,
+  };
+  const animationRss = {
+    baseline: options.animationBaselineMaxRSSKiB ?? 1,
+    candidate: options.animationCandidateMaxRSSKiB ?? 1,
+  };
+  const rssKey = `${animationRss.baseline}:${animationRss.candidate}`;
+  const nodeReport = (nodeMajor: 22 | 24): JsonRecord =>
+    cachedBenchmarkReport({
+      nodeMajor,
+      candidateSha256: candidate.tarballSha256,
+      platform: "linux",
+      architecture: "x64",
+      maxRSSKiB: (fixtureId, version) =>
+        fixtureId === "animation-alpha-16m"
+          ? animationRss[version as "baseline" | "candidate"]
+          : 1,
+      rssKey,
+    } as BenchmarkReportOptions);
+  const windowsSummary = {
+    primitive: "create-hard-link",
+    publication: "pass",
+    collision: "pass",
+    identity: "pass",
+    cleanup: "pass",
+  };
+  const hosted: JsonRecord = {
+    schemaVersion: 2,
+    repository: "szTheory/exifcleaner-node",
+    workflow: "CI",
+    workflowPath: ".github/workflows/ci.yml",
+    runId: identity.run.id,
+    runUrl: identity.run.url,
+    event: "workflow_dispatch",
+    // SYNTHESIZED FIELD, and the only one: `hostedLedger` requires the
+    // final-proof namespace, which run 35030048631's repair-namespace ledger
+    // cannot carry, so it is derived from that run's real short head sha.
+    ref: `proof/46-11-final-${String(identity.run.headSha).slice(0, 7)}`,
+    headSha: identity.run.headSha,
+    conclusion: "success",
+    artifactSha256: structuredClone(template.artifactSha256),
+    candidate,
+    baseline: {
+      packageIdentity: "exifcleaner-node@0.1.1",
+      tag: "v0.1.1",
+      tarballSha256: benchmark.BASELINE_TARBALL_SHA256,
+    },
+    repairs: {
+      memory: {
+        sha256: digestOf(paths.memory!),
+        runId: memory.runId,
+        headSha: memory.headSha,
+      },
+      windows: {
+        sha256: digestOf(paths.windows!),
+        runId: windows.runId,
+        headSha: windows.headSha,
+      },
+      identityCleanup: {
+        sha256: digestOf(paths.identityCleanup!),
+        runId: identity.run.id,
+        headSha: identity.run.headSha,
+      },
+    },
+    focused: {
+      ...structuredClone(template.focused),
+      tuple: "linux-x64",
+      nodeMajor: 24,
+      seed: 460_046,
+      propertyRuns: 200,
+      manifestSha256: candidate.corpusManifestSha256,
+    },
+    tuples: Object.fromEntries(
+      installedTuples.map((tuple) => [
+        tuple,
+        {
+          jobName: `installed-${tuple}`,
+          conclusion: "success",
+          runId: identity.run.id,
+          headSha: identity.run.headSha,
+          candidateSha: identity.run.headSha,
+          candidateTarballSha256: candidate.tarballSha256,
+          corpusManifestSha256: candidate.corpusManifestSha256,
+          nativeManifestSha256: candidate.nativeManifestSha256,
+          artifact: {
+            name: `installed-${tuple}`,
+            runId: identity.run.id,
+            sha256: template.artifactSha256[`installed-${tuple}`],
+          },
+          nodeMajors: [22, 24],
+          reports: {
+            node22: structuredClone(identity.installed[tuple].node22),
+            node24: structuredClone(identity.installed[tuple].node24),
+          },
+          ...(tuple.startsWith("win32") ? windowsSummary : {}),
+        },
+      ]),
+    ),
+    installedConclusions: 12,
+    benchmarks: structuredClone(template.benchmarks),
+    finalizationContracts: structuredClone(memory.finalizationContracts),
+    node22: nodeReport(22),
+    node24: nodeReport(24),
+  };
+  const hostedPath = join(directory, "hosted.json");
+  const fixture: HostedFixture = {
+    directory,
+    hostedPath,
+    memoryPath: paths.memory!,
+    windowsPath: paths.windows!,
+    identityPath: paths.identityCleanup!,
+    hosted,
+    memory,
+    identity,
+    writeHosted(value: unknown): void {
+      writeFileSync(hostedPath, JSON.stringify(value));
+    },
+    writePrerequisite(slot, text): void {
+      writeFileSync(paths[slot]!, text);
+    },
+    validate(): unknown {
+      return report.hostedLedger(
+        hostedPath,
+        paths.memory!,
+        paths.windows!,
+        paths.identityCleanup!,
+      );
+    },
+    cleanup(): void {
+      rmSync(directory, { recursive: true, force: true });
+    },
+  };
+  fixture.writeHosted(hosted);
+  return fixture;
+}
+
 describe("paired benchmark admission", () => {
+  it("accepts a hosted ledger built from run 35030048631 real artifacts", () => {
+    // POSITIVE CONTROL.  Until this is green every hosted-ledger rejection in
+    // this file is indistinguishable from what a reject-everything function
+    // produces, which is exactly the state D-39 clause (e) reported.
+    const fixture = acceptingHostedLedger();
+    try {
+      expect(() => fixture.validate()).not.toThrow();
+      const accepted = fixture.validate() as Record<string, unknown>;
+      expect(accepted.runId).toBe(fixture.identity.run.id);
+      expect(accepted.headSha).toBe(fixture.identity.run.headSha);
+      expect(accepted.installedConclusions).toBe(12);
+    } finally {
+      fixture.cleanup();
+    }
+  });
   it("accepts only exact short repair and final identity-ledger refs", async () => {
     const base = {
       schemaVersion: "phase-46-identity-cleanup-ledger/v1",
@@ -1079,259 +1641,9 @@ describe("paired benchmark admission", () => {
     ).toThrow(/final candidate manifest/i);
   });
   it("rejects incomplete, duplicate, and extra manifest evidence", () => {
-    const manifest = benchmark.loadBenchmarkManifest();
     const reference = report.loadReference();
-    const nodeMajor = Number(process.versions.node.split(".")[0]);
-    const normalizedNs = reference.referenceMedianNs[String(nodeMajor)];
-    if (typeof normalizedNs !== "number")
-      throw new Error("current Node major lacks a calibration reference");
-    const observations = Array.from(
-      { length: reference.observationCount },
-      (_, index) => ({
-        ordinal: index + 1,
-        elapsedNs: normalizedNs * reference.workloadUnitCount,
-        unitCount: reference.workloadUnitCount,
-        normalizedNs,
-        resultDigest: calibration.workloadResultDigest(),
-      }),
-    );
-    const calibrationEvidence = {
-      schemaVersion: 2,
-      algorithmId: reference.algorithmId,
-      nodeMajor,
-      observations,
-      workloadDigest: calibration.workloadDigest(),
-      process: { execPath: process.execPath, clean: true },
-    };
-    const sample = {
-      schemaVersion: 2,
-      version: "baseline",
-      fixtureId: "",
-      packageSha: benchmark.BASELINE_TARBALL_SHA256,
-      runToken: "0".repeat(32),
-      elapsedNs: 1,
-      maxRSSKiB: 1,
-      startedRss: 1,
-      endedRss: 1,
-      outputBytes: 1,
-      outputSha256: "1".repeat(64),
-      status: "success",
-      code: null,
-      sourceUnchanged: true,
-      destinationAbsent: false,
-      finalization: "none",
-      finalizationTruthful: true,
-      correctnessKey: "",
-      finalizationKey: "",
-      allocationPhases: [
-        "package-load",
-        "fixture-materialized",
-        "sanitize-complete",
-        "correctness-complete",
-      ].map((phase) => ({
-        phase,
-        rss: 1,
-        heapUsed: 1,
-        external: 1,
-        arrayBuffers: 1,
-        maxRSSKiB: 1,
-      })),
-      environment: {
-        nodeVersion: `v${nodeMajor}.0.0`,
-        platform: process.platform,
-        architecture: process.arch,
-        runner: "test",
-        cpu: "test",
-      },
-    };
-    const cancellationSample = {
-      code: "aborted",
-      destinationAbsent: true,
-      finalizationTruthful: true,
-      secondWriter: false,
-      finalizationStartMs: 0,
-      terminalMs: 0,
-      finalization: "owned-partial-remains",
-    };
-    const rawSchedule = benchmark
-      .buildSchedule(
-        manifest.fixtures.map((fixture) => String(fixture.id)),
-        2,
-        100,
-      )
-      .map((entry, index) => ({
-        ...entry,
-        sample: {
-          ...sample,
-          version: entry.version,
-          fixtureId: entry.fixtureId,
-          packageSha:
-            entry.version === "baseline"
-              ? benchmark.BASELINE_TARBALL_SHA256
-              : "3".repeat(64),
-          runToken: index.toString(16).padStart(32, "0"),
-          ...(manifest.fixtures.find(
-            (fixture) => fixture.id === entry.fixtureId,
-          )?.expected !== "success"
-            ? {
-                status: manifest.fixtures.find(
-                  (fixture) => fixture.id === entry.fixtureId,
-                )?.expected,
-                code:
-                  manifest.fixtures.find(
-                    (fixture) => fixture.id === entry.fixtureId,
-                  )?.expected === "aborted"
-                    ? "aborted"
-                    : "refused",
-                outputBytes: 0,
-                outputSha256: null,
-                destinationAbsent: true,
-              }
-            : {}),
-          ...(entry.fixtureId === "cancellation-64m"
-            ? { cancellation: cancellationSample }
-            : {}),
-        },
-      }));
-    for (const entry of rawSchedule) {
-      const fixture = manifest.fixtures.find(
-        (item) => item.id === entry.fixtureId,
-      )!;
-      const finalization =
-        fixture.kind === "cancellation"
-          ? entry.version === "candidate"
-            ? "owned-partial-remains"
-            : "not-started"
-          : fixture.expected === "success"
-            ? entry.version === "candidate"
-              ? "private-empty-stage-directory-remains"
-              : "none"
-            : "not-started";
-      entry.sample.finalization = finalization;
-      if (entry.sample.cancellation)
-        entry.sample.cancellation = {
-          ...cancellationSample,
-          finalization,
-        };
-    }
-    for (const entry of rawSchedule) {
-      entry.sample.correctnessKey = report.deriveCorrectnessKey(entry.sample);
-      entry.sample.finalizationKey = report.deriveFinalizationKey(entry.sample);
-    }
-    const retainedSamples = (fixtureId: string, version: string) =>
-      rawSchedule
-        .filter(
-          (entry) =>
-            entry.fixtureId === fixtureId &&
-            entry.version === version &&
-            !entry.warmup,
-        )
-        .map((entry) => ({
-          ...entry.sample,
-          scaledElapsedNs: entry.sample.elapsedNs,
-        }));
-    const timing = report.evaluateTiming({
-      baselineMedianNs: 1,
-      candidateMedianNs: 1,
-      baselineP95Ns: 1,
-      candidateP95Ns: 1,
-    });
-    const comparisons = manifest.fixtures
-      .filter((fixture) => fixture.kind !== "cancellation")
-      .map((fixture) => ({
-        fixtureId: fixture.id,
-        baseline: {
-          samples: retainedSamples(String(fixture.id), "baseline"),
-          correctnessKey: retainedSamples(String(fixture.id), "baseline")[0]!
-            .correctnessKey,
-          finalizationKey: retainedSamples(String(fixture.id), "baseline")[0]!
-            .finalizationKey,
-          medianElapsedNs: 1,
-          p95ElapsedNs: 1,
-          medianMaxRSSKiB: 1,
-          rssSlope: 0,
-        },
-        candidate: {
-          samples: retainedSamples(String(fixture.id), "candidate"),
-          correctnessKey: retainedSamples(String(fixture.id), "candidate")[0]!
-            .correctnessKey,
-          finalizationKey: retainedSamples(String(fixture.id), "candidate")[0]!
-            .finalizationKey,
-          medianElapsedNs: 1,
-          p95ElapsedNs: 1,
-          medianMaxRSSKiB: 1,
-          rssSlope: 0,
-        },
-        timing,
-        verdict: benchmark.evaluatePair({
-          baseline: {
-            correctnessKey:
-              retainedSamples(String(fixture.id), "baseline")[0]
-                ?.correctnessKey ?? "",
-            medianElapsedNs: 1,
-            p95ElapsedNs: 1,
-            medianMaxRSSKiB: 1,
-            rssSlope: 0,
-          },
-          candidate: {
-            correctnessKey:
-              retainedSamples(String(fixture.id), "candidate")[0]
-                ?.correctnessKey ?? "",
-            medianElapsedNs: 1,
-            p95ElapsedNs: 1,
-            medianMaxRSSKiB: 1,
-            rssSlope: 0,
-          },
-        }),
-      }));
-    const complete = {
-      version: 4,
-      elapsedP95Estimator: {
-        method: "Hyndman-Fan Type 7",
-        quantile: 0.95,
-        interpolation: "linear",
-        retainedObservations: 100,
-      },
-      mode: "admit",
-      pass: true,
-      baselinePackageName: "exifcleaner-node",
-      baselineVersion: "0.1.1",
-      baselineExpectedIdentity: `exifcleaner-node@0.1.1#sha256:${benchmark.BASELINE_TARBALL_SHA256}`,
-      calibration: {
-        before: calibrationEvidence,
-        after: calibrationEvidence,
-        reference,
-        derived: report.deriveRunScale({
-          before: observations.map((item) => item.normalizedNs),
-          after: observations.map((item) => item.normalizedNs),
-          referenceMedianNs: normalizedNs,
-        }),
-      },
-      baselineSha256: benchmark.BASELINE_TARBALL_SHA256,
-      candidateSha256: "3".repeat(64),
-      environment: {
-        nodeVersion: `v${nodeMajor}.0.0`,
-        platform: process.platform,
-        architecture: process.arch,
-        runner: "test",
-        cpu: "test",
-      },
-      comparisons,
-      rawSchedule,
-      collection: { retries: 0, discarded: 0 },
-      cancellation: {
-        sample: cancellationSample,
-        verdict: { pass: true, failures: [] },
-      },
-      failures: comparisons.flatMap((comparison) =>
-        comparison.verdict.failures.map(
-          (failure) => `${comparison.fixtureId}: ${failure}`,
-        ),
-      ),
-      warmups: 2,
-      measurements: 100,
-      thresholds: benchmark.BENCHMARK_THRESHOLDS,
-    };
+    const complete = completeBenchmarkReport();
+    const { comparisons, rawSchedule } = complete;
     expect(() => report.validateReport(complete)).not.toThrow();
 
     const diagnosticFixtureIds = [
