@@ -245,9 +245,14 @@ async function main() {
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(options.packageRoot, "package.json"), "utf8"),
   );
+  // D-27: the baseline is the PUBLISHED PREDECESSOR and its version stays a hard pin. The
+  // candidate's version is the thing under test, so asserting a literal here is only correct
+  // while candidate and baseline share a version -- true for every run up to and including
+  // 0.1.1, and false from 0.2.0 onward.
+  const expectedVersion = options.version === "baseline" ? "0.1.1" : null;
   if (
     packageJson.name !== "exifcleaner-node" ||
-    packageJson.version !== "0.1.1"
+    (expectedVersion !== null && packageJson.version !== expectedVersion)
   )
     throw new Error("installed benchmark package identity is invalid");
   const publicApi = await import(
