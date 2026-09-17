@@ -53,12 +53,26 @@ if (sanitized.ok) {
 
 The public contracts are:
 
-- `Inspection`: `{ format: "webp", entries, warnings }`
+- `Inspection`: `{ format: NativeFormat, entries, warnings }`
 - `InspectOptions`: `{ signal? }`
 - `SanitizeOptions`: `{ sourcePath, destinationPath, preserveOrientation, preserveColorProfile, preserveTimestamps, signal? }`
-- `SanitizeResult`: `{ format, destinationPath, removedNamespaces, preserved, warnings }`
+- `SanitizeResult`: `{ format, destinationPath, removedNamespaces, preserved, warnings, postCommitResidue }`
 - `Result<T, MetadataError>`: a discriminated success/failure union
 - `MetadataError`: a discriminated expected-failure union
+
+The support contract is stated in format-neutral vocabulary rather than in
+WebP-specific fields, so a future format is additive rather than breaking:
+
+- `NativeFormat`: the format tag carried by `Inspection.format` and
+  `SanitizeResult.format`. It is currently exactly `"webp"`; read it, do not
+  assume it.
+- `Capabilities` / `FormatCapabilities`: what `getCapabilities()` returns.
+  `formats` is a non-empty list of per-format contracts, each stating
+  `detection: "magic"` — recognition is by file magic, never by extension.
+  `WebpCapabilities` is the one `FormatCapabilities` member today.
+- `FallbackDisposition`: `"safe-to-fallback" | "do-not-fallback"`, the return of
+  `classifyFallback`.
+- `PostCommitResidue`: the bounded private-stage residue reported on success.
 
 ## Consumer Flow
 
