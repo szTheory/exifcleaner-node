@@ -4757,15 +4757,55 @@ describe("paired benchmark admission", () => {
       pass: true,
       failures: [],
     });
+    // p95 is deliberately absent from this list: it is measured and recorded but does not
+    // gate the verdict. Every other authority must still fail one nanosecond past its limit.
     for (const field of [
       "medianElapsedNs",
-      "p95ElapsedNs",
       "medianMaxRSSKiB",
       "rssSlope",
     ] as const) {
       const candidate = { ...boundary, [field]: boundary[field] + 1 };
       expect(benchmark.evaluatePair({ baseline, candidate }).pass).toBe(false);
     }
+  });
+
+  it("records a p95 excursion without gating the verdict on it", () => {
+    const baseline = {
+      correctnessKey: "same",
+      medianElapsedNs: 100_000_000,
+      p95ElapsedNs: 100_000_000,
+      medianMaxRSSKiB: 100_000,
+      rssSlope: 0.2,
+    };
+    // 9x the baseline p95 -- far past `max(p95Ratio * base, base + p95SlackNs)`. On shared CI
+    // runners this magnitude is produced by scheduler preemption on a byte-identical candidate,
+    // so it must not fail an admit run.
+    const noisyTail = { ...baseline, p95ElapsedNs: 900_000_000 };
+    expect(benchmark.evaluatePair({ baseline, candidate: noisyTail })).toEqual({
+      pass: true,
+      failures: [],
+    });
+
+    // The excursion is still recorded, because the phase-46 p95 diagnostic reads it from
+    // `timing.failures` to tell a sustained candidate regression from a concentrated tail.
+    // Dropping it there would blind that classification.
+    expect(
+      report.evaluateTiming({
+        baselineMedianNs: 100_000_000,
+        candidateMedianNs: 100_000_000,
+        baselineP95Ns: 100_000_000,
+        candidateP95Ns: 900_000_000,
+      }).failures,
+    ).toEqual(["p95 threshold exceeded"]);
+
+    // A median regression alongside the same noisy tail must still fail, and must report only
+    // the authority that actually gates.
+    expect(
+      benchmark.evaluatePair({
+        baseline,
+        candidate: { ...noisyTail, medianElapsedNs: 200_000_000 },
+      }),
+    ).toEqual({ pass: false, failures: ["median threshold exceeded"] });
   });
 
   it("fails correctness before considering numeric performance", () => {
