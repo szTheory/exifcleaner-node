@@ -77,9 +77,13 @@ function validateReleaseGraph({ jobs }) {
         throw new Error(
           `Publish job ${name} lacks required authority ${authority}`,
         );
-    if (!/\bnpm\s+publish\s+admitted\//u.test(job.script ?? ""))
+    // The `./` prefix is load-bearing, not style. npm parses a bare relative path
+    // containing a slash as its GitHub shorthand <org>/<repo>: `npm publish admitted/x.tgz`
+    // resolves to `git ls-remote ssh://git@github.com/admitted/x.tgz.git` and exits 128.
+    // This gate previously required exactly that broken form.
+    if (!/\bnpm\s+publish\s+\.\/admitted\//u.test(job.script ?? ""))
       throw new Error(
-        `Publish job ${name} does not publish the admitted tarball`,
+        `Publish job ${name} does not publish the admitted tarball by explicit relative path (./admitted/)`,
       );
     if (/\bnpm\s+(?:run\s+)?build\b|npm\s+pack\b/iu.test(job.script ?? ""))
       throw new Error(`Publish job ${name} rebuilds or repacks after assembly`);
