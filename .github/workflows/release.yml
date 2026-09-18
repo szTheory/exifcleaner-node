@@ -131,10 +131,10 @@ jobs:
           subject-path: admitted/*.tgz
       - name: Trusted publish to npm
         if: ${{ github.event_name == 'push' && vars.NPM_PUBLISH_ENABLED == 'true' }}
-        run: npm publish admitted/*.tgz --access public
+        run: npm publish ./admitted/*.tgz --access public
       - name: Dry-run publish
         if: ${{ github.event_name != 'push' || vars.NPM_PUBLISH_ENABLED != 'true' }}
-        run: npm publish admitted/*.tgz --access public --dry-run
+        run: npm publish ./admitted/*.tgz --access public --dry-run
       - name: Refuse an unarmed tag release
         if: ${{ github.event_name == 'push' && vars.NPM_PUBLISH_ENABLED != 'true' }}
         run: exit 1
