@@ -509,7 +509,7 @@ function greenGraph(): WorkflowGraph {
       ),
       publish: {
         needs: authorities,
-        script: "npm publish admitted/exifcleaner-node.tgz --access public",
+        script: "npm publish ./admitted/exifcleaner-node.tgz --access public",
       },
     },
   };
@@ -1189,6 +1189,12 @@ describe("release workflow authority gate", () => {
       },
       (graph: ReturnType<typeof greenGraph>) => {
         graph.jobs.publish!.script = "npm publish package-local.tgz";
+      },
+      // A bare `admitted/...` path is what npm misparses as a GitHub shorthand. It must be
+      // rejected, not merely tolerated -- this exact form reached a tag run and exited 128.
+      (graph: ReturnType<typeof greenGraph>) => {
+        graph.jobs.publish!.script =
+          "npm publish admitted/exifcleaner-node.tgz --access public";
       },
     ]) {
       const graph = greenGraph();
