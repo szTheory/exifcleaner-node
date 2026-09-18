@@ -1,6 +1,6 @@
 {
   "name": "exifcleaner-node",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A small, typed metadata inspection and sanitization engine for Node.js",
   "type": "module",
   "gypfile": false,
@@ -52,6 +52,7 @@
     "check:dist": "git diff --exit-code -- dist",
     "check:runtime": "node scripts/runtime_surface_gate.mjs .",
     "check:release": "node scripts/release_workflow_gate.cjs .github/workflows/release.yml",
+    "check:windows-host": "node scripts/check_windows_host_independence.cjs .",
     "check:evidence": "node scripts/check_evidence_present.cjs",
     "check:pack": "npm pack --dry-run",
     "verify": "npm run lint && npm run typecheck && npm run check:evidence && npm test && npm run check:cycles && npm run build && npm run check:runtime && npm run check:dist && npm run check:pack"

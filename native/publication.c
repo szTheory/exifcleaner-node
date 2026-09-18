@@ -119,6 +119,73 @@ static publication_result publish_no_replace(int stage_directory, const char *st
                                              const char *destination_entry);
 #endif
 
+#if defined(_WIN32) && !defined(PUBLICATION_STANDALONE_TEST)
+/*
+ * Windows binds an imported symbol to a module NAMED at link time.  A packaged
+ * Electron host is not named "node.exe", so importing N-API from the literal
+ * name "node.exe" -- statically, or through a delay-load descriptor -- makes
+ * the loader map a SECOND Node runtime into the process.  Handles minted by the
+ * real host are then decompressed against the wrong V8 pointer-compression cage
+ * and the first N-API call faults.
+ *
+ * The addon therefore binds to the runtime that is ALREADY hosting it.  This
+ * loads nothing: only module handles the loader has already resolved are
+ * queried, no pathname is ever handed to the loader, and only the fixed symbol
+ * list in publication_bind_host is ever requested.
+ */
+typedef struct publication_host_entrypoints {
+  napi_status(NAPI_CDECL *create_external)(napi_env, void *, napi_finalize, void *, napi_value *);
+  napi_status(NAPI_CDECL *create_object)(napi_env, napi_value *);
+  napi_status(NAPI_CDECL *create_string_utf8)(napi_env, const char *, size_t, napi_value *);
+  napi_status(NAPI_CDECL *create_uint32)(napi_env, uint32_t, napi_value *);
+  napi_status(NAPI_CDECL *define_properties)(napi_env, napi_value, size_t,
+                                             const napi_property_descriptor *);
+  napi_status(NAPI_CDECL *get_boolean)(napi_env, bool, napi_value *);
+  napi_status(NAPI_CDECL *get_cb_info)(napi_env, napi_callback_info, size_t *, napi_value *,
+                                       napi_value *, void **);
+  napi_status(NAPI_CDECL *get_null)(napi_env, napi_value *);
+  uv_os_fd_t(*get_osfhandle)(int);
+  napi_status(NAPI_CDECL *get_undefined)(napi_env, napi_value *);
+  napi_status(NAPI_CDECL *get_value_external)(napi_env, napi_value, void **);
+  napi_status(NAPI_CDECL *get_value_int32)(napi_env, napi_value, int32_t *);
+  napi_status(NAPI_CDECL *get_value_string_utf16)(napi_env, napi_value, char16_t *, size_t,
+                                                  size_t *);
+  napi_status(NAPI_CDECL *get_value_string_utf8)(napi_env, napi_value, char *, size_t, size_t *);
+  napi_status(NAPI_CDECL *set_named_property)(napi_env, napi_value, const char *, napi_value);
+  napi_status(NAPI_CDECL *throw_error)(napi_env, const char *, const char *);
+  napi_status(NAPI_CDECL *throw_type_error)(napi_env, const char *, const char *);
+} publication_host_entrypoints;
+
+#define PUBLICATION_HOST_ENTRYPOINT_COUNT 17
+
+static publication_host_entrypoints publication_host;
+
+/* The table is a flat run of code pointers, bound below in declaration order. */
+typedef char publication_host_table_is_flat
+    [sizeof(publication_host_entrypoints) ==
+             PUBLICATION_HOST_ENTRYPOINT_COUNT * sizeof(FARPROC)
+         ? 1
+         : -1];
+
+#define napi_create_external publication_host.create_external
+#define napi_create_object publication_host.create_object
+#define napi_create_string_utf8 publication_host.create_string_utf8
+#define napi_create_uint32 publication_host.create_uint32
+#define napi_define_properties publication_host.define_properties
+#define napi_get_boolean publication_host.get_boolean
+#define napi_get_cb_info publication_host.get_cb_info
+#define napi_get_null publication_host.get_null
+#define uv_get_osfhandle publication_host.get_osfhandle
+#define napi_get_undefined publication_host.get_undefined
+#define napi_get_value_external publication_host.get_value_external
+#define napi_get_value_int32 publication_host.get_value_int32
+#define napi_get_value_string_utf16 publication_host.get_value_string_utf16
+#define napi_get_value_string_utf8 publication_host.get_value_string_utf8
+#define napi_set_named_property publication_host.set_named_property
+#define napi_throw_error publication_host.throw_error
+#define napi_throw_type_error publication_host.throw_type_error
+#endif
+
 #ifndef PUBLICATION_STANDALONE_TEST
 static const char *publication_result_name(publication_result result) {
   switch (result) {
@@ -592,6 +659,52 @@ static napi_value take_last_terminal_cleanup_evidence_binding(
 }
 #endif
 
+#if defined(_WIN32)
+/*
+ * Bind the fixed N-API surface to the module that is already hosting this
+ * addon.  GetModuleHandleW never loads: it returns a handle only for a module
+ * the loader has already mapped, and NULL asks for the running process image.
+ * "libnode.dll" is probed first for a Node built as a shared library, exactly
+ * as node-gyp's delay-load hook does, and is used only when it actually
+ * provides the surface.
+ */
+static BOOL publication_bind_host(void) {
+  static const char *const symbols[PUBLICATION_HOST_ENTRYPOINT_COUNT] = {
+    "napi_create_external",
+    "napi_create_object",
+    "napi_create_string_utf8",
+    "napi_create_uint32",
+    "napi_define_properties",
+    "napi_get_boolean",
+    "napi_get_cb_info",
+    "napi_get_null",
+    "uv_get_osfhandle",
+    "napi_get_undefined",
+    "napi_get_value_external",
+    "napi_get_value_int32",
+    "napi_get_value_string_utf16",
+    "napi_get_value_string_utf8",
+    "napi_set_named_property",
+    "napi_throw_error",
+    "napi_throw_type_error",
+  };
+  FARPROC *slot = (FARPROC *)&publication_host;
+  HMODULE host;
+  size_t index;
+  if (publication_host.define_properties != NULL) return TRUE;
+  host = GetModuleHandleW(L"libnode.dll");
+  if (host == NULL || GetProcAddress(host, "napi_define_properties") == NULL)
+    host = GetModuleHandleW(NULL);
+  if (host == NULL) return FALSE;
+  for (index = 0; index < PUBLICATION_HOST_ENTRYPOINT_COUNT; index += 1) {
+    FARPROC resolved = GetProcAddress(host, symbols[index]);
+    if (resolved == NULL) return FALSE;
+    slot[index] = resolved;
+  }
+  return TRUE;
+}
+#endif
+
 NAPI_MODULE_INIT() {
   static const napi_property_descriptor properties[] = {
     { "publishNoReplace", NULL, publish_no_replace_binding, NULL, NULL, NULL, napi_default, NULL },
@@ -604,6 +717,10 @@ NAPI_MODULE_INIT() {
     { "takeLastWindowsPublicationEvidence", NULL, take_last_windows_publication_evidence_binding, NULL, NULL, NULL, napi_default, NULL },
     { "takeLastTerminalCleanupEvidence", NULL, take_last_terminal_cleanup_evidence_binding, NULL, NULL, NULL, napi_default, NULL },
   };
+#if defined(_WIN32)
+  /* Without the host surface no N-API call is safe, including throwing. */
+  if (!publication_bind_host()) return exports;
+#endif
   napi_define_properties(env, exports, sizeof(properties) / sizeof(properties[0]), properties);
   return exports;
 }

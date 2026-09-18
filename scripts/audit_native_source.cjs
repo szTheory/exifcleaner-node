@@ -84,6 +84,32 @@ const allowedCalls = new Set([
   "read_path",
   "parent_path",
   "uv_get_osfhandle",
+  "GetModuleHandleW",
+  "GetProcAddress",
+  "publication_bind_host",
+]);
+
+// The exact symbol surface publication_bind_host may resolve against the host
+// process. Anything outside this set is a capability the bridge does not have.
+const HOST_BOUND_SYMBOLS = new Set([
+  "napi_create_external",
+  "napi_create_object",
+  "napi_create_string_utf8",
+  "napi_create_uint32",
+  "napi_define_properties",
+  "napi_get_boolean",
+  "napi_get_cb_info",
+  "napi_get_null",
+  "napi_get_undefined",
+  "napi_get_value_external",
+  "napi_get_value_int32",
+  "napi_get_value_string_utf16",
+  "napi_get_value_string_utf8",
+  "napi_set_named_property",
+  "napi_throw_error",
+  "napi_throw_type_error",
+  "uv_get_osfhandle",
+  "libnode.dll",
 ]);
 const languageCalls = new Set([
   "defined",
@@ -104,7 +130,16 @@ const forbiddenFamilies = [
   ["shell", /\b(system|ShellExecute\w*)\b/i],
   ["downloader", /\b(URLDownloadToFile\w*|BITS\w*)\b/i],
   ["runtime-build", /\b(cl\.exe|gcc|clang|node-gyp|make)\b/i],
-  ["dynamic-loader", /\b(dlopen|dlsym|LoadLibrary\w*|GetProcAddress)\b/i],
+  // Loading code remains forbidden outright. Resolving an entry point against a
+  // module the loader has ALREADY mapped is a strictly weaker capability, and on
+  // Windows it is the only way to reach the running host's N-API surface without
+  // naming a provider module at link time. GetProcAddress is therefore permitted
+  // only under the confinement asserted by requireHostBindingConfinement below;
+  // GetModuleHandleA/GetModuleHandleEx and every library loader stay forbidden.
+  [
+    "dynamic-loader",
+    /\b(dlopen|dlsym|LoadLibrary\w*|LoadPackagedLibrary|GetModuleHandleA|GetModuleHandleEx\w*)\b/i,
+  ],
   ["replacing-publication", /\b(rename|MoveFile\w*|CopyFile\w*)\b/i],
   [
     "pathname-cleanup",
@@ -159,6 +194,58 @@ function requirePattern(input, pattern, description) {
   if (!pattern.test(input)) fail(`missing ${description}`);
 }
 
+/*
+ * GetProcAddress is permitted only as the host N-API binding, and only inside
+ * publication_bind_host. This confinement is what keeps the relaxation of the
+ * dynamic-loader family from widening the bridge's actual capability:
+ *   - the module handle may come only from an already-mapped module, never a load
+ *   - the only name the bridge may look for is "libnode.dll"
+ *   - the only entry points it may resolve are the fixed N-API surface
+ *   - no other function in the file may resolve anything
+ */
+function requireHostBindingConfinement(rawSource, strippedTokens) {
+  const rawBody = functionBody(rawSource, "publication_bind_host");
+  const strippedBody = functionBody(strippedTokens, "publication_bind_host");
+  if (rawBody === undefined || strippedBody === undefined) {
+    fail(
+      "publication_bind_host is missing; the host N-API binding is required",
+    );
+    return;
+  }
+
+  const resolutions = [...strippedTokens.matchAll(/\bGetProcAddress\s*\(/g)];
+  const confined = [...strippedBody.matchAll(/\bGetProcAddress\s*\(/g)];
+  if (resolutions.length !== confined.length)
+    fail("GetProcAddress is only permitted inside publication_bind_host");
+
+  const handles = [...strippedTokens.matchAll(/\bGetModuleHandleW\s*\(/g)];
+  const confinedHandles = [
+    ...strippedBody.matchAll(/\bGetModuleHandleW\s*\(/g),
+  ];
+  if (handles.length !== confinedHandles.length)
+    fail("GetModuleHandleW is only permitted inside publication_bind_host");
+
+  for (const [, literal] of rawBody.matchAll(/L?"((?:\\.|[^"\\])*)"/g)) {
+    if (!HOST_BOUND_SYMBOLS.has(literal))
+      fail(`publication_bind_host may not resolve "${literal}"`);
+  }
+
+  requirePattern(
+    rawBody,
+    /GetModuleHandleW\(L"libnode\.dll"\)/,
+    "already-mapped libnode.dll probe",
+  );
+  requirePattern(
+    rawBody,
+    /GetModuleHandleW\(NULL\)/,
+    "running-host module handle",
+  );
+  if (
+    /\bGetModuleHandleW\s*\(\s*(?!NULL\s*\)|L"libnode\.dll"\s*\))/.test(rawBody)
+  )
+    fail('publication_bind_host may only ask for NULL or L"libnode.dll"');
+}
+
 let source;
 try {
   source = readFileSync(sourcePath, "utf8");
@@ -179,9 +266,18 @@ for (const [category, pattern] of forbiddenFamilies) {
   if (pattern.test(tokens)) fail(`${category} capability is forbidden`);
 }
 
+requireHostBindingConfinement(source, tokens);
+
 for (const match of tokens.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) {
   const identifier = match[1];
   if (allowedCalls.has(identifier) || languageCalls.has(identifier)) continue;
+  // A function-pointer declarator -- `napi_status(NAPI_CDECL *field)(...)` or
+  // `uv_os_fd_t(*field)(...)` -- names a return type, not a call. The forbidden
+  // families above are matched against the whole file regardless.
+  if (
+    /^\s*(?:NAPI_CDECL\s*)?\*/.test(tokens.slice(match.index + match[0].length))
+  )
+    continue;
   const declaration = new RegExp(
     `(?:static\\s+)?(?:[A-Za-z_][A-Za-z0-9_]*\\s+)+${identifier}\\s*\\(`,
   );

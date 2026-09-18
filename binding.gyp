@@ -6,6 +6,10 @@
       "defines": ["NAPI_VERSION=8"],
       "conditions": [
         ["OS=='win'", {
+          # The addon references no symbol from the host by name, so it needs
+          # neither node-gyp's delay-load hook nor an import of "node.exe".
+          # publication_bind_host resolves the N-API surface against whichever
+          # module is already hosting the addon. See native/publication.c.
           "win_delay_load_hook": "false",
           "msvs_settings": {
             "VCCLCompilerTool": {
