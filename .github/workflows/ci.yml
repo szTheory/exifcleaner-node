@@ -18,10 +18,10 @@ jobs:
   quality:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -35,10 +35,10 @@ jobs:
       FC_SEED: "460046"
       FC_RUNS: "200"
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -55,7 +55,7 @@ jobs:
           node - <<'NODE'
           const fs=require('node:fs'); const crypto=require('node:crypto'); const readAuthority=name=>{const raw=process.env[name];if(typeof raw!=='string')throw new Error(`focused ${name} authority is absent`);if(!/^[1-9][0-9]*$/u.test(raw))throw new Error(`focused ${name} authority is not a positive decimal integer`);const value=Number(raw);if(!Number.isSafeInteger(value))throw new Error(`focused ${name} authority is not a safe integer`);return value;};const seed=readAuthority('FC_SEED');const propertyRuns=readAuthority('FC_RUNS'); const manifest=fs.readFileSync('tests/corpus/manifest.json'); const authority=fs.existsSync('oracle-authority.json')?JSON.parse(fs.readFileSync('oracle-authority.json','utf8')):null; fs.writeFileSync('qualification-linux.json',JSON.stringify({version:1,tuple:`${process.platform}-${process.arch}`,nodeVersion:process.version,seed,propertyRuns,manifestSha256:crypto.createHash('sha256').update(manifest).digest('hex'),authority},null,2));
           NODE
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: qualification-linux-x64-node24
@@ -70,11 +70,11 @@ jobs:
     needs: quality
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
           fetch-depth: 0
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
       - name: Enforce dormant final-candidate identity gate
@@ -118,10 +118,10 @@ jobs:
               arch: arm64,
             }
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -145,19 +145,19 @@ jobs:
         env:
           WINDOWS_PUBLICATION_DIAGNOSTIC_PATH: windows-publication-matching-host-${{ matrix.tuple }}.json
         run: npm test -- tests/native_publication.test.ts
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && matrix.os == 'win32'
         with:
           name: windows-publication-matching-host-${{ matrix.tuple }}
           path: windows-publication-matching-host-${{ matrix.tuple }}.json
           if-no-files-found: error
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
       - name: Test unchanged artifact on Node 24
         run: npm test -- tests/native_publication.test.ts
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: native-${{ matrix.tuple }}
           path: |
@@ -176,15 +176,15 @@ jobs:
       implementation-sha: ${{ steps.identity.outputs.sha }}
       tarball-sha256: ${{ steps.identity.outputs.tarball_sha256 }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
       - run: npm ci && npm run build
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: native-*
           path: .native-input
@@ -222,7 +222,7 @@ jobs:
         run: |
           echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           echo "tarball_sha256=$(cut -d' ' -f1 tarball.sha256)" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: admitted-native-tarball
           path: |
@@ -256,10 +256,10 @@ jobs:
               arch: arm64,
             }
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: admitted-native-tarball
           path: admitted
@@ -270,7 +270,7 @@ jobs:
           test "$(node -p process.platform)" = "${{ matrix.os }}"
           test "$(node -p process.arch)" = "${{ matrix.arch }}"
           cd admitted && sha256sum -c tarball.sha256
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
       - name: Smoke unchanged admitted tarball on Node 22
@@ -278,19 +278,19 @@ jobs:
         run: |
           manifest_sha="$(node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'))")"
           QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host --windows-publication-diagnostic-output "windows-publication-installed-node22-${{ matrix.tuple }}.json" --windows-cancellation-diagnostic-output "windows-cancellation-installed-node22-${{ matrix.tuple }}.json" > node-22.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && matrix.os == 'win32'
         with:
           name: windows-publication-installed-node22-${{ matrix.tuple }}
           path: windows-publication-installed-node22-${{ matrix.tuple }}.json
           if-no-files-found: error
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && matrix.os == 'win32'
         with:
           name: windows-cancellation-installed-node22-${{ matrix.tuple }}
           path: windows-cancellation-installed-node22-${{ matrix.tuple }}.json
           if-no-files-found: error
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
       - name: Smoke unchanged admitted tarball on Node 24
@@ -298,7 +298,7 @@ jobs:
         run: |
           manifest_sha="$(node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'))")"
           QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host > node-24.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: "installed-${{ matrix.tuple }}"
           path: node-*.json
@@ -308,15 +308,15 @@ jobs:
     needs: installed-native
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: installed-*
           path: installed
           merge-multiple: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: admitted-native-tarball
           path: admitted
@@ -329,7 +329,7 @@ jobs:
           for(const tuple of tuples){const dir=path.join('installed',`installed-${tuple}`); const files=fs.readdirSync(dir).sort(); if(JSON.stringify(files)!==JSON.stringify(['node-22.json','node-24.json']))throw new Error(`installed artifact file set is not exact for ${tuple}`); const reports=Object.fromEntries(files.map(file=>{const report=JSON.parse(fs.readFileSync(path.join(dir,file),'utf8')); const nodeMajor=Number(file.match(/^node-(22|24)\.json$/)?.[1]); if(!nodeMajor)throw new Error(`installed report name is invalid for ${tuple}`); return [`node${nodeMajor}`,report];})); const record=byTuple.get(tuple); if(!record)throw new Error(`native manifest is incomplete for ${tuple}`); ledger.artifacts[tuple]={binarySha256:record.sha256,auditReportSha256:record.auditReportSha256,implementationSha:process.env.GITHUB_SHA}; ledger.installed[tuple]=reports;}
           validateIdentityCleanupLedger(ledger); fs.writeFileSync('identity-cleanup-ledger.json',JSON.stringify(ledger,null,2)); fs.writeFileSync('admission.json',JSON.stringify({version:1,implementationSha:process.env.GITHUB_SHA,tarballSha256,corpusManifestSha256:manifestSha256,tuples:Object.fromEntries(tuples.map(tuple=>[tuple,{binarySha256:ledger.artifacts[tuple].binarySha256,reportSha256:ledger.artifacts[tuple].auditReportSha256,implementationSha:process.env.GITHUB_SHA,reports:ledger.installed[tuple]}]))},null,2));
           NODE
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: final-native-admission
           path: |
@@ -346,18 +346,18 @@ jobs:
       matrix:
         node: [22, 24]
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: 411fdbdad3faa2e5dd5033bea5def435b4d03323
           path: .benchmark-baseline
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: admitted-native-tarball
           path: admitted
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node }}
       - name: Pack immutable v0.1.1 baseline
@@ -374,7 +374,7 @@ jobs:
           npm run benchmark:qualify -- --baseline-tarball "$baseline" --candidate-tarball "$candidate" --mode "$BENCHMARK_MODE" --output "benchmark-node${{ matrix.node }}.json"
           node scripts/qualification/benchmark-report.cjs --validate-report "benchmark-node${{ matrix.node }}.json"
           node -e "const fs=require('node:fs');const report=JSON.parse(fs.readFileSync('benchmark-node${{ matrix.node }}.json','utf8'));if(report.version!==4||report.warmups!==2||report.measurements!==100||report.elapsedP95Estimator?.retainedObservations!==100||report.collection?.retries!==0||report.collection?.discarded!==0)throw new Error('fresh benchmark report contract is incomplete')"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: benchmark-linux-node${{ matrix.node }}
@@ -392,21 +392,21 @@ jobs:
       - benchmark-linux
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: final-native-admission
           path: final-native
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: qualification-linux-x64-node24
           path: focused
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: benchmark-linux-node*
           path: benchmarks
@@ -426,7 +426,7 @@ jobs:
           const majors=benchmarkReports.map(report=>Number(report.environment.nodeVersion.match(/^v(\d+)/)[1])).sort(); if(majors.join(',')!=='22,24') throw new Error('benchmark Node authorities are incomplete'); const baselineDigests=new Set(benchmarkReports.map(report=>report.baselineSha256)); const candidateDigests=new Set(benchmarkReports.map(report=>report.candidateSha256)); if(baselineDigests.size!==1||candidateDigests.size!==1) throw new Error('benchmark reports disagree on package digests');
           fs.writeFileSync('phase-46-admission.json',JSON.stringify({version:1,conclusion:'pass',implementationSha:process.env.GITHUB_SHA,tarballSha256:native.tarballSha256,manifestSha256:focused.manifestSha256,oracleAuthority:focused.authority,installedConclusions:reports.length,benchmarks:benchmarkReports.map(report=>({nodeVersion:report.environment.nodeVersion,reportVersion:report.version,retainedObservationCount:report.elapsedP95Estimator.retainedObservations,baselinePackageName:report.baselinePackageName,baselineVersion:report.baselineVersion,baselineExpectedIdentity:report.baselineExpectedIdentity,baselineSha256:report.baselineSha256,candidateSha256:report.candidateSha256,conclusion:'pass'}))},null,2));
           NODE
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: phase-46-admission
           path: phase-46-admission.json
