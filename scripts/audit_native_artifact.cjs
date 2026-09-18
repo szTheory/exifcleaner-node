@@ -43,8 +43,15 @@ const DARWIN_IMPORTS = new Set([
   "_strlen",
   "___stack_chk_fail",
 ]);
-const WINDOWS_LIBRARIES = new Set(["node.exe", "KERNEL32.dll", "ADVAPI32.dll"]);
+// node.exe is deliberately absent. A Windows import names its provider at link
+// time, and inside a packaged Electron app the provider is not called node.exe;
+// importing that literal name maps a second Node runtime into the process and
+// faults on the first N-API call. publication_bind_host resolves the surface
+// against the running host instead, so no host dependency is declared at all.
+const WINDOWS_LIBRARIES = new Set(["KERNEL32.dll", "ADVAPI32.dll"]);
 const WINDOWS_IMPORTS = new Set([
+  "GetModuleHandleW",
+  "GetProcAddress",
   "CreateFileW",
   "CreateHardLinkW",
   "SetFileInformationByHandle",
@@ -76,7 +83,6 @@ const WINDOWS_IMPORTS = new Set([
   "GetSecurityDescriptorControl",
   "MapGenericMask",
   "AccessCheck",
-  "uv_get_osfhandle",
 ]);
 
 function stableReport(auditTool, libraries, imports, exports = []) {
@@ -177,12 +183,9 @@ function auditWindows(dependentsOutput, importsOutput) {
     () => false,
     "Windows dependency",
   );
-  assertAllowlisted(
-    imports,
-    WINDOWS_IMPORTS,
-    (name) => /^napi_[A-Za-z0-9_]*$/.test(name),
-    "Windows import",
-  );
+  // No napi_* predicate: on Windows the N-API surface is bound at runtime, so
+  // an imported napi_* symbol means the host-dependency defect has returned.
+  assertAllowlisted(imports, WINDOWS_IMPORTS, () => false, "Windows import");
   return stableReport("dumpbin", libraries, imports);
 }
 

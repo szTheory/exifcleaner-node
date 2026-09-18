@@ -206,6 +206,9 @@ jobs:
           node - <<'NODE'
           const fs=require('node:fs'); const path=require('node:path'); const tuples=['linux-x64','linux-arm64','darwin-x64','darwin-arm64','win32-x64','win32-arm64']; fs.rmSync('prebuilds',{recursive:true,force:true}); for(const tuple of tuples){const target=path.join('prebuilds',tuple); fs.mkdirSync(target,{recursive:true}); fs.copyFileSync(path.join('.native-assembly',target,'publication.node'),path.join(target,'publication.node'));}
           NODE
+      - name: Reject a Windows prebuild that names its N-API provider at link time
+        shell: bash
+        run: node scripts/check_windows_host_independence.cjs .
       - name: Pack exactly the admitted bytes
         shell: bash
         run: |

@@ -63,8 +63,8 @@ function cleanReport(tuple: string): string {
     );
   }
   return audit.auditWindows(
-    "Image has the following dependencies:\n\n    node.exe\n    KERNEL32.dll\n    ADVAPI32.dll",
-    "    KERNEL32.dll\n              2A0 CreateFileW\n              2A1 HeapAlloc\n    publication.node\n              310 napi_create_string_utf8",
+    "Image has the following dependencies:\n\n    KERNEL32.dll\n    ADVAPI32.dll",
+    "    KERNEL32.dll\n              2A0 CreateFileW\n              2A1 HeapAlloc\n              2A2 GetModuleHandleW\n              2A3 GetProcAddress",
   );
 }
 
@@ -119,7 +119,7 @@ describe("native compiled artifact audits", () => {
       "0: 0000000000000000 0 NOTYPE LOCAL DEFAULT UND\n1: 0000000000000000 0 FUNC GLOBAL DEFAULT UND syscall@GLIBC_2.17 (2)\n2: 0000000000000000 0 FUNC GLOBAL DEFAULT UND napi_create_string_utf8",
     );
     const windows = audit.auditWindows(
-      "Image has the following dependencies:\n\n    node.exe\n    KERNEL32.dll",
+      "Image has the following dependencies:\n\n    KERNEL32.dll",
       "    KERNEL32.dll\n                         2A0 CreateFileW\n                         2A1 HeapAlloc\n  Summary\n        1000 .data\n        2000 .text",
     );
 
@@ -139,22 +139,50 @@ describe("native compiled artifact audits", () => {
     expect(windows).not.toContain('"Characteristics"');
   });
 
-  it("admits Node's libuv descriptor bridge without a CRT dependency", () => {
+  it("admits the runtime host binding without a CRT dependency", () => {
     expect(
       audit.auditWindows(
-        "node.exe\n    KERNEL32.dll",
-        "    KERNEL32.dll\n                         2A0 CreateHardLinkW\n    node.exe\n                         2A1 uv_get_osfhandle",
+        "KERNEL32.dll",
+        "    KERNEL32.dll\n                         2A0 CreateHardLinkW\n                         2A1 GetModuleHandleW\n                         2A2 GetProcAddress",
       ),
-    ).toContain('"uv_get_osfhandle"');
+    ).toContain('"GetProcAddress"');
     expect(() =>
-      audit.auditWindows("ucrtbase.dll", "    2A0 uv_get_osfhandle"),
+      audit.auditWindows("ucrtbase.dll", "    2A0 GetProcAddress"),
     ).toThrow(/not allowlisted/i);
     expect(() =>
       audit.auditWindows(
         "api-ms-win-crt-stdio-l1-1-0.dll",
-        "    2A0 uv_get_osfhandle",
+        "    2A0 GetProcAddress",
       ),
     ).toThrow(/not allowlisted/i);
+  });
+
+  // Negative control for the packaged-Electron crash traced in
+  // .planning 48-WINDOWS-CRASH-ROOTCAUSE.md. A Windows import names its
+  // provider at link time; inside a packaged app the provider is not called
+  // node.exe, so declaring that dependency maps a second Node runtime into the
+  // process and faults on the first N-API call. Published 0.2.1 declared it and
+  // the audit allowlisted it. Both directions are asserted here so the defect
+  // cannot return silently.
+  it("rejects any declared dependency on the host, static or delay-loaded", () => {
+    expect(() =>
+      audit.auditWindows(
+        "Image has the following dependencies:\n\n    KERNEL32.dll\n    node.exe",
+        "    KERNEL32.dll\n                         2A0 CreateFileW",
+      ),
+    ).toThrow(/Windows dependencys are not allowlisted: node\.exe/);
+    expect(() =>
+      audit.auditWindows(
+        "KERNEL32.dll",
+        "    KERNEL32.dll\n                         2A0 napi_define_properties",
+      ),
+    ).toThrow(/Windows imports are not allowlisted: napi_define_properties/);
+    expect(() =>
+      audit.auditWindows(
+        "KERNEL32.dll",
+        "    KERNEL32.dll\n                         2A0 uv_get_osfhandle",
+      ),
+    ).toThrow(/Windows imports are not allowlisted: uv_get_osfhandle/);
   });
 
   it("locates the native-host dumpbin when Visual Studio leaves it off PATH", () => {
