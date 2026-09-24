@@ -58,13 +58,14 @@
     "verify": "npm run lint && npm run typecheck && npm run check:evidence && npm run build:native && npm test && npm run check:cycles && npm run build && npm run check:runtime && npm run check:dist && npm run check:pack"
   },
   "devDependencies": {
-    "@types/node": "22.20.1",
-    "fast-check": "4.9.0",
+    "@types/node": "22.20.4",
+    "fast-check": "4.10.1",
     "madge": "8.0.0",
-    "node-gyp": "13.0.1",
+    "node-gyp": "13.0.2",
     "prettier": "3.9.6",
-    "tsx": "4.23.12",
-    "typescript": "5.9.3",
-    "vitest": "4.1.11"
+    "tsx": "4.23.13",
+    "typescript": "6.0.3",
+    "vite": "8.3.1",
+    "vitest": "5.0.1"
   }
 }
