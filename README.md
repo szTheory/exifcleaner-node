@@ -138,6 +138,10 @@ npm ci
 npm run verify
 ```
 
+`npm run verify` compiles the native publication addon with `npm run build:native`, so it also
+needs a C toolchain: Xcode Command Line Tools on macOS, build-essential on Linux, or Visual Studio
+Build Tools with the C++ workload on Windows. Prebuilds are not committed.
+
 Useful focused commands are `npm run typecheck`, `npm test`, `npm run build`,
 `npm run check:runtime`, and `npm run check:pack`. Protected releases run the
 same checks before publishing through npm trusted publishing.
