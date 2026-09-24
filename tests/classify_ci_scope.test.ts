@@ -7,6 +7,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +32,9 @@ const classify = require("../scripts/classify_ci_scope.cjs") as {
   FILTERED_EVENTS: readonly string[];
   LINUX_SAFE_PATH_RULES: readonly ClassifyRule[];
   FULL_SCOPE_OVERRIDES: readonly ClassifyRule[];
+  SKIP_GATED_JOBS: readonly string[];
+  NOOP_MATRIX_JOBS: readonly string[];
+  ALWAYS_RUN_JOBS: readonly string[];
   isLinuxSafePath(path: unknown): boolean;
   classifyCiScope(input: ClassifyInput): ClassifyResult;
   changedPathsForEvent(input: {
@@ -40,6 +44,7 @@ const classify = require("../scripts/classify_ci_scope.cjs") as {
     head?: string;
     cwd: string;
   }): string[] | null;
+  validateCiScopeWiring(workflowText: string): void;
 };
 
 // ---------------------------------------------------------------------------
@@ -430,5 +435,112 @@ describe("CLI end-to-end", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ci.yml scope wiring (D-15, D-18)
+// ---------------------------------------------------------------------------
+
+describe("ci.yml scope wiring (D-15, D-18)", () => {
+  it("does not throw for the real ci.yml", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    expect(() => classify.validateCiScopeWiring(workflow)).not.toThrow();
+  });
+
+  it("throws when identity-prebuild's != 'linux' gate is removed", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "if: ${{ !cancelled() && needs.quality.result == 'success' && needs.classify.outputs.scope != 'linux' }}",
+      "if: ${{ !cancelled() && needs.quality.result == 'success' }}",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when one build-audit-native step's scope gate is removed", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "      - run: npm ci\n        if: ${{ needs.classify.outputs.scope != 'linux' }}\n",
+      "      - run: npm ci\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when installed-native's runs-on downgrade is removed", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "    if: ${{ !cancelled() && (needs.classify.outputs.scope == 'linux' || needs.assemble-exact-native.result == 'success') }}\n    runs-on: ${{ needs.classify.outputs.scope == 'linux' && 'ubuntu-24.04' || matrix.runner }}\n",
+      "    if: ${{ !cancelled() && (needs.classify.outputs.scope == 'linux' || needs.assemble-exact-native.result == 'success') }}\n    runs-on: ${{ matrix.runner }}\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when an outputs.scope == 'full' form is introduced", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = `${workflow}\n# needs.classify.outputs.scope == 'full'\n`;
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when classify is dropped from phase-46-admission needs", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace("      - classify\n", "");
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when needs.classify is added to the quality job", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "\n  quality:\n    runs-on: ubuntu-24.04\n",
+      "\n  quality:\n    needs: [classify]\n    runs-on: ubuntu-24.04\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when a workflow-level paths filter is added under on.pull_request", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "\n  pull_request:\n",
+      "\n  pull_request:\n    paths:\n      - '**'\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when a third-party diff action is added", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = `${workflow}\n      - uses: dorny/paths-filter@v3\n`;
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
   });
 });
