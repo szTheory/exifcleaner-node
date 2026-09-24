@@ -1,3 +1,4 @@
+// CI scope probe (phase 54): parser-only change; never merged.
 import type { FileHandle } from "node:fs/promises";
 
 export const RIFF_HEADER_SIZE = 12;
