@@ -1204,6 +1204,145 @@ describe("release workflow authority gate", () => {
   });
 });
 
+const attestationTamperStepName =
+  "Verify provenance and reject a tampered tarball";
+
+function assertAttestationTamperCheck(workflow: string): void {
+  const job = workflowJob(workflow, "release");
+  const attestIndex = job.indexOf("actions/attest-build-provenance");
+  const verifyIndex = job.indexOf(`name: ${attestationTamperStepName}`);
+  const publishIndex = job.indexOf("Trusted publish to npm");
+  if (attestIndex < 0)
+    throw new Error("release job is missing actions/attest-build-provenance");
+  if (verifyIndex < 0)
+    throw new Error(
+      `release job is missing the "${attestationTamperStepName}" step`,
+    );
+  if (publishIndex < 0)
+    throw new Error('release job is missing the "Trusted publish to npm" step');
+  if (!(attestIndex < verifyIndex && verifyIndex < publishIndex))
+    throw new Error(
+      `"${attestationTamperStepName}" must run after attest-build-provenance and before Trusted publish to npm`,
+    );
+
+  const stepText = job.slice(verifyIndex, publishIndex);
+
+  if (!stepText.includes("GH_TOKEN: ${{ github.token }}"))
+    throw new Error(
+      `"${attestationTamperStepName}" is missing GH_TOKEN: \${{ github.token }}`,
+    );
+
+  const verifyCallCount = (stepText.match(/gh attestation verify/gu) ?? [])
+    .length;
+  if (verifyCallCount !== 2)
+    throw new Error(
+      `"${attestationTamperStepName}" must call gh attestation verify exactly twice, found ${verifyCallCount}`,
+    );
+
+  if (!/\^=\s*0xff/u.test(stepText))
+    throw new Error(
+      `"${attestationTamperStepName}" is missing a one-byte flip of the tampered copy`,
+    );
+
+  if (!/if\s+gh attestation verify[\s\S]{0,200}exit 1/u.test(stepText))
+    throw new Error(
+      `"${attestationTamperStepName}" must invert the tampered-copy verify: "if gh attestation verify ... exit 1"`,
+    );
+
+  if (/\|\|\s*true/u.test(stepText) || /continue-on-error/u.test(stepText))
+    throw new Error(
+      `"${attestationTamperStepName}" must not soften failures with || true or continue-on-error`,
+    );
+}
+
+describe("release attestation tamper check (NHY-02, D-06a)", () => {
+  const workflowPath = join(packageRoot, ".github", "workflows", "release.yml");
+
+  it("accepts the real release.yml", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    expect(() => assertAttestationTamperCheck(workflow)).not.toThrow();
+  });
+
+  it("rejects a copy with the tamper step deleted", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const start = workflow.indexOf(
+      `      - name: ${attestationTamperStepName}`,
+    );
+    const end = workflow.indexOf("      - name: Trusted publish to npm");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const mutated = workflow.slice(0, start) + workflow.slice(end);
+    expect(mutated).not.toBe(workflow);
+    expect(() => assertAttestationTamperCheck(mutated)).toThrow(
+      /is missing the/u,
+    );
+  });
+
+  it("rejects a copy with the tamper step moved after Trusted publish to npm", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const stepStart = workflow.indexOf(
+      `      - name: ${attestationTamperStepName}`,
+    );
+    const stepEnd = workflow.indexOf("      - name: Trusted publish to npm");
+    const publishEnd = workflow.indexOf("      - name: Dry-run publish");
+    expect(stepStart).toBeGreaterThan(-1);
+    expect(stepEnd).toBeGreaterThan(stepStart);
+    expect(publishEnd).toBeGreaterThan(stepEnd);
+    const stepBlock = workflow.slice(stepStart, stepEnd);
+    const publishBlock = workflow.slice(stepEnd, publishEnd);
+    const mutated =
+      workflow.slice(0, stepStart) +
+      publishBlock +
+      stepBlock +
+      workflow.slice(publishEnd);
+    expect(mutated).not.toBe(workflow);
+    expect(() => assertAttestationTamperCheck(mutated)).toThrow(
+      /must run after attest-build-provenance and before Trusted publish to npm/u,
+    );
+  });
+
+  it("rejects a copy whose tampered-copy verification is no longer inverted", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const invertedGuard =
+      'if gh attestation verify tampered.tgz --repo "$GITHUB_REPOSITORY"; then\n' +
+      '            echo "tampered tarball passed attestation verification" >&2\n' +
+      "            exit 1\n" +
+      "          fi";
+    expect(workflow).toContain(invertedGuard);
+    const mutated = workflow.replace(
+      invertedGuard,
+      'gh attestation verify tampered.tgz --repo "$GITHUB_REPOSITORY"',
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => assertAttestationTamperCheck(mutated)).toThrow(
+      /must invert the tampered-copy verify/u,
+    );
+  });
+
+  it("rejects a copy without the GH_TOKEN env line", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const envBlock = "        env:\n          GH_TOKEN: ${{ github.token }}\n";
+    expect(workflow).toContain(envBlock);
+    const mutated = workflow.replace(envBlock, "");
+    expect(mutated).not.toBe(workflow);
+    expect(() => assertAttestationTamperCheck(mutated)).toThrow(
+      /is missing GH_TOKEN/u,
+    );
+  });
+
+  it("rejects a copy that softens the tamper check with continue-on-error or || true", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const softened = workflow.replace(
+      `      - name: ${attestationTamperStepName}\n        shell: bash`,
+      `      - name: ${attestationTamperStepName}\n        continue-on-error: true\n        shell: bash`,
+    );
+    expect(softened).not.toBe(workflow);
+    expect(() => assertAttestationTamperCheck(softened)).toThrow(
+      /must not soften failures/u,
+    );
+  });
+});
+
 describe("p95 null-branch closure gate (46-33)", () => {
   const closurePath = join(
     phase46EvidenceDirectory,
