@@ -189,9 +189,9 @@ describe("event overrides", () => {
   it.each(["workflow_dispatch", "workflow_call"])(
     "returns full for event %s even with a parser-only diff",
     (eventName) => {
-      expect(
-        classify.classifyCiScope(baseInput({ eventName })),
-      ).toMatchObject({ scope: "full" });
+      expect(classify.classifyCiScope(baseInput({ eventName }))).toMatchObject({
+        scope: "full",
+      });
     },
   );
 
@@ -272,7 +272,11 @@ const GIT_ENV = {
 };
 
 function git(cwd: string, args: string[]): string {
-  const result = spawnSync("git", args, { cwd, env: GIT_ENV, encoding: "utf8" });
+  const result = spawnSync("git", args, {
+    cwd,
+    env: GIT_ENV,
+    encoding: "utf8",
+  });
   if (result.status !== 0)
     throw new Error(
       `git ${args.join(" ")} failed (${result.status}): ${result.stderr}`,
