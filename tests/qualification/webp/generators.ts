@@ -10,13 +10,13 @@ import {
   vp8l,
   vp8x,
   webp,
-} from "../fixtures.js";
+} from "../../fixtures.js";
 import {
   MAX_BUFFERED_METADATA_BYTES,
   MAX_CHUNK_COUNT,
   MAX_RIFF_BYTES,
   type WebpStructureError,
-} from "../../src/webp/riff.js";
+} from "../../../src/webp/riff.js";
 
 export type HostileCategory =
   | "aggregate-limit"
@@ -439,6 +439,6 @@ export function formatReplayRecord(input: ReplayRecordInput) {
     architecture: process.arch,
     fixtureSha256: input.fixtureSha256,
     faultPlan: input.faultPlan,
-    replayCommand: `FC_SEED=${input.seed} FC_PATH=${input.path} npm test -- tests/qualification/property.test.ts`,
+    replayCommand: `FC_SEED=${input.seed} FC_PATH=${input.path} npm test -- tests/qualification/webp/property.test.ts`,
   };
 }

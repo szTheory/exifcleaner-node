@@ -1,7 +1,7 @@
 import { constants as fsConstants } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
-import type { RegisteredHandler } from "../../src/admission/registry.js";
-import type { FileOps } from "../../src/transaction/file-ops.js";
+import type { RegisteredHandler } from "../../../src/admission/registry.js";
+import type { FileOps } from "../../../src/transaction/file-ops.js";
 
 export const LOGICAL_OPERATIONS = [
   "stage-directory-create",

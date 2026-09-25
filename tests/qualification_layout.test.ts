@@ -11,11 +11,6 @@ const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
  * Every entry is a project-root-relative path.
  */
 export const PENDING_FLAT_FILES: readonly string[] = [
-  "tests/qualification/fault-plan.ts",
-  "tests/qualification/generators.ts",
-  "tests/qualification/parser.test.ts",
-  "tests/qualification/property.test.ts",
-  "tests/qualification/transaction.test.ts",
   "tests/qualification/oracles.ts",
   "tests/qualification/oracles.test.ts",
   "tests/qualification/benchmark.test.ts",
@@ -199,5 +194,61 @@ describe("qualification test layout (D-15/D-16)", () => {
     const allowlist = new Set(PENDING_FLAT_FILES);
     const unexpected = flatEntries.filter((entry) => !allowlist.has(entry));
     expect(unexpected).toEqual([]);
+  });
+
+  // Permanent negative controls (D-16): each proves qualificationListProblems
+  // actually detects the failure mode it exists for, by mutating the real,
+  // currently-green inputs and asserting a problem is reported.
+  describe("negative controls (must report a problem when triggered)", () => {
+    it("(i) reports a problem when the ci.yml list drops an on-disk suite", () => {
+      const droppedFile = "tests/qualification/webp/parser.test.ts";
+      const droppedCiList = ciList.filter((entry) => entry !== droppedFile);
+      const problems = qualificationListProblems({
+        ciList: droppedCiList,
+        ciListExists: new Set(
+          droppedCiList.filter((entry) => ciListExists.has(entry)),
+        ),
+        qualifyList,
+        onDiskTestFiles,
+        pendingFlatFiles: PENDING_FLAT_FILES,
+      });
+      expect(problems.some((problem) => problem.includes(droppedFile))).toBe(
+        true,
+      );
+    });
+
+    it("(ii) reports a problem when a listed path does not exist on disk", () => {
+      const bogusPath = "tests/qualification/webp/does-not-exist.test.ts";
+      const problems = qualificationListProblems({
+        ciList: [...ciList, bogusPath],
+        ciListExists,
+        qualifyList: [...qualifyList, bogusPath],
+        onDiskTestFiles,
+        pendingFlatFiles: PENDING_FLAT_FILES,
+      });
+      expect(
+        problems.some((problem) =>
+          problem.includes(`does not exist on disk: ${bogusPath}`),
+        ),
+      ).toBe(true);
+    });
+
+    it("(iii) reports a problem for a stray non-allowlisted flat file", () => {
+      const strayPath = "tests/qualification/stray.test.ts";
+      const problems = qualificationListProblems({
+        ciList: [...ciList, strayPath],
+        ciListExists: new Set([...ciListExists, strayPath]),
+        qualifyList: [...qualifyList, strayPath],
+        onDiskTestFiles,
+        pendingFlatFiles: PENDING_FLAT_FILES,
+      });
+      expect(
+        problems.some((problem) =>
+          problem.includes(
+            `${strayPath}, which is neither an on-disk kit/webp suite nor a pinned PENDING_FLAT_FILES entry`,
+          ),
+        ),
+      ).toBe(true);
+    });
   });
 });
