@@ -37,9 +37,7 @@ type MetadataEntry = Readonly<Record<string, unknown>>;
 
 export interface MetadataProjection {
   readonly warnings: readonly string[];
-  readonly namespaces: Readonly<
-    Record<"EXIF" | "XMP" | "ICC_Profile", readonly MetadataEntry[]>
-  >;
+  readonly namespaces: Readonly<Record<string, readonly MetadataEntry[]>>;
   readonly rawIccSha256?: string;
 }
 
@@ -133,14 +131,48 @@ export function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function metadataNamespace(
+const EXIF_GROUP_PATTERN =
+  /^(?:IFD\d*|ExifIFD|GPS|InteropIFD|SubIFD|MakerNotes)$/;
+
+/**
+ * Groups measured (2026-09-24, ExifTool 13.59, `-G1 -s -a -u -n -struct -json`
+ * against three real fixtures plus their native-sanitized and `-all=`-reference
+ * projections; see the Plan 04 SUMMARY for the full per-fixture group list) as
+ * file-system/tool-volatile or derived, never removable file content:
+ * - `ExifTool`: tool version only (`ExifToolVersion`) -- tool-volatile.
+ * - `System`: filesystem path/date/permission tags (`FileName`, `Directory`, `FileSize`,
+ *   `FileModifyDate`, `FileAccessDate`, `FileInodeChangeDate`, `FilePermissions`) --
+ *   host/filesystem-volatile, never part of the file's own bytes.
+ * - `File`: container-identity tags ExifTool synthesizes from the bytes it just read
+ *   (`FileType`, `FileTypeExtension`, `MIMEType`, container byte-order) -- derived,
+ *   not removable metadata.
+ * - `Composite`: ExifTool-computed values (`ImageSize`, `Megapixels`) derived from
+ *   pixel dimensions, never removable metadata.
+ *
+ * Every other measured group is compared, deliberately including each format's own
+ * container-structure group: a structural group's real differences are exactly what
+ * D-12/KIT-04 exist to surface, not hide, by comparing it under its own name via the
+ * catch-all rule below. This kit stays free of any single format's vocabulary (see the
+ * token-clean acceptance criterion) -- format-specific evidence lives in the per-plan
+ * SUMMARY, never as a named exception in this exclude set.
+ */
+export const EXCLUDED_GROUPS: ReadonlySet<string> = Object.freeze(
+  new Set(["ExifTool", "System", "File", "Composite"]),
+);
+
+export function metadataGroupDisposition(
   group: string,
-): "EXIF" | "XMP" | "ICC_Profile" | undefined {
-  if (/^(?:IFD\d*|ExifIFD|GPS|InteropIFD|SubIFD|MakerNotes)$/.test(group))
-    return "EXIF";
-  if (group.startsWith("XMP")) return "XMP";
-  if (group === "ICC_Profile") return "ICC_Profile";
-  return undefined;
+):
+  | { readonly compared: false }
+  | { readonly compared: true; readonly namespace: string } {
+  if (EXCLUDED_GROUPS.has(group)) return { compared: false };
+  if (EXIF_GROUP_PATTERN.test(group))
+    return { compared: true, namespace: "EXIF" };
+  if (group === "XMP" || group.startsWith("XMP-"))
+    return { compared: true, namespace: "XMP" };
+  if (group === "ICC_Profile" || group.startsWith("ICC-"))
+    return { compared: true, namespace: "ICC_Profile" };
+  return { compared: true, namespace: group };
 }
 
 function runMetadata(
@@ -166,17 +198,25 @@ function runMetadata(
     >[];
     if (!Array.isArray(parsed) || parsed.length !== 1)
       throw new Error("ExifTool oracle emitted an unknown transcript");
-    const namespaces: Record<"EXIF" | "XMP" | "ICC_Profile", MetadataEntry[]> =
-      { EXIF: [], XMP: [], ICC_Profile: [] };
+    const namespaces: Record<string, MetadataEntry[]> = {
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+    };
     const warnings: string[] = [];
     for (const [key, value] of Object.entries(parsed[0]!)) {
+      // ExifTool always injects this pseudo-field (the input path) alongside every
+      // -G1 group tag; it is not a metadata group and would otherwise land in its
+      // own catch-all namespace and differ on every run (temp-directory paths).
+      if (key === "SourceFile") continue;
       const [group = "", tag = ""] = key.split(":", 2);
       if (/warning|error/i.test(tag))
         warnings.push(String(value).slice(0, 256));
       if (/unknown/i.test(tag))
         throw new Error("ExifTool oracle found an unknown tag");
-      const namespace = metadataNamespace(group);
-      if (namespace !== undefined) namespaces[namespace].push({ [tag]: value });
+      const disposition = metadataGroupDisposition(group);
+      if (disposition.compared)
+        (namespaces[disposition.namespace] ??= []).push({ [tag]: value });
     }
     for (const values of Object.values(namespaces))
       values.sort((left, right) =>
@@ -216,14 +256,20 @@ export function comparePermittedDifferences(
     else throw new Error("Unknown permitted metadata difference");
   }
 
-  if (output.namespaces.XMP.length > 0)
+  const sourceExif = source.namespaces.EXIF ?? [];
+  const outputExif = output.namespaces.EXIF ?? [];
+  const outputXmp = output.namespaces.XMP ?? [];
+  const sourceIcc = source.namespaces.ICC_Profile ?? [];
+  const outputIcc = output.namespaces.ICC_Profile ?? [];
+
+  if (outputXmp.length > 0)
     throw new Error("Unpermitted metadata difference: XMP");
   if (expectedOrientation === undefined) {
-    if (output.namespaces.EXIF.length > 0)
+    if (outputExif.length > 0)
       throw new Error("Unpermitted metadata difference: EXIF");
   } else {
-    const sourceOrientations = tagValues(source.namespaces.EXIF, "Orientation");
-    const outputOrientations = tagValues(output.namespaces.EXIF, "Orientation");
+    const sourceOrientations = tagValues(sourceExif, "Orientation");
+    const outputOrientations = tagValues(outputExif, "Orientation");
     if (
       sourceOrientations.every((value) => value !== expectedOrientation) ||
       outputOrientations.length !== 1 ||
@@ -231,7 +277,7 @@ export function comparePermittedDifferences(
     )
       throw new Error("Requested Orientation was not preserved");
     if (
-      output.namespaces.EXIF.some((entry) =>
+      outputExif.some((entry) =>
         Object.keys(entry).some((tag) => tag !== "Orientation"),
       )
     )
@@ -239,16 +285,12 @@ export function comparePermittedDifferences(
   }
 
   if (expectedIcc === undefined) {
-    if (
-      output.namespaces.ICC_Profile.length > 0 ||
-      output.rawIccSha256 !== undefined
-    )
+    if (outputIcc.length > 0 || output.rawIccSha256 !== undefined)
       throw new Error("Unpermitted metadata difference: ICC_Profile");
   } else if (
     source.rawIccSha256 !== expectedIcc ||
     output.rawIccSha256 !== expectedIcc ||
-    canonical(source.namespaces.ICC_Profile) !==
-      canonical(output.namespaces.ICC_Profile)
+    canonical(sourceIcc) !== canonical(outputIcc)
   )
     throw new Error("Requested ICC profile was not preserved");
 

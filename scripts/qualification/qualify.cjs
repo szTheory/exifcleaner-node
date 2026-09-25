@@ -255,6 +255,7 @@ function execute(options) {
     "test",
     "--",
     "tests/qualification/kit/floors.test.ts",
+    "tests/qualification/kit/oracles.test.ts",
     "tests/qualification/webp/tracer.test.ts",
     "tests/qualification/webp/parser.test.ts",
     "tests/qualification/webp/property.test.ts",
