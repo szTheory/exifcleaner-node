@@ -261,6 +261,7 @@ function execute(options) {
     "tests/qualification/webp/property.test.ts",
     "tests/qualification/webp/transaction.test.ts",
     "tests/qualification/webp/oracles.test.ts",
+    "tests/qualification/webp/golden.test.ts",
   ]);
 }
 
