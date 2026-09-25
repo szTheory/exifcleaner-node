@@ -130,10 +130,14 @@ async function checkSample(
         const destinationIccChunk = outputChunks.find(
           (chunk) => chunk.fourCc === "ICCP",
         );
-        expect(destinationIccChunk, PRESERVATION_MESSAGES.iccMissing).toBeDefined();
-        expect(destinationIccChunk?.data, PRESERVATION_MESSAGES.iccBytes).toEqual(
-          sourceIccChunk?.data,
-        );
+        expect(
+          destinationIccChunk,
+          PRESERVATION_MESSAGES.iccMissing,
+        ).toBeDefined();
+        expect(
+          destinationIccChunk?.data,
+          PRESERVATION_MESSAGES.iccBytes,
+        ).toEqual(sourceIccChunk?.data);
       }
 
       if (preserveOrientation) {
@@ -197,9 +201,7 @@ async function checkSample(
  */
 async function rewriteDestination(
   destinationPath: string,
-  transform: (
-    chunks: readonly FixtureChunk[],
-  ) => readonly FixtureChunk[],
+  transform: (chunks: readonly FixtureChunk[]) => readonly FixtureChunk[],
 ): Promise<void> {
   const destination = await readFile(destinationPath);
   const rewritten = webp(transform(readChunks(destination)));
