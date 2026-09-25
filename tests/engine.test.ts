@@ -483,7 +483,7 @@ describe("sanitizeFile", () => {
     );
   });
 
-  it("strips EXIF, XMP, and ICC; updates VP8X flags; preserves image bytes; and leaves source untouched", async () => {
+  it("strips EXIF, XMP, and ICC; drops VP8X when no extended feature remains (KIT-08); preserves image bytes; and leaves source untouched", async () => {
     const directory = await workspace();
     const sourcePath = join(directory, "source.webp");
     const destinationPath = join(directory, "clean.webp");
@@ -515,10 +515,43 @@ describe("sanitizeFile", () => {
     expect(await readFile(sourcePath)).toEqual(source);
     const output = await readFile(destinationPath);
     const chunks = readChunks(output);
-    expect(chunks.map((item) => item.fourCc)).toEqual(["VP8X", "VP8 "]);
-    expect(chunks[0]?.data[0]).toBe(0);
-    expect(chunks[1]?.data).toEqual(imagePayload);
+    expect(chunks.map((item) => item.fourCc)).toEqual(["VP8 "]);
+    expect(chunks[0]?.data).toEqual(imagePayload);
     expect(output.readUInt32LE(4) + 8).toBe(output.length);
+  });
+
+  it("keeps VP8X when an extended feature (alpha) remains even though EXIF/XMP/ICC were stripped (KIT-08)", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    const alphaPayload = Buffer.from([0, 1]);
+    const imagePayload = vp8(1, 1, Buffer.from([9, 8, 7, 6, 5]));
+    await writeFile(
+      sourcePath,
+      webp([
+        { fourCc: "VP8X", data: vp8x(0x18) },
+        { fourCc: "EXIF", data: exifWithOrientation(1) },
+        { fourCc: "ALPH", data: alphaPayload },
+        { fourCc: "VP8 ", data: imagePayload },
+      ]),
+    );
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    const chunks = readChunks(await readFile(destinationPath));
+    expect(chunks.map((item) => item.fourCc)).toEqual([
+      "VP8X",
+      "ALPH",
+      "VP8 ",
+    ]);
+    expect(chunks[0]?.data[0]).toBe(0x10);
   });
 
   it("preserves only EXIF Orientation and the ICC profile when requested", async () => {
