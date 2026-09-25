@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const require = createRequire(import.meta.url);
@@ -33,7 +33,7 @@ interface AuthorityBuilder {
   readonly prepareOracleTools: () => PreparedOracleTools;
 }
 
-type MetadataEntry = Readonly<Record<string, unknown>>;
+export type MetadataEntry = Readonly<Record<string, unknown>>;
 
 export interface MetadataProjection {
   readonly warnings: readonly string[];
@@ -51,17 +51,59 @@ export interface MetadataTranscript {
   };
   readonly source: MetadataProjection;
   readonly output: MetadataProjection;
+  readonly reference: MetadataProjection;
   readonly permittedDifferences: readonly string[];
   readonly equivalent: true;
 }
 
-interface ExiftoolOracleOptions {
+/**
+ * A permitted-difference kind. `id` is a closed, code-defined enum (not free text) --
+ * see `compareDifferential`'s grant parser -- and `measurement` names the exact test
+ * title in the format's own oracles.test.ts that measures this kind, so a citation
+ * pointing at a nonexistent test fails a dedicated check rather than going unnoticed.
+ *
+ * `impliedDifference` is optional, format-neutral coverage for a *derived* tag that a
+ * format's own container structure forces to differ as a side effect of this same
+ * grant -- for example, a container-level flags value that changes because a
+ * preservation flag stayed on. The kit never names the implied namespace or tag
+ * itself; the profile supplies both, and `explains` decides -- given only the
+ * native-only entries in that namespace and the set of grant kinds active in this
+ * differential run -- whether the observed delta is exactly what this grant (plus
+ * whichever other active grants also declare that namespace) would produce. An
+ * implied difference that does not explain the observed delta falls through to the
+ * ordinary leak/over-strip failure, so a mismatched implied-tag value still fails.
+ */
+export interface PermittedKind {
+  readonly id: "EXIF:Orientation" | "ICC_Profile:RawProfile";
+  readonly measurement: string;
+  readonly impliedDifference?: {
+    readonly namespace: string;
+    readonly explains: (
+      onlyLeft: readonly MetadataEntry[],
+      activeKindIds: readonly PermittedKind["id"][],
+    ) => boolean;
+  };
+}
+
+/**
+ * Per-format parameters the kit needs to run a two-directional ExifTool differential:
+ * a name/extension for temp-file materialization, a raw-color-profile digest callback
+ * (mirrors the one `runMetadata` already takes), and the closed set of permitted-
+ * difference kinds this format admits.
+ */
+export interface DifferentialProfile {
+  readonly format: string;
+  readonly extension: string;
+  readonly rawColorProfileSha256: (bytes: Buffer) => string | undefined;
+  readonly permittedKinds: readonly PermittedKind[];
+}
+
+export interface ExiftoolDifferentialOptions {
   readonly caseId: string;
+  readonly profile: DifferentialProfile;
   readonly source: Buffer;
   readonly output: Buffer;
   readonly permittedDifferences: readonly string[];
-  readonly extension: string;
-  readonly rawColorProfileSha256: (bytes: Buffer) => string | undefined;
 }
 
 let preparedTools: PreparedOracleTools | undefined;
@@ -297,22 +339,218 @@ export function comparePermittedDifferences(
   return [];
 }
 
-export function runExiftoolOracle(
-  options: ExiftoolOracleOptions,
+type ParsedGrantKind = "EXIF:Orientation" | "ICC_Profile:RawProfile";
+
+interface ParsedGrant {
+  readonly kind: ParsedGrantKind;
+  readonly value: string;
+}
+
+function parseGrant(item: string): ParsedGrant {
+  const orientation = item.match(/^EXIF:Orientation=([1-8])$/);
+  if (orientation !== null)
+    return { kind: "EXIF:Orientation", value: orientation[1]! };
+  const icc = item.match(/^ICC_Profile:RawProfile=([a-f0-9]{64})$/);
+  if (icc !== null) return { kind: "ICC_Profile:RawProfile", value: icc[1]! };
+  throw new Error("Unknown permitted metadata difference");
+}
+
+/**
+ * Order-insensitive multiset difference between two entry arrays, keyed by each
+ * entry's canonical JSON form. `onlyLeft` holds entries present in `left` with no
+ * matching entry left in `right` (and vice versa for `onlyRight`); a duplicate entry
+ * on one side without a matching duplicate on the other counts once per unmatched
+ * occurrence.
+ */
+function multisetDiff(
+  left: readonly MetadataEntry[],
+  right: readonly MetadataEntry[],
+): {
+  readonly onlyLeft: readonly MetadataEntry[];
+  readonly onlyRight: readonly MetadataEntry[];
+} {
+  const remainingRight = right.map((entry) => canonical(entry));
+  const onlyLeft: MetadataEntry[] = [];
+  for (const entry of left) {
+    const index = remainingRight.indexOf(canonical(entry));
+    if (index === -1) onlyLeft.push(entry);
+    else remainingRight.splice(index, 1);
+  }
+  const remainingLeft = left.map((entry) => canonical(entry));
+  const onlyRight: MetadataEntry[] = [];
+  for (const entry of right) {
+    const index = remainingLeft.indexOf(canonical(entry));
+    if (index === -1) onlyRight.push(entry);
+    else remainingLeft.splice(index, 1);
+  }
+  return { onlyLeft, onlyRight };
+}
+
+/**
+ * The generic, two-directional differential (D-10, D-12): every namespace present in
+ * `native` or `reference` is compared as an order-insensitive multiset. A tag `native`
+ * has that `reference` lacks is a leak; a tag `reference` keeps that `native` lacks is
+ * an over-strip -- both fail unless a declared, code-defined `grants` kind explains the
+ * exact delta. A grant naming a kind outside `kinds` is rejected outright, and a grant
+ * that explains no actual delta is rejected as stale.
+ */
+export function compareDifferential(
+  source: MetadataProjection,
+  native: MetadataProjection,
+  reference: MetadataProjection,
+  grants: readonly string[],
+  kinds: readonly PermittedKind[],
+): readonly string[] {
+  const kindById = new Map(kinds.map((kind) => [kind.id, kind] as const));
+  const parsedGrants = grants.map(parseGrant);
+  for (const grant of parsedGrants)
+    if (!kindById.has(grant.kind))
+      throw new Error("Unknown permitted metadata difference");
+
+  const orientationGrant = parsedGrants.find(
+    (grant) => grant.kind === "EXIF:Orientation",
+  );
+  const iccGrant = parsedGrants.find(
+    (grant) => grant.kind === "ICC_Profile:RawProfile",
+  );
+  let orientationExplainedDelta = false;
+  let iccExplainedDelta = false;
+  const activeKindIds = parsedGrants.map((grant) => grant.kind);
+
+  const namespaceNames = new Set([
+    ...Object.keys(native.namespaces),
+    ...Object.keys(reference.namespaces),
+  ]);
+
+  for (const namespace of namespaceNames) {
+    const nativeEntries = native.namespaces[namespace] ?? [];
+    const referenceEntries = reference.namespaces[namespace] ?? [];
+    const { onlyLeft, onlyRight } = multisetDiff(
+      nativeEntries,
+      referenceEntries,
+    );
+    if (onlyLeft.length === 0 && onlyRight.length === 0) continue;
+
+    if (namespace === "EXIF" && orientationGrant !== undefined) {
+      const expected = Number(orientationGrant.value);
+      const grantedEntry = onlyLeft[0];
+      if (
+        onlyRight.length === 0 &&
+        onlyLeft.length === 1 &&
+        grantedEntry !== undefined &&
+        Object.keys(grantedEntry).length === 1 &&
+        grantedEntry.Orientation === expected
+      ) {
+        orientationExplainedDelta = true;
+        continue;
+      }
+      throw new Error("Requested Orientation was not preserved");
+    }
+
+    if (namespace === "ICC_Profile" && iccGrant !== undefined) {
+      const sourceEntries = source.namespaces.ICC_Profile ?? [];
+      const sourceDiff = multisetDiff(nativeEntries, sourceEntries);
+      if (
+        source.rawIccSha256 === iccGrant.value &&
+        native.rawIccSha256 === iccGrant.value &&
+        sourceDiff.onlyLeft.length === 0 &&
+        sourceDiff.onlyRight.length === 0
+      ) {
+        iccExplainedDelta = true;
+        continue;
+      }
+      throw new Error("Requested ICC profile was not preserved");
+    }
+
+    const impliedKinds = parsedGrants
+      .map((grant) => kindById.get(grant.kind))
+      .filter(
+        (kind): kind is PermittedKind =>
+          kind?.impliedDifference?.namespace === namespace,
+      );
+    if (
+      impliedKinds.length > 0 &&
+      onlyRight.length === 0 &&
+      impliedKinds.every((kind) =>
+        kind.impliedDifference!.explains(onlyLeft, activeKindIds),
+      )
+    ) {
+      for (const kind of impliedKinds) {
+        if (kind.id === "EXIF:Orientation") orientationExplainedDelta = true;
+        if (kind.id === "ICC_Profile:RawProfile") iccExplainedDelta = true;
+      }
+      continue;
+    }
+
+    if (onlyLeft.length > 0)
+      throw new Error(`Unpermitted metadata difference: ${namespace}`);
+    throw new Error(`Over-strip: ${namespace}`);
+  }
+
+  if (orientationGrant !== undefined && !orientationExplainedDelta)
+    throw new Error("Stale permitted difference: EXIF:Orientation");
+  if (iccGrant !== undefined && !iccExplainedDelta)
+    throw new Error("Stale permitted difference: ICC_Profile:RawProfile");
+
+  return [];
+}
+
+/**
+ * Runs the pinned ExifTool authority's own `-all=` sanitize against `input`, inside the
+ * same temp directory `withInput` already created for materializing it, and returns the
+ * resulting bytes. This is the reference baseline `compareDifferential` compares native
+ * output against.
+ */
+export function runExiftoolReference(
+  input: Buffer,
+  profile: DifferentialProfile,
+): Buffer {
+  return withInput(input, profile.extension, (inputPath) => {
+    const referencePath = join(
+      dirname(inputPath),
+      `reference${profile.extension}`,
+    );
+    const result = execute(tools().exiftool, [
+      "-all=",
+      "-o",
+      referencePath,
+      inputPath,
+    ]);
+    if (result.status !== 0)
+      throw new Error("ExifTool reference authority rejected input");
+    return readFileSync(referencePath);
+  });
+}
+
+export function runExiftoolDifferential(
+  options: ExiftoolDifferentialOptions,
 ): MetadataTranscript {
   validateInput(options.caseId, options.source);
   validateInput(options.caseId, options.output);
   const source = runMetadata(
     options.source,
-    options.extension,
-    options.rawColorProfileSha256,
+    options.profile.extension,
+    options.profile.rawColorProfileSha256,
   );
   const output = runMetadata(
     options.output,
-    options.extension,
-    options.rawColorProfileSha256,
+    options.profile.extension,
+    options.profile.rawColorProfileSha256,
   );
   comparePermittedDifferences(source, output, options.permittedDifferences);
+  const referenceBytes = runExiftoolReference(options.source, options.profile);
+  const reference = runMetadata(
+    referenceBytes,
+    options.profile.extension,
+    options.profile.rawColorProfileSha256,
+  );
+  compareDifferential(
+    source,
+    output,
+    reference,
+    options.permittedDifferences,
+    options.profile.permittedKinds,
+  );
   const authority = tools().authority.authorities.find(
     (item) => item.id === "exiftool-13.59",
   );
@@ -327,6 +565,7 @@ export function runExiftoolOracle(
     },
     source,
     output,
+    reference,
     permittedDifferences: [...options.permittedDifferences],
     equivalent: true,
   };

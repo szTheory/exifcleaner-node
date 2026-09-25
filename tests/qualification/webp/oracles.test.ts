@@ -1,22 +1,40 @@
 import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../dist/index.js";
 import { parseWebp } from "../../../src/webp/riff.js";
-import { anim, animationFrame, vp8x, webp } from "../../fixtures.js";
-import { comparePermittedDifferences } from "../kit/oracles.js";
+import {
+  anim,
+  animationFrame,
+  iccProfile,
+  metadataWebp,
+  vp8x,
+  webp,
+} from "../../fixtures.js";
+import { comparePermittedDifferences, digest } from "../kit/oracles.js";
 import { materializeCorpusRecord } from "../kit/corpus.js";
 import { materializeMutationCase } from "./generators.js";
 import {
   normalizeWebpInfo,
   runLibwebpOracle,
-  runWebpExiftoolOracle,
+  webpDifferentialProfile,
 } from "./oracles.js";
+import { runExiftoolDifferential } from "../kit/oracles.js";
 
 const admittedHost = process.platform === "linux" && process.arch === "x64";
 
-async function sanitize(bytes: Buffer): Promise<Buffer> {
+interface SanitizeOptions {
+  readonly preserveOrientation?: boolean;
+  readonly preserveColorProfile?: boolean;
+}
+
+async function sanitize(
+  bytes: Buffer,
+  options: SanitizeOptions = {},
+): Promise<Buffer> {
   const directory = await mkdtemp(join(tmpdir(), "exifcleaner-oracle-test-"));
   const sourcePath = join(directory, "source.webp");
   const destinationPath = join(directory, "output.webp");
@@ -25,8 +43,8 @@ async function sanitize(bytes: Buffer): Promise<Buffer> {
     const result = await sanitizeFile({
       sourcePath,
       destinationPath,
-      preserveOrientation: false,
-      preserveColorProfile: false,
+      preserveOrientation: options.preserveOrientation ?? false,
+      preserveColorProfile: options.preserveColorProfile ?? false,
       preserveTimestamps: false,
     });
     if (!result.ok) throw new Error(`sanitize failed: ${result.error.code}`);
@@ -34,6 +52,27 @@ async function sanitize(bytes: Buffer): Promise<Buffer> {
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+}
+
+interface ManifestRecord {
+  readonly id: string;
+  readonly roles: readonly string[];
+  readonly outcome: { readonly status: string };
+  readonly permittedDifferences: readonly string[];
+}
+
+function differentialSuccessRecords(): readonly ManifestRecord[] {
+  const manifestPath = fileURLToPath(
+    new URL("../../corpus/manifest.json", import.meta.url),
+  );
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+    readonly records: readonly ManifestRecord[];
+  };
+  return manifest.records.filter(
+    (record) =>
+      record.roles.includes("differential") &&
+      record.outcome.status === "success",
+  );
 }
 
 describe("pinned external WebP oracles", () => {
@@ -187,30 +226,73 @@ No error detected.
         },
       });
       expect(JSON.stringify(libwebp)).not.toMatch(/\/(?:home|tmp|Users)\//);
+    },
+    180_000,
+  );
 
-      expect(
-        runWebpExiftoolOracle({
-          caseId: "libwebp-1.5.0-example",
+  it.runIf(admittedHost)(
+    "runs the live two-directional differential against every differential-role corpus record",
+    async () => {
+      for (const record of differentialSuccessRecords()) {
+        const source = await materializeCorpusRecord(record.id);
+        const output = await sanitize(source);
+        const transcript = runExiftoolDifferential({
+          caseId: record.id,
+          profile: webpDifferentialProfile,
           source,
           output,
-          permittedDifferences: [],
-        }),
-      ).toMatchObject({
+          permittedDifferences: record.permittedDifferences,
+        });
+        expect(transcript).toMatchObject({
+          version: 1,
+          caseId: record.id,
+          equivalent: true,
+        });
+        expect(JSON.stringify(transcript)).not.toMatch(
+          /\/(?:home|tmp|Users)\//,
+        );
+      }
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "measures orientation and ICC preservation as the only permitted WebP differences",
+    async () => {
+      const source = metadataWebp();
+      const output = await sanitize(source, {
+        preserveOrientation: true,
+        preserveColorProfile: true,
+      });
+      const transcript = runExiftoolDifferential({
+        caseId: "metadata-webp-orientation-icc",
+        profile: webpDifferentialProfile,
+        source,
+        output,
+        permittedDifferences: [
+          "EXIF:Orientation=6",
+          `ICC_Profile:RawProfile=${digest(iccProfile())}`,
+        ],
+      });
+      expect(transcript).toMatchObject({
         version: 1,
-        caseId: "libwebp-1.5.0-example",
+        caseId: "metadata-webp-orientation-icc",
         equivalent: true,
-        source: {
-          warnings: [],
-          namespaces: { EXIF: [], XMP: [], ICC_Profile: [] },
-        },
-        output: {
-          warnings: [],
-          namespaces: { EXIF: [], XMP: [], ICC_Profile: [] },
-        },
       });
     },
     180_000,
   );
+
+  it("cites the exact live test title that measures every permitted WebP difference kind", () => {
+    const testFilePath = fileURLToPath(import.meta.url);
+    const testFileText = readFileSync(testFilePath, "utf8");
+    for (const kind of webpDifferentialProfile.permittedKinds) {
+      expect(kind.measurement).toBe(
+        "measures orientation and ICC preservation as the only permitted WebP differences",
+      );
+      expect(testFileText).toContain(kind.measurement);
+    }
+  });
 
   it.runIf(admittedHost)(
     "proves animation canvas, timing, and frame hashes in both directions",

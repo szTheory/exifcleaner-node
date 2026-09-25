@@ -5,10 +5,11 @@ import {
   canonical,
   digest,
   execute,
-  runExiftoolOracle,
   validateInput,
   withInput,
-  type MetadataTranscript,
+  type DifferentialProfile,
+  type MetadataEntry,
+  type PermittedKind,
 } from "../kit/oracles.js";
 
 const require = createRequire(import.meta.url);
@@ -111,13 +112,6 @@ interface LibwebpOracleOptions {
   readonly kind: "still" | "animation";
   readonly source: Buffer;
   readonly output: Buffer;
-}
-
-interface WebpExiftoolOracleOptions {
-  readonly caseId: string;
-  readonly source: Buffer;
-  readonly output: Buffer;
-  readonly permittedDifferences: readonly string[];
 }
 
 let preparedTools: PreparedOracleTools | undefined;
@@ -313,12 +307,67 @@ export function webpRawColorProfileSha256(input: Buffer): string | undefined {
   return undefined;
 }
 
-export function runWebpExiftoolOracle(
-  options: WebpExiftoolOracleOptions,
-): MetadataTranscript {
-  return runExiftoolOracle({
-    ...options,
-    extension: WEBP_EXTENSION,
-    rawColorProfileSha256: webpRawColorProfileSha256,
-  });
+/**
+ * The exact title of the live test (webp/oracles.test.ts) that measures both permitted
+ * WebP difference kinds together -- cited by both entries in `webpDifferentialProfile`
+ * below, and checked for existence by a host-independent citation test.
+ */
+export const WEBP_ORIENTATION_ICC_MEASUREMENT_TITLE =
+  "measures orientation and ICC preservation as the only permitted WebP differences";
+
+/**
+ * The tag name (family-1 group "RIFF", per ExifTool 13.59's own `-G1` output measured
+ * against tests/corpus/sample.webp and a metadataWebp() fixture -- see the Plan 04
+ * SUMMARY) that carries the WebP container's extended-feature flags byte. It exists
+ * only when a VP8X chunk is present, so it appears in `native` but never in the
+ * `reference` -- which ExifTool's own `-all=` always collapses to simple-format WebP --
+ * whenever KIT-08 legitimately keeps VP8X for a preserved feature.
+ */
+const RIFF_FLAGS_TAG = "WebP_Flags";
+const RIFF_ORIENTATION_FLAG_BIT = 0x08;
+const RIFF_ICC_FLAG_BIT = 0x20;
+
+/**
+ * Both permitted WebP difference kinds also force this same single derived RIFF entry
+ * to differ, as a side effect of the underlying preservation KIT-08 keeps VP8X for:
+ * preserving Orientation sets the EXIF flag bit, preserving the ICC profile sets the
+ * ICC flag bit. `explains` computes the exact flags value every *currently active*
+ * grant declaring this namespace would jointly force, and requires the single observed
+ * native-only entry to equal it precisely -- so a flags value with an extra, unexplained
+ * bit set still fails, exactly like a value missing an expected bit.
+ */
+function explainsRiffFlags(
+  onlyLeft: readonly MetadataEntry[],
+  activeKindIds: readonly PermittedKind["id"][],
+): boolean {
+  if (onlyLeft.length !== 1) return false;
+  const entry = onlyLeft[0]!;
+  const keys = Object.keys(entry);
+  if (keys.length !== 1 || keys[0] !== RIFF_FLAGS_TAG) return false;
+  const value = entry[RIFF_FLAGS_TAG];
+  if (typeof value !== "number") return false;
+  let expected = 0;
+  if (activeKindIds.includes("EXIF:Orientation"))
+    expected |= RIFF_ORIENTATION_FLAG_BIT;
+  if (activeKindIds.includes("ICC_Profile:RawProfile"))
+    expected |= RIFF_ICC_FLAG_BIT;
+  return value === expected;
 }
+
+export const webpDifferentialProfile: DifferentialProfile = {
+  format: "webp",
+  extension: WEBP_EXTENSION,
+  rawColorProfileSha256: webpRawColorProfileSha256,
+  permittedKinds: [
+    {
+      id: "EXIF:Orientation",
+      measurement: WEBP_ORIENTATION_ICC_MEASUREMENT_TITLE,
+      impliedDifference: { namespace: "RIFF", explains: explainsRiffFlags },
+    },
+    {
+      id: "ICC_Profile:RawProfile",
+      measurement: WEBP_ORIENTATION_ICC_MEASUREMENT_TITLE,
+      impliedDifference: { namespace: "RIFF", explains: explainsRiffFlags },
+    },
+  ],
+};
