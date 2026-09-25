@@ -97,8 +97,7 @@ function citablePaths(lineText: string): readonly string[] {
  * angle brackets, colons, equals signs or slashes is not identifier-shaped
  * (WR-08, gap 2): it is prose or a type expression, not a symbol claim.
  */
-export const IDENTIFIER_TOKEN =
-  /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/u;
+export const IDENTIFIER_TOKEN = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/u;
 
 function isIdentifierShaped(token: string): boolean {
   return IDENTIFIER_TOKEN.test(token);
@@ -131,7 +130,9 @@ function isCitableTsPath(candidate: string): boolean {
  * the markdown source) is seen whole.
  */
 function paragraphs(text: string): readonly string[] {
-  return text.split(/\n{2,}/u).map((paragraph) => paragraph.split("\n").join(" "));
+  return text
+    .split(/\n{2,}/u)
+    .map((paragraph) => paragraph.split("\n").join(" "));
 }
 
 /**
@@ -241,7 +242,9 @@ export function declaredModuleNames(source: string): DeclaredModuleNames {
     for (const item of list.split(",")) {
       const trimmed = item.trim();
       if (trimmed.length === 0) continue;
-      const asMatch = /^[A-Za-z_$][\w$]*\s+as\s+([A-Za-z_$][\w$]*)$/u.exec(trimmed);
+      const asMatch = /^[A-Za-z_$][\w$]*\s+as\s+([A-Za-z_$][\w$]*)$/u.exec(
+        trimmed,
+      );
       const name = asMatch !== null ? asMatch[1] : trimmed.split(/\s+/u)[0];
       if (name !== undefined) exports.add(name);
     }
@@ -291,7 +294,8 @@ export function admissionDocSymbolProblems(
   function resolveModule(path: string): DeclaredModuleNames | undefined {
     if (moduleCache.has(path)) return moduleCache.get(path);
     const source = readModule(path);
-    const parsed = source === undefined ? undefined : declaredModuleNames(source);
+    const parsed =
+      source === undefined ? undefined : declaredModuleNames(source);
     moduleCache.set(path, parsed);
     return parsed;
   }

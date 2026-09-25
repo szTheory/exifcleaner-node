@@ -3,9 +3,12 @@
 Every format `exifcleaner-node` admits — WebP today, PNG and JPEG in Phases 56 and 57 — must clear
 the same eight tiered evidence items before it registers a handler. This document lists what the
 shared qualification kit already provides for each item, and what a format must supply on top of
-it. `tests/format_admission_doc.test.ts` enforces the order, the presence of both lines in every
-item, and that every backticked repository path named below actually exists, so this document
-cannot drift from the kit it describes (KIT-06, D-23).
+it. `tests/format_admission_doc.test.ts` enforces the item order, the presence of both lines in
+every item, that every backticked repository path named below actually exists, that every
+identifier attributed to a kit or format module below is a real export of that module (and every
+dotted member of it a declared member), and that every other code-shaped backticked identifier is
+declared in a module this document cites — so, in that bounded sense, this document cannot drift
+from the kit it describes (KIT-06, D-23, WR-08).
 
 ## 1. Spec note
 
@@ -36,13 +39,17 @@ and refusal-class records for the malformed cases specific to its container gram
 An ExifTool differential run over the corpus, with a closed, measured permitted-difference list.
 Any difference outside that list fails the fixture.
 
-Kit provides: `tests/qualification/kit/oracles.ts` (`comparePermittedDifferences`,
-`runExiftoolOracle`, and the total ExifTool-group-to-namespace mapping that compares every group
-instead of silently dropping unrecognized ones).
+Kit provides: `tests/qualification/kit/oracles.ts` (`runExiftoolDifferential`, the differential
+entry point: it runs `comparePermittedDifferences`, then `compareDifferential`, against the
+baseline from `runExiftoolReference`; `metadataGroupDisposition` with `EXCLUDED_GROUPS` as the
+total ExifTool-group-to-namespace mapping, comparing every group instead of silently dropping
+unrecognized ones).
 
-Format supplies: a `DifferentialProfile` (its ExifTool arguments and `permittedKinds`) and, per
-fixture, the `permittedDifferences` grants in `tests/corpus/manifest.json` — see
-[Permitted differences](#permitted-differences) below.
+Format supplies: a `DifferentialProfile` (`DifferentialProfile.format`,
+`DifferentialProfile.extension`, `DifferentialProfile.rawColorProfileSha256`,
+`DifferentialProfile.permittedKinds`; the ExifTool arguments themselves are fixed inside the kit,
+not supplied by the format) and, per fixture, the `permittedDifferences` grants in
+`tests/corpus/manifest.json` — see [Permitted differences](#permitted-differences) below.
 
 ## 4. Properties
 
@@ -86,8 +93,8 @@ Preservation parity with the app's own settings surface: orientation, ICC color 
 filesystem timestamps and resolution, each reported honestly rather than assumed.
 
 Kit provides: `src/admission/handler.ts` (the declared `FormatAdmission`/`FormatHandler` seam every
-handler implements) and `CommonFormatCapabilities` in `src/types.ts` (the shared `preserves` shape,
-with `resolution` as a required, never-optional boolean).
+handler implements) and `CommonFormatCapabilities` in `src/types.ts`
+(`CommonFormatCapabilities.preserves.resolution`, a required, never-optional boolean).
 
 Format supplies: an honest `capabilities.preserves` block, including `resolution: false` when the
 format cannot honor a preserve-resolution request (the app must then route that request to
@@ -99,10 +106,11 @@ A test proving that removing the format's handler from the registry declines tha
 before any write, with a safe fallback — not a partial write or a crash.
 
 Kit provides: `tests/qualification/kit/rollback.test.ts` (the registry rollback proof, run once per
-registered handler through the private `setRegisteredHandlersForTests` test seam) and
-`tests/qualification/formats.ts` (`QUALIFICATION_FORMATS`, a compile-time-exhaustive
-`satisfies Record<NativeFormat, QualificationFormat>` registry: a new `NativeFormat` literal fails
-typecheck until its differential profile, generator and sample all exist).
+registered handler through the private test seam) — `setRegisteredHandlersForTests` in
+`src/admission/registry.ts` — and `tests/qualification/formats.ts` (`QUALIFICATION_FORMATS`, a
+compile-time-exhaustive `satisfies Record<NativeFormat, QualificationFormat>` registry: a new
+NativeFormat literal fails typecheck until its differential profile, generator and sample all
+exist).
 
 Format supplies: a `QUALIFICATION_FORMATS` entry (its differential profile, generator and sample),
 so the rollback proof and the compile-time coverage check both include it automatically once it
@@ -110,14 +118,20 @@ registers.
 
 ## Permitted differences
 
-- **Kinds are code.** A permitted-difference kind is a case in
-  `comparePermittedDifferences` in `tests/qualification/kit/oracles.ts`. Each kind asserts a
-  specific semantic truth about the difference (for example, an EXIF `Orientation` value staying
-  within `1`-`8`), so a stale or overly broad kind throws rather than silently passing. Adding a
-  new kind is a reviewed code change, not a data edit.
+- **Kinds are code.** A permitted-difference kind is a coordinated code change in
+  `tests/qualification/kit/oracles.ts`: its id joins the `PermittedKind` id union, the private
+  grant parser accepts its grant syntax, and both `comparePermittedDifferences` and
+  `compareDifferential` assert its specific semantic truth (for example, an EXIF `Orientation`
+  value staying within `1`-`8`), so a stale or overly broad kind throws rather than silently
+  passing. `compareDifferential` counts a grant as explained only by an observed delta in the
+  grant's own namespace — an `impliedDifference` in a derived namespace is additional coverage for
+  a side effect, never a substitute for the grant's own delta, so a stale grant throws even when an
+  implied difference is present. Adding a new kind is a reviewed code change, not a data edit.
 - **Grants are per-fixture data.** A fixture admits a kind only through its own
   `permittedDifferences` entry in `tests/corpus/manifest.json`. Granting an existing kind to one
-  more fixture is a one-line data change; it never requires touching `oracles.ts`.
+  more fixture is a one-line data change; it never requires touching `oracles.ts`. The live corpus
+  differential derives each record's preservation options from its own grants, so granting an
+  existing kind really is data-only, exercised the same way a fixture's grant already is.
 - **A format admits kinds through its `DifferentialProfile.permittedKinds`.** Each admitted kind
   must cite, in that format's own qualification suite, the title of a test that actually measures
   it — an admitted kind with no measuring test is an unreviewed hole, not evidence.
@@ -149,7 +163,7 @@ because a format's own code changed.
 
 ## Adding a format checklist
 
-- Add the handler to `HANDLERS` in `src/admission/registry.ts`.
+- Add the handler to the `HANDLERS` array in `src/admission/registry.ts`.
 - Add the format's literal to the `NativeFormat` union and its member to the `FormatCapabilities`
   discriminated union.
 - Add its `tests/qualification/formats.ts` `QUALIFICATION_FORMATS` entry (its differential profile,
