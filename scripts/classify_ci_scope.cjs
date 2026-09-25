@@ -292,7 +292,11 @@ function assertEveryStepGated(jobText, jobName) {
   const chunks = jobText.slice(stepsIndex).split("\n      - ").slice(1);
   for (const chunk of chunks) {
     if (chunk.includes("Record scope-skipped leg")) continue;
-    if (!chunk.includes("needs.classify.outputs.scope != 'linux'"))
+    const ifLine = chunk.match(/\n {8}if: (.+?)(?:\n|$)/u);
+    if (
+      ifLine === null ||
+      !ifLine[1].includes("needs.classify.outputs.scope != 'linux'")
+    )
       throw new Error(
         `ci.yml wiring: ${jobName} has a step not gated by needs.classify.outputs.scope != 'linux'`,
       );

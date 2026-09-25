@@ -481,6 +481,19 @@ describe("ci.yml scope wiring (D-15, D-18)", () => {
     expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
   });
 
+  it("throws when a step's if: gate is deleted but the gate phrase survives in a comment (WR-01)", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      '      - name: Assert matching runner and submitted SHA\n        if: ${{ needs.classify.outputs.scope != \'linux\' }}\n        shell: bash\n        run: |\n          test "$(node -p process.platform)" = "${{ matrix.os }}"\n',
+      '      - name: Assert matching runner and submitted SHA\n        shell: bash\n        run: |\n          # gated by needs.classify.outputs.scope != \'linux\' elsewhere\n          test "$(node -p process.platform)" = "${{ matrix.os }}"\n',
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
   it("throws when installed-native's runs-on downgrade is removed", async () => {
     const workflow = await readFile(
       join(packageRoot, ".github", "workflows", "ci.yml"),
