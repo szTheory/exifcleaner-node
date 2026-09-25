@@ -1,14 +1,15 @@
 import type { FileHandle } from "node:fs/promises";
 import type { Capabilities, FormatCapabilities } from "../types.js";
+import type { RegisteredHandler } from "./handler.js";
 import { webpHandler } from "./webp-handler.js";
 
-const HANDLERS = Object.freeze([webpHandler] as const);
+const HANDLERS: readonly RegisteredHandler[] = Object.freeze([webpHandler]);
 const FORMATS = Object.freeze(
   HANDLERS.map((handler) => handler.capability),
 ) as Capabilities["formats"];
 const CAPABILITIES: Capabilities = Object.freeze({ formats: FORMATS });
 
-export type RegisteredHandler = (typeof HANDLERS)[number];
+export type { RegisteredHandler };
 
 export function getRegisteredCapabilities(): Capabilities {
   return CAPABILITIES;

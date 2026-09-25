@@ -16,11 +16,7 @@ import type {
   SanitizeOptions,
   SanitizeResult,
 } from "../types.js";
-import type { RegisteredHandler } from "../admission/registry.js";
-import type {
-  WebpAdmission,
-  WebpOutputChunk,
-} from "../admission/webp-handler.js";
+import type { FormatAdmission, FormatHandler } from "../admission/handler.js";
 import {
   DIRECT_FINAL_FLAGS,
   DESTINATION_DIRECTORY_FLAGS,
@@ -140,13 +136,16 @@ async function closePostPublicationResources({
       );
 }
 
-export interface SafeTransactionInput {
+export interface SafeTransactionInput<
+  Admission extends FormatAdmission = FormatAdmission,
+  Plan = unknown,
+> {
   readonly sourceHandle: FileHandle;
   readonly sourceSnapshot: SourceSnapshot;
   readonly sourceMode: number;
-  readonly handler: RegisteredHandler;
-  readonly admission: WebpAdmission;
-  readonly plan: readonly WebpOutputChunk[];
+  readonly handler: FormatHandler<Admission, Plan>;
+  readonly admission: Admission;
+  readonly plan: Plan;
   readonly orientation: number | undefined;
   readonly options: SanitizeOptions;
   readonly fileOps: FileOps;
@@ -183,8 +182,11 @@ export interface SafeTransactionInput {
   readonly platform?: NodeJS.Platform;
 }
 
-export async function runSafeTransaction(
-  input: SafeTransactionInput,
+export async function runSafeTransaction<
+  Admission extends FormatAdmission = FormatAdmission,
+  Plan = unknown,
+>(
+  input: SafeTransactionInput<Admission, Plan>,
 ): Promise<Result<SanitizeResult>> {
   const {
     sourceHandle,
@@ -211,7 +213,7 @@ export async function runSafeTransaction(
     dirname(resolvedDestinationPath),
     `.exifcleaner-stage-${randomUUID()}`,
   );
-  const stagePath = join(stageDirectoryPath, "output.webp");
+  const stagePath = join(stageDirectoryPath, handler.stagingFileName);
   let stageDirectory: FileHandle | undefined;
   let destinationDirectory: FileHandle | undefined;
   let stageFile: FileHandle | undefined;
@@ -320,7 +322,7 @@ export async function runSafeTransaction(
     }
     const verified = await handler.verifyOutput(
       sourceHandle,
-      admission.parsed,
+      admission,
       stageFile,
       stageStats.size,
       destinationPath,
@@ -454,7 +456,7 @@ export async function runSafeTransaction(
       stageFile.fd,
       stageDirectory?.fd,
       destinationDirectory?.fd,
-      "output.webp",
+      handler.stagingFileName,
       resolvedDestinationPath,
       stagePath,
       directoryCapability,
@@ -505,17 +507,7 @@ export async function runSafeTransaction(
     sourceHandleOpen = false;
     const postCommitResidue =
       await closePostPublicationResources(committedResources);
-    const namespaces = new Set(
-      admission.parsed.chunks.flatMap((chunk) =>
-        chunk.fourCc === "EXIF"
-          ? ["EXIF" as const]
-          : chunk.fourCc === "XMP "
-            ? ["XMP" as const]
-            : chunk.fourCc === "ICCP"
-              ? ["ICC" as const]
-              : [],
-      ),
-    );
+    const namespaces = new Set(admission.namespaces);
     return ok({
       format: handler.capability.format,
       destinationPath,

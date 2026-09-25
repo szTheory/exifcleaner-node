@@ -8,7 +8,7 @@ import { err, ok } from "./result.js";
 import { NODE_FILE_OPS } from "./transaction/file-ops.js";
 import { snapshotSource } from "./transaction/identity.js";
 import { runSafeTransaction } from "./transaction/safe-transaction.js";
-import { MAX_RIFF_BYTES, WebpStructureError } from "./webp/riff.js";
+import { WebpStructureError } from "./webp/riff.js";
 function isAborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -116,9 +116,9 @@ export async function sanitizeFile(options) {
                 path: sourcePath,
             }));
         const admission = await handler.admit(sourceHandle, sourceStats.size, signal);
-        const colorProfile = admission.parsed.chunks.find((chunk) => chunk.fourCc === "ICCP" && chunk.metadata !== undefined);
-        if (options.preserveColorProfile && colorProfile?.metadata !== undefined) {
-            const checked = validateIccForPreservation(colorProfile.metadata);
+        const colorProfile = admission.colorProfile;
+        if (options.preserveColorProfile && colorProfile !== undefined) {
+            const checked = validateIccForPreservation(colorProfile);
             if (!checked.ok)
                 return err(admissionDecline({
                     code: "unsupported-feature",
@@ -140,13 +140,12 @@ export async function sanitizeFile(options) {
         const orientation = admission.orientation.status === "valid"
             ? admission.orientation.value
             : undefined;
-        const plan = handler.buildOutputPlan(admission.parsed, options.preserveOrientation, options.preserveColorProfile, orientation);
-        if (plan.length === 0 ||
-            plan.reduce((sum, chunk) => sum + 8 + chunk.size + (chunk.size & 1), 12) >
-                MAX_RIFF_BYTES)
+        const plan = handler.buildOutputPlan(admission, options.preserveOrientation, options.preserveColorProfile, orientation);
+        const overflow = handler.checkOutputPlan(plan);
+        if (overflow !== undefined)
             return err(admissionDecline({
                 code: "unsafe-structure",
-                detail: "Sanitized output exceeds RIFF limits.",
+                detail: overflow,
                 path: sourcePath,
             }));
         const transaction = await runSafeTransaction({

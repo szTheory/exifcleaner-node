@@ -12,27 +12,46 @@ function collectMetadata(parsed) {
     const entries = [];
     const warnings = [];
     let orientation = { status: "absent" };
+    let colorProfile;
+    const namespaces = new Set();
     for (const chunk of parsed.chunks) {
-        if (chunk.fourCc === "EXIF" && chunk.metadata !== undefined) {
-            const found = parseExif(chunk.metadata);
-            entries.push(...found.entries);
-            warnings.push(...found.warnings);
-            orientation = found.orientation;
+        if (chunk.fourCc === "EXIF") {
+            namespaces.add("EXIF");
+            if (chunk.metadata !== undefined) {
+                const found = parseExif(chunk.metadata);
+                entries.push(...found.entries);
+                warnings.push(...found.warnings);
+                orientation = found.orientation;
+            }
         }
-        else if (chunk.fourCc === "XMP " && chunk.metadata !== undefined) {
-            const found = parseXmp(chunk.metadata);
-            entries.push(...found.entries);
-            warnings.push(...found.warnings);
+        else if (chunk.fourCc === "XMP ") {
+            namespaces.add("XMP");
+            if (chunk.metadata !== undefined) {
+                const found = parseXmp(chunk.metadata);
+                entries.push(...found.entries);
+                warnings.push(...found.warnings);
+            }
         }
-        else if (chunk.fourCc === "ICCP" && chunk.metadata !== undefined) {
-            const found = parseIcc(chunk.metadata);
-            entries.push(...found.entries);
-            warnings.push(...found.warnings);
+        else if (chunk.fourCc === "ICCP") {
+            namespaces.add("ICC");
+            if (chunk.metadata !== undefined) {
+                colorProfile = chunk.metadata;
+                const found = parseIcc(chunk.metadata);
+                entries.push(...found.entries);
+                warnings.push(...found.warnings);
+            }
         }
     }
-    return { entries, warnings, orientation };
+    return {
+        entries,
+        warnings,
+        orientation,
+        colorProfile,
+        namespaces: [...namespaces],
+    };
 }
-function buildOutputPlan(parsed, preserveOrientation, preserveColorProfile, orientation) {
+function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, orientation) {
+    const parsed = admission.parsed;
     const keepOrientation = preserveOrientation && orientation !== undefined;
     const plan = [];
     let vp8xFlags;
@@ -148,7 +167,8 @@ function verificationError(detail, path) {
 function verificationAborted(path) {
     return executionError({ code: "aborted", detail: "Operation was aborted.", path }, "started");
 }
-async function verifyOutput(sourceHandle, source, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, expectedOrientation, signal) {
+async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, expectedOrientation, signal) {
+    const source = admission.parsed;
     try {
         const destination = await parseWebp(destinationHandle, destinationSize, signal);
         if (destination.chunks.some((chunk) => chunk.fourCc === "XMP "))
@@ -245,6 +265,7 @@ const capability = Object.freeze({
 });
 export const webpHandler = Object.freeze({
     capability,
+    stagingFileName: "output.webp",
     matches(magic) {
         return (magic.length >= 12 &&
             magic.subarray(0, 4).toString("ascii") === "RIFF" &&
@@ -262,6 +283,23 @@ export const webpHandler = Object.freeze({
         };
     },
     buildOutputPlan,
+    checkOutputPlan(plan) {
+        return plan.length === 0 || webpOutputSize(plan) > MAX_RIFF_BYTES
+            ? "Sanitized output exceeds RIFF limits."
+            : undefined;
+    },
+    classifyAdmissionFailure(cause, preserveColorProfile) {
+        if (!(cause instanceof WebpStructureError))
+            return undefined;
+        if (preserveColorProfile && cause.metadataLimit?.fourCc === "ICCP")
+            return {
+                code: "unsupported-feature",
+                detail: `ICC profile size ${cause.metadataLimit.size} exceeds the ${cause.metadataLimit.limit}-byte policy limit.`,
+                feature: "color-profile-preservation",
+                reason: "policy-limit",
+            };
+        return { code: cause.kind, detail: cause.message };
+    },
     async writeOutput(source, destination, plan, signal) {
         const size = webpOutputSize(plan);
         let position = await writeAll(destination, encodeRiffHeader(size), 0);

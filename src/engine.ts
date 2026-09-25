@@ -30,7 +30,7 @@ import type {
   SanitizeOptions,
   SanitizeResult,
 } from "./types.js";
-import { MAX_RIFF_BYTES, WebpStructureError } from "./webp/riff.js";
+import { WebpStructureError } from "./webp/riff.js";
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
@@ -176,11 +176,9 @@ export async function sanitizeFile(
       sourceStats.size,
       signal,
     );
-    const colorProfile = admission.parsed.chunks.find(
-      (chunk) => chunk.fourCc === "ICCP" && chunk.metadata !== undefined,
-    );
-    if (options.preserveColorProfile && colorProfile?.metadata !== undefined) {
-      const checked = validateIccForPreservation(colorProfile.metadata);
+    const colorProfile = admission.colorProfile;
+    if (options.preserveColorProfile && colorProfile !== undefined) {
+      const checked = validateIccForPreservation(colorProfile);
       if (!checked.ok)
         return err(
           admissionDecline({
@@ -210,20 +208,17 @@ export async function sanitizeFile(
         ? admission.orientation.value
         : undefined;
     const plan = handler.buildOutputPlan(
-      admission.parsed,
+      admission,
       options.preserveOrientation,
       options.preserveColorProfile,
       orientation,
     );
-    if (
-      plan.length === 0 ||
-      plan.reduce((sum, chunk) => sum + 8 + chunk.size + (chunk.size & 1), 12) >
-        MAX_RIFF_BYTES
-    )
+    const overflow = handler.checkOutputPlan(plan);
+    if (overflow !== undefined)
       return err(
         admissionDecline({
           code: "unsafe-structure",
-          detail: "Sanitized output exceeds RIFF limits.",
+          detail: overflow,
           path: sourcePath,
         }),
       );

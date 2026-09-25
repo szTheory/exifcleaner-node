@@ -71,7 +71,7 @@ export async function runSafeTransaction(input) {
     const resolvedSourcePath = resolve(sourcePath);
     const resolvedDestinationPath = resolve(destinationPath);
     const stageDirectoryPath = join(dirname(resolvedDestinationPath), `.exifcleaner-stage-${randomUUID()}`);
-    const stagePath = join(stageDirectoryPath, "output.webp");
+    const stagePath = join(stageDirectoryPath, handler.stagingFileName);
     let stageDirectory;
     let destinationDirectory;
     let stageFile;
@@ -144,7 +144,7 @@ export async function runSafeTransaction(input) {
             }, "started");
             throw new Error("Staged output identity unavailable.");
         }
-        const verified = await handler.verifyOutput(sourceHandle, admission.parsed, stageFile, stageStats.size, destinationPath, options.preserveOrientation, options.preserveColorProfile, orientation, signal);
+        const verified = await handler.verifyOutput(sourceHandle, admission, stageFile, stageStats.size, destinationPath, options.preserveOrientation, options.preserveColorProfile, orientation, signal);
         if (!verified.ok) {
             failure = verified.error;
             throw new Error("Staged output verification failed.");
@@ -215,7 +215,7 @@ export async function runSafeTransaction(input) {
             }, "started");
             throw new Error("Source changed before publication.");
         }
-        const publication = publishNoReplace(stageFile.fd, stageDirectory?.fd, destinationDirectory?.fd, "output.webp", resolvedDestinationPath, stagePath, directoryCapability, basename(resolvedDestinationPath), platform);
+        const publication = publishNoReplace(stageFile.fd, stageDirectory?.fd, destinationDirectory?.fd, handler.stagingFileName, resolvedDestinationPath, stagePath, directoryCapability, basename(resolvedDestinationPath), platform);
         if (publication.state !== "published") {
             failure = executionError({
                 code: publication.state === "destination-exists"
@@ -253,13 +253,7 @@ export async function runSafeTransaction(input) {
         stageFile = undefined;
         sourceHandleOpen = false;
         const postCommitResidue = await closePostPublicationResources(committedResources);
-        const namespaces = new Set(admission.parsed.chunks.flatMap((chunk) => chunk.fourCc === "EXIF"
-            ? ["EXIF"]
-            : chunk.fourCc === "XMP "
-                ? ["XMP"]
-                : chunk.fourCc === "ICCP"
-                    ? ["ICC"]
-                    : []));
+        const namespaces = new Set(admission.namespaces);
         return ok({
             format: handler.capability.format,
             destinationPath,
