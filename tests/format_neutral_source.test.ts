@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -90,5 +90,55 @@ describe("format-neutral source scan (KIT-01 D-03)", () => {
     const hits = formatSpecificTokens("WEBP");
     expect(hits).toHaveLength(1);
     expect(hits[0]).toMatchObject({ line: 1, token: "WEBP" });
+  });
+});
+
+/**
+ * The kit-neutrality scan (Plan 08): every file under `tests/qualification/kit/`
+ * is meant to be format-neutral, reusable by any future format's qualification
+ * suite. `KIT_NEUTRALITY_EXCEPTIONS` is the closed, explained allowlist of the
+ * files that are not neutral yet, each keyed by its basename with a written
+ * reason a format-admission reviewer can evaluate. A permanent assertion
+ * checks every exception key names a file that still exists, so a stale
+ * exception (the file was made neutral, or renamed, or removed) fails instead
+ * of silently widening the allowlist forever.
+ */
+export const KIT_NEUTRALITY_EXCEPTIONS: Readonly<Record<string, string>> =
+  Object.freeze({
+    "corpus.ts":
+      "manifest schema still uses WebP payload vocabulary; generalized when the first non-WebP corpus record lands (Phase 56)",
+  });
+
+function listKitFiles(): string[] {
+  const kitDir = join(packageRoot, "tests/qualification/kit");
+  return readdirSync(kitDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
+    .map((entry) => `tests/qualification/kit/${entry.name}`);
+}
+
+describe("kit-neutrality scan (Plan 08)", () => {
+  it("every exception key names a file that exists under tests/qualification/kit/", () => {
+    const kitFiles = new Set(
+      listKitFiles().map((path) => path.split("/").pop()),
+    );
+    for (const fileName of Object.keys(KIT_NEUTRALITY_EXCEPTIONS)) {
+      expect(kitFiles.has(fileName)).toBe(true);
+    }
+  });
+
+  it.each(
+    listKitFiles()
+      .map((path) => ({ path, basename: path.split("/").pop() ?? "" }))
+      .filter(({ basename }) => !(basename in KIT_NEUTRALITY_EXCEPTIONS)),
+  )("$path carries no WebP-specific token", ({ path }) => {
+    const hits = scanTargetForFormatSpecificTokens({ path });
+    expect(hits.length, describeHits({ path }, hits)).toBe(0);
+  });
+
+  it("reports a hit for a synthetic kit file text containing a WebP staging-name literal", () => {
+    const hits = formatSpecificTokens(
+      'const isStageFile = (path) => path.endsWith("output.webp");',
+    );
+    expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 });

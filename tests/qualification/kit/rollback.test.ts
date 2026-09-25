@@ -147,24 +147,35 @@ describe("registry rollback proof (KIT-07 D-24)", () => {
   });
 
   describe("assertFormatsCovered negative controls", () => {
-    const values = Object.values(
-      QUALIFICATION_FORMATS,
-    ) as readonly QualificationFormat[];
-    const entry = values[0];
-    if (entry === undefined) {
+    const entries = Object.entries(QUALIFICATION_FORMATS) as readonly [
+      string,
+      QualificationFormat,
+    ][];
+    const first = entries[0];
+    if (first === undefined) {
       throw new Error("QUALIFICATION_FORMATS must not be empty");
     }
+    const [registeredFormat, entry] = first;
+    // Not any registered format -- a synthetic name, derived from the real
+    // one rather than a hardcoded literal, so this stays neutral as more
+    // formats are registered.
+    const unregisteredFormat = `${registeredFormat}-not-registered`;
 
     it("throws naming a registered format with no qualification entry", () => {
       expect(() =>
-        assertFormatsCovered(["webp", "png"], { webp: entry }),
-      ).toThrow(/png/);
+        assertFormatsCovered([registeredFormat, unregisteredFormat], {
+          [registeredFormat]: entry,
+        }),
+      ).toThrow(new RegExp(unregisteredFormat));
     });
 
     it("throws naming a qualification entry with no matching registered format", () => {
       expect(() =>
-        assertFormatsCovered(["webp"], { webp: entry, png: entry }),
-      ).toThrow(/png/);
+        assertFormatsCovered([registeredFormat], {
+          [registeredFormat]: entry,
+          [unregisteredFormat]: entry,
+        }),
+      ).toThrow(new RegExp(unregisteredFormat));
     });
   });
 });
