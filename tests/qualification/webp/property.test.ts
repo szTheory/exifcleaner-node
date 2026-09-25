@@ -35,6 +35,23 @@ function digest(value: Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+/**
+ * Labels for checkSample's own preservation assertions (D-21). Every negative
+ * control that expects checkSample to reject a broken sanitizer asserts on one of
+ * these strings, so a control can only pass by driving the real gate — it can never
+ * carry its own copy of the check (WR-03).
+ */
+const PRESERVATION_MESSAGES = Object.freeze({
+  iccMissing:
+    "checkSample: requested ICC color profile is missing from the output",
+  iccBytes:
+    "checkSample: preserved ICC color profile bytes differ from the source",
+  orientationMissing:
+    "checkSample: requested Orientation EXIF is missing from the output",
+  orientationValue:
+    "checkSample: preserved Orientation value differs from the planted value",
+} as const);
+
 /** Source mtime/atime seeded before every success sample sanitizes (D-20 timestamps). */
 const SEEDED_SOURCE_TIME = new Date("2001-02-03T04:05:06.789Z");
 
@@ -108,8 +125,10 @@ async function checkSample(
         const destinationIccChunk = outputChunks.find(
           (chunk) => chunk.fourCc === "ICCP",
         );
-        expect(destinationIccChunk).toBeDefined();
-        expect(destinationIccChunk?.data).toEqual(sourceIccChunk?.data);
+        expect(destinationIccChunk, PRESERVATION_MESSAGES.iccMissing).toBeDefined();
+        expect(destinationIccChunk?.data, PRESERVATION_MESSAGES.iccBytes).toEqual(
+          sourceIccChunk?.data,
+        );
       }
 
       if (preserveOrientation) {
@@ -117,9 +136,15 @@ async function checkSample(
         const destinationExifChunks = outputChunks.filter(
           (chunk) => chunk.fourCc === "EXIF",
         );
-        expect(destinationExifChunks).toHaveLength(1);
+        expect(
+          destinationExifChunks,
+          PRESERVATION_MESSAGES.orientationMissing,
+        ).toHaveLength(1);
         const parsedExif = parseExif(destinationExifChunks[0]!.data);
-        expect(parsedExif.orientation).toMatchObject({
+        expect(
+          parsedExif.orientation,
+          PRESERVATION_MESSAGES.orientationValue,
+        ).toMatchObject({
           status: "valid",
           value: sample.plantedOrientation,
         });
@@ -371,74 +396,50 @@ describe("replayable WebP qualification properties", () => {
       );
     });
 
-    it("(4) fails a sanitizer that ignores requested preservation", async () => {
-      // The fake calls the real dist sanitizeFile but forces every preservation
-      // flag to false regardless of what the caller requested (D-21 control 4).
-      const ignoresPreservation: typeof sanitizeFile = (options) =>
-        sanitizeFile({
-          ...options,
-          preserveOrientation: false,
-          preserveColorProfile: false,
-          preserveTimestamps: false,
-        });
-      const arbitrary = webpMetadataArbitrary().filter(
+    it("(4a) fails a sanitizer that ignores a requested color-profile preservation", async () => {
+      // The fake calls the real dist sanitizeFile but forces preserveColorProfile
+      // to false regardless of what the caller requested. Every other option,
+      // including preserveTimestamps, passes through unchanged, so the timestamp
+      // expect cannot be what makes this control red (D-21 (4), WR-03 root cause).
+      const ignoresColorProfile: typeof sanitizeFile = (options) =>
+        sanitizeFile({ ...options, preserveColorProfile: false });
+      const arbitrary = qualificationArbitrary().filter(
         (sample) =>
-          (sample.options.preserveOrientation &&
-            sample.planted.some((item) => item.kind === "EXIF")) ||
-          (sample.options.preserveColorProfile &&
-            sample.planted.some((item) => item.kind === "ICCP")),
+          sample.expected === "success" &&
+          sample.options.preserveColorProfile &&
+          sample.planted.some((item) => item.kind === "ICCP"),
       );
       const result = await fc.check(
         fc.asyncProperty(arbitrary, async (sample) => {
-          const directory = await mkdtemp(
-            join(tmpdir(), "exifcleaner-property-"),
-          );
-          const sourcePath = join(directory, "source.webp");
-          const destinationPath = join(directory, "output.webp");
-          try {
-            await writeFile(sourcePath, sample.bytes);
-            const result = await ignoresPreservation({
-              sourcePath,
-              destinationPath,
-              ...sample.options,
-            });
-            expect(result.ok).toBe(true);
-            const outputChunks = readChunks(await readFile(destinationPath));
-            if (
-              sample.options.preserveColorProfile &&
-              sample.planted.some((item) => item.kind === "ICCP")
-            ) {
-              const destinationIcc = outputChunks.find(
-                (chunk) => chunk.fourCc === "ICCP",
-              );
-              if (destinationIcc === undefined) {
-                throw new Error(
-                  "ICC color profile was not preserved: the requested ICC preservation check failed.",
-                );
-              }
-            }
-            if (
-              sample.options.preserveOrientation &&
-              sample.planted.some((item) => item.kind === "EXIF")
-            ) {
-              const destinationExif = outputChunks.find(
-                (chunk) => chunk.fourCc === "EXIF",
-              );
-              if (destinationExif === undefined) {
-                throw new Error(
-                  "EXIF Orientation was not preserved: the requested orientation preservation check failed.",
-                );
-              }
-            }
-          } finally {
-            await rm(directory, { recursive: true, force: true });
-          }
+          await checkSample(sample, ignoresColorProfile);
         }),
         REPLAY_PARAMS,
       );
       expect(result.failed).toBe(true);
-      expect(String(result.errorInstance)).toMatch(
-        /ICC color profile was not preserved|EXIF Orientation was not preserved/,
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.iccMissing,
+      );
+    });
+
+    it("(4b) fails a sanitizer that ignores a requested orientation preservation", async () => {
+      // Same shape as (4a): only preserveOrientation is forced off.
+      const ignoresOrientation: typeof sanitizeFile = (options) =>
+        sanitizeFile({ ...options, preserveOrientation: false });
+      const arbitrary = qualificationArbitrary().filter(
+        (sample) =>
+          sample.expected === "success" &&
+          sample.options.preserveOrientation &&
+          sample.planted.some((item) => item.kind === "EXIF"),
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, ignoresOrientation);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.orientationMissing,
       );
     });
   });
