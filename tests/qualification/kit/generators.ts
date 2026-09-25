@@ -70,7 +70,7 @@ export function assertCanariesAbsent(
     if (preservedKinds.includes(item.kind)) continue;
     if (output.includes(Buffer.from(item.canary, "ascii"))) {
       throw new Error(
-        `Canary for kind ${item.kind} was found in the sanitized output.`,
+        `Canary ${item.canary} (kind ${item.kind}) was found in the sanitized output.`,
       );
     }
   }

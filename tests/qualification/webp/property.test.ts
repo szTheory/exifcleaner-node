@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   access,
+  copyFile,
   mkdtemp,
   open,
   readFile,
@@ -16,13 +17,15 @@ import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../dist/index.js";
 import { parseExif } from "../../../src/metadata/exif.js";
 import { validateIccForPreservation } from "../../../src/metadata/icc_admission.js";
+import { ok } from "../../../src/result.js";
 import { parseWebp } from "../../../src/webp/riff.js";
-import { readChunks } from "../../fixtures.js";
+import { readChunks, webp } from "../../fixtures.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
 import { assertFloors, countSample, createCounters } from "../kit/floors.js";
 import {
   formatReplayRecord,
   qualificationArbitrary,
+  qualificationArbitraryWithoutMetadataArm,
   resolveReplayConfig,
   webpMetadataArbitrary,
   type QualificationSample,
@@ -291,6 +294,152 @@ describe("replayable WebP qualification properties", () => {
       nodeVersion: process.version,
       fixtureSha256: "a".repeat(64),
       replayCommand: expect.stringContaining("FC_PATH="),
+    });
+  });
+
+  describe("negative controls (D-21)", () => {
+    const REPLAY_PARAMS = {
+      seed: 460_046,
+      numRuns: 200,
+      endOnFailure: true,
+    } as const;
+
+    it("(1) fails a pure-copy sanitizer via the canary absence check", async () => {
+      const pureCopySanitize: typeof sanitizeFile = async (options) => {
+        await copyFile(options.sourcePath, options.destinationPath);
+        return ok({
+          format: "webp",
+          destinationPath: options.destinationPath,
+          removedNamespaces: [],
+          preserved: {
+            orientation: false,
+            colorProfile: false,
+            timestamps: false,
+          },
+          warnings: [],
+          postCommitResidue: { state: "none" },
+        });
+      };
+      const arbitrary = qualificationArbitrary().filter(
+        (sample) => sample.expected === "success" && sample.planted.length > 0,
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, pureCopySanitize);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain("EXIFCLEANER-CANARY-");
+    });
+
+    it("(2) fails a sanitizer that strips every metadata kind except XMP", () => {
+      const arbitrary = webpMetadataArbitrary().filter((sample) =>
+        sample.planted.some((item) => item.kind === "XMP"),
+      );
+      const result = fc.check(
+        fc.property(arbitrary, (sample) => {
+          const keptXmpChunks = readChunks(sample.bytes).filter(
+            (chunk) => chunk.fourCc === "XMP ",
+          );
+          const rebuilt = webp(
+            keptXmpChunks.map((chunk) => ({
+              fourCc: chunk.fourCc,
+              data: chunk.data,
+            })),
+          );
+          // Every kind except XMP is gone; XMP's canary must still be absent to pass.
+          assertCanariesAbsent(rebuilt, sample.planted, []);
+          return true;
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain("kind XMP");
+    });
+
+    it("(3) fails a generator with no metadata arm on the floor assertion itself", () => {
+      const samples = fc.sample(qualificationArbitraryWithoutMetadataArm(), {
+        seed: 460_046,
+        numRuns: 200,
+      });
+      const counters = createCounters();
+      for (const sample of samples)
+        countSample(counters, [`arm:${sample.arm}`]);
+      expect(() => assertFloors(counters, FIXED_SEED_FLOORS)).toThrow(
+        /kind:EXIF/,
+      );
+    });
+
+    it("(4) fails a sanitizer that ignores requested preservation", async () => {
+      // The fake calls the real dist sanitizeFile but forces every preservation
+      // flag to false regardless of what the caller requested (D-21 control 4).
+      const ignoresPreservation: typeof sanitizeFile = (options) =>
+        sanitizeFile({
+          ...options,
+          preserveOrientation: false,
+          preserveColorProfile: false,
+          preserveTimestamps: false,
+        });
+      const arbitrary = webpMetadataArbitrary().filter(
+        (sample) =>
+          (sample.options.preserveOrientation &&
+            sample.planted.some((item) => item.kind === "EXIF")) ||
+          (sample.options.preserveColorProfile &&
+            sample.planted.some((item) => item.kind === "ICCP")),
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          const directory = await mkdtemp(
+            join(tmpdir(), "exifcleaner-property-"),
+          );
+          const sourcePath = join(directory, "source.webp");
+          const destinationPath = join(directory, "output.webp");
+          try {
+            await writeFile(sourcePath, sample.bytes);
+            const result = await ignoresPreservation({
+              sourcePath,
+              destinationPath,
+              ...sample.options,
+            });
+            expect(result.ok).toBe(true);
+            const outputChunks = readChunks(await readFile(destinationPath));
+            if (
+              sample.options.preserveColorProfile &&
+              sample.planted.some((item) => item.kind === "ICCP")
+            ) {
+              const destinationIcc = outputChunks.find(
+                (chunk) => chunk.fourCc === "ICCP",
+              );
+              if (destinationIcc === undefined) {
+                throw new Error(
+                  "ICC color profile was not preserved: the requested ICC preservation check failed.",
+                );
+              }
+            }
+            if (
+              sample.options.preserveOrientation &&
+              sample.planted.some((item) => item.kind === "EXIF")
+            ) {
+              const destinationExif = outputChunks.find(
+                (chunk) => chunk.fourCc === "EXIF",
+              );
+              if (destinationExif === undefined) {
+                throw new Error(
+                  "EXIF Orientation was not preserved: the requested orientation preservation check failed.",
+                );
+              }
+            }
+          } finally {
+            await rm(directory, { recursive: true, force: true });
+          }
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toMatch(
+        /ICC color profile was not preserved|EXIF Orientation was not preserved/,
+      );
     });
   });
 });

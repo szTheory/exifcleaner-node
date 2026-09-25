@@ -503,7 +503,34 @@ export const webpMetadataGenerator = Object.freeze({
   arbitrary: webpMetadataArbitrary,
 });
 
-export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
+function buildMetadataArm(): fc.Arbitrary<QualificationSample> {
+  return webpMetadataArbitrary().map(
+    ({ bytes, planted, options, plantedOrientation }): QualificationSample => ({
+      id: `metadata-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
+      bytes,
+      expected: "success",
+      arm: "metadata",
+      planted,
+      options,
+      ...(plantedOrientation === undefined ? {} : { plantedOrientation }),
+    }),
+  );
+}
+
+function buildNoMetadataArm(): fc.Arbitrary<QualificationSample> {
+  return fc
+    .tuple(webpArbitrary(), preservationOptionsArbitrary)
+    .map(([bytes, options]): QualificationSample => ({
+      id: `generated-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
+      bytes,
+      expected: "success",
+      arm: "no-metadata",
+      planted: [],
+      options,
+    }));
+}
+
+function buildHostileArm(): fc.Arbitrary<QualificationSample> {
   const bufferedHostile = hostileMutationCases.flatMap((item) => {
     const materialized = item.materialize();
     return materialized.fileSize === materialized.prefix.length
@@ -519,32 +546,26 @@ export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
         ]
       : [];
   });
-  const metadataArm = webpMetadataArbitrary().map(
-    ({ bytes, planted, options, plantedOrientation }): QualificationSample => ({
-      id: `metadata-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
-      bytes,
-      expected: "success",
-      arm: "metadata",
-      planted,
-      options,
-      ...(plantedOrientation === undefined ? {} : { plantedOrientation }),
-    }),
-  );
-  const noMetadataArm = fc
-    .tuple(webpArbitrary(), preservationOptionsArbitrary)
-    .map(([bytes, options]): QualificationSample => ({
-      id: `generated-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
-      bytes,
-      expected: "success",
-      arm: "no-metadata",
-      planted: [],
-      options,
-    }));
-  const hostileArm = fc.constantFrom(...bufferedHostile);
+  return fc.constantFrom(...bufferedHostile);
+}
+
+export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
-    { weight: 6, arbitrary: metadataArm },
-    { weight: 2, arbitrary: noMetadataArm },
-    { weight: 2, arbitrary: hostileArm },
+    { weight: 6, arbitrary: buildMetadataArm() },
+    { weight: 2, arbitrary: buildNoMetadataArm() },
+    { weight: 2, arbitrary: buildHostileArm() },
+  );
+}
+
+/**
+ * D-21 negative control (3): the widened arbitrary with the metadata arm removed,
+ * so no sample can ever plant an EXIF/XMP/ICCP canary. Proves the floor assertion
+ * itself catches a generator whose metadata coverage silently collapsed.
+ */
+export function qualificationArbitraryWithoutMetadataArm(): fc.Arbitrary<QualificationSample> {
+  return fc.oneof(
+    { weight: 2, arbitrary: buildNoMetadataArm() },
+    { weight: 2, arbitrary: buildHostileArm() },
   );
 }
 
