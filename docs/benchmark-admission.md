@@ -16,12 +16,23 @@ npm run benchmark:qualify -- \
   --output qualification-benchmark.json
 ```
 
-Use `--mode admit` for a phase or release gate. Report mode always exits zero
-after writing the real verdict; admit mode exits nonzero when that verdict
-fails. Both modes write the machine-readable JSON and a short Markdown summary
+Use `--mode admit` for a phase or release gate. Admit mode exits nonzero when
+the verdict fails. Report mode writes the same real verdict but tolerates
+timing failures, which shared runners make noisy; it still exits nonzero on a
+correctness mismatch, because output bytes are deterministic. Both modes write the machine-readable JSON and a short Markdown summary
 at `<output>.md`. To replay one manifested fixture, add
 `--fixture still-64k` (or another ID under `benchmarks.fixtures` in
 `tests/corpus/manifest.json`). Both tarball flags remain mandatory.
+
+Correctness is byte equality with the baseline's output, except for the
+requirement-traced entries in `INTENDED_OUTPUT_CHANGES`
+(`scripts/qualification/benchmark.cjs`). Each entry pins both sides' complete
+correctness payload, so only that exact baseline/candidate pair passes for the
+listed fixture. The only entry today is KIT-08 on `metadata-still-64k`,
+`metadata-still-1m`, and `metadata-still-16m`: `v0.1.1` writes RIFF +
+`VP8X(flags=0)` + `VP8 ` (48 bytes), and the candidate writes simple-format
+RIFF + `VP8 ` (30 bytes), matching ExifTool's `-all=`. Remove an entry when the
+baseline advances past the change; the pin then fails on its own.
 
 The runner installs each tarball in a separate temporary project with package
 scripts disabled. The baseline must identify itself as version `0.1.1` and have
