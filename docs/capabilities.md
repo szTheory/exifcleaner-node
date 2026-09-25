@@ -134,6 +134,37 @@ The WebP record returned by `getCapabilities()` exposes these enforced values:
 
 The `refuses` array machine-reports stable container refusal classes. Consumers should inspect returned `MetadataError.code` and, for ICC preservation, the typed fields above.
 
+## Per-Format Preservation Capabilities
+
+`getCapabilities().formats` is a discriminated union on `format`. Every member's
+`preserves` object carries `orientation`, `colorProfile`, `timestamps`, and
+`resolution` as required booleans; none of these fields is ever optional.
+
+The meaning of `preserves.resolution` is fixed and does not vary by format:
+
+- `true` means the format's resolution-bearing data (for example PNG's `pHYs`
+  chunk, or JPEG's JFIF/EXIF density fields) is always retained or explicitly
+  preserved by the handler, so a `preserveResolution: true` request may be
+  routed to this native library.
+- `false` means the handler cannot honor that request, so a consumer must
+  route the request to ExifTool instead.
+
+There is no third state.
+
+WebP reports `resolution: false`. WebP has no dedicated resolution-bearing
+chunk in its supported surface, and native WebP resolution preservation is
+future work (FUT-01), not a capability of the current handler.
+
+Capability-shape changes -- adding a required field to `CommonFormatCapabilities`
+or widening the discriminated union with a new format -- are a minor version
+bump under this package's semver policy. This shape (the `resolution` field
+added in KIT-03) ships as part of `exifcleaner-node@0.3.0`, published once the
+PNG and JPEG handlers land in Phases 56 and 57.
+
+The ExifCleaner app reads only `preserves.orientation`, `preserves.colorProfile`,
+and `preserves.timestamps` until its own adoption phase; it does not yet read
+`preserves.resolution`.
+
 ## Safety Guarantees
 
 | Guarantee                 | Consequence                                                                                                                      |
