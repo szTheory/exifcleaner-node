@@ -546,11 +546,7 @@ describe("sanitizeFile", () => {
 
     expect(result).toMatchObject({ ok: true });
     const chunks = readChunks(await readFile(destinationPath));
-    expect(chunks.map((item) => item.fourCc)).toEqual([
-      "VP8X",
-      "ALPH",
-      "VP8 ",
-    ]);
+    expect(chunks.map((item) => item.fourCc)).toEqual(["VP8X", "ALPH", "VP8 "]);
     expect(chunks[0]?.data[0]).toBe(0x10);
   });
 
