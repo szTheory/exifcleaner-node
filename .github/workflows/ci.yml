@@ -15,6 +15,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # CI scope classification (D-15 to D-18, D-20). A run stays "linux" only when
+  # scripts/classify_ci_scope.cjs positively proves every changed path is
+  # Linux-only-safe; every gate below reads `!= 'linux'` / `== 'linux' ||` with
+  # `!cancelled()`, so a classify failure (empty outputs) runs the full matrix
+  # (fail-closed at the graph level, per GitHub's required-status-check docs).
+  # Measured (run 35426479626): a skipped matrix job reports its unexpanded
+  # name, e.g. `build-audit-${{ matrix.tuple }}`, which would leave the 14
+  # matrix-expanded required contexts pending forever -- so the three matrix
+  # jobs below run a no-op leg on ubuntu instead of skipping (Task 2 option-a).
+  classify:
+    runs-on: ubuntu-24.04
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: "${{ github.sha }}"
+          fetch-depth: 2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - id: scope
+        name: Classify CI scope (fail-closed)
+        env:
+          CLASSIFY_EVENT_NAME: ${{ github.event_name }}
+          CLASSIFY_WORKFLOW: ${{ github.workflow }}
+          CLASSIFY_REF: ${{ github.ref }}
+          CLASSIFY_BEFORE: ${{ github.event.before }}
+          CLASSIFY_FORCED: ${{ github.event.forced }}
+          CLASSIFY_HEAD: ${{ github.sha }}
+        run: node scripts/classify_ci_scope.cjs
+
   quality:
     runs-on: ubuntu-24.04
     steps:
@@ -67,7 +99,8 @@ jobs:
     # The final manifest is deliberately absent during the 46-18 repair proof.
     # When Plan 46-11 adds it, this single shared validator fails closed before
     # any matching-host native compiler can run.
-    needs: quality
+    needs: [quality, classify]
+    if: ${{ !cancelled() && needs.quality.result == 'success' && needs.classify.outputs.scope != 'linux' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -95,8 +128,9 @@ jobs:
 
   build-audit-native:
     name: build-audit-${{ matrix.tuple }}
-    needs: identity-prebuild
-    runs-on: ${{ matrix.runner }}
+    needs: [identity-prebuild, classify]
+    if: ${{ !cancelled() && (needs.classify.outputs.scope == 'linux' || needs.identity-prebuild.result == 'success') }}
+    runs-on: ${{ needs.classify.outputs.scope == 'linux' && 'ubuntu-24.04' || matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -118,22 +152,31 @@ jobs:
               arch: arm64,
             }
     steps:
+      - name: Record scope-skipped leg
+        if: ${{ needs.classify.outputs.scope == 'linux' }}
+        run: echo "scope=linux - this change cannot affect the native matrix; leg intentionally empty (docs/ci-budget.md)"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           ref: "${{ github.sha }}"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
       - name: Assert matching runner and submitted SHA
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         shell: bash
         run: |
           test "$(node -p process.platform)" = "${{ matrix.os }}"
           test "$(node -p process.arch)" = "${{ matrix.arch }}"
           test "$(git rev-parse HEAD)" = "${{ github.sha }}"
       - run: npm run build && npm run build:native
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
       - name: Audit the exact compiled binary
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         shell: bash
         run: |
           node scripts/audit_native_artifact.cjs "prebuilds/${{ matrix.tuple }}/publication.node" > "${{ matrix.tuple }}.json"
@@ -142,22 +185,26 @@ jobs:
           printf '%s\n' '${{ github.sha }}' > implementation.sha
           printf '%s\n' '${{ matrix.tuple }}' > tuple.txt
       - name: Test unchanged artifact on Node 22
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         env:
           WINDOWS_PUBLICATION_DIAGNOSTIC_PATH: windows-publication-matching-host-${{ matrix.tuple }}.json
         run: npm test -- tests/native_publication.test.ts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always() && matrix.os == 'win32'
+        if: always() && matrix.os == 'win32' && needs.classify.outputs.scope != 'linux'
         with:
           name: windows-publication-matching-host-${{ matrix.tuple }}
           path: windows-publication-matching-host-${{ matrix.tuple }}.json
           if-no-files-found: error
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           node-version: 24
           cache: npm
       - name: Test unchanged artifact on Node 24
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         run: npm test -- tests/native_publication.test.ts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           name: native-${{ matrix.tuple }}
           path: |
@@ -170,7 +217,8 @@ jobs:
           if-no-files-found: error
 
   assemble-exact-native:
-    needs: build-audit-native
+    needs: [build-audit-native, classify]
+    if: ${{ !cancelled() && needs.classify.outputs.scope != 'linux' && needs.build-audit-native.result == 'success' }}
     runs-on: ubuntu-24.04
     outputs:
       implementation-sha: ${{ steps.identity.outputs.sha }}
@@ -233,8 +281,9 @@ jobs:
 
   installed-native:
     name: installed-${{ matrix.tuple }}
-    needs: assemble-exact-native
-    runs-on: ${{ matrix.runner }}
+    needs: [assemble-exact-native, classify]
+    if: ${{ !cancelled() && (needs.classify.outputs.scope == 'linux' || needs.assemble-exact-native.result == 'success') }}
+    runs-on: ${{ needs.classify.outputs.scope == 'linux' && 'ubuntu-24.04' || matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -256,14 +305,20 @@ jobs:
               arch: arm64,
             }
     steps:
+      - name: Record scope-skipped leg
+        if: ${{ needs.classify.outputs.scope == 'linux' }}
+        run: echo "scope=linux - this change cannot affect the native matrix; leg intentionally empty (docs/ci-budget.md)"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           ref: "${{ github.sha }}"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           name: admitted-native-tarball
           path: admitted
       - name: Verify submitted implementation and unchanged tarball
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         shell: bash
         run: |
           test "$(git rev-parse HEAD)" = "${{ needs.assemble-exact-native.outputs.implementation-sha }}"
@@ -271,41 +326,47 @@ jobs:
           test "$(node -p process.arch)" = "${{ matrix.arch }}"
           cd admitted && sha256sum -c tarball.sha256
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           node-version: 22
       - name: Smoke unchanged admitted tarball on Node 22
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         shell: bash
         run: |
           manifest_sha="$(node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'))")"
           QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host --windows-publication-diagnostic-output "windows-publication-installed-node22-${{ matrix.tuple }}.json" --windows-cancellation-diagnostic-output "windows-cancellation-installed-node22-${{ matrix.tuple }}.json" > node-22.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always() && matrix.os == 'win32'
+        if: always() && matrix.os == 'win32' && needs.classify.outputs.scope != 'linux'
         with:
           name: windows-publication-installed-node22-${{ matrix.tuple }}
           path: windows-publication-installed-node22-${{ matrix.tuple }}.json
           if-no-files-found: error
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always() && matrix.os == 'win32'
+        if: always() && matrix.os == 'win32' && needs.classify.outputs.scope != 'linux'
         with:
           name: windows-cancellation-installed-node22-${{ matrix.tuple }}
           path: windows-cancellation-installed-node22-${{ matrix.tuple }}.json
           if-no-files-found: error
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           node-version: 24
       - name: Smoke unchanged admitted tarball on Node 24
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         shell: bash
         run: |
           manifest_sha="$(node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync('tests/corpus/manifest.json')).digest('hex'))")"
           QUALIFICATION_PROPERTY_RUNS=25 node scripts/package_smoke.cjs --tarball "$(find admitted -name '*.tgz' -print -quit)" --tarball-sha256 "${{ needs.assemble-exact-native.outputs.tarball-sha256 }}" --manifest-sha256 "$manifest_sha" --evidence-scope final-matching-host > node-24.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           name: "installed-${{ matrix.tuple }}"
           path: node-*.json
           if-no-files-found: error
 
   immutable-sha-evidence:
-    needs: installed-native
+    needs: [installed-native, classify]
+    if: ${{ !cancelled() && needs.classify.outputs.scope != 'linux' && needs.installed-native.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -339,31 +400,41 @@ jobs:
 
   benchmark-linux:
     name: benchmark-linux-node${{ matrix.node }}
-    needs: assemble-exact-native
+    needs: [assemble-exact-native, classify]
+    if: ${{ !cancelled() && (needs.classify.outputs.scope == 'linux' || needs.assemble-exact-native.result == 'success') }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         node: [22, 24]
     steps:
+      - name: Record scope-skipped leg
+        if: ${{ needs.classify.outputs.scope == 'linux' }}
+        run: echo "scope=linux - this change cannot affect the native matrix; leg intentionally empty (docs/ci-budget.md)"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           ref: "${{ github.sha }}"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           ref: 411fdbdad3faa2e5dd5033bea5def435b4d03323
           path: .benchmark-baseline
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           name: admitted-native-tarball
           path: admitted
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         with:
           node-version: ${{ matrix.node }}
       - name: Pack immutable v0.1.1 baseline
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         working-directory: .benchmark-baseline
         run: npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE"
       - name: Run paired fresh-child benchmark
+        if: ${{ needs.classify.outputs.scope != 'linux' }}
         env:
           BENCHMARK_MODE: ${{ github.event_name == 'pull_request' && 'report' || 'admit' }}
         shell: bash
@@ -375,7 +446,7 @@ jobs:
           node scripts/qualification/benchmark-report.cjs --validate-report "benchmark-node${{ matrix.node }}.json"
           node -e "const fs=require('node:fs');const report=JSON.parse(fs.readFileSync('benchmark-node${{ matrix.node }}.json','utf8'));if(report.version!==4||report.warmups!==2||report.measurements!==100||report.elapsedP95Estimator?.retainedObservations!==100||report.collection?.retries!==0||report.collection?.discarded!==0)throw new Error('fresh benchmark report contract is incomplete')"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
+        if: always() && needs.classify.outputs.scope != 'linux'
         with:
           name: benchmark-linux-node${{ matrix.node }}
           path: |
@@ -384,8 +455,9 @@ jobs:
           if-no-files-found: error
 
   phase-46-admission:
-    if: ${{ always() && github.event_name != 'pull_request' }}
+    if: ${{ always() && github.event_name != 'pull_request' && needs.classify.outputs.scope != 'linux' }}
     needs:
+      - classify
       - quality
       - qualification-linux
       - immutable-sha-evidence

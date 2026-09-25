@@ -2,3 +2,5 @@ node_modules/
 coverage/
 *.tgz
 .DS_Store
+# Native prebuilds are built locally or assembled and attested in CI; none are committed (docs/prebuild-policy.md).
+prebuilds/

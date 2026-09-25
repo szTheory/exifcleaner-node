@@ -126,8 +126,10 @@ stage replacement is retained untouched rather than removed.
 `getCapabilities()` reports the enforced limits: 16 MiB per metadata chunk, 10,000 aggregate RIFF chunks including nested animation chunks, and WebP's 4 GiB-minus-2-byte size ceiling. It also states that compressed codec validation is header-only: the engine preserves VP8/VP8L bytes but is not an image decoder. Animation support means structurally validated `ANIM`/`ANMF` containers whose nested image payloads can be preserved byte-for-byte; it is not an unlimited frame-count claim.
 
 See the [ICC structural policy and complete capability contract](docs/capabilities.md)
-for the detailed rule table and [fixture provenance](docs/fixture-provenance.md)
-for the evidence chain.
+for the detailed rule table, [fixture provenance](docs/fixture-provenance.md)
+for the evidence chain, the [native prebuild policy](docs/prebuild-policy.md)
+for how prebuilds are built, attested, and verified, and the
+[CI scope and minutes budget](docs/ci-budget.md) for how CI decides what to run and what it costs.
 
 ## Development
 
@@ -137,6 +139,11 @@ Requires Node.js 22 or newer.
 npm ci
 npm run verify
 ```
+
+`npm run verify` compiles the native publication addon with `npm run build:native`, so it also
+needs a C toolchain: Xcode Command Line Tools on macOS, build-essential on Linux, or Visual Studio
+Build Tools with the C++ workload on Windows. Prebuilds are not committed — see the
+[native prebuild policy](docs/prebuild-policy.md) for why and how consumers verify them.
 
 Useful focused commands are `npm run typecheck`, `npm test`, `npm run build`,
 `npm run check:runtime`, and `npm run check:pack`. Protected releases run the

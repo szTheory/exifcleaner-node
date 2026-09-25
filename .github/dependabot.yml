@@ -7,6 +7,15 @@ updates:
     groups:
       development-dependencies:
         dependency-type: development
+    # Held on TypeScript 6.x: 7.0's package export map drops lib/typescript.js,
+    # so there is no JavaScript Compiler API. tests/public_contract.test.ts calls
+    # ts.createProgram and ts.createSourceFile, and under typescript@7.0.2 that
+    # fails: "TypeError: Cannot read properties of undefined (reading 'Latest')"
+    # (54-EVIDENCE.md NHY-03 TypeScript 7 reproducer). Revisit when TypeScript
+    # 7.1 ships Compiler API parity. 6.x patch and minor updates keep flowing.
+    ignore:
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

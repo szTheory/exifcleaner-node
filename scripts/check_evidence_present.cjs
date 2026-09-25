@@ -38,11 +38,16 @@ const REQUIRED_EVIDENCE_FILES = Object.freeze([
   "46-HOSTED-EVIDENCE.json",
 ]);
 
+// This is the ARCHIVED milestone location: the phase-46 ledgers were moved
+// under `.planning/milestones/v4.8-phases/` when the v4.8 milestone closed.
+// A standalone clone of this package with no sibling workspace `.planning/`
+// fails this check by design (see the module header comment above).
 const EVIDENCE_DIRECTORY = join(
   packageRoot,
   "..",
   ".planning",
-  "phases",
+  "milestones",
+  "v4.8-phases",
   "46-webp-requalification",
 );
 
@@ -70,7 +75,7 @@ function main() {
   );
   for (const path of missing) process.stderr.write(`  missing: ${path}\n`);
   process.stderr.write(
-    "Restore the sibling .planning/phases/46-webp-requalification ledgers before running verify.\n",
+    "Restore the sibling .planning/milestones/v4.8-phases/46-webp-requalification ledgers before running verify.\n",
   );
   return 1;
 }

@@ -2,6 +2,9 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+// Held on TypeScript 6.x: TS 7.0 drops the JS Compiler API (lib/typescript.js)
+// this file uses via ts.createProgram/ts.createSourceFile; revisit at TS 7.1
+// parity (.github/dependabot.yml).
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 

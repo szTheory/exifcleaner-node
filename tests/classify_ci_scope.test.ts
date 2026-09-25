@@ -1,0 +1,550 @@
+import { createRequire } from "node:module";
+import { spawnSync } from "node:child_process";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+const require = createRequire(import.meta.url);
+const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+const scriptPath = join(packageRoot, "scripts", "classify_ci_scope.cjs");
+
+type ClassifyRule = { id: string; pattern: RegExp };
+type ClassifyResult = { scope: "linux" | "full"; reason: string };
+type ClassifyInput = {
+  eventName: unknown;
+  workflowName: unknown;
+  ref: unknown;
+  changedPaths: unknown;
+};
+
+const classify = require("../scripts/classify_ci_scope.cjs") as {
+  CI_WORKFLOW_NAME: string;
+  ALWAYS_FULL_EVENTS: readonly string[];
+  FILTERED_EVENTS: readonly string[];
+  LINUX_SAFE_PATH_RULES: readonly ClassifyRule[];
+  FULL_SCOPE_OVERRIDES: readonly ClassifyRule[];
+  SKIP_GATED_JOBS: readonly string[];
+  NOOP_MATRIX_JOBS: readonly string[];
+  ALWAYS_RUN_JOBS: readonly string[];
+  isLinuxSafePath(path: unknown): boolean;
+  classifyCiScope(input: ClassifyInput): ClassifyResult;
+  changedPathsForEvent(input: {
+    eventName: string;
+    before?: string;
+    forced?: string;
+    head?: string;
+    cwd: string;
+  }): string[] | null;
+  validateCiScopeWiring(workflowText: string): void;
+};
+
+// ---------------------------------------------------------------------------
+// Fixtures (D-19: dual-direction proof)
+// ---------------------------------------------------------------------------
+
+const LINUX_FIXTURE_PATHS = [
+  "src/webp/riff.ts",
+  "dist/webp/riff.js",
+  "dist/webp/riff.js.map",
+  "tests/riff.test.ts",
+];
+
+const HANDLER_LINUX_FIXTURES = [
+  "src/admission/webp-handler.ts",
+  "dist/admission/webp-handler.js",
+  "tests/qualification/parser.test.ts",
+];
+
+const DOCS_ONLY_LINUX_FIXTURES = [
+  "docs/ci-budget.md",
+  "README.md",
+  "AGENTS.md",
+  ".planning/research/STACK.md",
+];
+
+const FULL_ALONE_FIXTURES = [
+  "native/publication.c",
+  "binding.gyp",
+  "prebuilds/linux-x64/publication.node",
+  "scripts/build_native.cjs",
+  "scripts/classify_ci_scope.cjs",
+  "src/transaction/safe-transaction.ts",
+  "src/transaction/native-publication.ts",
+  "src/admission/registry.ts",
+  "src/engine.ts",
+  "src/fallback.ts",
+  "src/index.ts",
+  "src/types.ts",
+  "src/result.ts",
+  "src/errors.ts",
+  "dist/engine.js",
+  "dist/admission/registry.js",
+  "package.json",
+  "package-lock.json",
+  ".github/workflows/ci.yml",
+  ".github/dependabot.yml",
+  "tests/corpus/manifest.json",
+  "tests/classify_ci_scope.test.ts",
+];
+
+const MALFORMED_PATHS = [
+  "",
+  "/src/webp/riff.ts",
+  "src\\webp\\riff.ts",
+  "../secret",
+  "src/webp/../../etc/passwd",
+  "src/webp/riff\u0000.ts",
+];
+
+function baseInput(overrides: Partial<ClassifyInput> = {}): ClassifyInput {
+  return {
+    eventName: "pull_request",
+    workflowName: "CI",
+    ref: "refs/pull/9/merge",
+    changedPaths: LINUX_FIXTURE_PATHS,
+    ...overrides,
+  };
+}
+
+describe("linux scope", () => {
+  it("returns linux for a parser-only diff", () => {
+    expect(classify.classifyCiScope(baseInput())).toMatchObject({
+      scope: "linux",
+    });
+  });
+
+  it.each(HANDLER_LINUX_FIXTURES)(
+    "returns linux for handler/qualification-test path %s",
+    (path) => {
+      expect(
+        classify.classifyCiScope(baseInput({ changedPaths: [path] })),
+      ).toMatchObject({ scope: "linux" });
+    },
+  );
+
+  it("returns linux for a docs-only diff", () => {
+    expect(
+      classify.classifyCiScope(
+        baseInput({ changedPaths: DOCS_ONLY_LINUX_FIXTURES }),
+      ),
+    ).toMatchObject({ scope: "linux" });
+  });
+});
+
+describe("full scope", () => {
+  it.each(FULL_ALONE_FIXTURES)("returns full for %s alone", (path) => {
+    expect(
+      classify.classifyCiScope(baseInput({ changedPaths: [path] })),
+    ).toMatchObject({ scope: "full" });
+  });
+
+  it("returns full for a mixed parser + native diff", () => {
+    expect(
+      classify.classifyCiScope(
+        baseInput({
+          changedPaths: ["src/webp/riff.ts", "native/publication.c"],
+        }),
+      ),
+    ).toMatchObject({ scope: "full" });
+  });
+
+  it("returns full for an unknown new path", () => {
+    expect(
+      classify.classifyCiScope(
+        baseInput({ changedPaths: ["src/brand-new/thing.ts"] }),
+      ),
+    ).toMatchObject({ scope: "full" });
+  });
+
+  it("returns full for an empty diff", () => {
+    expect(
+      classify.classifyCiScope(baseInput({ changedPaths: [] })),
+    ).toMatchObject({ scope: "full" });
+  });
+
+  it("returns full for a null (errored) diff", () => {
+    expect(
+      classify.classifyCiScope(baseInput({ changedPaths: null })),
+    ).toMatchObject({ scope: "full" });
+  });
+
+  it.each(MALFORMED_PATHS)("treats malformed path %j as full", (path) => {
+    expect(
+      classify.classifyCiScope(baseInput({ changedPaths: [path] })),
+    ).toMatchObject({ scope: "full" });
+    expect(classify.isLinuxSafePath(path)).toBe(false);
+  });
+});
+
+describe("event overrides", () => {
+  it.each(["workflow_dispatch", "workflow_call"])(
+    "returns full for event %s even with a parser-only diff",
+    (eventName) => {
+      expect(classify.classifyCiScope(baseInput({ eventName }))).toMatchObject({
+        scope: "full",
+      });
+    },
+  );
+
+  it("returns full when workflowName is not CI (reusable-call caller context)", () => {
+    expect(
+      classify.classifyCiScope(baseInput({ workflowName: "Release" })),
+    ).toMatchObject({ scope: "full" });
+  });
+
+  it("returns full for a refs/tags/ ref", () => {
+    expect(
+      classify.classifyCiScope(baseInput({ ref: "refs/tags/v0.3.0" })),
+    ).toMatchObject({ scope: "full" });
+  });
+
+  it("returns full for an unknown eventName", () => {
+    expect(
+      classify.classifyCiScope(baseInput({ eventName: "schedule" })),
+    ).toMatchObject({ scope: "full" });
+  });
+});
+
+describe("dead-rule coverage (no rule is unreachable)", () => {
+  const allLinuxFixturePaths = [
+    ...LINUX_FIXTURE_PATHS,
+    ...HANDLER_LINUX_FIXTURES,
+    ...DOCS_ONLY_LINUX_FIXTURES,
+  ];
+
+  it("every LINUX_SAFE_PATH_RULES entry is matched by at least one linux fixture", () => {
+    for (const rule of classify.LINUX_SAFE_PATH_RULES) {
+      const matched = allLinuxFixturePaths.some((path) =>
+        rule.pattern.test(path),
+      );
+      expect(matched, `rule ${rule.id} has no matching fixture`).toBe(true);
+    }
+  });
+
+  it("every FULL_SCOPE_OVERRIDES entry is matched by at least one full fixture", () => {
+    for (const override of classify.FULL_SCOPE_OVERRIDES) {
+      const matched = FULL_ALONE_FIXTURES.some((path) =>
+        override.pattern.test(path),
+      );
+      expect(matched, `override ${override.id} has no matching fixture`).toBe(
+        true,
+      );
+    }
+  });
+});
+
+describe("reason is always a non-empty string", () => {
+  const cases: ClassifyInput[] = [
+    baseInput(),
+    baseInput({ changedPaths: ["native/publication.c"] }),
+    baseInput({ changedPaths: [] }),
+    baseInput({ eventName: "workflow_call" }),
+    baseInput({ workflowName: "Release" }),
+    baseInput({ ref: "refs/tags/v0.3.0" }),
+  ];
+
+  it.each(cases)("carries a non-empty reason", (input) => {
+    const result = classify.classifyCiScope(input);
+    expect(typeof result.reason).toBe("string");
+    expect(result.reason.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CLI end-to-end (temp git repo)
+// ---------------------------------------------------------------------------
+
+const GIT_ENV = {
+  ...process.env,
+  GIT_AUTHOR_NAME: "Classify Test",
+  GIT_AUTHOR_EMAIL: "classify-test@example.com",
+  GIT_COMMITTER_NAME: "Classify Test",
+  GIT_COMMITTER_EMAIL: "classify-test@example.com",
+};
+
+function git(cwd: string, args: string[]): string {
+  const result = spawnSync("git", args, {
+    cwd,
+    env: GIT_ENV,
+    encoding: "utf8",
+  });
+  if (result.status !== 0)
+    throw new Error(
+      `git ${args.join(" ")} failed (${result.status}): ${result.stderr}`,
+    );
+  return result.stdout;
+}
+
+function createBaseRepo(): string {
+  const dir = mkdtempSync(join(tmpdir(), "classify-ci-scope-"));
+  git(dir, ["init", "-q", "-b", "main"]);
+  git(dir, ["config", "user.name", "Classify Test"]);
+  git(dir, ["config", "user.email", "classify-test@example.com"]);
+  mkdirSync(join(dir, "docs"), { recursive: true });
+  writeFileSync(join(dir, "docs", "base.md"), "base\n");
+  git(dir, ["add", "."]);
+  git(dir, ["commit", "-q", "-m", "base"]);
+  return dir;
+}
+
+function runCli(
+  dir: string,
+  env: Record<string, string>,
+): { status: number | null; stdout: string; outputFileContents: string } {
+  const outputFile = join(dir, "gh-output.txt");
+  writeFileSync(outputFile, "");
+  const result = spawnSync(process.execPath, [scriptPath], {
+    cwd: dir,
+    env: { ...process.env, ...env, GITHUB_OUTPUT: outputFile },
+    encoding: "utf8",
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    outputFileContents: readFileSync(outputFile, "utf8"),
+  };
+}
+
+describe("CLI end-to-end", () => {
+  it("pull_request mode: docs-only branch merged with --no-ff writes scope=linux", () => {
+    const dir = createBaseRepo();
+    try {
+      git(dir, ["checkout", "-q", "-b", "feature"]);
+      writeFileSync(join(dir, "docs", "x.md"), "x\n");
+      git(dir, ["add", "."]);
+      git(dir, ["commit", "-q", "-m", "docs change"]);
+      git(dir, ["checkout", "-q", "main"]);
+      git(dir, ["merge", "--no-ff", "-m", "merge", "feature"]);
+
+      const { status, outputFileContents } = runCli(dir, {
+        CLASSIFY_EVENT_NAME: "pull_request",
+        CLASSIFY_WORKFLOW: "CI",
+        CLASSIFY_REF: "refs/pull/1/merge",
+      });
+
+      expect(status).toBe(0);
+      expect(outputFileContents).toBe("scope=linux\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("pull_request mode: native branch merged with --no-ff writes scope=full", () => {
+    const dir = createBaseRepo();
+    try {
+      git(dir, ["checkout", "-q", "-b", "feature"]);
+      mkdirSync(join(dir, "native"), { recursive: true });
+      writeFileSync(join(dir, "native", "publication.c"), "// native\n");
+      git(dir, ["add", "."]);
+      git(dir, ["commit", "-q", "-m", "native change"]);
+      git(dir, ["checkout", "-q", "main"]);
+      git(dir, ["merge", "--no-ff", "-m", "merge", "feature"]);
+
+      const { status, outputFileContents } = runCli(dir, {
+        CLASSIFY_EVENT_NAME: "pull_request",
+        CLASSIFY_WORKFLOW: "CI",
+        CLASSIFY_REF: "refs/pull/1/merge",
+      });
+
+      expect(status).toBe(0);
+      expect(outputFileContents).toBe("scope=full\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("push mode: docs-only head against a valid before SHA writes scope=linux", () => {
+    const dir = createBaseRepo();
+    try {
+      const beforeSha = git(dir, ["rev-parse", "HEAD"]).trim();
+      writeFileSync(join(dir, "docs", "y.md"), "y\n");
+      git(dir, ["add", "."]);
+      git(dir, ["commit", "-q", "-m", "docs push change"]);
+
+      const { status, outputFileContents } = runCli(dir, {
+        CLASSIFY_EVENT_NAME: "push",
+        CLASSIFY_WORKFLOW: "CI",
+        CLASSIFY_REF: "refs/heads/main",
+        CLASSIFY_BEFORE: beforeSha,
+      });
+
+      expect(status).toBe(0);
+      expect(outputFileContents).toBe("scope=linux\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("push mode: an all-zero before SHA writes scope=full", () => {
+    const dir = createBaseRepo();
+    try {
+      const { status, outputFileContents } = runCli(dir, {
+        CLASSIFY_EVENT_NAME: "push",
+        CLASSIFY_WORKFLOW: "CI",
+        CLASSIFY_REF: "refs/heads/main",
+        CLASSIFY_BEFORE: "0".repeat(40),
+      });
+
+      expect(status).toBe(0);
+      expect(outputFileContents).toBe("scope=full\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("push mode: CLASSIFY_FORCED=true writes scope=full", () => {
+    const dir = createBaseRepo();
+    try {
+      const beforeSha = git(dir, ["rev-parse", "HEAD"]).trim();
+      writeFileSync(join(dir, "docs", "z.md"), "z\n");
+      git(dir, ["add", "."]);
+      git(dir, ["commit", "-q", "-m", "docs push change"]);
+
+      const { status, outputFileContents } = runCli(dir, {
+        CLASSIFY_EVENT_NAME: "push",
+        CLASSIFY_WORKFLOW: "CI",
+        CLASSIFY_REF: "refs/heads/main",
+        CLASSIFY_BEFORE: beforeSha,
+        CLASSIFY_FORCED: "true",
+      });
+
+      expect(status).toBe(0);
+      expect(outputFileContents).toBe("scope=full\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("a non-git cwd writes scope=full and exits 0", () => {
+    const dir = mkdtempSync(join(tmpdir(), "classify-ci-scope-nongit-"));
+    try {
+      const { status, outputFileContents } = runCli(dir, {
+        CLASSIFY_EVENT_NAME: "push",
+        CLASSIFY_WORKFLOW: "CI",
+        CLASSIFY_REF: "refs/heads/main",
+        CLASSIFY_BEFORE: "1".repeat(40),
+      });
+
+      expect(status).toBe(0);
+      expect(outputFileContents).toBe("scope=full\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ci.yml scope wiring (D-15, D-18)
+// ---------------------------------------------------------------------------
+
+describe("ci.yml scope wiring (D-15, D-18)", () => {
+  it("does not throw for the real ci.yml", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    expect(() => classify.validateCiScopeWiring(workflow)).not.toThrow();
+  });
+
+  it("throws when identity-prebuild's != 'linux' gate is removed", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "if: ${{ !cancelled() && needs.quality.result == 'success' && needs.classify.outputs.scope != 'linux' }}",
+      "if: ${{ !cancelled() && needs.quality.result == 'success' }}",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when one build-audit-native step's scope gate is removed", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "      - run: npm ci\n        if: ${{ needs.classify.outputs.scope != 'linux' }}\n",
+      "      - run: npm ci\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when installed-native's runs-on downgrade is removed", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "    if: ${{ !cancelled() && (needs.classify.outputs.scope == 'linux' || needs.assemble-exact-native.result == 'success') }}\n    runs-on: ${{ needs.classify.outputs.scope == 'linux' && 'ubuntu-24.04' || matrix.runner }}\n",
+      "    if: ${{ !cancelled() && (needs.classify.outputs.scope == 'linux' || needs.assemble-exact-native.result == 'success') }}\n    runs-on: ${{ matrix.runner }}\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when an outputs.scope == 'full' form is introduced", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = `${workflow}\n# needs.classify.outputs.scope == 'full'\n`;
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when classify is dropped from phase-46-admission needs", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace("      - classify\n", "");
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when needs.classify is added to the quality job", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "\n  quality:\n    runs-on: ubuntu-24.04\n",
+      "\n  quality:\n    needs: [classify]\n    runs-on: ubuntu-24.04\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when a workflow-level paths filter is added under on.pull_request", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "\n  pull_request:\n",
+      "\n  pull_request:\n    paths:\n      - '**'\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when a third-party diff action is added", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = `${workflow}\n      - uses: dorny/paths-filter@v3\n`;
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+});
