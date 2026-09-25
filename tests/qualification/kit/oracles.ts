@@ -6,9 +6,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const require = createRequire(import.meta.url);
-const authorityBuilder = require(
-  "../../../scripts/qualification/build-oracles.cjs",
-) as AuthorityBuilder;
+const authorityBuilder =
+  require("../../../scripts/qualification/build-oracles.cjs") as AuthorityBuilder;
 const SHA256 = /^[a-f0-9]{64}$/;
 const MAX_ORACLE_INPUT_BYTES = 128 * 1024 * 1024;
 

@@ -12,9 +12,8 @@ import {
 } from "../kit/oracles.js";
 
 const require = createRequire(import.meta.url);
-const authorityBuilder = require(
-  "../../../scripts/qualification/build-oracles.cjs",
-) as AuthorityBuilder;
+const authorityBuilder =
+  require("../../../scripts/qualification/build-oracles.cjs") as AuthorityBuilder;
 const SHA256 = /^[a-f0-9]{64}$/;
 
 export const WEBP_EXTENSION = ".webp";

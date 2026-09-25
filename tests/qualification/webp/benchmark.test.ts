@@ -22,7 +22,9 @@ import {
 } from "../../support/phase46-evidence.js";
 
 const require = createRequire(import.meta.url);
-const projectRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
+const projectRoot = dirname(
+  dirname(dirname(dirname(fileURLToPath(import.meta.url)))),
+);
 const benchmark = require("../../../scripts/qualification/benchmark.cjs") as {
   BENCHMARK_THRESHOLDS: {
     medianRatio: number;
@@ -85,104 +87,110 @@ type PrerequisiteEntry = {
   ledger: Record<string, unknown>;
 };
 
-const report = require("../../../scripts/qualification/benchmark-report.cjs") as {
-  performanceP95(values: readonly number[]): number;
-  evaluateTiming(input: {
-    baselineMedianNs: number;
-    candidateMedianNs: number;
-    baselineP95Ns: number;
-    candidateP95Ns: number;
-  }): {
-    pass: boolean;
-    medianLimitNs: number;
-    p95LimitNs: number;
-    failures: string[];
+const report =
+  require("../../../scripts/qualification/benchmark-report.cjs") as {
+    performanceP95(values: readonly number[]): number;
+    evaluateTiming(input: {
+      baselineMedianNs: number;
+      candidateMedianNs: number;
+      baselineP95Ns: number;
+      candidateP95Ns: number;
+    }): {
+      pass: boolean;
+      medianLimitNs: number;
+      p95LimitNs: number;
+      failures: string[];
+    };
+    deriveRunScale(input: {
+      before: number[];
+      after: number[];
+      referenceMedianNs: number;
+    }): {
+      observedCalibrationNs: number;
+      runScale: number;
+    };
+    validateCalibration(input: Record<string, unknown>): void;
+    deriveCorrectnessKey(input: Record<string, unknown>): string;
+    deriveFinalizationKey(input: Record<string, unknown>): string;
+    deriveBlockEstimate(values: readonly number[]): {
+      medianNs: number;
+      madNs: number;
+      madRatio: number;
+      centralValues: readonly number[];
+      centralRangeRatio: number;
+    };
+    loadReference(): {
+      algorithmId: string;
+      observationCount: number;
+      workloadUnitCount: number;
+      workloadDigest: string;
+      workloadResultDigest: string;
+      referenceMedianNs: Record<string, number>;
+    };
+    validateReport(input: Record<string, unknown>): void;
+    validatePerformanceP95DiagnosticReport(
+      input: Record<string, unknown>,
+    ): void;
+    derivePerformanceP95DiagnosticView(
+      input: Record<string, unknown>,
+    ): Record<string, unknown>;
+    classifyPerformanceP95DiagnosticFixture(input: {
+      observedP95Failure: boolean;
+      positiveBlockCount: number;
+      positiveCandidateTailCount: number;
+    }): "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown";
+    actionableBranchForPerformanceP95Diagnostic(
+      pattern:
+        "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown",
+    ): "collector" | "candidate-runtime" | null;
+    validatePerformanceP95DiagnosticLedger(
+      input: Record<string, unknown>,
+    ): void;
+    validateInstalledReport(
+      input: Record<string, unknown>,
+      tuple: string,
+      nodeMajor: number,
+      candidate: Record<string, unknown>,
+    ): void;
+    hostedLedger(
+      filePath: string,
+      memoryPath: string,
+      windowsPath: string,
+      identityCleanupPath: string,
+    ): void;
+    validatePrerequisiteLedgerBindings(
+      hosted: Record<string, unknown>,
+      prerequisites: Record<string, PrerequisiteEntry>,
+    ): void;
+    validateFinalCandidateManifest(input: {
+      repoRoot: string;
+      candidateSha: string;
+      repairProofSha: string;
+    }): void;
+    validateWindowsPublicationDiagnosticLedger(
+      input: Record<string, unknown>,
+    ): void;
+    validateWindowsCancellationDiagnosticLedger(
+      input: Record<string, unknown>,
+    ): void;
+    validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+    validateTerminalCleanupRecord(
+      input: Record<string, unknown>,
+      scenario?: string,
+    ): void;
+    requireWindowsNativePublicationEvidence(evidence: unknown): {
+      primitive: string;
+      publication: string;
+      collision: string;
+      identity: string;
+      cleanup: string;
+    };
+    canonicalJson(value: unknown): string;
+    validateP95NullBranchClosure(
+      closure: Record<string, unknown>,
+      ledger: Record<string, unknown>,
+    ): Record<string, unknown>;
   };
-  deriveRunScale(input: {
-    before: number[];
-    after: number[];
-    referenceMedianNs: number;
-  }): {
-    observedCalibrationNs: number;
-    runScale: number;
-  };
-  validateCalibration(input: Record<string, unknown>): void;
-  deriveCorrectnessKey(input: Record<string, unknown>): string;
-  deriveFinalizationKey(input: Record<string, unknown>): string;
-  deriveBlockEstimate(values: readonly number[]): {
-    medianNs: number;
-    madNs: number;
-    madRatio: number;
-    centralValues: readonly number[];
-    centralRangeRatio: number;
-  };
-  loadReference(): {
-    algorithmId: string;
-    observationCount: number;
-    workloadUnitCount: number;
-    workloadDigest: string;
-    workloadResultDigest: string;
-    referenceMedianNs: Record<string, number>;
-  };
-  validateReport(input: Record<string, unknown>): void;
-  validatePerformanceP95DiagnosticReport(input: Record<string, unknown>): void;
-  derivePerformanceP95DiagnosticView(
-    input: Record<string, unknown>,
-  ): Record<string, unknown>;
-  classifyPerformanceP95DiagnosticFixture(input: {
-    observedP95Failure: boolean;
-    positiveBlockCount: number;
-    positiveCandidateTailCount: number;
-  }): "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown";
-  actionableBranchForPerformanceP95Diagnostic(
-    pattern: "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown",
-  ): "collector" | "candidate-runtime" | null;
-  validatePerformanceP95DiagnosticLedger(input: Record<string, unknown>): void;
-  validateInstalledReport(
-    input: Record<string, unknown>,
-    tuple: string,
-    nodeMajor: number,
-    candidate: Record<string, unknown>,
-  ): void;
-  hostedLedger(
-    filePath: string,
-    memoryPath: string,
-    windowsPath: string,
-    identityCleanupPath: string,
-  ): void;
-  validatePrerequisiteLedgerBindings(
-    hosted: Record<string, unknown>,
-    prerequisites: Record<string, PrerequisiteEntry>,
-  ): void;
-  validateFinalCandidateManifest(input: {
-    repoRoot: string;
-    candidateSha: string;
-    repairProofSha: string;
-  }): void;
-  validateWindowsPublicationDiagnosticLedger(
-    input: Record<string, unknown>,
-  ): void;
-  validateWindowsCancellationDiagnosticLedger(
-    input: Record<string, unknown>,
-  ): void;
-  validateIdentityCleanupLedger(input: Record<string, unknown>): void;
-  validateTerminalCleanupRecord(
-    input: Record<string, unknown>,
-    scenario?: string,
-  ): void;
-  requireWindowsNativePublicationEvidence(evidence: unknown): {
-    primitive: string;
-    publication: string;
-    collision: string;
-    identity: string;
-    cleanup: string;
-  };
-  canonicalJson(value: unknown): string;
-  validateP95NullBranchClosure(
-    closure: Record<string, unknown>,
-    ledger: Record<string, unknown>,
-  ): Record<string, unknown>;
-};
 
 type IdentityLedgerValidator = {
   validateIdentityCleanupLedger(input: Record<string, unknown>): void;
