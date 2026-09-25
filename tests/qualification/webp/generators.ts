@@ -4,6 +4,7 @@ import {
   alpha,
   anim,
   animationFrame,
+  exifWithOrientation,
   iccProfile,
   metadataWebp,
   vp8,
@@ -17,6 +18,7 @@ import {
   MAX_RIFF_BYTES,
   type WebpStructureError,
 } from "../../../src/webp/riff.js";
+import { canaryArbitrary, type PlantedCanary } from "../kit/generators.js";
 
 export type HostileCategory =
   | "aggregate-limit"
@@ -53,10 +55,21 @@ export interface ValidGrammarCase {
   readonly bytes: Buffer;
 }
 
+export type WebpMetadataKind = "EXIF" | "XMP" | "ICCP";
+
+export interface WebpSampleOptions {
+  readonly preserveOrientation: boolean;
+  readonly preserveColorProfile: boolean;
+  readonly preserveTimestamps: boolean;
+}
+
 export interface QualificationSample {
   readonly id: string;
   readonly bytes: Buffer;
   readonly expected: "success" | WebpStructureError["kind"];
+  readonly arm: "metadata" | "no-metadata" | "hostile";
+  readonly planted: readonly PlantedCanary<WebpMetadataKind>[];
+  readonly options: WebpSampleOptions;
 }
 
 export interface ReplayRecordInput {
@@ -358,6 +371,58 @@ export function webpArbitrary(): fc.Arbitrary<Buffer> {
     });
 }
 
+const NO_PRESERVATION: WebpSampleOptions = Object.freeze({
+  preserveOrientation: false,
+  preserveColorProfile: false,
+  preserveTimestamps: false,
+});
+
+const preservationOptionsArbitrary: fc.Arbitrary<WebpSampleOptions> = fc.record(
+  {
+    preserveOrientation: fc.boolean(),
+    preserveColorProfile: fc.boolean(),
+    preserveTimestamps: fc.boolean(),
+  },
+);
+
+interface MetadataArmSample {
+  readonly bytes: Buffer;
+  readonly planted: readonly PlantedCanary<WebpMetadataKind>[];
+  readonly options: WebpSampleOptions;
+}
+
+/**
+ * The metadata arm (D-19a). In this task it plants an EXIF canary only: a
+ * VP8X-framed still whose canvas dimensions match the VP8 frame, in chunk order
+ * VP8X, image, EXIF. Preservation flags are drawn independently so a real
+ * `sanitizeFile` call downstream is never given a hard-coded flag.
+ */
+export function webpMetadataArbitrary(): fc.Arbitrary<MetadataArmSample> {
+  return fc
+    .record({
+      width: fc.integer({ min: 1, max: 8 }),
+      height: fc.integer({ min: 1, max: 8 }),
+      orientation: fc.integer({ min: 1, max: 8 }),
+      exifCanary: canaryArbitrary<WebpMetadataKind>("EXIF"),
+      options: preservationOptionsArbitrary,
+    })
+    .map(({ width, height, orientation, exifCanary, options }) => {
+      const exifChunk = exifWithOrientation(orientation, exifCanary.canary);
+      const bytes = webp([
+        { fourCc: "VP8X", data: vp8x(0x08, width, height) },
+        { fourCc: "VP8 ", data: vp8(width, height) },
+        { fourCc: "EXIF", data: exifChunk },
+      ]);
+      return { bytes, planted: [exifCanary], options };
+    });
+}
+
+export const webpMetadataGenerator = Object.freeze({
+  format: "webp",
+  metadataKinds: Object.freeze(["EXIF", "XMP", "ICCP"] as const),
+  arbitrary: webpMetadataArbitrary,
+});
+
 export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
   const bufferedHostile = hostileMutationCases.flatMap((item) => {
     const materialized = item.materialize();
@@ -367,17 +432,38 @@ export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
             id: item.id,
             bytes: materialized.prefix,
             expected: item.expectedKind,
+            arm: "hostile" as const,
+            planted: [] as PlantedCanary<WebpMetadataKind>[],
+            options: NO_PRESERVATION,
           } satisfies QualificationSample,
         ]
       : [];
   });
-  return fc.oneof(
-    webpArbitrary().map((bytes) => ({
+  const metadataArm = webpMetadataArbitrary().map(
+    ({ bytes, planted, options }): QualificationSample => ({
+      id: `metadata-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
+      bytes,
+      expected: "success",
+      arm: "metadata",
+      planted,
+      options,
+    }),
+  );
+  const noMetadataArm = fc
+    .tuple(webpArbitrary(), preservationOptionsArbitrary)
+    .map(([bytes, options]): QualificationSample => ({
       id: `generated-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
       bytes,
-      expected: "success" as const,
-    })),
-    fc.constantFrom(...bufferedHostile),
+      expected: "success",
+      arm: "no-metadata",
+      planted: [],
+      options,
+    }));
+  const hostileArm = fc.constantFrom(...bufferedHostile);
+  return fc.oneof(
+    { weight: 4, arbitrary: metadataArm },
+    { weight: 2, arbitrary: noMetadataArm },
+    { weight: 2, arbitrary: hostileArm },
   );
 }
 

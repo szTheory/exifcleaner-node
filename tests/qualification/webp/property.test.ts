@@ -13,14 +13,77 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../dist/index.js";
 import { parseWebp } from "../../../src/webp/riff.js";
+import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
 import {
   formatReplayRecord,
   qualificationArbitrary,
   resolveReplayConfig,
+  type QualificationSample,
 } from "./generators.js";
 
 function digest(value: Buffer): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+/**
+ * Per-sample body of the fixed-seed property (extracted so Task 2/3 can reuse it
+ * against injected fakes). `sanitize` is injectable and defaults to the real dist
+ * `sanitizeFile` — every negative control replaces it with a deliberately broken fake.
+ */
+async function checkSample(
+  sample: QualificationSample,
+  sanitize: typeof sanitizeFile = sanitizeFile,
+): Promise<void> {
+  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-property-"));
+  const sourcePath = join(directory, "source.webp");
+  const destinationPath = join(directory, "output.webp");
+  try {
+    await writeFile(sourcePath, sample.bytes);
+    if (sample.expected === "success") {
+      assertPlanted(sample.bytes, sample.planted);
+      const source = await open(sourcePath, "r");
+      try {
+        await expect(
+          parseWebp(source, sample.bytes.length),
+        ).resolves.toBeDefined();
+      } finally {
+        await source.close();
+      }
+      const result = await sanitize({
+        sourcePath,
+        destinationPath,
+        ...sample.options,
+      });
+      expect(result.ok).toBe(true);
+      const preservedKinds = sample.options.preserveColorProfile
+        ? ["ICCP"]
+        : [];
+      assertCanariesAbsent(
+        await readFile(destinationPath),
+        sample.planted,
+        preservedKinds,
+      );
+      expect(await readFile(sourcePath)).toEqual(sample.bytes);
+      expect(await readFile(destinationPath)).toBeInstanceOf(Buffer);
+    } else {
+      const result = await sanitize({
+        sourcePath,
+        destinationPath,
+        ...sample.options,
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        error: {
+          code: sample.expected,
+          phase: "admission",
+          nativeWrite: "not-started",
+        },
+      });
+      await expect(access(destinationPath)).rejects.toBeDefined();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 describe("replayable WebP qualification properties", () => {
@@ -44,53 +107,7 @@ describe("replayable WebP qualification properties", () => {
       qualificationArbitrary(),
       async (sample) => {
         executed += 1;
-        const directory = await mkdtemp(
-          join(tmpdir(), "exifcleaner-property-"),
-        );
-        const sourcePath = join(directory, "source.webp");
-        const destinationPath = join(directory, "output.webp");
-        try {
-          await writeFile(sourcePath, sample.bytes);
-          if (sample.expected === "success") {
-            const source = await open(sourcePath, "r");
-            try {
-              await expect(
-                parseWebp(source, sample.bytes.length),
-              ).resolves.toBeDefined();
-            } finally {
-              await source.close();
-            }
-            const result = await sanitizeFile({
-              sourcePath,
-              destinationPath,
-              preserveOrientation: false,
-              preserveColorProfile: false,
-              preserveTimestamps: false,
-            });
-            expect(result.ok).toBe(true);
-            expect(await readFile(sourcePath)).toEqual(sample.bytes);
-            expect(await readFile(destinationPath)).toBeInstanceOf(Buffer);
-          } else {
-            const result = await sanitizeFile({
-              sourcePath,
-              destinationPath,
-              preserveOrientation: false,
-              preserveColorProfile: false,
-              preserveTimestamps: false,
-            });
-            expect(result).toMatchObject({
-              ok: false,
-              error: {
-                code: sample.expected,
-                phase: "admission",
-                nativeWrite: "not-started",
-              },
-            });
-            await expect(access(destinationPath)).rejects.toBeDefined();
-          }
-        } finally {
-          await rm(directory, { recursive: true, force: true });
-        }
+        await checkSample(sample);
       },
     );
     const result = await fc.check(property, config);
