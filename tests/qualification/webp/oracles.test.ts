@@ -11,6 +11,7 @@ import {
   animationFrame,
   iccProfile,
   metadataWebp,
+  readChunks,
   vp8x,
   webp,
 } from "../../fixtures.js";
@@ -293,6 +294,43 @@ No error detected.
       expect(testFileText).toContain(kind.measurement);
     }
   });
+
+  it.runIf(admittedHost)(
+    "rejects an injected metadata leak through the live differential",
+    async () => {
+      const source = metadataWebp();
+      const output = await sanitize(source);
+      // KIT-08 collapses this no-preservation output to simple-format WebP
+      // (a single VP8 chunk, no VP8X). Re-append the source's XMP chunk and
+      // rebuild a VP8X container with the XMP bit set so the tampered file
+      // stays structurally valid -- the leak is the reappearance of XMP
+      // itself, not the container shape.
+      const outputImage = readChunks(output).find(
+        (item) => item.fourCc === "VP8 " || item.fourCc === "VP8L",
+      );
+      const sourceXmp = readChunks(source).find(
+        (item) => item.fourCc === "XMP ",
+      );
+      if (outputImage === undefined || sourceXmp === undefined)
+        throw new Error("Fixture invariant violated: missing VP8 or XMP.");
+      const tampered = webp([
+        { fourCc: "VP8X", data: vp8x(0x04) },
+        { fourCc: outputImage.fourCc, data: outputImage.data },
+        { fourCc: "XMP ", data: sourceXmp.data },
+      ]);
+
+      expect(() =>
+        runExiftoolDifferential({
+          caseId: "injected-leak",
+          profile: webpDifferentialProfile,
+          source,
+          output: tampered,
+          permittedDifferences: [],
+        }),
+      ).toThrow("Unpermitted metadata difference");
+    },
+    180_000,
+  );
 
   it.runIf(admittedHost)(
     "proves animation canvas, timing, and frame hashes in both directions",
