@@ -37,6 +37,43 @@ const ELAPSED_P95_ESTIMATOR = Object.freeze({
   retainedObservations: MEASUREMENTS,
 });
 
+// Deliberate, requirement-traced output changes against the pinned 0.1.1 baseline. Correctness
+// is otherwise byte equality with the baseline, which a maintainer-approved engine fix breaks by
+// design. Each entry pins BOTH sides' complete correctness payload, so for a listed fixture a
+// mismatch passes only as that exact pair. Byte equality still passes there too, because archived
+// admission evidence from before the fix must keep validating; the benchmark test binds the pinned
+// candidate side to the current build's measured output instead. Remove an entry when the baseline
+// advances past it.
+function pinnedOutput(outputBytes, outputSha256) {
+  return Object.freeze({
+    status: "success",
+    code: null,
+    outputBytes,
+    outputSha256,
+    sourceUnchanged: true,
+    destinationAbsent: false,
+  });
+}
+// KIT-08: 0.1.1 writes RIFF + VP8X(flags=0) + VP8 (48 B); once sanitize strips every extended
+// feature the candidate writes simple-format RIFF + VP8 (30 B), matching ExifTool's `-all=`.
+const KIT_08_METADATA_STILL = Object.freeze({
+  requirement: "KIT-08",
+  baseline: pinnedOutput(
+    48,
+    "20cc286194218ad876a3f1e7bb611cfe9e9336364c2b9d6ad7aebf3aa02c92d0",
+  ),
+  candidate: pinnedOutput(
+    30,
+    "25be9d2487fda0b5df1bd4a664a43718fb19a35f68c637f048880311513cab05",
+  ),
+});
+const INTENDED_OUTPUT_CHANGES = Object.freeze({
+  "metadata-still-64k": KIT_08_METADATA_STILL,
+  "metadata-still-1m": KIT_08_METADATA_STILL,
+  "metadata-still-16m": KIT_08_METADATA_STILL,
+});
+const CORRECTNESS_MISMATCH = "correctness mismatch";
+
 const BENCHMARK_THRESHOLDS = Object.freeze({
   medianRatio: 1.2,
   medianSlackNs: 15_000_000,
@@ -372,10 +409,24 @@ function performanceP95(values) {
   return sorted[lower] + (h - lower) * (sorted[upper] - sorted[lower]);
 }
 
-function evaluatePair({ baseline, candidate }) {
+function correctnessMatches(fixtureId, baseline, candidate) {
+  const intended = Object.hasOwn(INTENDED_OUTPUT_CHANGES, fixtureId ?? "")
+    ? INTENDED_OUTPUT_CHANGES[fixtureId]
+    : undefined;
+  if (baseline.correctnessKey === candidate.correctnessKey) return true;
+  if (intended === undefined) return false;
+  return (
+    baseline.correctnessKey ===
+      reportValidator.deriveCorrectnessKey(intended.baseline) &&
+    candidate.correctnessKey ===
+      reportValidator.deriveCorrectnessKey(intended.candidate)
+  );
+}
+
+function evaluatePair({ fixtureId, baseline, candidate }) {
   const failures = [];
-  if (baseline.correctnessKey !== candidate.correctnessKey)
-    return { pass: false, failures: ["correctness mismatch"] };
+  if (!correctnessMatches(fixtureId, baseline, candidate))
+    return { pass: false, failures: [CORRECTNESS_MISMATCH] };
   const timing = reportValidator.evaluateTiming({
     baselineMedianNs: baseline.medianElapsedNs,
     candidateMedianNs: candidate.medianElapsedNs,
@@ -439,9 +490,13 @@ function evaluateCancellation(input) {
   return { pass: failures.length === 0, failures };
 }
 
-function exitCodeForMode(mode, pass) {
+// Report mode tolerates timing noise from shared runners, but output bytes are deterministic, so a
+// correctness mismatch fails either mode instead of hiding behind a green report-mode job.
+function exitCodeForMode(mode, pass, failures = []) {
   if (mode !== "report" && mode !== "admit")
     throw new Error("Benchmark mode must be report or admit");
+  if (failures.some((failure) => failure.endsWith(`: ${CORRECTNESS_MISMATCH}`)))
+    return 1;
   return mode === "admit" && !pass ? 1 : 0;
 }
 
@@ -832,7 +887,11 @@ async function executeBenchmark(options) {
         ...aggregates.get(`candidate:${fixture.id}`),
         rssSlope: slopes.candidate,
       };
-      const verdict = evaluatePair({ baseline, candidate });
+      const verdict = evaluatePair({
+        fixtureId: fixture.id,
+        baseline,
+        candidate,
+      });
       const timing = reportValidator.evaluateTiming({
         baselineMedianNs: baseline.medianElapsedNs,
         candidateMedianNs: candidate.medianElapsedNs,
@@ -907,6 +966,7 @@ module.exports = {
   BASELINE_TARBALL_SHA256,
   BENCHMARK_THRESHOLDS,
   DIAGNOSTIC_PROFILE_ID,
+  INTENDED_OUTPUT_CHANGES,
   buildSchedule,
   evaluateCancellation,
   evaluatePair,
@@ -927,7 +987,11 @@ if (require.main === module) {
   executeBenchmark(parseArguments(process.argv.slice(2)))
     .then((report) => {
       process.stdout.write(renderSummary(report));
-      process.exitCode = exitCodeForMode(report.mode, report.pass);
+      process.exitCode = exitCodeForMode(
+        report.mode,
+        report.pass,
+        report.failures,
+      );
     })
     .catch((error) => {
       process.stderr.write(

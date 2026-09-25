@@ -52,15 +52,34 @@ const benchmark = require("../../../scripts/qualification/benchmark.cjs") as {
     prefix: string,
   ): number;
   evaluatePair(input: {
+    fixtureId?: string;
     baseline: Record<string, number | string>;
     candidate: Record<string, number | string>;
   }): { pass: boolean; failures: readonly string[] };
+  INTENDED_OUTPUT_CHANGES: Readonly<
+    Record<
+      string,
+      {
+        requirement: string;
+        baseline: Record<string, unknown>;
+        candidate: Record<string, unknown>;
+      }
+    >
+  >;
   evaluateCancellation(input: Record<string, unknown>): {
     pass: boolean;
     failures: readonly string[];
   };
-  exitCodeForMode(mode: "report" | "admit", pass: boolean): number;
+  exitCodeForMode(
+    mode: "report" | "admit",
+    pass: boolean,
+    failures?: readonly string[],
+  ): number;
   generateFixture(record: Record<string, unknown>): Buffer;
+  materializeFixture(
+    record: Record<string, unknown>,
+    destinationPath: string,
+  ): { bytes: number; sha256: string };
   loadBenchmarkManifest(): {
     seed: number;
     fixtures: readonly (Record<string, unknown> & {
@@ -4904,6 +4923,144 @@ describe("paired benchmark admission", () => {
     expect(result.failures[0]).toContain("correctness");
   });
 
+  it("binds each pinned KIT-08 pair to measured output, not to itself", async () => {
+    // Baseline side: the key every retained 0.1.1 sample carried in CI run 36170788638
+    // (benchmark-linux-node22 and -node24 artifacts). The published tarball is pinned by digest,
+    // so this cannot drift without the baseline itself changing.
+    const baselineKey =
+      "f38e73058d0a048134f1e6d0121903ec369e7cd6e61c01eca1d44e3ab6366777";
+    // Advancing the baseline invalidates the measured key above, so it must revisit the pins.
+    expect(benchmark.BASELINE_TARBALL_SHA256).toBe(
+      "c2fc569b553cba360814bcce61d6882a02aba062e6d6da2193323915530a34bf",
+    );
+    // Candidate side: sanitize each generated fixture through this build, exactly as the
+    // benchmark child does, and require the pinned payload.
+    const { sanitizeFile } = await import("../../../dist/index.js");
+    const manifest = benchmark.loadBenchmarkManifest();
+    const sandbox = mkdtempSync(join(tmpdir(), "benchmark-kit08-"));
+    try {
+      for (const [fixtureId, change] of Object.entries(
+        benchmark.INTENDED_OUTPUT_CHANGES,
+      )) {
+        expect(report.deriveCorrectnessKey(change.baseline)).toBe(baselineKey);
+        const record = manifest.fixtures.find((item) => item.id === fixtureId);
+        if (record === undefined) throw new Error(`missing ${fixtureId}`);
+        const sourcePath = join(sandbox, `${fixtureId}.webp`);
+        const destinationPath = join(sandbox, `${fixtureId}.clean.webp`);
+        benchmark.materializeFixture(record, sourcePath);
+        const sourceDigest = createHash("sha256")
+          .update(readFileSync(sourcePath))
+          .digest("hex");
+        const result = await sanitizeFile({
+          sourcePath,
+          destinationPath,
+          preserveOrientation: false,
+          preserveColorProfile: false,
+          preserveTimestamps: false,
+        });
+        const output = readFileSync(destinationPath);
+        expect({
+          status: result.ok ? "success" : "refused",
+          code: result.ok ? null : result.error.code,
+          outputBytes: output.length,
+          outputSha256: createHash("sha256").update(output).digest("hex"),
+          sourceUnchanged:
+            createHash("sha256")
+              .update(readFileSync(sourcePath))
+              .digest("hex") === sourceDigest,
+          destinationAbsent: false,
+        }).toEqual(change.candidate);
+        rmSync(sourcePath);
+        rmSync(destinationPath);
+      }
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  it("admits only the exact pinned KIT-08 output change, and only on its fixtures", () => {
+    const changes = benchmark.INTENDED_OUTPUT_CHANGES;
+    const fixtureIds = new Set(
+      benchmark.loadBenchmarkManifest().fixtures.map((fixture) => fixture.id),
+    );
+    expect(Object.keys(changes)).toEqual([
+      "metadata-still-64k",
+      "metadata-still-1m",
+      "metadata-still-16m",
+    ]);
+    const performance = {
+      medianElapsedNs: 100,
+      p95ElapsedNs: 100,
+      medianMaxRSSKiB: 100,
+      rssSlope: 0,
+    };
+    for (const [fixtureId, change] of Object.entries(changes)) {
+      expect(fixtureIds.has(fixtureId)).toBe(true);
+      expect(change.requirement).toBe("KIT-08");
+      // 0.1.1 writes RIFF + VP8X(flags=0) + VP8; the candidate writes simple-format RIFF + VP8.
+      expect(change.baseline).toMatchObject({
+        status: "success",
+        outputBytes: 48,
+      });
+      expect(change.candidate).toMatchObject({
+        status: "success",
+        outputBytes: 30,
+      });
+      const baselineKey = report.deriveCorrectnessKey(change.baseline);
+      const candidateKey = report.deriveCorrectnessKey(change.candidate);
+      const pair = (baseline: string, candidate: string, id = fixtureId) =>
+        benchmark.evaluatePair({
+          fixtureId: id,
+          baseline: { ...performance, correctnessKey: baseline },
+          candidate: { ...performance, correctnessKey: candidate },
+        });
+      expect(pair(baselineKey, candidateKey)).toEqual({
+        pass: true,
+        failures: [],
+      });
+      const mismatch = { pass: false, failures: ["correctness mismatch"] };
+      // Byte equality still passes, so archived pre-fix admission evidence keeps validating.
+      // A current-build regression to the old bytes is caught by the measured-output test.
+      expect(pair(baselineKey, baselineKey)).toEqual({
+        pass: true,
+        failures: [],
+      });
+      expect(pair(candidateKey, baselineKey)).toEqual(mismatch);
+      expect(pair(baselineKey, "0".repeat(64))).toEqual(mismatch);
+      expect(pair("0".repeat(64), candidateKey)).toEqual(mismatch);
+      // Every other correctness field is bound, not only the bytes.
+      for (const field of [
+        "status",
+        "code",
+        "sourceUnchanged",
+        "destinationAbsent",
+      ])
+        expect(
+          pair(
+            baselineKey,
+            report.deriveCorrectnessKey({
+              ...change.candidate,
+              [field]:
+                field === "status"
+                  ? "refused"
+                  : field === "code"
+                    ? "x"
+                    : !change.candidate[field],
+            }),
+          ),
+        ).toEqual(mismatch);
+      // The same pair on an unlisted fixture, or with no fixture named, stays a mismatch.
+      expect(pair(baselineKey, candidateKey, "still-1m")).toEqual(mismatch);
+      expect(
+        benchmark.evaluatePair({
+          baseline: { ...performance, correctnessKey: baselineKey },
+          candidate: { ...performance, correctnessKey: candidateKey },
+        }),
+      ).toEqual(mismatch);
+      expect(pair(baselineKey, candidateKey, "__proto__")).toEqual(mismatch);
+    }
+  });
+
   it("enforces exact cancellation and truthful-finalization boundaries", () => {
     const boundary = {
       code: "aborted",
@@ -5058,10 +5215,27 @@ describe("paired benchmark admission", () => {
     });
   });
 
-  it("keeps report mode informational and admit mode hard-failing", () => {
+  it("keeps report-mode timing informational and fails correctness in either mode", () => {
     expect(benchmark.exitCodeForMode("report", false)).toBe(0);
     expect(benchmark.exitCodeForMode("admit", false)).toBe(1);
     expect(benchmark.exitCodeForMode("admit", true)).toBe(0);
+    // Output bytes are deterministic, so a correctness mismatch fails report mode too; timing
+    // noise stays report-only.
+    expect(
+      benchmark.exitCodeForMode("report", false, [
+        "metadata-still-1m: correctness mismatch",
+      ]),
+    ).toBe(1);
+    expect(
+      benchmark.exitCodeForMode("report", false, [
+        "still-1m: median threshold exceeded",
+      ]),
+    ).toBe(0);
+    expect(
+      benchmark.exitCodeForMode("admit", false, [
+        "still-1m: correctness mismatch",
+      ]),
+    ).toBe(1);
     const summary = benchmark.renderSummary({
       pass: false,
       baselineSha256: "a".repeat(64),

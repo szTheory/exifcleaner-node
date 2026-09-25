@@ -794,6 +794,7 @@ function validateReportAgainstExpected(report, expected, diagnosticOnly) {
     if (!sameJson(timing, comparison.timing))
       throw new Error("D-23 verdict mismatch");
     const verdict = benchmark.evaluatePair({
+      fixtureId: comparison.fixtureId,
       baseline: comparison.baseline,
       candidate: comparison.candidate,
     });
