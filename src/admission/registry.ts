@@ -13,7 +13,10 @@ const HANDLERS: readonly RegisteredHandler[] = Object.freeze([webpHandler]);
 let activeHandlers: readonly RegisteredHandler[] = HANDLERS;
 
 let cachedFormats:
-  | { readonly handlers: readonly RegisteredHandler[]; readonly formats: Capabilities["formats"] }
+  | {
+      readonly handlers: readonly RegisteredHandler[];
+      readonly formats: Capabilities["formats"];
+    }
   | undefined;
 
 function currentFormats(): Capabilities["formats"] {

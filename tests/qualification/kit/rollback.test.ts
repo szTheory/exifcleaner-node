@@ -7,16 +7,25 @@ import {
   inspectFile,
   sanitizeFile,
 } from "../../../src/engine.js";
-import { setRegisteredHandlersForTests } from "../../../src/admission/registry.js";
+import {
+  registeredHandlersForTests,
+  setRegisteredHandlersForTests,
+} from "../../../src/admission/registry.js";
 import { classifyFallback } from "../../../src/fallback.js";
-import { metadataWebp } from "../../fixtures.js";
+import {
+  assertFormatsCovered,
+  QUALIFICATION_FORMATS,
+  type QualificationFormat,
+} from "../formats.js";
 
 /**
  * KIT-07 rollback proof (D-24): removing a registered handler from the
  * registry through the private test seam makes the library decline that
  * format as `unsupported-format` before any write, with a safe fallback --
  * and restoring the handler proves the decline was caused by the removal,
- * not by some other defect in the sample or the harness.
+ * not by some other defect in the sample or the harness. Runs once per
+ * currently registered handler (`registeredHandlersForTests()`), so a new
+ * format inherits this proof automatically once it is registered.
  */
 
 const directories: string[] = [];
@@ -35,69 +44,127 @@ async function freshDirectory(): Promise<string> {
   return directory;
 }
 
+const STAGING_FILE_NAME_PATTERN = /^output\.[a-z0-9]+$/;
+
 describe("registry rollback proof (KIT-07 D-24)", () => {
-  it("declines a WebP sample as unsupported-format once the WebP handler is removed, and accepts it again once restored", async () => {
-    const directory = await freshDirectory();
-    const sourceName = "source.bin";
-    const sourcePath = join(directory, sourceName);
-    const destinationPath = join(directory, "destination.bin");
-    const sourceBytes = metadataWebp();
-    await writeFile(sourcePath, sourceBytes);
+  it.each(registeredHandlersForTests())(
+    "declines a $capability.format sample as unsupported-format once its handler is removed, and accepts it again once restored",
+    async (handler) => {
+      const format = handler.capability.format;
+      const entry: QualificationFormat | undefined =
+        QUALIFICATION_FORMATS[format as keyof typeof QUALIFICATION_FORMATS];
+      if (entry === undefined) {
+        throw new Error(`No qualification sample registered for ${format}`);
+      }
 
-    const restore = setRegisteredHandlersForTests([]);
-    try {
-      const inspected = await inspectFile(sourcePath);
-      expect(inspected.ok).toBe(false);
-      if (inspected.ok) throw new Error("unreachable");
-      expect(inspected.error).toMatchObject({
-        code: "unsupported-format",
-        phase: "admission",
-        nativeWrite: "not-started",
-      });
-      expect(classifyFallback(inspected.error)).toBe("safe-to-fallback");
+      const directory = await freshDirectory();
+      const sourceName = "source.bin";
+      const sourcePath = join(directory, sourceName);
+      const destinationPath = join(directory, "destination.bin");
+      const sourceBytes = entry.sample();
+      await writeFile(sourcePath, sourceBytes);
 
-      const sanitized = await sanitizeFile({
+      const restore = setRegisteredHandlersForTests(
+        registeredHandlersForTests().filter(
+          (candidate) => candidate !== handler,
+        ),
+      );
+      try {
+        const inspected = await inspectFile(sourcePath);
+        expect(inspected.ok).toBe(false);
+        if (inspected.ok) throw new Error("unreachable");
+        expect(inspected.error).toMatchObject({
+          code: "unsupported-format",
+          phase: "admission",
+          nativeWrite: "not-started",
+        });
+        expect(classifyFallback(inspected.error)).toBe("safe-to-fallback");
+
+        const sanitized = await sanitizeFile({
+          sourcePath,
+          destinationPath,
+          preserveOrientation: true,
+          preserveColorProfile: true,
+          preserveTimestamps: true,
+        });
+        expect(sanitized.ok).toBe(false);
+        if (sanitized.ok) throw new Error("unreachable");
+        expect(sanitized.error).toMatchObject({
+          code: "unsupported-format",
+          phase: "admission",
+          nativeWrite: "not-started",
+        });
+        expect(classifyFallback(sanitized.error)).toBe("safe-to-fallback");
+
+        const listing = await readdir(directory);
+        expect(listing).toEqual([sourceName]);
+
+        const sourceAfter = await readFile(sourcePath);
+        expect(sourceAfter.equals(sourceBytes)).toBe(true);
+
+        expect(
+          getCapabilities().formats.some((entry) => entry.format === format),
+        ).toBe(false);
+      } finally {
+        restore();
+      }
+
+      // Positive control: the same sample, on the same paths, succeeds once
+      // the handler is restored -- proving the decline above was caused by
+      // the handler's removal and not by some other defect in the sample.
+      const restored = await sanitizeFile({
         sourcePath,
         destinationPath,
         preserveOrientation: true,
         preserveColorProfile: true,
         preserveTimestamps: true,
       });
-      expect(sanitized.ok).toBe(false);
-      if (sanitized.ok) throw new Error("unreachable");
-      expect(sanitized.error).toMatchObject({
-        code: "unsupported-format",
-        phase: "admission",
-        nativeWrite: "not-started",
-      });
-      expect(classifyFallback(sanitized.error)).toBe("safe-to-fallback");
-
-      const listing = await readdir(directory);
-      expect(listing).toEqual([sourceName]);
-
-      const sourceAfter = await readFile(sourcePath);
-      expect(sourceAfter.equals(sourceBytes)).toBe(true);
-
+      expect(restored.ok).toBe(true);
       expect(
-        getCapabilities().formats.some((format) => format.format === "webp"),
-      ).toBe(false);
-    } finally {
-      restore();
+        getCapabilities().formats.some((entry) => entry.format === format),
+      ).toBe(true);
+    },
+  );
+
+  it("every registered handler's stagingFileName follows the output.<ext> convention and matches its first capability extension", () => {
+    for (const handler of registeredHandlersForTests()) {
+      expect(handler.stagingFileName).toMatch(STAGING_FILE_NAME_PATTERN);
+      const firstExtension = handler.capability.extensions[0]?.replace(
+        /^\./,
+        "",
+      );
+      expect(handler.stagingFileName).toBe(`output.${firstExtension}`);
+    }
+  });
+
+  it("assertFormatsCovered passes when the registered formats exactly match the qualification registry", () => {
+    expect(() =>
+      assertFormatsCovered(
+        getCapabilities().formats.map((entry) => entry.format),
+        QUALIFICATION_FORMATS,
+      ),
+    ).not.toThrow();
+  });
+
+  describe("assertFormatsCovered negative controls", () => {
+    const values = Object.values(
+      QUALIFICATION_FORMATS,
+    ) as readonly QualificationFormat[];
+    const entry = values[0];
+    if (entry === undefined) {
+      throw new Error("QUALIFICATION_FORMATS must not be empty");
     }
 
-    // Positive control: the same sample, on the same paths, succeeds once
-    // the handler is restored -- proving the decline above was caused by the
-    // handler's removal and not by some other defect in the sample or setup.
-    const restored = await sanitizeFile({
-      sourcePath,
-      destinationPath,
-      preserveOrientation: true,
-      preserveColorProfile: true,
-      preserveTimestamps: true,
+    it("throws naming a registered format with no qualification entry", () => {
+      expect(() =>
+        assertFormatsCovered(["webp", "png"], { webp: entry }),
+      ).toThrow(/png/);
     });
-    expect(restored.ok).toBe(true);
-    expect(
-      getCapabilities().formats.some((format) => format.format === "webp"),
-    ).toBe(true);
+
+    it("throws naming a qualification entry with no matching registered format", () => {
+      expect(() =>
+        assertFormatsCovered(["webp"], { webp: entry, png: entry }),
+      ).toThrow(/png/);
+    });
   });
 });

@@ -6,12 +6,21 @@ import { describe, expect, it } from "vitest";
 const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
 /**
- * Files still flat under `tests/qualification/` while the D-15 kit/webp move is in progress.
- * The D-15 layout move is complete as of Phase 55 Plan 02; this stays empty and frozen so
- * a future stray flat file fails the gate by name instead of silently widening the allowlist.
- * Every entry is a project-root-relative path.
+ * Files intentionally kept flat under `tests/qualification/`. The D-15 kit/webp
+ * layout move is complete as of Phase 55 Plan 02; this list stays a closed,
+ * explicit allowlist so a future stray flat file fails the gate by name
+ * instead of silently widening the allowlist. Every entry is a
+ * project-root-relative path.
+ *
+ * `tests/qualification/formats.ts` (Plan 08): the per-format qualification
+ * registry, keyed by `NativeFormat`, so a new format fails typecheck until
+ * its differential profile, generator and sample all exist. It is not a
+ * `.test.ts` file and stays at this level rather than inside `kit/` because
+ * it names both `kit/` and `webp/` modules -- it is the seam between them.
  */
-export const PENDING_FLAT_FILES: readonly string[] = Object.freeze([]);
+export const PENDING_FLAT_FILES: readonly string[] = Object.freeze([
+  "tests/qualification/formats.ts",
+]);
 
 export interface QualificationListProblemsInput {
   readonly ciList: readonly string[];
