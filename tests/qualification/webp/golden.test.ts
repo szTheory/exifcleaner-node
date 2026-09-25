@@ -153,4 +153,89 @@ describe("kit golden-digest harness (KIT-02)", () => {
     expect(golden.seed).toBe(CAPTURE_SEED);
     expect(golden.numRuns).toBe(CAPTURE_NUM_RUNS);
   }, 120_000);
+
+  describe("golden negative controls (KIT-02)", () => {
+    const FIRST_SUCCESS_CASE_ID = "exifcleaner-sample";
+    const FIRST_SUCCESS_FLAGS: PreservationOptions = {
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+    };
+
+    it("(1) fails the gate when one byte of the output changes", async () => {
+      const golden = await readGolden(GOLDEN_PATH);
+      const key = `corpus:${FIRST_SUCCESS_CASE_ID}|${flagKey(FIRST_SUCCESS_FLAGS)}`;
+      expect(golden.entries[key]).toBeDefined();
+
+      const sourceBytes = await materializeCorpusRecord(FIRST_SUCCESS_CASE_ID);
+      const directory = await mkdtemp(
+        join(tmpdir(), "exifcleaner-golden-control-"),
+      );
+      const sourcePath = join(directory, "source.webp");
+      const destinationPath = join(directory, "output.webp");
+      let flippedDigest: string;
+      try {
+        await writeFile(sourcePath, sourceBytes);
+        const result = await sanitizeFile({
+          sourcePath,
+          destinationPath,
+          ...FIRST_SUCCESS_FLAGS,
+        });
+        if (!result.ok)
+          throw new Error(
+            `Expected success sanitizing ${FIRST_SUCCESS_CASE_ID}`,
+          );
+        const output = await readFile(destinationPath);
+        output[output.length - 1] = output[output.length - 1]! ^ 0x01;
+        flippedDigest = digestOutput(output);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+
+      const actual = { ...golden.entries, [key]: flippedDigest };
+      expect(() => assertGoldenMatch(actual, golden)).toThrow(
+        new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      );
+    });
+
+    it("(2) fails the gate naming a missing entry with the count mismatch", async () => {
+      const golden = await readGolden(GOLDEN_PATH);
+      const keys = Object.keys(golden.entries);
+      const droppedKey = keys[0];
+      if (droppedKey === undefined) throw new Error("golden file is empty");
+      const actual = { ...golden.entries };
+      delete actual[droppedKey];
+
+      expect(() => assertGoldenMatch(actual, golden)).toThrow(
+        new RegExp(
+          `Missing \\(1\\): ${droppedKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+        ),
+      );
+      expect(() => assertGoldenMatch(actual, golden)).toThrow(
+        `golden has ${keys.length} entries, actual has ${keys.length - 1}`,
+      );
+    });
+
+    it("(3) refuses to overwrite an existing golden file", async () => {
+      const directory = await mkdtemp(
+        join(tmpdir(), "exifcleaner-golden-overwrite-"),
+      );
+      const existingPath = join(directory, "golden-sha256.json");
+      try {
+        await writeFile(existingPath, "{}");
+        await expect(
+          captureGolden(existingPath, {
+            version: 1,
+            reason: "test",
+            capturedFrom: { commit: "0".repeat(40), engine: "test" },
+            seed: 1,
+            numRuns: 1,
+            entries: {},
+          }),
+        ).rejects.toMatchObject({ code: "EEXIST" });
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+  });
 });
