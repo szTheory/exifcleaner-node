@@ -11,8 +11,6 @@ const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
  * Every entry is a project-root-relative path.
  */
 export const PENDING_FLAT_FILES: readonly string[] = [
-  "tests/qualification/oracles.ts",
-  "tests/qualification/oracles.test.ts",
   "tests/qualification/benchmark.test.ts",
 ];
 

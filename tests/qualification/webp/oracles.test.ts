@@ -2,16 +2,16 @@ import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { sanitizeFile } from "../../dist/index.js";
-import { parseWebp } from "../../src/webp/riff.js";
-import { anim, animationFrame, vp8x, webp } from "../fixtures.js";
-import { materializeCorpusRecord } from "./kit/corpus.js";
-import { materializeMutationCase } from "./webp/generators.js";
+import { sanitizeFile } from "../../../dist/index.js";
+import { parseWebp } from "../../../src/webp/riff.js";
+import { anim, animationFrame, vp8x, webp } from "../../fixtures.js";
+import { comparePermittedDifferences } from "../kit/oracles.js";
+import { materializeCorpusRecord } from "../kit/corpus.js";
+import { materializeMutationCase } from "./generators.js";
 import {
-  comparePermittedDifferences,
   normalizeWebpInfo,
-  runExiftoolOracle,
   runLibwebpOracle,
+  runWebpExiftoolOracle,
 } from "./oracles.js";
 
 const admittedHost = process.platform === "linux" && process.arch === "x64";
@@ -189,7 +189,7 @@ No error detected.
       expect(JSON.stringify(libwebp)).not.toMatch(/\/(?:home|tmp|Users)\//);
 
       expect(
-        runExiftoolOracle({
+        runWebpExiftoolOracle({
           caseId: "libwebp-1.5.0-example",
           source,
           output,

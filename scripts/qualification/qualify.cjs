@@ -245,7 +245,7 @@ function execute(options) {
     return npm([
       "test",
       "--",
-      "tests/qualification/oracles.test.ts",
+      "tests/qualification/webp/oracles.test.ts",
       "-t",
       options.testName,
     ]);
@@ -258,7 +258,7 @@ function execute(options) {
     "tests/qualification/webp/parser.test.ts",
     "tests/qualification/webp/property.test.ts",
     "tests/qualification/webp/transaction.test.ts",
-    "tests/qualification/oracles.test.ts",
+    "tests/qualification/webp/oracles.test.ts",
   ]);
 }
 
