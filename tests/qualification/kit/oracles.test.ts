@@ -12,6 +12,39 @@ const KINDS: readonly PermittedKind[] = [
   { id: "ICC_Profile:RawProfile", measurement: "synthetic ICC measurement" },
 ];
 
+const IMPLIED_KINDS: readonly PermittedKind[] = [
+  {
+    id: "EXIF:Orientation",
+    measurement: "synthetic orientation measurement",
+    impliedDifference: {
+      namespace: "Vendor",
+      explains: (onlyLeft, activeKindIds) =>
+        onlyLeft.length === 1 &&
+        Object.keys(onlyLeft[0]!).length === 1 &&
+        onlyLeft[0]!.Flag ===
+          (activeKindIds.includes("EXIF:Orientation") ? 1 : 0),
+    },
+  },
+];
+
+// WR-01 gap closure: an ICC_Profile:RawProfile grant that also implies a derived
+// Vendor Flag delta, mirroring IMPLIED_KINDS's EXIF:Orientation shape. `explains`
+// accepts exactly one `{ Flag: 1 }` entry, and only when the ICC grant is active.
+const IMPLIED_ICC_KINDS: readonly PermittedKind[] = [
+  {
+    id: "ICC_Profile:RawProfile",
+    measurement: "synthetic ICC measurement",
+    impliedDifference: {
+      namespace: "Vendor",
+      explains: (onlyLeft, activeKindIds) =>
+        onlyLeft.length === 1 &&
+        Object.keys(onlyLeft[0]!).length === 1 &&
+        onlyLeft[0]!.Flag === 1 &&
+        activeKindIds.includes("ICC_Profile:RawProfile"),
+    },
+  },
+];
+
 function projection(
   namespaces: Readonly<
     Record<string, readonly Readonly<Record<string, unknown>>[]>
@@ -325,21 +358,6 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
   });
 
   describe("PermittedKind.impliedDifference (a grant also covers a derived tag)", () => {
-    const IMPLIED_KINDS: readonly PermittedKind[] = [
-      {
-        id: "EXIF:Orientation",
-        measurement: "synthetic orientation measurement",
-        impliedDifference: {
-          namespace: "Vendor",
-          explains: (onlyLeft, activeKindIds) =>
-            onlyLeft.length === 1 &&
-            Object.keys(onlyLeft[0]!).length === 1 &&
-            onlyLeft[0]!.Flag ===
-              (activeKindIds.includes("EXIF:Orientation") ? 1 : 0),
-        },
-      },
-    ];
-
     it("an active grant's implied namespace delta is explained and does not throw", () => {
       const source = projection({
         EXIF: [{ Orientation: 6 }],
@@ -454,6 +472,85 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
           KINDS,
         ),
       ).toThrow("Stale permitted difference");
+    });
+
+    it("(e) stale grant masked by an implied delta: EXIF:Orientation=6 with no EXIF delta and an implied Vendor Flag delta still throws Stale permitted difference: EXIF:Orientation (WR-01)", () => {
+      const source = projection({
+        EXIF: [{ Orientation: 6 }],
+        XMP: [],
+        ICC_Profile: [],
+      });
+      const native = projection({
+        EXIF: [],
+        XMP: [],
+        ICC_Profile: [],
+        Vendor: [{ Flag: 1 }],
+      });
+      const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+      expect(() =>
+        compareDifferential(
+          source,
+          native,
+          reference,
+          ["EXIF:Orientation=6"],
+          IMPLIED_KINDS,
+        ),
+      ).toThrow("Stale permitted difference: EXIF:Orientation");
+    });
+
+    it("(f) mismatched grant: source carries Orientation 3 but the grant requests 6 throws Requested Orientation was not preserved (WR-01)", () => {
+      const source = projection({
+        EXIF: [{ Orientation: 3 }],
+        XMP: [],
+        ICC_Profile: [],
+      });
+      const native = projection({
+        EXIF: [{ Orientation: 6 }],
+        XMP: [],
+        ICC_Profile: [],
+      });
+      const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+      expect(() =>
+        compareDifferential(
+          source,
+          native,
+          reference,
+          ["EXIF:Orientation=6"],
+          KINDS,
+        ),
+      ).toThrow("Requested Orientation was not preserved");
+    });
+
+    it("(g) ICC stale grant masked by an implied delta: an ICC_Profile:RawProfile grant with an unchanged ICC projection and an implied Vendor Flag delta still throws Stale permitted difference: ICC_Profile:RawProfile (WR-01)", () => {
+      const grantedDigest = "a".repeat(64);
+      const iccEntries = [{ RawProfile: "x" }];
+      const source = projection(
+        { EXIF: [], XMP: [], ICC_Profile: iccEntries },
+        grantedDigest,
+      );
+      const native = projection(
+        {
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: iccEntries,
+          Vendor: [{ Flag: 1 }],
+        },
+        grantedDigest,
+      );
+      const reference = projection({
+        EXIF: [],
+        XMP: [],
+        ICC_Profile: iccEntries,
+      });
+      expect(() =>
+        compareDifferential(
+          source,
+          native,
+          reference,
+          [`ICC_Profile:RawProfile=${grantedDigest}`],
+          IMPLIED_ICC_KINDS,
+        ),
+      ).toThrow("Stale permitted difference: ICC_Profile:RawProfile");
     });
   });
 });

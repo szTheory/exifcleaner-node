@@ -19,7 +19,12 @@ import { parseExif } from "../../../src/metadata/exif.js";
 import { validateIccForPreservation } from "../../../src/metadata/icc_admission.js";
 import { ok } from "../../../src/result.js";
 import { parseWebp } from "../../../src/webp/riff.js";
-import { readChunks, webp } from "../../fixtures.js";
+import {
+  exifWithOrientation,
+  readChunks,
+  webp,
+  type FixtureChunk,
+} from "../../fixtures.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
 import { assertFloors, countSample, createCounters } from "../kit/floors.js";
 import {
@@ -34,6 +39,23 @@ import {
 function digest(value: Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
+
+/**
+ * Labels for checkSample's own preservation assertions (D-21). Every negative
+ * control that expects checkSample to reject a broken sanitizer asserts on one of
+ * these strings, so a control can only pass by driving the real gate — it can never
+ * carry its own copy of the check (WR-03).
+ */
+const PRESERVATION_MESSAGES = Object.freeze({
+  iccMissing:
+    "checkSample: requested ICC color profile is missing from the output",
+  iccBytes:
+    "checkSample: preserved ICC color profile bytes differ from the source",
+  orientationMissing:
+    "checkSample: requested Orientation EXIF is missing from the output",
+  orientationValue:
+    "checkSample: preserved Orientation value differs from the planted value",
+} as const);
 
 /** Source mtime/atime seeded before every success sample sanitizes (D-20 timestamps). */
 const SEEDED_SOURCE_TIME = new Date("2001-02-03T04:05:06.789Z");
@@ -108,8 +130,14 @@ async function checkSample(
         const destinationIccChunk = outputChunks.find(
           (chunk) => chunk.fourCc === "ICCP",
         );
-        expect(destinationIccChunk).toBeDefined();
-        expect(destinationIccChunk?.data).toEqual(sourceIccChunk?.data);
+        expect(
+          destinationIccChunk,
+          PRESERVATION_MESSAGES.iccMissing,
+        ).toBeDefined();
+        expect(
+          destinationIccChunk?.data,
+          PRESERVATION_MESSAGES.iccBytes,
+        ).toEqual(sourceIccChunk?.data);
       }
 
       if (preserveOrientation) {
@@ -117,9 +145,15 @@ async function checkSample(
         const destinationExifChunks = outputChunks.filter(
           (chunk) => chunk.fourCc === "EXIF",
         );
-        expect(destinationExifChunks).toHaveLength(1);
+        expect(
+          destinationExifChunks,
+          PRESERVATION_MESSAGES.orientationMissing,
+        ).toHaveLength(1);
         const parsedExif = parseExif(destinationExifChunks[0]!.data);
-        expect(parsedExif.orientation).toMatchObject({
+        expect(
+          parsedExif.orientation,
+          PRESERVATION_MESSAGES.orientationValue,
+        ).toMatchObject({
           status: "valid",
           value: sample.plantedOrientation,
         });
@@ -155,6 +189,23 @@ async function checkSample(
     await rm(directory, { recursive: true, force: true });
   }
   return counterKeys;
+}
+
+/**
+ * Rewrites `destinationPath` by mapping its current chunk list through `transform`
+ * and re-serializing it as WebP. Every D-21 control that needs to corrupt real
+ * sanitizer output — rather than synthesize a buffer from scratch — reads the
+ * genuine output the real `sanitizeFile` wrote, transforms it, and writes it back.
+ * The canary and value checks in these controls therefore always run on real
+ * sanitizer output, never a hand-built one.
+ */
+async function rewriteDestination(
+  destinationPath: string,
+  transform: (chunks: readonly FixtureChunk[]) => readonly FixtureChunk[],
+): Promise<void> {
+  const destination = await readFile(destinationPath);
+  const rewritten = webp(transform(readChunks(destination)));
+  await writeFile(destinationPath, rewritten);
 }
 
 /**
@@ -333,29 +384,41 @@ describe("replayable WebP qualification properties", () => {
       expect(String(result.errorInstance)).toContain("EXIFCLEANER-CANARY-");
     });
 
-    it("(2) fails a sanitizer that strips every metadata kind except XMP", () => {
-      const arbitrary = webpMetadataArbitrary().filter((sample) =>
-        sample.planted.some((item) => item.kind === "XMP"),
+    it("(2) fails a sanitizer that strips every metadata kind except XMP", async () => {
+      // The fake calls the real dist sanitizeFile, then appends the source's XMP
+      // chunk(s) back onto the genuine output, so the canary check runs against
+      // real sanitizer output that leaks exactly one metadata kind (D-21 (2)).
+      const xmpKeepingSanitize: typeof sanitizeFile = async (options) => {
+        const outcome = await sanitizeFile(options);
+        if (!outcome.ok) return outcome;
+        const sourceXmpChunks = readChunks(
+          await readFile(options.sourcePath),
+        ).filter((chunk) => chunk.fourCc === "XMP ");
+        await rewriteDestination(options.destinationPath, (chunks) => {
+          const withXmpFlag = chunks.map((chunk) => {
+            if (chunk.fourCc !== "VP8X") return chunk;
+            const data = Buffer.from(chunk.data);
+            data[0] = (data[0] ?? 0) | 0x04;
+            return { ...chunk, data };
+          });
+          return [...withXmpFlag, ...sourceXmpChunks];
+        });
+        return outcome;
+      };
+      const arbitrary = qualificationArbitrary().filter(
+        (sample) =>
+          sample.expected === "success" &&
+          sample.planted.some((item) => item.kind === "XMP"),
       );
-      const result = fc.check(
-        fc.property(arbitrary, (sample) => {
-          const keptXmpChunks = readChunks(sample.bytes).filter(
-            (chunk) => chunk.fourCc === "XMP ",
-          );
-          const rebuilt = webp(
-            keptXmpChunks.map((chunk) => ({
-              fourCc: chunk.fourCc,
-              data: chunk.data,
-            })),
-          );
-          // Every kind except XMP is gone; XMP's canary must still be absent to pass.
-          assertCanariesAbsent(rebuilt, sample.planted, []);
-          return true;
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, xmpKeepingSanitize);
         }),
         REPLAY_PARAMS,
       );
       expect(result.failed).toBe(true);
       expect(String(result.errorInstance)).toContain("kind XMP");
+      expect(String(result.errorInstance)).toContain("EXIFCLEANER-CANARY-");
     });
 
     it("(3) fails a generator with no metadata arm on the floor assertion itself", () => {
@@ -371,74 +434,123 @@ describe("replayable WebP qualification properties", () => {
       );
     });
 
-    it("(4) fails a sanitizer that ignores requested preservation", async () => {
-      // The fake calls the real dist sanitizeFile but forces every preservation
-      // flag to false regardless of what the caller requested (D-21 control 4).
-      const ignoresPreservation: typeof sanitizeFile = (options) =>
-        sanitizeFile({
-          ...options,
-          preserveOrientation: false,
-          preserveColorProfile: false,
-          preserveTimestamps: false,
-        });
-      const arbitrary = webpMetadataArbitrary().filter(
+    it("(4a) fails a sanitizer that ignores a requested color-profile preservation", async () => {
+      // The fake calls the real dist sanitizeFile but forces preserveColorProfile
+      // to false regardless of what the caller requested. Every other option,
+      // including preserveTimestamps, passes through unchanged, so the timestamp
+      // expect cannot be what makes this control red (D-21 (4), WR-03 root cause).
+      const ignoresColorProfile: typeof sanitizeFile = (options) =>
+        sanitizeFile({ ...options, preserveColorProfile: false });
+      const arbitrary = qualificationArbitrary().filter(
         (sample) =>
-          (sample.options.preserveOrientation &&
-            sample.planted.some((item) => item.kind === "EXIF")) ||
-          (sample.options.preserveColorProfile &&
-            sample.planted.some((item) => item.kind === "ICCP")),
+          sample.expected === "success" &&
+          sample.options.preserveColorProfile &&
+          sample.planted.some((item) => item.kind === "ICCP"),
       );
       const result = await fc.check(
         fc.asyncProperty(arbitrary, async (sample) => {
-          const directory = await mkdtemp(
-            join(tmpdir(), "exifcleaner-property-"),
-          );
-          const sourcePath = join(directory, "source.webp");
-          const destinationPath = join(directory, "output.webp");
-          try {
-            await writeFile(sourcePath, sample.bytes);
-            const result = await ignoresPreservation({
-              sourcePath,
-              destinationPath,
-              ...sample.options,
-            });
-            expect(result.ok).toBe(true);
-            const outputChunks = readChunks(await readFile(destinationPath));
-            if (
-              sample.options.preserveColorProfile &&
-              sample.planted.some((item) => item.kind === "ICCP")
-            ) {
-              const destinationIcc = outputChunks.find(
-                (chunk) => chunk.fourCc === "ICCP",
-              );
-              if (destinationIcc === undefined) {
-                throw new Error(
-                  "ICC color profile was not preserved: the requested ICC preservation check failed.",
-                );
-              }
-            }
-            if (
-              sample.options.preserveOrientation &&
-              sample.planted.some((item) => item.kind === "EXIF")
-            ) {
-              const destinationExif = outputChunks.find(
-                (chunk) => chunk.fourCc === "EXIF",
-              );
-              if (destinationExif === undefined) {
-                throw new Error(
-                  "EXIF Orientation was not preserved: the requested orientation preservation check failed.",
-                );
-              }
-            }
-          } finally {
-            await rm(directory, { recursive: true, force: true });
-          }
+          await checkSample(sample, ignoresColorProfile);
         }),
         REPLAY_PARAMS,
       );
       expect(result.failed).toBe(true);
-      expect(String(result.errorInstance)).toMatch(
-        /ICC color profile was not preserved|EXIF Orientation was not preserved/,
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.iccMissing,
+      );
+    });
+
+    it("(4b) fails a sanitizer that ignores a requested orientation preservation", async () => {
+      // Same shape as (4a): only preserveOrientation is forced off.
+      const ignoresOrientation: typeof sanitizeFile = (options) =>
+        sanitizeFile({ ...options, preserveOrientation: false });
+      const arbitrary = qualificationArbitrary().filter(
+        (sample) =>
+          sample.expected === "success" &&
+          sample.options.preserveOrientation &&
+          sample.planted.some((item) => item.kind === "EXIF"),
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, ignoresOrientation);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.orientationMissing,
+      );
+    });
+
+    it("(4c) fails a sanitizer that writes a different Orientation value", async () => {
+      const arbitrary = qualificationArbitrary().filter(
+        (sample) =>
+          sample.expected === "success" &&
+          sample.options.preserveOrientation &&
+          sample.planted.some((item) => item.kind === "EXIF"),
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          // The fake honors every flag, then rewrites the real output's EXIF
+          // chunk with a different Orientation value. It closes over `sample`
+          // to compute the "other" value (D-19 c: Orientation checked by value).
+          const other = sample.plantedOrientation === 1 ? 2 : 1;
+          const writesWrongOrientation: typeof sanitizeFile = async (
+            options,
+          ) => {
+            const outcome = await sanitizeFile(options);
+            if (!outcome.ok) return outcome;
+            await rewriteDestination(options.destinationPath, (chunks) =>
+              chunks.map((chunk) =>
+                chunk.fourCc === "EXIF"
+                  ? { ...chunk, data: exifWithOrientation(other) }
+                  : chunk,
+              ),
+            );
+            return outcome;
+          };
+          await checkSample(sample, writesWrongOrientation);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.orientationValue,
+      );
+    });
+
+    it("(4d) fails a sanitizer that corrupts the preserved ICC profile bytes", async () => {
+      const arbitrary = qualificationArbitrary().filter(
+        (sample) =>
+          sample.expected === "success" &&
+          sample.options.preserveColorProfile &&
+          sample.planted.some((item) => item.kind === "ICCP"),
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          // The fake honors every flag, then XORs the last byte of the real
+          // output's ICCP chunk data, keeping the same length (D-19 c: ICC
+          // checked byte-for-byte).
+          const corruptsIccBytes: typeof sanitizeFile = async (options) => {
+            const outcome = await sanitizeFile(options);
+            if (!outcome.ok) return outcome;
+            await rewriteDestination(options.destinationPath, (chunks) =>
+              chunks.map((chunk) => {
+                if (chunk.fourCc !== "ICCP") return chunk;
+                const data = Buffer.from(chunk.data);
+                const lastIndex = data.length - 1;
+                data[lastIndex] = (data[lastIndex] ?? 0) ^ 0xff;
+                return { ...chunk, data };
+              }),
+            );
+            return outcome;
+          };
+          await checkSample(sample, corruptsIccBytes);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.iccBytes,
       );
     });
   });

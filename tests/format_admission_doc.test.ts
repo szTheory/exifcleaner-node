@@ -92,6 +92,273 @@ function citablePaths(lineText: string): readonly string[] {
 }
 
 /**
+ * A JS-identifier-shaped backticked token, optionally with dotted member
+ * segments (`DifferentialProfile.permittedKinds`). A token with spaces,
+ * angle brackets, colons, equals signs or slashes is not identifier-shaped
+ * (WR-08, gap 2): it is prose or a type expression, not a symbol claim.
+ */
+export const IDENTIFIER_TOKEN = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/u;
+
+function isIdentifierShaped(token: string): boolean {
+  return IDENTIFIER_TOKEN.test(token);
+}
+
+/**
+ * A code-shaped head segment reads as a real identifier rather than an
+ * English word: camelCase/PascalCase (a lowercase letter immediately
+ * followed by an uppercase letter) or SCREAMING_SNAKE_CASE.
+ */
+const CAMEL_TRANSITION = /[a-z][A-Z]/u;
+const SCREAMING_SNAKE = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/u;
+
+function isCodeShaped(head: string): boolean {
+  return CAMEL_TRANSITION.test(head) || SCREAMING_SNAKE.test(head);
+}
+
+function isCitableTsPath(candidate: string): boolean {
+  return (
+    candidate.endsWith(".ts") &&
+    CITABLE_PATH_ROOTS.some((root) => candidate.startsWith(root)) &&
+    !GLOB_OR_PLACEHOLDER.test(candidate)
+  );
+}
+
+/**
+ * Splits `text` into paragraphs on blank lines, joining each paragraph's
+ * own lines with single spaces so a wrapped attribution (a backticked path
+ * and its parenthetical, or a `symbol` in `path` pair, that line-wraps in
+ * the markdown source) is seen whole.
+ */
+function paragraphs(text: string): readonly string[] {
+  return text
+    .split(/\n{2,}/u)
+    .map((paragraph) => paragraph.split("\n").join(" "));
+}
+
+/**
+ * Given `text` and the index of an opening `(`, returns the index of its
+ * matching `)`, tracking nesting depth. Returns -1 if unbalanced.
+ */
+function findMatchingParen(text: string, openIndex: number): number {
+  let depth = 0;
+  for (let index = openIndex; index < text.length; index += 1) {
+    if (text[index] === "(") depth += 1;
+    else if (text[index] === ")") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+export interface AttributedSymbol {
+  readonly symbol: string;
+  readonly modulePath: string;
+}
+
+const PATH_THEN_PAREN = /`([^`]+\.ts)`\s*\(/gu;
+const SYMBOL_THEN_IN_PATH = /`([^`]+)`\s+in\s+`([^`]+\.ts)`/gu;
+
+/**
+ * Every `{symbol, modulePath}` pair this document claims: Form A, a
+ * backticked citable `.ts` path immediately followed by a parenthetical
+ * listing the symbols it provides; and Form B, a backticked symbol
+ * immediately followed by "in" and a backticked citable `.ts` path. A pair
+ * is this document's explicit claim that `symbol` is a real export of
+ * `modulePath` (WR-08, gap 2).
+ */
+export function attributedSymbols(text: string): readonly AttributedSymbol[] {
+  const pairs: AttributedSymbol[] = [];
+
+  for (const paragraph of paragraphs(text)) {
+    for (const match of paragraph.matchAll(PATH_THEN_PAREN)) {
+      const modulePath = match[1];
+      if (modulePath === undefined || !isCitableTsPath(modulePath)) continue;
+      const matchIndex = match.index ?? -1;
+      if (matchIndex === -1) continue;
+      const openIndex = matchIndex + match[0].length - 1;
+      const closeIndex = findMatchingParen(paragraph, openIndex);
+      if (closeIndex === -1) continue;
+      const inner = paragraph.slice(openIndex + 1, closeIndex);
+      for (const innerMatch of inner.matchAll(BACKTICKED_PATH)) {
+        const symbol = innerMatch[1];
+        if (symbol !== undefined && isIdentifierShaped(symbol)) {
+          pairs.push({ symbol, modulePath });
+        }
+      }
+    }
+
+    for (const match of paragraph.matchAll(SYMBOL_THEN_IN_PATH)) {
+      const symbol = match[1];
+      const modulePath = match[2];
+      if (
+        symbol !== undefined &&
+        modulePath !== undefined &&
+        isIdentifierShaped(symbol) &&
+        isCitableTsPath(modulePath)
+      ) {
+        pairs.push({ symbol, modulePath });
+      }
+    }
+  }
+
+  return pairs;
+}
+
+interface DeclaredModuleNames {
+  readonly exports: ReadonlySet<string>;
+  readonly declarations: ReadonlySet<string>;
+  readonly members: ReadonlySet<string>;
+}
+
+const EXPORT_DECL_PATTERN =
+  /export\s+(?:async\s+function|function|const|let|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gu;
+const EXPORT_LIST_PATTERN = /export\s+(?:type\s+)?\{([^}]*)\}/gu;
+const TOP_LEVEL_DECL_PATTERN =
+  /^(?:async\s+function|function|const|let|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gmu;
+const MEMBER_PATTERN = /^\s*(?:readonly\s+)?([A-Za-z_$][\w$]*)\??\s*:/gmu;
+
+/**
+ * Regex parse (not an AST) of `source`, a TypeScript module's text, into
+ * three name sets: `exports` (top-level `export function/const/.../{...}`
+ * declarations, including `export type { a }` brace lists via their alias),
+ * `declarations` (top-level declarations with no `export` keyword) and
+ * `members` (object/interface property names, `name:` or `name?:`,
+ * optionally `readonly`-prefixed). Good enough for the drift gate's
+ * purpose: a real symbol always appears in one of these sets, and a
+ * hallucinated one never does.
+ */
+export function declaredModuleNames(source: string): DeclaredModuleNames {
+  const exports = new Set<string>();
+  const declarations = new Set<string>();
+  const members = new Set<string>();
+
+  for (const match of source.matchAll(EXPORT_DECL_PATTERN)) {
+    const name = match[1];
+    if (name !== undefined) exports.add(name);
+  }
+  for (const match of source.matchAll(EXPORT_LIST_PATTERN)) {
+    const list = match[1] ?? "";
+    for (const item of list.split(",")) {
+      const trimmed = item.trim();
+      if (trimmed.length === 0) continue;
+      const asMatch = /^[A-Za-z_$][\w$]*\s+as\s+([A-Za-z_$][\w$]*)$/u.exec(
+        trimmed,
+      );
+      const name = asMatch !== null ? asMatch[1] : trimmed.split(/\s+/u)[0];
+      if (name !== undefined) exports.add(name);
+    }
+  }
+  for (const match of source.matchAll(TOP_LEVEL_DECL_PATTERN)) {
+    const name = match[1];
+    if (name !== undefined) declarations.add(name);
+  }
+  for (const match of source.matchAll(MEMBER_PATTERN)) {
+    const name = match[1];
+    if (name !== undefined) members.add(name);
+  }
+
+  return { exports, declarations, members };
+}
+
+/**
+ * Backticked terms Rule 2 (below) would otherwise flag as an undeclared
+ * code symbol, but that are not code identifiers at all. Starts empty.
+ * Every entry must be a non-code term with a one-line reason recorded here
+ * -- never a real code identifier added to silence a genuine drift finding
+ * (WR-08 prohibition: the gate must be satisfied by fixing the document,
+ * not by exempting it).
+ */
+export const DOC_SYMBOL_EXEMPTIONS: ReadonlySet<string> = Object.freeze(
+  new Set<string>([]),
+);
+
+/**
+ * Symbol-and-member drift check (WR-08, gap 2). Rule 1: every attributed
+ * pair from `attributedSymbols` must resolve -- the module must be
+ * readable, its head segment must be a real export of that module, and
+ * each further dotted segment must be a declared member of that module.
+ * Rule 2: every identifier-shaped, code-shaped backticked token anywhere
+ * in `text` (not just attributed ones) must be declared -- as an export,
+ * a private top-level declaration, or a member -- in at least one citable
+ * `.ts` module the document cites, unless it is listed in
+ * `DOC_SYMBOL_EXEMPTIONS`.
+ */
+export function admissionDocSymbolProblems(
+  text: string,
+  readModule: (path: string) => string | undefined,
+): readonly string[] {
+  const problems: string[] = [];
+  const moduleCache = new Map<string, DeclaredModuleNames | undefined>();
+
+  function resolveModule(path: string): DeclaredModuleNames | undefined {
+    if (moduleCache.has(path)) return moduleCache.get(path);
+    const source = readModule(path);
+    const parsed =
+      source === undefined ? undefined : declaredModuleNames(source);
+    moduleCache.set(path, parsed);
+    return parsed;
+  }
+
+  for (const { symbol, modulePath } of attributedSymbols(text)) {
+    const parsed = resolveModule(modulePath);
+    if (parsed === undefined) {
+      problems.push(`unreadable module: \`${modulePath}\``);
+      continue;
+    }
+    const segments = symbol.split(".");
+    const head = segments[0]!;
+    if (!parsed.exports.has(head)) {
+      problems.push(
+        `not exported: \`${head}\` is not a real export of \`${modulePath}\``,
+      );
+      continue;
+    }
+    for (const segment of segments.slice(1)) {
+      if (!parsed.members.has(segment)) {
+        problems.push(
+          `unknown member: \`${segment}\` is not a declared member of \`${modulePath}\` (from \`${symbol}\`)`,
+        );
+      }
+    }
+  }
+
+  const citedPaths = new Set<string>();
+  for (const match of text.matchAll(BACKTICKED_PATH)) {
+    const candidate = match[1];
+    if (candidate !== undefined && isCitableTsPath(candidate)) {
+      citedPaths.add(candidate);
+    }
+  }
+  const citedModules = [...citedPaths]
+    .map((path) => resolveModule(path))
+    .filter((parsed): parsed is DeclaredModuleNames => parsed !== undefined);
+
+  const seenUnresolved = new Set<string>();
+  for (const match of text.matchAll(BACKTICKED_PATH)) {
+    const token = match[1];
+    if (token === undefined || !isIdentifierShaped(token)) continue;
+    const head = token.split(".")[0]!;
+    if (!isCodeShaped(head)) continue;
+    if (DOC_SYMBOL_EXEMPTIONS.has(token)) continue;
+    const known = citedModules.some(
+      (parsed) =>
+        parsed.exports.has(head) ||
+        parsed.declarations.has(head) ||
+        parsed.members.has(head),
+    );
+    if (!known && !seenUnresolved.has(token)) {
+      seenUnresolved.add(token);
+      problems.push(
+        `unresolved symbol: \`${token}\` is not declared in any module this document cites`,
+      );
+    }
+  }
+
+  return problems;
+}
+
+/**
  * Pure structural check of `text` against `items` (the expected heading
  * names, in order, each exactly once). `pathExists` resolves a
  * repository-relative path so the real-file test can use `existsSync` while
@@ -197,6 +464,15 @@ describe("format admission document (KIT-06)", () => {
     expect(ciBudget).toContain("Per-format qualification scoping");
     expect(ciBudget).toContain("qualification-linux");
   });
+
+  it("has no symbol drift: attributed identifiers are real exports and every code symbol is declared in a cited module", () => {
+    const text = readFileSync(docPath, "utf8");
+    const problems = admissionDocSymbolProblems(text, (path) => {
+      const fullPath = join(packageRoot, path);
+      return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : undefined;
+    });
+    expect(problems).toEqual([]);
+  });
 });
 
 describe("admission doc negative controls", () => {
@@ -263,6 +539,110 @@ describe("admission doc negative controls", () => {
     expect(problems.length).toBeGreaterThan(0);
     expect(
       problems.some((problem) => problem.includes("Fault injection")),
+    ).toBe(true);
+  });
+
+  const realResolver = (path: string) => {
+    const fullPath = join(packageRoot, path);
+    return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : undefined;
+  };
+
+  it("(6) fails when a nonexistent export is added to a real attribution's parenthetical", () => {
+    const mutated = realText.replace(
+      "`tests/qualification/kit/oracles.ts` (",
+      "`tests/qualification/kit/oracles.ts` (`runExiftoolOracle`, ",
+    );
+    expect(mutated).not.toEqual(realText);
+    const problems = admissionDocSymbolProblems(mutated, realResolver);
+    expect(
+      problems.some(
+        (problem) =>
+          problem.includes("runExiftoolOracle") &&
+          problem.includes("tests/qualification/kit/oracles.ts"),
+      ),
+    ).toBe(true);
+  });
+
+  it("(7) fails when a real export is attributed to the wrong module", () => {
+    const mutated = realText.replace(
+      "## 6. Fault injection",
+      "## 6. Fault injection\n\nSee also `isStageFileName` in `tests/qualification/kit/oracles.ts`.",
+    );
+    expect(mutated).not.toEqual(realText);
+    const problems = admissionDocSymbolProblems(mutated, realResolver);
+    expect(
+      problems.some(
+        (problem) =>
+          problem.includes("isStageFileName") &&
+          problem.includes("tests/qualification/kit/oracles.ts"),
+      ),
+    ).toBe(true);
+    const baseline = admissionDocSymbolProblems(realText, realResolver);
+    expect(
+      baseline.some((problem) => problem.includes("isStageFileName")),
+    ).toBe(false);
+  });
+
+  it("(8) fails when a nonexistent dotted member is attributed to a real module", () => {
+    const mutated = realText.replace(
+      "`tests/qualification/kit/oracles.ts` (",
+      "`tests/qualification/kit/oracles.ts` (`DifferentialProfile.exiftoolArguments`, ",
+    );
+    expect(mutated).not.toEqual(realText);
+    const problems = admissionDocSymbolProblems(mutated, realResolver);
+    expect(
+      problems.some((problem) => problem.includes("exiftoolArguments")),
+    ).toBe(true);
+  });
+
+  it("(9) fails when an unattributed unknown symbol appears anywhere", () => {
+    const mutated = realText.replace(
+      "# Format Admission Criteria",
+      "# Format Admission Criteria\n\nSee `runExiftoolOracle` for details.",
+    );
+    expect(mutated).not.toEqual(realText);
+    const problems = admissionDocSymbolProblems(mutated, realResolver);
+    expect(
+      problems.some(
+        (problem) =>
+          problem.includes("runExiftoolOracle") &&
+          problem.includes("unresolved symbol"),
+      ),
+    ).toBe(true);
+  });
+
+  it("(10) fails, never silently passes, when a cited module cannot be read", () => {
+    const mutated = realText.replace("Every format", "Every format ");
+    expect(mutated).not.toEqual(realText);
+    const problems = admissionDocSymbolProblems(mutated, () => undefined);
+    expect(
+      problems.some((problem) => problem.includes("unreadable module")),
+    ).toBe(true);
+  });
+
+  it("(11) attributedSymbols on the real document includes the known real pairs and is non-vacuous", () => {
+    const pairs = attributedSymbols(realText);
+    expect(pairs.length).toBeGreaterThanOrEqual(8);
+    expect(
+      pairs.some(
+        (pair) =>
+          pair.symbol === "isStageFileName" &&
+          pair.modulePath === "tests/qualification/kit/fault-plan.ts",
+      ),
+    ).toBe(true);
+    expect(
+      pairs.some(
+        (pair) =>
+          pair.symbol === "FormatHandler" &&
+          pair.modulePath === "src/admission/handler.ts",
+      ),
+    ).toBe(true);
+    expect(
+      pairs.some(
+        (pair) =>
+          pair.symbol === "runExiftoolDifferential" &&
+          pair.modulePath === "tests/qualification/kit/oracles.ts",
+      ),
     ).toBe(true);
   });
 });
