@@ -20,7 +20,7 @@ default-open branch in the classifier.
 - `dist-format-code` — `dist/(webp|metadata|png|jpeg)/**`
 - `dist-format-handler` — the compiled output of a format handler (`.js`, `.js.map`, `.d.ts`, `.d.ts.map`)
 - `format-unit-tests` — `tests/riff.test.ts`, `tests/icc_admission.test.ts`, and per-format test files
-- `format-qualification-tests` — `tests/qualification/parser*.test.ts` and per-format qualification tests
+- `format-qualification-tests` — `tests/qualification/<format>/*.test.ts` (webp, png, jpeg)
 - `docs` — `docs/**`
 - `root-markdown` — any top-level `*.md`
 - `planning-markdown` — `.planning/**/*.md`
@@ -38,6 +38,7 @@ default-open branch in the classifier.
 - `workflows-and-config` — `.github/**`
 - `corpus` — `tests/corpus/**`
 - `classifier-tests` — `tests/classify_ci_scope.test.ts`
+- `benchmark-tests` — any `*benchmark*.test.ts` under `tests/qualification/**`
 
 Every rule id above is named literally in `scripts/classify_ci_scope.cjs`; this document mirrors
 the source rather than restating logic that could drift from it.
