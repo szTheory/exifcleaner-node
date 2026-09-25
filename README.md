@@ -127,8 +127,9 @@ stage replacement is retained untouched rather than removed.
 
 See the [ICC structural policy and complete capability contract](docs/capabilities.md)
 for the detailed rule table, [fixture provenance](docs/fixture-provenance.md)
-for the evidence chain, and the [native prebuild policy](docs/prebuild-policy.md)
-for how prebuilds are built, attested, and verified.
+for the evidence chain, the [native prebuild policy](docs/prebuild-policy.md)
+for how prebuilds are built, attested, and verified, and the
+[CI scope and minutes budget](docs/ci-budget.md) for how CI decides what to run and what it costs.
 
 ## Development
 
