@@ -227,6 +227,7 @@ const capability = Object.freeze({
         orientation: true,
         colorProfile: true,
         timestamps: true,
+        resolution: false,
         imagePayload: true,
         animationPayload: true,
     }),

@@ -412,6 +412,7 @@ const capability: WebpCapabilities = Object.freeze({
     orientation: true as const,
     colorProfile: true as const,
     timestamps: true as const,
+    resolution: false as const,
     imagePayload: true as const,
     animationPayload: true as const,
   }),

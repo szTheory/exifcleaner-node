@@ -125,6 +125,7 @@ describe("getCapabilities", () => {
             orientation: true,
             colorProfile: true,
             timestamps: true,
+            resolution: false,
             imagePayload: true,
             animationPayload: true,
           },
@@ -184,6 +185,15 @@ describe("getCapabilities", () => {
     expect(Object.isFrozen(capabilities.formats[0]?.limits)).toBe(true);
     expect(Object.isFrozen(capabilities.formats[0]?.refuses)).toBe(true);
     expect(Object.isFrozen(capabilities.formats[0]?.removes)).toBe(true);
+  });
+
+  it("reports preserves.resolution as a boolean for every registered format (KIT-03)", () => {
+    const capabilities = getCapabilities();
+    expect(
+      capabilities.formats.every(
+        (f) => typeof f.preserves.resolution === "boolean",
+      ),
+    ).toBe(true);
   });
 });
 
