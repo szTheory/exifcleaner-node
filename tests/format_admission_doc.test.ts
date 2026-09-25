@@ -198,3 +198,71 @@ describe("format admission document (KIT-06)", () => {
     expect(ciBudget).toContain("qualification-linux");
   });
 });
+
+describe("admission doc negative controls", () => {
+  const realText = readFileSync(docPath, "utf8");
+  const alwaysExists = () => true;
+
+  it("(1) fails when an item heading is removed", () => {
+    const mutated = realText.replace("## 5. Payload identity\n", "");
+    const problems = admissionDocProblems(mutated, alwaysExists);
+    expect(problems.length).toBeGreaterThan(0);
+    expect(
+      problems.some((problem) => problem.includes("Payload identity")),
+    ).toBe(true);
+  });
+
+  it("(2) fails when two items are swapped", () => {
+    const mutated = realText
+      .replace("## 3. Differential\n", "## 4. Differential\n")
+      .replace("## 4. Properties\n", "## 3. Properties\n");
+    const problems = admissionDocProblems(mutated, alwaysExists);
+    expect(problems.length).toBeGreaterThan(0);
+    expect(
+      problems.some(
+        (problem) =>
+          problem.includes("out-of-order") &&
+          (problem.includes("Differential") || problem.includes("Properties")),
+      ),
+    ).toBe(true);
+  });
+
+  it("(3) fails when a Format supplies line is blanked", () => {
+    const mutated = realText.replace(
+      /Format supplies: an honest `capabilities\.preserves` block.*\n(?:.*\n)*?ExifTool\)\.\n/u,
+      "Format supplies:\n",
+    );
+    expect(mutated).not.toEqual(realText);
+    const problems = admissionDocProblems(mutated, alwaysExists);
+    expect(problems.length).toBeGreaterThan(0);
+    expect(
+      problems.some(
+        (problem) =>
+          problem.includes("Preservation parity") && problem.includes("blank"),
+      ),
+    ).toBe(true);
+  });
+
+  it("(4) fails when a dangling backticked path is inserted", () => {
+    const mutated = realText.replace(
+      "## 1. Spec note",
+      "## 1. Spec note\n\nSee also `tests/qualification/kit/missing.ts`.",
+    );
+    const problems = admissionDocProblems(mutated, () => false);
+    expect(problems.length).toBeGreaterThan(0);
+    expect(
+      problems.some((problem) =>
+        problem.includes("tests/qualification/kit/missing.ts"),
+      ),
+    ).toBe(true);
+  });
+
+  it("(5) fails when two items are merged under one heading", () => {
+    const mutated = realText.replace("## 6. Fault injection\n\n", "");
+    const problems = admissionDocProblems(mutated, alwaysExists);
+    expect(problems.length).toBeGreaterThan(0);
+    expect(
+      problems.some((problem) => problem.includes("Fault injection")),
+    ).toBe(true);
+  });
+});
