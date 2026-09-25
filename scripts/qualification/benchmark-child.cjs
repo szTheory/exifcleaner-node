@@ -160,12 +160,7 @@ async function candidateCancellation(packageRoot, sourcePath, destinationPath) {
     admission.orientation.status === "valid"
       ? admission.orientation.value
       : undefined;
-  const plan = handler.buildOutputPlan(
-    admission.parsed,
-    false,
-    false,
-    orientation,
-  );
+  const plan = handler.buildOutputPlan(admission, false, false, orientation);
   let abortAt;
   let finalizationAt;
   let stageDirectoryPath;
