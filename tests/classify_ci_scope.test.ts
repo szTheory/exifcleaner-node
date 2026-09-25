@@ -61,7 +61,12 @@ const LINUX_FIXTURE_PATHS = [
 const HANDLER_LINUX_FIXTURES = [
   "src/admission/webp-handler.ts",
   "dist/admission/webp-handler.js",
-  "tests/qualification/parser.test.ts",
+  "tests/qualification/webp/parser.test.ts",
+];
+
+const PER_FORMAT_QUALIFICATION_LINUX_FIXTURES = [
+  "tests/qualification/webp/parser.test.ts",
+  "tests/qualification/png/parser.test.ts",
 ];
 
 const DOCS_ONLY_LINUX_FIXTURES = [
@@ -94,6 +99,10 @@ const FULL_ALONE_FIXTURES = [
   ".github/dependabot.yml",
   "tests/corpus/manifest.json",
   "tests/classify_ci_scope.test.ts",
+  "tests/qualification/kit/corpus.ts",
+  "tests/qualification/kit/oracles.ts",
+  "tests/qualification/webp/benchmark.test.ts",
+  "tests/qualification/parser.test.ts",
 ];
 
 const MALFORMED_PATHS = [
@@ -124,6 +133,15 @@ describe("linux scope", () => {
 
   it.each(HANDLER_LINUX_FIXTURES)(
     "returns linux for handler/qualification-test path %s",
+    (path) => {
+      expect(
+        classify.classifyCiScope(baseInput({ changedPaths: [path] })),
+      ).toMatchObject({ scope: "linux" });
+    },
+  );
+
+  it.each(PER_FORMAT_QUALIFICATION_LINUX_FIXTURES)(
+    "returns linux for per-format qualification path %s",
     (path) => {
       expect(
         classify.classifyCiScope(baseInput({ changedPaths: [path] })),
@@ -218,6 +236,7 @@ describe("dead-rule coverage (no rule is unreachable)", () => {
   const allLinuxFixturePaths = [
     ...LINUX_FIXTURE_PATHS,
     ...HANDLER_LINUX_FIXTURES,
+    ...PER_FORMAT_QUALIFICATION_LINUX_FIXTURES,
     ...DOCS_ONLY_LINUX_FIXTURES,
   ];
 
@@ -476,6 +495,19 @@ describe("ci.yml scope wiring (D-15, D-18)", () => {
     const mutated = workflow.replace(
       "      - run: npm ci\n        if: ${{ needs.classify.outputs.scope != 'linux' }}\n",
       "      - run: npm ci\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when a step's if: gate is deleted but the gate phrase survives in a comment (WR-01)", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      '      - name: Assert matching runner and submitted SHA\n        if: ${{ needs.classify.outputs.scope != \'linux\' }}\n        shell: bash\n        run: |\n          test "$(node -p process.platform)" = "${{ matrix.os }}"\n',
+      '      - name: Assert matching runner and submitted SHA\n        shell: bash\n        run: |\n          # gated by needs.classify.outputs.scope != \'linux\' elsewhere\n          test "$(node -p process.platform)" = "${{ matrix.os }}"\n',
     );
     expect(mutated).not.toBe(workflow);
     expect(() => classify.validateCiScopeWiring(mutated)).toThrow();

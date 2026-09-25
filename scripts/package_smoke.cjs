@@ -801,7 +801,7 @@ async function runDeterministicCancellation(
   const stats = await source.stat();
   const admission = await handlerModule.webpHandler.admit(source, stats.size);
   const plan = handlerModule.webpHandler.buildOutputPlan(
-    admission.parsed,
+    admission,
     false,
     false,
     undefined,

@@ -7,6 +7,8 @@ import {
   getRegisteredCapabilities,
   selectHandler,
 } from "./admission/registry.js";
+import type { RegisteredHandler } from "./admission/registry.js";
+import type { AdmissionDeclineDetail } from "./admission/handler.js";
 import {
   aborted,
   admissionDecline,
@@ -26,11 +28,11 @@ import type {
   Inspection,
   InspectOptions,
   MetadataError,
+  MetadataErrorDetails,
   Result,
   SanitizeOptions,
   SanitizeResult,
 } from "./types.js";
-import { MAX_RIFF_BYTES, WebpStructureError } from "./webp/riff.js";
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
@@ -44,11 +46,12 @@ function invalidOptions(detail: string, path?: string): Result<never> {
     ),
   );
 }
-function structureError(
+function declinedError(
+  declined: AdmissionDeclineDetail,
   path: string,
-  cause: WebpStructureError,
-): MetadataError {
-  return admissionDecline({ code: cause.kind, detail: cause.message, path });
+): MetadataErrorDetails {
+  const { code, detail, ...rest } = declined;
+  return { code, detail, path, ...rest } as MetadataErrorDetails;
 }
 function readError(path: string, cause: unknown): MetadataError {
   return sourceOpenError(
@@ -93,12 +96,13 @@ export async function inspectFile(
     return invalidOptions("inspectFile options must be an object.");
   if (isAborted(options.signal)) return err(aborted(filePath));
   let handle: FileHandle | undefined;
+  let handler: RegisteredHandler | undefined;
   try {
     handle = await open(filePath, fsConstants.O_RDONLY);
     const sourceStats = await handle.stat();
     const regular = validateRegularFile(sourceStats, filePath);
     if (!regular.ok) return regular;
-    const handler = await selectHandler(handle);
+    handler = await selectHandler(handle);
     if (handler === undefined)
       return err(
         admissionDecline({
@@ -124,8 +128,9 @@ export async function inspectFile(
           "not-started",
         ),
       );
-    return cause instanceof WebpStructureError
-      ? err(structureError(filePath, cause))
+    const declined = handler?.classifyAdmissionFailure(cause, false);
+    return declined !== undefined
+      ? err(admissionDecline(declinedError(declined, filePath)))
       : err(readError(filePath, cause));
   } finally {
     await handle?.close().catch(() => undefined);
@@ -157,12 +162,13 @@ export async function sanitizeFile(
     );
   if (isAborted(signal)) return err(aborted(sourcePath));
   let sourceHandle: FileHandle | undefined;
+  let handler: RegisteredHandler | undefined;
   try {
     sourceHandle = await open(sourcePath, fsConstants.O_RDONLY);
     const sourceStats = await sourceHandle.stat();
     const regular = validateRegularFile(sourceStats, sourcePath);
     if (!regular.ok) return regular;
-    const handler = await selectHandler(sourceHandle);
+    handler = await selectHandler(sourceHandle);
     if (handler === undefined)
       return err(
         admissionDecline({
@@ -176,11 +182,9 @@ export async function sanitizeFile(
       sourceStats.size,
       signal,
     );
-    const colorProfile = admission.parsed.chunks.find(
-      (chunk) => chunk.fourCc === "ICCP" && chunk.metadata !== undefined,
-    );
-    if (options.preserveColorProfile && colorProfile?.metadata !== undefined) {
-      const checked = validateIccForPreservation(colorProfile.metadata);
+    const colorProfile = admission.colorProfile;
+    if (options.preserveColorProfile && colorProfile !== undefined) {
+      const checked = validateIccForPreservation(colorProfile);
       if (!checked.ok)
         return err(
           admissionDecline({
@@ -210,20 +214,17 @@ export async function sanitizeFile(
         ? admission.orientation.value
         : undefined;
     const plan = handler.buildOutputPlan(
-      admission.parsed,
+      admission,
       options.preserveOrientation,
       options.preserveColorProfile,
       orientation,
     );
-    if (
-      plan.length === 0 ||
-      plan.reduce((sum, chunk) => sum + 8 + chunk.size + (chunk.size & 1), 12) >
-        MAX_RIFF_BYTES
-    )
+    const overflow = handler.checkOutputPlan(plan);
+    if (overflow !== undefined)
       return err(
         admissionDecline({
           code: "unsafe-structure",
-          detail: "Sanitized output exceeds RIFF limits.",
+          detail: overflow,
           path: sourcePath,
         }),
       );
@@ -252,35 +253,25 @@ export async function sanitizeFile(
           "not-started",
         ),
       );
-    if (
-      cause instanceof WebpStructureError &&
-      options.preserveColorProfile &&
-      cause.metadataLimit?.fourCc === "ICCP"
-    )
-      return err(
-        admissionDecline({
-          code: "unsupported-feature",
-          detail: `ICC profile size ${cause.metadataLimit.size} exceeds the ${cause.metadataLimit.limit}-byte policy limit.`,
-          path: sourcePath,
-          feature: "color-profile-preservation",
-          reason: "policy-limit",
-        }),
-      );
-    return cause instanceof WebpStructureError
-      ? err(structureError(sourcePath, cause))
-      : err(
-          sourceHandle === undefined
-            ? readError(sourcePath, cause)
-            : executionError(
-                {
-                  code: "read-failed",
-                  detail: "Could not admit the source file.",
-                  path: sourcePath,
-                  cause: jsonSafeCause(cause),
-                },
-                "not-started",
-              ),
-        );
+    const declined = handler?.classifyAdmissionFailure(
+      cause,
+      options.preserveColorProfile,
+    );
+    if (declined !== undefined)
+      return err(admissionDecline(declinedError(declined, sourcePath)));
+    return err(
+      sourceHandle === undefined
+        ? readError(sourcePath, cause)
+        : executionError(
+            {
+              code: "read-failed",
+              detail: "Could not admit the source file.",
+              path: sourcePath,
+              cause: jsonSafeCause(cause),
+            },
+            "not-started",
+          ),
+    );
   } finally {
     await sourceHandle?.close().catch(() => undefined);
   }

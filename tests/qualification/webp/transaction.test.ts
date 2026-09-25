@@ -18,25 +18,28 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   webpHandler,
   webpOutputSize,
-} from "../../src/admission/webp-handler.js";
-import { classifyFallback } from "../../src/fallback.js";
-import { NODE_FILE_OPS, type FileOps } from "../../src/transaction/file-ops.js";
-import { snapshotSource } from "../../src/transaction/identity.js";
-import { setNativePublicationBindingForTests } from "../../src/transaction/native-publication.js";
-import { runSafeTransaction } from "../../src/transaction/safe-transaction.js";
-import { encodeChunkHeader, encodeRiffHeader } from "../../src/webp/riff.js";
-import type { RegisteredHandler } from "../../src/admission/registry.js";
+} from "../../../src/admission/webp-handler.js";
+import { classifyFallback } from "../../../src/fallback.js";
+import {
+  NODE_FILE_OPS,
+  type FileOps,
+} from "../../../src/transaction/file-ops.js";
+import { snapshotSource } from "../../../src/transaction/identity.js";
+import { setNativePublicationBindingForTests } from "../../../src/transaction/native-publication.js";
+import { runSafeTransaction } from "../../../src/transaction/safe-transaction.js";
+import { encodeChunkHeader, encodeRiffHeader } from "../../../src/webp/riff.js";
+import type { RegisteredHandler } from "../../../src/admission/registry.js";
 import type {
   WebpAdmission,
   WebpOutputChunk,
-} from "../../src/admission/webp-handler.js";
-import { metadataWebp } from "../fixtures.js";
+} from "../../../src/admission/webp-handler.js";
+import { metadataWebp } from "../../fixtures.js";
 import {
   LOGICAL_OPERATIONS,
   NamedBarrier,
   applyFaultPlan,
   type LogicalOperation,
-} from "./fault-plan.js";
+} from "../kit/fault-plan.js";
 
 const directories: string[] = [];
 
@@ -83,12 +86,7 @@ async function fixture(): Promise<TransactionFixture> {
     sourceSnapshot: snapshotSource(stats),
     sourceMode: stats.mode,
     admission,
-    plan: webpHandler.buildOutputPlan(
-      admission.parsed,
-      false,
-      false,
-      undefined,
-    ),
+    plan: webpHandler.buildOutputPlan(admission, false, false, undefined),
   };
 }
 

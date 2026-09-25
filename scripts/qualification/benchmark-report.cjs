@@ -2365,7 +2365,30 @@ function validateTerminalCleanupRecord(record, scenario = "installed") {
   }
 }
 
-function validateInstalledReport(report, tuple, nodeMajor, candidate) {
+// The sanitized output of tests/corpus/sample.webp, by evidence epoch. KIT-08
+// (exifcleaner-node 59f6cc2) drops a VP8X header with no remaining extended
+// feature, which changed this output. Live CI evidence uses the "current" default
+// and must match it exactly. Only replays of archived Phase 46 ledgers (run
+// 35030048631 and earlier, all pre-KIT-08) pass "phase-46". Archived evidence is
+// never rewritten (Phase 55 D-16).
+const SAMPLE_OUTPUT_SHA256_BY_EPOCH = Object.freeze({
+  current: "a8e1378cd74e08b2553bf313f676885cc7a6d590cfe79ca1b5f9d49215b5efa3",
+  "phase-46":
+    "a412e742b59ef1161af1410dd98b86c91acf85827a5f671d5f91712a4a282e1f",
+});
+function sampleOutputSha256(corpusEpoch) {
+  if (!Object.hasOwn(SAMPLE_OUTPUT_SHA256_BY_EPOCH, corpusEpoch))
+    throw new Error("installed corpus epoch is invalid");
+  return SAMPLE_OUTPUT_SHA256_BY_EPOCH[corpusEpoch];
+}
+
+function validateInstalledReport(
+  report,
+  tuple,
+  nodeMajor,
+  candidate,
+  corpusEpoch = "current",
+) {
   const windows = tuple.startsWith("win32");
   const expectedPostCommitResidue = windows
     ? "none"
@@ -2436,8 +2459,7 @@ function validateInstalledReport(report, tuple, nodeMajor, candidate) {
     "exifcleaner-sample": {
       sourceSha256:
         "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
-      outputSha256:
-        "a412e742b59ef1161af1410dd98b86c91acf85827a5f671d5f91712a4a282e1f",
+      outputSha256: sampleOutputSha256(corpusEpoch),
       removedNamespaces: ["EXIF"],
       payloadDigests: [
         {
@@ -2570,7 +2592,7 @@ const D18_TUPLES = Object.freeze([
   "win32-arm64",
 ]);
 
-function validateIdentityCleanupLedger(ledger) {
+function validateIdentityCleanupLedger(ledger, corpusEpoch = "current") {
   orderedKeys(
     ledger,
     ["schemaVersion", "run", "candidate", "artifacts", "installed"],
@@ -2638,7 +2660,13 @@ function validateIdentityCleanupLedger(ledger) {
       [24, "node24"],
     ]) {
       const report = installed[key];
-      validateInstalledReport(report, tuple, nodeMajor, ledger.candidate);
+      validateInstalledReport(
+        report,
+        tuple,
+        nodeMajor,
+        ledger.candidate,
+        corpusEpoch,
+      );
       const identity = `${tuple}/node${nodeMajor}`;
       if (observed.has(identity))
         throw new Error(
@@ -2661,8 +2689,15 @@ function prerequisiteRunIdentity(slot, ledger) {
     ? { runId: ledger?.run?.id, headSha: ledger?.run?.headSha }
     : { runId: ledger?.runId, headSha: ledger?.headSha };
 }
-function validatePrerequisiteLedgerBindings(hosted, prerequisites) {
-  validateIdentityCleanupLedger(prerequisites?.identityCleanup?.ledger);
+function validatePrerequisiteLedgerBindings(
+  hosted,
+  prerequisites,
+  corpusEpoch = "current",
+) {
+  validateIdentityCleanupLedger(
+    prerequisites?.identityCleanup?.ledger,
+    corpusEpoch,
+  );
   for (const slot of PREREQUISITE_SLOTS) {
     const entry = prerequisites?.[slot];
     const bound = hosted?.repairs?.[slot];
@@ -2683,7 +2718,13 @@ function validatePrerequisiteLedgerBindings(hosted, prerequisites) {
         );
   }
 }
-function hostedLedger(filePath, memoryPath, windowsPath, identityCleanupPath) {
+function hostedLedger(
+  filePath,
+  memoryPath,
+  windowsPath,
+  identityCleanupPath,
+  corpusEpoch = "current",
+) {
   if (!memoryPath || !windowsPath || !identityCleanupPath)
     throw new Error(
       "hosted ledger requires memory, Windows, and identity cleanup ledgers",
@@ -2781,6 +2822,7 @@ function hostedLedger(filePath, memoryPath, windowsPath, identityCleanupPath) {
         tuple,
         nodeMajor,
         ledger.candidate,
+        corpusEpoch,
       );
       if (summary !== undefined) Object.assign(expectedWindowsSummary, summary);
     }
@@ -2817,14 +2859,18 @@ function hostedLedger(filePath, memoryPath, windowsPath, identityCleanupPath) {
   assertSha(ledger.candidate?.tarballSha256, "candidate tarball");
   assertSha(ledger.candidate?.corpusManifestSha256, "corpus manifest");
   assertSha(ledger.candidate?.nativeManifestSha256, "native manifest");
-  validatePrerequisiteLedgerBindings(ledger, {
-    memory: { sha256: sha256File(memoryPath), ledger: memory },
-    windows: { sha256: sha256File(windowsPath), ledger: windows },
-    identityCleanup: {
-      sha256: sha256File(identityCleanupPath),
-      ledger: identityCleanup,
+  validatePrerequisiteLedgerBindings(
+    ledger,
+    {
+      memory: { sha256: sha256File(memoryPath), ledger: memory },
+      windows: { sha256: sha256File(windowsPath), ledger: windows },
+      identityCleanup: {
+        sha256: sha256File(identityCleanupPath),
+        ledger: identityCleanup,
+      },
     },
-  });
+    corpusEpoch,
+  );
   if (
     JSON.stringify(ledger.finalizationContracts) !==
     JSON.stringify(memory.finalizationContracts)

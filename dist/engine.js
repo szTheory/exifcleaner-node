@@ -8,7 +8,6 @@ import { err, ok } from "./result.js";
 import { NODE_FILE_OPS } from "./transaction/file-ops.js";
 import { snapshotSource } from "./transaction/identity.js";
 import { runSafeTransaction } from "./transaction/safe-transaction.js";
-import { MAX_RIFF_BYTES, WebpStructureError } from "./webp/riff.js";
 function isAborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -17,8 +16,9 @@ function invalidOptions(detail, path) {
         ? { code: "invalid-options", detail }
         : { code: "invalid-options", detail, path }));
 }
-function structureError(path, cause) {
-    return admissionDecline({ code: cause.kind, detail: cause.message, path });
+function declinedError(declined, path) {
+    const { code, detail, ...rest } = declined;
+    return { code, detail, path, ...rest };
 }
 function readError(path, cause) {
     return sourceOpenError(isNodeErrorCode(cause, "ENOENT")
@@ -55,13 +55,14 @@ export async function inspectFile(filePath, options = {}) {
     if (isAborted(options.signal))
         return err(aborted(filePath));
     let handle;
+    let handler;
     try {
         handle = await open(filePath, fsConstants.O_RDONLY);
         const sourceStats = await handle.stat();
         const regular = validateRegularFile(sourceStats, filePath);
         if (!regular.ok)
             return regular;
-        const handler = await selectHandler(handle);
+        handler = await selectHandler(handle);
         if (handler === undefined)
             return err(admissionDecline({
                 code: "unsupported-format",
@@ -77,8 +78,9 @@ export async function inspectFile(filePath, options = {}) {
                 detail: "The operation was aborted.",
                 path: filePath,
             }, "not-started"));
-        return cause instanceof WebpStructureError
-            ? err(structureError(filePath, cause))
+        const declined = handler?.classifyAdmissionFailure(cause, false);
+        return declined !== undefined
+            ? err(admissionDecline(declinedError(declined, filePath)))
             : err(readError(filePath, cause));
     }
     finally {
@@ -102,13 +104,14 @@ export async function sanitizeFile(options) {
     if (isAborted(signal))
         return err(aborted(sourcePath));
     let sourceHandle;
+    let handler;
     try {
         sourceHandle = await open(sourcePath, fsConstants.O_RDONLY);
         const sourceStats = await sourceHandle.stat();
         const regular = validateRegularFile(sourceStats, sourcePath);
         if (!regular.ok)
             return regular;
-        const handler = await selectHandler(sourceHandle);
+        handler = await selectHandler(sourceHandle);
         if (handler === undefined)
             return err(admissionDecline({
                 code: "unsupported-format",
@@ -116,9 +119,9 @@ export async function sanitizeFile(options) {
                 path: sourcePath,
             }));
         const admission = await handler.admit(sourceHandle, sourceStats.size, signal);
-        const colorProfile = admission.parsed.chunks.find((chunk) => chunk.fourCc === "ICCP" && chunk.metadata !== undefined);
-        if (options.preserveColorProfile && colorProfile?.metadata !== undefined) {
-            const checked = validateIccForPreservation(colorProfile.metadata);
+        const colorProfile = admission.colorProfile;
+        if (options.preserveColorProfile && colorProfile !== undefined) {
+            const checked = validateIccForPreservation(colorProfile);
             if (!checked.ok)
                 return err(admissionDecline({
                     code: "unsupported-feature",
@@ -140,13 +143,12 @@ export async function sanitizeFile(options) {
         const orientation = admission.orientation.status === "valid"
             ? admission.orientation.value
             : undefined;
-        const plan = handler.buildOutputPlan(admission.parsed, options.preserveOrientation, options.preserveColorProfile, orientation);
-        if (plan.length === 0 ||
-            plan.reduce((sum, chunk) => sum + 8 + chunk.size + (chunk.size & 1), 12) >
-                MAX_RIFF_BYTES)
+        const plan = handler.buildOutputPlan(admission, options.preserveOrientation, options.preserveColorProfile, orientation);
+        const overflow = handler.checkOutputPlan(plan);
+        if (overflow !== undefined)
             return err(admissionDecline({
                 code: "unsafe-structure",
-                detail: "Sanitized output exceeds RIFF limits.",
+                detail: overflow,
                 path: sourcePath,
             }));
         const transaction = await runSafeTransaction({
@@ -170,26 +172,17 @@ export async function sanitizeFile(options) {
                 detail: "The operation was aborted.",
                 path: sourcePath,
             }, "not-started"));
-        if (cause instanceof WebpStructureError &&
-            options.preserveColorProfile &&
-            cause.metadataLimit?.fourCc === "ICCP")
-            return err(admissionDecline({
-                code: "unsupported-feature",
-                detail: `ICC profile size ${cause.metadataLimit.size} exceeds the ${cause.metadataLimit.limit}-byte policy limit.`,
+        const declined = handler?.classifyAdmissionFailure(cause, options.preserveColorProfile);
+        if (declined !== undefined)
+            return err(admissionDecline(declinedError(declined, sourcePath)));
+        return err(sourceHandle === undefined
+            ? readError(sourcePath, cause)
+            : executionError({
+                code: "read-failed",
+                detail: "Could not admit the source file.",
                 path: sourcePath,
-                feature: "color-profile-preservation",
-                reason: "policy-limit",
-            }));
-        return cause instanceof WebpStructureError
-            ? err(structureError(sourcePath, cause))
-            : err(sourceHandle === undefined
-                ? readError(sourcePath, cause)
-                : executionError({
-                    code: "read-failed",
-                    detail: "Could not admit the source file.",
-                    path: sourcePath,
-                    cause: jsonSafeCause(cause),
-                }, "not-started"));
+                cause: jsonSafeCause(cause),
+            }, "not-started"));
     }
     finally {
         await sourceHandle?.close().catch(() => undefined);

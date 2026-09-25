@@ -72,7 +72,7 @@ const LINUX_SAFE_PATH_RULES = Object.freeze(
     {
       id: "format-qualification-tests",
       pattern:
-        /^tests\/qualification\/(?:parser|(?:webp|png|jpeg)[a-z0-9_-]*)\.test\.ts$/u,
+        /^tests\/qualification\/(?:webp|png|jpeg)\/[a-z0-9_-]+\.test\.ts$/u,
     },
     { id: "docs", pattern: /^docs\/.+/u },
     { id: "root-markdown", pattern: /^[^/]+\.md$/u },
@@ -102,6 +102,11 @@ const FULL_SCOPE_OVERRIDES = Object.freeze(
     { id: "workflows-and-config", pattern: /^\.github\// },
     { id: "corpus", pattern: /^tests\/corpus\// },
     { id: "classifier-tests", pattern: /^tests\/classify_ci_scope\.test\.ts$/ },
+    {
+      id: "benchmark-tests",
+      pattern:
+        /^tests\/qualification\/(?:[a-z0-9_-]+\/)*[a-z0-9_-]*benchmark[a-z0-9_-]*\.test\.ts$/u,
+    },
   ].map((rule) => Object.freeze(rule)),
 );
 
@@ -292,7 +297,11 @@ function assertEveryStepGated(jobText, jobName) {
   const chunks = jobText.slice(stepsIndex).split("\n      - ").slice(1);
   for (const chunk of chunks) {
     if (chunk.includes("Record scope-skipped leg")) continue;
-    if (!chunk.includes("needs.classify.outputs.scope != 'linux'"))
+    const ifLine = chunk.match(/\n {8}if: (.+?)(?:\n|$)/u);
+    if (
+      ifLine === null ||
+      !ifLine[1].includes("needs.classify.outputs.scope != 'linux'")
+    )
       throw new Error(
         `ci.yml wiring: ${jobName} has a step not gated by needs.classify.outputs.scope != 'linux'`,
       );

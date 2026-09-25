@@ -1,20 +1,25 @@
 import type { FileHandle } from "node:fs/promises";
 import type { Capabilities, FormatCapabilities } from "../types.js";
-declare const HANDLERS: readonly [Readonly<{
-    capability: import("../types.js").WebpCapabilities;
-    matches(magic: Buffer): boolean;
-    admit(handle: FileHandle, size: number, signal?: AbortSignal): Promise<import("./webp-handler.js").WebpAdmission>;
-    inspect(admission: import("./webp-handler.js").WebpAdmission): import("../types.js").Inspection;
-    buildOutputPlan: (parsed: import("../webp/riff.js").ParsedWebp, preserveOrientation: boolean, preserveColorProfile: boolean, orientation: number | undefined) => readonly import("./webp-handler.js").WebpOutputChunk[];
-    writeOutput(source: FileHandle, destination: FileHandle, plan: readonly import("./webp-handler.js").WebpOutputChunk[], signal?: AbortSignal): Promise<void>;
-    verifyOutput: (sourceHandle: FileHandle, source: import("../webp/riff.js").ParsedWebp, destinationHandle: FileHandle, destinationSize: number, destinationPath: string, preserveOrientation: boolean, preserveColorProfile: boolean, expectedOrientation: number | undefined, signal?: AbortSignal) => Promise<import("../types.js").Result<void>>;
-}>];
-export type RegisteredHandler = (typeof HANDLERS)[number];
+import type { RegisteredHandler } from "./handler.js";
+export type { RegisteredHandler };
 export declare function getRegisteredCapabilities(): Capabilities;
 export declare function getFormatCapabilities(): readonly [
     FormatCapabilities,
     ...FormatCapabilities[]
 ];
 export declare function selectHandler(handle: FileHandle): Promise<RegisteredHandler | undefined>;
-export {};
+/**
+ * Private test seam, not public API (not exported from src/index.ts or the
+ * package exports map): installs `handlers` as the active registry and
+ * returns a restore closure that resets to the default `HANDLERS` list, but
+ * only if the active list is still the one this call installed -- so nested
+ * or out-of-order restores never clobber a different test's installation.
+ */
+export declare function setRegisteredHandlersForTests(handlers: readonly RegisteredHandler[]): () => void;
+/**
+ * Private test seam, not public API: returns the default registered-handler
+ * list so a test can iterate every handler this build ships, independent of
+ * whatever the active registry currently is.
+ */
+export declare function registeredHandlersForTests(): readonly RegisteredHandler[];
 //# sourceMappingURL=registry.d.ts.map

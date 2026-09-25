@@ -19,11 +19,13 @@ import {
   evidenceGatedIt,
   evidenceGatedTestTitles,
   phase46EvidenceDirectory,
-} from "../support/phase46-evidence.js";
+} from "../../support/phase46-evidence.js";
 
 const require = createRequire(import.meta.url);
-const projectRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
+const projectRoot = dirname(
+  dirname(dirname(dirname(fileURLToPath(import.meta.url)))),
+);
+const benchmark = require("../../../scripts/qualification/benchmark.cjs") as {
   BENCHMARK_THRESHOLDS: {
     medianRatio: number;
     medianSlackNs: number;
@@ -80,109 +82,124 @@ const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
   };
   BASELINE_TARBALL_SHA256: string;
 };
+// Archived Phase 46 ledgers predate KIT-08 and record the pre-KIT-08 sample.webp
+// output, so their replays name that epoch explicitly. Live evidence uses the
+// validator's strict "current" default (Phase 55 D-16: archived evidence is never
+// rewritten).
+type CorpusEpoch = "current" | "phase-46";
+const PHASE_46_CORPUS_EPOCH: CorpusEpoch = "phase-46";
+
 type PrerequisiteEntry = {
   sha256: string;
   ledger: Record<string, unknown>;
 };
 
-const report = require("../../scripts/qualification/benchmark-report.cjs") as {
-  performanceP95(values: readonly number[]): number;
-  evaluateTiming(input: {
-    baselineMedianNs: number;
-    candidateMedianNs: number;
-    baselineP95Ns: number;
-    candidateP95Ns: number;
-  }): {
-    pass: boolean;
-    medianLimitNs: number;
-    p95LimitNs: number;
-    failures: string[];
+const report =
+  require("../../../scripts/qualification/benchmark-report.cjs") as {
+    performanceP95(values: readonly number[]): number;
+    evaluateTiming(input: {
+      baselineMedianNs: number;
+      candidateMedianNs: number;
+      baselineP95Ns: number;
+      candidateP95Ns: number;
+    }): {
+      pass: boolean;
+      medianLimitNs: number;
+      p95LimitNs: number;
+      failures: string[];
+    };
+    deriveRunScale(input: {
+      before: number[];
+      after: number[];
+      referenceMedianNs: number;
+    }): {
+      observedCalibrationNs: number;
+      runScale: number;
+    };
+    validateCalibration(input: Record<string, unknown>): void;
+    deriveCorrectnessKey(input: Record<string, unknown>): string;
+    deriveFinalizationKey(input: Record<string, unknown>): string;
+    deriveBlockEstimate(values: readonly number[]): {
+      medianNs: number;
+      madNs: number;
+      madRatio: number;
+      centralValues: readonly number[];
+      centralRangeRatio: number;
+    };
+    loadReference(): {
+      algorithmId: string;
+      observationCount: number;
+      workloadUnitCount: number;
+      workloadDigest: string;
+      workloadResultDigest: string;
+      referenceMedianNs: Record<string, number>;
+    };
+    validateReport(input: Record<string, unknown>): void;
+    validatePerformanceP95DiagnosticReport(
+      input: Record<string, unknown>,
+    ): void;
+    derivePerformanceP95DiagnosticView(
+      input: Record<string, unknown>,
+    ): Record<string, unknown>;
+    classifyPerformanceP95DiagnosticFixture(input: {
+      observedP95Failure: boolean;
+      positiveBlockCount: number;
+      positiveCandidateTailCount: number;
+    }): "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown";
+    actionableBranchForPerformanceP95Diagnostic(
+      pattern:
+        "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown",
+    ): "collector" | "candidate-runtime" | null;
+    validatePerformanceP95DiagnosticLedger(
+      input: Record<string, unknown>,
+    ): void;
+    validateInstalledReport(
+      input: Record<string, unknown>,
+      tuple: string,
+      nodeMajor: number,
+      candidate: Record<string, unknown>,
+      corpusEpoch?: CorpusEpoch,
+    ): void;
+    hostedLedger(
+      filePath: string,
+      memoryPath: string,
+      windowsPath: string,
+      identityCleanupPath: string,
+      corpusEpoch?: CorpusEpoch,
+    ): void;
+    validatePrerequisiteLedgerBindings(
+      hosted: Record<string, unknown>,
+      prerequisites: Record<string, PrerequisiteEntry>,
+    ): void;
+    validateFinalCandidateManifest(input: {
+      repoRoot: string;
+      candidateSha: string;
+      repairProofSha: string;
+    }): void;
+    validateWindowsPublicationDiagnosticLedger(
+      input: Record<string, unknown>,
+    ): void;
+    validateWindowsCancellationDiagnosticLedger(
+      input: Record<string, unknown>,
+    ): void;
+    validateIdentityCleanupLedger(input: Record<string, unknown>): void;
+    validateTerminalCleanupRecord(
+      input: Record<string, unknown>,
+      scenario?: string,
+    ): void;
+    requireWindowsNativePublicationEvidence(evidence: unknown): {
+      primitive: string;
+      publication: string;
+      collision: string;
+      identity: string;
+      cleanup: string;
+    };
+    canonicalJson(value: unknown): string;
+    validateP95NullBranchClosure(
+      closure: Record<string, unknown>,
+      ledger: Record<string, unknown>,
+    ): Record<string, unknown>;
   };
-  deriveRunScale(input: {
-    before: number[];
-    after: number[];
-    referenceMedianNs: number;
-  }): {
-    observedCalibrationNs: number;
-    runScale: number;
-  };
-  validateCalibration(input: Record<string, unknown>): void;
-  deriveCorrectnessKey(input: Record<string, unknown>): string;
-  deriveFinalizationKey(input: Record<string, unknown>): string;
-  deriveBlockEstimate(values: readonly number[]): {
-    medianNs: number;
-    madNs: number;
-    madRatio: number;
-    centralValues: readonly number[];
-    centralRangeRatio: number;
-  };
-  loadReference(): {
-    algorithmId: string;
-    observationCount: number;
-    workloadUnitCount: number;
-    workloadDigest: string;
-    workloadResultDigest: string;
-    referenceMedianNs: Record<string, number>;
-  };
-  validateReport(input: Record<string, unknown>): void;
-  validatePerformanceP95DiagnosticReport(input: Record<string, unknown>): void;
-  derivePerformanceP95DiagnosticView(
-    input: Record<string, unknown>,
-  ): Record<string, unknown>;
-  classifyPerformanceP95DiagnosticFixture(input: {
-    observedP95Failure: boolean;
-    positiveBlockCount: number;
-    positiveCandidateTailCount: number;
-  }): "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown";
-  actionableBranchForPerformanceP95Diagnostic(
-    pattern: "concentrated-tail" | "sustained-candidate" | "mixed" | "unknown",
-  ): "collector" | "candidate-runtime" | null;
-  validatePerformanceP95DiagnosticLedger(input: Record<string, unknown>): void;
-  validateInstalledReport(
-    input: Record<string, unknown>,
-    tuple: string,
-    nodeMajor: number,
-    candidate: Record<string, unknown>,
-  ): void;
-  hostedLedger(
-    filePath: string,
-    memoryPath: string,
-    windowsPath: string,
-    identityCleanupPath: string,
-  ): void;
-  validatePrerequisiteLedgerBindings(
-    hosted: Record<string, unknown>,
-    prerequisites: Record<string, PrerequisiteEntry>,
-  ): void;
-  validateFinalCandidateManifest(input: {
-    repoRoot: string;
-    candidateSha: string;
-    repairProofSha: string;
-  }): void;
-  validateWindowsPublicationDiagnosticLedger(
-    input: Record<string, unknown>,
-  ): void;
-  validateWindowsCancellationDiagnosticLedger(
-    input: Record<string, unknown>,
-  ): void;
-  validateIdentityCleanupLedger(input: Record<string, unknown>): void;
-  validateTerminalCleanupRecord(
-    input: Record<string, unknown>,
-    scenario?: string,
-  ): void;
-  requireWindowsNativePublicationEvidence(evidence: unknown): {
-    primitive: string;
-    publication: string;
-    collision: string;
-    identity: string;
-    cleanup: string;
-  };
-  canonicalJson(value: unknown): string;
-  validateP95NullBranchClosure(
-    closure: Record<string, unknown>,
-    ledger: Record<string, unknown>,
-  ): Record<string, unknown>;
-};
 
 type IdentityLedgerValidator = {
   validateIdentityCleanupLedger(input: Record<string, unknown>): void;
@@ -212,6 +229,7 @@ type IdentityLedgerValidator = {
     memoryPath: string,
     windowsPath: string,
     identityCleanupPath: string,
+    corpusEpoch?: CorpusEpoch,
   ): unknown;
 };
 
@@ -342,7 +360,7 @@ function installedReport(
         sourceSha256:
           "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
         outputSha256:
-          "a412e742b59ef1161af1410dd98b86c91acf85827a5f671d5f91712a4a282e1f",
+          "a8e1378cd74e08b2553bf313f676885cc7a6d590cfe79ca1b5f9d49215b5efa3",
         payloadDigests: [
           {
             fourCc: "VP8 ",
@@ -709,7 +727,7 @@ function hypothesisRefutedLedger() {
   };
 }
 const calibration =
-  require("../../scripts/qualification/benchmark-calibration.cjs") as {
+  require("../../../scripts/qualification/benchmark-calibration.cjs") as {
     workloadDigest(): string;
     workloadResultDigest(): string;
   };
@@ -1247,6 +1265,7 @@ function acceptingHostedLedger(
         paths.memory!,
         paths.windows!,
         paths.identityCleanup!,
+        PHASE_46_CORPUS_EPOCH,
       );
     },
     cleanup(): void {
@@ -1726,6 +1745,7 @@ describe("paired benchmark admission", () => {
             fixture.memoryPath,
             fixture.windowsPath,
             fixture.identityPath,
+            PHASE_46_CORPUS_EPOCH,
           );
         const mutantFor = (
           conjunct: string,
@@ -2120,6 +2140,7 @@ describe("paired benchmark admission", () => {
             fixture.memoryPath,
             fixture.windowsPath,
             fixture.identityPath,
+            PHASE_46_CORPUS_EPOCH,
           );
         const mutate = (conjunct: string, replacement: string): string => {
           expect(source.split(conjunct).length - 1).toBe(1);
@@ -2201,6 +2222,7 @@ describe("paired benchmark admission", () => {
               ceiling.memoryPath,
               ceiling.windowsPath,
               ceiling.identityPath,
+              PHASE_46_CORPUS_EPOCH,
             ),
           ).not.toThrow();
         } finally {
@@ -2245,6 +2267,7 @@ describe("paired benchmark admission", () => {
               slope.memoryPath,
               slope.windowsPath,
               slope.identityPath,
+              PHASE_46_CORPUS_EPOCH,
             ),
           ).toThrow(anchoredMessage("Node benchmark admission is incomplete"));
         } finally {
@@ -2442,6 +2465,7 @@ describe("paired benchmark admission", () => {
               fixture.memoryPath,
               fixture.windowsPath,
               fixture.identityPath,
+              PHASE_46_CORPUS_EPOCH,
             ),
           ).not.toThrow();
         }
@@ -4115,7 +4139,7 @@ describe("paired benchmark admission", () => {
               sourceSha256:
                 "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
               outputSha256:
-                "a412e742b59ef1161af1410dd98b86c91acf85827a5f671d5f91712a4a282e1f",
+                "a8e1378cd74e08b2553bf313f676885cc7a6d590cfe79ca1b5f9d49215b5efa3",
               payloadDigests: [
                 {
                   fourCc: "VP8 ",
@@ -4257,6 +4281,57 @@ describe("paired benchmark admission", () => {
             candidate,
           ),
         ).not.toThrow();
+        // The corpus epoch is exact in both directions: live evidence (the
+        // default) rejects the archived pre-KIT-08 sample output, a Phase 46
+        // replay rejects the current one, and an unknown epoch is refused.
+        const sampleCase = installed.corpusCases.find(
+          (corpusCase) => corpusCase.id === "exifcleaner-sample",
+        )!;
+        const withPhase46Sample = structuredClone(installed);
+        withPhase46Sample.corpusCases.find(
+          (corpusCase) => corpusCase.id === "exifcleaner-sample",
+        )!.outputSha256 =
+          "a412e742b59ef1161af1410dd98b86c91acf85827a5f671d5f91712a4a282e1f";
+        expect(sampleCase.outputSha256).not.toBe(
+          withPhase46Sample.corpusCases.find(
+            (corpusCase) => corpusCase.id === "exifcleaner-sample",
+          )!.outputSha256,
+        );
+        expect(() =>
+          report.validateInstalledReport(
+            withPhase46Sample,
+            tuple,
+            nodeMajor,
+            candidate,
+          ),
+        ).toThrow(anchoredMessage("installed corpus case is invalid"));
+        expect(() =>
+          report.validateInstalledReport(
+            withPhase46Sample,
+            tuple,
+            nodeMajor,
+            candidate,
+            PHASE_46_CORPUS_EPOCH,
+          ),
+        ).not.toThrow();
+        expect(() =>
+          report.validateInstalledReport(
+            installed,
+            tuple,
+            nodeMajor,
+            candidate,
+            PHASE_46_CORPUS_EPOCH,
+          ),
+        ).toThrow(anchoredMessage("installed corpus case is invalid"));
+        expect(() =>
+          report.validateInstalledReport(
+            installed,
+            tuple,
+            nodeMajor,
+            candidate,
+            "unknown" as CorpusEpoch,
+          ),
+        ).toThrow(anchoredMessage("installed corpus epoch is invalid"));
         const mutations: readonly ((mutated: typeof installed) => void)[] = [
           (mutated) => delete (mutated as Partial<typeof installed>).install,
           (mutated) =>

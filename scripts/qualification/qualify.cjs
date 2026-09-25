@@ -7,7 +7,7 @@ const { pathToFileURL } = require("node:url");
 
 const projectRoot = resolve(__dirname, "../..");
 const manifestEvidence = "tests/corpus/manifest.json";
-const faultEvidence = "tests/qualification/fault-plan.ts";
+const faultEvidence = "tests/qualification/kit/fault-plan.ts";
 const logicalFaults = new Set([
   "stage-directory-create",
   "stage-directory-verify",
@@ -144,7 +144,7 @@ function parseArguments(args) {
       seed,
       path: replayPath,
       replay: `npm run qualify -- --seed ${seed}${replayPath === undefined ? "" : ` --path ${replayPath}`}`,
-      evidence: "tests/qualification/generators.ts#qualificationArbitrary",
+      evidence: "tests/qualification/webp/generators.ts#qualificationArbitrary",
     };
   }
 
@@ -208,7 +208,7 @@ function execute(options) {
   if (npm(["run", "build"]) !== 0) return 1;
   if (options.mode === "case") {
     const moduleUrl = pathToFileURL(
-      resolve(projectRoot, "tests/qualification/corpus.ts"),
+      resolve(projectRoot, "tests/qualification/kit/corpus.ts"),
     ).href;
     const program = `import { runQualificationCase } from ${JSON.stringify(moduleUrl)}; const result = await runQualificationCase(${JSON.stringify(options.id)}); process.stdout.write(JSON.stringify(result${options.json ? ", null, 2" : ""}) + "\\n");`;
     return run(process.execPath, [
@@ -220,7 +220,7 @@ function execute(options) {
     ]);
   }
   if (options.mode === "property")
-    return npm(["test", "--", "tests/qualification/property.test.ts"], {
+    return npm(["test", "--", "tests/qualification/webp/property.test.ts"], {
       FC_SEED: String(options.seed),
       ...(options.path === undefined
         ? { FC_RUNS: "200" }
@@ -230,7 +230,7 @@ function execute(options) {
     return npm([
       "test",
       "--",
-      "tests/qualification/transaction.test.ts",
+      "tests/qualification/webp/transaction.test.ts",
       "-t",
       options.testName,
     ]);
@@ -245,7 +245,7 @@ function execute(options) {
     return npm([
       "test",
       "--",
-      "tests/qualification/oracles.test.ts",
+      "tests/qualification/webp/oracles.test.ts",
       "-t",
       options.testName,
     ]);
@@ -254,11 +254,15 @@ function execute(options) {
   return npm([
     "test",
     "--",
-    "tests/qualification/tracer.test.ts",
-    "tests/qualification/parser.test.ts",
-    "tests/qualification/property.test.ts",
-    "tests/qualification/transaction.test.ts",
-    "tests/qualification/oracles.test.ts",
+    "tests/qualification/kit/floors.test.ts",
+    "tests/qualification/kit/oracles.test.ts",
+    "tests/qualification/kit/rollback.test.ts",
+    "tests/qualification/webp/tracer.test.ts",
+    "tests/qualification/webp/parser.test.ts",
+    "tests/qualification/webp/property.test.ts",
+    "tests/qualification/webp/transaction.test.ts",
+    "tests/qualification/webp/oracles.test.ts",
+    "tests/qualification/webp/golden.test.ts",
   ]);
 }
 

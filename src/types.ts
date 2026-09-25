@@ -63,7 +63,22 @@ export type PostCommitResidue =
       readonly cause: JsonSafeCause;
     };
 
-export interface WebpCapabilities {
+export interface CommonFormatCapabilities {
+  readonly format: string;
+  readonly mimeTypes: readonly string[];
+  readonly extensions: readonly string[];
+  readonly inspect: boolean;
+  readonly sanitize: boolean;
+  readonly preserves: {
+    readonly orientation: boolean;
+    readonly colorProfile: boolean;
+    readonly timestamps: boolean;
+    readonly resolution: boolean;
+  };
+  readonly detection: "magic";
+}
+
+export interface WebpCapabilities extends CommonFormatCapabilities {
   readonly format: "webp";
   readonly mimeTypes: readonly ["image/webp"];
   readonly extensions: readonly [".webp"];
@@ -73,6 +88,7 @@ export interface WebpCapabilities {
     readonly orientation: true;
     readonly colorProfile: true;
     readonly timestamps: true;
+    readonly resolution: false;
     readonly imagePayload: true;
     readonly animationPayload: true;
   };
@@ -114,6 +130,11 @@ export interface Capabilities {
   readonly formats: readonly [FormatCapabilities, ...FormatCapabilities[]];
 }
 
+/**
+ * The union of every registered format's capabilities, discriminated on `format`.
+ * WebP is the only member in Phase 55; Phases 56 and 57 add PNG and JPEG members
+ * without changing this contract's shape.
+ */
 export type FormatCapabilities = WebpCapabilities;
 
 export type ColorProfileAdmissionReason =

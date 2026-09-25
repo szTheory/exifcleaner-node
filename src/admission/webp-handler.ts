@@ -5,6 +5,12 @@ import { parseXmp } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
 import type {
+  AdmissionDeclineDetail,
+  FormatAdmission,
+  FormatHandler,
+  OrientationState,
+} from "./handler.js";
+import type {
   Inspection,
   MetadataEntry,
   MetadataError,
@@ -27,8 +33,6 @@ import {
 } from "../webp/riff.js";
 import { ICC_PRESERVATION_POLICY_ID } from "../metadata/icc_admission.js";
 
-type OrientationState = ReturnType<typeof parseExif>["orientation"];
-
 export interface WebpOutputChunk {
   readonly fourCc: string;
   readonly size: number;
@@ -36,12 +40,11 @@ export interface WebpOutputChunk {
   readonly data?: Buffer;
 }
 
-export interface WebpAdmission {
+export interface WebpAdmission extends FormatAdmission {
   readonly parsed: ParsedWebp;
-  readonly entries: readonly MetadataEntry[];
-  readonly warnings: readonly MetadataWarning[];
-  readonly orientation: OrientationState;
 }
+
+export type WebpOutputPlan = readonly WebpOutputChunk[];
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
@@ -51,33 +54,53 @@ function collectMetadata(parsed: ParsedWebp): Omit<WebpAdmission, "parsed"> {
   const entries: MetadataEntry[] = [];
   const warnings: MetadataWarning[] = [];
   let orientation: OrientationState = { status: "absent" };
+  let colorProfile: Buffer | undefined;
+  const namespaces = new Set<"EXIF" | "XMP" | "ICC">();
   for (const chunk of parsed.chunks) {
-    if (chunk.fourCc === "EXIF" && chunk.metadata !== undefined) {
-      const found = parseExif(chunk.metadata);
-      entries.push(...found.entries);
-      warnings.push(...found.warnings);
-      orientation = found.orientation;
-    } else if (chunk.fourCc === "XMP " && chunk.metadata !== undefined) {
-      const found = parseXmp(chunk.metadata);
-      entries.push(...found.entries);
-      warnings.push(...found.warnings);
-    } else if (chunk.fourCc === "ICCP" && chunk.metadata !== undefined) {
-      const found = parseIcc(chunk.metadata);
-      entries.push(...found.entries);
-      warnings.push(...found.warnings);
+    if (chunk.fourCc === "EXIF") {
+      namespaces.add("EXIF");
+      if (chunk.metadata !== undefined) {
+        const found = parseExif(chunk.metadata);
+        entries.push(...found.entries);
+        warnings.push(...found.warnings);
+        orientation = found.orientation;
+      }
+    } else if (chunk.fourCc === "XMP ") {
+      namespaces.add("XMP");
+      if (chunk.metadata !== undefined) {
+        const found = parseXmp(chunk.metadata);
+        entries.push(...found.entries);
+        warnings.push(...found.warnings);
+      }
+    } else if (chunk.fourCc === "ICCP") {
+      namespaces.add("ICC");
+      if (chunk.metadata !== undefined) {
+        colorProfile = chunk.metadata;
+        const found = parseIcc(chunk.metadata);
+        entries.push(...found.entries);
+        warnings.push(...found.warnings);
+      }
     }
   }
-  return { entries, warnings, orientation };
+  return {
+    entries,
+    warnings,
+    orientation,
+    colorProfile,
+    namespaces: [...namespaces],
+  };
 }
 
 function buildOutputPlan(
-  parsed: ParsedWebp,
+  admission: WebpAdmission,
   preserveOrientation: boolean,
   preserveColorProfile: boolean,
   orientation: number | undefined,
 ): readonly WebpOutputChunk[] {
+  const parsed = admission.parsed;
   const keepOrientation = preserveOrientation && orientation !== undefined;
   const plan: WebpOutputChunk[] = [];
+  let vp8xFlags: number | undefined;
   for (const chunk of parsed.chunks) {
     if (chunk.fourCc === "XMP ") continue;
     if (chunk.fourCc === "ICCP" && !preserveColorProfile) continue;
@@ -98,10 +121,30 @@ function buildOutputPlan(
         flags |= 0x20;
       if (keepOrientation) flags |= 0x08;
       data[0] = flags;
+      vp8xFlags = flags;
       plan.push({ fourCc: "VP8X", size: data.length, data });
       continue;
     }
     plan.push({ fourCc: chunk.fourCc, size: chunk.size, source: chunk });
+  }
+  // KIT-08 (D-14 amendment): when every extended feature has been stripped
+  // (the recomputed VP8X flags byte is 0) and the only remaining chunk is a
+  // single VP8 or VP8L bitstream, drop VP8X and write simple-format WebP --
+  // matching what ExifTool's own `-all=` sanitize produces. The WebP spec
+  // only allows ALPH/ANIM/ANMF/unknown chunks alongside a VP8X container, so
+  // any other surviving chunk keeps VP8X. `parseWebp` already requires the
+  // VP8X canvas dimensions to match the VP8/VP8L bitstream header exactly
+  // (src/webp/riff.ts), so dropping the canvas size here is safe: the
+  // simple-format bitstream header alone still encodes the true dimensions.
+  if (vp8xFlags === 0) {
+    const withoutVp8x = plan.filter((chunk) => chunk.fourCc !== "VP8X");
+    const onlyChunk = withoutVp8x[0];
+    if (
+      withoutVp8x.length === 1 &&
+      onlyChunk !== undefined &&
+      (onlyChunk.fourCc === "VP8 " || onlyChunk.fourCc === "VP8L")
+    )
+      return withoutVp8x;
   }
   return plan;
 }
@@ -236,7 +279,7 @@ function verificationAborted(path: string): MetadataError {
 
 async function verifyOutput(
   sourceHandle: FileHandle,
-  source: ParsedWebp,
+  admission: WebpAdmission,
   destinationHandle: FileHandle,
   destinationSize: number,
   destinationPath: string,
@@ -245,6 +288,7 @@ async function verifyOutput(
   expectedOrientation: number | undefined,
   signal?: AbortSignal,
 ): Promise<Result<void>> {
+  const source = admission.parsed;
   try {
     const destination = await parseWebp(
       destinationHandle,
@@ -368,6 +412,7 @@ const capability: WebpCapabilities = Object.freeze({
     orientation: true as const,
     colorProfile: true as const,
     timestamps: true as const,
+    resolution: false as const,
     imagePayload: true as const,
     animationPayload: true as const,
   }),
@@ -405,68 +450,89 @@ const capability: WebpCapabilities = Object.freeze({
   detection: "magic" as const,
 });
 
-export const webpHandler = Object.freeze({
-  capability,
-  matches(magic: Buffer): boolean {
-    return (
-      magic.length >= 12 &&
-      magic.subarray(0, 4).toString("ascii") === "RIFF" &&
-      magic.subarray(8, 12).toString("ascii") === "WEBP"
-    );
-  },
-  async admit(
-    handle: FileHandle,
-    size: number,
-    signal?: AbortSignal,
-  ): Promise<WebpAdmission> {
-    const parsed = await parseWebp(handle, size, signal);
-    return { parsed, ...collectMetadata(parsed) };
-  },
-  inspect(admission: WebpAdmission): Inspection {
-    return {
-      format: "webp",
-      entries: admission.entries,
-      warnings: admission.warnings,
-    };
-  },
-  buildOutputPlan,
-  async writeOutput(
-    source: FileHandle,
-    destination: FileHandle,
-    plan: readonly WebpOutputChunk[],
-    signal?: AbortSignal,
-  ): Promise<void> {
-    const size = webpOutputSize(plan);
-    let position = await writeAll(destination, encodeRiffHeader(size), 0);
-    for (const chunk of plan) {
-      if (isAborted(signal))
-        throw signal?.reason ?? new DOMException("Aborted", "AbortError");
-      position = await writeAll(
-        destination,
-        encodeChunkHeader(chunk.fourCc, chunk.size),
-        position,
+export const webpHandler: FormatHandler<WebpAdmission, WebpOutputPlan> =
+  Object.freeze({
+    capability,
+    stagingFileName: "output.webp",
+    matches(magic: Buffer): boolean {
+      return (
+        magic.length >= 12 &&
+        magic.subarray(0, 4).toString("ascii") === "RIFF" &&
+        magic.subarray(8, 12).toString("ascii") === "WEBP"
       );
-      position =
-        chunk.data !== undefined
-          ? await writeAll(destination, chunk.data, position)
-          : chunk.source !== undefined
-            ? await copyChunkData(
-                source,
-                destination,
-                chunk.source,
-                position,
-                signal,
-              )
-            : (() => {
-                throw new Error(
-                  "Output plan contains a chunk with no data source.",
-                );
-              })();
-      if (chunk.size & 1)
-        position = await writeAll(destination, Buffer.alloc(1), position);
-    }
-    if (position !== size)
-      throw new Error("Output size did not match its RIFF declaration.");
-  },
-  verifyOutput,
-});
+    },
+    async admit(
+      handle: FileHandle,
+      size: number,
+      signal?: AbortSignal,
+    ): Promise<WebpAdmission> {
+      const parsed = await parseWebp(handle, size, signal);
+      return { parsed, ...collectMetadata(parsed) };
+    },
+    inspect(admission: WebpAdmission): Inspection {
+      return {
+        format: "webp",
+        entries: admission.entries,
+        warnings: admission.warnings,
+      };
+    },
+    buildOutputPlan,
+    checkOutputPlan(plan: readonly WebpOutputChunk[]): string | undefined {
+      return plan.length === 0 || webpOutputSize(plan) > MAX_RIFF_BYTES
+        ? "Sanitized output exceeds RIFF limits."
+        : undefined;
+    },
+    classifyAdmissionFailure(
+      cause: unknown,
+      preserveColorProfile: boolean,
+    ): AdmissionDeclineDetail | undefined {
+      if (!(cause instanceof WebpStructureError)) return undefined;
+      if (preserveColorProfile && cause.metadataLimit?.fourCc === "ICCP")
+        return {
+          code: "unsupported-feature",
+          detail: `ICC profile size ${cause.metadataLimit.size} exceeds the ${cause.metadataLimit.limit}-byte policy limit.`,
+          feature: "color-profile-preservation",
+          reason: "policy-limit",
+        };
+      return { code: cause.kind, detail: cause.message };
+    },
+    async writeOutput(
+      source: FileHandle,
+      destination: FileHandle,
+      plan: readonly WebpOutputChunk[],
+      signal?: AbortSignal,
+    ): Promise<void> {
+      const size = webpOutputSize(plan);
+      let position = await writeAll(destination, encodeRiffHeader(size), 0);
+      for (const chunk of plan) {
+        if (isAborted(signal))
+          throw signal?.reason ?? new DOMException("Aborted", "AbortError");
+        position = await writeAll(
+          destination,
+          encodeChunkHeader(chunk.fourCc, chunk.size),
+          position,
+        );
+        position =
+          chunk.data !== undefined
+            ? await writeAll(destination, chunk.data, position)
+            : chunk.source !== undefined
+              ? await copyChunkData(
+                  source,
+                  destination,
+                  chunk.source,
+                  position,
+                  signal,
+                )
+              : (() => {
+                  throw new Error(
+                    "Output plan contains a chunk with no data source.",
+                  );
+                })();
+        if (chunk.size & 1)
+          position = await writeAll(destination, Buffer.alloc(1), position);
+      }
+      if (position !== size)
+        throw new Error("Output size did not match its RIFF declaration.");
+    },
+    verifyOutput,
+  });

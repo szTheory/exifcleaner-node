@@ -47,7 +47,7 @@ const evidenceCheck = require("../../scripts/check_evidence_present.cjs") as {
  * directory.  Measured from the call sites, not asserted:
  *   `tests/release_workflow_gate.test.ts` reads
  *   `46-P95-NULL-BRANCH-CLOSURE.json` and `46-PERFORMANCE-P95-DIAGNOSTIC.json`;
- *   `tests/qualification/benchmark.test.ts` reads the other four plus
+ *   `tests/qualification/webp/benchmark.test.ts` reads the other four plus
  *   `46-PERFORMANCE-P95-DIAGNOSTIC.json` again.
  */
 export const PHASE_46_EVIDENCE_FILES = evidenceCheck.REQUIRED_EVIDENCE_FILES;

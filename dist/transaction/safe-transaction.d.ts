@@ -1,17 +1,16 @@
 import type { FileHandle } from "node:fs/promises";
 import type { Result, SanitizeOptions, SanitizeResult } from "../types.js";
-import type { RegisteredHandler } from "../admission/registry.js";
-import type { WebpAdmission, WebpOutputChunk } from "../admission/webp-handler.js";
+import type { FormatAdmission, FormatHandler } from "../admission/handler.js";
 import { type FileOps } from "./file-ops.js";
 import { type SourceSnapshot } from "./identity.js";
 import { type NativeStageFileIdentity, type TerminalCleanupRecord } from "./native-publication.js";
-export interface SafeTransactionInput {
+export interface SafeTransactionInput<Admission extends FormatAdmission = FormatAdmission, Plan = unknown> {
     readonly sourceHandle: FileHandle;
     readonly sourceSnapshot: SourceSnapshot;
     readonly sourceMode: number;
-    readonly handler: RegisteredHandler;
-    readonly admission: WebpAdmission;
-    readonly plan: readonly WebpOutputChunk[];
+    readonly handler: FormatHandler<Admission, Plan>;
+    readonly admission: Admission;
+    readonly plan: Plan;
     readonly orientation: number | undefined;
     readonly options: SanitizeOptions;
     readonly fileOps: FileOps;
@@ -44,5 +43,5 @@ export interface SafeTransactionInput {
     /** Private platform seam for deterministic capability-finalization coverage. */
     readonly platform?: NodeJS.Platform;
 }
-export declare function runSafeTransaction(input: SafeTransactionInput): Promise<Result<SanitizeResult>>;
+export declare function runSafeTransaction<Admission extends FormatAdmission = FormatAdmission, Plan = unknown>(input: SafeTransactionInput<Admission, Plan>): Promise<Result<SanitizeResult>>;
 //# sourceMappingURL=safe-transaction.d.ts.map

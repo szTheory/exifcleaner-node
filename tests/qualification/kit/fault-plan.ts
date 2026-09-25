@@ -1,7 +1,8 @@
 import { constants as fsConstants } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
-import type { RegisteredHandler } from "../../src/admission/registry.js";
-import type { FileOps } from "../../src/transaction/file-ops.js";
+import { basename } from "node:path";
+import type { RegisteredHandler } from "../../../src/admission/registry.js";
+import type { FileOps } from "../../../src/transaction/file-ops.js";
 
 export const LOGICAL_OPERATIONS = [
   "stage-directory-create",
@@ -55,12 +56,28 @@ function validatePlan(plan: FaultPlan | undefined): void {
     throw new Error("Invalid fault plan");
 }
 
+const STAGE_DIRECTORY_MARKER = ".exifcleaner-stage-";
+const STAGE_FILE_BASENAME_PATTERN = /^output\.[a-z0-9]+$/;
+
+/**
+ * True for any registered handler's staging file, by the shared naming
+ * convention (`output.<extension>` inside a `.exifcleaner-stage-*`
+ * directory) rather than a single format's literal file name -- so this
+ * fault plan needs no change when a new format handler is registered.
+ */
+export function isStageFileName(path: string): boolean {
+  return (
+    path.includes(STAGE_DIRECTORY_MARKER) &&
+    STAGE_FILE_BASENAME_PATTERN.test(basename(path))
+  );
+}
+
 function isStageDirectory(path: string): boolean {
-  return path.includes(".exifcleaner-stage-") && !path.endsWith("output.webp");
+  return path.includes(STAGE_DIRECTORY_MARKER) && !isStageFileName(path);
 }
 
 function isStageFile(path: string): boolean {
-  return path.includes(".exifcleaner-stage-") && path.endsWith("output.webp");
+  return isStageFileName(path);
 }
 
 export function applyFaultPlan(

@@ -298,6 +298,7 @@ describe("published format-neutral declaration contract", () => {
     ]);
     expect([...types].sort()).toEqual([
       "Capabilities",
+      "CommonFormatCapabilities",
       "FallbackDisposition",
       "FormatCapabilities",
       "InspectOptions",
@@ -323,6 +324,119 @@ describe("published format-neutral declaration contract", () => {
     expect(declaration).not.toMatch(
       /(?:cleanup|stageFileIdentity|NativeStage|descriptor|publicationEvidence)/i,
     );
+  });
+});
+
+// 0.3.0 capability contract pins (KIT-03). Phases 56 and 57 each add their
+// real union member (PngCapabilities, JpegCapabilities), update the pinned
+// export list above and extend the exhaustiveness/equality assertions below
+// with the new member -- the assertion shape itself does not change (D-07).
+describe("0.3.0 capability contract pins (KIT-03)", () => {
+  const rootImport = 'from "PACKAGE_ROOT/dist/index.js"';
+
+  it("pins NativeFormat, FormatCapabilities, and the base/member preserves shapes by exact type equality", async () => {
+    await expectConsumerToCompile(`
+      import type {
+        CommonFormatCapabilities,
+        FormatCapabilities,
+        NativeFormat,
+        WebpCapabilities,
+      } ${rootImport};
+
+      type Equals<A, B> =
+        (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
+          ? true
+          : false;
+
+      const nativeFormatPin: Equals<NativeFormat, "webp"> = true;
+      const formatCapabilitiesPin: Equals<FormatCapabilities, WebpCapabilities> = true;
+      const commonPreservesPin: Equals<
+        CommonFormatCapabilities["preserves"],
+        {
+          readonly orientation: boolean;
+          readonly colorProfile: boolean;
+          readonly timestamps: boolean;
+          readonly resolution: boolean;
+        }
+      > = true;
+      const webpPreservesPin: Equals<
+        WebpCapabilities["preserves"],
+        {
+          readonly orientation: true;
+          readonly colorProfile: true;
+          readonly timestamps: true;
+          readonly resolution: false;
+          readonly imagePayload: true;
+          readonly animationPayload: true;
+        }
+      > = true;
+      void [nativeFormatPin, formatCapabilitiesPin, commonPreservesPin, webpPreservesPin];
+    `);
+  });
+
+  it("compiles an exhaustive switch over a synthetic three-member union and fails when a case is omitted", async () => {
+    const synthetic = `
+      import type { CommonFormatCapabilities, WebpCapabilities } ${rootImport};
+
+      interface PngLike extends CommonFormatCapabilities {
+        readonly format: "png";
+      }
+      interface JpegLike extends CommonFormatCapabilities {
+        readonly format: "jpeg";
+      }
+      type SyntheticCapabilities = WebpCapabilities | PngLike | JpegLike;
+
+      const assertNever = (value: never): never => { throw new Error(String(value)); };
+    `;
+
+    await expectConsumerToCompile(`
+      ${synthetic}
+      const describeFormat = (capability: SyntheticCapabilities): string => {
+        switch (capability.format) {
+          case "webp": return "webp";
+          case "png": return "png";
+          case "jpeg": return "jpeg";
+          default: return assertNever(capability);
+        }
+      };
+      void describeFormat;
+    `);
+
+    const omittedCaseDiagnostics = await compileConsumer(`
+      ${synthetic}
+      const describeFormat = (capability: SyntheticCapabilities): string => {
+        switch (capability.format) {
+          case "webp": return "webp";
+          case "png": return "png";
+          default: return assertNever(capability);
+        }
+      };
+      void describeFormat;
+    `);
+
+    expect(omittedCaseDiagnostics).not.toEqual([]);
+  });
+
+  it("rejects a preserves object missing resolution and a WebP resolution literal asserted true", async () => {
+    const missingResolutionDiagnostics = await compileConsumer(`
+      import type { CommonFormatCapabilities } ${rootImport};
+      const preserves: CommonFormatCapabilities["preserves"] = {
+        orientation: true,
+        colorProfile: true,
+        timestamps: true,
+      };
+      void preserves;
+    `);
+
+    const resolutionTrueDiagnostics = await compileConsumer(`
+      import { getCapabilities } ${rootImport};
+      const webpCapability = getCapabilities().formats[0];
+      const r: true = webpCapability.preserves.resolution;
+      void r;
+    `);
+
+    expect(missingResolutionDiagnostics).not.toEqual([]);
+    expect(resolutionTrueDiagnostics).not.toEqual([]);
   });
 });
 

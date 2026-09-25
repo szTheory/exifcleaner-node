@@ -57,7 +57,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -166,7 +166,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -222,7 +222,7 @@ describe("safe transaction file operations", () => {
       const stats = await source.stat();
       const admission = await webpHandler.admit(source, stats.size);
       const plan = webpHandler.buildOutputPlan(
-        admission.parsed,
+        admission,
         false,
         false,
         undefined,
@@ -281,7 +281,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -329,7 +329,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -400,7 +400,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -467,7 +467,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -539,7 +539,7 @@ describe("safe transaction file operations", () => {
       const stats = await source.stat();
       const admission = await webpHandler.admit(source, stats.size);
       const plan = webpHandler.buildOutputPlan(
-        admission.parsed,
+        admission,
         false,
         false,
         undefined,
@@ -601,7 +601,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -668,7 +668,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -720,7 +720,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -772,7 +772,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,
@@ -830,7 +830,7 @@ describe("safe transaction file operations", () => {
     const stats = await source.stat();
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
-      admission.parsed,
+      admission,
       false,
       false,
       undefined,

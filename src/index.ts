@@ -3,6 +3,7 @@ export { classifyFallback } from "./fallback.js";
 export { err, ok } from "./result.js";
 export type {
   Capabilities,
+  CommonFormatCapabilities,
   FallbackDisposition,
   FormatCapabilities,
   Inspection,
