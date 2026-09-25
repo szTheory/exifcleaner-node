@@ -121,6 +121,14 @@ registers.
 - **A format admits kinds through its `DifferentialProfile.permittedKinds`.** Each admitted kind
   must cite, in that format's own qualification suite, the title of a test that actually measures
   it — an admitted kind with no measuring test is an unreviewed hole, not evidence.
+- **Fix the engine; don't grant a structural delta.** When native output differs from ExifTool
+  only in container structure that no preserved feature needs, change the handler to match
+  ExifTool instead of granting the difference. The run with no preservation requested therefore
+  admits no permitted kinds at all. When a preservation forces a derived structural value, the
+  grant for that preservation also covers that value, exactly and with no new kind. WebP is the
+  worked example (KIT-08): the handler drops an empty VP8X header, and the Orientation and ICC
+  grants in `tests/qualification/webp/oracles.ts` also cover the exact `RIFF:WebP_Flags` value
+  their preservation forces.
 - **Anything unlisted fails.** An over-strip (removing metadata ExifTool keeps) fails exactly like
   a metadata leak: the differential run does not distinguish "safer than expected" from "wrong."
 
