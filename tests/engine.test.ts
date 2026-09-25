@@ -9,12 +9,18 @@ import {
   utimes,
   writeFile,
 } from "node:fs/promises";
+import { rmSync, utimesSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import { getCapabilities, inspectFile, sanitizeFile } from "../src/index.js";
+import {
+  loadNativePublicationBindingForTests,
+  setNativePublicationBindingForTests,
+} from "../src/transaction/native-publication.js";
 import type {
   FormatCapabilities,
   NativeFormat,
@@ -1030,38 +1036,47 @@ describe("sanitizeFile", () => {
       sourcePath,
       metadataWebp(vp8(1, 1, Buffer.alloc(4 * 1024 * 1024, 7))),
     );
-    const operation = sanitizeFile({
-      sourcePath,
-      destinationPath,
-      preserveOrientation: false,
-      preserveColorProfile: false,
-      preserveTimestamps: true,
-    });
-    let completed: Awaited<typeof operation> | undefined;
-    void operation.then((result) => {
-      completed = result;
-    });
-    while (true) {
-      try {
-        await access(destinationPath);
-        break;
-      } catch {
-        if (completed !== undefined) {
-          throw new Error(
-            `sanitize completed before publication was observable: ${JSON.stringify(completed)}`,
-          );
-        }
-        await new Promise<void>((resolve) => setImmediate(resolve));
-      }
-    }
-    await rm(destinationPath);
     const replacement = Buffer.from("replacement-owned-by-someone-else");
-    await writeFile(destinationPath, replacement);
     const replacementTime = new Date("2024-04-05T06:07:08.000Z");
-    await utimes(destinationPath, replacementTime, replacementTime);
+    // Swap the destination synchronously inside the real publication call,
+    // so the replacement always lands after publication and before any
+    // later engine step. Polling for the published path raced completion.
+    const real = loadNativePublicationBindingForTests(
+      process.platform,
+      process.arch,
+      createRequire(
+        new URL("../src/transaction/native-publication.ts", import.meta.url),
+      ),
+    );
+    let replaced = false;
+    const restore = setNativePublicationBindingForTests({
+      ...real,
+      publishNoReplace(...args) {
+        const code = real.publishNoReplace(...args);
+        if (code === "published") {
+          rmSync(destinationPath);
+          writeFileSync(destinationPath, replacement);
+          utimesSync(destinationPath, replacementTime, replacementTime);
+          replaced = true;
+        }
+        return code;
+      },
+    });
 
-    const result = await operation;
+    let result: Awaited<ReturnType<typeof sanitizeFile>>;
+    try {
+      result = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: true,
+      });
+    } finally {
+      restore();
+    }
 
+    expect(replaced).toBe(true);
     expect(result).toMatchObject({ ok: true });
     expect(await readFile(destinationPath)).toEqual(replacement);
     expect((await stat(destinationPath)).mtimeMs).toBe(
