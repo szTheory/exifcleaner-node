@@ -208,7 +208,7 @@ function execute(options) {
   if (npm(["run", "build"]) !== 0) return 1;
   if (options.mode === "case") {
     const moduleUrl = pathToFileURL(
-      resolve(projectRoot, "tests/qualification/corpus.ts"),
+      resolve(projectRoot, "tests/qualification/kit/corpus.ts"),
     ).href;
     const program = `import { runQualificationCase } from ${JSON.stringify(moduleUrl)}; const result = await runQualificationCase(${JSON.stringify(options.id)}); process.stdout.write(JSON.stringify(result${options.json ? ", null, 2" : ""}) + "\\n");`;
     return run(process.execPath, [
@@ -254,7 +254,7 @@ function execute(options) {
   return npm([
     "test",
     "--",
-    "tests/qualification/tracer.test.ts",
+    "tests/qualification/webp/tracer.test.ts",
     "tests/qualification/parser.test.ts",
     "tests/qualification/property.test.ts",
     "tests/qualification/transaction.test.ts",

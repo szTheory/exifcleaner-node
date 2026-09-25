@@ -6,9 +6,9 @@ import {
   loadCorpusRecord,
   materializeCorpusRecord,
   runQualificationCase,
-} from "./corpus.js";
+} from "../kit/corpus.js";
 
-const corpusRoot = fileURLToPath(new URL("../corpus/", import.meta.url));
+const corpusRoot = fileURLToPath(new URL("../../corpus/", import.meta.url));
 
 describe("WebP qualification tracer", () => {
   it("proves the provenance-bound sample through built-package sanitize, reopen, and payload checks", async () => {

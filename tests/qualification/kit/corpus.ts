@@ -3,9 +3,9 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { inspectFile, sanitizeFile } from "../../dist/index.js";
+import { inspectFile, sanitizeFile } from "../../../dist/index.js";
 
-const CORPUS_ROOT = fileURLToPath(new URL("../corpus/", import.meta.url));
+const CORPUS_ROOT = fileURLToPath(new URL("../../corpus/", import.meta.url));
 const MANIFEST_PATH = join(CORPUS_ROOT, "manifest.json");
 const SHA256 = /^[a-f0-9]{64}$/;
 const ROLES = new Set([

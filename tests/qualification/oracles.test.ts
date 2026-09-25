@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../dist/index.js";
 import { parseWebp } from "../../src/webp/riff.js";
 import { anim, animationFrame, vp8x, webp } from "../fixtures.js";
-import { materializeCorpusRecord } from "./corpus.js";
+import { materializeCorpusRecord } from "./kit/corpus.js";
 import { materializeMutationCase } from "./generators.js";
 import {
   comparePermittedDifferences,
