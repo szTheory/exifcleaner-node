@@ -15,7 +15,12 @@ import {
   vp8x,
   webp,
 } from "../../fixtures.js";
-import { comparePermittedDifferences, digest } from "../kit/oracles.js";
+import {
+  comparePermittedDifferences,
+  compareDifferential,
+  digest,
+  type MetadataProjection,
+} from "../kit/oracles.js";
 import { materializeCorpusRecord } from "../kit/corpus.js";
 import { materializeMutationCase } from "./generators.js";
 import {
@@ -53,6 +58,23 @@ async function sanitize(
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+}
+
+/**
+ * WR-07 (D-16, D-10): derives sanitize preservation options from a corpus record's
+ * `permittedDifferences` grants, so granting an existing kind to one more fixture is a
+ * one-line manifest data change (docs/format-admission.md) rather than a hand-wired
+ * options object per record.
+ */
+function sanitizeOptionsForGrants(grants: readonly string[]): SanitizeOptions {
+  return {
+    preserveOrientation: grants.some((grant) =>
+      grant.startsWith("EXIF:Orientation="),
+    ),
+    preserveColorProfile: grants.some((grant) =>
+      grant.startsWith("ICC_Profile:RawProfile="),
+    ),
+  };
 }
 
 interface ManifestRecord {
@@ -234,9 +256,14 @@ No error detected.
   it.runIf(admittedHost)(
     "runs the live two-directional differential against every differential-role corpus record",
     async () => {
-      for (const record of differentialSuccessRecords()) {
+      const records = differentialSuccessRecords();
+      expect(records.length).toBeGreaterThan(0);
+      for (const record of records) {
         const source = await materializeCorpusRecord(record.id);
-        const output = await sanitize(source);
+        const output = await sanitize(
+          source,
+          sanitizeOptionsForGrants(record.permittedDifferences),
+        );
         const transcript = runExiftoolDifferential({
           caseId: record.id,
           profile: webpDifferentialProfile,
@@ -284,6 +311,30 @@ No error detected.
     180_000,
   );
 
+  it("pins the differential-role corpus selection to an exact, non-empty ID set", () => {
+    expect(differentialSuccessRecords().map((record) => record.id)).toEqual([
+      "exifcleaner-sample",
+      "libwebp-1.5.0-example",
+    ]);
+  });
+
+  it("derives sanitize preservation options from a record's grants", () => {
+    expect(sanitizeOptionsForGrants([])).toEqual({
+      preserveOrientation: false,
+      preserveColorProfile: false,
+    });
+    expect(sanitizeOptionsForGrants(["EXIF:Orientation=6"])).toEqual({
+      preserveOrientation: true,
+      preserveColorProfile: false,
+    });
+    expect(
+      sanitizeOptionsForGrants([`ICC_Profile:RawProfile=${"a".repeat(64)}`]),
+    ).toEqual({
+      preserveOrientation: false,
+      preserveColorProfile: true,
+    });
+  });
+
   it("cites the exact live test title that measures every permitted WebP difference kind", () => {
     const testFilePath = fileURLToPath(import.meta.url);
     const testFileText = readFileSync(testFilePath, "utf8");
@@ -328,6 +379,109 @@ No error detected.
           permittedDifferences: [],
         }),
       ).toThrow("Unpermitted metadata difference");
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "rejects a leak outside EXIF/XMP/ICC through the two-directional differential",
+    async () => {
+      const source = metadataWebp();
+      const output = await sanitize(source);
+
+      // Positive twin: the real sanitized output passes both directions of the
+      // differential with no grants.
+      const positiveTwin = runExiftoolDifferential({
+        caseId: "riff-leak-positive-twin",
+        profile: webpDifferentialProfile,
+        source,
+        output,
+        permittedDifferences: [],
+      });
+      expect(positiveTwin).toMatchObject({ equivalent: true });
+
+      // Leak: wrap the same VP8/VP8L image in a VP8X container with flags 0,
+      // no EXIF, XMP or ICC added. comparePermittedDifferences can only name
+      // EXIF, XMP or ICC_Profile (kit/oracles.ts:307-337), so a thrown message
+      // naming RIFF proves compareDifferential -- not that older check --
+      // caught this leak.
+      const outputImage = readChunks(output).find(
+        (item) => item.fourCc === "VP8 " || item.fourCc === "VP8L",
+      );
+      if (outputImage === undefined)
+        throw new Error("Fixture invariant violated: missing VP8 or VP8L.");
+      const tampered = webp([
+        { fourCc: "VP8X", data: vp8x(0x00) },
+        { fourCc: outputImage.fourCc, data: outputImage.data },
+      ]);
+
+      expect(() =>
+        runExiftoolDifferential({
+          caseId: "riff-leak",
+          profile: webpDifferentialProfile,
+          source,
+          output: tampered,
+          permittedDifferences: [],
+        }),
+      ).toThrow("Unpermitted metadata difference: RIFF");
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "rejects an over-strip of a namespace ExifTool keeps, on live projections",
+    async () => {
+      const source = await materializeCorpusRecord("libwebp-1.5.0-example");
+      const output = await sanitize(source);
+      const transcript = runExiftoolDifferential({
+        caseId: "over-strip-source",
+        profile: webpDifferentialProfile,
+        source,
+        output,
+        permittedDifferences: [],
+      });
+
+      const namespace = Object.keys(transcript.reference.namespaces)
+        .filter(
+          (name) => name !== "EXIF" && name !== "XMP" && name !== "ICC_Profile",
+        )
+        .filter(
+          (name) => (transcript.reference.namespaces[name]?.length ?? 0) > 0,
+        )
+        .sort()[0];
+      expect(namespace).toBeDefined();
+      if (namespace === undefined)
+        throw new Error(
+          "Fixture invariant violated: no non-EXIF/XMP/ICC namespace.",
+        );
+
+      expect(
+        compareDifferential(
+          transcript.source,
+          transcript.output,
+          transcript.reference,
+          [],
+          webpDifferentialProfile.permittedKinds,
+        ),
+      ).toEqual([]);
+
+      const strippedEntries = transcript.output.namespaces[namespace] ?? [];
+      const overStripped: MetadataProjection = {
+        ...transcript.output,
+        namespaces: {
+          ...transcript.output.namespaces,
+          [namespace]: strippedEntries.slice(1),
+        },
+      };
+      expect(() =>
+        compareDifferential(
+          transcript.source,
+          overStripped,
+          transcript.reference,
+          [],
+          webpDifferentialProfile.permittedKinds,
+        ),
+      ).toThrow(`Over-strip: ${namespace}`);
     },
     180_000,
   );
