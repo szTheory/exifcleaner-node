@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const docPath = join(packageRoot, "docs/format-admission.md");
+const readmePath = join(packageRoot, "README.md");
+const ciBudgetPath = join(packageRoot, "docs/ci-budget.md");
 
 /**
  * The eight tiered evidence items, in the fixed MILESTONE-GUIDE order
@@ -67,13 +69,21 @@ function parseHeadings(lines: readonly string[]): readonly ParsedSection[] {
   return sections;
 }
 
+/**
+ * A glob or template pattern (a literal `*` wildcard, or a placeholder
+ * segment like `<format>`) describes a rule, not a real file. It is exempt
+ * from the path-existence check.
+ */
+const GLOB_OR_PLACEHOLDER = /[*<]/u;
+
 function citablePaths(lineText: string): readonly string[] {
   const paths: string[] = [];
   for (const match of lineText.matchAll(BACKTICKED_PATH)) {
     const candidate = match[1];
     if (
       candidate !== undefined &&
-      CITABLE_PATH_ROOTS.some((root) => candidate.startsWith(root))
+      CITABLE_PATH_ROOTS.some((root) => candidate.startsWith(root)) &&
+      !GLOB_OR_PLACEHOLDER.test(candidate)
     ) {
       paths.push(candidate);
     }
@@ -169,13 +179,22 @@ export function admissionDocProblems(
 }
 
 describe("format admission document (KIT-06)", () => {
-  it("has no structural problems against the first tiered evidence item", () => {
+  it("has no structural problems across all eight tiered evidence items", () => {
     const text = readFileSync(docPath, "utf8");
-    const problems = admissionDocProblems(
-      text,
-      (path) => existsSync(join(packageRoot, path)),
-      ADMISSION_ITEMS.slice(0, 1),
+    const problems = admissionDocProblems(text, (path) =>
+      existsSync(join(packageRoot, path)),
     );
     expect(problems).toEqual([]);
+  });
+
+  it("is linked from the README next to the other docs links", () => {
+    const readme = readFileSync(readmePath, "utf8");
+    expect(readme).toContain("docs/format-admission.md");
+  });
+
+  it("has its CI scoping rule mirrored in docs/ci-budget.md", () => {
+    const ciBudget = readFileSync(ciBudgetPath, "utf8");
+    expect(ciBudget).toContain("Per-format qualification scoping");
+    expect(ciBudget).toContain("qualification-linux");
   });
 });
