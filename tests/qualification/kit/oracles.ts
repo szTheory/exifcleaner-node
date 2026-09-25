@@ -393,6 +393,16 @@ function multisetDiff(
  * an over-strip -- both fail unless a declared, code-defined `grants` kind explains the
  * exact delta. A grant naming a kind outside `kinds` is rejected outright, and a grant
  * that explains no actual delta is rejected as stale.
+ *
+ * A grant is explained ONLY by an observed delta in its own namespace (EXIF for
+ * EXIF:Orientation, ICC_Profile for ICC_Profile:RawProfile). An `impliedDifference`
+ * delta in a derived namespace (for example a container-level flags value) never
+ * explains a grant by itself -- it is additional coverage for a side effect the same
+ * grant also produces, not a substitute for the grant's own delta. The EXIF branch
+ * also requires `source` to actually carry the granted Orientation value before
+ * accepting a native delta as explained. This function is fail-closed on its own,
+ * regardless of what runs before it -- WR-01: callers must not rely on
+ * `comparePermittedDifferences` having already screened the same grant.
  */
 export function compareDifferential(
   source: MetadataProjection,
@@ -433,6 +443,10 @@ export function compareDifferential(
 
     if (namespace === "EXIF" && orientationGrant !== undefined) {
       const expected = Number(orientationGrant.value);
+      // prettier-ignore
+      const sourceOrientations = tagValues(source.namespaces.EXIF ?? [], "Orientation");
+      if (!sourceOrientations.includes(expected))
+        throw new Error("Requested Orientation was not preserved");
       const grantedEntry = onlyLeft[0];
       if (
         onlyRight.length === 0 &&
@@ -475,10 +489,6 @@ export function compareDifferential(
         kind.impliedDifference!.explains(onlyLeft, activeKindIds),
       )
     ) {
-      for (const kind of impliedKinds) {
-        if (kind.id === "EXIF:Orientation") orientationExplainedDelta = true;
-        if (kind.id === "ICC_Profile:RawProfile") iccExplainedDelta = true;
-      }
       continue;
     }
 
