@@ -6,11 +6,14 @@ import {
   animationFrame,
   exifWithOrientation,
   iccProfile,
+  iccProfileV4,
   metadataWebp,
   vp8,
   vp8l,
   vp8x,
   webp,
+  xmpPacket,
+  type FixtureChunk,
 } from "../../fixtures.js";
 import {
   MAX_BUFFERED_METADATA_BYTES,
@@ -70,6 +73,8 @@ export interface QualificationSample {
   readonly arm: "metadata" | "no-metadata" | "hostile";
   readonly planted: readonly PlantedCanary<WebpMetadataKind>[];
   readonly options: WebpSampleOptions;
+  /** The EXIF orientation value planted alongside an EXIF canary, when any. */
+  readonly plantedOrientation?: number;
 }
 
 export interface ReplayRecordInput {
@@ -389,13 +394,35 @@ interface MetadataArmSample {
   readonly bytes: Buffer;
   readonly planted: readonly PlantedCanary<WebpMetadataKind>[];
   readonly options: WebpSampleOptions;
+  readonly plantedOrientation?: number;
 }
 
 /**
- * The metadata arm (D-19a). In this task it plants an EXIF canary only: a
- * VP8X-framed still whose canvas dimensions match the VP8 frame, in chunk order
- * VP8X, image, EXIF. Preservation flags are drawn independently so a real
- * `sanitizeFile` call downstream is never given a hard-coded flag.
+ * Builds a structurally-admitted ICC v4 profile (per `validateIccForPreservation`)
+ * carrying the canary text inside a second `cprt`/`text` tag, after the default
+ * `rTRC` tag. Offsets/sizes stay canonical contiguous ranges with zero padding,
+ * since `iccProfileV4` computes them from the tag list and this only writes into
+ * the already-zeroed data region past the 8-byte type+reserved tag header.
+ */
+function iccCanaryProfile(canaryText: string): Buffer {
+  const canary = Buffer.from(canaryText, "ascii");
+  const tags = [
+    { signature: "rTRC" },
+    { signature: "cprt", type: "text", size: 8 + canary.length },
+  ] as const;
+  const tableEnd = 132 + tags.length * 12;
+  const cprtOffset = tableEnd + 1 * 8; // matches iccProfileV4's default per-index offset
+  const profile = iccProfileV4({}, tags);
+  canary.copy(profile, cprtOffset + 8);
+  return profile;
+}
+
+/**
+ * The metadata arm (D-19a/D-20). Plants a non-empty random subset of EXIF, XMP and
+ * ICCP canaries into a VP8X-framed still. Chunk order and VP8X flag bits match
+ * `metadataWebp()`: ICCP 0x20, EXIF 0x08, XMP 0x04. Preservation flags are drawn
+ * independently so a real `sanitizeFile` call downstream is never given a
+ * hard-coded flag.
  */
 export function webpMetadataArbitrary(): fc.Arbitrary<MetadataArmSample> {
   return fc
@@ -403,18 +430,71 @@ export function webpMetadataArbitrary(): fc.Arbitrary<MetadataArmSample> {
       width: fc.integer({ min: 1, max: 8 }),
       height: fc.integer({ min: 1, max: 8 }),
       orientation: fc.integer({ min: 1, max: 8 }),
+      includeExif: fc.boolean(),
+      includeXmp: fc.boolean(),
+      includeIccp: fc.boolean(),
       exifCanary: canaryArbitrary<WebpMetadataKind>("EXIF"),
+      xmpCanary: canaryArbitrary<WebpMetadataKind>("XMP"),
+      iccpCanary: canaryArbitrary<WebpMetadataKind>("ICCP"),
       options: preservationOptionsArbitrary,
     })
-    .map(({ width, height, orientation, exifCanary, options }) => {
-      const exifChunk = exifWithOrientation(orientation, exifCanary.canary);
-      const bytes = webp([
-        { fourCc: "VP8X", data: vp8x(0x08, width, height) },
-        { fourCc: "VP8 ", data: vp8(width, height) },
-        { fourCc: "EXIF", data: exifChunk },
-      ]);
-      return { bytes, planted: [exifCanary], options };
-    });
+    .filter(
+      ({ includeExif, includeXmp, includeIccp }) =>
+        includeExif || includeXmp || includeIccp,
+    )
+    .map(
+      ({
+        width,
+        height,
+        orientation,
+        includeExif,
+        includeXmp,
+        includeIccp,
+        exifCanary,
+        xmpCanary,
+        iccpCanary,
+        options,
+      }): MetadataArmSample => {
+        const planted: PlantedCanary<WebpMetadataKind>[] = [];
+        let flags = 0;
+        const middleChunks: FixtureChunk[] = [];
+        if (includeIccp) {
+          flags |= 0x20;
+          middleChunks.push({
+            fourCc: "ICCP",
+            data: iccCanaryProfile(iccpCanary.canary),
+          });
+          planted.push(iccpCanary);
+        }
+        middleChunks.push({ fourCc: "VP8 ", data: vp8(width, height) });
+        if (includeExif) {
+          flags |= 0x08;
+          middleChunks.push({
+            fourCc: "EXIF",
+            data: exifWithOrientation(orientation, exifCanary.canary),
+          });
+          planted.push(exifCanary);
+        }
+        if (includeXmp) {
+          flags |= 0x04;
+          middleChunks.push({
+            fourCc: "XMP ",
+            data: xmpPacket(xmpCanary.canary),
+          });
+          planted.push(xmpCanary);
+        }
+        const bytes = webp([
+          { fourCc: "VP8X", data: vp8x(flags, width, height) },
+          ...middleChunks,
+        ]);
+        return {
+          bytes,
+          planted,
+          options,
+          ...(includeExif ? { plantedOrientation: orientation } : {}),
+        };
+      },
+    );
 }
 
 export const webpMetadataGenerator = Object.freeze({
@@ -440,13 +520,14 @@ export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
       : [];
   });
   const metadataArm = webpMetadataArbitrary().map(
-    ({ bytes, planted, options }): QualificationSample => ({
+    ({ bytes, planted, options, plantedOrientation }): QualificationSample => ({
       id: `metadata-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
       bytes,
       expected: "success",
       arm: "metadata",
       planted,
       options,
+      ...(plantedOrientation === undefined ? {} : { plantedOrientation }),
     }),
   );
   const noMetadataArm = fc
@@ -461,7 +542,7 @@ export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
     }));
   const hostileArm = fc.constantFrom(...bufferedHostile);
   return fc.oneof(
-    { weight: 4, arbitrary: metadataArm },
+    { weight: 6, arbitrary: metadataArm },
     { weight: 2, arbitrary: noMetadataArm },
     { weight: 2, arbitrary: hostileArm },
   );

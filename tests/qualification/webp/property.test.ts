@@ -5,6 +5,8 @@ import {
   open,
   readFile,
   rm,
+  stat,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,12 +14,17 @@ import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../dist/index.js";
+import { parseExif } from "../../../src/metadata/exif.js";
+import { validateIccForPreservation } from "../../../src/metadata/icc_admission.js";
 import { parseWebp } from "../../../src/webp/riff.js";
+import { readChunks } from "../../fixtures.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
+import { assertFloors, countSample, createCounters } from "../kit/floors.js";
 import {
   formatReplayRecord,
   qualificationArbitrary,
   resolveReplayConfig,
+  webpMetadataArbitrary,
   type QualificationSample,
 } from "./generators.js";
 
@@ -25,18 +32,26 @@ function digest(value: Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+/** Source mtime/atime seeded before every success sample sanitizes (D-20 timestamps). */
+const SEEDED_SOURCE_TIME = new Date("2001-02-03T04:05:06.789Z");
+
 /**
  * Per-sample body of the fixed-seed property (extracted so Task 2/3 can reuse it
  * against injected fakes). `sanitize` is injectable and defaults to the real dist
  * `sanitizeFile` — every negative control replaces it with a deliberately broken fake.
+ *
+ * Returns the counter keys this sample contributes to the absolute per-arm/per-flag
+ * floors (D-20): always `arm:<arm>`, plus `kind:<K>` per planted kind and
+ * `flag:<name>` for each preservation flag actually exercised on a success sample.
  */
 async function checkSample(
   sample: QualificationSample,
   sanitize: typeof sanitizeFile = sanitizeFile,
-): Promise<void> {
+): Promise<readonly string[]> {
   const directory = await mkdtemp(join(tmpdir(), "exifcleaner-property-"));
   const sourcePath = join(directory, "source.webp");
   const destinationPath = join(directory, "output.webp");
+  const counterKeys: string[] = [`arm:${sample.arm}`];
   try {
     await writeFile(sourcePath, sample.bytes);
     if (sample.expected === "success") {
@@ -49,22 +64,74 @@ async function checkSample(
       } finally {
         await source.close();
       }
+      const plantedKinds = new Set(sample.planted.map((item) => item.kind));
+      for (const kind of plantedKinds) counterKeys.push(`kind:${kind}`);
+      await utimes(sourcePath, SEEDED_SOURCE_TIME, SEEDED_SOURCE_TIME);
+
       const result = await sanitize({
         sourcePath,
         destinationPath,
         ...sample.options,
       });
       expect(result.ok).toBe(true);
-      const preservedKinds = sample.options.preserveColorProfile
-        ? ["ICCP"]
-        : [];
-      assertCanariesAbsent(
-        await readFile(destinationPath),
-        sample.planted,
-        preservedKinds,
-      );
+
+      const preserveColorProfile =
+        sample.options.preserveColorProfile && plantedKinds.has("ICCP");
+      const preserveOrientation =
+        sample.options.preserveOrientation && plantedKinds.has("EXIF");
+      const preservedKinds = preserveColorProfile ? ["ICCP"] : [];
+
+      const output = await readFile(destinationPath);
+      assertCanariesAbsent(output, sample.planted, preservedKinds);
+
+      // Validity: the output parses as WebP and its RIFF size equals the file length.
+      const destinationHandle = await open(destinationPath, "r");
+      try {
+        await expect(
+          parseWebp(destinationHandle, output.length),
+        ).resolves.toBeDefined();
+      } finally {
+        await destinationHandle.close();
+      }
+      expect(output.readUInt32LE(4) + 8).toBe(output.length);
+
+      const outputChunks = readChunks(output);
+
+      if (preserveColorProfile) {
+        counterKeys.push("flag:preserveColorProfile");
+        const sourceIccChunk = readChunks(sample.bytes).find(
+          (chunk) => chunk.fourCc === "ICCP",
+        );
+        const destinationIccChunk = outputChunks.find(
+          (chunk) => chunk.fourCc === "ICCP",
+        );
+        expect(destinationIccChunk).toBeDefined();
+        expect(destinationIccChunk?.data).toEqual(sourceIccChunk?.data);
+      }
+
+      if (preserveOrientation) {
+        counterKeys.push("flag:preserveOrientation");
+        const destinationExifChunks = outputChunks.filter(
+          (chunk) => chunk.fourCc === "EXIF",
+        );
+        expect(destinationExifChunks).toHaveLength(1);
+        const parsedExif = parseExif(destinationExifChunks[0]!.data);
+        expect(parsedExif.orientation).toMatchObject({
+          status: "valid",
+          value: sample.plantedOrientation,
+        });
+      }
+
+      if (sample.options.preserveTimestamps) {
+        counterKeys.push("flag:preserveTimestamps");
+        const destinationStats = await stat(destinationPath);
+        expect(destinationStats.mtime.getTime()).toBe(
+          SEEDED_SOURCE_TIME.getTime(),
+        );
+      }
+
       expect(await readFile(sourcePath)).toEqual(sample.bytes);
-      expect(await readFile(destinationPath)).toBeInstanceOf(Buffer);
+      expect(output).toBeInstanceOf(Buffer);
     } else {
       const result = await sanitize({
         sourcePath,
@@ -84,7 +151,37 @@ async function checkSample(
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+  return counterKeys;
 }
+
+/**
+ * Absolute per-arm/per-flag floors (D-20), measured over 200 runs each at seed
+ * 460046 and at seeds 1, 2 and 3 (FC_SEED). Each floor is half the minimum measured
+ * count across those four seeds, rounded down, with a hard minimum of 10 (none hit
+ * it here). The metadata-arm weight was raised from 4 to 6 after an initial
+ * measurement put `flag:preserveOrientation` at 18 on seed 2 — below the 20
+ * re-measure threshold — per D-20 ("raise weight and re-measure", never lower the
+ * floor). Measured distributions (arm/kind/flag -> count), 200 runs each:
+ *
+ *   seed 460046: metadata 116, no-metadata 40, hostile 44; EXIF 66, XMP 76, ICCP 65;
+ *                preserveOrientation 33, preserveColorProfile 33, preserveTimestamps 75
+ *   seed 1:      metadata 121, no-metadata 32, hostile 47; EXIF 76, XMP 71, ICCP 65;
+ *                preserveOrientation 32, preserveColorProfile 34, preserveTimestamps 82
+ *   seed 2:      metadata 115, no-metadata 40, hostile 45; EXIF 62, XMP 74, ICCP 59;
+ *                preserveOrientation 31, preserveColorProfile 26, preserveTimestamps 87
+ *   seed 3:      metadata 119, no-metadata 34, hostile 47; EXIF 65, XMP 79, ICCP 69;
+ *                preserveOrientation 34, preserveColorProfile 40, preserveTimestamps 83
+ */
+const FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze({
+  "kind:EXIF": 31,
+  "kind:XMP": 35,
+  "kind:ICCP": 29,
+  "arm:no-metadata": 16,
+  "arm:hostile": 22,
+  "flag:preserveOrientation": 15,
+  "flag:preserveColorProfile": 13,
+  "flag:preserveTimestamps": 37,
+});
 
 describe("replayable WebP qualification properties", () => {
   it("defaults focused runs to 200 and exact-path replay to one", () => {
@@ -103,11 +200,13 @@ describe("replayable WebP qualification properties", () => {
   it("runs the fixed grammar/mutation corpus with complete replay identity", async () => {
     const config = resolveReplayConfig(process.env);
     let executed = 0;
+    const counters = createCounters();
     const property = fc.asyncProperty(
       qualificationArbitrary(),
       async (sample) => {
         executed += 1;
-        await checkSample(sample);
+        const keys = await checkSample(sample);
+        countSample(counters, keys);
       },
     );
     const result = await fc.check(property, config);
@@ -126,7 +225,32 @@ describe("replayable WebP qualification properties", () => {
       );
     }
     expect(executed).toBe(config.numRuns);
+    // A focused FC_PATH replay (config.path defined) or a non-default FC_RUNS has
+    // no floor — floors only bind the full fixed-seed 200-run sweep (D-20).
+    if (config.path === undefined && config.numRuns === 200) {
+      assertFloors(counters, FIXED_SEED_FLOORS);
+    }
   }, 30_000);
+
+  it("accepts a generated ICC canary profile for color-profile preservation", () => {
+    fc.assert(
+      fc.property(
+        webpMetadataArbitrary().filter((sample) =>
+          sample.planted.some((item) => item.kind === "ICCP"),
+        ),
+        (sample) => {
+          const iccChunk = readChunks(sample.bytes).find(
+            (chunk) => chunk.fourCc === "ICCP",
+          );
+          expect(iccChunk).toBeDefined();
+          expect(validateIccForPreservation(iccChunk!.data)).toMatchObject({
+            ok: true,
+          });
+        },
+      ),
+      { seed: 460_046, numRuns: 50 },
+    );
+  });
 
   it("replays the exact minimized path emitted for an injected failure", () => {
     const arbitrary = fc.integer({ min: 0, max: 100 });

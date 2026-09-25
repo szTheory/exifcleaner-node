@@ -254,6 +254,7 @@ function execute(options) {
   return npm([
     "test",
     "--",
+    "tests/qualification/kit/floors.test.ts",
     "tests/qualification/webp/tracer.test.ts",
     "tests/qualification/webp/parser.test.ts",
     "tests/qualification/webp/property.test.ts",
