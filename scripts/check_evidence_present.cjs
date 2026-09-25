@@ -27,7 +27,7 @@ const packageRoot = dirname(__dirname);
 
 /**
  * Measured from the call sites in `tests/release_workflow_gate.test.ts` and
- * `tests/qualification/benchmark.test.ts`, not asserted.
+ * `tests/qualification/webp/benchmark.test.ts`, not asserted.
  */
 const REQUIRED_EVIDENCE_FILES = Object.freeze([
   "46-P95-NULL-BRANCH-CLOSURE.json",

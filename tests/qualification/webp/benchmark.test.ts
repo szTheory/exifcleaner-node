@@ -19,11 +19,11 @@ import {
   evidenceGatedIt,
   evidenceGatedTestTitles,
   phase46EvidenceDirectory,
-} from "../support/phase46-evidence.js";
+} from "../../support/phase46-evidence.js";
 
 const require = createRequire(import.meta.url);
-const projectRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-const benchmark = require("../../scripts/qualification/benchmark.cjs") as {
+const projectRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
+const benchmark = require("../../../scripts/qualification/benchmark.cjs") as {
   BENCHMARK_THRESHOLDS: {
     medianRatio: number;
     medianSlackNs: number;
@@ -85,7 +85,7 @@ type PrerequisiteEntry = {
   ledger: Record<string, unknown>;
 };
 
-const report = require("../../scripts/qualification/benchmark-report.cjs") as {
+const report = require("../../../scripts/qualification/benchmark-report.cjs") as {
   performanceP95(values: readonly number[]): number;
   evaluateTiming(input: {
     baselineMedianNs: number;
@@ -709,7 +709,7 @@ function hypothesisRefutedLedger() {
   };
 }
 const calibration =
-  require("../../scripts/qualification/benchmark-calibration.cjs") as {
+  require("../../../scripts/qualification/benchmark-calibration.cjs") as {
     workloadDigest(): string;
     workloadResultDigest(): string;
   };

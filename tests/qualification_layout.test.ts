@@ -7,12 +7,11 @@ const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
 /**
  * Files still flat under `tests/qualification/` while the D-15 kit/webp move is in progress.
- * This plan's Task 3 and Phase 55 Plan 02 shrink this list; Plan 02 ends with it empty.
+ * The D-15 layout move is complete as of Phase 55 Plan 02; this stays empty and frozen so
+ * a future stray flat file fails the gate by name instead of silently widening the allowlist.
  * Every entry is a project-root-relative path.
  */
-export const PENDING_FLAT_FILES: readonly string[] = [
-  "tests/qualification/benchmark.test.ts",
-];
+export const PENDING_FLAT_FILES: readonly string[] = Object.freeze([]);
 
 export interface QualificationListProblemsInput {
   readonly ciList: readonly string[];
