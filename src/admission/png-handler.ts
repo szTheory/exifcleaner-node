@@ -292,7 +292,8 @@ function routeTextKeyword(
     entries.push(...found.entries);
     warnings.push(...found.warnings);
     const foundOrientation = xmpOrientation(textBuffer);
-    if (foundOrientation !== undefined) otherOrientations.push(foundOrientation);
+    if (foundOrientation !== undefined)
+      otherOrientations.push(foundOrientation);
     return true;
   }
   if (RAW_PROFILE_EXIF_KEYWORDS.has(keyword)) {
@@ -300,7 +301,8 @@ function routeTextKeyword(
       textBuffer.toString("latin1"),
       PNG_MAX_INFLATED_TEXT_BYTES,
     );
-    if (foundOrientation !== undefined) otherOrientations.push(foundOrientation);
+    if (foundOrientation !== undefined)
+      otherOrientations.push(foundOrientation);
   }
   return false;
 }

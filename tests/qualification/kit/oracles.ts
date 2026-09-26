@@ -708,8 +708,8 @@ export function compareStructuralDifferential(
  * output against.
  *
  * `tagsFromFileArgs` (WR-01 live invariant, 56-17): an optional argument list spread
- * between `-all=` and `-o`, defaulting to empty so every existing WebP and PNG
- * differential call site is unchanged. The PNG orientation-source cross-engine
+ * between `-all=` and `-o`, defaulting to empty so every existing format-specific
+ * differential call site is unchanged. A per-format orientation-source cross-engine
  * consistency test passes `["-TagsFromFile", "@", "-Orientation"]` here to ask ExifTool
  * to re-derive `Orientation` from the same input it just stripped everything else from,
  * so the reference output can be inspected for whether ExifTool itself would have
