@@ -337,6 +337,17 @@ export function pngTextChunkData(keyword: string, text: string): Buffer {
   return Buffer.from(`${keyword}\0${text}`, "latin1");
 }
 
+/** PNG `zTXt` chunk payload: keyword, null terminator, compression method (0
+ * = deflate), then the deflated text. */
+export function pngZtxtChunkData(keyword: string, text: string): Buffer {
+  return Buffer.concat([
+    Buffer.from(keyword, "latin1"),
+    Buffer.from([0]),
+    Buffer.from([0]),
+    deflateSync(Buffer.from(text, "latin1")),
+  ]);
+}
+
 /**
  * IHDR, cHRM (32 bytes), bKGD (6 bytes), pHYs (9 bytes), a tEXt "Comment"
  * private-workflow marker, tIME (7 bytes), IDAT, IEND. Every chunk except
@@ -499,7 +510,8 @@ export function idotSecondSegmentTarget(file: Buffer): number | undefined {
 export function chunkTypeAt(file: Buffer, offset: number): string | undefined {
   let cursor = 8;
   while (cursor + 8 <= file.length) {
-    if (cursor === offset) return file.toString("ascii", cursor + 4, cursor + 8);
+    if (cursor === offset)
+      return file.toString("ascii", cursor + 4, cursor + 8);
     const length = file.readUInt32BE(cursor);
     const type = file.toString("ascii", cursor + 4, cursor + 8);
     cursor += 12 + length;

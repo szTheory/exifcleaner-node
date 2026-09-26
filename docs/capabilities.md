@@ -193,12 +193,24 @@ keep or strip it.
   bounded-inflate profile passes the same `icc-structural-v0.2` policy WebP
   uses), else removed. `pHYs` is kept byte-identical in its original relative
   position when `preserveResolution: true`, else removed.
-- **Anything else** -- an unregistered private ancillary chunk, or a chunk
-  registered in the PNG extensions registry but not yet measured against
-  ExifTool -- declines the source with a typed pre-write refusal
-  (`unmeasured-registered-chunks` / `unsafe-chunk-adjacency` in `refuses`).
-  A future measurement can graduate such a type onto one of the lists above;
-  the handler never guesses.
+- **Unregistered private ancillary chunk** (a type in neither the PNG
+  extensions registry nor any of the lists above, for example Android's
+  `npTc` nine-patch data) is **stripped** as a privacy-reasoned difference
+  from ExifTool `-all=`, which keeps it: an opaque payload nobody can audit.
+  Its type is recorded so a permitted-difference kind can grant it in the
+  differential harness.
+- **Registered but unmeasured ancillary chunk** (present in the PNG
+  extensions registry but not on any list above, for example `gIFg`, `gIFt`,
+  `gIFx`, `dSIG`, `fRAc`, or the upper-last-letter `mDCV`/`cLLI` casing)
+  declines the source with a typed pre-write refusal
+  (`unmeasured-registered-chunks` in `refuses`). A future measurement can
+  graduate such a type onto one of the lists above; the handler never
+  guesses.
+- **`iDOT` adjacency** (Apple's private chunk, D-06): its offsets are
+  relative to its own chunk start, so nothing may be inserted or removed
+  between `iDOT` and the first `IDAT`. A request that would remove a chunk in
+  that span declines with a typed pre-write refusal
+  (`unsafe-chunk-adjacency` in `refuses`) instead of writing a stale offset.
 
 Every successful PNG sanitize re-parses the staged destination (CRC and chunk
 order re-checked), asserts its chunk-type sequence against the plan computed

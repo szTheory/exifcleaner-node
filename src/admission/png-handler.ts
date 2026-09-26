@@ -278,8 +278,7 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
       // differential can grant it (Plans 07/09); its presence widens
       // removedNamespaces via PNG.
       classes.push("remove");
-      if (!unregisteredStripped.includes(type))
-        unregisteredStripped.push(type);
+      if (!unregisteredStripped.includes(type)) unregisteredStripped.push(type);
       namespaces.add("PNG");
       return;
     }
