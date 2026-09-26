@@ -181,7 +181,7 @@ keep or strip it.
 
 - **Always kept** (critical): `IHDR`, `PLTE`, `IDAT`, `IEND`.
 - **Always kept** (measured against ExifTool `-all=`, `PNG_PRESERVED_CHUNK_TYPES`):
-  `tRNS`, `cHRM`, `bKGD`, `sBIT`, `sPLT`, `hIST`, `cICP`, `mDCv`, `cLLi`,
+  `tRNS`, `cHRM`, `bKGD`, `sBIT`, `sPLT`, `hIST`, `cICP`, `mDCV`, `cLLI`,
   `sCAL`, `oFFs`, `pCAL`, `sTER`, `iDOT`, `vpAg`.
 - **Always removed** (`PNG_REMOVED_CHUNK_TYPES`): `tEXt`, `zTXt`, `iTXt`,
   `eXIf`, `tIME`, `caBX` (C2PA), and -- matching ExifTool's own behavior even
@@ -201,8 +201,8 @@ keep or strip it.
   differential harness.
 - **Registered but unmeasured ancillary chunk** (present in the PNG
   extensions registry but not on any list above, for example `gIFg`, `gIFt`,
-  `gIFx`, `dSIG`, `fRAc`, or the upper-last-letter `mDCV`/`cLLI` casing)
-  declines the source with a typed pre-write refusal
+  `gIFx`, `dSIG`, `fRAc`, or the deprecated `mDCv`/`cLLi` lower-last-letter
+  casing) declines the source with a typed pre-write refusal
   (`unmeasured-registered-chunks` in `refuses`). A future measurement can
   graduate such a type onto one of the lists above; the handler never
   guesses.

@@ -61,12 +61,17 @@ export type PngChunkClass =
 // 56-RESEARCH.md): `-all=` keeps every type in PNG_PRESERVED_CHUNK_TYPES and
 // removes every type in PNG_REMOVED_CHUNK_TYPES; `iCCP`/`pHYs` are removed
 // unless the corresponding preservation flag is set (PNG_CONDITIONAL_CHUNK_TYPES).
-// Casing note (carried from 56-02's flagged ambiguity): src/png/chunks.ts's own
-// registry admits both `mDCV`/`cLLI` and `mDCv`/`cLLi`. This handler's D-05
-// preserve-list uses exactly the casing 56-CONTEXT.md/56-RESEARCH.md measured
-// (`mDCv`, `cLLi`) -- the upper-last-letter spellings are therefore
-// registered-but-unmeasured (typed decline) today, not preserved. Plan 04
-// settles this permanently.
+// Casing note (56-08 D-05 amendment, maintainer-approved 2026-09-26): the
+// carried-over 56-02 ambiguity between `mDCV`/`cLLI` (PNG Third Edition) and
+// `mDCv`/`cLLi` (a lower-last-letter spelling that never appears in the
+// actual registry) was measured directly against ExifTool 13.59 in this
+// plan: freshly constructed fixtures show `-all=` and `-all=
+// -TagsFromFile @ -ICC_Profile` preserve `mDCV`/`cLLI` byte-identical,
+// exactly as they previously preserved `mDCv`/`cLLi`. The preserve-list now
+// uses the standard spelling; `mDCv`/`cLLi` moves to registered-but-
+// unmeasured (src/png/chunks.ts still admits it structurally), so it
+// declines typed pre-write (unsafe-structure, safe-to-fallback) instead of
+// being silently preserved under a spelling no real encoder emits.
 export const PNG_PRESERVED_CHUNK_TYPES: ReadonlySet<string> = new Set([
   "tRNS",
   "cHRM",
@@ -75,8 +80,8 @@ export const PNG_PRESERVED_CHUNK_TYPES: ReadonlySet<string> = new Set([
   "sPLT",
   "hIST",
   "cICP",
-  "mDCv",
-  "cLLi",
+  "mDCV",
+  "cLLI",
   "sCAL",
   "oFFs",
   "pCAL",

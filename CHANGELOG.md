@@ -21,6 +21,16 @@ Orientation disagrees with `eXIf`, declines orientation preservation to
 ExifTool rather than guessing which source wins (D-11, D-12). An agreeing or
 orientation-free non-`eXIf` source does not decline.
 
+### Fixed (PNG)
+
+D-05's preserve-list now keeps `mDCV`/`cLLI` (the PNG Third Edition spelling)
+byte-identical, corrected from the previously-carried `mDCv`/`cLLi`
+lower-last-letter spelling that never appears in the real registry. Measured
+against ExifTool 13.59 (2026-09-26): both `-all=` and `-all= -TagsFromFile @
+-ICC_Profile` preserve `mDCV`/`cLLI` unchanged. The deprecated `mDCv`/`cLLi`
+spelling now declines pre-write as registered-but-unmeasured instead of being
+silently preserved.
+
 ### Differences from ExifTool
 
 Native strips unregistered private ancillary PNG chunks (a type in neither

@@ -27,9 +27,13 @@ export const PNG_ANIMATION_CHUNK_TYPES = new Set([
 // At minimum this covers IHDR PLTE IDAT IEND, acTL/fcTL/fdAT (APNG, refused not admitted),
 // cHRM/cICP/gAMA/iCCP/mDCV/cLLI/sBIT/sRGB/bKGD/hIST/tRNS/eXIf/pHYs/sPLT/tIME/iTXt/tEXt/zTXt/
 // oFFs/pCAL/sCAL/gIFg/gIFt/gIFx/sTER/dSIG/fRAc, plus Apple's iDOT/vpAg (measured in D-05/D-07
-// as registered-and-order-constrained even though Apple-private) and the "mDCv"/"cLLi"
-// lower-last-letter casing measured on real files in 56-CONTEXT.md/56-RESEARCH.md (both
-// casings admitted since the two phase documents disagree on which is canonical).
+// as registered-and-order-constrained even though Apple-private). Both the standard
+// "mDCV"/"cLLI" casing and the "mDCv"/"cLLi" lower-last-letter casing are admitted
+// structurally here (order/singleton rules apply to either spelling if present); the D-05
+// preserve-vs-decline split between them is the png-handler.ts admission layer's job, not
+// this structural layer's (56-08 D-05 amendment, maintainer-approved 2026-09-26:
+// "mDCV"/"cLLI" measured-preserved against ExifTool 13.59, "mDCv"/"cLLi" declines as
+// registered-but-unmeasured).
 export const PNG_REGISTERED_CHUNK_TYPES = new Set([
     "IHDR",
     "PLTE",
