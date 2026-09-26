@@ -144,7 +144,7 @@ function extractJobBody(ciYmlText: string, jobName: string): string {
 
 /** Extracts a literal, double-quoted `KEY: "a b c"` job-level env value as a space-split list. */
 function extractEnvList(jobBody: string, key: string): string[] {
-  const match = jobBody.match(new RegExp(`\\n {4}${key}: "([^"]*)"`));
+  const match = jobBody.match(new RegExp(`\\n {6}${key}: "([^"]*)"`));
   const value = match?.[1];
   if (value === undefined)
     throw new Error(`${key} not found in qualification-linux env block`);

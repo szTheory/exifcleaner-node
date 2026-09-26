@@ -732,8 +732,8 @@ describe("ci.yml scope wiring (D-15, D-18)", () => {
       "utf8",
     );
     const mutated = workflow.replace(
-      "\n  qualification-linux:\n    needs: [quality, classify]\n",
-      "\n  qualification-linux:\n    needs: quality\n",
+      "    needs: [quality, classify]\n    if: ${{ !cancelled() && needs.quality.result == 'success' }}\n",
+      "    needs: quality\n    if: ${{ !cancelled() && needs.quality.result == 'success' }}\n",
     );
     expect(mutated).not.toBe(workflow);
     expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
@@ -745,8 +745,8 @@ describe("ci.yml scope wiring (D-15, D-18)", () => {
       "utf8",
     );
     const mutated = workflow.replace(
-      "\n  qualification-linux:\n    needs: [quality, classify]\n    if: ${{ !cancelled() && needs.quality.result == 'success' }}\n",
-      "\n  qualification-linux:\n    needs: [quality, classify]\n    if: ${{ !cancelled() && needs.quality.result == 'success' && needs.classify.outputs.scope == 'linux' }}\n",
+      "    needs: [quality, classify]\n    if: ${{ !cancelled() && needs.quality.result == 'success' }}\n",
+      "    needs: [quality, classify]\n    if: ${{ !cancelled() && needs.quality.result == 'success' && needs.classify.outputs.scope == 'linux' }}\n",
     );
     expect(mutated).not.toBe(workflow);
     expect(() => classify.validateCiScopeWiring(mutated)).toThrow();

@@ -28,6 +28,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       scope: ${{ steps.scope.outputs.scope }}
+      formats: ${{ steps.scope.outputs.formats }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,11 +62,19 @@ jobs:
       - run: npm run lint && npm run typecheck && npm run check:cycles && npm run build && npm run build:native && npm test && npm run check:runtime && npm run check:release
 
   qualification-linux:
-    needs: quality
+    # D-17 (56-12): the sole always-run job allowed to depend on `classify`,
+    # and only to read outputs.formats for in-job file selection below --
+    # never to gate whether this job runs at all (it is a required status
+    # check; see docs/ci-budget.md's "Per-format qualification scoping").
+    needs: [quality, classify]
+    if: ${{ !cancelled() && needs.quality.result == 'success' }}
     runs-on: ubuntu-24.04
     env:
       FC_SEED: "460046"
       FC_RUNS: "200"
+      QUAL_KIT: "tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts"
+      QUAL_WEBP: "tests/qualification/webp/tracer.test.ts tests/qualification/webp/parser.test.ts tests/qualification/webp/property.test.ts tests/qualification/webp/transaction.test.ts tests/qualification/webp/oracles.test.ts tests/qualification/webp/golden.test.ts"
+      QUAL_PNG: "tests/qualification/png/oracles.test.ts tests/qualification/png/tracer.test.ts tests/qualification/png/property.test.ts tests/qualification/png/parser.test.ts tests/qualification/png/transaction.test.ts tests/qualification/png/golden.test.ts"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -80,8 +89,25 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq zlib1g-dev
       - name: Admit committed offline oracle authority
         run: node scripts/qualification/build-oracles.cjs --verify-authority > oracle-authority.json
-      - name: Run complete property, transaction, and external-oracle corpus
-        run: npm test -- tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts tests/qualification/webp/tracer.test.ts tests/qualification/webp/parser.test.ts tests/qualification/webp/property.test.ts tests/qualification/webp/transaction.test.ts tests/qualification/webp/oracles.test.ts tests/qualification/webp/golden.test.ts tests/qualification/png/oracles.test.ts tests/qualification/png/tracer.test.ts tests/qualification/png/property.test.ts tests/qualification/png/parser.test.ts tests/qualification/png/transaction.test.ts tests/qualification/png/golden.test.ts
+      - name: Select and run qualification suites for touched formats (D-17)
+        env:
+          FORMATS: ${{ needs.classify.outputs.formats }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          files="$QUAL_KIT"
+          IFS=',' read -r -a selected_formats <<< "$FORMATS"
+          for format in "${selected_formats[@]}"; do
+            case "$format" in
+              webp) files="$files $QUAL_WEBP" ;;
+              png) files="$files $QUAL_PNG" ;;
+              *)
+                echo "qualification-linux: unknown format '$format' from classify.outputs.formats" >&2
+                exit 1
+                ;;
+            esac
+          done
+          npm test -- $files
       - name: Record focused qualification conclusion
         if: always()
         shell: bash

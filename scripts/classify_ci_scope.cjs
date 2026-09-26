@@ -110,6 +110,44 @@ const FULL_SCOPE_OVERRIDES = Object.freeze(
   ].map((rule) => Object.freeze(rule)),
 );
 
+/**
+ * Every format admitted into the qualification kit (D-17, handed over from
+ * Phase 55). Keys mirror `NativeFormat`; the `formats` GITHUB_OUTPUT sorts
+ * this set alphabetically regardless of declaration order here.
+ */
+const QUALIFIED_FORMATS = Object.freeze(["png", "webp"]);
+
+/**
+ * Per-format path rules (D-17). A changed path selects exactly one format's
+ * qualification suite only when it matches ONE format's own rules here; a
+ * path matching zero formats (shared/kit surface) or more than one selects
+ * every qualified format instead -- fail-closed, mirroring
+ * `classifyCiScope`'s own no-default-open contract. Each format's own unit
+ * tests, admission handler, qualification suite directory, and upstream
+ * corpus authority are named explicitly so a stray shared-surface pattern
+ * can never accidentally narrow a format's own scope.
+ */
+const FORMAT_PATH_RULES = Object.freeze({
+  png: Object.freeze([
+    /^src\/png\/.+/u,
+    /^src\/admission\/png-handler\.ts$/u,
+    /^dist\/png\/.+/u,
+    /^dist\/admission\/png-handler\.(?:js|js\.map|d\.ts|d\.ts\.map)$/u,
+    /^tests\/qualification\/png\/.+/u,
+    /^tests\/png[a-z0-9_-]*\.test\.ts$/u,
+    /^tests\/corpus\/upstream\/libpng-1\.6\.58\/.+/u,
+  ]),
+  webp: Object.freeze([
+    /^src\/webp\/.+/u,
+    /^src\/admission\/webp-handler\.ts$/u,
+    /^dist\/webp\/.+/u,
+    /^dist\/admission\/webp-handler\.(?:js|js\.map|d\.ts|d\.ts\.map)$/u,
+    /^tests\/qualification\/webp\/.+/u,
+    /^tests\/riff\.test\.ts$/u,
+    /^tests\/corpus\/upstream\/libwebp-1\.5\.0-example\.webp$/u,
+  ]),
+});
+
 /** A path git could plausibly emit but that must never be trusted for a rule match. */
 function isMalformedPath(path) {
   if (typeof path !== "string" || path.length === 0) return true;
@@ -171,6 +209,35 @@ function classifyCiScope({ eventName, workflowName, ref, changedPaths }) {
     scope: "linux",
     reason: "every changed path matched the linux-safe allowlist",
   });
+}
+
+/**
+ * Pure decision function (D-17 handoff to 56-12). Fail-closed exactly like
+ * `classifyCiScope`: any non-PR/push event, a tag ref, an empty/unavailable
+ * changed-path list, or any changed path that does not match exactly one
+ * format's `FORMAT_PATH_RULES` returns every qualified format. Only when
+ * every changed path resolves to exactly one format (possibly a different
+ * one per path) does the returned set narrow to the formats actually
+ * touched.
+ */
+function classifyQualificationFormats({ eventName, ref, changedPaths }) {
+  const everyFormat = Object.freeze([...QUALIFIED_FORMATS].sort());
+  if (!FILTERED_EVENTS.includes(eventName)) return everyFormat;
+  if (typeof ref === "string" && ref.startsWith("refs/tags/"))
+    return everyFormat;
+  if (!Array.isArray(changedPaths) || changedPaths.length === 0)
+    return everyFormat;
+
+  const selected = new Set();
+  for (const path of changedPaths) {
+    if (isMalformedPath(path)) return everyFormat;
+    const matches = QUALIFIED_FORMATS.filter((format) =>
+      FORMAT_PATH_RULES[format].some((pattern) => pattern.test(path)),
+    );
+    if (matches.length !== 1) return everyFormat;
+    selected.add(matches[0]);
+  }
+  return Object.freeze([...selected].sort());
 }
 
 function diffNamesBetween(base, head, cwd) {
@@ -348,6 +415,24 @@ function validateCiScopeWiring(workflowText) {
     const job = jobs[jobName];
     if (job === undefined)
       throw new Error(`ci.yml wiring: ${jobName} job is absent`);
+    if (jobName === "qualification-linux") {
+      // D-17 (56-12): qualification-linux is the one always-run job allowed
+      // to depend on classify -- ONLY to read outputs.formats for in-job
+      // file selection, never to gate whether it runs at all on scope.
+      if (!needsListIncludesClassify(job))
+        throw new Error(
+          `ci.yml wiring: ${jobName} does not list classify in needs`,
+        );
+      if (job.includes("needs.classify.outputs.scope"))
+        throw new Error(
+          `ci.yml wiring: ${jobName} must never gate on needs.classify.outputs.scope (always runs, D-17)`,
+        );
+      if (!job.includes("needs.classify.outputs.formats"))
+        throw new Error(
+          `ci.yml wiring: ${jobName} does not read needs.classify.outputs.formats`,
+        );
+      continue;
+    }
     if (job.includes("needs.classify") || needsListIncludesClassify(job))
       throw new Error(
         `ci.yml wiring: ${jobName} must never reference needs.classify`,
@@ -435,15 +520,21 @@ function main() {
     ref,
     changedPaths,
   });
+  const formats = classifyQualificationFormats({
+    eventName,
+    ref,
+    changedPaths,
+  });
   const pathCount = Array.isArray(changedPaths) ? changedPaths.length : 0;
   process.stdout.write(
-    `scope=${result.scope} reason=${result.reason} paths=${pathCount}\n`,
+    `scope=${result.scope} reason=${result.reason} paths=${pathCount} formats=${formats.join(",")}\n`,
   );
 
   const outputPath = process.env.GITHUB_OUTPUT;
   if (outputPath) {
     try {
       appendFileSync(outputPath, `scope=${result.scope}\n`);
+      appendFileSync(outputPath, `formats=${formats.join(",")}\n`);
     } catch (error) {
       process.stderr.write(
         `failed to write GITHUB_OUTPUT: ${String(error.message ?? error)}\n`,
@@ -460,8 +551,11 @@ module.exports = {
   FILTERED_EVENTS,
   LINUX_SAFE_PATH_RULES,
   FULL_SCOPE_OVERRIDES,
+  QUALIFIED_FORMATS,
+  FORMAT_PATH_RULES,
   isLinuxSafePath,
   classifyCiScope,
+  classifyQualificationFormats,
   changedPathsForEvent,
   validateCiScopeWiring,
   SKIP_GATED_JOBS,
