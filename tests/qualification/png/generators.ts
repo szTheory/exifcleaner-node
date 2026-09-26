@@ -344,6 +344,8 @@ export interface QualificationSample {
   readonly options: PngSampleOptions;
   /** The EXIF orientation value planted alongside an eXIf canary, when any. */
   readonly plantedOrientation?: number;
+  /** The hostile mutation case's own category, set only on `arm: "hostile"` samples. */
+  readonly hostileCategory?: PngHostileCategory;
 }
 
 interface MetadataArmSample {
@@ -956,29 +958,52 @@ export const validGrammarCases: readonly PngValidGrammarCase[] = Object.freeze([
  * mutation case whose materialization is not sparse (a sparse case's real
  * on-disk bytes would not reproduce its own declared refusal from a plain
  * in-memory sample, since fast-check samples never get truncated). */
+function toHostileSample(item: PngHostileMutationCase): QualificationSample {
+  const materialized = item.materialize();
+  return {
+    id: item.id,
+    bytes: materialized.prefix,
+    expected: item.expectedKind,
+    arm: "hostile" as const,
+    planted: [] as PlantedCanary<PngMetadataKind>[],
+    options: { ...NO_PRESERVATION, ...item.options },
+    hostileCategory: item.category,
+  } satisfies QualificationSample;
+}
+
+/**
+ * Picks a category uniformly first, then a case within it, instead of
+ * picking uniformly across all 21 cases. `decompression-bomb` (4 cases) and
+ * `crc` (3 cases) would otherwise draw ~4x as often as the six
+ * single-case categories (`unknown-critical`, `length-overflow`,
+ * `duplicate-singleton`, `idot-adjacency`, `registered-unmeasured`,
+ * `metadata-limit`), which measured well under the D-20 20-run re-measure
+ * threshold for those categories on more than one of the four fixed seeds
+ * (Task 3). Every case here has a real (non-sparse) `prefix`/`fileSize` --
+ * `hostileMutationCases` has no sparse entries as of Task 2, so nothing is
+ * filtered out here.
+ */
 function buildHostileArm(): fc.Arbitrary<QualificationSample> {
-  const bufferedHostile = hostileMutationCases.flatMap((item) => {
+  const byCategory = new Map<PngHostileCategory, PngHostileMutationCase[]>();
+  for (const item of hostileMutationCases) {
     const materialized = item.materialize();
-    if (materialized.fileSize !== materialized.prefix.length) return [];
-    return [
-      {
-        id: item.id,
-        bytes: materialized.prefix,
-        expected: item.expectedKind,
-        arm: "hostile" as const,
-        planted: [] as PlantedCanary<PngMetadataKind>[],
-        options: { ...NO_PRESERVATION, ...item.options },
-      } satisfies QualificationSample,
-    ];
-  });
-  return fc.constantFrom(...bufferedHostile);
+    if (materialized.fileSize !== materialized.prefix.length) continue;
+    const list = byCategory.get(item.category) ?? [];
+    list.push(item);
+    byCategory.set(item.category, list);
+  }
+  const categories = [...byCategory.keys()];
+  return fc
+    .constantFrom(...categories)
+    .chain((category) => fc.constantFrom(...byCategory.get(category)!))
+    .map(toHostileSample);
 }
 
 export function pngQualificationArbitrary(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 10, arbitrary: buildMetadataArm() },
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 2, arbitrary: buildHostileArm() },
+    { weight: 6, arbitrary: buildHostileArm() },
   );
 }
 
@@ -991,7 +1016,7 @@ export function pngQualificationArbitrary(): fc.Arbitrary<QualificationSample> {
 export function pngQualificationArbitraryWithoutMetadataArm(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 2, arbitrary: buildHostileArm() },
+    { weight: 6, arbitrary: buildHostileArm() },
   );
 }
 

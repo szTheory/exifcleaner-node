@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   access,
+  copyFile,
   mkdtemp,
   open,
   readFile,
@@ -19,6 +20,8 @@ import {
   parseExif,
 } from "../../../src/metadata/exif.js";
 import { parsePng } from "../../../src/png/chunks.js";
+import { ok } from "../../../src/result.js";
+import { png, pngChunk } from "../../fixtures.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
 import { assertFloors, countSample, createCounters } from "../kit/floors.js";
 import { pngIdatData } from "./oracles.js";
@@ -68,6 +71,28 @@ function findChunk(
   type: string,
 ): Buffer | undefined {
   return records.find((item) => item.type === type)?.data;
+}
+
+/**
+ * Rewrites `destinationPath` by mapping its current chunk list through
+ * `transform` and re-serializing it as a PNG (mirrors
+ * webp/property.test.ts's `rewriteDestination`). Every negative control that
+ * needs to corrupt real sanitizer output -- rather than synthesize a buffer
+ * from scratch -- reads the genuine output the real `sanitizeFile` wrote,
+ * transforms it, and writes it back, so the assertion under test always runs
+ * on real sanitizer output.
+ */
+async function rewritePngDestination(
+  destinationPath: string,
+  transform: (records: readonly PngChunkRecord[]) => readonly PngChunkRecord[],
+): Promise<void> {
+  const destination = await readFile(destinationPath);
+  const rewritten = png(
+    transform(readPngChunkRecords(destination)).map((item) =>
+      pngChunk(item.type, item.data),
+    ),
+  );
+  await writeFile(destinationPath, rewritten);
 }
 
 /**
@@ -237,7 +262,10 @@ async function checkSample(
           PRESERVATION_MESSAGES.orientationMissing,
         ).toHaveLength(1);
         const expectedData = createOrientationExif(sample.plantedOrientation!);
-        expect(destinationExifChunks[0]!.data.equals(expectedData)).toBe(true);
+        expect(
+          destinationExifChunks[0]!.data.equals(expectedData),
+          PRESERVATION_MESSAGES.orientationValue,
+        ).toBe(true);
         const parsedExif = parseExif(destinationExifChunks[0]!.data);
         expect(
           parsedExif.orientation,
@@ -275,6 +303,8 @@ async function checkSample(
         },
       });
       await expect(access(destinationPath)).rejects.toBeDefined();
+      if (sample.hostileCategory !== undefined)
+        counterKeys.push(`hostile:${sample.hostileCategory}`);
     }
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -287,9 +317,88 @@ async function checkSample(
  * mechanism; Task 3 measures the real distribution at the fixed seed and
  * pins `PNG_FIXED_SEED_FLOORS` here.
  */
-const PNG_FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze(
-  {},
-);
+/**
+ * Absolute per-arm/per-kind/per-flag/per-hostile-category floors (D-20).
+ * Each floor is half the minimum measured count across four seeds (460046,
+ * 1, 2, 3), rounded down, with a hard minimum of 1 -- never lowered to fit
+ * a low measurement; if a category ever measures under its floor, the
+ * generator's weighting is the thing to fix (Task 3's own re-measure of
+ * `flag:preserveOrientation` and the hostile-arm category-uniform draw are
+ * both examples already folded into `generators.ts`). Binds only at
+ * FC_SEED 460046 / FC_RUNS 200 (55-REVIEW WR-01) -- see the guard below.
+ * Measured 200-run distributions (arm/kind/flag/hostile -> count):
+ *
+ *   seed 460046: metadata 116, no-metadata 22, hostile 62;
+ *                tEXt 35, zTXt 41, iTXt 33, iTXtCompressed 38, XMP 42,
+ *                eXIf 45, caBX 41, private 29, iCCP 44;
+ *                preserveOrientation 21, preserveColorProfile 21,
+ *                preserveResolution 19, preserveTimestamps 68;
+ *                crc 3, unknown-critical 6, chunk-order 6, truncation 5,
+ *                trailing-data 4, apng 5, decompression-bomb 3,
+ *                length-overflow 6, duplicate-singleton 8,
+ *                idot-adjacency 2, registered-unmeasured 8,
+ *                aggregate-inflate 6
+ *   seed 1:      metadata 105, no-metadata 24, hostile 71;
+ *                tEXt 34, zTXt 36, iTXt 36, iTXtCompressed 40, XMP 32,
+ *                eXIf 33, caBX 34, private 35, iCCP 33;
+ *                preserveOrientation 18, preserveColorProfile 17,
+ *                preserveResolution 14, preserveTimestamps 68;
+ *                crc 3, unknown-critical 6, chunk-order 10, truncation 6,
+ *                trailing-data 8, apng 5, decompression-bomb 6,
+ *                length-overflow 3, duplicate-singleton 4,
+ *                idot-adjacency 5, registered-unmeasured 6,
+ *                aggregate-inflate 9
+ *   seed 2:      metadata 109, no-metadata 22, hostile 69;
+ *                tEXt 40, zTXt 28, iTXt 34, iTXtCompressed 32, XMP 36,
+ *                eXIf 36, caBX 33, private 35, iCCP 33;
+ *                preserveOrientation 14, preserveColorProfile 18,
+ *                preserveResolution 23, preserveTimestamps 67;
+ *                crc 5, unknown-critical 8, chunk-order 6, truncation 6,
+ *                trailing-data 8, apng 4, decompression-bomb 5,
+ *                length-overflow 6, duplicate-singleton 10,
+ *                idot-adjacency 5, registered-unmeasured 2,
+ *                aggregate-inflate 4
+ *   seed 3:      metadata 114, no-metadata 23, hostile 63;
+ *                tEXt 40, zTXt 35, iTXt 33, iTXtCompressed 36, XMP 27,
+ *                eXIf 41, caBX 34, private 37, iCCP 38;
+ *                preserveOrientation 21, preserveColorProfile 20,
+ *                preserveResolution 28, preserveTimestamps 72;
+ *                crc 4, unknown-critical 7, chunk-order 6, truncation 9,
+ *                trailing-data 4, apng 5, decompression-bomb 5,
+ *                length-overflow 3, duplicate-singleton 5,
+ *                idot-adjacency 8, registered-unmeasured 4,
+ *                aggregate-inflate 3
+ */
+const PNG_FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze({
+  "arm:metadata": 52,
+  "arm:no-metadata": 11,
+  "arm:hostile": 31,
+  "kind:tEXt": 17,
+  "kind:zTXt": 14,
+  "kind:iTXt": 16,
+  "kind:iTXtCompressed": 16,
+  "kind:XMP": 13,
+  "kind:eXIf": 16,
+  "kind:caBX": 16,
+  "kind:private": 14,
+  "kind:iCCP": 16,
+  "flag:preserveOrientation": 7,
+  "flag:preserveColorProfile": 8,
+  "flag:preserveResolution": 7,
+  "flag:preserveTimestamps": 33,
+  "hostile:crc": 1,
+  "hostile:unknown-critical": 3,
+  "hostile:chunk-order": 3,
+  "hostile:truncation": 2,
+  "hostile:trailing-data": 2,
+  "hostile:apng": 2,
+  "hostile:decompression-bomb": 1,
+  "hostile:length-overflow": 1,
+  "hostile:duplicate-singleton": 2,
+  "hostile:idot-adjacency": 1,
+  "hostile:registered-unmeasured": 1,
+  "hostile:aggregate-inflate": 1,
+});
 
 describe("replayable PNG qualification properties", () => {
   it("defaults focused runs to 200 and exact-path replay to one", () => {
@@ -387,18 +496,202 @@ describe("replayable PNG qualification properties", () => {
     });
   });
 
-  it("(3) fails a generator with no metadata arm on the floor assertion itself", () => {
-    // Wired ahead of Task 3's full negative-controls describe block so the
-    // floor-collapse control exists as soon as PNG_FIXED_SEED_FLOORS is
-    // non-empty; a vacuous floor set cannot throw, so this is a no-op until
-    // Task 3 pins real floors, then goes live without further changes here.
-    const samples = fc.sample(pngQualificationArbitraryWithoutMetadataArm(), {
+  describe("negative controls (PNG)", () => {
+    const REPLAY_PARAMS = {
       seed: 460_046,
       numRuns: 200,
+      endOnFailure: true,
+    } as const;
+
+    it("(1) fails a pure-copy sanitizer via the canary absence check", async () => {
+      const pureCopySanitize: typeof sanitizeFile = async (options) => {
+        await copyFile(options.sourcePath, options.destinationPath);
+        return ok({
+          format: "png",
+          destinationPath: options.destinationPath,
+          removedNamespaces: [],
+          preserved: {
+            orientation: false,
+            colorProfile: false,
+            timestamps: false,
+            resolution: false,
+          },
+          warnings: [],
+          postCommitResidue: { state: "none" },
+        });
+      };
+      const arbitrary = pngQualificationArbitrary().filter(
+        (sample) => sample.expected === "success" && sample.planted.length > 0,
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, pureCopySanitize);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain("EXIFCLEANER-CANARY-");
     });
-    const counters = createCounters();
-    for (const sample of samples) countSample(counters, [`arm:${sample.arm}`]);
-    if (Object.keys(PNG_FIXED_SEED_FLOORS).length === 0) return;
-    expect(() => assertFloors(counters, PNG_FIXED_SEED_FLOORS)).toThrow();
+
+    it("(2) fails a sanitizer that keeps zTXt", async () => {
+      // The fake calls the real dist sanitizeFile, then appends the
+      // source's zTXt chunk(s) back onto the genuine output, so the canary
+      // check runs against real sanitizer output that leaks exactly one
+      // metadata kind.
+      const ztxtKeepingSanitize: typeof sanitizeFile = async (options) => {
+        const outcome = await sanitizeFile(options);
+        if (!outcome.ok) return outcome;
+        const sourceZtxtChunks = readPngChunkRecords(
+          await readFile(options.sourcePath),
+        ).filter((item) => item.type === "zTXt");
+        await rewritePngDestination(options.destinationPath, (records) => [
+          ...records,
+          ...sourceZtxtChunks,
+        ]);
+        return outcome;
+      };
+      const arbitrary = pngQualificationArbitrary().filter(
+        (sample) =>
+          sample.expected === "success" &&
+          sample.planted.some((item) => item.kind === "zTXt"),
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, ztxtKeepingSanitize);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain("kind zTXt");
+      expect(String(result.errorInstance)).toContain("EXIFCLEANER-CANARY-");
+    });
+
+    it("(3) fails a generator with no metadata arm on the floor assertion itself", () => {
+      const samples = fc.sample(pngQualificationArbitraryWithoutMetadataArm(), {
+        seed: 460_046,
+        numRuns: 200,
+      });
+      const counters = createCounters();
+      for (const sample of samples)
+        countSample(counters, [`arm:${sample.arm}`]);
+      expect(() => assertFloors(counters, PNG_FIXED_SEED_FLOORS)).toThrow(
+        /kind:eXIf/,
+      );
+    });
+
+    it("(4a) fails a sanitizer that ignores a requested color-profile preservation", async () => {
+      const ignoresColorProfile: typeof sanitizeFile = (options) =>
+        sanitizeFile({ ...options, preserveColorProfile: false });
+      const arbitrary = pngQualificationArbitrary().filter(
+        (sample) =>
+          sample.expected === "success" &&
+          sample.options.preserveColorProfile &&
+          sample.planted.some((item) => item.kind === "iCCP"),
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, ignoresColorProfile);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.iccMissing,
+      );
+    });
+
+    it("(4b) fails a sanitizer that drops pHYs despite a requested resolution preservation", async () => {
+      // The fake honors every flag via the real sanitizeFile, then strips
+      // any pHYs chunk the real output carries.
+      const dropsResolution: typeof sanitizeFile = async (options) => {
+        const outcome = await sanitizeFile(options);
+        if (!outcome.ok) return outcome;
+        await rewritePngDestination(options.destinationPath, (records) =>
+          records.filter((item) => item.type !== "pHYs"),
+        );
+        return outcome;
+      };
+      const arbitrary = pngQualificationArbitrary().filter((sample) => {
+        if (sample.expected !== "success" || !sample.options.preserveResolution)
+          return false;
+        return (
+          findChunk(readPngChunkRecords(sample.bytes), "pHYs") !== undefined
+        );
+      });
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, dropsResolution);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.resolutionMissing,
+      );
+    });
+
+    it("(4c) fails a sanitizer that writes a different Orientation value", async () => {
+      const arbitrary = pngQualificationArbitrary().filter(
+        (sample) =>
+          sample.expected === "success" &&
+          sample.options.preserveOrientation &&
+          sample.plantedOrientation !== undefined,
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          const other = sample.plantedOrientation === 1 ? 2 : 1;
+          const writesWrongOrientation: typeof sanitizeFile = async (
+            options,
+          ) => {
+            const outcome = await sanitizeFile(options);
+            if (!outcome.ok) return outcome;
+            await rewritePngDestination(options.destinationPath, (records) =>
+              records.map((item) =>
+                item.type === "eXIf"
+                  ? { ...item, data: createOrientationExif(other) }
+                  : item,
+              ),
+            );
+            return outcome;
+          };
+          await checkSample(sample, writesWrongOrientation);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.orientationValue,
+      );
+    });
+
+    it("(5) fails a sanitizer that admits a CRC-corrupt file", async () => {
+      const admitsCorruptFile: typeof sanitizeFile = async (options) => {
+        await copyFile(options.sourcePath, options.destinationPath);
+        return ok({
+          format: "png",
+          destinationPath: options.destinationPath,
+          removedNamespaces: [],
+          preserved: {
+            orientation: false,
+            colorProfile: false,
+            timestamps: false,
+            resolution: false,
+          },
+          warnings: [],
+          postCommitResidue: { state: "none" },
+        });
+      };
+      const arbitrary = pngQualificationArbitrary().filter(
+        (sample) =>
+          sample.arm === "hostile" && sample.hostileCategory === "crc",
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, admitsCorruptFile);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(result.failed).toBe(true);
+    });
   });
 });
