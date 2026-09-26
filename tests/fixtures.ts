@@ -1,3 +1,6 @@
+import { deflateSync } from "node:zlib";
+import { PNG_SIGNATURE, encodePngChunk } from "../src/png/chunks.js";
+
 export interface FixtureChunk {
   readonly fourCc: string;
   readonly data: Buffer;
@@ -251,6 +254,49 @@ export function metadataWebp(imagePayload = vp8()): Buffer {
     { fourCc: "VP8 ", data: imagePayload },
     { fourCc: "EXIF", data: exifWithOrientation(6) },
     { fourCc: "XMP ", data: xmpPacket() },
+  ]);
+}
+
+// PNG builders. A CRC-correct chunk is produced via the src encoder itself
+// (encodePngChunk), so the fixture builders and the parser share one encoder while the
+// CRC-32 algorithm itself is pinned by png_chunks.test.ts's reference vectors.
+
+export function pngChunk(type: string, data: Buffer): Buffer {
+  return encodePngChunk(type, data);
+}
+
+export function png(chunks: readonly Buffer[]): Buffer {
+  return Buffer.concat([PNG_SIGNATURE, ...chunks]);
+}
+
+export function pngIhdr(
+  width = 1,
+  height = 1,
+  bitDepth = 8,
+  colorType = 2,
+): Buffer {
+  const data = Buffer.alloc(13);
+  data.writeUInt32BE(width, 0);
+  data.writeUInt32BE(height, 4);
+  data[8] = bitDepth;
+  data[9] = colorType;
+  data[10] = 0; // compression method
+  data[11] = 0; // filter method
+  data[12] = 0; // interlace method
+  return data;
+}
+
+export function pngIdat(): Buffer {
+  // One filter-0 scanline for a 1x1 truecolor (colorType 2) pixel: filter byte + RGB.
+  const scanline = Buffer.from([0, 0, 0, 0]);
+  return deflateSync(scanline);
+}
+
+export function minimalPng(): Buffer {
+  return png([
+    pngChunk("IHDR", pngIhdr()),
+    pngChunk("IDAT", pngIdat()),
+    pngChunk("IEND", Buffer.alloc(0)),
   ]);
 }
 
