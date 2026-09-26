@@ -252,6 +252,28 @@ export function iccProfile(): Buffer {
   return iccProfileV4();
 }
 
+/**
+ * Builds a structurally-admitted ICC v4 profile (per `validateIccForPreservation`)
+ * carrying the canary text inside a second `cprt`/`text` tag, after the default
+ * `rTRC` tag. Offsets/sizes stay canonical contiguous ranges with zero padding,
+ * since `iccProfileV4` computes them from the tag list and this only writes into
+ * the already-zeroed data region past the 8-byte type+reserved tag header. Shared
+ * by both WebP's and PNG's qualification generators (56-10) -- the ICC container
+ * format and its structural admission are format-neutral.
+ */
+export function iccCanaryProfile(canaryText: string): Buffer {
+  const canary = Buffer.from(canaryText, "ascii");
+  const tags = [
+    { signature: "rTRC" },
+    { signature: "cprt", type: "text", size: 8 + canary.length },
+  ] as const;
+  const tableEnd = 132 + tags.length * 12;
+  const cprtOffset = tableEnd + 1 * 8; // matches iccProfileV4's default per-index offset
+  const profile = iccProfileV4({}, tags);
+  canary.copy(profile, cprtOffset + 8);
+  return profile;
+}
+
 export function metadataWebp(imagePayload = vp8()): Buffer {
   return webp([
     { fourCc: "VP8X", data: vp8x(0x2c) },

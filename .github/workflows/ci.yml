@@ -81,7 +81,7 @@ jobs:
       - name: Admit committed offline oracle authority
         run: node scripts/qualification/build-oracles.cjs --verify-authority > oracle-authority.json
       - name: Run complete property, transaction, and external-oracle corpus
-        run: npm test -- tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts tests/qualification/webp/tracer.test.ts tests/qualification/webp/parser.test.ts tests/qualification/webp/property.test.ts tests/qualification/webp/transaction.test.ts tests/qualification/webp/oracles.test.ts tests/qualification/webp/golden.test.ts tests/qualification/png/oracles.test.ts tests/qualification/png/tracer.test.ts
+        run: npm test -- tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts tests/qualification/webp/tracer.test.ts tests/qualification/webp/parser.test.ts tests/qualification/webp/property.test.ts tests/qualification/webp/transaction.test.ts tests/qualification/webp/oracles.test.ts tests/qualification/webp/golden.test.ts tests/qualification/png/oracles.test.ts tests/qualification/png/tracer.test.ts tests/qualification/png/property.test.ts
       - name: Record focused qualification conclusion
         if: always()
         shell: bash
