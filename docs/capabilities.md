@@ -218,6 +218,23 @@ keep or strip it.
   that span declines with a typed pre-write refusal
   (`unsafe-chunk-adjacency` in `refuses`) instead of writing a stale offset.
 
+### PNG limits
+
+| Member                            | Value      | Meaning                                                                  |
+| ---------------------------------- | ---------- | ------------------------------------------------------------------------ |
+| `limits.maxMetadataBytesPerChunk`  | `16777216` | Maximum on-disk size of any single non-`IDAT` chunk's data (16 MiB).     |
+| `limits.maxAncillaryChunkCount`    | `10000`    | Maximum number of non-`IDAT` chunks accepted during one parse.          |
+| `limits.maxIdatChunkCount`         | `65536`    | Maximum number of `IDAT` chunks accepted during one parse (CR-02).      |
+| `limits.maxInflatedIccBytes`       | `16777216` | Maximum inflated size of an `iCCP` profile (16 MiB, the ICC policy cap).|
+| `limits.maxInflatedTextBytes`      | `16777216` | Maximum inflated size of a `zTXt` or compressed `iTXt` field (16 MiB).  |
+| `limits.maxInflatedBytesTotal`     | `50331648` | Aggregate inflated-bytes budget shared across all compressed fields (48 MiB). |
+
+`maxIdatChunkCount` is derived from a census of 19,979 real PNGs (the largest
+measured 1,786 `IDAT` chunks): 65,536 is 36x that headroom and still admits
+512 MiB of image data at libpng's 8 KiB default `IDAT` size, so a file above
+the cap falls back to ExifTool (a typed pre-write decline, classified safe)
+rather than failing.
+
 ### PNG orientation (D-11, D-12, D-13)
 
 `eXIf` is PNG's only orientation source: when `preserveOrientation: true` and
