@@ -1,4 +1,6 @@
 import type { FileHandle } from "node:fs/promises";
+import { inflateSync } from "node:zlib";
+import { MAX_PROFILE_BYTES } from "../metadata/icc_admission.js";
 
 // PNG chunk-stream codec: signature check, chunk parse/encode, CRC-32, and (Task 2/3)
 // the PNG-03 structural refusals plus bounded decompression (D-14). Mirrors
@@ -582,4 +584,87 @@ export async function parsePng(
   validateStructure(chunks);
 
   return { chunks, buffered };
+}
+
+// D-14: bounded decompression for iCCP/zTXt/compressed-iTXt payloads. The iCCP cap is the
+// ICC policy ceiling itself (imported, not copied), so an inflated profile the policy would
+// reject for size can never be materialized. The text cap has parity with WebP's per-chunk
+// metadata buffer (MAX_BUFFERED_METADATA_BYTES in src/webp/riff.ts); the aggregate cap has
+// parity with WebP's worst case of three singleton 16 MiB metadata chunks, so native never
+// buffers more decompressed metadata for a PNG than it would for an admitted WebP.
+export const PNG_MAX_INFLATED_ICC_BYTES = MAX_PROFILE_BYTES;
+export const PNG_MAX_INFLATED_TEXT_BYTES = 16 * 1024 * 1024;
+export const PNG_MAX_INFLATED_BYTES_TOTAL = 48 * 1024 * 1024;
+
+export class InflateBudget {
+  #remaining: number;
+
+  constructor(total: number) {
+    this.#remaining = total;
+  }
+
+  remaining(): number {
+    return this.#remaining;
+  }
+
+  consume(n: number): void {
+    if (n > this.#remaining) {
+      throw new PngStructureError(
+        "unsafe-structure",
+        "Aggregate PNG decompression budget exceeded.",
+        { chunkType: "*", size: n, limit: this.#remaining },
+      );
+    }
+    this.#remaining -= n;
+  }
+}
+
+function isBufferTooLarge(cause: unknown): boolean {
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "code" in cause &&
+    (cause as { code?: unknown }).code === "ERR_BUFFER_TOO_LARGE"
+  );
+}
+
+/**
+ * Inflates a zlib-compressed chunk payload under a hard output cap, both per chunk and
+ * against a shared per-file aggregate budget. Never trusts a declared uncompressed size;
+ * relies solely on zlib's own maxOutputLength enforcement plus a post-inflate size check
+ * for the exact-boundary case. An over-cap result or invalid zlib data is always a refusal,
+ * never a partial read.
+ */
+export function inflateBounded(
+  data: Buffer,
+  chunkType: string,
+  perChunkLimit: number,
+  budget: InflateBudget,
+): Buffer {
+  const effectiveLimit = Math.min(perChunkLimit, budget.remaining());
+  let result: Buffer;
+  try {
+    result = inflateSync(data, { maxOutputLength: effectiveLimit + 1 });
+  } catch (cause) {
+    if (isBufferTooLarge(cause)) {
+      throw new PngStructureError(
+        "unsafe-structure",
+        `${chunkType} decompresses past the ${effectiveLimit}-byte policy limit.`,
+        { chunkType, size: effectiveLimit + 1, limit: effectiveLimit },
+      );
+    }
+    throw new PngStructureError(
+      "malformed-file",
+      `${chunkType} compressed data is invalid.`,
+    );
+  }
+  if (result.length > effectiveLimit) {
+    throw new PngStructureError(
+      "unsafe-structure",
+      `${chunkType} decompresses past the ${effectiveLimit}-byte policy limit.`,
+      { chunkType, size: result.length, limit: effectiveLimit },
+    );
+  }
+  budget.consume(result.length);
+  return result;
 }

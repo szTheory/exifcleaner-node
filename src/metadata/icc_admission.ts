@@ -6,7 +6,7 @@ export const ICC_PRESERVATION_POLICY_ID = "icc-structural-v0.2";
 const ICC_HEADER_BYTES = 128;
 const ICC_TAG_COUNT_BYTES = 4;
 const ICC_TAG_RECORD_BYTES = 12;
-const MAX_PROFILE_BYTES = 16 * 1024 * 1024;
+export const MAX_PROFILE_BYTES = 16 * 1024 * 1024;
 const MAX_TAG_COUNT = 4_096;
 const D50 = [0x0000_f6d6, 0x0001_0000, 0x0000_d32d] as const;
 

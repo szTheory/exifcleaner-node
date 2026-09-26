@@ -2,13 +2,18 @@ import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as zlib from "node:zlib";
+import { deflateSync } from "node:zlib";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  InflateBudget,
   PNG_MAX_ANCILLARY_CHUNKS,
+  PNG_MAX_INFLATED_BYTES_TOTAL,
+  PNG_MAX_INFLATED_ICC_BYTES,
   PNG_MAX_METADATA_BYTES_PER_CHUNK,
   type PngStructureError,
   crc32,
+  inflateBounded,
   parsePng,
 } from "../src/png/chunks.js";
 import { minimalPng, png, pngChunk, pngIdat, pngIhdr } from "./fixtures.js";
@@ -302,6 +307,60 @@ describe("parsePng structural refusals (PNG-03)", () => {
       pngChunk("IEND", Buffer.alloc(0)),
     ]);
     await expectStructureError(fixture, "malformed-file");
+  });
+});
+
+describe("inflateBounded (D-14)", () => {
+  it("inflates valid deflate data below the cap and returns the exact bytes", () => {
+    const source = Buffer.from("hello bounded inflate");
+    const compressed = deflateSync(source);
+    const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+    const result = inflateBounded(
+      compressed,
+      "zTXt",
+      PNG_MAX_INFLATED_ICC_BYTES,
+      budget,
+    );
+    expect(result.equals(source)).toBe(true);
+  });
+
+  it("refuses a decompression bomb past a 16 MiB cap in under 2000ms, with limit.chunkType set", () => {
+    const bomb = deflateSync(Buffer.alloc(17 * 1024 * 1024, 0));
+    const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+    const start = process.hrtime.bigint();
+    let caught: unknown;
+    try {
+      inflateBounded(bomb, "iCCP", PNG_MAX_INFLATED_ICC_BYTES, budget);
+    } catch (error) {
+      caught = error;
+    }
+    const elapsedMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+    expect(elapsedMs).toBeLessThan(2000);
+    expect(caught).toMatchObject({
+      kind: "unsafe-structure",
+      limit: { chunkType: "iCCP" },
+    });
+  });
+
+  it("refuses invalid zlib data as malformed-file", () => {
+    const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+    expect(() =>
+      inflateBounded(
+        Buffer.from([0x00, 0x01, 0x02, 0x03]),
+        "zTXt",
+        PNG_MAX_INFLATED_ICC_BYTES,
+        budget,
+      ),
+    ).toThrow(expect.objectContaining({ kind: "malformed-file" }));
+  });
+
+  it("an InflateBudget with 48 MiB total refuses a third 16 MiB consumption after 32 MiB plus one byte", () => {
+    const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+    budget.consume(16 * 1024 * 1024);
+    budget.consume(16 * 1024 * 1024 + 1);
+    expect(() => budget.consume(16 * 1024 * 1024)).toThrow(
+      expect.objectContaining({ kind: "unsafe-structure" }),
+    );
   });
 });
 
