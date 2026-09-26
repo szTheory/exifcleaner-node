@@ -1,9 +1,9 @@
-import { parseExif } from "../metadata/exif.js";
+import { createOrientationExif, parseExif } from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
 import { parseXmp } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
-import { inflateBounded, InflateBudget, isPngSignature, parsePng, PNG_CRITICAL_CHUNK_TYPES, PNG_MAX_ANCILLARY_CHUNKS, PNG_MAX_INFLATED_BYTES_TOTAL, PNG_MAX_INFLATED_ICC_BYTES, PNG_MAX_INFLATED_TEXT_BYTES, PNG_MAX_METADATA_BYTES_PER_CHUNK, PNG_REGISTERED_CHUNK_TYPES, PNG_SIGNATURE, PngStructureError, } from "../png/chunks.js";
+import { encodePngChunk, inflateBounded, InflateBudget, isPngSignature, parsePng, PNG_CRITICAL_CHUNK_TYPES, PNG_MAX_ANCILLARY_CHUNKS, PNG_MAX_INFLATED_BYTES_TOTAL, PNG_MAX_INFLATED_ICC_BYTES, PNG_MAX_INFLATED_TEXT_BYTES, PNG_MAX_METADATA_BYTES_PER_CHUNK, PNG_REGISTERED_CHUNK_TYPES, PNG_SIGNATURE, PngStructureError, readExactly, } from "../png/chunks.js";
 import { ICC_PRESERVATION_POLICY_ID, MAX_PROFILE_BYTES, } from "../metadata/icc_admission.js";
 // D-05 closed lists. Measured ExifTool 13.59 behaviour (56-CONTEXT.md,
 // 56-RESEARCH.md): `-all=` keeps every type in PNG_PRESERVED_CHUNK_TYPES and
@@ -194,20 +194,13 @@ function collectMetadata(parsed) {
         if (type === "eXIf") {
             namespaces.add("EXIF");
             if (data !== undefined) {
+                // D-11: PNG's eXIf is a singleton chunk type (SINGLETON_CHUNK_TYPES in
+                // src/png/chunks.ts), so there is exactly one to read from. Task 2
+                // layers the non-eXIf-source decline (D-11/D-12) on top of this.
                 const found = parseExif(data);
                 entries.push(...found.entries);
                 warnings.push(...found.warnings);
-                // Tracer fail-closed (D-11/D-12, Plan 06 replaces this): PNG never
-                // writes orientation yet, so a valid source Orientation is reported
-                // as unsupported -- the engine declines preserveOrientation:true
-                // against it, rather than silently dropping the value.
-                orientation =
-                    found.orientation.status === "valid"
-                        ? {
-                            status: "unsupported",
-                            detail: "PNG orientation preservation is not yet admitted.",
-                        }
-                        : found.orientation;
+                orientation = found.orientation;
             }
             return;
         }
@@ -330,10 +323,15 @@ function findIdotAdjacencyDecline(admission, preserveColorProfile, preserveResol
     }
     return undefined;
 }
-function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, preserveResolution, _orientation) {
-    // The tracer inserts nothing (Plan 06 adds the minimal eXIf insert); every
-    // kept chunk is copied byte-for-byte from its original source range.
-    // Adjacent kept chunks are coalesced into one copy range.
+function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, preserveResolution, orientation) {
+    // Every kept chunk is copied byte-for-byte from its original source range;
+    // adjacent kept chunks are coalesced into one copy range. When orientation
+    // preservation applies (D-11), a minimal eXIf (createOrientationExif) is
+    // inserted immediately after IHDR -- chunk index 0, always kept (critical)
+    // -- before any iDOT or IDAT (D-13). Inserting there always splits IHDR's
+    // copy range from whatever follows it, since the insert is never adjacent
+    // to a source byte range.
+    const insertOrientation = preserveOrientation && orientation !== undefined;
     const parts = [];
     const expectedTypes = [];
     const copiedChunks = [];
@@ -368,6 +366,14 @@ function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, 
         }
         expectedTypes.push(chunk.type);
         copiedChunks.push(chunk);
+        if (index === 0 && insertOrientation) {
+            flush();
+            parts.push({
+                kind: "insert",
+                data: encodePngChunk("eXIf", createOrientationExif(orientation)),
+            });
+            expectedTypes.push("eXIf");
+        }
     });
     flush();
     const declineReason = findIdotAdjacencyDecline(admission, preserveColorProfile, preserveResolution);
@@ -375,12 +381,15 @@ function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, 
         ? { parts, expectedTypes, copiedChunks }
         : { parts, expectedTypes, copiedChunks, declineReason };
 }
-function recomputeExpectedTypes(admission, preserveColorProfile, preserveResolution) {
+function recomputeExpectedTypes(admission, preserveColorProfile, preserveResolution, insertOrientation) {
     const types = [];
     admission.parsed.chunks.forEach((chunk, index) => {
         const cls = admission.classes[index] ?? "remove";
-        if (isKept(cls, preserveColorProfile, preserveResolution))
+        if (isKept(cls, preserveColorProfile, preserveResolution)) {
             types.push(chunk.type);
+            if (index === 0 && insertOrientation)
+                types.push("eXIf");
+        }
     });
     return types;
 }
@@ -445,24 +454,46 @@ function verificationError(detail, path) {
 function verificationAborted(path) {
     return executionError({ code: "aborted", detail: "Operation was aborted.", path }, "started");
 }
-async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, _preserveOrientation, preserveColorProfile, preserveResolution, _expectedOrientation, signal) {
+async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, preserveResolution, expectedOrientation, signal) {
+    const insertOrientation = preserveOrientation && expectedOrientation !== undefined;
     try {
         const destination = await parsePng(destinationHandle, destinationSize, signal);
-        const expectedTypes = recomputeExpectedTypes(admission, preserveColorProfile, preserveResolution);
+        const expectedTypes = recomputeExpectedTypes(admission, preserveColorProfile, preserveResolution, insertOrientation);
         const destinationTypes = destination.chunks.map((chunk) => chunk.type);
         if (destinationTypes.length !== expectedTypes.length ||
             destinationTypes.some((type, index) => type !== expectedTypes[index]))
             return err(verificationError("Destination chunk sequence did not match the sanitized plan.", destinationPath));
-        for (const type of destinationTypes) {
+        for (const [index, type] of destinationTypes.entries()) {
+            // The eXIf at index 1 is the deliberately-inserted minimal orientation
+            // payload (D-11/D-13), not a leaked source chunk -- it is byte- and
+            // content-verified separately below.
+            if (insertOrientation && index === 1 && type === "eXIf")
+                continue;
             if (PNG_REMOVED_CHUNK_TYPES.has(type))
                 return err(verificationError(`${type} remained after sanitization.`, destinationPath));
         }
+        if (insertOrientation) {
+            const exifChunk = destination.chunks[1];
+            if (exifChunk === undefined || exifChunk.type !== "eXIf")
+                return err(verificationError("Expected eXIf chunk is missing after IHDR.", destinationPath));
+            const exifData = await readExactly(destinationHandle, exifChunk.length, exifChunk.dataOffset);
+            const expectedData = createOrientationExif(expectedOrientation);
+            const reparsed = parseExif(exifData);
+            if (!exifData.equals(expectedData) ||
+                reparsed.orientation.status !== "valid" ||
+                reparsed.orientation.value !== expectedOrientation ||
+                reparsed.entries.length !== 1)
+                return err(verificationError("Inserted eXIf did not equal the minimal orientation payload.", destinationPath));
+        }
         const sourceKept = admission.parsed.chunks.filter((_chunk, index) => isKept(admission.classes[index] ?? "remove", preserveColorProfile, preserveResolution));
-        if (sourceKept.length !== destination.chunks.length)
+        const destinationForComparison = insertOrientation
+            ? destination.chunks.filter((_chunk, index) => index !== 1)
+            : destination.chunks;
+        if (sourceKept.length !== destinationForComparison.length)
             return err(verificationError("Destination chunk count did not match the sanitized plan.", destinationPath));
         for (let index = 0; index < sourceKept.length; index += 1) {
             const left = sourceKept[index];
-            const right = destination.chunks[index];
+            const right = destinationForComparison[index];
             if (left === undefined ||
                 right === undefined ||
                 left.type !== right.type ||
