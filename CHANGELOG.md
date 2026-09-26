@@ -32,7 +32,12 @@ limits plus its `refuses` list: `unknown-critical-chunks`,
 `unmeasured-registered-chunks`, and `unsafe-chunk-adjacency` (the D-06 `iDOT`
 adjacency decline). `preserves` reports `orientation`, `colorProfile`,
 `timestamps` and `resolution` all `true` -- PNG can honor every preservation
-flag WebP cannot.
+flag WebP cannot. A compressed `iCCP`, `zTXt` or `iTXt` field with bytes after
+its zlib stream declines pre-write as `malformed-file` (safe to fall back),
+closing a gap where an attacker-appended payload could ride an otherwise
+legitimate profile past inflate unnoticed (CR-01); a preserved `iCCP` is
+therefore always exactly the profile ExifTool would keep, since native never
+re-encodes a profile (D-09).
 
 ### Fixed (PNG)
 

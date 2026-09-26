@@ -192,7 +192,13 @@ keep or strip it.
   byte-identical in place when `preserveColorProfile: true` (after its
   bounded-inflate profile passes the same `icc-structural-v0.2` policy WebP
   uses), else removed. `pHYs` is kept byte-identical in its original relative
-  position when `preserveResolution: true`, else removed.
+  position when `preserveResolution: true`, else removed. A compressed
+  `iCCP`, `zTXt` or `iTXt` field whose zlib stream ends before the chunk data
+  does declines pre-write as `malformed-file`, regardless of
+  `preserveColorProfile` (CR-01): the PNG spec defines the compressed
+  datastream as the entire remainder of the chunk, so trailing bytes make it
+  malformed rather than merely oversized, and the handler never re-encodes a
+  profile to strip them (D-09).
 - **Unregistered private ancillary chunk** (a type in neither the PNG
   extensions registry nor any of the lists above, for example Android's
   `npTc` nine-patch data) is **stripped** as a privacy-reasoned difference
