@@ -12,6 +12,147 @@ const PNG_HEADER_BYTES = 8;
 const CHUNK_HEADER_BYTES = 8; // 4-byte length + 4-byte type
 const CHUNK_CRC_BYTES = 4;
 const IDAT_STREAM_BLOCK_BYTES = 64 * 1024;
+const MAX_CHUNK_LENGTH = 0x7fffffff;
+
+export const PNG_CRITICAL_CHUNK_TYPES: ReadonlySet<string> = new Set([
+  "IHDR",
+  "PLTE",
+  "IDAT",
+  "IEND",
+]);
+
+export const PNG_ANIMATION_CHUNK_TYPES: ReadonlySet<string> = new Set([
+  "acTL",
+  "fcTL",
+  "fdAT",
+]);
+
+// PNG Third Edition (W3C): https://www.w3.org/TR/png/#11Chunks
+// PNG extensions registry: https://ftp-osl.osuosl.org/pub/libpng/documents/pngextensions.html
+// At minimum this covers IHDR PLTE IDAT IEND, acTL/fcTL/fdAT (APNG, refused not admitted),
+// cHRM/cICP/gAMA/iCCP/mDCV/cLLI/sBIT/sRGB/bKGD/hIST/tRNS/eXIf/pHYs/sPLT/tIME/iTXt/tEXt/zTXt/
+// oFFs/pCAL/sCAL/gIFg/gIFt/gIFx/sTER/dSIG/fRAc, plus Apple's iDOT/vpAg (measured in D-05/D-07
+// as registered-and-order-constrained even though Apple-private) and the "mDCv"/"cLLi"
+// lower-last-letter casing measured on real files in 56-CONTEXT.md/56-RESEARCH.md (both
+// casings admitted since the two phase documents disagree on which is canonical).
+export const PNG_REGISTERED_CHUNK_TYPES: ReadonlySet<string> = new Set([
+  "IHDR",
+  "PLTE",
+  "IDAT",
+  "IEND",
+  "acTL",
+  "fcTL",
+  "fdAT",
+  "cHRM",
+  "cICP",
+  "gAMA",
+  "iCCP",
+  "mDCV",
+  "cLLI",
+  "mDCv",
+  "cLLi",
+  "sBIT",
+  "sRGB",
+  "bKGD",
+  "hIST",
+  "tRNS",
+  "eXIf",
+  "pHYs",
+  "sPLT",
+  "tIME",
+  "iTXt",
+  "tEXt",
+  "zTXt",
+  "oFFs",
+  "pCAL",
+  "sCAL",
+  "iDOT",
+  "vpAg",
+  "gIFg",
+  "gIFt",
+  "gIFx",
+  "sTER",
+  "dSIG",
+  "fRAc",
+]);
+
+export const PNG_MAX_METADATA_BYTES_PER_CHUNK = 16 * 1024 * 1024;
+export const PNG_MAX_ANCILLARY_CHUNKS = 10_000;
+
+type PngOrderClass =
+  | "before-plte-and-idat"
+  | "after-plte-before-idat"
+  | "before-idat"
+  | "anywhere";
+
+// One entry per registered ancillary type. A type absent from this map (including every
+// unregistered ancillary type) is "anywhere" by default.
+export const PNG_ORDER: ReadonlyMap<string, PngOrderClass> = new Map<
+  string,
+  PngOrderClass
+>([
+  ["cHRM", "before-plte-and-idat"],
+  ["cICP", "before-plte-and-idat"],
+  ["gAMA", "before-plte-and-idat"],
+  ["iCCP", "before-plte-and-idat"],
+  ["sBIT", "before-plte-and-idat"],
+  ["sRGB", "before-plte-and-idat"],
+  ["mDCV", "before-plte-and-idat"],
+  ["cLLI", "before-plte-and-idat"],
+  ["mDCv", "before-plte-and-idat"],
+  ["cLLi", "before-plte-and-idat"],
+  ["bKGD", "after-plte-before-idat"],
+  ["hIST", "after-plte-before-idat"],
+  ["tRNS", "after-plte-before-idat"],
+  ["pHYs", "before-idat"],
+  ["sPLT", "before-idat"],
+  ["oFFs", "before-idat"],
+  ["pCAL", "before-idat"],
+  ["sCAL", "before-idat"],
+  ["sTER", "before-idat"],
+  ["iDOT", "before-idat"],
+  ["vpAg", "before-idat"],
+  ["dSIG", "before-idat"],
+  ["fRAc", "before-idat"],
+  ["gIFg", "before-idat"],
+  ["gIFt", "before-idat"],
+  ["gIFx", "before-idat"],
+  ["tIME", "anywhere"],
+  ["tEXt", "anywhere"],
+  ["zTXt", "anywhere"],
+  ["iTXt", "anywhere"],
+  ["eXIf", "anywhere"],
+]);
+
+// Singleton chunk types: a second occurrence is unsafe-structure. IDAT is deliberately
+// excluded (contiguous runs are required and checked separately).
+const SINGLETON_CHUNK_TYPES: ReadonlySet<string> = new Set([
+  "IHDR",
+  "PLTE",
+  "IEND",
+  "cHRM",
+  "cICP",
+  "gAMA",
+  "iCCP",
+  "sBIT",
+  "sRGB",
+  "mDCV",
+  "cLLI",
+  "mDCv",
+  "cLLi",
+  "bKGD",
+  "hIST",
+  "tRNS",
+  "pHYs",
+  "oFFs",
+  "pCAL",
+  "sCAL",
+  "sTER",
+  "tIME",
+  "eXIf",
+  "iDOT",
+  "vpAg",
+]);
 
 export function isPngSignature(magic: Buffer): boolean {
   return (
@@ -100,6 +241,168 @@ export interface ParsedPng {
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
+}
+
+function isAsciiLetter(byte: number): boolean {
+  return (byte >= 0x41 && byte <= 0x5a) || (byte >= 0x61 && byte <= 0x7a);
+}
+
+function hasValidTypeBytes(typeBuffer: Buffer): boolean {
+  return (
+    typeBuffer.length === 4 &&
+    typeBuffer[0] !== undefined &&
+    isAsciiLetter(typeBuffer[0]) &&
+    typeBuffer[1] !== undefined &&
+    isAsciiLetter(typeBuffer[1]) &&
+    typeBuffer[2] !== undefined &&
+    isAsciiLetter(typeBuffer[2]) &&
+    typeBuffer[3] !== undefined &&
+    isAsciiLetter(typeBuffer[3])
+  );
+}
+
+function isUpperFirstLetter(type: string): boolean {
+  const code = type.charCodeAt(0);
+  return code >= 0x41 && code <= 0x5a;
+}
+
+/**
+ * PNG-03 structural validation, run once every chunk has been read and CRC-verified
+ * (Phase 1). Runs over the full chunk list so order/singleton/adjacency rules that need
+ * to know the whole file (e.g. "before the first IDAT") don't have to guess the future
+ * during a single forward streaming pass.
+ */
+function validateStructure(chunks: readonly PngChunk[]): void {
+  const first = chunks[0];
+  if (first === undefined || first.type !== "IHDR") {
+    throw new PngStructureError(
+      "malformed-file",
+      "PNG must begin with an IHDR chunk.",
+    );
+  }
+  if (first.length !== 13) {
+    throw new PngStructureError(
+      "malformed-file",
+      "IHDR chunk must be exactly 13 bytes.",
+    );
+  }
+
+  const last = chunks[chunks.length - 1]!;
+  if (last.type !== "IEND") {
+    throw new PngStructureError(
+      "malformed-file",
+      "PNG must end with an IEND chunk.",
+    );
+  }
+  if (last.length !== 0) {
+    throw new PngStructureError("malformed-file", "IEND chunk must be empty.");
+  }
+
+  const firstIdatIndex = chunks.findIndex((item) => item.type === "IDAT");
+  const firstPlteIndex = chunks.findIndex((item) => item.type === "PLTE");
+
+  const seenSingleton = new Set<string>();
+  let nonIdatCount = 0;
+  let sawIdat = false;
+  let idatEnded = false;
+
+  for (const [index, item] of chunks.entries()) {
+    const { type } = item;
+
+    if (PNG_ANIMATION_CHUNK_TYPES.has(type)) {
+      throw new PngStructureError(
+        "unsafe-structure",
+        "Animated PNG is not supported.",
+      );
+    }
+
+    if (isUpperFirstLetter(type) && !PNG_CRITICAL_CHUNK_TYPES.has(type)) {
+      throw new PngStructureError(
+        "unsafe-structure",
+        `Unknown critical chunk ${type} cannot be sanitized safely.`,
+      );
+    }
+
+    if (SINGLETON_CHUNK_TYPES.has(type)) {
+      if (seenSingleton.has(type)) {
+        throw new PngStructureError(
+          "unsafe-structure",
+          `Duplicate ${type} chunk is ambiguous.`,
+        );
+      }
+      seenSingleton.add(type);
+    }
+
+    if (type === "IDAT") {
+      if (idatEnded) {
+        throw new PngStructureError(
+          "unsafe-structure",
+          "IDAT chunks must be contiguous.",
+        );
+      }
+      sawIdat = true;
+    } else {
+      if (sawIdat) idatEnded = true;
+      nonIdatCount += 1;
+      if (nonIdatCount > PNG_MAX_ANCILLARY_CHUNKS) {
+        throw new PngStructureError(
+          "unsafe-structure",
+          `PNG contains more than ${PNG_MAX_ANCILLARY_CHUNKS} ancillary chunks.`,
+        );
+      }
+    }
+
+    if (type === "PLTE") {
+      if (firstIdatIndex >= 0 && index > firstIdatIndex) {
+        throw new PngStructureError(
+          "unsafe-structure",
+          "PLTE must occur before the first IDAT chunk.",
+        );
+      }
+      continue;
+    }
+    if (PNG_CRITICAL_CHUNK_TYPES.has(type)) continue;
+
+    const orderClass = PNG_ORDER.get(type) ?? "anywhere";
+    if (orderClass === "before-plte-and-idat") {
+      if (
+        (firstPlteIndex >= 0 && index > firstPlteIndex) ||
+        (firstIdatIndex >= 0 && index > firstIdatIndex)
+      ) {
+        throw new PngStructureError(
+          "unsafe-structure",
+          `${type} must occur before PLTE and before the first IDAT chunk.`,
+        );
+      }
+    } else if (orderClass === "after-plte-before-idat") {
+      if (firstPlteIndex >= 0 && index < firstPlteIndex) {
+        throw new PngStructureError(
+          "unsafe-structure",
+          `${type} must occur after PLTE.`,
+        );
+      }
+      if (firstIdatIndex >= 0 && index > firstIdatIndex) {
+        throw new PngStructureError(
+          "unsafe-structure",
+          `${type} must occur before the first IDAT chunk.`,
+        );
+      }
+    } else if (orderClass === "before-idat") {
+      if (firstIdatIndex >= 0 && index > firstIdatIndex) {
+        throw new PngStructureError(
+          "unsafe-structure",
+          `${type} must occur before the first IDAT chunk.`,
+        );
+      }
+    }
+  }
+
+  if (!sawIdat) {
+    throw new PngStructureError(
+      "malformed-file",
+      "PNG must contain at least one IDAT chunk.",
+    );
+  }
 }
 
 export async function readExactly(
@@ -199,13 +502,36 @@ export async function parsePng(
     }
     const header = await readExactly(handle, CHUNK_HEADER_BYTES, offset);
     const length = header.readUInt32BE(0);
-    const type = header.toString("ascii", 4, 8);
     const typeBuffer = header.subarray(4, 8);
+    if (!hasValidTypeBytes(typeBuffer)) {
+      throw new PngStructureError(
+        "malformed-file",
+        "Chunk type is not four ASCII letters.",
+      );
+    }
+    const type = typeBuffer.toString("ascii");
+    if (length > MAX_CHUNK_LENGTH) {
+      throw new PngStructureError(
+        "malformed-file",
+        `${type} chunk length exceeds the 2^31-1 limit.`,
+      );
+    }
     const dataOffset = offset + CHUNK_HEADER_BYTES;
     if (dataOffset + length + CHUNK_CRC_BYTES > size) {
       throw new PngStructureError(
         "malformed-file",
         `${type} chunk exceeds file bounds.`,
+      );
+    }
+    if (type !== "IDAT" && length > PNG_MAX_METADATA_BYTES_PER_CHUNK) {
+      throw new PngStructureError(
+        "unsafe-structure",
+        `${type} chunk exceeds the ${PNG_MAX_METADATA_BYTES_PER_CHUNK}-byte per-chunk limit.`,
+        {
+          chunkType: type,
+          size: length,
+          limit: PNG_MAX_METADATA_BYTES_PER_CHUNK,
+        },
       );
     }
 
@@ -252,6 +578,8 @@ export async function parsePng(
       "PNG has trailing data after IEND.",
     );
   }
+
+  validateStructure(chunks);
 
   return { chunks, buffered };
 }
