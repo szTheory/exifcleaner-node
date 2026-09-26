@@ -18,10 +18,13 @@ const MAX_CHUNK_LENGTH = 0x7fffffff;
 // contention (measured in 56-09 and 56-12's `npm run verify`) and is a real per-file cost for
 // chunk-heavy inputs regardless of tests. A single 64 KiB buffer refill serves many
 // consecutive small reads before the next refill, bounding read calls by file size rather
-// than chunk count. Any read wider than the window (e.g. IDAT, or a single ancillary chunk
-// near the PNG_MAX_METADATA_BYTES_PER_CHUNK ceiling) bypasses the window and reads directly,
-// so memory stays bounded exactly as before -- this window never buffers more than one
-// window's worth of file content at a time.
+// than chunk count. Any read wider than the window (e.g. an oversized ancillary chunk near
+// the PNG_MAX_METADATA_BYTES_PER_CHUNK ceiling) bypasses the window and reads directly, so
+// memory stays bounded exactly as before -- this window never buffers more than one
+// window's worth of file content at a time. CR-02 (56-16): an IDAT chunk's CRC is also read
+// through this window when its data is no larger than the window (never buffered in
+// `buffered`, only used to compute the CRC); a longer IDAT keeps the pre-existing streamed
+// `streamChunkCrc` path.
 export const PNG_CHUNK_READ_WINDOW_BYTES = 64 * 1024;
 export const PNG_CRITICAL_CHUNK_TYPES = new Set([
     "IHDR",
@@ -88,6 +91,17 @@ export const PNG_REGISTERED_CHUNK_TYPES = new Set([
 ]);
 export const PNG_MAX_METADATA_BYTES_PER_CHUNK = 16 * 1024 * 1024;
 export const PNG_MAX_ANCILLARY_CHUNKS = 10_000;
+// CR-02 (56-16, BLOCKER): the number of IDAT chunks was unbounded, so a small file of tiny
+// IDATs cost superlinear parse time (measured: 65,536 one-byte IDATs took 2,493 ms at
+// d1897b1; 300,000 took 31.5s per 56-REVIEW.md). 65,536 is derived from a real-file census
+// (m1-idat-census.cjs: 19,979 host PNGs, max 1,786 IDATs) -- 36.7x headroom over the largest
+// measured real file, admitting 512 MiB of IDAT data at libpng's 8 KiB default IDAT size,
+// well beyond any file this app is likely to process. A file above the cap falls back to
+// ExifTool (typed pre-write decline, classified safe), so the cap costs a fallback, never a
+// failure. A size-proportional cap was rejected: it would admit millions of chunks in a
+// large file, which is the unbounded-work class CR-02 is about. Flat per-file, IDAT only;
+// combined with PNG_MAX_ANCILLARY_CHUNKS this bounds the total chunk count at 75,536.
+export const PNG_MAX_IDAT_CHUNKS = 65_536;
 // One entry per registered ancillary type. A type absent from this map (including every
 // unregistered ancillary type) is "anywhere" by default.
 export const PNG_ORDER = new Map([
@@ -332,9 +346,11 @@ function createChunkReadWindow() {
 /**
  * Reads `length` bytes at `position` using a bounded read-ahead window shared across calls
  * via `window`. Requests wider than the window bypass it entirely and read directly (this is
- * the "large chunks keep the existing streaming path" guarantee: IDAT data never goes through
- * this function, and any oversized single ancillary chunk data read falls back to a direct
- * `readExactly` rather than growing the window to fit it).
+ * the "large chunks keep the existing streaming path" guarantee: any oversized single
+ * ancillary or IDAT chunk data read falls back to a direct `readExactly` rather than growing
+ * the window to fit it). CR-02 (56-16): a small IDAT chunk's data IS read through this
+ * window for its CRC, but the returned bytes are used only to compute the CRC and are never
+ * stored in `buffered` -- the "IDAT is never buffered" invariant is unchanged.
  */
 async function readWindowed(handle, window, length, position, size) {
     if (length > PNG_CHUNK_READ_WINDOW_BYTES) {
@@ -375,8 +391,10 @@ export function encodePngChunk(type, data) {
 /**
  * Parses a PNG chunk stream from an open file handle. Checks the 8-byte signature, then
  * walks chunks: reads the 8-byte header, bounds-checks dataOffset + length + 4 <= size,
- * verifies the CRC, and stops after IEND. IDAT data is CRC-checked by streaming in bounded
- * 64 KiB reads and is never buffered; every other chunk's data is buffered for the caller.
+ * verifies the CRC, and stops after IEND. IDAT data is never buffered: a chunk no larger
+ * than the read window gets its CRC from that window (CR-02, 56-16); a longer one is
+ * CRC-checked by streaming in bounded 64 KiB reads. Every other chunk's data is buffered for
+ * the caller.
  *
  * Task 2 adds the full PNG-03 structural refusal set (type-byte validity, length ceiling,
  * trailing-data, critical/APNG/order/singleton/limit rules) on top of this shape.
@@ -398,6 +416,7 @@ export async function parsePng(handle, size, signal) {
     let index = 0;
     let sawIend = false;
     let nonIdatCount = 0;
+    let idatCount = 0;
     while (offset < size) {
         if (isAborted(signal))
             throw signal?.reason ?? new DOMException("Aborted", "AbortError");
@@ -422,6 +441,16 @@ export async function parsePng(handle, size, signal) {
                 throw new PngStructureError("unsafe-structure", `PNG contains more than ${PNG_MAX_ANCILLARY_CHUNKS} ancillary chunks.`);
             }
         }
+        else {
+            // CR-02 (56-16): count IDAT chunks and refuse as soon as the cap is exceeded, right
+            // after the type is decoded and before this chunk's data or CRC is read (mirrors the
+            // ancillary-chunk bound immediately above) -- so an IDAT flood costs no more read work
+            // than it takes to reach the cap, regardless of how many more chunks the file claims.
+            idatCount += 1;
+            if (idatCount > PNG_MAX_IDAT_CHUNKS) {
+                throw new PngStructureError("unsafe-structure", `PNG contains more than ${PNG_MAX_IDAT_CHUNKS} IDAT chunks.`);
+            }
+        }
         if (length > MAX_CHUNK_LENGTH) {
             throw new PngStructureError("malformed-file", `${type} chunk length exceeds the 2^31-1 limit.`);
         }
@@ -438,7 +467,19 @@ export async function parsePng(handle, size, signal) {
         }
         let computedCrc;
         if (type === "IDAT") {
-            computedCrc = await streamChunkCrc(handle, typeBuffer, dataOffset, length);
+            // CR-02 (56-16): a small IDAT (<= the read window) gets its CRC from the same
+            // read-ahead window every other chunk uses, instead of its own dedicated read call --
+            // this is what keeps an IDAT-flood's read cost bounded by file size rather than chunk
+            // count. The bytes are used only to compute the CRC and are discarded immediately;
+            // they are never stored in `buffered`. A longer IDAT keeps the pre-existing streamed
+            // `streamChunkCrc` path (bounded 64 KiB blocks, no buffering either).
+            if (length <= PNG_CHUNK_READ_WINDOW_BYTES) {
+                const data = await readWindowed(handle, window, length, dataOffset, size);
+                computedCrc = crc32(typeBuffer, data);
+            }
+            else {
+                computedCrc = await streamChunkCrc(handle, typeBuffer, dataOffset, length);
+            }
         }
         else {
             const data = await readWindowed(handle, window, length, dataOffset, size);

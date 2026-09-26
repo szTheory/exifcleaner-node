@@ -26,6 +26,7 @@ import {
   parsePng,
   PNG_CRITICAL_CHUNK_TYPES,
   PNG_MAX_ANCILLARY_CHUNKS,
+  PNG_MAX_IDAT_CHUNKS,
   PNG_MAX_INFLATED_BYTES_TOTAL,
   PNG_MAX_INFLATED_ICC_BYTES,
   PNG_MAX_INFLATED_TEXT_BYTES,
@@ -916,6 +917,7 @@ const capability: PngCapabilities = Object.freeze({
   limits: Object.freeze({
     maxMetadataBytesPerChunk: PNG_MAX_METADATA_BYTES_PER_CHUNK,
     maxAncillaryChunkCount: PNG_MAX_ANCILLARY_CHUNKS,
+    maxIdatChunkCount: PNG_MAX_IDAT_CHUNKS,
     maxInflatedIccBytes: PNG_MAX_INFLATED_ICC_BYTES,
     maxInflatedTextBytes: PNG_MAX_INFLATED_TEXT_BYTES,
     maxInflatedBytesTotal: PNG_MAX_INFLATED_BYTES_TOTAL,

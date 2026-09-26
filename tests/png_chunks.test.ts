@@ -1,14 +1,16 @@
-import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as zlib from "node:zlib";
 import { deflateSync } from "node:zlib";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { sanitizeFile } from "../dist/index.js";
 import {
   InflateBudget,
   PNG_CHUNK_READ_WINDOW_BYTES,
   PNG_MAX_ANCILLARY_CHUNKS,
+  PNG_MAX_IDAT_CHUNKS,
   PNG_MAX_INFLATED_BYTES_TOTAL,
   PNG_MAX_INFLATED_ICC_BYTES,
   PNG_MAX_METADATA_BYTES_PER_CHUNK,
@@ -336,40 +338,41 @@ describe("parsePng structural refusals (PNG-03)", () => {
 // parallel-worker contention (measured in 56-09 and 56-12's `npm run verify`). The bound
 // below -- proportional to ceil(size / PNG_CHUNK_READ_WINDOW_BYTES) plus a small constant --
 // is what a bounded read-ahead window buys; a per-chunk read cost would blow through it.
-describe("parsePng read cost (bounded chunk-header reads)", () => {
-  // Generous constant term: magic-byte read, the read-ahead window's own final partial
-  // fill, and the IDAT chunk's streamed header/data/CRC reads (bounded by IDAT size, not
-  // chunk count, and already parity-tested elsewhere).
-  const FIXED_READ_OVERHEAD = 20;
+// Generous constant term: magic-byte read, the read-ahead window's own final partial
+// fill, and the IDAT chunk's streamed header/data/CRC reads (bounded by IDAT size, not
+// chunk count, and already parity-tested elsewhere). Hoisted to module scope (56-16) so
+// both "parsePng read cost" and "CR-02: IDAT chunk count is capped" share it.
+const FIXED_READ_OVERHEAD = 20;
 
-  async function countReads(
-    fixture: Buffer,
-  ): Promise<{ readCount: number; size: number; error: unknown }> {
-    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-png-cost-"));
-    const path = join(directory, "input.png");
+async function countReads(
+  fixture: Buffer,
+): Promise<{ readCount: number; size: number; error: unknown }> {
+  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-png-cost-"));
+  const path = join(directory, "input.png");
+  try {
+    await writeFile(path, fixture);
+    const handle = await open(path, "r");
+    let readCount = 0;
+    const originalRead = handle.read.bind(handle);
+    handle.read = ((...args: Parameters<typeof originalRead>) => {
+      readCount += 1;
+      return originalRead(...args);
+    }) as typeof originalRead;
+    let error: unknown;
     try {
-      await writeFile(path, fixture);
-      const handle = await open(path, "r");
-      let readCount = 0;
-      const originalRead = handle.read.bind(handle);
-      handle.read = ((...args: Parameters<typeof originalRead>) => {
-        readCount += 1;
-        return originalRead(...args);
-      }) as typeof originalRead;
-      let error: unknown;
-      try {
-        await parsePng(handle, fixture.length);
-      } catch (caught) {
-        error = caught;
-      } finally {
-        await handle.close();
-      }
-      return { readCount, size: fixture.length, error };
+      await parsePng(handle, fixture.length);
+    } catch (caught) {
+      error = caught;
     } finally {
-      await rm(directory, { recursive: true, force: true });
+      await handle.close();
     }
+    return { readCount, size: fixture.length, error };
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
+}
 
+describe("parsePng read cost (bounded chunk-header reads)", () => {
   it("bounds handle.read calls by file size, not chunk count, for the over-limit fixture", async () => {
     const extra = Array.from({ length: PNG_MAX_ANCILLARY_CHUNKS + 1 }, () =>
       pngChunk("tEXt", Buffer.from("k\0v")),
@@ -397,6 +400,80 @@ describe("parsePng read cost (bounded chunk-header reads)", () => {
     const expectedBound =
       Math.ceil(size / PNG_CHUNK_READ_WINDOW_BYTES) + FIXED_READ_OVERHEAD;
     expect(readCount).toBeLessThanOrEqual(expectedBound);
+  });
+});
+
+// CR-02 (56-16, BLOCKER): the number of IDAT chunks was unbounded, so a small file of tiny
+// IDATs occupied sanitize for seconds to minutes (measured: 65,536 one-byte IDATs took
+// 2,493 ms at d1897b1; 300,000 took 31.5s per 56-REVIEW.md). PNG_MAX_IDAT_CHUNKS = 65_536 is
+// derived from a real-file census (m1-idat-census.cjs: 19,979 PNGs, max 1,786 IDATs) --
+// 36.7x headroom, admitting 512 MiB of IDAT data at libpng's 8 KiB default IDAT size. A file
+// above the cap falls back to ExifTool (typed pre-write decline, classified safe), so the
+// cap costs a fallback, never a failure.
+describe("CR-02: IDAT chunk count is capped", () => {
+  it("PNG_MAX_IDAT_CHUNKS is 65,536", () => {
+    expect(PNG_MAX_IDAT_CHUNKS).toBe(65_536);
+  });
+
+  function idatFloodFixture(count: number): Buffer {
+    const one = pngChunk("IDAT", Buffer.from([0]));
+    const parts: Buffer[] = [pngChunk("IHDR", pngIhdr())];
+    for (let i = 0; i < count; i += 1) parts.push(one);
+    parts.push(pngChunk("IEND", Buffer.alloc(0)));
+    return png(parts);
+  }
+
+  it("refuses more than PNG_MAX_IDAT_CHUNKS IDAT chunks as unsafe-structure, within the file-size read bound", async () => {
+    const fixture = idatFloodFixture(PNG_MAX_IDAT_CHUNKS + 1);
+    const { readCount, size, error } = await countReads(fixture);
+
+    expect(error).toMatchObject({ kind: "unsafe-structure" });
+    expect((error as PngStructureError).message).toContain("IDAT");
+    const expectedBound =
+      Math.ceil(size / PNG_CHUNK_READ_WINDOW_BYTES) + FIXED_READ_OVERHEAD;
+    expect(readCount).toBeLessThanOrEqual(expectedBound);
+    // Sanity: one read per IDAT (the pre-fix cost) would be far above the bound above, so
+    // this assertion can't pass by accident.
+    expect(readCount).toBeLessThan(PNG_MAX_IDAT_CHUNKS);
+  });
+
+  it("parses exactly PNG_MAX_IDAT_CHUNKS IDAT chunks with no error, within the same read bound (the cap is inclusive)", async () => {
+    const fixture = idatFloodFixture(PNG_MAX_IDAT_CHUNKS);
+    const { readCount, size, error } = await countReads(fixture);
+
+    expect(error).toBeUndefined();
+    const expectedBound =
+      Math.ceil(size / PNG_CHUNK_READ_WINDOW_BYTES) + FIXED_READ_OVERHEAD;
+    expect(readCount).toBeLessThanOrEqual(expectedBound);
+  });
+
+  it("sanitizeFile declines an IDAT flood as unsafe-structure pre-write, no destination created", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "exifcleaner-png-idat-flood-"),
+    );
+    const sourcePath = join(directory, "source.png");
+    const destinationPath = join(directory, "sanitized.png");
+    try {
+      await writeFile(sourcePath, idatFloodFixture(PNG_MAX_IDAT_CHUNKS + 1));
+      const result = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: false,
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.error).toMatchObject({
+        code: "unsafe-structure",
+        phase: "admission",
+        nativeWrite: "not-started",
+      });
+      await expect(access(destinationPath)).rejects.toThrow();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });
 
