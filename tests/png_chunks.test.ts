@@ -352,11 +352,10 @@ describe("parsePng read cost (bounded chunk-header reads)", () => {
       const handle = await open(path, "r");
       let readCount = 0;
       const originalRead = handle.read.bind(handle);
-      // @ts-expect-error -- intentionally wrapping the real read for instrumentation only.
-      handle.read = (...args: Parameters<typeof originalRead>) => {
+      handle.read = ((...args: Parameters<typeof originalRead>) => {
         readCount += 1;
         return originalRead(...args);
-      };
+      }) as typeof originalRead;
       let error: unknown;
       try {
         await parsePng(handle, fixture.length);
