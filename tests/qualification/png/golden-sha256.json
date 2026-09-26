@@ -2,7 +2,7 @@
   "version": 1,
   "reason": "Phase 56 native PNG output, captured after libpng, pngcheck and ExifTool differential pre-flights passed",
   "capturedFrom": {
-    "commit": "b8378a620c0ccd4c737954e386aaf031d815d8eb",
+    "commit": "ffbffe8ae509326751ec920ca4ce3958f4b72789",
     "engine": "exifcleaner-node@0.2.2+phase-56"
   },
   "seed": 460046,
@@ -350,7 +350,7 @@
     "property:27:metadata-da7de114a763|o0c1t1r1": "ef52dcadb8a5323c33ff583c1d97b860df6ca256b4557c2d4fdcb69b140819f3",
     "property:28:metadata-78d26c7b69e0|o0c0t1": "4eceb7bea304e436ba2fb284ac7d1301c30b1ed91d11d12098421c2bea300cb1",
     "property:29:generated-adbf3982d7ff|o0c1t1": "adbf3982d7ffb2976844e4b0ca3354f263b6c3735f0de14dde9049a8c0a336ce",
-    "property:2:trailing-byte-after-iend|o0c0t0": "refused:malformed-file",
+    "property:2:trailing-data-iccp-after-zlib|o0c1t0": "refused:malformed-file",
     "property:30:decompression-bomb-itxt|o0c0t0": "refused:unsafe-structure",
     "property:31:chunk-order-bkgd-before-plte|o0c0t0": "refused:unsafe-structure",
     "property:32:generated-f0f3a2b49035|o1c0t1r1": "f0f3a2b49035d483d3212a13c0df456a267d6c6f0315ede1b937ae14fc8cb40b",

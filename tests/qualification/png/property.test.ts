@@ -326,6 +326,11 @@ async function checkSample(
  * `flag:preserveOrientation` and the hostile-arm category-uniform draw are
  * both examples already folded into `generators.ts`). Binds only at
  * FC_SEED 460046 / FC_RUNS 200 (55-REVIEW WR-01) -- see the guard below.
+ * Re-measured in 56-14 after `trailing-data` grew from 2 to 4 cases
+ * (CR-01's iCCP/zTXt/compressed-iTXt fixtures): every number below is
+ * unchanged at all four seeds, because `buildHostileArm` draws the category
+ * uniformly first and only then a case within it, so growing a category's
+ * case count does not change how often that category itself is drawn.
  * Measured 200-run distributions (arm/kind/flag/hostile -> count):
  *
  *   seed 460046: metadata 116, no-metadata 22, hostile 62;

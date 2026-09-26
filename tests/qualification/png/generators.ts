@@ -3,6 +3,7 @@ import { deflateSync } from "node:zlib";
 import fc from "fast-check";
 import {
   iccCanaryProfile,
+  iccProfile,
   idotPayload,
   minimalPng,
   png,
@@ -16,6 +17,7 @@ import {
   pngItxt,
   pngPhys,
   pngTextChunkData,
+  pngZtxtChunkData,
   screenshotShapedPng,
   xmpPacket,
   XMP_ITXT_KEYWORD,
@@ -891,6 +893,70 @@ const hostileCases: readonly PngHostileMutationCase[] = [
     expectedKind: "unsafe-structure",
     materialize: aggregateInflateCase,
   },
+  // CR-01 (56-14): a compressed field is the whole remainder of the chunk (D-09);
+  // bytes surviving past Z_STREAM_END make the chunk malformed, not merely
+  // over-sized. One case per compressed-field chunk type inflateBounded guards.
+  {
+    id: "trailing-data-iccp-after-zlib",
+    category: "trailing-data",
+    sourceCase: "iccp-only",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "malformed-file",
+    options: { preserveColorProfile: true },
+    materialize: () =>
+      bytesCase(
+        validImage(
+          pngChunk(
+            "iCCP",
+            Buffer.concat([
+              Buffer.from("icc", "latin1"),
+              Buffer.from([0]), // keyword terminator
+              Buffer.from([0]), // compression method
+              deflateSync(iccProfile()),
+              Buffer.from([0x01]), // attacker payload after the zlib stream
+            ]),
+          ),
+        ),
+      ),
+  },
+  {
+    id: "trailing-data-ztxt-after-zlib",
+    category: "trailing-data",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "malformed-file",
+    materialize: () =>
+      bytesCase(
+        validImage(
+          pngChunk(
+            "zTXt",
+            Buffer.concat([
+              pngZtxtChunkData("Comment", "text"),
+              Buffer.from([0x01]),
+            ]),
+          ),
+        ),
+      ),
+  },
+  {
+    id: "trailing-data-itxt-after-zlib",
+    category: "trailing-data",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "malformed-file",
+    materialize: () =>
+      bytesCase(
+        validImage(
+          pngChunk(
+            "iTXt",
+            Buffer.concat([
+              pngItxt("Comment", Buffer.from("some text"), true),
+              Buffer.from([0x01]),
+            ]),
+          ),
+        ),
+      ),
+  },
 ];
 
 export const hostileMutationCases: readonly PngHostileMutationCase[] =
@@ -973,15 +1039,17 @@ function toHostileSample(item: PngHostileMutationCase): QualificationSample {
 
 /**
  * Picks a category uniformly first, then a case within it, instead of
- * picking uniformly across all 21 cases. `decompression-bomb` (4 cases) and
+ * picking uniformly across all 24 cases. `decompression-bomb` (4 cases) and
  * `crc` (3 cases) would otherwise draw ~4x as often as the six
  * single-case categories (`unknown-critical`, `length-overflow`,
  * `duplicate-singleton`, `idot-adjacency`, `registered-unmeasured`,
  * `metadata-limit`), which measured well under the D-20 20-run re-measure
  * threshold for those categories on more than one of the four fixed seeds
- * (Task 3). Every case here has a real (non-sparse) `prefix`/`fileSize` --
- * `hostileMutationCases` has no sparse entries as of Task 2, so nothing is
- * filtered out here.
+ * (Task 3). `trailing-data` grew from 2 to 4 cases in 56-14 (CR-01's iCCP,
+ * zTXt and compressed-iTXt trailing-bytes fixtures joined the pre-existing
+ * `trailing-byte-after-iend` case), still no re-weighting needed. Every case
+ * here has a real (non-sparse) `prefix`/`fileSize` -- `hostileMutationCases`
+ * has no sparse entries as of Task 2, so nothing is filtered out here.
  */
 function buildHostileArm(): fc.Arbitrary<QualificationSample> {
   const byCategory = new Map<PngHostileCategory, PngHostileMutationCase[]>();
