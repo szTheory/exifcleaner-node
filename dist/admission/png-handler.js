@@ -54,10 +54,18 @@ function isAborted(signal) {
 function chunkSpan(chunk) {
     return CHUNK_FIXED_OVERHEAD_BYTES + chunk.length;
 }
+const ICCP_MIN_KEYWORD_BYTES = 1;
+const ICCP_MAX_KEYWORD_BYTES = 79;
 function parseIccpChunk(data, budget) {
     const nul = data.indexOf(0);
-    if (nul < 0 || nul + 1 >= data.length) {
-        throw new PngStructureError("malformed-file", "iCCP chunk is missing its profile-name terminator.");
+    if (nul < ICCP_MIN_KEYWORD_BYTES ||
+        nul > ICCP_MAX_KEYWORD_BYTES ||
+        nul + 1 >= data.length) {
+        throw new PngStructureError("malformed-file", "iCCP chunk profile name is missing or exceeds the 79-byte limit.");
+    }
+    const method = data[nul + 1];
+    if (method !== 0) {
+        throw new PngStructureError("malformed-file", "iCCP chunk compression method must be zero.");
     }
     const compressed = data.subarray(nul + 2);
     return inflateBounded(compressed, "iCCP", PNG_MAX_INFLATED_ICC_BYTES, budget);

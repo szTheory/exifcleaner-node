@@ -143,12 +143,26 @@ function chunkSpan(chunk: PngChunk): number {
   return CHUNK_FIXED_OVERHEAD_BYTES + chunk.length;
 }
 
+const ICCP_MIN_KEYWORD_BYTES = 1;
+const ICCP_MAX_KEYWORD_BYTES = 79;
+
 function parseIccpChunk(data: Buffer, budget: InflateBudget): Buffer {
   const nul = data.indexOf(0);
-  if (nul < 0 || nul + 1 >= data.length) {
+  if (
+    nul < ICCP_MIN_KEYWORD_BYTES ||
+    nul > ICCP_MAX_KEYWORD_BYTES ||
+    nul + 1 >= data.length
+  ) {
     throw new PngStructureError(
       "malformed-file",
-      "iCCP chunk is missing its profile-name terminator.",
+      "iCCP chunk profile name is missing or exceeds the 79-byte limit.",
+    );
+  }
+  const method = data[nul + 1];
+  if (method !== 0) {
+    throw new PngStructureError(
+      "malformed-file",
+      "iCCP chunk compression method must be zero.",
     );
   }
   const compressed = data.subarray(nul + 2);

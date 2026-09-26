@@ -163,7 +163,7 @@ export interface IccTagFixture {
   readonly reserved?: number;
 }
 
-export type IccProfileMutation = "signature";
+export type IccProfileMutation = "signature" | "device-class";
 
 export function iccProfileV4(
   {
@@ -240,6 +240,11 @@ export function mutateIccProfile(
 ): Buffer {
   const result = Buffer.from(profile);
   if (mutation === "signature") result.write("nope", 36, 4, "ascii");
+  // "prtr" (printer) is a real ICC device class the structural policy does
+  // not admit (only scnr/mntr) -- used to exercise the policy-rejection path
+  // (56-05 D-08 Photoshop-style fixture) distinctly from a structurally
+  // invalid profile.
+  if (mutation === "device-class") result.write("prtr", 12, 4, "ascii");
   return result;
 }
 
@@ -312,6 +317,14 @@ export function pngChrm(): Buffer {
 export function pngBkgd(): Buffer {
   // colorType 2 (truecolor, pngIhdr()'s default): three 2-byte RGB samples.
   return Buffer.alloc(6);
+}
+
+/** PNG `gAMA` chunk payload: a single 4-byte gamma value in units of
+ * 1/100000. D-08: this chunk is removed by every request, unconditionally. */
+export function pngGama(value = 45455): Buffer {
+  const data = Buffer.alloc(4);
+  data.writeUInt32BE(value, 0);
+  return data;
 }
 
 export function pngPhys(): Buffer {
@@ -406,6 +419,45 @@ export function pngCicp(
   return Buffer.from([primaries, transfer, matrix, fullRange]);
 }
 
+/** PNG `sRGB` chunk payload: a single rendering-intent byte (0-3). D-08: this
+ * chunk is removed by every request, unconditionally, like `gAMA`. */
+export function pngSrgb(renderingIntent = 0): Buffer {
+  return Buffer.from([renderingIntent]);
+}
+
+/** PNG `mDCv` (Mastering Display Color Volume) chunk payload: three CIE 1931
+ * xy chromaticity pairs (RGB primaries) plus white point, each a 2-byte
+ * fraction of 0.00002, then 4-byte max/min luminance -- 24 bytes total.
+ * Content is opaque to the handler; this is D-05's "keep" list. */
+export function pngMdcv(): Buffer {
+  const data = Buffer.alloc(24);
+  const chromaticities = [
+    34000, 16000, 13250, 34500, 7500, 3000, 15635, 16450,
+  ];
+  chromaticities.forEach((value, index) =>
+    data.writeUInt16BE(value, index * 2),
+  );
+  data.writeUInt32BE(10_000_000, 16); // max display mastering luminance
+  data.writeUInt32BE(1, 20); // min display mastering luminance
+  return data;
+}
+
+/** PNG `cLLi` (Content Light Level Information) chunk payload: max content
+ * light level and max frame-average light level, each a 4-byte fraction of
+ * 0.0001 cd/m^2 -- 8 bytes total. */
+export function pngClli(): Buffer {
+  const data = Buffer.alloc(8);
+  data.writeUInt32BE(10_000_0000, 0);
+  data.writeUInt32BE(4_000_0000, 4);
+  return data;
+}
+
+/** PNG `caBX` (C2PA) chunk payload: an opaque JUMBF box. The handler never
+ * parses its contents -- only its byte length is reported (D-15). */
+export function pngCaBX(payload: Buffer): Buffer {
+  return payload;
+}
+
 export const XMP_ITXT_KEYWORD = "XML:com.adobe.xmp";
 
 /** PNG `iTXt` chunk payload: keyword, compression flag/method, empty
@@ -424,6 +476,45 @@ export function pngItxt(
     Buffer.from([0]), // empty language tag + terminator
     Buffer.from([0]), // empty translated keyword + terminator
     payload,
+  ]);
+}
+
+/**
+ * A decompression-bomb chunk payload for `iCCP`, `zTXt`, or a compressed
+ * `iTXt` (D-14): a well-formed header (valid keyword/method/flags) around
+ * `inflatedBytes` zero bytes, deflated at level 9. The header is intentionally
+ * valid so the resulting decline is purely a decompression-bound refusal, not
+ * a malformed-structure one.
+ */
+export function pngBomb(
+  type: "iCCP" | "zTXt" | "iTXt",
+  inflatedBytes: number,
+): Buffer {
+  const compressed = deflateSync(Buffer.alloc(inflatedBytes), { level: 9 });
+  if (type === "iCCP") {
+    return Buffer.concat([
+      Buffer.from("bomb", "latin1"),
+      Buffer.from([0]), // keyword terminator
+      Buffer.from([0]), // compression method
+      compressed,
+    ]);
+  }
+  if (type === "zTXt") {
+    return Buffer.concat([
+      Buffer.from("bomb", "latin1"),
+      Buffer.from([0]), // keyword terminator
+      Buffer.from([0]), // compression method
+      compressed,
+    ]);
+  }
+  return Buffer.concat([
+    Buffer.from("bomb", "latin1"),
+    Buffer.from([0]), // keyword terminator
+    Buffer.from([1]), // compression flag: compressed
+    Buffer.from([0]), // compression method
+    Buffer.from([0]), // empty language tag + terminator
+    Buffer.from([0]), // empty translated keyword + terminator
+    compressed,
   ]);
 }
 
