@@ -458,6 +458,61 @@ export function pngCaBX(payload: Buffer): Buffer {
   return payload;
 }
 
+export interface ColourFixture {
+  readonly id: string;
+  readonly build: () => Buffer;
+}
+
+/**
+ * D-10's nine colour fixtures. Exported from this module (not a `.test.ts`
+ * file) so both 56-05's it.each matrix and Plan 08's live-oracle
+ * differential test can reuse the same table.
+ */
+export const COLOUR_FIXTURES: readonly ColourFixture[] = [
+  { id: "gama-only", build: () => pngWithChunksBefore([["gAMA", pngGama()]]) },
+  { id: "srgb-only", build: () => pngWithChunksBefore([["sRGB", pngSrgb()]]) },
+  {
+    id: "gama-chrm",
+    build: () =>
+      pngWithChunksBefore([
+        ["gAMA", pngGama()],
+        ["cHRM", pngChrm()],
+      ]),
+  },
+  {
+    id: "srgb-chrm",
+    build: () =>
+      pngWithChunksBefore([
+        ["sRGB", pngSrgb()],
+        ["cHRM", pngChrm()],
+      ]),
+  },
+  {
+    id: "iccp-only",
+    build: () => pngWithChunksBefore([["iCCP", pngIccp(iccProfileV4())]]),
+  },
+  {
+    id: "iccp-gama-chrm",
+    build: () =>
+      pngWithChunksBefore([
+        ["iCCP", pngIccp(iccProfileV4())],
+        ["gAMA", pngGama()],
+        ["cHRM", pngChrm()],
+      ]),
+  },
+  { id: "cicp", build: () => pngWithChunksBefore([["cICP", pngCicp()]]) },
+  {
+    id: "cicp-mdcv-clli",
+    build: () =>
+      pngWithChunksBefore([
+        ["cICP", pngCicp()],
+        ["mDCv", pngMdcv()],
+        ["cLLi", pngClli()],
+      ]),
+  },
+  { id: "none", build: () => pngWithChunksBefore([]) },
+];
+
 export const XMP_ITXT_KEYWORD = "XML:com.adobe.xmp";
 
 /** PNG `iTXt` chunk payload: keyword, compression flag/method, empty
