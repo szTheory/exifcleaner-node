@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+import { spawnSync } from "node:child_process";
 import { inflateSync } from "node:zlib";
 import {
   PNG_CONDITIONAL_CHUNK_TYPES,
@@ -5,7 +7,42 @@ import {
   PNG_REMOVED_CHUNK_TYPES,
 } from "../../../src/admission/png-handler.js";
 import { PNG_REGISTERED_CHUNK_TYPES } from "../../../src/png/chunks.js";
-import { digest, type DifferentialProfile } from "../kit/oracles.js";
+import {
+  digest,
+  execute,
+  withInput,
+  type DifferentialProfile,
+} from "../kit/oracles.js";
+
+const require = createRequire(import.meta.url);
+const authorityBuilder =
+  require("../../../scripts/qualification/build-oracles.cjs") as AuthorityBuilder;
+const SHA256 = /^[a-f0-9]{64}$/;
+const MAX_ORACLE_INPUT_BYTES = 128 * 1024 * 1024;
+
+interface ExecutableAuthority {
+  readonly path: string;
+  readonly sha256: string;
+}
+
+interface PreparedOracleTools {
+  readonly pngDecode: ExecutableAuthority;
+  readonly pngcheck: ExecutableAuthority;
+  readonly dispose: () => void;
+}
+
+interface AuthorityBuilder {
+  readonly prepareOracleTools: () => PreparedOracleTools;
+}
+
+let preparedTools: PreparedOracleTools | undefined;
+
+function tools(): PreparedOracleTools {
+  preparedTools ??= authorityBuilder.prepareOracleTools();
+  return preparedTools;
+}
+
+process.once("exit", () => preparedTools?.dispose());
 
 export const PNG_EXTENSION = ".png";
 
@@ -178,3 +215,141 @@ export const pngDifferentialProfile: DifferentialProfile = {
   ],
   structuralParts: pngStructuralParts,
 };
+
+/**
+ * Walks a PNG chunk stream and returns the concatenation of every `IDAT`
+ * chunk's data bytes, in file order -- the raw, still-compressed image
+ * payload libpng's own row decode is derived from. A test-local walker
+ * (mirrors `pngStructuralParts`), never importing `src/png/chunks.ts`, so
+ * this identity check cannot share a bug with the handler's own parser.
+ */
+export function pngIdatData(bytes: Buffer): Buffer {
+  const parts: Buffer[] = [];
+  let offset = 8; // past the 8-byte PNG signature
+  while (offset + 8 <= bytes.length) {
+    const length = bytes.readUInt32BE(offset);
+    const type = bytes.toString("ascii", offset + 4, offset + 8);
+    const dataOffset = offset + 8;
+    if (dataOffset + length + 4 > bytes.length) break;
+    if (type === "IDAT")
+      parts.push(bytes.subarray(dataOffset, dataOffset + length));
+    offset = dataOffset + length + 4;
+    if (type === "IEND") break;
+  }
+  return Buffer.concat(parts);
+}
+
+/**
+ * A binary-safe sibling of the kit's own `execute` -- PNG row bytes are
+ * arbitrary and would be corrupted by `execute`'s UTF-8 string decoding of
+ * stdout (any byte sequence not valid UTF-8 is lossily replaced), which
+ * would silently defeat the whole point of hashing the decoded rows. Same
+ * authority-sha256 gate and process-spawn shape as the kit's `execute`,
+ * differing only in the stdout encoding.
+ */
+function executeBinary(
+  authority: ExecutableAuthority,
+  args: readonly string[],
+): {
+  readonly status: number;
+  readonly stdout: Buffer;
+  readonly stderr: string;
+} {
+  if (!SHA256.test(authority.sha256)) throw new Error("Invalid tool authority");
+  const result = spawnSync(authority.path, args, {
+    encoding: "buffer",
+    maxBuffer: 32 * 1024 * 1024,
+    timeout: 20_000,
+  });
+  if (result.error !== undefined) throw new Error("Oracle process failed");
+  return {
+    status: result.status ?? 1,
+    stdout: result.stdout ?? Buffer.alloc(0),
+    stderr: (result.stderr ?? Buffer.alloc(0)).toString("utf8"),
+  };
+}
+
+/**
+ * Decodes a PNG through libpng with `PNG_TRANSFORM_IDENTITY` (no gamma, no
+ * colour transform) and returns the exact IHDR line plus the sha256 of the
+ * raw decoded row bytes. Throws on any oracle rejection (malformed input,
+ * libpng error) or an unrecognized transcript shape.
+ */
+export function runPngDecodeOracle(bytes: Buffer): {
+  readonly ihdr: string;
+  readonly rowsSha256: string;
+} {
+  if (bytes.length === 0 || bytes.length > MAX_ORACLE_INPUT_BYTES)
+    throw new Error("libpng oracle input outside bounds");
+  return withInput(bytes, PNG_EXTENSION, (inputPath) => {
+    const result = executeBinary(tools().pngDecode, [inputPath]);
+    if (result.status !== 0) throw new Error("libpng oracle rejected input");
+    const newline = result.stdout.indexOf(0x0a);
+    if (newline < 0)
+      throw new Error("libpng oracle emitted an unknown transcript");
+    const ihdr = result.stdout.subarray(0, newline).toString("utf8");
+    if (!ihdr.startsWith("IHDR "))
+      throw new Error("libpng oracle emitted an unknown transcript");
+    const rows = result.stdout.subarray(newline + 1);
+    if (rows.length === 0)
+      throw new Error("libpng oracle produced no decoded rows");
+    return { ihdr, rowsSha256: digest(rows) };
+  });
+}
+
+/**
+ * Runs pngcheck's independent structural/CRC validator against the given
+ * bytes. `ok` is true only when pngcheck exits 0 and its own brief summary
+ * line reports `OK:` -- pngcheck's own convention for "no errors,
+ * no warnings" (see pngcheck.c's `brief_OK`/`global_error` handling).
+ */
+export function runPngcheck(bytes: Buffer): {
+  readonly ok: boolean;
+  readonly summary: string;
+} {
+  if (bytes.length === 0 || bytes.length > MAX_ORACLE_INPUT_BYTES)
+    throw new Error("pngcheck oracle input outside bounds");
+  return withInput(bytes, PNG_EXTENSION, (inputPath) => {
+    const result = execute(tools().pngcheck, [inputPath]);
+    const summary = `${result.stdout}\n${result.stderr}`.trim().slice(0, 2_000);
+    return {
+      ok: result.status === 0 && /(?:^|\n)OK:/.test(result.stdout),
+      summary,
+    };
+  });
+}
+
+/**
+ * PNG-02 payload identity, proven by two independent authorities: libpng's
+ * decode must be byte-identical between `source` and `output` (same IHDR,
+ * same decoded row bytes -- no gamma or colour transform applied by
+ * either), pngcheck must accept `output` outright, and the raw (still
+ * zlib-compressed) `IDAT` payload bytes must match exactly. Any failure
+ * throws with a named reason identifying which of the three independent
+ * checks failed.
+ */
+export function assertPngPayloadIdentity(source: Buffer, output: Buffer): void {
+  let sourceDecode: { readonly ihdr: string; readonly rowsSha256: string };
+  let outputDecode: { readonly ihdr: string; readonly rowsSha256: string };
+  try {
+    sourceDecode = runPngDecodeOracle(source);
+  } catch {
+    throw new Error("png payload identity: libpng rejected the source");
+  }
+  try {
+    outputDecode = runPngDecodeOracle(output);
+  } catch {
+    throw new Error("png payload identity: libpng rejected the output");
+  }
+  if (sourceDecode.ihdr !== outputDecode.ihdr)
+    throw new Error("png payload identity: IHDR mismatch");
+  if (sourceDecode.rowsSha256 !== outputDecode.rowsSha256)
+    throw new Error("png payload identity: decoded pixel rows differ");
+  const check = runPngcheck(output);
+  if (!check.ok)
+    throw new Error(
+      `png payload identity: pngcheck rejected the output (${check.summary})`,
+    );
+  if (!pngIdatData(source).equals(pngIdatData(output)))
+    throw new Error("png payload identity: IDAT payload bytes differ");
+}
