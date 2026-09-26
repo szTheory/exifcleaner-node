@@ -431,6 +431,18 @@ function validateCiScopeWiring(workflowText) {
         throw new Error(
           `ci.yml wiring: ${jobName} does not read needs.classify.outputs.formats`,
         );
+      // WR-03 (56-18): a classify failure or empty formats output must never
+      // silently narrow the selection to the kit suite alone -- the step
+      // must read the classify result and fall back to every entry of
+      // QUALIFIED_FORMATS rather than a hardcoded literal.
+      if (!job.includes("CLASSIFY_RESULT: ${{ needs.classify.result }}"))
+        throw new Error(
+          "ci.yml wiring: qualification-linux must read needs.classify.result to fail closed (WR-03)",
+        );
+      if (!job.includes("QUALIFIED_FORMATS"))
+        throw new Error(
+          "ci.yml wiring: qualification-linux fallback must derive formats from QUALIFIED_FORMATS (WR-03)",
+        );
       continue;
     }
     if (job.includes("needs.classify") || needsListIncludesClassify(job))

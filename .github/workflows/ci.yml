@@ -66,9 +66,9 @@ jobs:
     # and only to read outputs.formats for in-job file selection below --
     # never to gate whether this job runs at all (it is a required status
     # check; see docs/ci-budget.md's "Per-format qualification scoping").
-    # WR-03 (56-18): classify's result (needs.classify.result) gates only the
-    # in-step fallback to every qualified format below -- it never gates
-    # whether qualification-linux itself runs.
+    # WR-03 (56-18): classify's job result (read below as CLASSIFY_RESULT)
+    # gates only the in-step fallback to every qualified format -- it never
+    # gates whether qualification-linux itself runs.
     needs: [quality, classify]
     if: ${{ !cancelled() && needs.quality.result == 'success' }}
     runs-on: ubuntu-24.04

@@ -788,6 +788,32 @@ describe("ci.yml scope wiring (D-15, D-18)", () => {
     const mutated = `${workflow}\n      - uses: dorny/paths-filter@v3\n`;
     expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
   });
+
+  it("throws when qualification-linux's CLASSIFY_RESULT env is removed (WR-03)", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "          CLASSIFY_RESULT: ${{ needs.classify.result }}\n",
+      "",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when qualification-linux's fallback stops deriving formats from QUALIFIED_FORMATS (WR-03)", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      `FORMATS="$(node -p "require('./scripts/classify_ci_scope.cjs').QUALIFIED_FORMATS.join(',')")"`,
+      `FORMATS="png,webp"`,
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
 });
 
 // ---------------------------------------------------------------------------
