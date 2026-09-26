@@ -373,6 +373,141 @@ export function pngWithChunksBefore(
   ]);
 }
 
+/** PNG `iCCP` chunk payload: profile name, null terminator, compression
+ * method (0 = deflate), then the deflated profile bytes. */
+export function pngIccp(profile: Buffer, name = "icc"): Buffer {
+  return Buffer.concat([
+    Buffer.from(name, "latin1"),
+    Buffer.from([0]),
+    Buffer.from([0]),
+    deflateSync(profile),
+  ]);
+}
+
+/** PNG `cICP` chunk payload: colour primaries, transfer characteristics,
+ * matrix coefficients, video full range flag -- one byte each. */
+export function pngCicp(
+  primaries = 1,
+  transfer = 13,
+  matrix = 0,
+  fullRange = 1,
+): Buffer {
+  return Buffer.from([primaries, transfer, matrix, fullRange]);
+}
+
+export const XMP_ITXT_KEYWORD = "XML:com.adobe.xmp";
+
+/** PNG `iTXt` chunk payload: keyword, compression flag/method, empty
+ * language tag and translated keyword, then the (optionally deflated) text. */
+export function pngItxt(
+  keyword: string,
+  text: Buffer,
+  compressed = false,
+): Buffer {
+  const payload = compressed ? deflateSync(text) : text;
+  return Buffer.concat([
+    Buffer.from(keyword, "latin1"),
+    Buffer.from([0]), // keyword terminator
+    Buffer.from([compressed ? 1 : 0]), // compression flag
+    Buffer.from([0]), // compression method
+    Buffer.from([0]), // empty language tag + terminator
+    Buffer.from([0]), // empty translated keyword + terminator
+    payload,
+  ]);
+}
+
+/**
+ * Apple's private `iDOT` chunk payload (D-06/D-07): seven big-endian uint32
+ * words `[2, 0, height, 40, height/2, height/2, offsetToSecondIdat]`. The
+ * last word is the byte distance from the `iDOT` chunk's own start (its
+ * length-field position) to the second IDAT segment's chunk start.
+ */
+export function idotPayload(offsetToSecondIdat: number, height = 4): Buffer {
+  const data = Buffer.alloc(28);
+  const words = [
+    2,
+    0,
+    height,
+    40,
+    Math.floor(height / 2),
+    Math.floor(height / 2),
+    offsetToSecondIdat,
+  ];
+  words.forEach((word, index) => data.writeUInt32BE(word >>> 0, index * 4));
+  return data;
+}
+
+/**
+ * A synthetic fixture shaped like a real macOS screenshot (56-CONTEXT.md):
+ * `IHDR iCCP cICP eXIf pHYs iTXt iDOT IDAT IDAT IEND`. The `iDOT` second-
+ * segment offset is computed from the real byte layout, so
+ * `idotSecondSegmentTarget()` always lands on the second IDAT chunk's start.
+ */
+export function screenshotShapedPng(height = 4): Buffer {
+  const ihdr = pngChunk("IHDR", pngIhdr(1, height));
+  const iccp = pngChunk("iCCP", pngIccp(iccProfileV4()));
+  const cicp = pngChunk("cICP", pngCicp());
+  const exif = pngChunk("eXIf", exifWithOrientation(1));
+  const phys = pngChunk("pHYs", pngPhys());
+  const itxt = pngChunk("iTXt", pngItxt(XMP_ITXT_KEYWORD, xmpPacket()));
+  const idat1 = pngChunk("IDAT", pngIdat());
+  const idat2 = pngChunk("IDAT", Buffer.from("second-idat-segment", "ascii"));
+  const iend = pngChunk("IEND", Buffer.alloc(0));
+
+  const IDOT_CHUNK_SPAN = 40; // 8-byte header + 28-byte payload + 4-byte CRC
+  const offsetToSecondIdat = IDOT_CHUNK_SPAN + idat1.length;
+  const idot = pngChunk("iDOT", idotPayload(offsetToSecondIdat, height));
+
+  return Buffer.concat([
+    PNG_SIGNATURE,
+    ihdr,
+    iccp,
+    cicp,
+    exif,
+    phys,
+    itxt,
+    idot,
+    idat1,
+    idat2,
+    iend,
+  ]);
+}
+
+/**
+ * Returns the absolute file offset the `iDOT` chunk's second-segment word
+ * points at (`idotStart + word[6]`), or undefined when no `iDOT` chunk
+ * exists.
+ */
+export function idotSecondSegmentTarget(file: Buffer): number | undefined {
+  let offset = 8;
+  while (offset + 8 <= file.length) {
+    const length = file.readUInt32BE(offset);
+    const type = file.toString("ascii", offset + 4, offset + 8);
+    const dataOffset = offset + 8;
+    if (type === "iDOT") {
+      const secondSegmentWord = file.readUInt32BE(dataOffset + 24);
+      return offset + secondSegmentWord;
+    }
+    offset = dataOffset + length + 4;
+    if (type === "IEND") break;
+  }
+  return undefined;
+}
+
+/** The chunk type whose 8-byte header starts exactly at `offset`, or
+ * undefined if no chunk starts there. */
+export function chunkTypeAt(file: Buffer, offset: number): string | undefined {
+  let cursor = 8;
+  while (cursor + 8 <= file.length) {
+    if (cursor === offset) return file.toString("ascii", cursor + 4, cursor + 8);
+    const length = file.readUInt32BE(cursor);
+    const type = file.toString("ascii", cursor + 4, cursor + 8);
+    cursor += 12 + length;
+    if (type === "IEND") break;
+  }
+  return undefined;
+}
+
 export function readChunks(file: Buffer): readonly FixtureChunk[] {
   const chunks: FixtureChunk[] = [];
   let offset = 12;
