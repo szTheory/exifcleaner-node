@@ -7,9 +7,12 @@ import {
   metadataPng,
   minimalPng,
   png,
+  pngBkgd,
+  pngChrm,
   pngChunk,
   pngIdat,
   pngIhdr,
+  pngWithChunksBefore,
 } from "./fixtures.js";
 
 /**
@@ -153,16 +156,41 @@ describe("PNG handler end to end (56-03 tracer)", () => {
     }
   });
 
-  it("(d) declines a source with an unregistered ancillary chunk as unsafe-structure, safe to fall back, leaving only the source on disk", async () => {
+  it("(d) strips an unregistered private ancillary chunk mid-stream (D-05)", async () => {
     const directory = await freshDirectory();
     const sourcePath = join(directory, "source.png");
     const destinationPath = join(directory, "destination.png");
-    const source = png([
-      pngChunk("IHDR", pngIhdr()),
-      pngChunk("prVt", Buffer.from("private", "ascii")),
-      pngChunk("IDAT", pngIdat()),
-      pngChunk("IEND", Buffer.alloc(0)),
+    const source = pngWithChunksBefore([
+      ["cHRM", pngChrm()],
+      ["prVt", Buffer.from("private", "ascii")],
+      ["bKGD", pngBkgd()],
     ]);
+    await writeFile(sourcePath, source);
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      ...NO_PRESERVATION,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.value.removedNamespaces).toContain("PNG");
+
+    const destination = await readFile(destinationPath);
+    expect(readPngChunkTypes(destination)).toEqual([
+      "IHDR",
+      "cHRM",
+      "bKGD",
+      "IDAT",
+      "IEND",
+    ]);
+  });
+
+  it("declines a registered but unmeasured chunk (D-05)", async () => {
+    const directory = await freshDirectory();
+    const sourcePath = join(directory, "source.png");
+    const destinationPath = join(directory, "destination.png");
+    const source = pngWithChunksBefore([["gIFg", Buffer.alloc(4)]]);
     await writeFile(sourcePath, source);
 
     const result = await sanitizeFile({
@@ -173,11 +201,37 @@ describe("PNG handler end to end (56-03 tracer)", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("unreachable");
     expect(result.error.code).toBe("unsafe-structure");
+    expect(result.error.detail).toContain("gIFg");
     expect(classifyFallback(result.error)).toBe("safe-to-fallback");
 
     const listing = await readdir(directory);
     expect(listing).toEqual(["source.png"]);
     const sourceAfter = await readFile(sourcePath);
     expect(sourceAfter.equals(source)).toBe(true);
+  });
+
+  it("strips an unregistered private ancillary chunk positioned after IDAT (D-05)", async () => {
+    const directory = await freshDirectory();
+    const sourcePath = join(directory, "source.png");
+    const destinationPath = join(directory, "destination.png");
+    const source = png([
+      pngChunk("IHDR", pngIhdr()),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("prVt", Buffer.from("private", "ascii")),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]);
+    await writeFile(sourcePath, source);
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      ...NO_PRESERVATION,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.value.removedNamespaces).toContain("PNG");
+
+    const destination = await readFile(destinationPath);
+    expect(readPngChunkTypes(destination)).toEqual(["IHDR", "IDAT", "IEND"]);
   });
 });

@@ -357,6 +357,22 @@ export function metadataPng(): Buffer {
   ]);
 }
 
+/**
+ * Builds `IHDR`, the given `[type, data]` chunks in order, `IDAT`, `IEND`.
+ * The caller is responsible for choosing types/positions that satisfy
+ * src/png/chunks.ts's PNG_ORDER structural rules for the intended fixture.
+ */
+export function pngWithChunksBefore(
+  types: readonly (readonly [string, Buffer])[],
+): Buffer {
+  return png([
+    pngChunk("IHDR", pngIhdr()),
+    ...types.map(([type, data]) => pngChunk(type, data)),
+    pngChunk("IDAT", pngIdat()),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 export function readChunks(file: Buffer): readonly FixtureChunk[] {
   const chunks: FixtureChunk[] = [];
   let offset = 12;

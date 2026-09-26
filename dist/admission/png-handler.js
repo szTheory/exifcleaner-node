@@ -3,7 +3,7 @@ import { parseIcc } from "../metadata/icc.js";
 import { parseXmp } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
-import { inflateBounded, InflateBudget, isPngSignature, parsePng, PNG_CRITICAL_CHUNK_TYPES, PNG_MAX_ANCILLARY_CHUNKS, PNG_MAX_INFLATED_BYTES_TOTAL, PNG_MAX_INFLATED_ICC_BYTES, PNG_MAX_INFLATED_TEXT_BYTES, PNG_MAX_METADATA_BYTES_PER_CHUNK, PNG_SIGNATURE, PngStructureError, } from "../png/chunks.js";
+import { inflateBounded, InflateBudget, isPngSignature, parsePng, PNG_CRITICAL_CHUNK_TYPES, PNG_MAX_ANCILLARY_CHUNKS, PNG_MAX_INFLATED_BYTES_TOTAL, PNG_MAX_INFLATED_ICC_BYTES, PNG_MAX_INFLATED_TEXT_BYTES, PNG_MAX_METADATA_BYTES_PER_CHUNK, PNG_REGISTERED_CHUNK_TYPES, PNG_SIGNATURE, PngStructureError, } from "../png/chunks.js";
 import { ICC_PRESERVATION_POLICY_ID, MAX_PROFILE_BYTES, } from "../metadata/icc_admission.js";
 // D-05 closed lists. Measured ExifTool 13.59 behaviour (56-CONTEXT.md,
 // 56-RESEARCH.md): `-all=` keeps every type in PNG_PRESERVED_CHUNK_TYPES and
@@ -102,6 +102,7 @@ function collectMetadata(parsed) {
     const namespaces = new Set();
     let resolutionNamespace;
     const classes = [];
+    const unregisteredStripped = [];
     const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
     parsed.chunks.forEach((chunk, index) => {
         const { type } = chunk;
@@ -109,12 +110,12 @@ function collectMetadata(parsed) {
             classes.push("keep");
             return;
         }
-        // D-06: iDOT's Apple-private adjacency invariant is not admitted yet
-        // (Plan 04 replaces this). It is listed in PNG_PRESERVED_CHUNK_TYPES for
-        // documentation and Plan 04's benefit, but this tracer declines on sight.
-        if (type === "iDOT") {
-            throw new PngStructureError("unsafe-structure", "PNG iDOT handling is not yet admitted.");
-        }
+        // iDOT (Apple's private adjacency-constrained chunk, D-06) is a measured
+        // "keep, measured-kept by ExifTool" entry like any other
+        // PNG_PRESERVED_CHUNK_TYPES member -- unconditionally kept here. The
+        // iDOT-to-first-IDAT adjacency invariant is enforced at the plan level
+        // (buildOutputPlan), not during admission, because it depends on the
+        // request's preservation flags.
         if (PNG_PRESERVED_CHUNK_TYPES.has(type)) {
             classes.push("keep");
             return;
@@ -138,11 +139,22 @@ function collectMetadata(parsed) {
             return;
         }
         if (!PNG_REMOVED_CHUNK_TYPES.has(type)) {
-            // Fail-closed (D-05): anything outside the three lists and the critical
-            // set declines until Plan 04 decides it. This also catches an
-            // unregistered private ancillary chunk and a registered-but-unmeasured
-            // one -- both become a typed decline, never a guessed keep or strip.
-            throw new PngStructureError("unsafe-structure", `PNG chunk ${type} is not yet classified.`);
+            if (PNG_REGISTERED_CHUNK_TYPES.has(type)) {
+                // D-05: registered but unmeasured. The handler never guesses keep or
+                // strip -- it becomes eligible once a measurement adds it to a list.
+                throw new PngStructureError("unsafe-structure", `PNG chunk ${type} is registered but its ExifTool behaviour is not measured; declining.`);
+            }
+            // D-05: unregistered private ancillary chunk. src/png/chunks.ts's
+            // structural pass already refused an uppercase-first (critical) unknown
+            // as an unknown-critical chunk, so anything reaching here is a
+            // lowercase-first ancillary type. Strip it and record its type so the
+            // differential can grant it (Plans 07/09); its presence widens
+            // removedNamespaces via PNG.
+            classes.push("remove");
+            if (!unregisteredStripped.includes(type))
+                unregisteredStripped.push(type);
+            namespaces.add("PNG");
+            return;
         }
         classes.push("remove");
         const data = parsed.buffered.get(index);
@@ -209,6 +221,7 @@ function collectMetadata(parsed) {
         namespaces: [...namespaces],
         resolutionNamespace,
         classes,
+        unregisteredStripped,
     };
 }
 function isKept(cls, preserveColorProfile, preserveResolution) {
@@ -219,6 +232,30 @@ function isKept(cls, preserveColorProfile, preserveResolution) {
     if (cls === "conditional-resolution")
         return preserveResolution;
     return false;
+}
+/**
+ * D-06: iDOT's offsets are relative to the iDOT chunk's own start, so nothing
+ * may be inserted between iDOT and the first IDAT, and nothing between them
+ * may be removed. Returns a decline message when a chunk in that span would
+ * be removed under the current flags; undefined when the file has no iDOT,
+ * has no IDAT after it, or every in-between chunk is kept.
+ */
+function findIdotAdjacencyDecline(admission, preserveColorProfile, preserveResolution) {
+    const { chunks } = admission.parsed;
+    const idotIndex = chunks.findIndex((item) => item.type === "iDOT");
+    if (idotIndex < 0)
+        return undefined;
+    const firstIdatIndex = chunks.findIndex((item) => item.type === "IDAT");
+    if (firstIdatIndex < 0 || firstIdatIndex <= idotIndex)
+        return undefined;
+    for (let index = idotIndex + 1; index < firstIdatIndex; index += 1) {
+        const chunk = chunks[index];
+        const cls = admission.classes[index] ?? "remove";
+        if (!isKept(cls, preserveColorProfile, preserveResolution)) {
+            return `PNG chunk ${chunk.type} sits between iDOT and the first IDAT and cannot be removed safely.`;
+        }
+    }
+    return undefined;
 }
 function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, preserveResolution, _orientation) {
     // The tracer inserts nothing (Plan 06 adds the minimal eXIf insert); every
@@ -260,7 +297,10 @@ function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, 
         copiedChunks.push(chunk);
     });
     flush();
-    return { parts, expectedTypes, copiedChunks };
+    const declineReason = findIdotAdjacencyDecline(admission, preserveColorProfile, preserveResolution);
+    return declineReason === undefined
+        ? { parts, expectedTypes, copiedChunks }
+        : { parts, expectedTypes, copiedChunks, declineReason };
 }
 function recomputeExpectedTypes(admission, preserveColorProfile, preserveResolution) {
     const types = [];
@@ -446,6 +486,8 @@ export const pngHandler = Object.freeze({
     },
     buildOutputPlan,
     checkOutputPlan(plan) {
+        if (plan.declineReason !== undefined)
+            return plan.declineReason;
         return plan.expectedTypes.includes("IDAT")
             ? undefined
             : "Sanitized PNG plan is empty.";

@@ -29,6 +29,7 @@ import {
   PNG_MAX_INFLATED_ICC_BYTES,
   PNG_MAX_INFLATED_TEXT_BYTES,
   PNG_MAX_METADATA_BYTES_PER_CHUNK,
+  PNG_REGISTERED_CHUNK_TYPES,
   PNG_SIGNATURE,
   PngStructureError,
   type ParsedPng,
@@ -105,6 +106,12 @@ export interface PngAdmission extends FormatAdmission {
   readonly parsed: ParsedPng;
   /** One classification per entry in `parsed.chunks`, same index order. */
   readonly classes: readonly PngChunkClass[];
+  /**
+   * Unregistered private ancillary chunk types stripped under D-05, in order
+   * of first appearance, deduplicated. Granted by a future permitted-
+   * difference kind (Plans 07/09).
+   */
+  readonly unregisteredStripped: readonly string[];
 }
 
 export type PngOutputPlanPart =
@@ -119,6 +126,13 @@ export interface PngOutputPlan {
   readonly parts: readonly PngOutputPlanPart[];
   readonly expectedTypes: readonly string[];
   readonly copiedChunks: readonly PngChunk[];
+  /**
+   * D-06: set when an iDOT chunk is present and a chunk strictly between it
+   * and the first IDAT would be removed under the request's flags. When set,
+   * checkOutputPlan declines before any write -- nothing is ever inserted or
+   * removed between iDOT and IDAT.
+   */
+  readonly declineReason?: string;
 }
 
 function isAborted(signal: AbortSignal | undefined): boolean {
@@ -207,6 +221,7 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
   const namespaces = new Set<PngMetadataNamespace>();
   let resolutionNamespace: PngMetadataNamespace | undefined;
   const classes: PngChunkClass[] = [];
+  const unregisteredStripped: string[] = [];
   const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
 
   parsed.chunks.forEach((chunk, index) => {
@@ -217,16 +232,12 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
       return;
     }
 
-    // D-06: iDOT's Apple-private adjacency invariant is not admitted yet
-    // (Plan 04 replaces this). It is listed in PNG_PRESERVED_CHUNK_TYPES for
-    // documentation and Plan 04's benefit, but this tracer declines on sight.
-    if (type === "iDOT") {
-      throw new PngStructureError(
-        "unsafe-structure",
-        "PNG iDOT handling is not yet admitted.",
-      );
-    }
-
+    // iDOT (Apple's private adjacency-constrained chunk, D-06) is a measured
+    // "keep, measured-kept by ExifTool" entry like any other
+    // PNG_PRESERVED_CHUNK_TYPES member -- unconditionally kept here. The
+    // iDOT-to-first-IDAT adjacency invariant is enforced at the plan level
+    // (buildOutputPlan), not during admission, because it depends on the
+    // request's preservation flags.
     if (PNG_PRESERVED_CHUNK_TYPES.has(type)) {
       classes.push("keep");
       return;
@@ -252,14 +263,25 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
     }
 
     if (!PNG_REMOVED_CHUNK_TYPES.has(type)) {
-      // Fail-closed (D-05): anything outside the three lists and the critical
-      // set declines until Plan 04 decides it. This also catches an
-      // unregistered private ancillary chunk and a registered-but-unmeasured
-      // one -- both become a typed decline, never a guessed keep or strip.
-      throw new PngStructureError(
-        "unsafe-structure",
-        `PNG chunk ${type} is not yet classified.`,
-      );
+      if (PNG_REGISTERED_CHUNK_TYPES.has(type)) {
+        // D-05: registered but unmeasured. The handler never guesses keep or
+        // strip -- it becomes eligible once a measurement adds it to a list.
+        throw new PngStructureError(
+          "unsafe-structure",
+          `PNG chunk ${type} is registered but its ExifTool behaviour is not measured; declining.`,
+        );
+      }
+      // D-05: unregistered private ancillary chunk. src/png/chunks.ts's
+      // structural pass already refused an uppercase-first (critical) unknown
+      // as an unknown-critical chunk, so anything reaching here is a
+      // lowercase-first ancillary type. Strip it and record its type so the
+      // differential can grant it (Plans 07/09); its presence widens
+      // removedNamespaces via PNG.
+      classes.push("remove");
+      if (!unregisteredStripped.includes(type))
+        unregisteredStripped.push(type);
+      namespaces.add("PNG");
+      return;
     }
 
     classes.push("remove");
@@ -327,6 +349,7 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
     namespaces: [...namespaces],
     resolutionNamespace,
     classes,
+    unregisteredStripped,
   };
 }
 
@@ -339,6 +362,34 @@ function isKept(
   if (cls === "conditional-color") return preserveColorProfile;
   if (cls === "conditional-resolution") return preserveResolution;
   return false;
+}
+
+/**
+ * D-06: iDOT's offsets are relative to the iDOT chunk's own start, so nothing
+ * may be inserted between iDOT and the first IDAT, and nothing between them
+ * may be removed. Returns a decline message when a chunk in that span would
+ * be removed under the current flags; undefined when the file has no iDOT,
+ * has no IDAT after it, or every in-between chunk is kept.
+ */
+function findIdotAdjacencyDecline(
+  admission: PngAdmission,
+  preserveColorProfile: boolean,
+  preserveResolution: boolean,
+): string | undefined {
+  const { chunks } = admission.parsed;
+  const idotIndex = chunks.findIndex((item) => item.type === "iDOT");
+  if (idotIndex < 0) return undefined;
+  const firstIdatIndex = chunks.findIndex((item) => item.type === "IDAT");
+  if (firstIdatIndex < 0 || firstIdatIndex <= idotIndex) return undefined;
+
+  for (let index = idotIndex + 1; index < firstIdatIndex; index += 1) {
+    const chunk = chunks[index]!;
+    const cls = admission.classes[index] ?? "remove";
+    if (!isKept(cls, preserveColorProfile, preserveResolution)) {
+      return `PNG chunk ${chunk.type} sits between iDOT and the first IDAT and cannot be removed safely.`;
+    }
+  }
+  return undefined;
 }
 
 function buildOutputPlan(
@@ -388,7 +439,15 @@ function buildOutputPlan(
   });
   flush();
 
-  return { parts, expectedTypes, copiedChunks };
+  const declineReason = findIdotAdjacencyDecline(
+    admission,
+    preserveColorProfile,
+    preserveResolution,
+  );
+
+  return declineReason === undefined
+    ? { parts, expectedTypes, copiedChunks }
+    : { parts, expectedTypes, copiedChunks, declineReason };
 }
 
 function recomputeExpectedTypes(
@@ -701,6 +760,7 @@ export const pngHandler: FormatHandler<PngAdmission, PngOutputPlan> =
     },
     buildOutputPlan,
     checkOutputPlan(plan: PngOutputPlan): string | undefined {
+      if (plan.declineReason !== undefined) return plan.declineReason;
       return plan.expectedTypes.includes("IDAT")
         ? undefined
         : "Sanitized PNG plan is empty.";
