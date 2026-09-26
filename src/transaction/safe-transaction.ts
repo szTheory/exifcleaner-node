@@ -508,34 +508,44 @@ export async function runSafeTransaction<
     sourceHandleOpen = false;
     const postCommitResidue =
       await closePostPublicationResources(committedResources);
-    const namespaces = new Set(admission.namespaces);
+    // Format-neutral by construction (KIT-01 D-03): no format's own namespace
+    // literal is named here. EXIF is skipped only when orientation preservation
+    // actually retained it; ICC only when the colour profile was preserved;
+    // every other namespace present in the source is always removed. The
+    // resolution namespace (if any) is appended only when resolution was not
+    // preserved. First-seen order is kept and duplicates are collapsed.
+    type NamespaceLiteral = SanitizeResult["removedNamespaces"][number];
+    const namespaceSet = new Set(admission.namespaces);
     const resolutionNamespace = admission.resolutionNamespace;
     const preservedResolution =
       options.preserveResolution && resolutionNamespace !== undefined;
-    const removedNamespaces = new Set<"EXIF" | "XMP" | "ICC">([
-      ...(namespaces.has("EXIF") &&
-      !(options.preserveOrientation && orientation !== undefined)
-        ? (["EXIF"] as const)
-        : []),
-      ...(namespaces.has("XMP") ? (["XMP"] as const) : []),
-      ...(namespaces.has("ICC") && !options.preserveColorProfile
-        ? (["ICC"] as const)
-        : []),
-      ...(resolutionNamespace !== undefined && !options.preserveResolution
-        ? [resolutionNamespace]
-        : []),
-    ]);
+    const removedNamespaces: NamespaceLiteral[] = [];
+    const seenRemoved = new Set<NamespaceLiteral>();
+    const addRemoved = (namespace: NamespaceLiteral): void => {
+      if (seenRemoved.has(namespace)) return;
+      seenRemoved.add(namespace);
+      removedNamespaces.push(namespace);
+    };
+    for (const namespace of admission.namespaces) {
+      if (
+        namespace === "EXIF" &&
+        options.preserveOrientation &&
+        orientation !== undefined
+      )
+        continue;
+      if (namespace === "ICC" && options.preserveColorProfile) continue;
+      addRemoved(namespace);
+    }
+    if (resolutionNamespace !== undefined && !options.preserveResolution)
+      addRemoved(resolutionNamespace);
     return ok({
       format: handler.capability.format,
       destinationPath,
-      removedNamespaces: [
-        ...(removedNamespaces.has("EXIF") ? (["EXIF"] as const) : []),
-        ...(removedNamespaces.has("XMP") ? (["XMP"] as const) : []),
-        ...(removedNamespaces.has("ICC") ? (["ICC"] as const) : []),
-      ],
+      removedNamespaces,
       preserved: {
         orientation: options.preserveOrientation && orientation !== undefined,
-        colorProfile: options.preserveColorProfile && namespaces.has("ICC"),
+        colorProfile:
+          options.preserveColorProfile && namespaceSet.has("ICC"),
         timestamps: options.preserveTimestamps,
         resolution: preservedResolution,
       },

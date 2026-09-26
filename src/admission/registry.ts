@@ -2,8 +2,12 @@ import type { FileHandle } from "node:fs/promises";
 import type { Capabilities, FormatCapabilities } from "../types.js";
 import type { RegisteredHandler } from "./handler.js";
 import { webpHandler } from "./webp-handler.js";
+import { pngHandler } from "./png-handler.js";
 
-const HANDLERS: readonly RegisteredHandler[] = Object.freeze([webpHandler]);
+const HANDLERS: readonly RegisteredHandler[] = Object.freeze([
+  webpHandler,
+  pngHandler,
+]);
 
 // Private test seam (mirrors setNativePublicationBindingForTests in
 // src/transaction/native-publication.ts): lets a test roll a handler out of

@@ -300,6 +300,63 @@ export function minimalPng(): Buffer {
   ]);
 }
 
+export function pngChrm(): Buffer {
+  // Eight 4-byte unsigned values (white point + RGB primaries), each in units
+  // of 1/100000. Arbitrary admitted values -- content is opaque to the handler.
+  const data = Buffer.alloc(32);
+  const values = [31270, 32900, 64000, 33000, 30000, 60000, 15000, 6000];
+  values.forEach((value, index) => data.writeUInt32BE(value, index * 4));
+  return data;
+}
+
+export function pngBkgd(): Buffer {
+  // colorType 2 (truecolor, pngIhdr()'s default): three 2-byte RGB samples.
+  return Buffer.alloc(6);
+}
+
+export function pngPhys(): Buffer {
+  const data = Buffer.alloc(9);
+  data.writeUInt32BE(2835, 0); // pixels per unit, X (72 DPI)
+  data.writeUInt32BE(2835, 4); // pixels per unit, Y
+  data[8] = 1; // unit specifier: meters
+  return data;
+}
+
+export function pngTime(): Buffer {
+  const data = Buffer.alloc(7);
+  data.writeUInt16BE(2026, 0);
+  data[2] = 9;
+  data[3] = 25;
+  data[4] = 12;
+  data[5] = 0;
+  data[6] = 0;
+  return data;
+}
+
+export function pngTextChunkData(keyword: string, text: string): Buffer {
+  return Buffer.from(`${keyword}\0${text}`, "latin1");
+}
+
+/**
+ * IHDR, cHRM (32 bytes), bKGD (6 bytes), pHYs (9 bytes), a tEXt "Comment"
+ * private-workflow marker, tIME (7 bytes), IDAT, IEND. Every chunk except
+ * IHDR/IDAT/IEND is either D-05 preserve-list (cHRM, bKGD) or D-05/D-02
+ * removed-by-default (pHYs, tEXt, tIME) -- exercising the 56-03 tracer's full
+ * classification surface in one fixture.
+ */
+export function metadataPng(): Buffer {
+  return png([
+    pngChunk("IHDR", pngIhdr()),
+    pngChunk("cHRM", pngChrm()),
+    pngChunk("bKGD", pngBkgd()),
+    pngChunk("pHYs", pngPhys()),
+    pngChunk("tEXt", pngTextChunkData("Comment", "private workflow")),
+    pngChunk("tIME", pngTime()),
+    pngChunk("IDAT", pngIdat()),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 export function readChunks(file: Buffer): readonly FixtureChunk[] {
   const chunks: FixtureChunk[] = [];
   let offset = 12;
