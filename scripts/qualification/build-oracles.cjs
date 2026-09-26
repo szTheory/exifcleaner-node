@@ -203,9 +203,12 @@ function validateManifestShape(manifest) {
     ])
   )
     fail("authority order and IDs are not exact");
-  if (!Array.isArray(manifest.fixtures) || manifest.fixtures.length !== 1)
-    fail("exactly one upstream fixture authority is required");
+  if (!Array.isArray(manifest.fixtures) || manifest.fixtures.length === 0)
+    fail("at least one upstream fixture authority is required");
   manifest.fixtures.forEach(validateFixtureShape);
+  const fixtureIds = manifest.fixtures.map((item) => item.id);
+  if (new Set(fixtureIds).size !== fixtureIds.length)
+    fail("fixture ids must be unique");
   return manifest;
 }
 
@@ -298,6 +301,40 @@ function validateAuthorityBytes(authority) {
   return { archivePath, members };
 }
 
+/**
+ * WebP-specific exact oracle assertions (T-56-33): the immutable
+ * libwebp-1.5.0-example fixture's byte structure and dwebp/webpinfo/ExifTool
+ * transcript are pinned exactly, unchanged since before the Phase 56
+ * generalization. Kept in its own function so `validateFixture` stays
+ * format-neutral and this fixture's evidence never widens.
+ */
+function validateWebpFixtureBytes(fixture, member, record) {
+  const payloadSize = member.readUInt32LE(16);
+  const payload = member.subarray(20, 20 + payloadSize);
+  if (
+    member.toString("ascii", 0, 4) !== "RIFF" ||
+    member.toString("ascii", 8, 12) !== "WEBP" ||
+    member.toString("ascii", 12, 16) !== "VP8 " ||
+    payloadSize !== 4860 ||
+    digest(payload) !==
+      "89c641e38f1b10766880e7c81e3ca69246836fdb81100c39cd39881513b9dd36" ||
+    record.oracle?.dwebp?.pamSha256 !==
+      "ff7c5b6f529f2800154e87e3a56f708f9de842cda7ffff2b7284821cc1a9848a" ||
+    record.oracle?.webpinfo?.chunks?.[0]?.spanBytes !== 4868 ||
+    JSON.stringify(record.oracle?.exiftool?.warnings) !== "[]"
+  )
+    fail(`${fixture.id} exact oracle assertion drift`);
+}
+
+/**
+ * Generalized (56-09 KIT-01): every fixture entry ties its committed bytes to
+ * an exact member of a pinned authority archive (T-56-30) and to a
+ * corresponding corpus record whose own provenance/digest fields agree. A
+ * format-specific exact-byte assertion (`validateWebpFixtureBytes`) applies
+ * only to the fixture whose authority is `libwebp-1.5.0`, so the WebP
+ * evidence this kit already pinned never widens; other authorities (for
+ * example `libpng-1.6.58`) validate only the format-neutral shape above.
+ */
 function validateFixture(fixture, manifest, validatedAuthorities) {
   const authority = manifest.authorities.find(
     (item) => item.id === fixture.authority,
@@ -322,8 +359,8 @@ function validateFixture(fixture, manifest, validatedAuthorities) {
   const record = corpus.records?.find((item) => item.id === fixture.id);
   if (
     !isObject(record) ||
-    JSON.stringify(record.roles) !==
-      JSON.stringify(["decode", "differential", "structural"]) ||
+    !Array.isArray(record.roles) ||
+    record.roles.length === 0 ||
     record.localPath !==
       path.relative(
         path.dirname(corpusManifestPath),
@@ -336,21 +373,9 @@ function validateFixture(fixture, manifest, validatedAuthorities) {
     record.sha256 !== fixture.sha256
   )
     fail(`${fixture.id} corpus authority drift`);
-  const payloadSize = member.readUInt32LE(16);
-  const payload = member.subarray(20, 20 + payloadSize);
-  if (
-    member.toString("ascii", 0, 4) !== "RIFF" ||
-    member.toString("ascii", 8, 12) !== "WEBP" ||
-    member.toString("ascii", 12, 16) !== "VP8 " ||
-    payloadSize !== 4860 ||
-    digest(payload) !==
-      "89c641e38f1b10766880e7c81e3ca69246836fdb81100c39cd39881513b9dd36" ||
-    record.oracle?.dwebp?.pamSha256 !==
-      "ff7c5b6f529f2800154e87e3a56f708f9de842cda7ffff2b7284821cc1a9848a" ||
-    record.oracle?.webpinfo?.chunks?.[0]?.spanBytes !== 4868 ||
-    JSON.stringify(record.oracle?.exiftool?.warnings) !== "[]"
-  )
-    fail(`${fixture.id} exact oracle assertion drift`);
+
+  if (fixture.authority === "libwebp-1.5.0")
+    validateWebpFixtureBytes(fixture, member, record);
 }
 
 function runShapeMutationChecks(manifest) {

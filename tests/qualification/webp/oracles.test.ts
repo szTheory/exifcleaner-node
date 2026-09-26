@@ -80,6 +80,7 @@ function sanitizeOptionsForGrants(grants: readonly string[]): SanitizeOptions {
 
 interface ManifestRecord {
   readonly id: string;
+  readonly format: string;
   readonly roles: readonly string[];
   readonly outcome: { readonly status: string };
   readonly permittedDifferences: readonly string[];
@@ -94,6 +95,7 @@ function differentialSuccessRecords(): readonly ManifestRecord[] {
   };
   return manifest.records.filter(
     (record) =>
+      record.format === "webp" &&
       record.roles.includes("differential") &&
       record.outcome.status === "success",
   );

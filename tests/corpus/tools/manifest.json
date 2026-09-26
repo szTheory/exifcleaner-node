@@ -18,8 +18,12 @@
         "member": "libwebp-1.5.0/COPYING",
         "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf"
       },
-      "platforms": ["linux"],
-      "architectures": ["x64"],
+      "platforms": [
+        "linux"
+      ],
+      "architectures": [
+        "x64"
+      ],
       "versionProbe": {
         "member": "libwebp-1.5.0/configure",
         "sha256": "77fd17ae46865852e867e86f8aeef090f9dee5eff86731bfe2fe87684f37fc16",
@@ -59,8 +63,12 @@
         "member": "Image-ExifTool-13.59/README",
         "sha256": "e13005e5431c89910feba2309710d844f1bf4fd97df1236284e6475161bc14da"
       },
-      "platforms": ["linux"],
-      "architectures": ["x64"],
+      "platforms": [
+        "linux"
+      ],
+      "architectures": [
+        "x64"
+      ],
       "versionProbe": {
         "member": "Image-ExifTool-13.59/lib/Image/ExifTool.pm",
         "sha256": "95fa4ec3cc3603866dd6e37bfe52ad019ff50a23bbd5cc87ce40f949cf49a508",
@@ -93,8 +101,12 @@
         "member": "libpng-1.6.58/LICENSE",
         "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526"
       },
-      "platforms": ["linux"],
-      "architectures": ["x64"],
+      "platforms": [
+        "linux"
+      ],
+      "architectures": [
+        "x64"
+      ],
       "versionProbe": {
         "member": "libpng-1.6.58/png.h",
         "sha256": "81501c268ec5c3dc79efc6ac9fddb63b22a25e4931360ddd7b29b1744d6cb6b8",
@@ -127,8 +139,12 @@
         "member": "pngcheck-4.0.1/LICENSE",
         "sha256": "137951967c258cdbed01d0af67317236244ef6c750bef9e5a7020098e53b1445"
       },
-      "platforms": ["linux"],
-      "architectures": ["x64"],
+      "platforms": [
+        "linux"
+      ],
+      "architectures": [
+        "x64"
+      ],
       "versionProbe": {
         "member": "pngcheck-4.0.1/pngcheck.c",
         "sha256": "728e82da1e26bcd2142bec2162e908b39dd4b3bbcf6145e2af264114be625dd2",
@@ -154,6 +170,15 @@
       "bytes": 4880,
       "sha256": "1bf9449d529b491c6eb22ec84d42217e43cf9af0ffe391fa7a30b29b037f098a",
       "licenseMember": "libwebp-1.5.0/COPYING"
+    },
+    {
+      "id": "libpng-1.6.58-rgb-8-srgb",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/rgb-8-sRGB.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/rgb-8-sRGB.png",
+      "bytes": 772,
+      "sha256": "4f94dfdb92acaeffab3aff43fbaf935fe0e5816566792b56a75a9f8802028e7e",
+      "licenseMember": "libpng-1.6.58/LICENSE"
     }
   ]
 }

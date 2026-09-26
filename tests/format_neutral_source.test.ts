@@ -120,12 +120,16 @@ describe("format-neutral source scan (KIT-01 D-03)", () => {
  * checks every exception key names a file that still exists, so a stale
  * exception (the file was made neutral, or renamed, or removed) fails instead
  * of silently widening the allowlist forever.
+ *
+ * Plan 09 closed the one carried exception (`corpus.ts`): the manifest
+ * schema's own payload vocabulary moved out to each format's own
+ * `payloadDigests` callback (`webpPayloadDigests`, `pngPayloadDigests`), so
+ * this object is now empty. A dedicated non-vacuous assertion below pins
+ * that emptiness, so re-adding an exception is a reviewed diff, not a silent
+ * widening.
  */
 export const KIT_NEUTRALITY_EXCEPTIONS: Readonly<Record<string, string>> =
-  Object.freeze({
-    "corpus.ts":
-      "manifest schema still uses WebP payload vocabulary; generalized when the first non-WebP corpus record lands (Phase 56)",
-  });
+  Object.freeze({});
 
 function listKitFiles(): string[] {
   const kitDir = join(packageRoot, "tests/qualification/kit");
@@ -135,6 +139,10 @@ function listKitFiles(): string[] {
 }
 
 describe("kit-neutrality scan (Plan 08)", () => {
+  it("carries no open exceptions (Plan 09 closed corpus.ts)", () => {
+    expect(KIT_NEUTRALITY_EXCEPTIONS).toEqual({});
+  });
+
   it("every exception key names a file that exists under tests/qualification/kit/", () => {
     const kitFiles = new Set(
       listKitFiles().map((path) => path.split("/").pop()),

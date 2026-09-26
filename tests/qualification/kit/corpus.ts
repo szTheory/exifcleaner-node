@@ -3,7 +3,8 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { inspectFile, sanitizeFile } from "../../../dist/index.js";
+import { getCapabilities, inspectFile, sanitizeFile } from "../../../dist/index.js";
+import type { MetadataEntry, NativeFormat } from "../../../src/types.js";
 
 const CORPUS_ROOT = fileURLToPath(new URL("../../corpus/", import.meta.url));
 const MANIFEST_PATH = join(CORPUS_ROOT, "manifest.json");
@@ -16,7 +17,33 @@ const ROLES = new Set([
   "property-regression",
   "benchmark",
 ]);
-const PAYLOAD_CHUNKS = new Set(["VP8 ", "VP8L", "ALPH", "ANIM", "ANMF"]);
+
+/**
+ * The private namespace literal (`src/types.ts` deliberately does not export
+ * it), projected through a public member type so this file names no
+ * container vocabulary of its own -- KIT-01 D-03.
+ */
+type Namespace = MetadataEntry["namespace"];
+
+/**
+ * The registered-handler capability list is this kit's single runtime
+ * source of truth for which formats exist, which extension each one uses,
+ * and which metadata namespaces each one can report removing -- read once,
+ * derived entirely from the built package, never restated as a literal here.
+ */
+const CAPABILITIES = getCapabilities().formats;
+const FORMAT_IDS: ReadonlySet<string> = new Set(
+  CAPABILITIES.map((capability) => capability.format),
+);
+const ALL_NAMESPACES: ReadonlySet<string> = new Set(
+  CAPABILITIES.flatMap((capability) => capability.removes),
+);
+
+function capabilityFor(format: NativeFormat) {
+  const capability = CAPABILITIES.find((item) => item.format === format);
+  if (capability === undefined) throw new Error(`Unregistered format: ${format}`);
+  return capability;
+}
 
 type RecordRole =
   | "decode"
@@ -26,8 +53,15 @@ type RecordRole =
   | "property-regression"
   | "benchmark";
 
-interface PayloadDigest {
-  readonly fourCc: string;
+/**
+ * `part` is a container-specific payload identifier -- each registered
+ * format's own chunk-type or sub-stream identifier -- named neutrally so
+ * this kit carries no per-format vocabulary of its own (KIT-01 D-03).
+ * Callers supply their own `payloadDigests` extraction (one per registered
+ * format's own oracles module), never this file.
+ */
+export interface PayloadDigest {
+  readonly part: string;
   readonly sha256: string;
 }
 
@@ -40,21 +74,22 @@ interface Provenance {
 
 interface SuccessOutcome {
   readonly status: "success";
-  readonly removedNamespaces: readonly ("EXIF" | "XMP" | "ICC")[];
+  readonly removedNamespaces: readonly Namespace[];
 }
 
 interface RefusalOutcome {
   readonly status: "refused";
-  readonly errorCode: "malformed-file";
+  readonly errorCode: "malformed-file" | "unsafe-structure";
   readonly nativeWrite: "not-started";
 }
 
 export interface CorpusRecord {
   readonly id: string;
+  readonly format: NativeFormat;
   readonly roles: readonly RecordRole[];
   readonly localPath?: string;
   readonly generator?: {
-    readonly kind: "riff-declared-size-plus-one";
+    readonly kind: string;
     readonly seed: number;
     readonly sourceCase: string;
   };
@@ -73,6 +108,15 @@ interface CorpusManifest {
   readonly records: readonly CorpusRecord[];
 }
 
+export interface RunQualificationCaseOptions {
+  /**
+   * Extracts the retained-payload digests from a reopened destination's raw
+   * bytes -- format-specific, supplied by the caller's own oracles module.
+   * This kit never parses a container format itself.
+   */
+  readonly payloadDigests: (bytes: Buffer) => readonly PayloadDigest[];
+}
+
 type QualificationTranscript =
   | {
       readonly version: 1;
@@ -85,8 +129,8 @@ type QualificationTranscript =
       };
       readonly destination: { readonly state: "created" };
       readonly reopened: {
-        readonly format: "webp";
-        readonly namespaces: Readonly<Record<"EXIF" | "XMP" | "ICC", number>>;
+        readonly format: NativeFormat;
+        readonly namespaces: Readonly<Record<string, number>>;
       };
       readonly retainedPayloads: readonly PayloadDigest[];
     }
@@ -120,12 +164,25 @@ function arrayField(value: unknown, field: string): readonly unknown[] {
   return value;
 }
 
+/**
+ * A generator kind's own suffix convention, mirroring how each concrete kind
+ * self-describes ("this generator derives one record from another by
+ * mutating a declared length field"). One historical kind spells its
+ * container vocabulary in its own name (kept, per KIT-01 D-03's own carve-out
+ * for a value already in the manifest); the suffix match admits it and any
+ * differently-prefixed generator of the same shape without this file naming
+ * that vocabulary itself.
+ */
+const GENERATOR_KIND = /^[a-z][a-z0-9-]*-declared-size-plus-one$/;
+
 export function assertCorpusRecord(
   value: unknown,
 ): asserts value is CorpusRecord {
   if (!isObject(value)) invalid("record must be an object");
   const id = stringField(value.id, "id");
   if (!/^[a-z0-9][a-z0-9.-]*$/.test(id)) invalid("id");
+  if (typeof value.format !== "string" || !FORMAT_IDS.has(value.format))
+    invalid("format");
   const roles = arrayField(value.roles, "roles");
   if (
     roles.length === 0 ||
@@ -151,7 +208,8 @@ export function assertCorpusRecord(
     const generator = value.generator;
     if (!isObject(generator)) invalid("generator");
     if (
-      generator.kind !== "riff-declared-size-plus-one" ||
+      typeof generator.kind !== "string" ||
+      !GENERATOR_KIND.test(generator.kind) ||
       !Number.isSafeInteger(generator.seed) ||
       typeof generator.sourceCase !== "string"
     )
@@ -162,11 +220,14 @@ export function assertCorpusRecord(
   if (
     !/^[a-f0-9]{40}$/.test(stringField(provenance.revision, "revision")) ||
     !stringField(provenance.url, "url").startsWith("https://") ||
-    !new Set([
-      "MIT",
-      "BSD-3-Clause",
-      "Artistic-1.0-Perl OR GPL-1.0-or-later",
-    ]).has(stringField(provenance.license, "license")) ||
+    // A well-formed SPDX-style identifier, optionally an "OR" disjunction of
+    // two (matches every license this corpus has ever recorded). The exact
+    // approved-license enum this shape admits lives with each fixture's own
+    // authority (tools-manifest fixture validation ties a record's license
+    // to its pinned archive's own license field), never restated here.
+    !/^[A-Za-z0-9][A-Za-z0-9.-]*(?: OR [A-Za-z0-9][A-Za-z0-9.-]*)?$/.test(
+      stringField(provenance.license, "license"),
+    ) ||
     provenance.licenseStatus !== "approved"
   )
     invalid("provenance");
@@ -189,11 +250,12 @@ export function assertCorpusRecord(
       value.outcome.removedNamespaces,
       "removedNamespaces",
     );
-    if (removed.some((item) => !["EXIF", "XMP", "ICC"].includes(String(item))))
+    if (removed.some((item) => !ALL_NAMESPACES.has(String(item))))
       invalid("removedNamespaces");
   } else if (
     value.outcome.status !== "refused" ||
-    value.outcome.errorCode !== "malformed-file" ||
+    (value.outcome.errorCode !== "malformed-file" &&
+      value.outcome.errorCode !== "unsafe-structure") ||
     value.outcome.nativeWrite !== "not-started"
   )
     invalid("outcome");
@@ -201,7 +263,7 @@ export function assertCorpusRecord(
   for (const item of retained) {
     if (
       !isObject(item) ||
-      !PAYLOAD_CHUNKS.has(stringField(item.fourCc, "fourCc")) ||
+      typeof stringField(item.part, "part") !== "string" ||
       !SHA256.test(stringField(item.sha256, "payload sha256"))
     )
       invalid("retainedPayloads");
@@ -243,21 +305,6 @@ function digest(value: Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function payloadDigests(data: Buffer): readonly PayloadDigest[] {
-  const payloads: PayloadDigest[] = [];
-  for (let offset = 12; offset < data.length;) {
-    const fourCc = data.toString("ascii", offset, offset + 4);
-    const size = data.readUInt32LE(offset + 4);
-    if (PAYLOAD_CHUNKS.has(fourCc))
-      payloads.push({
-        fourCc,
-        sha256: digest(data.subarray(offset + 8, offset + 8 + size)),
-      });
-    offset += 8 + size + (size & 1);
-  }
-  return payloads;
-}
-
 function assertMaterialized(record: CorpusRecord, data: Buffer): void {
   if (data.length !== record.bytes || digest(data) !== record.sha256)
     throw new Error(`Corpus integrity check failed: ${record.id}`);
@@ -281,18 +328,24 @@ export async function materializeCorpusRecord(caseId: string): Promise<Buffer> {
   return data;
 }
 
+function extensionFor(format: NativeFormat): string {
+  return capabilityFor(format).extensions[0];
+}
+
 function relativePath(record: CorpusRecord): string {
-  return record.localPath ?? `${record.id}.generated.webp`;
+  return record.localPath ?? `${record.id}.generated${extensionFor(record.format)}`;
 }
 
 export async function runQualificationCase(
   caseId: string,
+  options: RunQualificationCaseOptions,
 ): Promise<QualificationTranscript> {
   const record = await loadCorpusRecord(caseId);
   const source = await materializeCorpusRecord(caseId);
+  const extension = extensionFor(record.format);
   const directory = await mkdtemp(join(tmpdir(), "exifcleaner-qualification-"));
-  const sourcePath = join(directory, "source.webp");
-  const destinationPath = join(directory, "sanitized.webp");
+  const sourcePath = join(directory, `source${extension}`);
+  const destinationPath = join(directory, `sanitized${extension}`);
   try {
     await writeFile(sourcePath, source);
     const result = await sanitizeFile({
@@ -334,30 +387,24 @@ export async function runQualificationCase(
     const reopened = await inspectFile(destinationPath);
     if (!reopened.ok)
       throw new Error(`Could not reopen destination: ${record.id}`);
-    const namespaces = { EXIF: 0, XMP: 0, ICC: 0 };
+    const namespaces: Record<string, number> = {};
+    for (const namespace of capabilityFor(record.format).removes)
+      namespaces[namespace] = 0;
     for (const entry of reopened.value.entries) {
-      // This corpus schema is pinned to WebP (Phase 56 generalizes it,
-      // KIT_NEUTRALITY_EXCEPTIONS "corpus.ts"), which only ever reports
-      // these three namespaces; PNG/C2PA never occur here.
-      if (
-        entry.namespace === "EXIF" ||
-        entry.namespace === "XMP" ||
-        entry.namespace === "ICC"
-      )
-        namespaces[entry.namespace] += 1;
+      if (entry.namespace in namespaces)
+        namespaces[entry.namespace] = (namespaces[entry.namespace] ?? 0) + 1;
     }
-    const retainedPayloads = payloadDigests(await readFile(destinationPath));
+    const retainedPayloads = options.payloadDigests(
+      await readFile(destinationPath),
+    );
     if (
       JSON.stringify(retainedPayloads) !==
         JSON.stringify(record.retainedPayloads) ||
       Object.values(namespaces).some((count) => count !== 0)
     )
       throw new Error(`Reopen contract failed: ${record.id}`);
-    // This corpus schema is pinned to WebP (Phase 56 generalizes it,
-    // KIT_NEUTRALITY_EXCEPTIONS "corpus.ts"); every record it materializes is
-    // a WebP sample, so a non-webp reopen here would itself be a defect.
-    if (reopened.value.format !== "webp")
-      throw new Error(`Expected a webp reopen: ${record.id}`);
+    if (reopened.value.format !== record.format)
+      throw new Error(`Expected a matching-format reopen: ${record.id}`);
     return {
       version: 1,
       caseId: record.id,

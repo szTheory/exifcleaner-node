@@ -13,6 +13,7 @@ import {
   withInput,
   type DifferentialProfile,
 } from "../kit/oracles.js";
+import type { PayloadDigest } from "../kit/corpus.js";
 
 const require = createRequire(import.meta.url);
 const authorityBuilder =
@@ -237,6 +238,17 @@ export function pngIdatData(bytes: Buffer): Buffer {
     if (type === "IEND") break;
   }
   return Buffer.concat(parts);
+}
+
+/**
+ * The PNG suite's own `payloadDigests` callback for `runQualificationCase`
+ * (56-09 KIT-01 generalization, mirrors `webpPayloadDigests`): the sha256 of
+ * every `IDAT` chunk's concatenated data, reported as one payload part
+ * (`"IDAT"`) when the stream carries at least one `IDAT` chunk.
+ */
+export function pngPayloadDigests(data: Buffer): readonly PayloadDigest[] {
+  const idat = pngIdatData(data);
+  return idat.length === 0 ? [] : [{ part: "IDAT", sha256: digest(idat) }];
 }
 
 /**

@@ -3,7 +3,10 @@
   "records": [
     {
       "id": "exifcleaner-sample",
-      "roles": ["differential"],
+      "format": "webp",
+      "roles": [
+        "differential"
+      ],
       "localPath": "sample.webp",
       "provenance": {
         "revision": "ba365b3459b0d87ce255124a5eef819aca603efd",
@@ -13,14 +16,22 @@
       },
       "sha256": "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
       "bytes": 152,
-      "topology": ["VP8X", "VP8 ", "EXIF"],
+      "topology": [
+        "VP8X",
+        "VP8 ",
+        "EXIF"
+      ],
       "outcome": {
         "status": "success",
-        "removedNamespaces": ["EXIF", "XMP", "ICC"]
+        "removedNamespaces": [
+          "EXIF",
+          "XMP",
+          "ICC"
+        ]
       },
       "retainedPayloads": [
         {
-          "fourCc": "VP8 ",
+          "part": "VP8 ",
           "sha256": "1300ec4f408f0960b09a5265851b14e81ac0c120fae6c3d555306df849235697"
         }
       ],
@@ -28,7 +39,10 @@
     },
     {
       "id": "declared-size-plus-one",
-      "roles": ["negative-control"],
+      "format": "webp",
+      "roles": [
+        "negative-control"
+      ],
       "generator": {
         "kind": "riff-declared-size-plus-one",
         "seed": 46001,
@@ -42,7 +56,11 @@
       },
       "sha256": "3ee4a9b0ec4d85737e56b0054961e5827db1cf0451a9be212c2a03b5255f8a6c",
       "bytes": 152,
-      "topology": ["VP8X", "VP8 ", "EXIF"],
+      "topology": [
+        "VP8X",
+        "VP8 ",
+        "EXIF"
+      ],
       "outcome": {
         "status": "refused",
         "errorCode": "malformed-file",
@@ -53,7 +71,12 @@
     },
     {
       "id": "libwebp-1.5.0-example",
-      "roles": ["decode", "differential", "structural"],
+      "format": "webp",
+      "roles": [
+        "decode",
+        "differential",
+        "structural"
+      ],
       "localPath": "upstream/libwebp-1.5.0-example.webp",
       "provenance": {
         "revision": "a4d7a715337ded4451fec90ff8ce79728e04126c",
@@ -63,14 +86,20 @@
       },
       "sha256": "1bf9449d529b491c6eb22ec84d42217e43cf9af0ffe391fa7a30b29b037f098a",
       "bytes": 4880,
-      "topology": ["VP8 "],
+      "topology": [
+        "VP8 "
+      ],
       "outcome": {
         "status": "success",
-        "removedNamespaces": ["EXIF", "XMP", "ICC"]
+        "removedNamespaces": [
+          "EXIF",
+          "XMP",
+          "ICC"
+        ]
       },
       "retainedPayloads": [
         {
-          "fourCc": "VP8 ",
+          "part": "VP8 ",
           "sha256": "89c641e38f1b10766880e7c81e3ca69246836fdb81100c39cd39881513b9dd36"
         }
       ],
@@ -97,10 +126,56 @@
         },
         "exiftool": {
           "warnings": [],
-          "source": { "EXIF": [], "XMP": [], "ICC_Profile": [] },
-          "output": { "EXIF": [], "XMP": [], "ICC_Profile": [] }
+          "source": {
+            "EXIF": [],
+            "XMP": [],
+            "ICC_Profile": []
+          },
+          "output": {
+            "EXIF": [],
+            "XMP": [],
+            "ICC_Profile": []
+          }
         }
       }
+    },
+    {
+      "id": "libpng-1.6.58-rgb-8-srgb",
+      "format": "png",
+      "roles": [
+        "differential",
+        "structural"
+      ],
+      "localPath": "upstream/libpng-1.6.58/rgb-8-sRGB.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/rgb-8-sRGB.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "4f94dfdb92acaeffab3aff43fbaf935fe0e5816566792b56a75a9f8802028e7e",
+      "bytes": 772,
+      "topology": [
+        "IHDR",
+        "sRGB",
+        "tEXt",
+        "iTXt",
+        "IDAT",
+        "IEND"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": [
+          "PNG"
+        ]
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "fea3e74d1f90bcb62535c68e6b055b0716f0e50ec189f11b7627919dbbadd222"
+        }
+      ],
+      "permittedDifferences": []
     }
   ],
   "benchmarks": {
