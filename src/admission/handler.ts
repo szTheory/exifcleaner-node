@@ -26,6 +26,11 @@ export interface FormatAdmission {
   readonly colorProfile: Buffer | undefined;
   /** Metadata namespaces present in the source container. */
   readonly namespaces: readonly ("EXIF" | "XMP" | "ICC")[];
+  /**
+   * The metadata namespace that holds the source's resolution record, or
+   * undefined when the source carries none or the format cannot preserve it.
+   */
+  readonly resolutionNamespace: "EXIF" | "XMP" | "ICC" | undefined;
 }
 
 // Omit does not distribute over a union on its own -- Pick's keyof over a
@@ -65,6 +70,7 @@ export interface FormatHandler<Admission extends FormatAdmission, Plan> {
     admission: Admission,
     preserveOrientation: boolean,
     preserveColorProfile: boolean,
+    preserveResolution: boolean,
     orientation: number | undefined,
   ): Plan;
   /** Returns the decline detail when the plan cannot be written, else undefined. */
@@ -83,6 +89,7 @@ export interface FormatHandler<Admission extends FormatAdmission, Plan> {
     destinationPath: string,
     preserveOrientation: boolean,
     preserveColorProfile: boolean,
+    preserveResolution: boolean,
     expectedOrientation: number | undefined,
     signal?: AbortSignal,
   ): Promise<Result<void>>;

@@ -17,6 +17,11 @@ export interface FormatAdmission {
     readonly colorProfile: Buffer | undefined;
     /** Metadata namespaces present in the source container. */
     readonly namespaces: readonly ("EXIF" | "XMP" | "ICC")[];
+    /**
+     * The metadata namespace that holds the source's resolution record, or
+     * undefined when the source carries none or the format cannot preserve it.
+     */
+    readonly resolutionNamespace: "EXIF" | "XMP" | "ICC" | undefined;
 }
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 /** admissionDecline's error parameter, minus the `path` the caller supplies. */
@@ -36,11 +41,11 @@ export interface FormatHandler<Admission extends FormatAdmission, Plan> {
     matches(magic: Buffer): boolean;
     admit(handle: FileHandle, size: number, signal?: AbortSignal): Promise<Admission>;
     inspect(admission: Admission): Inspection;
-    buildOutputPlan(admission: Admission, preserveOrientation: boolean, preserveColorProfile: boolean, orientation: number | undefined): Plan;
+    buildOutputPlan(admission: Admission, preserveOrientation: boolean, preserveColorProfile: boolean, preserveResolution: boolean, orientation: number | undefined): Plan;
     /** Returns the decline detail when the plan cannot be written, else undefined. */
     checkOutputPlan(plan: Plan): string | undefined;
     writeOutput(source: FileHandle, destination: FileHandle, plan: Plan, signal?: AbortSignal): Promise<void>;
-    verifyOutput(sourceHandle: FileHandle, admission: Admission, destinationHandle: FileHandle, destinationSize: number, destinationPath: string, preserveOrientation: boolean, preserveColorProfile: boolean, expectedOrientation: number | undefined, signal?: AbortSignal): Promise<Result<void>>;
+    verifyOutput(sourceHandle: FileHandle, admission: Admission, destinationHandle: FileHandle, destinationSize: number, destinationPath: string, preserveOrientation: boolean, preserveColorProfile: boolean, preserveResolution: boolean, expectedOrientation: number | undefined, signal?: AbortSignal): Promise<Result<void>>;
     classifyAdmissionFailure(cause: unknown, preserveColorProfile: boolean): AdmissionDeclineDetail | undefined;
 }
 /** The widened, heterogeneous-registry-safe form every registered handler is stored as. */

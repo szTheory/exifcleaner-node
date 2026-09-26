@@ -48,9 +48,13 @@ function collectMetadata(parsed) {
         orientation,
         colorProfile,
         namespaces: [...namespaces],
+        // WebP cannot preserve resolution natively (capability.preserves.resolution
+        // is false); the engine declines any preserveResolution: true request
+        // before this admission is ever consulted for it (D-03).
+        resolutionNamespace: undefined,
     };
 }
-function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, orientation) {
+function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, _preserveResolution, orientation) {
     const parsed = admission.parsed;
     const keepOrientation = preserveOrientation && orientation !== undefined;
     const plan = [];
@@ -167,7 +171,7 @@ function verificationError(detail, path) {
 function verificationAborted(path) {
     return executionError({ code: "aborted", detail: "Operation was aborted.", path }, "started");
 }
-async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, expectedOrientation, signal) {
+async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, _preserveResolution, expectedOrientation, signal) {
     const source = admission.parsed;
     try {
         const destination = await parseWebp(destinationHandle, destinationSize, signal);

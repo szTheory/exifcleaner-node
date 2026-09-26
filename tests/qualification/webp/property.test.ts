@@ -366,6 +366,7 @@ describe("replayable WebP qualification properties", () => {
             orientation: false,
             colorProfile: false,
             timestamps: false,
+            resolution: false,
           },
           warnings: [],
           postCommitResidue: { state: "none" },

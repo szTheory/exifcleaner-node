@@ -230,6 +230,7 @@ export async function sanitizeFile(
       admission,
       options.preserveOrientation,
       options.preserveColorProfile,
+      options.preserveResolution,
       orientation,
     );
     const overflow = handler.checkOutputPlan(plan);

@@ -60,6 +60,7 @@ describe("safe transaction file operations", () => {
       admission,
       false,
       false,
+      false,
       undefined,
     );
     const capability: { path?: string } = {};
@@ -170,6 +171,7 @@ describe("safe transaction file operations", () => {
       admission,
       false,
       false,
+      false,
       undefined,
     );
     const result = await runSafeTransaction({
@@ -225,6 +227,7 @@ describe("safe transaction file operations", () => {
       const admission = await webpHandler.admit(source, stats.size);
       const plan = webpHandler.buildOutputPlan(
         admission,
+        false,
         false,
         false,
         undefined,
@@ -287,6 +290,7 @@ describe("safe transaction file operations", () => {
       admission,
       false,
       false,
+      false,
       undefined,
     );
 
@@ -334,6 +338,7 @@ describe("safe transaction file operations", () => {
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
       admission,
+      false,
       false,
       false,
       undefined,
@@ -408,6 +413,7 @@ describe("safe transaction file operations", () => {
       admission,
       false,
       false,
+      false,
       undefined,
     );
     let createdStageDirectory = "";
@@ -474,6 +480,7 @@ describe("safe transaction file operations", () => {
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
       admission,
+      false,
       false,
       false,
       undefined,
@@ -549,6 +556,7 @@ describe("safe transaction file operations", () => {
         admission,
         false,
         false,
+        false,
         undefined,
       );
       let nativeAttempts = 0;
@@ -610,6 +618,7 @@ describe("safe transaction file operations", () => {
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
       admission,
+      false,
       false,
       false,
       undefined,
@@ -680,6 +689,7 @@ describe("safe transaction file operations", () => {
       admission,
       false,
       false,
+      false,
       undefined,
     );
     const fileOps: FileOps = {
@@ -733,6 +743,7 @@ describe("safe transaction file operations", () => {
       admission,
       false,
       false,
+      false,
       undefined,
     );
     const fileOps: FileOps = {
@@ -784,6 +795,7 @@ describe("safe transaction file operations", () => {
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
       admission,
+      false,
       false,
       false,
       undefined,
@@ -843,6 +855,7 @@ describe("safe transaction file operations", () => {
     const admission = await webpHandler.admit(source, stats.size);
     const plan = webpHandler.buildOutputPlan(
       admission,
+      false,
       false,
       false,
       undefined,
@@ -948,6 +961,55 @@ describe("safe transaction file operations", () => {
 
     expect(snapshot.atime.getTime()).toBe(expectedAtime);
     expect(snapshot.mtime.getTime()).toBe(expectedMtime);
+  });
+
+  it("reports preserved.resolution from the admission's resolution namespace, not the bare request flag (D-01/D-04)", async () => {
+    // engine.ts declines a WebP preserveResolution: true request before this
+    // layer is ever reached (D-03). Calling runSafeTransaction directly
+    // proves preserved.resolution is derived from
+    // admission.resolutionNamespace (undefined for WebP), not copied
+    // verbatim from options.preserveResolution -- a naive
+    // `resolution: options.preserveResolution` would wrongly report true.
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-transaction-"));
+    directories.push(directory);
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "destination.webp");
+    await writeFile(sourcePath, metadataWebp());
+    const source = await open(sourcePath, fsConstants.O_RDONLY);
+    const stats = await source.stat();
+    const admission = await webpHandler.admit(source, stats.size);
+    expect(admission.resolutionNamespace).toBeUndefined();
+    const plan = webpHandler.buildOutputPlan(
+      admission,
+      false,
+      false,
+      true,
+      undefined,
+    );
+
+    const result = await runSafeTransaction({
+      sourceHandle: source,
+      sourceSnapshot: snapshotSource(stats),
+      sourceMode: stats.mode,
+      handler: webpHandler,
+      admission,
+      plan,
+      orientation: undefined,
+      options: {
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: true,
+      },
+      fileOps: NODE_FILE_OPS,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { preserved: { resolution: false } },
+    });
   });
 
   it("compares filesystem timestamps at actual millisecond precision", async () => {

@@ -88,6 +88,10 @@ function collectMetadata(parsed: ParsedWebp): Omit<WebpAdmission, "parsed"> {
     orientation,
     colorProfile,
     namespaces: [...namespaces],
+    // WebP cannot preserve resolution natively (capability.preserves.resolution
+    // is false); the engine declines any preserveResolution: true request
+    // before this admission is ever consulted for it (D-03).
+    resolutionNamespace: undefined,
   };
 }
 
@@ -95,6 +99,7 @@ function buildOutputPlan(
   admission: WebpAdmission,
   preserveOrientation: boolean,
   preserveColorProfile: boolean,
+  _preserveResolution: boolean,
   orientation: number | undefined,
 ): readonly WebpOutputChunk[] {
   const parsed = admission.parsed;
@@ -285,6 +290,7 @@ async function verifyOutput(
   destinationPath: string,
   preserveOrientation: boolean,
   preserveColorProfile: boolean,
+  _preserveResolution: boolean,
   expectedOrientation: number | undefined,
   signal?: AbortSignal,
 ): Promise<Result<void>> {

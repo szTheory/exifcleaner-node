@@ -374,6 +374,38 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
     `);
   });
 
+  it("pins SanitizeOptions.preserveResolution and SanitizeResult.preserved by exact type equality (D-01)", async () => {
+    await expectConsumerToCompile(`
+      import type { SanitizeOptions, SanitizeResult } ${rootImport};
+
+      type Equals<A, B> =
+        (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
+          ? true
+          : false;
+
+      const preserveResolutionPin: Equals<SanitizeOptions["preserveResolution"], boolean> = true;
+      const preservedKeysPin: Equals<
+        keyof SanitizeResult["preserved"],
+        "orientation" | "colorProfile" | "timestamps" | "resolution"
+      > = true;
+      void [preserveResolutionPin, preservedKeysPin];
+    `);
+
+    const missingPreserveResolutionDiagnostics = await compileConsumer(`
+      import type { SanitizeOptions } ${rootImport};
+      const options: SanitizeOptions = {
+        sourcePath: "a",
+        destinationPath: "b",
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+      };
+      void options;
+    `);
+
+    expect(missingPreserveResolutionDiagnostics).not.toEqual([]);
+  });
+
   it("compiles an exhaustive switch over a synthetic three-member union and fails when a case is omitted", async () => {
     const synthetic = `
       import type { CommonFormatCapabilities, WebpCapabilities } ${rootImport};

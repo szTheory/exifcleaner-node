@@ -500,7 +500,7 @@ describe("sanitizeFile", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      value: { preserved: { colorProfile: false } },
+      value: { preserved: { colorProfile: false, resolution: false } },
     });
     expect(readChunks(await readFile(destinationPath))).not.toContainEqual(
       expect.objectContaining({ fourCc: "ICCP" }),
@@ -534,6 +534,7 @@ describe("sanitizeFile", () => {
           orientation: false,
           colorProfile: false,
           timestamps: false,
+          resolution: false,
         },
       },
     });
@@ -595,7 +596,7 @@ describe("sanitizeFile", () => {
       ok: true,
       value: {
         removedNamespaces: ["XMP"],
-        preserved: { orientation: true, colorProfile: true },
+        preserved: { orientation: true, colorProfile: true, resolution: false },
       },
     });
     const inspection = await inspectFile(destinationPath);
@@ -648,7 +649,7 @@ describe("sanitizeFile", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      value: { preserved: { colorProfile: true } },
+      value: { preserved: { colorProfile: true, resolution: false } },
     });
     expect(
       readChunks(await readFile(destinationPath)).find(
@@ -696,7 +697,7 @@ describe("sanitizeFile", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      value: { preserved: { colorProfile: true } },
+      value: { preserved: { colorProfile: true, resolution: false } },
     });
     expect(
       readChunks(await readFile(destinationPath)).find(
@@ -885,7 +886,7 @@ describe("sanitizeFile", () => {
         ok: true,
         value: {
           removedNamespaces: ["ICC"],
-          preserved: { colorProfile: false },
+          preserved: { colorProfile: false, resolution: false },
         },
       });
       const chunks = readChunks(await readFile(destinationPath));
@@ -1178,7 +1179,7 @@ describe("sanitizeFile", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      value: { preserved: { timestamps: true } },
+      value: { preserved: { timestamps: true, resolution: false } },
     });
     const destinationStats = await stat(destinationPath);
     expect(destinationStats.atimeMs).toBe(atime.getTime());
@@ -1512,6 +1513,7 @@ describe("format-neutral admission boundary", () => {
         orientation: false,
         colorProfile: false,
         timestamps: false,
+        resolution: false,
       },
       warnings: [],
       postCommitResidue: { state: "none" },

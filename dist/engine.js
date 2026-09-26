@@ -152,7 +152,7 @@ export async function sanitizeFile(options) {
         const orientation = admission.orientation.status === "valid"
             ? admission.orientation.value
             : undefined;
-        const plan = handler.buildOutputPlan(admission, options.preserveOrientation, options.preserveColorProfile, orientation);
+        const plan = handler.buildOutputPlan(admission, options.preserveOrientation, options.preserveColorProfile, options.preserveResolution, orientation);
         const overflow = handler.checkOutputPlan(plan);
         if (overflow !== undefined)
             return err(admissionDecline({

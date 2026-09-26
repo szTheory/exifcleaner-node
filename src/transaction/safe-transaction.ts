@@ -328,6 +328,7 @@ export async function runSafeTransaction<
       destinationPath,
       options.preserveOrientation,
       options.preserveColorProfile,
+      options.preserveResolution,
       orientation,
       signal,
     );
@@ -508,23 +509,35 @@ export async function runSafeTransaction<
     const postCommitResidue =
       await closePostPublicationResources(committedResources);
     const namespaces = new Set(admission.namespaces);
+    const resolutionNamespace = admission.resolutionNamespace;
+    const preservedResolution =
+      options.preserveResolution && resolutionNamespace !== undefined;
+    const removedNamespaces = new Set<"EXIF" | "XMP" | "ICC">([
+      ...(namespaces.has("EXIF") &&
+      !(options.preserveOrientation && orientation !== undefined)
+        ? (["EXIF"] as const)
+        : []),
+      ...(namespaces.has("XMP") ? (["XMP"] as const) : []),
+      ...(namespaces.has("ICC") && !options.preserveColorProfile
+        ? (["ICC"] as const)
+        : []),
+      ...(resolutionNamespace !== undefined && !options.preserveResolution
+        ? [resolutionNamespace]
+        : []),
+    ]);
     return ok({
       format: handler.capability.format,
       destinationPath,
       removedNamespaces: [
-        ...(namespaces.has("EXIF") &&
-        !(options.preserveOrientation && orientation !== undefined)
-          ? ["EXIF" as const]
-          : []),
-        ...(namespaces.has("XMP") ? ["XMP" as const] : []),
-        ...(namespaces.has("ICC") && !options.preserveColorProfile
-          ? ["ICC" as const]
-          : []),
+        ...(removedNamespaces.has("EXIF") ? (["EXIF"] as const) : []),
+        ...(removedNamespaces.has("XMP") ? (["XMP"] as const) : []),
+        ...(removedNamespaces.has("ICC") ? (["ICC"] as const) : []),
       ],
       preserved: {
         orientation: options.preserveOrientation && orientation !== undefined,
         colorProfile: options.preserveColorProfile && namespaces.has("ICC"),
         timestamps: options.preserveTimestamps,
+        resolution: preservedResolution,
       },
       warnings: admission.warnings,
       postCommitResidue,

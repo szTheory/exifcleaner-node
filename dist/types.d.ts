@@ -43,6 +43,7 @@ export interface SanitizeResult {
         readonly orientation: boolean;
         readonly colorProfile: boolean;
         readonly timestamps: boolean;
+        readonly resolution: boolean;
     };
     readonly warnings: readonly MetadataWarning[];
     readonly postCommitResidue: PostCommitResidue;

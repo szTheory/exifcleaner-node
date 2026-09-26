@@ -86,7 +86,13 @@ async function fixture(): Promise<TransactionFixture> {
     sourceSnapshot: snapshotSource(stats),
     sourceMode: stats.mode,
     admission,
-    plan: webpHandler.buildOutputPlan(admission, false, false, undefined),
+    plan: webpHandler.buildOutputPlan(
+      admission,
+      false,
+      false,
+      false,
+      undefined,
+    ),
   };
 }
 
