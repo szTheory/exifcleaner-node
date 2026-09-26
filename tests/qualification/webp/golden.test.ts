@@ -90,7 +90,9 @@ async function collectCorpusEntries(
   // records too (KIT-01), which this file's own sanitize/digest loop below
   // is not built to golden-pin. Filter to this suite's own format so the
   // corpus generalization does not silently grow this file's golden set.
-  for (const record of manifest.records.filter((item) => item.format === "webp")) {
+  for (const record of manifest.records.filter(
+    (item) => item.format === "webp",
+  )) {
     const sourceBytes = await materializeCorpusRecord(record.id);
     for (const options of FLAG_COMBINATIONS) {
       const key = `corpus:${record.id}|${flagKey(options)}`;

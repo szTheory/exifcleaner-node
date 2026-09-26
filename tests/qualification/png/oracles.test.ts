@@ -578,7 +578,10 @@ describe("PNG differential (Plan 09)", () => {
         // Confirms the exact measured warning text against the source itself
         // (the metadata-only differential cannot run here -- it throws on
         // any oracle warning).
-        const sourceProjection = projectMetadata(source, pngDifferentialProfile);
+        const sourceProjection = projectMetadata(
+          source,
+          pngDifferentialProfile,
+        );
         expect(sourceProjection.warnings).toEqual([
           sourceWarningCase.measuredWarning,
         ]);
@@ -594,7 +597,10 @@ describe("PNG differential (Plan 09)", () => {
           ),
         ).not.toThrow();
 
-        const outputProjection = projectMetadata(output, pngDifferentialProfile);
+        const outputProjection = projectMetadata(
+          output,
+          pngDifferentialProfile,
+        );
         expect(outputProjection.warnings).toEqual([]);
         expect(() =>
           sourceWarningCase.assertNoLeak(outputProjection),
@@ -718,7 +724,9 @@ describe("PNG differential red controls (Plan 09 Task 3)", () => {
       } catch (error) {
         firedMessage = error instanceof Error ? error.message : String(error);
       }
-      expect(firedMessage).toMatch(/Over-strip: PNG|Structural over-strip: cHRM/);
+      expect(firedMessage).toMatch(
+        /Over-strip: PNG|Structural over-strip: cHRM/,
+      );
       // Recorded for the SUMMARY: cHRM's tags (WhitePointX/Y, RedX/Y, ...)
       // report under ExifTool group "PNG" itself (measured, see
       // PNG_RESOLUTION_GROUP's own sibling measurement note in oracles.ts),

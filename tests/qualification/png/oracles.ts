@@ -445,7 +445,10 @@ export const SOURCE_WARNING_CASES: readonly SourceWarningCase[] = [
     source: () =>
       png([
         pngChunk("IHDR", pngIhdr()),
-        pngChunk("caBX", pngCaBX(Buffer.from("c2pa-manifest-placeholder", "ascii"))),
+        pngChunk(
+          "caBX",
+          pngCaBX(Buffer.from("c2pa-manifest-placeholder", "ascii")),
+        ),
         pngChunk("IDAT", pngIdat()),
         pngChunk("IEND", Buffer.alloc(0)),
       ]),

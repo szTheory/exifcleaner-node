@@ -41,7 +41,7 @@ function riffDigest(value: Buffer): string {
  */
 export function webpPayloadDigests(data: Buffer): readonly PayloadDigest[] {
   const payloads: PayloadDigest[] = [];
-  for (let offset = 12; offset < data.length; ) {
+  for (let offset = 12; offset < data.length;) {
     const fourCc = data.toString("ascii", offset, offset + 4);
     const size = data.readUInt32LE(offset + 4);
     if (PAYLOAD_CHUNKS.has(fourCc))

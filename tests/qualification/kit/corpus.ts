@@ -3,7 +3,11 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getCapabilities, inspectFile, sanitizeFile } from "../../../dist/index.js";
+import {
+  getCapabilities,
+  inspectFile,
+  sanitizeFile,
+} from "../../../dist/index.js";
 import type { MetadataEntry, NativeFormat } from "../../../src/types.js";
 
 const CORPUS_ROOT = fileURLToPath(new URL("../../corpus/", import.meta.url));
@@ -41,7 +45,8 @@ const ALL_NAMESPACES: ReadonlySet<string> = new Set(
 
 function capabilityFor(format: NativeFormat) {
   const capability = CAPABILITIES.find((item) => item.format === format);
-  if (capability === undefined) throw new Error(`Unregistered format: ${format}`);
+  if (capability === undefined)
+    throw new Error(`Unregistered format: ${format}`);
   return capability;
 }
 
@@ -333,7 +338,9 @@ function extensionFor(format: NativeFormat): string {
 }
 
 function relativePath(record: CorpusRecord): string {
-  return record.localPath ?? `${record.id}.generated${extensionFor(record.format)}`;
+  return (
+    record.localPath ?? `${record.id}.generated${extensionFor(record.format)}`
+  );
 }
 
 export async function runQualificationCase(

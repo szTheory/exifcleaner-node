@@ -23,7 +23,8 @@ function pngRefusalRecordIds(): readonly string[] {
   };
   return manifest.records
     .filter(
-      (record) => record.format === "png" && record.outcome.status === "refused",
+      (record) =>
+        record.format === "png" && record.outcome.status === "refused",
     )
     .map((record) => record.id);
 }

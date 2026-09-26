@@ -4,9 +4,7 @@
     {
       "id": "exifcleaner-sample",
       "format": "webp",
-      "roles": [
-        "differential"
-      ],
+      "roles": ["differential"],
       "localPath": "sample.webp",
       "provenance": {
         "revision": "ba365b3459b0d87ce255124a5eef819aca603efd",
@@ -16,18 +14,10 @@
       },
       "sha256": "16d1cad79550c1e13f7710032f9bb41f5c36e49d0debe65761f7ee4c333360cd",
       "bytes": 152,
-      "topology": [
-        "VP8X",
-        "VP8 ",
-        "EXIF"
-      ],
+      "topology": ["VP8X", "VP8 ", "EXIF"],
       "outcome": {
         "status": "success",
-        "removedNamespaces": [
-          "EXIF",
-          "XMP",
-          "ICC"
-        ]
+        "removedNamespaces": ["EXIF", "XMP", "ICC"]
       },
       "retainedPayloads": [
         {
@@ -40,9 +30,7 @@
     {
       "id": "declared-size-plus-one",
       "format": "webp",
-      "roles": [
-        "negative-control"
-      ],
+      "roles": ["negative-control"],
       "generator": {
         "kind": "riff-declared-size-plus-one",
         "seed": 46001,
@@ -56,11 +44,7 @@
       },
       "sha256": "3ee4a9b0ec4d85737e56b0054961e5827db1cf0451a9be212c2a03b5255f8a6c",
       "bytes": 152,
-      "topology": [
-        "VP8X",
-        "VP8 ",
-        "EXIF"
-      ],
+      "topology": ["VP8X", "VP8 ", "EXIF"],
       "outcome": {
         "status": "refused",
         "errorCode": "malformed-file",
@@ -72,11 +56,7 @@
     {
       "id": "libwebp-1.5.0-example",
       "format": "webp",
-      "roles": [
-        "decode",
-        "differential",
-        "structural"
-      ],
+      "roles": ["decode", "differential", "structural"],
       "localPath": "upstream/libwebp-1.5.0-example.webp",
       "provenance": {
         "revision": "a4d7a715337ded4451fec90ff8ce79728e04126c",
@@ -86,16 +66,10 @@
       },
       "sha256": "1bf9449d529b491c6eb22ec84d42217e43cf9af0ffe391fa7a30b29b037f098a",
       "bytes": 4880,
-      "topology": [
-        "VP8 "
-      ],
+      "topology": ["VP8 "],
       "outcome": {
         "status": "success",
-        "removedNamespaces": [
-          "EXIF",
-          "XMP",
-          "ICC"
-        ]
+        "removedNamespaces": ["EXIF", "XMP", "ICC"]
       },
       "retainedPayloads": [
         {
@@ -142,10 +116,7 @@
     {
       "id": "libpng-1.6.58-rgb-8-srgb",
       "format": "png",
-      "roles": [
-        "differential",
-        "structural"
-      ],
+      "roles": ["differential", "structural"],
       "localPath": "upstream/libpng-1.6.58/rgb-8-sRGB.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -155,19 +126,10 @@
       },
       "sha256": "4f94dfdb92acaeffab3aff43fbaf935fe0e5816566792b56a75a9f8802028e7e",
       "bytes": 772,
-      "topology": [
-        "IHDR",
-        "sRGB",
-        "tEXt",
-        "iTXt",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "sRGB", "tEXt", "iTXt", "IDAT", "IEND"],
       "outcome": {
         "status": "success",
-        "removedNamespaces": [
-          "PNG"
-        ]
+        "removedNamespaces": ["PNG"]
       },
       "retainedPayloads": [
         {
@@ -180,9 +142,7 @@
     {
       "id": "libpng-1.6.58-rgb-8-1.8",
       "format": "png",
-      "roles": [
-        "differential"
-      ],
+      "roles": ["differential"],
       "localPath": "upstream/libpng-1.6.58/rgb-8-1.8.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -192,20 +152,10 @@
       },
       "sha256": "327589867a6a3a21fe17ffc55b29f34ceb8446cf87bc4435c80aa098d8ae7b4a",
       "bytes": 819,
-      "topology": [
-        "IHDR",
-        "gAMA",
-        "cHRM",
-        "tEXt",
-        "iTXt",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "gAMA", "cHRM", "tEXt", "iTXt", "IDAT", "IEND"],
       "outcome": {
         "status": "success",
-        "removedNamespaces": [
-          "PNG"
-        ]
+        "removedNamespaces": ["PNG"]
       },
       "retainedPayloads": [
         {
@@ -218,9 +168,7 @@
     {
       "id": "libpng-1.6.58-rgb-8-trns",
       "format": "png",
-      "roles": [
-        "differential"
-      ],
+      "roles": ["differential"],
       "localPath": "upstream/libpng-1.6.58/rgb-8-tRNS.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -230,19 +178,10 @@
       },
       "sha256": "42d6f96da278fa6264a9e267caa4cbfc75ddf0734ef67187e4c4b2d29e2d26fc",
       "bytes": 777,
-      "topology": [
-        "IHDR",
-        "tRNS",
-        "tEXt",
-        "iTXt",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "tRNS", "tEXt", "iTXt", "IDAT", "IEND"],
       "outcome": {
         "status": "success",
-        "removedNamespaces": [
-          "PNG"
-        ]
+        "removedNamespaces": ["PNG"]
       },
       "retainedPayloads": [
         {
@@ -255,9 +194,7 @@
     {
       "id": "libpng-1.6.58-palette-8-srgb-trns",
       "format": "png",
-      "roles": [
-        "differential"
-      ],
+      "roles": ["differential"],
       "localPath": "upstream/libpng-1.6.58/palette-8-sRGB-tRNS.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -279,9 +216,7 @@
       ],
       "outcome": {
         "status": "success",
-        "removedNamespaces": [
-          "PNG"
-        ]
+        "removedNamespaces": ["PNG"]
       },
       "retainedPayloads": [
         {
@@ -294,9 +229,7 @@
     {
       "id": "libpng-1.6.58-gray-16-linear-trns",
       "format": "png",
-      "roles": [
-        "differential"
-      ],
+      "roles": ["differential"],
       "localPath": "upstream/libpng-1.6.58/gray-16-linear-tRNS.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -306,20 +239,10 @@
       },
       "sha256": "4f079601662e06fa01dbbfb09a6e0e5d154e084f52e97abc4f9c142ec3aff755",
       "bytes": 744,
-      "topology": [
-        "IHDR",
-        "gAMA",
-        "cHRM",
-        "tEXt",
-        "iTXt",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "gAMA", "cHRM", "tEXt", "iTXt", "IDAT", "IEND"],
       "outcome": {
         "status": "success",
-        "removedNamespaces": [
-          "PNG"
-        ]
+        "removedNamespaces": ["PNG"]
       },
       "retainedPayloads": [
         {
@@ -332,9 +255,7 @@
     {
       "id": "libpng-1.6.58-rgb-alpha-16-srgb",
       "format": "png",
-      "roles": [
-        "differential"
-      ],
+      "roles": ["differential"],
       "localPath": "upstream/libpng-1.6.58/rgb-alpha-16-sRGB.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -344,19 +265,10 @@
       },
       "sha256": "f287dc434a985a9478aadc0f8fe6c6053899ea61735ec15f41db47816bd184d3",
       "bytes": 1390,
-      "topology": [
-        "IHDR",
-        "sRGB",
-        "tEXt",
-        "iTXt",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "sRGB", "tEXt", "iTXt", "IDAT", "IEND"],
       "outcome": {
         "status": "success",
-        "removedNamespaces": [
-          "PNG"
-        ]
+        "removedNamespaces": ["PNG"]
       },
       "retainedPayloads": [
         {
@@ -369,9 +281,7 @@
     {
       "id": "libpng-1.6.58-cicp-display-p3-reencoded",
       "format": "png",
-      "roles": [
-        "differential"
-      ],
+      "roles": ["differential"],
       "localPath": "upstream/libpng-1.6.58/cicp-display-p3_reencoded.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -381,13 +291,7 @@
       },
       "sha256": "e162b7af4677c088f8ae584d1f0cbc852901e020fdfa0f41b54b4e001b7a2d23",
       "bytes": 142,
-      "topology": [
-        "IHDR",
-        "cICP",
-        "PLTE",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "cICP", "PLTE", "IDAT", "IEND"],
       "outcome": {
         "status": "success",
         "removedNamespaces": []
@@ -403,9 +307,7 @@
     {
       "id": "libpng-1.6.58-basn3p08",
       "format": "png",
-      "roles": [
-        "differential"
-      ],
+      "roles": ["differential"],
       "localPath": "upstream/libpng-1.6.58/basn3p08.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -415,18 +317,10 @@
       },
       "sha256": "eca1db90338a8481e4d3f2469befa06d7564534e9323b6a8040ed0cdd281d952",
       "bytes": 1286,
-      "topology": [
-        "IHDR",
-        "gAMA",
-        "PLTE",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "gAMA", "PLTE", "IDAT", "IEND"],
       "outcome": {
         "status": "success",
-        "removedNamespaces": [
-          "PNG"
-        ]
+        "removedNamespaces": ["PNG"]
       },
       "retainedPayloads": [
         {
@@ -439,9 +333,7 @@
     {
       "id": "libpng-1.6.58-ibasn2c08",
       "format": "png",
-      "roles": [
-        "differential"
-      ],
+      "roles": ["differential"],
       "localPath": "upstream/libpng-1.6.58/ibasn2c08.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -451,11 +343,7 @@
       },
       "sha256": "67ac80581c63559889a9f5d5ba8f70ab1e77d304a2e54b916dd23953bf7d3fc7",
       "bytes": 299,
-      "topology": [
-        "IHDR",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "IDAT", "IEND"],
       "outcome": {
         "status": "success",
         "removedNamespaces": []
@@ -471,9 +359,7 @@
     {
       "id": "libpng-1.6.58-badadler",
       "format": "png",
-      "roles": [
-        "structural"
-      ],
+      "roles": ["structural"],
       "localPath": "upstream/libpng-1.6.58/badadler.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -483,11 +369,7 @@
       },
       "sha256": "3614bbe9494f6374567cbf897e022a16abb8edd3f166745ce73a2f472eef6136",
       "bytes": 67,
-      "topology": [
-        "IHDR",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "IDAT", "IEND"],
       "outcome": {
         "status": "success",
         "removedNamespaces": []
@@ -503,9 +385,7 @@
     {
       "id": "libpng-1.6.58-badcrc",
       "format": "png",
-      "roles": [
-        "negative-control"
-      ],
+      "roles": ["negative-control"],
       "localPath": "upstream/libpng-1.6.58/badcrc.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -515,11 +395,7 @@
       },
       "sha256": "ec5b6a711ea2325404ea56575df2f8a28292e5ef15a950f42a1d39ce06a6a96a",
       "bytes": 67,
-      "topology": [
-        "IHDR",
-        "IDAT",
-        "IEND"
-      ],
+      "topology": ["IHDR", "IDAT", "IEND"],
       "outcome": {
         "status": "refused",
         "errorCode": "malformed-file",
@@ -531,9 +407,7 @@
     {
       "id": "libpng-1.6.58-bad-iccp",
       "format": "png",
-      "roles": [
-        "negative-control"
-      ],
+      "roles": ["negative-control"],
       "localPath": "upstream/libpng-1.6.58/bad_iCCP.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -543,10 +417,7 @@
       },
       "sha256": "0c1ec5ece28d8574e80a3842939e8939f3451c71e8b2e013dcf26a80d292168e",
       "bytes": 321,
-      "topology": [
-        "IHDR",
-        "iCCP"
-      ],
+      "topology": ["IHDR", "iCCP"],
       "outcome": {
         "status": "refused",
         "errorCode": "malformed-file",
@@ -558,9 +429,7 @@
     {
       "id": "libpng-1.6.58-empty-ancillary-chunks",
       "format": "png",
-      "roles": [
-        "negative-control"
-      ],
+      "roles": ["negative-control"],
       "localPath": "upstream/libpng-1.6.58/empty_ancillary_chunks.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -641,9 +510,7 @@
     {
       "id": "libpng-1.6.58-huge-itxt-chunk",
       "format": "png",
-      "roles": [
-        "negative-control"
-      ],
+      "roles": ["negative-control"],
       "localPath": "upstream/libpng-1.6.58/huge_iTXt_chunk.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -653,10 +520,7 @@
       },
       "sha256": "cf52cbac99198baf5e72e0d1423de217aa9cff327981356ab20e9b47d32ab0fd",
       "bytes": 57,
-      "topology": [
-        "IHDR",
-        "iTXt"
-      ],
+      "topology": ["IHDR", "iTXt"],
       "outcome": {
         "status": "refused",
         "errorCode": "malformed-file",
@@ -668,9 +532,7 @@
     {
       "id": "libpng-1.6.58-huge-junk-unsafe-to-copy",
       "format": "png",
-      "roles": [
-        "negative-control"
-      ],
+      "roles": ["negative-control"],
       "localPath": "upstream/libpng-1.6.58/huge_juNK_unsafe_to_copy.png",
       "provenance": {
         "revision": "3061454d980de7d53608f594194cfac722721d2a",
@@ -680,10 +542,7 @@
       },
       "sha256": "8f9ef7f8931919fc8a73d896ff2e3bd5cf233141dc6b7801e4fbe7c0c7b4037b",
       "bytes": 57,
-      "topology": [
-        "IHDR",
-        "juNK"
-      ],
+      "topology": ["IHDR", "juNK"],
       "outcome": {
         "status": "refused",
         "errorCode": "malformed-file",
