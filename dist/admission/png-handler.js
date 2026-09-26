@@ -1,0 +1,467 @@
+import { parseExif } from "../metadata/exif.js";
+import { parseIcc } from "../metadata/icc.js";
+import { parseXmp } from "../metadata/xmp.js";
+import { err, ok } from "../result.js";
+import { executionError } from "../errors.js";
+import { inflateBounded, InflateBudget, isPngSignature, parsePng, PNG_CRITICAL_CHUNK_TYPES, PNG_MAX_ANCILLARY_CHUNKS, PNG_MAX_INFLATED_BYTES_TOTAL, PNG_MAX_INFLATED_ICC_BYTES, PNG_MAX_INFLATED_TEXT_BYTES, PNG_MAX_METADATA_BYTES_PER_CHUNK, PNG_SIGNATURE, PngStructureError, } from "../png/chunks.js";
+import { ICC_PRESERVATION_POLICY_ID, MAX_PROFILE_BYTES, } from "../metadata/icc_admission.js";
+// D-05 closed lists. Measured ExifTool 13.59 behaviour (56-CONTEXT.md,
+// 56-RESEARCH.md): `-all=` keeps every type in PNG_PRESERVED_CHUNK_TYPES and
+// removes every type in PNG_REMOVED_CHUNK_TYPES; `iCCP`/`pHYs` are removed
+// unless the corresponding preservation flag is set (PNG_CONDITIONAL_CHUNK_TYPES).
+// Casing note (carried from 56-02's flagged ambiguity): src/png/chunks.ts's own
+// registry admits both `mDCV`/`cLLI` and `mDCv`/`cLLi`. This handler's D-05
+// preserve-list uses exactly the casing 56-CONTEXT.md/56-RESEARCH.md measured
+// (`mDCv`, `cLLi`) -- the upper-last-letter spellings are therefore
+// registered-but-unmeasured (typed decline) today, not preserved. Plan 04
+// settles this permanently.
+export const PNG_PRESERVED_CHUNK_TYPES = new Set([
+    "tRNS",
+    "cHRM",
+    "bKGD",
+    "sBIT",
+    "sPLT",
+    "hIST",
+    "cICP",
+    "mDCv",
+    "cLLi",
+    "sCAL",
+    "oFFs",
+    "pCAL",
+    "sTER",
+    "iDOT",
+    "vpAg",
+]);
+export const PNG_REMOVED_CHUNK_TYPES = new Set([
+    "tEXt",
+    "zTXt",
+    "iTXt",
+    "eXIf",
+    "tIME",
+    "caBX",
+    "gAMA",
+    "sRGB",
+]);
+export const PNG_CONDITIONAL_CHUNK_TYPES = new Map([
+    ["iCCP", "colorProfile"],
+    ["pHYs", "resolution"],
+]);
+const COPY_BLOCK_BYTES = 64 * 1024;
+const CHUNK_FIXED_OVERHEAD_BYTES = 12; // 4-byte length + 4-byte type + 4-byte CRC
+function isAborted(signal) {
+    return signal?.aborted ?? false;
+}
+function chunkSpan(chunk) {
+    return CHUNK_FIXED_OVERHEAD_BYTES + chunk.length;
+}
+function parseIccpChunk(data, budget) {
+    const nul = data.indexOf(0);
+    if (nul < 0 || nul + 1 >= data.length) {
+        throw new PngStructureError("malformed-file", "iCCP chunk is missing its profile-name terminator.");
+    }
+    const compressed = data.subarray(nul + 2);
+    return inflateBounded(compressed, "iCCP", PNG_MAX_INFLATED_ICC_BYTES, budget);
+}
+function parseZtxtChunk(data, budget) {
+    const nul = data.indexOf(0);
+    if (nul < 0 || nul + 1 >= data.length) {
+        throw new PngStructureError("malformed-file", "zTXt chunk is missing its keyword terminator.");
+    }
+    const compressed = data.subarray(nul + 2);
+    return inflateBounded(compressed, "zTXt", PNG_MAX_INFLATED_TEXT_BYTES, budget);
+}
+function parseItxtChunk(data, budget) {
+    const keywordNul = data.indexOf(0);
+    if (keywordNul < 0) {
+        throw new PngStructureError("malformed-file", "iTXt chunk is missing its keyword terminator.");
+    }
+    const keyword = data.toString("latin1", 0, keywordNul);
+    const compressionFlag = data[keywordNul + 1];
+    let offset = keywordNul + 3; // past keyword\0, compression flag, compression method
+    const languageNul = data.indexOf(0, offset);
+    if (languageNul < 0) {
+        throw new PngStructureError("malformed-file", "iTXt chunk is missing its language-tag terminator.");
+    }
+    offset = languageNul + 1;
+    const translatedNul = data.indexOf(0, offset);
+    if (translatedNul < 0) {
+        throw new PngStructureError("malformed-file", "iTXt chunk is missing its translated-keyword terminator.");
+    }
+    const payload = data.subarray(translatedNul + 1);
+    const text = compressionFlag === 1
+        ? inflateBounded(payload, "iTXt", PNG_MAX_INFLATED_TEXT_BYTES, budget)
+        : payload;
+    return { keyword, text };
+}
+const XMP_ITXT_KEYWORD = "XML:com.adobe.xmp";
+function collectMetadata(parsed) {
+    const entries = [];
+    const warnings = [];
+    let orientation = { status: "absent" };
+    let colorProfile;
+    const namespaces = new Set();
+    let resolutionNamespace;
+    const classes = [];
+    const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+    parsed.chunks.forEach((chunk, index) => {
+        const { type } = chunk;
+        if (PNG_CRITICAL_CHUNK_TYPES.has(type)) {
+            classes.push("keep");
+            return;
+        }
+        // D-06: iDOT's Apple-private adjacency invariant is not admitted yet
+        // (Plan 04 replaces this). It is listed in PNG_PRESERVED_CHUNK_TYPES for
+        // documentation and Plan 04's benefit, but this tracer declines on sight.
+        if (type === "iDOT") {
+            throw new PngStructureError("unsafe-structure", "PNG iDOT handling is not yet admitted.");
+        }
+        if (PNG_PRESERVED_CHUNK_TYPES.has(type)) {
+            classes.push("keep");
+            return;
+        }
+        const conditional = PNG_CONDITIONAL_CHUNK_TYPES.get(type);
+        if (conditional === "resolution") {
+            classes.push("conditional-resolution");
+            resolutionNamespace = "PNG";
+            return;
+        }
+        if (conditional === "colorProfile") {
+            classes.push("conditional-color");
+            namespaces.add("ICC");
+            const data = parsed.buffered.get(index);
+            if (data !== undefined) {
+                colorProfile = parseIccpChunk(data, budget);
+                const found = parseIcc(colorProfile);
+                entries.push(...found.entries);
+                warnings.push(...found.warnings);
+            }
+            return;
+        }
+        if (!PNG_REMOVED_CHUNK_TYPES.has(type)) {
+            // Fail-closed (D-05): anything outside the three lists and the critical
+            // set declines until Plan 04 decides it. This also catches an
+            // unregistered private ancillary chunk and a registered-but-unmeasured
+            // one -- both become a typed decline, never a guessed keep or strip.
+            throw new PngStructureError("unsafe-structure", `PNG chunk ${type} is not yet classified.`);
+        }
+        classes.push("remove");
+        const data = parsed.buffered.get(index);
+        if (type === "eXIf") {
+            namespaces.add("EXIF");
+            if (data !== undefined) {
+                const found = parseExif(data);
+                entries.push(...found.entries);
+                warnings.push(...found.warnings);
+                // Tracer fail-closed (D-11/D-12, Plan 06 replaces this): PNG never
+                // writes orientation yet, so a valid source Orientation is reported
+                // as unsupported -- the engine declines preserveOrientation:true
+                // against it, rather than silently dropping the value.
+                orientation =
+                    found.orientation.status === "valid"
+                        ? {
+                            status: "unsupported",
+                            detail: "PNG orientation preservation is not yet admitted.",
+                        }
+                        : found.orientation;
+            }
+            return;
+        }
+        if (type === "caBX") {
+            namespaces.add("C2PA");
+            return;
+        }
+        if (type === "tIME" || type === "gAMA" || type === "sRGB") {
+            namespaces.add("PNG");
+            return;
+        }
+        if (type === "tEXt") {
+            namespaces.add("PNG");
+            return;
+        }
+        if (type === "zTXt") {
+            namespaces.add("PNG");
+            if (data !== undefined)
+                parseZtxtChunk(data, budget);
+            return;
+        }
+        if (type === "iTXt") {
+            if (data === undefined) {
+                namespaces.add("PNG");
+                return;
+            }
+            const { keyword, text } = parseItxtChunk(data, budget);
+            if (keyword === XMP_ITXT_KEYWORD) {
+                namespaces.add("XMP");
+                const found = parseXmp(text);
+                entries.push(...found.entries);
+                warnings.push(...found.warnings);
+            }
+            else {
+                namespaces.add("PNG");
+            }
+        }
+    });
+    return {
+        entries,
+        warnings,
+        orientation,
+        colorProfile,
+        namespaces: [...namespaces],
+        resolutionNamespace,
+        classes,
+    };
+}
+function isKept(cls, preserveColorProfile, preserveResolution) {
+    if (cls === "keep")
+        return true;
+    if (cls === "conditional-color")
+        return preserveColorProfile;
+    if (cls === "conditional-resolution")
+        return preserveResolution;
+    return false;
+}
+function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, preserveResolution, _orientation) {
+    // The tracer inserts nothing (Plan 06 adds the minimal eXIf insert); every
+    // kept chunk is copied byte-for-byte from its original source range.
+    // Adjacent kept chunks are coalesced into one copy range.
+    const parts = [];
+    const expectedTypes = [];
+    const copiedChunks = [];
+    let pendingStart;
+    let pendingEnd;
+    const flush = () => {
+        if (pendingStart === undefined || pendingEnd === undefined)
+            return;
+        parts.push({
+            kind: "copy",
+            sourceOffset: pendingStart,
+            length: pendingEnd - pendingStart,
+        });
+        pendingStart = undefined;
+        pendingEnd = undefined;
+    };
+    admission.parsed.chunks.forEach((chunk, index) => {
+        const cls = admission.classes[index] ?? "remove";
+        if (!isKept(cls, preserveColorProfile, preserveResolution)) {
+            flush();
+            return;
+        }
+        const chunkStart = chunk.offset;
+        const chunkEnd = chunk.offset + chunkSpan(chunk);
+        if (pendingEnd === chunkStart) {
+            pendingEnd = chunkEnd;
+        }
+        else {
+            flush();
+            pendingStart = chunkStart;
+            pendingEnd = chunkEnd;
+        }
+        expectedTypes.push(chunk.type);
+        copiedChunks.push(chunk);
+    });
+    flush();
+    return { parts, expectedTypes, copiedChunks };
+}
+function recomputeExpectedTypes(admission, preserveColorProfile, preserveResolution) {
+    const types = [];
+    admission.parsed.chunks.forEach((chunk, index) => {
+        const cls = admission.classes[index] ?? "remove";
+        if (isKept(cls, preserveColorProfile, preserveResolution))
+            types.push(chunk.type);
+    });
+    return types;
+}
+async function writeAll(handle, data, position) {
+    let written = 0;
+    while (written < data.length) {
+        const next = await handle.write(data, written, data.length - written, position + written);
+        if (next.bytesWritten === 0)
+            throw new Error("A file write made no progress.");
+        written += next.bytesWritten;
+    }
+    return position + written;
+}
+async function copyRange(source, destination, sourceOffset, length, position, signal) {
+    const buffer = Buffer.allocUnsafe(Math.min(COPY_BLOCK_BYTES, Math.max(length, 1)));
+    let copied = 0;
+    while (copied < length) {
+        if (isAborted(signal))
+            throw signal?.reason ?? new DOMException("Aborted", "AbortError");
+        const take = Math.min(buffer.length, length - copied);
+        const read = await source.read(buffer, 0, take, sourceOffset + copied);
+        if (read.bytesRead !== take)
+            throw new Error("Source changed or became truncated while copying.");
+        let written = 0;
+        while (written < take) {
+            const result = await destination.write(buffer, written, take - written, position + copied + written);
+            if (result.bytesWritten === 0)
+                throw new Error("A file write made no progress.");
+            written += result.bytesWritten;
+        }
+        copied += take;
+    }
+    return position + copied;
+}
+async function chunksEqual(sourceHandle, source, destinationHandle, destination, signal) {
+    const sourceSpan = chunkSpan(source);
+    const destinationSpan = chunkSpan(destination);
+    if (sourceSpan !== destinationSpan)
+        return false;
+    const bufferSize = Math.min(COPY_BLOCK_BYTES, Math.max(sourceSpan, 1));
+    const sourceBuffer = Buffer.allocUnsafe(bufferSize);
+    const destinationBuffer = Buffer.allocUnsafe(bufferSize);
+    for (let offset = 0; offset < sourceSpan;) {
+        if (isAborted(signal))
+            throw signal?.reason ?? new DOMException("Aborted", "AbortError");
+        const length = Math.min(COPY_BLOCK_BYTES, sourceSpan - offset);
+        const left = await sourceHandle.read(sourceBuffer, 0, length, source.offset + offset);
+        const right = await destinationHandle.read(destinationBuffer, 0, length, destination.offset + offset);
+        if (left.bytesRead !== length || right.bytesRead !== length)
+            throw new Error("Source or output changed or became truncated during verification.");
+        if (!sourceBuffer
+            .subarray(0, length)
+            .equals(destinationBuffer.subarray(0, length)))
+            return false;
+        offset += length;
+    }
+    return true;
+}
+function verificationError(detail, path) {
+    return executionError({ code: "verification-failed", detail, path }, "started");
+}
+function verificationAborted(path) {
+    return executionError({ code: "aborted", detail: "Operation was aborted.", path }, "started");
+}
+async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, _preserveOrientation, preserveColorProfile, preserveResolution, _expectedOrientation, signal) {
+    try {
+        const destination = await parsePng(destinationHandle, destinationSize, signal);
+        const expectedTypes = recomputeExpectedTypes(admission, preserveColorProfile, preserveResolution);
+        const destinationTypes = destination.chunks.map((chunk) => chunk.type);
+        if (destinationTypes.length !== expectedTypes.length ||
+            destinationTypes.some((type, index) => type !== expectedTypes[index]))
+            return err(verificationError("Destination chunk sequence did not match the sanitized plan.", destinationPath));
+        for (const type of destinationTypes) {
+            if (PNG_REMOVED_CHUNK_TYPES.has(type))
+                return err(verificationError(`${type} remained after sanitization.`, destinationPath));
+        }
+        const sourceKept = admission.parsed.chunks.filter((_chunk, index) => isKept(admission.classes[index] ?? "remove", preserveColorProfile, preserveResolution));
+        if (sourceKept.length !== destination.chunks.length)
+            return err(verificationError("Destination chunk count did not match the sanitized plan.", destinationPath));
+        for (let index = 0; index < sourceKept.length; index += 1) {
+            const left = sourceKept[index];
+            const right = destination.chunks[index];
+            if (left === undefined ||
+                right === undefined ||
+                left.type !== right.type ||
+                !(await chunksEqual(sourceHandle, left, destinationHandle, right, signal)))
+                return err(verificationError("Kept PNG chunk bytes changed.", destinationPath));
+        }
+        return ok(undefined);
+    }
+    catch (cause) {
+        if (isAborted(signal))
+            return err(verificationAborted(destinationPath));
+        return err(verificationError(cause instanceof PngStructureError
+            ? cause.message
+            : "Could not reopen and verify the destination.", destinationPath));
+    }
+}
+function classifyAdmissionFailure(cause, preserveColorProfile) {
+    if (!(cause instanceof PngStructureError))
+        return undefined;
+    if (preserveColorProfile && cause.limit?.chunkType === "iCCP")
+        return {
+            code: "unsupported-feature",
+            detail: `ICC profile size ${cause.limit.size} exceeds the ${cause.limit.limit}-byte policy limit.`,
+            feature: "color-profile-preservation",
+            reason: "policy-limit",
+        };
+    return { code: cause.kind, detail: cause.message };
+}
+const capability = Object.freeze({
+    format: "png",
+    mimeTypes: Object.freeze(["image/png"]),
+    extensions: Object.freeze([".png"]),
+    inspect: true,
+    sanitize: true,
+    preserves: Object.freeze({
+        orientation: true,
+        colorProfile: true,
+        timestamps: true,
+        resolution: true,
+        imagePayload: true,
+        animationPayload: false,
+    }),
+    validation: Object.freeze({
+        container: "full",
+        codecBitstream: "not-decoded",
+    }),
+    colorProfile: Object.freeze({
+        policy: ICC_PRESERVATION_POLICY_ID,
+        preservation: "preserve-if-present",
+        versions: Object.freeze(["v2.0-v2.4", "v4.0-v4.4"]),
+        classes: Object.freeze(["scnr", "mntr"]),
+        spaces: Object.freeze(["RGB /XYZ ", "RGB /Lab "]),
+        maxProfileBytes: MAX_PROFILE_BYTES,
+        maxTagCount: 4_096,
+    }),
+    limits: Object.freeze({
+        maxMetadataBytesPerChunk: PNG_MAX_METADATA_BYTES_PER_CHUNK,
+        maxAncillaryChunkCount: PNG_MAX_ANCILLARY_CHUNKS,
+        maxInflatedIccBytes: PNG_MAX_INFLATED_ICC_BYTES,
+        maxInflatedTextBytes: PNG_MAX_INFLATED_TEXT_BYTES,
+        maxInflatedBytesTotal: PNG_MAX_INFLATED_BYTES_TOTAL,
+    }),
+    refuses: Object.freeze([
+        "unknown-critical-chunks",
+        "malformed-container",
+        "crc-mismatch",
+        "chunk-order",
+        "truncation",
+        "trailing-data",
+        "animation",
+        "resource-limits",
+        "unmeasured-registered-chunks",
+        "unsafe-chunk-adjacency",
+    ]),
+    removes: Object.freeze(["EXIF", "XMP", "ICC", "PNG", "C2PA"]),
+    detection: "magic",
+});
+export const pngHandler = Object.freeze({
+    capability,
+    stagingFileName: "output.png",
+    matches(magic) {
+        return isPngSignature(magic);
+    },
+    async admit(handle, size, signal) {
+        const parsed = await parsePng(handle, size, signal);
+        return { parsed, ...collectMetadata(parsed) };
+    },
+    inspect(admission) {
+        return {
+            format: "png",
+            entries: admission.entries,
+            warnings: admission.warnings,
+        };
+    },
+    buildOutputPlan,
+    checkOutputPlan(plan) {
+        return plan.expectedTypes.includes("IDAT")
+            ? undefined
+            : "Sanitized PNG plan is empty.";
+    },
+    classifyAdmissionFailure,
+    async writeOutput(source, destination, plan, signal) {
+        let position = await writeAll(destination, PNG_SIGNATURE, 0);
+        for (const part of plan.parts) {
+            if (isAborted(signal))
+                throw signal?.reason ?? new DOMException("Aborted", "AbortError");
+            position =
+                part.kind === "insert"
+                    ? await writeAll(destination, part.data, position)
+                    : await copyRange(source, destination, part.sourceOffset, part.length, position, signal);
+        }
+    },
+    verifyOutput,
+});
+//# sourceMappingURL=png-handler.js.map

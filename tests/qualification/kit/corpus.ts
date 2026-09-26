@@ -335,8 +335,17 @@ export async function runQualificationCase(
     if (!reopened.ok)
       throw new Error(`Could not reopen destination: ${record.id}`);
     const namespaces = { EXIF: 0, XMP: 0, ICC: 0 };
-    for (const entry of reopened.value.entries)
-      namespaces[entry.namespace] += 1;
+    for (const entry of reopened.value.entries) {
+      // This corpus schema is pinned to WebP (Phase 56 generalizes it,
+      // KIT_NEUTRALITY_EXCEPTIONS "corpus.ts"), which only ever reports
+      // these three namespaces; PNG/C2PA never occur here.
+      if (
+        entry.namespace === "EXIF" ||
+        entry.namespace === "XMP" ||
+        entry.namespace === "ICC"
+      )
+        namespaces[entry.namespace] += 1;
+    }
     const retainedPayloads = payloadDigests(await readFile(destinationPath));
     if (
       JSON.stringify(retainedPayloads) !==
@@ -344,6 +353,11 @@ export async function runQualificationCase(
       Object.values(namespaces).some((count) => count !== 0)
     )
       throw new Error(`Reopen contract failed: ${record.id}`);
+    // This corpus schema is pinned to WebP (Phase 56 generalizes it,
+    // KIT_NEUTRALITY_EXCEPTIONS "corpus.ts"); every record it materializes is
+    // a WebP sample, so a non-webp reopen here would itself be a defect.
+    if (reopened.value.format !== "webp")
+      throw new Error(`Expected a webp reopen: ${record.id}`);
     return {
       version: 1,
       caseId: record.id,

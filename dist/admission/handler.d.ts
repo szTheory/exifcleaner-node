@@ -15,13 +15,17 @@ export interface FormatAdmission {
     readonly orientation: OrientationState;
     /** The buffered ICC payload used for preservation admission, if present. */
     readonly colorProfile: Buffer | undefined;
-    /** Metadata namespaces present in the source container. */
-    readonly namespaces: readonly ("EXIF" | "XMP" | "ICC")[];
+    /**
+     * Metadata namespaces present in the source container. Restates the closed
+     * set `src/types.ts` declares privately as `MetadataNamespace` (D-15) rather
+     * than importing it, since that alias is intentionally not exported.
+     */
+    readonly namespaces: readonly ("EXIF" | "XMP" | "ICC" | "PNG" | "C2PA")[];
     /**
      * The metadata namespace that holds the source's resolution record, or
      * undefined when the source carries none or the format cannot preserve it.
      */
-    readonly resolutionNamespace: "EXIF" | "XMP" | "ICC" | undefined;
+    readonly resolutionNamespace: "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA" | undefined;
 }
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 /** admissionDecline's error parameter, minus the `path` the caller supplies. */

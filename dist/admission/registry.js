@@ -1,5 +1,9 @@
 import { webpHandler } from "./webp-handler.js";
-const HANDLERS = Object.freeze([webpHandler]);
+import { pngHandler } from "./png-handler.js";
+const HANDLERS = Object.freeze([
+    webpHandler,
+    pngHandler,
+]);
 // Private test seam (mirrors setNativePublicationBindingForTests in
 // src/transaction/native-publication.ts): lets a test roll a handler out of
 // the active registry to prove the rollback-decline path, without adding any

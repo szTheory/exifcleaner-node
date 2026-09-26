@@ -111,7 +111,7 @@ describe("metadataGroupDisposition (D-12 total group mapping)", () => {
   });
 
   describe("catch-all: an unrecognized group is compared under its own name, never dropped", () => {
-    for (const group of ["Adobe", "APP14", "PNG-pHYs"]) {
+    for (const group of ["Adobe", "APP14", "Vendor-Resolution"]) {
       it(`compares ${group} under its own group name`, () => {
         expect(metadataGroupDisposition(group)).toEqual({
           compared: true,

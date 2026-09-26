@@ -174,10 +174,15 @@ describe("qualification test layout (D-15/D-16)", () => {
 
   const ciList = extractCiList(ciYmlText);
   const qualifyList = extractQualifyList(qualifyCjsText);
-  const onDiskTestFiles = [
-    ...listTestFilesRecursive(join(projectRoot, "tests/qualification/kit")),
-    ...listTestFilesRecursive(join(projectRoot, "tests/qualification/webp")),
-  ];
+  const qualificationRoot = join(projectRoot, "tests/qualification");
+  const qualificationSubdirectories = readdirSync(qualificationRoot, {
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(qualificationRoot, entry.name));
+  const onDiskTestFiles = qualificationSubdirectories.flatMap((directory) =>
+    listTestFilesRecursive(directory),
+  );
   const ciListExists = new Set(
     ciList.filter((entry) => existsSync(join(projectRoot, entry))),
   );
@@ -254,6 +259,25 @@ describe("qualification test layout (D-15/D-16)", () => {
             `${strayPath}, which is neither an on-disk kit/webp suite nor a pinned PENDING_FLAT_FILES entry`,
           ),
         ),
+      ).toBe(true);
+    });
+
+    it("(iv) reports a problem when an on-disk suite in a non-kit/webp qualification subdirectory (e.g. png/) is missing from ci.yml -- proves the generalized subdirectory scan actually runs", () => {
+      // No PNG suite (.test.ts) files exist yet as of 56-03 (only oracles.ts
+      // and generators.ts), so the live "has no problems" assertion above
+      // stays green. This synthesizes the missing-suite failure mode the
+      // generalized (every-subdirectory) scan replaced the hard-coded
+      // kit/webp pair to catch, without waiting for a real PNG suite to land.
+      const missingPngSuite = "tests/qualification/png/x.test.ts";
+      const problems = qualificationListProblems({
+        ciList,
+        ciListExists,
+        qualifyList,
+        onDiskTestFiles: [...onDiskTestFiles, missingPngSuite],
+        pendingFlatFiles: PENDING_FLAT_FILES,
+      });
+      expect(
+        problems.some((problem) => problem.includes(missingPngSuite)),
       ).toBe(true);
     });
   });

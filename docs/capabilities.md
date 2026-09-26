@@ -7,7 +7,7 @@
 | Area         | Contract                                                                                                                                     |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime      | Node.js 22+, ESM                                                                                                                             |
-| Formats      | WebP only, detected by `RIFF` + `WEBP` magic                                                                                                 |
+| Formats      | WebP and PNG, both detected by magic: WebP by `RIFF` + `WEBP`, PNG by its 8-byte signature                                                   |
 | Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                                                                         |
 | Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                                                                 |
 | Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable                                           |
@@ -17,12 +17,13 @@
 | Cancellation | Optional `AbortSignal` on inspection and sanitization                                                                                        |
 | Failures     | Discriminated `MetadataError` returned through `Result`                                                                                      |
 
-`NativeFormat` is the format-neutral discriminant (currently `"webp"`).
+`NativeFormat` is the format-neutral discriminant (currently `"webp" | "png"`).
 `FormatCapabilities` is the format-neutral capability union, currently refined
-by the supported `WebpCapabilities` shape. Admission is by magic admission:
-the already-open source must begin with `RIFF` + `WEBP`, never merely carry a
-matching extension. The private registry is frozen and contains only that
-qualified WebP handler; this package exposes no handler registration API.
+by the supported `WebpCapabilities` and `PngCapabilities` shapes. Admission is
+by magic admission: the already-open source must begin with `RIFF` + `WEBP`,
+or with PNG's own 8-byte signature, never merely carry a matching extension.
+The private registry is frozen and contains only those two qualified
+handlers; this package exposes no handler registration API.
 
 ## Consumer and Publication Contract
 
@@ -157,7 +158,9 @@ There is no third state.
 
 WebP reports `resolution: false`. WebP has no dedicated resolution-bearing
 chunk in its supported surface, and native WebP resolution preservation is
-future work (FUT-01), not a capability of the current handler.
+future work (FUT-01), not a capability of the current handler. PNG reports
+`resolution: true`: its `pHYs` chunk is always kept byte-identical when
+`preserveResolution: true` (see "## PNG" below).
 
 Capability-shape changes -- adding a required field to `CommonFormatCapabilities`
 or widening the discriminated union with a new format -- are a minor version
@@ -168,6 +171,40 @@ PNG and JPEG handlers land in Phases 56 and 57.
 The ExifCleaner app reads only `preserves.orientation`, `preserves.colorProfile`,
 and `preserves.timestamps` until its own adoption phase; it does not yet read
 `preserves.resolution`.
+
+## PNG
+
+PNG admission is a **closed preserve-list**, never a delete-list: a chunk type
+that is not on one of three code-defined lists declines the whole source with
+a typed pre-write `unsafe-structure` refusal, rather than guessing whether to
+keep or strip it.
+
+- **Always kept** (critical): `IHDR`, `PLTE`, `IDAT`, `IEND`.
+- **Always kept** (measured against ExifTool `-all=`, `PNG_PRESERVED_CHUNK_TYPES`):
+  `tRNS`, `cHRM`, `bKGD`, `sBIT`, `sPLT`, `hIST`, `cICP`, `mDCv`, `cLLi`,
+  `sCAL`, `oFFs`, `pCAL`, `sTER`, `iDOT`, `vpAg`.
+- **Always removed** (`PNG_REMOVED_CHUNK_TYPES`): `tEXt`, `zTXt`, `iTXt`,
+  `eXIf`, `tIME`, `caBX` (C2PA), and -- matching ExifTool's own behavior even
+  with color-profile preservation requested -- `gAMA` and `sRGB`. The handler
+  never writes a colour chunk of its own; it only removes chunks or copies
+  them byte-identically (D-09).
+- **Conditional** (`PNG_CONDITIONAL_CHUNK_TYPES`): `iCCP` is kept
+  byte-identical in place when `preserveColorProfile: true` (after its
+  bounded-inflate profile passes the same `icc-structural-v0.2` policy WebP
+  uses), else removed. `pHYs` is kept byte-identical in its original relative
+  position when `preserveResolution: true`, else removed.
+- **Anything else** -- an unregistered private ancillary chunk, or a chunk
+  registered in the PNG extensions registry but not yet measured against
+  ExifTool -- declines the source with a typed pre-write refusal
+  (`unmeasured-registered-chunks` / `unsafe-chunk-adjacency` in `refuses`).
+  A future measurement can graduate such a type onto one of the lists above;
+  the handler never guesses.
+
+Every successful PNG sanitize re-parses the staged destination (CRC and chunk
+order re-checked), asserts its chunk-type sequence against the plan computed
+from admission, and compares every kept chunk byte-for-byte against its
+source range before publication. A mismatch is `verification-failed` and the
+destination is never published.
 
 ## Safety Guarantees
 
@@ -203,7 +240,7 @@ package.
 ## Explicit Non-Capabilities
 
 - No CMM, color transform, tag-content grammar validation, class-required-tag matrix, registry validation, full ICC semantic conformance, transform-quality evaluation, or color-correctness claim.
-- No JPEG, PNG, GIF, TIFF, AVIF, HEIF, PDF, audio, video, RAW, or sidecar support.
+- No JPEG, GIF, TIFF, AVIF, HEIF, PDF, audio, video, RAW, or sidecar support. No APNG (refused as an animation, FUT-03).
 - No in-place rewrite, no ExifTool command-line compatibility, and no exhaustive tag database.
 - No Electron routing, UI control, native-engine switch, or second native format is introduced by this policy.
 - Animation is limited to recognized `ANIM`/`ANMF` structures with validated nested `VP8`, `VP8L`, and optional `ALPH` chunks. Unknown nested chunks are refused.

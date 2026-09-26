@@ -544,8 +544,7 @@ export async function runSafeTransaction<
       removedNamespaces,
       preserved: {
         orientation: options.preserveOrientation && orientation !== undefined,
-        colorProfile:
-          options.preserveColorProfile && namespaceSet.has("ICC"),
+        colorProfile: options.preserveColorProfile && namespaceSet.has("ICC"),
         timestamps: options.preserveTimestamps,
         resolution: preservedResolution,
       },

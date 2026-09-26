@@ -47,10 +47,7 @@ import {
 type PngMetadataNamespace = "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA";
 
 export type PngChunkClass =
-  | "keep"
-  | "remove"
-  | "conditional-color"
-  | "conditional-resolution";
+  "keep" | "remove" | "conditional-color" | "conditional-resolution";
 
 // D-05 closed lists. Measured ExifTool 13.59 behaviour (56-CONTEXT.md,
 // 56-RESEARCH.md): `-all=` keeps every type in PNG_PRESERVED_CHUNK_TYPES and
@@ -111,7 +108,11 @@ export interface PngAdmission extends FormatAdmission {
 }
 
 export type PngOutputPlanPart =
-  | { readonly kind: "copy"; readonly sourceOffset: number; readonly length: number }
+  | {
+      readonly kind: "copy";
+      readonly sourceOffset: number;
+      readonly length: number;
+    }
   | { readonly kind: "insert"; readonly data: Buffer };
 
 export interface PngOutputPlan {
@@ -149,7 +150,12 @@ function parseZtxtChunk(data: Buffer, budget: InflateBudget): Buffer {
     );
   }
   const compressed = data.subarray(nul + 2);
-  return inflateBounded(compressed, "zTXt", PNG_MAX_INFLATED_TEXT_BYTES, budget);
+  return inflateBounded(
+    compressed,
+    "zTXt",
+    PNG_MAX_INFLATED_TEXT_BYTES,
+    budget,
+  );
 }
 
 interface ParsedItxt {
@@ -588,10 +594,7 @@ async function verifyOutput(
         ))
       )
         return err(
-          verificationError(
-            "Kept PNG chunk bytes changed.",
-            destinationPath,
-          ),
+          verificationError("Kept PNG chunk bytes changed.", destinationPath),
         );
     }
 

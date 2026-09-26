@@ -5,12 +5,20 @@ export type Result<T, E = MetadataError> = {
     readonly ok: false;
     readonly error: E;
 };
-export type NativeFormat = "webp";
+export type NativeFormat = "webp" | "png";
+/**
+ * The closed set of metadata namespaces this package can report inspecting,
+ * removing, or preserving (D-15, 56-CONTEXT.md). Deliberately not exported:
+ * every exported member of this module that needs it (`MetadataEntry`,
+ * `SanitizeResult`) references it directly, and other modules restate the
+ * same literal union rather than importing it (see `admission/handler.ts`).
+ */
+type MetadataNamespace = "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA";
 export type MetadataValue = string | number | boolean | null | readonly MetadataValue[] | {
     readonly [key: string]: MetadataValue;
 };
 export interface MetadataEntry {
-    readonly namespace: "EXIF" | "XMP" | "ICC";
+    readonly namespace: MetadataNamespace;
     readonly name: string;
     readonly value: MetadataValue;
 }
@@ -38,7 +46,7 @@ export interface SanitizeOptions {
 export interface SanitizeResult {
     readonly format: NativeFormat;
     readonly destinationPath: string;
-    readonly removedNamespaces: readonly ("EXIF" | "XMP" | "ICC")[];
+    readonly removedNamespaces: readonly MetadataNamespace[];
     readonly preserved: {
         readonly orientation: boolean;
         readonly colorProfile: boolean;
@@ -115,15 +123,64 @@ export interface WebpCapabilities extends CommonFormatCapabilities {
     readonly removes: readonly ["EXIF", "XMP", "ICC"];
     readonly detection: "magic";
 }
+export interface PngCapabilities extends CommonFormatCapabilities {
+    readonly format: "png";
+    readonly mimeTypes: readonly ["image/png"];
+    readonly extensions: readonly [".png"];
+    readonly inspect: true;
+    readonly sanitize: true;
+    readonly preserves: {
+        readonly orientation: true;
+        readonly colorProfile: true;
+        readonly timestamps: true;
+        readonly resolution: true;
+        readonly imagePayload: true;
+        readonly animationPayload: false;
+    };
+    readonly validation: {
+        readonly container: "full";
+        readonly codecBitstream: "not-decoded";
+    };
+    readonly colorProfile: {
+        readonly policy: "icc-structural-v0.2";
+        readonly preservation: "preserve-if-present";
+        readonly versions: readonly ["v2.0-v2.4", "v4.0-v4.4"];
+        readonly classes: readonly ["scnr", "mntr"];
+        readonly spaces: readonly ["RGB /XYZ ", "RGB /Lab "];
+        readonly maxProfileBytes: number;
+        readonly maxTagCount: number;
+    };
+    readonly limits: {
+        readonly maxMetadataBytesPerChunk: number;
+        readonly maxAncillaryChunkCount: number;
+        readonly maxInflatedIccBytes: number;
+        readonly maxInflatedTextBytes: number;
+        readonly maxInflatedBytesTotal: number;
+    };
+    readonly refuses: readonly [
+        "unknown-critical-chunks",
+        "malformed-container",
+        "crc-mismatch",
+        "chunk-order",
+        "truncation",
+        "trailing-data",
+        "animation",
+        "resource-limits",
+        "unmeasured-registered-chunks",
+        "unsafe-chunk-adjacency"
+    ];
+    readonly removes: readonly ["EXIF", "XMP", "ICC", "PNG", "C2PA"];
+    readonly detection: "magic";
+}
 export interface Capabilities {
     readonly formats: readonly [FormatCapabilities, ...FormatCapabilities[]];
 }
 /**
  * The union of every registered format's capabilities, discriminated on `format`.
- * WebP is the only member in Phase 55; Phases 56 and 57 add PNG and JPEG members
- * without changing this contract's shape.
+ * Phase 56 adds the PNG member; Phase 57 adds JPEG without changing this
+ * contract's shape.
  */
-export type FormatCapabilities = WebpCapabilities;
+export type FormatCapabilities = WebpCapabilities | PngCapabilities;
 export type ColorProfileAdmissionReason = "invalid" | "unsupported" | "policy-limit";
 export type FallbackDisposition = "safe-to-fallback" | "do-not-fallback";
 export type MetadataErrorPhase = "request" | "source-open" | "admission" | "transaction";
@@ -216,4 +273,5 @@ export type DestinationFinalization = {
     readonly state: "owned-partial-remains";
     readonly cause: JsonSafeCause;
 };
+export {};
 //# sourceMappingURL=types.d.ts.map

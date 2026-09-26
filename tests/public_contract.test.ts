@@ -229,15 +229,18 @@ describe("published format-neutral declaration contract", () => {
         return format === output ? format : output;
       };
       const useRefinement = (capability: WebpCapabilities): FormatCapabilities => capability;
-      const narrow = (capability: FormatCapabilities): "image/webp" => {
+      const narrowPng = (capability: FormatCapabilities): "image/png" | undefined =>
+        capability.format === "png" ? capability.mimeTypes[0] : undefined;
+      const narrow = (capability: FormatCapabilities): "image/webp" | "image/png" => {
         switch (capability.format) {
           case "webp": return capability.mimeTypes[0];
+          case "png": return capability.mimeTypes[0];
         }
-        return assertNever(capability.format);
+        return assertNever(capability);
       };
       const advertised = getCapabilities().formats;
       const first: FormatCapabilities = advertised[0];
-      void [useGeneric, useRefinement, narrow, first];
+      void [useGeneric, useRefinement, narrow, narrowPng, first];
     `);
   });
 
@@ -309,6 +312,7 @@ describe("published format-neutral declaration contract", () => {
       "MetadataValue",
       "MetadataWarning",
       "NativeFormat",
+      "PngCapabilities",
       "PostCommitResidue",
       "Result",
       "SanitizeOptions",
@@ -340,6 +344,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
         CommonFormatCapabilities,
         FormatCapabilities,
         NativeFormat,
+        PngCapabilities,
         WebpCapabilities,
       } ${rootImport};
 
@@ -348,8 +353,8 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
           ? true
           : false;
 
-      const nativeFormatPin: Equals<NativeFormat, "webp"> = true;
-      const formatCapabilitiesPin: Equals<FormatCapabilities, WebpCapabilities> = true;
+      const nativeFormatPin: Equals<NativeFormat, "webp" | "png"> = true;
+      const formatCapabilitiesPin: Equals<FormatCapabilities, WebpCapabilities | PngCapabilities> = true;
       const commonPreservesPin: Equals<
         CommonFormatCapabilities["preserves"],
         {
@@ -370,7 +375,14 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
           readonly animationPayload: true;
         }
       > = true;
-      void [nativeFormatPin, formatCapabilitiesPin, commonPreservesPin, webpPreservesPin];
+      const pngResolutionPreservesPin: Equals<PngCapabilities["preserves"]["resolution"], true> = true;
+      void [
+        nativeFormatPin,
+        formatCapabilitiesPin,
+        commonPreservesPin,
+        webpPreservesPin,
+        pngResolutionPreservesPin,
+      ];
     `);
   });
 
@@ -388,7 +400,11 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
         keyof SanitizeResult["preserved"],
         "orientation" | "colorProfile" | "timestamps" | "resolution"
       > = true;
-      void [preserveResolutionPin, preservedKeysPin];
+      const removedNamespacesPin: Equals<
+        SanitizeResult["removedNamespaces"][number],
+        "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA"
+      > = true;
+      void [preserveResolutionPin, preservedKeysPin, removedNamespacesPin];
     `);
 
     const missingPreserveResolutionDiagnostics = await compileConsumer(`
@@ -447,6 +463,39 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
     `);
 
     expect(omittedCaseDiagnostics).not.toEqual([]);
+  });
+
+  it("compiles an exhaustive switch over the real two-member FormatCapabilities union and fails when a case is omitted", async () => {
+    const real = `
+      import type { FormatCapabilities } ${rootImport};
+
+      const assertNever = (value: never): never => { throw new Error(String(value)); };
+    `;
+
+    await expectConsumerToCompile(`
+      ${real}
+      const describeFormat = (capability: FormatCapabilities): string => {
+        switch (capability.format) {
+          case "webp": return "webp";
+          case "png": return "png";
+          default: return assertNever(capability);
+        }
+      };
+      void describeFormat;
+    `);
+
+    const omittedRealCaseDiagnostics = await compileConsumer(`
+      ${real}
+      const describeFormat = (capability: FormatCapabilities): string => {
+        switch (capability.format) {
+          case "webp": return "webp";
+          default: return assertNever(capability);
+        }
+      };
+      void describeFormat;
+    `);
+
+    expect(omittedRealCaseDiagnostics).not.toEqual([]);
   });
 
   it("rejects a preserves object missing resolution and a WebP resolution literal asserted true", async () => {

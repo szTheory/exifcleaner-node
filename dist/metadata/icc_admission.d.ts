@@ -1,5 +1,6 @@
 import type { ColorProfileAdmissionReason } from "../types.js";
 export declare const ICC_PRESERVATION_POLICY_ID = "icc-structural-v0.2";
+export declare const MAX_PROFILE_BYTES: number;
 export interface IccTagRange {
     readonly signature: number;
     readonly offset: number;

@@ -253,33 +253,35 @@ export async function runSafeTransaction(input) {
         stageFile = undefined;
         sourceHandleOpen = false;
         const postCommitResidue = await closePostPublicationResources(committedResources);
-        const namespaces = new Set(admission.namespaces);
+        const namespaceSet = new Set(admission.namespaces);
         const resolutionNamespace = admission.resolutionNamespace;
         const preservedResolution = options.preserveResolution && resolutionNamespace !== undefined;
-        const removedNamespaces = new Set([
-            ...(namespaces.has("EXIF") &&
-                !(options.preserveOrientation && orientation !== undefined)
-                ? ["EXIF"]
-                : []),
-            ...(namespaces.has("XMP") ? ["XMP"] : []),
-            ...(namespaces.has("ICC") && !options.preserveColorProfile
-                ? ["ICC"]
-                : []),
-            ...(resolutionNamespace !== undefined && !options.preserveResolution
-                ? [resolutionNamespace]
-                : []),
-        ]);
+        const removedNamespaces = [];
+        const seenRemoved = new Set();
+        const addRemoved = (namespace) => {
+            if (seenRemoved.has(namespace))
+                return;
+            seenRemoved.add(namespace);
+            removedNamespaces.push(namespace);
+        };
+        for (const namespace of admission.namespaces) {
+            if (namespace === "EXIF" &&
+                options.preserveOrientation &&
+                orientation !== undefined)
+                continue;
+            if (namespace === "ICC" && options.preserveColorProfile)
+                continue;
+            addRemoved(namespace);
+        }
+        if (resolutionNamespace !== undefined && !options.preserveResolution)
+            addRemoved(resolutionNamespace);
         return ok({
             format: handler.capability.format,
             destinationPath,
-            removedNamespaces: [
-                ...(removedNamespaces.has("EXIF") ? ["EXIF"] : []),
-                ...(removedNamespaces.has("XMP") ? ["XMP"] : []),
-                ...(removedNamespaces.has("ICC") ? ["ICC"] : []),
-            ],
+            removedNamespaces,
             preserved: {
                 orientation: options.preserveOrientation && orientation !== undefined,
-                colorProfile: options.preserveColorProfile && namespaces.has("ICC"),
+                colorProfile: options.preserveColorProfile && namespaceSet.has("ICC"),
                 timestamps: options.preserveTimestamps,
                 resolution: preservedResolution,
             },

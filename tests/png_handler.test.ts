@@ -121,7 +121,10 @@ describe("PNG handler end to end (56-03 tracer)", () => {
     const source = metadataPng();
 
     for (const preserveResolution of [true, false]) {
-      const sourcePath = join(directory, `source-${String(preserveResolution)}.png`);
+      const sourcePath = join(
+        directory,
+        `source-${String(preserveResolution)}.png`,
+      );
       const destinationPath = join(
         directory,
         `destination-${String(preserveResolution)}.png`,

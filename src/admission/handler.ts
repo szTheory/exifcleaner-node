@@ -35,12 +35,7 @@ export interface FormatAdmission {
    * undefined when the source carries none or the format cannot preserve it.
    */
   readonly resolutionNamespace:
-    | "EXIF"
-    | "XMP"
-    | "ICC"
-    | "PNG"
-    | "C2PA"
-    | undefined;
+    "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA" | undefined;
 }
 
 // Omit does not distribute over a union on its own -- Pick's keyof over a
