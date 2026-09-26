@@ -40,6 +40,7 @@ import {
   pngAdmitsUnregisteredAncillaryPart,
   pngDifferentialProfile,
   PNG_PRESERVATION_MEASUREMENT_TITLE,
+  pngRawColorProfileSha256,
   pngSanitizeOptionsForGrants,
   pngStructuralParts,
   PNG_UNREGISTERED_STRIP_MEASUREMENT_TITLE,
@@ -163,6 +164,54 @@ describe("pngDifferentialProfile (56-07 Task 3)", () => {
 
   it("wires structuralParts to pngStructuralParts", () => {
     expect(pngDifferentialProfile.structuralParts).toBe(pngStructuralParts);
+  });
+});
+
+/**
+ * A host-independent iCCP fixture builder with a trailing payload appended
+ * after the zlib stream (mirrors `png_preservation.test.ts`'s CR-01
+ * `trailingBytesIccpSource`, but parameterized on the trailing bytes so this
+ * describe can prove two different payloads hash to two different digests).
+ * `pngChunk` (`encodePngChunk`) computes a correct CRC over whatever data
+ * buffer it is given, so appending bytes to the compressed field alone still
+ * produces a structurally valid chunk.
+ */
+function iccpWithTrailingBytes(trailing: Buffer): Buffer {
+  const iccp = Buffer.concat([
+    Buffer.from("icc", "latin1"),
+    Buffer.from([0]), // keyword NUL terminator
+    Buffer.from([0]), // compression method 0
+    deflateSync(iccProfileV4()),
+    trailing,
+  ]);
+  return pngWithChunksBefore([["iCCP", iccp]]);
+}
+
+describe("pngRawColorProfileSha256 strictness (CR-01)", () => {
+  it("hashes a clean iCCP profile to digest(profile)", () => {
+    const source = pngWithChunksBefore([["iCCP", pngIccp(iccProfileV4())]]);
+    expect(pngRawColorProfileSha256(source)).toBe(digest(iccProfileV4()));
+  });
+
+  it("hashes an iCCP profile with trailing bytes to a digest that is not digest(profile)", () => {
+    const source = iccpWithTrailingBytes(
+      Buffer.from("GPS=51.5074,-0.1278;owner=Jon Smith;serial=C02XYZ"),
+    );
+    const result = pngRawColorProfileSha256(source);
+    expect(result).toMatch(/^[a-f0-9]{64}$/);
+    expect(result).not.toBe(digest(iccProfileV4()));
+  });
+
+  it("hashes two different trailing payloads to two different digests", () => {
+    const first = pngRawColorProfileSha256(
+      iccpWithTrailingBytes(Buffer.from("secret-payload-one")),
+    );
+    const second = pngRawColorProfileSha256(
+      iccpWithTrailingBytes(Buffer.from("secret-payload-two")),
+    );
+    expect(first).toMatch(/^[a-f0-9]{64}$/);
+    expect(second).toMatch(/^[a-f0-9]{64}$/);
+    expect(first).not.toBe(second);
   });
 });
 
