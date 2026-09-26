@@ -111,36 +111,36 @@
       ]
     },
     {
-      "id": "pngcheck-3.0.3",
+      "id": "pngcheck-4.0.1",
       "kind": "compiled-source",
-      "version": "3.0.3",
-      "revision": "cab5ffb14756974e9e04ff432a1a742fd8d95971",
-      "origin": "https://github.com/pnggroup/pngcheck/archive/refs/tags/v3.0.3.tar.gz",
+      "version": "4.0.1",
+      "revision": "861c978c3b1bac93659202fd25b9b76bc852eee1",
+      "origin": "https://github.com/pnggroup/pngcheck/archive/refs/tags/v4.0.1.tar.gz",
       "archive": {
-        "path": "tests/corpus/tools/archives/pngcheck-3.0.3.tar.gz",
-        "sha256": "945ff746e04139cc062f87082d005877d9de4e8483350bd4a31f2f0c0e04c9cd",
-        "root": "pngcheck-3.0.3"
+        "path": "tests/corpus/tools/archives/pngcheck-4.0.1.tar.gz",
+        "sha256": "a24ac2348efca5895e9d6f53fd316f3d5c409ab92a74b2b8106541759304da53",
+        "root": "pngcheck-4.0.1"
       },
       "license": {
         "spdx": "HPND",
         "path": "tests/corpus/tools/licenses/pngcheck-LICENSE",
-        "member": "pngcheck-3.0.3/LICENSE",
-        "sha256": "c41092dac739c2b41ae91f0e4d3049f51c9127ce4b822fbb13a51b4ef7a44322"
+        "member": "pngcheck-4.0.1/LICENSE",
+        "sha256": "137951967c258cdbed01d0af67317236244ef6c750bef9e5a7020098e53b1445"
       },
       "platforms": ["linux"],
       "architectures": ["x64"],
       "versionProbe": {
-        "member": "pngcheck-3.0.3/pngcheck.c",
-        "sha256": "e32c29eaa9b80c9954971c304a9b6f84fefba3ebd0115e2e977ba53e77a0c701",
-        "contains": "VERSION \"3.0.3 of 25 April 2021\""
+        "member": "pngcheck-4.0.1/pngcheck.c",
+        "sha256": "728e82da1e26bcd2142bec2162e908b39dd4b3bbcf6145e2af264114be625dd2",
+        "contains": "#define VERSION \"4.0.1\""
       },
       "entrypoints": [
         {
           "id": "pngcheck-source",
           "kind": "c-source",
-          "member": "pngcheck-3.0.3/pngcheck.c",
-          "bytes": 183427,
-          "sha256": "e32c29eaa9b80c9954971c304a9b6f84fefba3ebd0115e2e977ba53e77a0c701"
+          "member": "pngcheck-4.0.1/pngcheck.c",
+          "bytes": 202827,
+          "sha256": "728e82da1e26bcd2142bec2162e908b39dd4b3bbcf6145e2af264114be625dd2"
         }
       ]
     }

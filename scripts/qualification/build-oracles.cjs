@@ -199,7 +199,7 @@ function validateManifestShape(manifest) {
       "libwebp-1.5.0",
       "exiftool-13.59",
       "libpng-1.6.58",
-      "pngcheck-3.0.3",
+      "pngcheck-4.0.1",
     ])
   )
     fail("authority order and IDs are not exact");
@@ -361,7 +361,7 @@ function runShapeMutationChecks(manifest) {
     (copy) => (copy.authorities[0].entrypoints[0].member = "../dwebp"),
     (copy) => delete copy.fixtures[0].sha256,
     (copy) => copy.authorities.splice(2, 1), // drop libpng-1.6.58
-    (copy) => copy.authorities.splice(3, 1), // drop pngcheck-3.0.3
+    (copy) => copy.authorities.splice(3, 1), // drop pngcheck-4.0.1
   ];
   for (const mutate of mutations) {
     const copy = structuredClone(manifest);
