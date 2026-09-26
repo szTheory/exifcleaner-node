@@ -3,6 +3,7 @@ import {
   EXCLUDED_GROUPS,
   compareDifferential,
   comparePermittedDifferences,
+  compareStructuralDifferential,
   metadataGroupDisposition,
   type MetadataProjection,
   type PermittedKind,
@@ -763,6 +764,121 @@ describe("comparePermittedDifferences (Resolution:Preserved kind)", () => {
         ["Bogus:Kind=1"],
         RESOLUTION_KINDS,
       ),
+    ).toThrow("Unknown permitted metadata difference");
+  });
+});
+
+describe("compareStructuralDifferential (56-07 Task 2)", () => {
+  const NEUTRAL_STRIP_KIND_ID = "Structure:UnregisteredAncillaryStripped";
+
+  const structureKind = (
+    admitsPart: (part: string) => boolean,
+  ): PermittedKind => ({
+    id: NEUTRAL_STRIP_KIND_ID,
+    measurement: "x",
+    admitsPart,
+  });
+
+  const structuralPartKind = (
+    id: PermittedKind["id"],
+    structuralPart: string,
+  ): PermittedKind => ({
+    id,
+    measurement: "x",
+    structuralPart,
+  });
+
+  it("identical part multisets with no grants pass", () => {
+    expect(
+      compareStructuralDifferential(["A", "B", "C"], ["A", "B", "C"], [], []),
+    ).toEqual([]);
+  });
+
+  describe("native-only part (a preserved container part)", () => {
+    const kinds: readonly PermittedKind[] = [
+      structuralPartKind("Resolution:Preserved", "X"),
+    ];
+
+    it("passes when an active grant's kind declares the matching structuralPart", () => {
+      expect(
+        compareStructuralDifferential(
+          ["A", "X", "C"],
+          ["A", "C"],
+          ["Resolution:Preserved"],
+          kinds,
+        ),
+      ).toEqual([]);
+    });
+
+    it("throws Unpermitted structural difference without the grant", () => {
+      expect(() =>
+        compareStructuralDifferential(["A", "X", "C"], ["A", "C"], [], kinds),
+      ).toThrow("Unpermitted structural difference: X");
+    });
+  });
+
+  describe("reference-only part (an unregistered-ancillary strip)", () => {
+    it("passes with the grant and an admitsPart accepting the part", () => {
+      const kinds = [structureKind(() => true)];
+      expect(
+        compareStructuralDifferential(
+          ["A", "C"],
+          ["A", "p1", "C"],
+          [`${NEUTRAL_STRIP_KIND_ID}=p1`],
+          kinds,
+        ),
+      ).toEqual([]);
+    });
+
+    it("throws Structural over-strip without the grant", () => {
+      const kinds = [structureKind(() => true)];
+      expect(() =>
+        compareStructuralDifferential(["A", "C"], ["A", "p1", "C"], [], kinds),
+      ).toThrow("Structural over-strip: p1");
+    });
+
+    it("throws Structural over-strip when admitsPart rejects the part", () => {
+      const kinds = [structureKind(() => false)];
+      expect(() =>
+        compareStructuralDifferential(
+          ["A", "C"],
+          ["A", "p1", "C"],
+          [`${NEUTRAL_STRIP_KIND_ID}=p1`],
+          kinds,
+        ),
+      ).toThrow("Structural over-strip: p1");
+    });
+
+    it("one grant explains every reference-only occurrence of that part type", () => {
+      const kinds = [structureKind(() => true)];
+      expect(
+        compareStructuralDifferential(
+          [],
+          ["p1", "p1"],
+          [`${NEUTRAL_STRIP_KIND_ID}=p1`],
+          kinds,
+        ),
+      ).toEqual([]);
+    });
+  });
+
+  it("throws Stale permitted difference for a Structure grant naming a part with no delta", () => {
+    const kinds = [structureKind(() => true)];
+    expect(() =>
+      compareStructuralDifferential(
+        ["A"],
+        ["A"],
+        [`${NEUTRAL_STRIP_KIND_ID}=p2`],
+        kinds,
+      ),
+    ).toThrow(
+      "Stale permitted difference: Structure:UnregisteredAncillaryStripped=p2",
+    );
+  });
+
+  it("throws Unknown permitted metadata difference for a grant kind outside kinds", () => {
+    expect(() =>
+      compareStructuralDifferential(["A"], ["A"], ["Resolution:Preserved"], []),
     ).toThrow("Unknown permitted metadata difference");
   });
 });
