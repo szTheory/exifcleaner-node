@@ -1,15 +1,25 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../dist/index.js";
 import { encodePngChunk } from "../../../src/png/chunks.js";
 import {
   COLOUR_FIXTURES,
   exifWithOrientation,
+  iccProfileV4,
   metadataPng,
+  png,
+  pngChunk,
+  pngCicp,
+  pngIccp,
+  pngIhdr,
+  pngItxt,
+  pngPhys,
   pngWithChunksBefore,
-  screenshotShapedPng,
+  xmpPacket,
+  XMP_ITXT_KEYWORD,
 } from "../../fixtures.js";
 import {
   assertPngPayloadIdentity,
@@ -215,6 +225,40 @@ const ALL_FALSE: Required<SanitizeOptions> = {
   preserveResolution: false,
 };
 
+/**
+ * A locally-scoped, genuinely libpng-decodable stand-in for
+ * `screenshotShapedPng()` (56-CONTEXT.md's macOS-screenshot chunk shape:
+ * `iCCP cICP eXIf pHYs iTXt`), never imported from `../../fixtures.js`.
+ * `screenshotShapedPng()`'s own two-`IDAT`-segment layout is deliberately
+ * *not* a single valid deflate stream -- its second segment is a literal
+ * ASCII placeholder ("second-idat-segment") whose only job is to give
+ * `idotSecondSegmentTarget()` a fixed byte offset to test against; it was
+ * never meant to be pixel-decoded (measured: a container pre-flight run of
+ * this file failed "libpng rejected the source" on it). PNG-02 payload
+ * identity needs a real, decodable image, so this builds the same metadata
+ * chunk set around one valid `IDAT` (all-zero filter-0 scanlines at the
+ * declared height) and omits `iDOT`/the split segment entirely -- iDOT
+ * adjacency is D-06/D-07's own concern, already covered in Plan 04/06.
+ */
+function decodableScreenshotShapedChunksPng(
+  height = 4,
+  orientation = 1,
+): Buffer {
+  const width = 1;
+  const rowBytes = 1 + 3 * width; // filter byte + RGB (pngIhdr's default colorType 2, bit depth 8)
+  const raw = Buffer.alloc(rowBytes * height);
+  return png([
+    pngChunk("IHDR", pngIhdr(width, height)),
+    pngChunk("iCCP", pngIccp(iccProfileV4())),
+    pngChunk("cICP", pngCicp()),
+    pngChunk("eXIf", exifWithOrientation(orientation)),
+    pngChunk("pHYs", pngPhys()),
+    pngChunk("iTXt", pngItxt(XMP_ITXT_KEYWORD, xmpPacket())),
+    pngChunk("IDAT", deflateSync(raw)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 interface IdentityCase {
   readonly id: string;
   readonly source: Buffer;
@@ -226,12 +270,12 @@ function identityCases(): readonly IdentityCase[] {
     { id: "metadata-png", source: metadataPng(), options: {} },
     {
       id: "screenshot-shaped-png-all-true",
-      source: screenshotShapedPng(),
+      source: decodableScreenshotShapedChunksPng(),
       options: ALL_TRUE,
     },
     {
       id: "screenshot-shaped-png-all-false",
-      source: screenshotShapedPng(),
+      source: decodableScreenshotShapedChunksPng(),
       options: ALL_FALSE,
     },
   ];
