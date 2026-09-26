@@ -288,6 +288,24 @@ describe("parsePng structural refusals (PNG-03)", () => {
     await expectStructureError(fixture, "unsafe-structure");
   });
 
+  it("refuses the ancillary-chunk limit before reading any chunk past it (bounded work)", async () => {
+    // A chunk that would throw a *different* error (malformed-file, bad CRC) is placed
+    // immediately after the chunk that pushes the count over the limit. If parsePng read
+    // every chunk before checking the count (the pre-fix behaviour: the check lived only in
+    // validateStructure, which ran after the whole file was parsed), this corrupt chunk
+    // would be reached and its distinct error would win. Getting unsafe-structure instead
+    // proves the count is checked, and the file stops being read, as soon as it is exceeded
+    // -- not after unboundedly more chunks have been read past it.
+    const extra = Array.from({ length: PNG_MAX_ANCILLARY_CHUNKS + 1 }, () =>
+      pngChunk("tEXt", Buffer.from("k\0v")),
+    );
+    const fixture = validImage(
+      ...extra,
+      corruptCrc(pngChunk("tEXt", Buffer.from("k\0v"))),
+    );
+    await expectStructureError(fixture, "unsafe-structure");
+  });
+
   it("refuses a non-IDAT chunk larger than PNG_MAX_METADATA_BYTES_PER_CHUNK with limit context", async () => {
     const oversized = Buffer.alloc(PNG_MAX_METADATA_BYTES_PER_CHUNK + 1);
     const fixture = validImage(pngChunk("caBX", oversized));

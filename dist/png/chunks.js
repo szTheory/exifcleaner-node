@@ -361,6 +361,7 @@ export async function parsePng(handle, size, signal) {
     let offset = PNG_HEADER_BYTES;
     let index = 0;
     let sawIend = false;
+    let nonIdatCount = 0;
     while (offset < size) {
         if (isAborted(signal))
             throw signal?.reason ?? new DOMException("Aborted", "AbortError");
@@ -374,6 +375,17 @@ export async function parsePng(handle, size, signal) {
             throw new PngStructureError("malformed-file", "Chunk type is not four ASCII letters.");
         }
         const type = typeBuffer.toString("ascii");
+        // Count ancillary chunks and refuse as soon as the limit is exceeded, before this
+        // chunk's data and CRC are read and before any further chunk is read at all. Checking
+        // only in validateStructure (after the whole file is parsed) would let an attacker-sized
+        // chunk count force unbounded reads past the limit; this bound holds regardless of how
+        // many more chunks the file claims to contain.
+        if (type !== "IDAT") {
+            nonIdatCount += 1;
+            if (nonIdatCount > PNG_MAX_ANCILLARY_CHUNKS) {
+                throw new PngStructureError("unsafe-structure", `PNG contains more than ${PNG_MAX_ANCILLARY_CHUNKS} ancillary chunks.`);
+            }
+        }
         if (length > MAX_CHUNK_LENGTH) {
             throw new PngStructureError("malformed-file", `${type} chunk length exceeds the 2^31-1 limit.`);
         }
