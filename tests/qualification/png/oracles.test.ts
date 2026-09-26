@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../dist/index.js";
@@ -11,26 +13,65 @@ import {
   iccProfileV4,
   metadataPng,
   png,
+  pngCaBX,
+  pngChrm,
   pngChunk,
   pngCicp,
   pngIccp,
+  pngIdat,
   pngIhdr,
   pngItxt,
   pngPhys,
+  pngTextChunkData,
   pngWithChunksBefore,
+  screenshotShapedPng,
   xmpPacket,
   XMP_ITXT_KEYWORD,
 } from "../../fixtures.js";
+import { materializeCorpusRecord } from "../kit/corpus.js";
+import {
+  compareStructuralDifferential,
+  digest,
+  projectMetadata,
+  runExiftoolDifferential,
+  runExiftoolReference,
+} from "../kit/oracles.js";
 import {
   assertPngPayloadIdentity,
   pngAdmitsUnregisteredAncillaryPart,
   pngDifferentialProfile,
+  PNG_PRESERVATION_MEASUREMENT_TITLE,
   pngSanitizeOptionsForGrants,
   pngStructuralParts,
+  PNG_UNREGISTERED_STRIP_MEASUREMENT_TITLE,
   runPngcheck,
+  SOURCE_WARNING_CASES,
 } from "./oracles.js";
 
 const admittedHost = process.platform === "linux" && process.arch === "x64";
+
+interface ManifestRecordSummary {
+  readonly id: string;
+  readonly format: string;
+  readonly roles: readonly string[];
+  readonly outcome: { readonly status: string };
+  readonly permittedDifferences: readonly string[];
+}
+
+function pngDifferentialSuccessRecords(): readonly ManifestRecordSummary[] {
+  const manifestPath = fileURLToPath(
+    new URL("../../corpus/manifest.json", import.meta.url),
+  );
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+    readonly records: readonly ManifestRecordSummary[];
+  };
+  return manifest.records.filter(
+    (record) =>
+      record.format === "png" &&
+      record.roles.includes("differential") &&
+      record.outcome.status === "success",
+  );
+}
 
 describe("pngStructuralParts (56-07 Task 3)", () => {
   it("returns metadataPng()'s chunk types in file order", () => {
@@ -301,6 +342,74 @@ function identityCases(): readonly IdentityCase[] {
   return cases;
 }
 
+interface DifferentialCase {
+  readonly id: string;
+  readonly source: Buffer;
+  readonly options: SanitizeOptions;
+  readonly permittedDifferences: readonly string[];
+}
+
+/**
+ * The Plan 09 Task 2 synthetic differential matrix: `metadataPng()`, the real
+ * (non-decodable-safe) `screenshotShapedPng()` at both extremes -- the
+ * differential compares chunk structure and metadata, never decoded pixels,
+ * so its non-decodable second IDAT segment (56-08 Task 2) does not matter
+ * here -- every `COLOUR_FIXTURES` entry at both colour settings, and a caBX
+ * (C2PA) fixture.
+ */
+function syntheticDifferentialCases(): readonly DifferentialCase[] {
+  const cases: DifferentialCase[] = [
+    {
+      id: "metadata-png",
+      source: metadataPng(),
+      options: {},
+      permittedDifferences: [],
+    },
+    {
+      id: "screenshot-shaped-png-all-false",
+      source: screenshotShapedPng(),
+      options: ALL_FALSE,
+      permittedDifferences: [],
+    },
+    {
+      id: "screenshot-shaped-png-all-true",
+      source: screenshotShapedPng(),
+      options: ALL_TRUE,
+      permittedDifferences: [
+        "EXIF:Orientation=1",
+        `ICC_Profile:RawProfile=${digest(iccProfileV4())}`,
+        "Resolution:Preserved",
+      ],
+    },
+  ];
+  for (const fixture of COLOUR_FIXTURES) {
+    const hasIccp = fixture.id.startsWith("iccp");
+    cases.push({
+      id: `differential-colour-${fixture.id}-strip`,
+      source: fixture.build(),
+      options: { preserveColorProfile: false },
+      permittedDifferences: [],
+    });
+    cases.push({
+      id: `differential-colour-${fixture.id}-preserve`,
+      source: fixture.build(),
+      options: { preserveColorProfile: true },
+      permittedDifferences: hasIccp
+        ? [`ICC_Profile:RawProfile=${digest(iccProfileV4())}`]
+        : [],
+    });
+  }
+  cases.push({
+    id: "differential-cabx-c2pa",
+    source: pngWithChunksBefore([
+      ["caBX", pngCaBX(Buffer.from("c2pa-manifest-placeholder", "ascii"))],
+    ]),
+    options: {},
+    permittedDifferences: [],
+  });
+  return cases;
+}
+
 describe("PNG-02 payload identity through independent oracles (Plan 08)", () => {
   it.runIf(admittedHost)(
     "proves decoded-pixel identity and pngcheck acceptance across the PNG fixture set",
@@ -340,4 +449,187 @@ describe("PNG-02 payload identity through independent oracles (Plan 08)", () => 
     },
     30_000,
   );
+});
+
+/**
+ * PNG-01/PNG-04 (Plan 09 Task 2): the live two-directional ExifTool
+ * differential (metadata plus structure, `pngDifferentialProfile`) run over
+ * every upstream corpus record and a matched set of synthetic fixtures --
+ * mirrors webp/oracles.test.ts's own differential describe block.
+ */
+describe("PNG differential (Plan 09)", () => {
+  it.runIf(admittedHost)(
+    "runs the live two-directional differential against every PNG differential-role corpus record",
+    async () => {
+      const records = pngDifferentialSuccessRecords();
+      expect(records.length).toBeGreaterThan(0);
+      for (const record of records) {
+        const source = await materializeCorpusRecord(record.id);
+        const output = await sanitize(
+          source,
+          pngSanitizeOptionsForGrants(record.permittedDifferences),
+        );
+        const transcript = runExiftoolDifferential({
+          caseId: record.id,
+          profile: pngDifferentialProfile,
+          source,
+          output,
+          permittedDifferences: record.permittedDifferences,
+        });
+        expect(transcript).toMatchObject({
+          version: 1,
+          caseId: record.id,
+          equivalent: true,
+        });
+        expect(JSON.stringify(transcript)).not.toMatch(
+          /\/(?:home|tmp|Users)\//,
+        );
+      }
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "runs the live differential against a matched set of synthetic PNG fixtures",
+    async () => {
+      const cases = syntheticDifferentialCases();
+      expect(cases.length).toBeGreaterThan(0);
+      for (const testCase of cases) {
+        const output = await sanitize(testCase.source, testCase.options);
+        const transcript = runExiftoolDifferential({
+          caseId: testCase.id,
+          profile: pngDifferentialProfile,
+          source: testCase.source,
+          output,
+          permittedDifferences: testCase.permittedDifferences,
+        });
+        expect(transcript).toMatchObject({
+          version: 1,
+          caseId: testCase.id,
+          equivalent: true,
+        });
+      }
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "measures orientation, ICC and resolution preservation as the only permitted PNG metadata differences",
+    async () => {
+      const source = pngWithChunksBefore([
+        ["eXIf", exifWithOrientation(6)],
+        ["iCCP", pngIccp(iccProfileV4())],
+        ["pHYs", pngPhys()],
+        ["tEXt", pngTextChunkData("Comment", "will be removed")],
+      ]);
+      const output = await sanitize(source, {
+        preserveOrientation: true,
+        preserveColorProfile: true,
+        preserveResolution: true,
+      });
+      const transcript = runExiftoolDifferential({
+        caseId: "png-preservation-measurement",
+        profile: pngDifferentialProfile,
+        source,
+        output,
+        permittedDifferences: [
+          "EXIF:Orientation=6",
+          `ICC_Profile:RawProfile=${digest(iccProfileV4())}`,
+          "Resolution:Preserved",
+        ],
+      });
+      expect(transcript).toMatchObject({ version: 1, equivalent: true });
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "measures unregistered private ancillary chunk removal as the only permitted PNG structural difference",
+    async () => {
+      const source = png([
+        pngChunk("IHDR", pngIhdr()),
+        pngChunk("cHRM", pngChrm()),
+        pngChunk("prVt", Buffer.from("private-metadata-payload", "ascii")),
+        pngChunk("IDAT", pngIdat()),
+        pngChunk("npTc", Buffer.from("nine-patch-payload", "ascii")),
+        pngChunk("IEND", Buffer.alloc(0)),
+      ]);
+      const output = await sanitize(source);
+      const transcript = runExiftoolDifferential({
+        caseId: "png-unregistered-strip-measurement",
+        profile: pngDifferentialProfile,
+        source,
+        output,
+        permittedDifferences: [
+          "Structure:UnregisteredAncillaryStripped=prVt",
+          "Structure:UnregisteredAncillaryStripped=npTc",
+        ],
+      });
+      expect(transcript).toMatchObject({ version: 1, equivalent: true });
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "covers every source ExifTool itself warns on read, with no warning or leaked text in the native output",
+    async () => {
+      expect(SOURCE_WARNING_CASES.length).toBeGreaterThan(0);
+      for (const sourceWarningCase of SOURCE_WARNING_CASES) {
+        const source = sourceWarningCase.source();
+        // Confirms the exact measured warning text against the source itself
+        // (the metadata-only differential cannot run here -- it throws on
+        // any oracle warning).
+        const sourceProjection = projectMetadata(source, pngDifferentialProfile);
+        expect(sourceProjection.warnings).toEqual([
+          sourceWarningCase.measuredWarning,
+        ]);
+
+        const output = await sanitize(source);
+        const reference = runExiftoolReference(source, pngDifferentialProfile);
+        expect(() =>
+          compareStructuralDifferential(
+            pngStructuralParts(output),
+            pngStructuralParts(reference),
+            [],
+            pngDifferentialProfile.permittedKinds,
+          ),
+        ).not.toThrow();
+
+        const outputProjection = projectMetadata(output, pngDifferentialProfile);
+        expect(outputProjection.warnings).toEqual([]);
+        expect(
+          (outputProjection.namespaces.PNG ?? []).some(
+            (entry) => "Comment" in entry,
+          ),
+        ).toBe(false);
+      }
+    },
+    30_000,
+  );
+
+  it("cites the exact live test title that measures every permitted PNG difference kind", () => {
+    const testFilePath = fileURLToPath(import.meta.url);
+    const testFileText = readFileSync(testFilePath, "utf8");
+    for (const kind of pngDifferentialProfile.permittedKinds) {
+      expect(
+        kind.measurement === PNG_PRESERVATION_MEASUREMENT_TITLE ||
+          kind.measurement === PNG_UNREGISTERED_STRIP_MEASUREMENT_TITLE,
+      ).toBe(true);
+      expect(testFileText).toContain(kind.measurement);
+    }
+  });
+
+  it("pins the PNG differential-role corpus selection to an exact, non-empty ID set", () => {
+    expect(pngDifferentialSuccessRecords().map((record) => record.id)).toEqual([
+      "libpng-1.6.58-rgb-8-srgb",
+      "libpng-1.6.58-rgb-8-1.8",
+      "libpng-1.6.58-rgb-8-trns",
+      "libpng-1.6.58-palette-8-srgb-trns",
+      "libpng-1.6.58-gray-16-linear-trns",
+      "libpng-1.6.58-rgb-alpha-16-srgb",
+      "libpng-1.6.58-cicp-display-p3-reencoded",
+      "libpng-1.6.58-basn3p08",
+      "libpng-1.6.58-ibasn2c08",
+    ]);
+  });
 });

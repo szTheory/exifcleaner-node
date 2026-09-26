@@ -1,6 +1,32 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { loadCorpusRecord, runQualificationCase } from "../kit/corpus.js";
 import { pngPayloadDigests } from "./oracles.js";
+
+interface ManifestRecordSummary {
+  readonly id: string;
+  readonly format: string;
+  readonly outcome: {
+    readonly status: string;
+    readonly errorCode?: string;
+    readonly nativeWrite?: string;
+  };
+}
+
+function pngRefusalRecordIds(): readonly string[] {
+  const manifestPath = fileURLToPath(
+    new URL("../../corpus/manifest.json", import.meta.url),
+  );
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+    readonly records: readonly ManifestRecordSummary[];
+  };
+  return manifest.records
+    .filter(
+      (record) => record.format === "png" && record.outcome.status === "refused",
+    )
+    .map((record) => record.id);
+}
 
 /**
  * The PNG qualification tracer (Plan 09 Task 1): mirrors
@@ -51,5 +77,28 @@ describe("PNG qualification tracer", () => {
       bytes: 772,
       outcome: { status: "success", removedNamespaces: ["PNG"] },
     });
+  });
+
+  it("refuses every PNG negative-control corpus record before creating a destination", async () => {
+    const ids = pngRefusalRecordIds();
+    expect(ids.length).toBeGreaterThanOrEqual(5);
+    for (const id of ids) {
+      const record = await loadCorpusRecord(id);
+      if (record.outcome.status !== "refused")
+        throw new Error(`Fixture invariant violated: ${id} is not a refusal`);
+      const transcript = await runQualificationCase(id, {
+        payloadDigests: pngPayloadDigests,
+      });
+      expect(transcript).toMatchObject({
+        version: 1,
+        caseId: id,
+        status: "refused",
+        destination: { state: "absent" },
+        error: {
+          code: record.outcome.errorCode,
+          nativeWrite: record.outcome.nativeWrite,
+        },
+      });
+    }
   });
 });

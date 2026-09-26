@@ -14,6 +14,7 @@ import {
   type DifferentialProfile,
 } from "../kit/oracles.js";
 import type { PayloadDigest } from "../kit/corpus.js";
+import { png, pngChunk, pngIdat, pngIhdr, pngTextChunkData } from "../../fixtures.js";
 
 const require = createRequire(import.meta.url);
 const authorityBuilder =
@@ -365,3 +366,36 @@ export function assertPngPayloadIdentity(source: Buffer, output: Buffer): void {
   if (!pngIdatData(source).equals(pngIdatData(output)))
     throw new Error("png payload identity: IDAT payload bytes differ");
 }
+
+export interface SourceWarningCase {
+  readonly id: string;
+  readonly source: () => Buffer;
+  /** The exact ExifTool warning text measured against this source (Plan 09). */
+  readonly measuredWarning: string;
+}
+
+/**
+ * Sources ExifTool itself warns on read (D-15's `compareStructuralDifferential`
+ * plus `projectMetadata` companion check, Plan 09). `comparePermittedDifferences`
+ * throws on ANY oracle warning, so a source ExifTool warns reading can never go
+ * through the ordinary two-directional differential -- it is covered here
+ * instead, against the `-all=` structural reference plus an assertion that the
+ * native output itself carries no warning and no leaked text.
+ *
+ * Measured 2026-09-25/2026-09-26 (ExifTool 13.59, `-G1 -s -a -u -n -struct
+ * -json`) against a minimal PNG with one `tEXt` chunk placed after `IDAT`.
+ */
+export const SOURCE_WARNING_CASES: readonly SourceWarningCase[] = [
+  {
+    id: "text-after-idat",
+    source: () =>
+      png([
+        pngChunk("IHDR", pngIhdr()),
+        pngChunk("IDAT", pngIdat()),
+        pngChunk("tEXt", pngTextChunkData("Comment", "leaked-after-idat")),
+        pngChunk("IEND", Buffer.alloc(0)),
+      ]),
+    measuredWarning:
+      "[minor] Text/EXIF chunk(s) found after PNG IDAT (may be ignored by some readers)",
+  },
+];
