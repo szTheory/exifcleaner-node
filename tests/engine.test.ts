@@ -16,7 +16,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
-import { getCapabilities, inspectFile, sanitizeFile } from "../src/index.js";
+import {
+  classifyFallback,
+  getCapabilities,
+  inspectFile,
+  sanitizeFile,
+} from "../src/index.js";
 import {
   loadNativePublicationBindingForTests,
   setNativePublicationBindingForTests,
@@ -429,6 +434,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({ ok: true });
@@ -455,6 +461,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -488,6 +495,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -513,6 +521,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -558,6 +567,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({ ok: true });
@@ -578,6 +588,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: true,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -632,6 +643,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -679,6 +691,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -711,6 +724,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -744,6 +758,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     } as const;
 
     const results = await Promise.all([
@@ -802,6 +817,7 @@ describe("sanitizeFile", () => {
         preserveOrientation: false,
         preserveColorProfile: true,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
 
       expect(result).toMatchObject({
@@ -862,6 +878,7 @@ describe("sanitizeFile", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
 
       expect(result).toMatchObject({
@@ -912,6 +929,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result.ok).toBe(true);
@@ -941,6 +959,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -963,6 +982,7 @@ describe("sanitizeFile", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
       expect(result).toMatchObject({ ok: true });
       await expect(
@@ -993,6 +1013,7 @@ describe("sanitizeFile", () => {
         preserveOrientation: true,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
 
       expect(result).toMatchObject({
@@ -1008,6 +1029,57 @@ describe("sanitizeFile", () => {
     },
   );
 
+  it("declines WebP resolution preservation before any write (D-03)", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    const sourceBytes = metadataWebp();
+    await writeFile(sourcePath, sourceBytes);
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: true,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "unsupported-feature",
+        feature: "resolution-preservation",
+        phase: "admission",
+        nativeWrite: "not-started",
+      },
+    });
+    if (!result.ok) expect(classifyFallback(result.error)).toBe("safe-to-fallback");
+    await expect(readdir(directory)).resolves.toEqual(["source.webp"]);
+    await expect(readFile(sourcePath)).resolves.toEqual(sourceBytes);
+  });
+
+  it("rejects a non-boolean preserveResolution as invalid options", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    await writeFile(sourcePath, metadataWebp());
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: "yes" as unknown as boolean,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "invalid-options", phase: "request" },
+    });
+  });
+
   it("strips malformed EXIF when orientation preservation is not requested", async () => {
     const directory = await workspace();
     const sourcePath = join(directory, "source.webp");
@@ -1020,6 +1092,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -1071,6 +1144,7 @@ describe("sanitizeFile", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: true,
+        preserveResolution: false,
       });
     } finally {
       restore();
@@ -1099,6 +1173,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: true,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -1124,6 +1199,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
       signal: controller.signal,
     });
 
@@ -1146,6 +1222,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -1166,6 +1243,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     } as const;
 
     expect(
@@ -1216,6 +1294,7 @@ describe("sanitizeFile", () => {
             preserveOrientation: false,
             preserveColorProfile: false,
             preserveTimestamps: false,
+            preserveResolution: false,
           });
           expect(result.ok).toBe(true);
           const outputPayload = readChunks(
@@ -1244,6 +1323,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result.ok).toBe(true);
@@ -1279,6 +1359,7 @@ describe("sanitizeFile", () => {
             preserveOrientation: false,
             preserveColorProfile: false,
             preserveTimestamps: false,
+            preserveResolution: false,
           });
           expect(result.ok).toBe(true);
           expect(
@@ -1361,6 +1442,7 @@ describe("pinned upstream ExifCleaner fixture", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
     expect(sanitized).toMatchObject({
       ok: true,
@@ -1397,6 +1479,7 @@ describe("format-neutral admission boundary", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
 
       expect(inspected).toMatchObject({

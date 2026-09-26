@@ -86,6 +86,7 @@ describe("registry rollback proof (KIT-07 D-24)", () => {
           preserveOrientation: true,
           preserveColorProfile: true,
           preserveTimestamps: true,
+          preserveResolution: false,
         });
         expect(sanitized.ok).toBe(false);
         if (sanitized.ok) throw new Error("unreachable");
@@ -118,6 +119,7 @@ describe("registry rollback proof (KIT-07 D-24)", () => {
         preserveOrientation: true,
         preserveColorProfile: true,
         preserveTimestamps: true,
+        preserveResolution: false,
       });
       expect(restored.ok).toBe(true);
       expect(

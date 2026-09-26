@@ -32,6 +32,7 @@ export interface SanitizeOptions {
     readonly preserveOrientation: boolean;
     readonly preserveColorProfile: boolean;
     readonly preserveTimestamps: boolean;
+    readonly preserveResolution: boolean;
     readonly signal?: AbortSignal;
 }
 export interface SanitizeResult {
@@ -166,6 +167,11 @@ export type PreCreateMetadataErrorDetails = {
     readonly path: string;
     readonly feature: "color-profile-preservation";
     readonly reason: ColorProfileAdmissionReason;
+} | {
+    readonly code: "unsupported-feature";
+    readonly detail: string;
+    readonly path: string;
+    readonly feature: "resolution-preservation";
 } | {
     readonly code: "source-changed";
     readonly detail: string;

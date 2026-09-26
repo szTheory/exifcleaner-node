@@ -4957,6 +4957,7 @@ describe("paired benchmark admission", () => {
           preserveOrientation: false,
           preserveColorProfile: false,
           preserveTimestamps: false,
+          preserveResolution: false,
         });
         const output = readFileSync(destinationPath);
         expect({

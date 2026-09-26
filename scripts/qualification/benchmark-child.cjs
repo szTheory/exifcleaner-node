@@ -106,6 +106,7 @@ async function ordinaryOperation(
     preserveOrientation: false,
     preserveColorProfile: false,
     preserveTimestamps: false,
+    preserveResolution: false,
     signal: controller.signal,
   });
 }
@@ -179,6 +180,7 @@ async function candidateCancellation(packageRoot, sourcePath, destinationPath) {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
       signal: controller.signal,
     },
     fileOps: NODE_FILE_OPS,

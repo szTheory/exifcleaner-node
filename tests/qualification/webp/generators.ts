@@ -64,6 +64,7 @@ export interface WebpSampleOptions {
   readonly preserveOrientation: boolean;
   readonly preserveColorProfile: boolean;
   readonly preserveTimestamps: boolean;
+  readonly preserveResolution: boolean;
 }
 
 export interface QualificationSample {
@@ -380,6 +381,7 @@ const NO_PRESERVATION: WebpSampleOptions = Object.freeze({
   preserveOrientation: false,
   preserveColorProfile: false,
   preserveTimestamps: false,
+  preserveResolution: false,
 });
 
 const preservationOptionsArbitrary: fc.Arbitrary<WebpSampleOptions> = fc.record(
@@ -387,6 +389,11 @@ const preservationOptionsArbitrary: fc.Arbitrary<WebpSampleOptions> = fc.record(
     preserveOrientation: fc.boolean(),
     preserveColorProfile: fc.boolean(),
     preserveTimestamps: fc.boolean(),
+    // Held constant (never randomized): WebP declines preserveResolution:
+    // true before any write (D-03), which would collapse every property
+    // sample under it into a decline instead of exercising the metadata
+    // preservation properties this generator exists to test.
+    preserveResolution: fc.constant(false),
   },
 );
 

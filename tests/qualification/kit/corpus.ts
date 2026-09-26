@@ -301,6 +301,7 @@ export async function runQualificationCase(
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
     const sourceUnchanged =
       digest(await readFile(sourcePath)) === record.sha256;

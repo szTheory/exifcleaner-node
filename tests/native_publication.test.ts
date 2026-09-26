@@ -349,6 +349,7 @@ describe("current-host native publication addon", () => {
           preserveOrientation: false,
           preserveColorProfile: false,
           preserveTimestamps: false,
+          preserveResolution: false,
         }),
       ).resolves.toMatchObject({ ok: true });
       await expect(
@@ -389,6 +390,7 @@ describe("current-host native publication addon", () => {
             preserveOrientation: false,
             preserveColorProfile: false,
             preserveTimestamps: false,
+            preserveResolution: false,
           }),
         ).resolves.toMatchObject({ ok: true });
         await expect(

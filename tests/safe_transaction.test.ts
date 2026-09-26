@@ -136,6 +136,7 @@ describe("safe transaction file operations", () => {
           preserveOrientation: false,
           preserveColorProfile: false,
           preserveTimestamps: false,
+          preserveResolution: false,
         },
         fileOps,
         platform: "win32",
@@ -185,6 +186,7 @@ describe("safe transaction file operations", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       },
       fileOps: NODE_FILE_OPS,
       beforePublish: async () => writeFile(destinationPath, competitor),
@@ -242,6 +244,7 @@ describe("safe transaction file operations", () => {
           preserveOrientation: false,
           preserveColorProfile: false,
           preserveTimestamps: false,
+          preserveResolution: false,
         },
         fileOps: NODE_FILE_OPS,
         beforePublish: async ({
@@ -301,6 +304,7 @@ describe("safe transaction file operations", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       },
       fileOps: NODE_FILE_OPS,
       beforePublish: async () =>
@@ -362,6 +366,7 @@ describe("safe transaction file operations", () => {
           preserveOrientation: false,
           preserveColorProfile: false,
           preserveTimestamps: false,
+          preserveResolution: false,
         },
         fileOps: {
           ...NODE_FILE_OPS,
@@ -432,6 +437,7 @@ describe("safe transaction file operations", () => {
           preserveOrientation: false,
           preserveColorProfile: false,
           preserveTimestamps: false,
+          preserveResolution: false,
         },
         fileOps: NODE_FILE_OPS,
         platform: "win32" as never,
@@ -487,6 +493,7 @@ describe("safe transaction file operations", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       },
       fileOps: {
         ...NODE_FILE_OPS,
@@ -569,6 +576,7 @@ describe("safe transaction file operations", () => {
             preserveOrientation: false,
             preserveColorProfile: false,
             preserveTimestamps: false,
+            preserveResolution: false,
           },
           fileOps: NODE_FILE_OPS,
         });
@@ -641,6 +649,7 @@ describe("safe transaction file operations", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       },
       fileOps,
     });
@@ -694,6 +703,7 @@ describe("safe transaction file operations", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       },
       fileOps,
     });
@@ -746,6 +756,7 @@ describe("safe transaction file operations", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       },
       fileOps,
     });
@@ -798,6 +809,7 @@ describe("safe transaction file operations", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       },
       fileOps,
     });
@@ -866,6 +878,7 @@ describe("safe transaction file operations", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
         signal: controller.signal,
       },
       fileOps,

@@ -35,6 +35,10 @@ const FLAG_COMBINATIONS: readonly PreservationOptions[] = [false, true].flatMap(
         preserveOrientation,
         preserveColorProfile,
         preserveTimestamps,
+        // Held constant (never randomized here): WebP declines
+        // preserveResolution: true before any write (D-03), so varying it
+        // would change golden keys and the byte-neutrality proof (D-03).
+        preserveResolution: false,
       })),
     ),
 );
@@ -160,6 +164,7 @@ describe("kit golden-digest harness (KIT-02)", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     };
 
     it("(1) fails the gate when one byte of the output changes", async () => {

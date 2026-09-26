@@ -52,6 +52,7 @@ async function sanitize(
       preserveOrientation: options.preserveOrientation ?? false,
       preserveColorProfile: options.preserveColorProfile ?? false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
     if (!result.ok) throw new Error(`sanitize failed: ${result.error.code}`);
     return await readFile(destinationPath);
