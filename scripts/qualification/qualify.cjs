@@ -267,6 +267,7 @@ function execute(options) {
     "tests/qualification/png/tracer.test.ts",
     "tests/qualification/png/property.test.ts",
     "tests/qualification/png/parser.test.ts",
+    "tests/qualification/png/transaction.test.ts",
   ]);
 }
 
