@@ -1,5 +1,6 @@
 import type { FileHandle } from "node:fs/promises";
 export declare const PNG_SIGNATURE: Buffer<ArrayBuffer>;
+export declare const PNG_CHUNK_READ_WINDOW_BYTES: number;
 export declare const PNG_CRITICAL_CHUNK_TYPES: ReadonlySet<string>;
 export declare const PNG_ANIMATION_CHUNK_TYPES: ReadonlySet<string>;
 export declare const PNG_REGISTERED_CHUNK_TYPES: ReadonlySet<string>;

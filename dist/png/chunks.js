@@ -11,6 +11,18 @@ const CHUNK_HEADER_BYTES = 8; // 4-byte length + 4-byte type
 const CHUNK_CRC_BYTES = 4;
 const IDAT_STREAM_BLOCK_BYTES = 64 * 1024;
 const MAX_CHUNK_LENGTH = 0x7fffffff;
+// Bounded read-ahead window for chunk headers, small chunk data, and CRCs (post-56-12 gap
+// fix). Reading each of those three fields with its own `handle.read` call costs ~3 libuv
+// threadpool round trips per chunk; a file at PNG_MAX_ANCILLARY_CHUNKS drove ~30,000 round
+// trips, which intermittently exceeded vitest's 5000ms timeout under parallel-worker
+// contention (measured in 56-09 and 56-12's `npm run verify`) and is a real per-file cost for
+// chunk-heavy inputs regardless of tests. A single 64 KiB buffer refill serves many
+// consecutive small reads before the next refill, bounding read calls by file size rather
+// than chunk count. Any read wider than the window (e.g. IDAT, or a single ancillary chunk
+// near the PNG_MAX_METADATA_BYTES_PER_CHUNK ceiling) bypasses the window and reads directly,
+// so memory stays bounded exactly as before -- this window never buffers more than one
+// window's worth of file content at a time.
+export const PNG_CHUNK_READ_WINDOW_BYTES = 64 * 1024;
 export const PNG_CRITICAL_CHUNK_TYPES = new Set([
     "IHDR",
     "PLTE",
@@ -314,6 +326,29 @@ export async function readExactly(handle, length, position) {
     }
     return result;
 }
+function createChunkReadWindow() {
+    return { buffer: Buffer.alloc(0), start: 0, end: 0 };
+}
+/**
+ * Reads `length` bytes at `position` using a bounded read-ahead window shared across calls
+ * via `window`. Requests wider than the window bypass it entirely and read directly (this is
+ * the "large chunks keep the existing streaming path" guarantee: IDAT data never goes through
+ * this function, and any oversized single ancillary chunk data read falls back to a direct
+ * `readExactly` rather than growing the window to fit it).
+ */
+async function readWindowed(handle, window, length, position, size) {
+    if (length > PNG_CHUNK_READ_WINDOW_BYTES) {
+        return readExactly(handle, length, position);
+    }
+    if (position < window.start || position + length > window.end) {
+        const windowLength = Math.min(PNG_CHUNK_READ_WINDOW_BYTES, size - position);
+        window.buffer = await readExactly(handle, windowLength, position);
+        window.start = position;
+        window.end = position + windowLength;
+    }
+    const relative = position - window.start;
+    return window.buffer.subarray(relative, relative + length);
+}
 async function streamChunkCrc(handle, typeBuffer, dataOffset, length) {
     let crc = crc32Update(crc32Init(), typeBuffer);
     let remaining = length;
@@ -358,6 +393,7 @@ export async function parsePng(handle, size, signal) {
     }
     const chunks = [];
     const buffered = new Map();
+    const window = createChunkReadWindow();
     let offset = PNG_HEADER_BYTES;
     let index = 0;
     let sawIend = false;
@@ -368,7 +404,7 @@ export async function parsePng(handle, size, signal) {
         if (size - offset < CHUNK_HEADER_BYTES) {
             throw new PngStructureError("malformed-file", "PNG chunk header is truncated.");
         }
-        const header = await readExactly(handle, CHUNK_HEADER_BYTES, offset);
+        const header = await readWindowed(handle, window, CHUNK_HEADER_BYTES, offset, size);
         const length = header.readUInt32BE(0);
         const typeBuffer = header.subarray(4, 8);
         if (!hasValidTypeBytes(typeBuffer)) {
@@ -405,11 +441,11 @@ export async function parsePng(handle, size, signal) {
             computedCrc = await streamChunkCrc(handle, typeBuffer, dataOffset, length);
         }
         else {
-            const data = await readExactly(handle, length, dataOffset);
+            const data = await readWindowed(handle, window, length, dataOffset, size);
             buffered.set(index, data);
             computedCrc = crc32(typeBuffer, data);
         }
-        const storedCrc = (await readExactly(handle, CHUNK_CRC_BYTES, dataOffset + length)).readUInt32BE(0);
+        const storedCrc = (await readWindowed(handle, window, CHUNK_CRC_BYTES, dataOffset + length, size)).readUInt32BE(0);
         if (computedCrc !== storedCrc) {
             throw new PngStructureError("malformed-file", `${type} chunk CRC does not match its data.`);
         }
