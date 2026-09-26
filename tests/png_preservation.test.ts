@@ -234,8 +234,8 @@ const COLOUR_CHUNK_TYPES = [
   "sRGB",
   "cHRM",
   "cICP",
-  "mDCv",
-  "cLLi",
+  "mDCV",
+  "cLLI",
 ] as const;
 
 /** Every colour-signalling chunk present in `file`, keyed by type, full
@@ -294,8 +294,8 @@ describe("PNG colour matrix: D-10 fixtures x colour/resolution flags (D-02, D-08
         expect(destinationColours.has("gAMA")).toBe(false);
         expect(destinationColours.has("sRGB")).toBe(false);
 
-        // D-08: cHRM, cICP, mDCv, cLLi are always kept byte-identical.
-        for (const type of ["cHRM", "cICP", "mDCv", "cLLi"] as const) {
+        // D-08: cHRM, cICP, mDCV, cLLI are always kept byte-identical.
+        for (const type of ["cHRM", "cICP", "mDCV", "cLLI"] as const) {
           if (sourceColours.has(type)) {
             expect(
               destinationColours.get(type)?.equals(sourceColours.get(type)!),

@@ -532,8 +532,8 @@ export const COLOUR_FIXTURES: readonly ColourFixture[] = [
     build: () =>
       pngWithChunksBefore([
         ["cICP", pngCicp()],
-        ["mDCv", pngMdcv()],
-        ["cLLi", pngClli()],
+        ["mDCV", pngMdcv()],
+        ["cLLI", pngClli()],
       ]),
   },
   { id: "none", build: () => pngWithChunksBefore([]) },
