@@ -456,6 +456,34 @@ export function pngCaBX(payload: Buffer): Buffer {
   return payload;
 }
 
+/**
+ * An XMP packet asserting `tiff:Orientation` as an rdf:Description attribute
+ * (D-11/D-12). Read only for routing by `xmpOrientation` -- never written.
+ */
+export function xmpWithOrientation(value: number | string): Buffer {
+  return Buffer.from(
+    `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:tiff="http://ns.adobe.com/tiff/1.0/" tiff:Orientation="${String(value)}"></rdf:Description></rdf:RDF></x:xmpmeta>`,
+    "utf8",
+  );
+}
+
+/**
+ * An ImageMagick-style "Raw profile type exif"/"Raw profile type APP1"
+ * text-chunk payload wrapping `exif` (D-11/D-12): a newline, the profile
+ * name, a newline, a right-aligned decimal byte count, a newline, then hex
+ * digits wrapped at 36 bytes (72 hex characters) per line -- matching
+ * `rawProfileExifOrientation`'s expected grammar exactly.
+ */
+export function rawProfileExifText(exif: Buffer): string {
+  const hex = exif.toString("hex");
+  const lines: string[] = [];
+  for (let index = 0; index < hex.length; index += 72) {
+    lines.push(hex.slice(index, index + 72));
+  }
+  const count = String(exif.length).padStart(8, " ");
+  return `\nexif\n${count}\n${lines.join("\n")}\n`;
+}
+
 export interface ColourFixture {
   readonly id: string;
   readonly build: () => Buffer;
