@@ -212,6 +212,26 @@ keep or strip it.
   that span declines with a typed pre-write refusal
   (`unsafe-chunk-adjacency` in `refuses`) instead of writing a stale offset.
 
+### PNG namespace mapping (D-15)
+
+`inspectFile` and `removedNamespaces` report PNG's removable metadata under
+the same closed namespace set (`EXIF`, `XMP`, `ICC`, `PNG`, `C2PA`) every
+format uses. No entry is produced for `pHYs`, `gAMA`, or `sRGB`, or an
+unregistered chunk stripped under D-05 -- those are reported through
+`removedNamespaces`/`preserved` only, never as an inspection entry.
+
+| Chunk                               | Namespace | Entry                                                                                                                         |
+| ----------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `eXIf`                              | `EXIF`    | One entry per decoded EXIF tag (`parseExif`).                                                                                 |
+| `iCCP` (inflated)                   | `ICC`     | One entry per decoded ICC field (`parseIcc`).                                                                                 |
+| `tEXt`                              | `PNG`     | `{ name: keyword, value: Latin-1 text }`.                                                                                     |
+| `zTXt` (inflated)                   | `PNG`     | `{ name: keyword, value: Latin-1 text }`.                                                                                     |
+| `iTXt`, keyword `XML:com.adobe.xmp` | `XMP`     | One entry per decoded XMP property (`parseXmp`).                                                                              |
+| `iTXt`, any other keyword           | `PNG`     | `{ name: keyword, value: UTF-8 text }`; invalid UTF-8 adds a `metadata-invalid` warning and produces no entry (fatal decode). |
+| `tIME`                              | `PNG`     | `{ name: "ModifyDate", value: "YYYY:MM:DD HH:MM:SS" }`.                                                                       |
+| `caBX` (C2PA)                       | `C2PA`    | `{ name: "JUMBF", value: <byte length of the chunk data> }`. The JUMBF box contents are never parsed.                         |
+| `pHYs`, `gAMA`, `sRGB`              | `PNG`     | No entry -- reported only via `removedNamespaces`/`preserved.resolution`.                                                     |
+
 Every successful PNG sanitize re-parses the staged destination (CRC and chunk
 order re-checked), asserts its chunk-type sequence against the plan computed
 from admission, and compares every kept chunk byte-for-byte against its

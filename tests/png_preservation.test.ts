@@ -270,10 +270,10 @@ describe("PNG colour matrix: D-10 fixtures x colour/resolution flags (D-02, D-08
       "preserveColorProfile=%s preserveResolution=%s",
       async (preserveColorProfile, preserveResolution) => {
         const source = build();
-        const { destinationPath, result } = await sanitizeToDirectory(
-          source,
-          { preserveColorProfile, preserveResolution },
-        );
+        const { destinationPath, result } = await sanitizeToDirectory(source, {
+          preserveColorProfile,
+          preserveResolution,
+        });
         expect(result.ok).toBe(true);
         if (!result.ok) throw new Error("unreachable");
 
@@ -431,25 +431,21 @@ describe("PNG decompression bounds: text-chunk bombs decline pre-write regardles
     2000,
   );
 
-  it(
-    "aggregate zTXt budget: four 15 MiB chunks (each under the per-chunk cap) decline because the 48 MiB total is exceeded",
-    async () => {
-      const source = pngWithChunksBefore([
-        ["zTXt", pngBomb("zTXt", 15 * 1024 * 1024)],
-        ["zTXt", pngBomb("zTXt", 15 * 1024 * 1024)],
-        ["zTXt", pngBomb("zTXt", 15 * 1024 * 1024)],
-        ["zTXt", pngBomb("zTXt", 15 * 1024 * 1024)],
-      ]);
-      const { result, directory } = await sanitizeToDirectory(source);
-      expect(result.ok).toBe(false);
-      if (result.ok) throw new Error("unreachable");
-      expect(result.error.code).toBe("unsafe-structure");
-      expect(result.error.nativeWrite).toBe("not-started");
-      expect(classifyFallback(result.error)).toBe("safe-to-fallback");
+  it("aggregate zTXt budget: four 15 MiB chunks (each under the per-chunk cap) decline because the 48 MiB total is exceeded", async () => {
+    const source = pngWithChunksBefore([
+      ["zTXt", pngBomb("zTXt", 15 * 1024 * 1024)],
+      ["zTXt", pngBomb("zTXt", 15 * 1024 * 1024)],
+      ["zTXt", pngBomb("zTXt", 15 * 1024 * 1024)],
+      ["zTXt", pngBomb("zTXt", 15 * 1024 * 1024)],
+    ]);
+    const { result, directory } = await sanitizeToDirectory(source);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.error.code).toBe("unsafe-structure");
+    expect(result.error.nativeWrite).toBe("not-started");
+    expect(classifyFallback(result.error)).toBe("safe-to-fallback");
 
-      const listing = await readdir(directory);
-      expect(listing).toEqual(["source.png"]);
-    },
-    2000,
-  );
+    const listing = await readdir(directory);
+    expect(listing).toEqual(["source.png"]);
+  }, 2000);
 });

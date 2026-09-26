@@ -431,9 +431,7 @@ export function pngSrgb(renderingIntent = 0): Buffer {
  * Content is opaque to the handler; this is D-05's "keep" list. */
 export function pngMdcv(): Buffer {
   const data = Buffer.alloc(24);
-  const chromaticities = [
-    34000, 16000, 13250, 34500, 7500, 3000, 15635, 16450,
-  ];
+  const chromaticities = [34000, 16000, 13250, 34500, 7500, 3000, 15635, 16450];
   chromaticities.forEach((value, index) =>
     data.writeUInt16BE(value, index * 2),
   );

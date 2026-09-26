@@ -227,6 +227,37 @@ function parseItxtChunk(data: Buffer, budget: InflateBudget): ParsedItxt {
 
 const XMP_ITXT_KEYWORD = "XML:com.adobe.xmp";
 
+/** PNG `tEXt` chunk payload: Latin-1 keyword, NUL, Latin-1 text (D-15). */
+function parseTextChunkData(data: Buffer): {
+  readonly keyword: string;
+  readonly text: string;
+} {
+  const nul = data.indexOf(0);
+  return nul < 0
+    ? { keyword: data.toString("latin1"), text: "" }
+    : {
+        keyword: data.toString("latin1", 0, nul),
+        text: data.toString("latin1", nul + 1),
+      };
+}
+
+/**
+ * PNG `tIME` chunk payload (7 bytes: 2-byte year, then month/day/hour/
+ * minute/second) formatted to match ExifTool's measured `PNG:ModifyDate`
+ * output shape (D-15).
+ */
+function formatPngTime(data: Buffer): string {
+  const pad = (value: number, width = 2): string =>
+    value.toString().padStart(width, "0");
+  const year = data.readUInt16BE(0);
+  const month = data[2] ?? 0;
+  const day = data[3] ?? 0;
+  const hour = data[4] ?? 0;
+  const minute = data[5] ?? 0;
+  const second = data[6] ?? 0;
+  return `${pad(year, 4)}:${pad(month)}:${pad(day)} ${pad(hour)}:${pad(minute)}:${pad(second)}`;
+}
+
 function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
   const entries: MetadataEntry[] = [];
   const warnings: MetadataWarning[] = [];
@@ -322,19 +353,51 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
     }
     if (type === "caBX") {
       namespaces.add("C2PA");
+      if (data !== undefined) {
+        entries.push({ namespace: "C2PA", name: "JUMBF", value: data.length });
+      }
       return;
     }
-    if (type === "tIME" || type === "gAMA" || type === "sRGB") {
+    if (type === "tIME") {
+      namespaces.add("PNG");
+      if (data !== undefined && data.length >= 7) {
+        entries.push({
+          namespace: "PNG",
+          name: "ModifyDate",
+          value: formatPngTime(data),
+        });
+      }
+      return;
+    }
+    if (type === "gAMA" || type === "sRGB") {
+      // D-15: gAMA/sRGB widen removedNamespaces but never produce an entry --
+      // there is nothing here a user would recognize as "their" metadata.
       namespaces.add("PNG");
       return;
     }
     if (type === "tEXt") {
       namespaces.add("PNG");
+      if (data !== undefined) {
+        const { keyword, text } = parseTextChunkData(data);
+        entries.push({ namespace: "PNG", name: keyword, value: text });
+      }
       return;
     }
     if (type === "zTXt") {
       namespaces.add("PNG");
-      if (data !== undefined) parseZtxtChunk(data, budget);
+      if (data !== undefined) {
+        const keywordNul = data.indexOf(0);
+        const text = parseZtxtChunk(data, budget);
+        const keyword =
+          keywordNul < 0
+            ? data.toString("latin1")
+            : data.toString("latin1", 0, keywordNul);
+        entries.push({
+          namespace: "PNG",
+          name: keyword,
+          value: text.toString("latin1"),
+        });
+      }
       return;
     }
     if (type === "iTXt") {
@@ -350,6 +413,17 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
         warnings.push(...found.warnings);
       } else {
         namespaces.add("PNG");
+        try {
+          const decoded = new TextDecoder("utf-8", { fatal: true }).decode(
+            text,
+          );
+          entries.push({ namespace: "PNG", name: keyword, value: decoded });
+        } catch {
+          warnings.push({
+            code: "metadata-invalid",
+            detail: `iTXt chunk ${keyword} text is not valid UTF-8.`,
+          });
+        }
       }
     }
   });
