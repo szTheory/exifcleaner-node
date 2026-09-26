@@ -119,6 +119,16 @@ export interface DifferentialProfile {
   readonly extension: string;
   readonly rawColorProfileSha256: (bytes: Buffer) => string | undefined;
   readonly permittedKinds: readonly PermittedKind[];
+  /**
+   * Optional, profile-supplied structural part extractor for a container
+   * whose ExifTool differential alone cannot see every permitted difference
+   * -- for example a stripped part ExifTool never reports as metadata. When
+   * present, `runExiftoolDifferential` also runs
+   * `compareStructuralDifferential` against `structuralParts(output)` and
+   * `structuralParts(reference)`. A format that omits it keeps its existing
+   * differential behaviour unchanged.
+   */
+  readonly structuralParts?: (bytes: Buffer) => readonly string[];
 }
 
 export interface ExiftoolDifferentialOptions {
@@ -294,6 +304,22 @@ function runMetadata(
       ...(rawIccSha256 === undefined ? {} : { rawIccSha256 }),
     };
   });
+}
+
+/**
+ * A named, single-file metadata projection for a format whose own source
+ * ExifTool warns on read (measured: a format's own text chunk placed after
+ * its own image data) -- `runMetadata`'s
+ * warning rule only ever applies inside `runExiftoolDifferential`'s
+ * two-projection comparison, so a format needing to project exactly one file
+ * on its own calls this instead of going around `validateInput`.
+ */
+export function projectMetadata(
+  bytes: Buffer,
+  profile: DifferentialProfile,
+): MetadataProjection {
+  validateInput(profile.format, bytes);
+  return runMetadata(bytes, profile.extension, profile.rawColorProfileSha256);
 }
 
 function tagValues(entries: readonly MetadataEntry[], tag: string): unknown[] {
@@ -595,6 +621,87 @@ export function compareDifferential(
 }
 
 /**
+ * A structural differential (D-12/KIT-04's metadata-only comparison has no
+ * visibility into a container part ExifTool never reports as metadata --
+ * for example a stripped unregistered ancillary chunk). Compares two
+ * container-part multisets, order-insensitively:
+ *
+ * - A part `nativeParts` has that `referenceParts` lacks (native-only) is
+ *   explained ONLY by an active grant whose declared kind carries a matching
+ *   `structuralPart` -- any admitted kind, not only a structural-strip kind,
+ *   since a preservation grant (for example a resolution or orientation
+ *   grant) can itself be the reason a part survives natively that the
+ *   reference lacks.
+ * - A part `referenceParts` keeps that `nativeParts` lacks (reference-only)
+ *   is explained ONLY by an active `Structure:UnregisteredAncillaryStripped`
+ *   grant naming that exact part, whose kind's `admitsPart(part)` returns
+ *   true. One such grant explains every reference-only occurrence of that
+ *   same part type.
+ * - A `Structure:UnregisteredAncillaryStripped` grant that explains no
+ *   observed reference-only occurrence is stale and throws, exactly like the
+ *   metadata-only differential's stale-grant rule.
+ *
+ * Fail-closed on its own, mirroring `compareDifferential`: a grant naming a
+ * kind outside `kinds` is rejected outright before any comparison runs.
+ */
+export function compareStructuralDifferential(
+  nativeParts: readonly string[],
+  referenceParts: readonly string[],
+  grants: readonly string[],
+  kinds: readonly PermittedKind[],
+): readonly string[] {
+  const kindById = new Map(kinds.map((kind) => [kind.id, kind] as const));
+  const parsedGrants = grants.map(parseGrant);
+  for (const grant of parsedGrants)
+    if (!kindById.has(grant.kind))
+      throw new Error("Unknown permitted metadata difference");
+
+  const activeStructuralParts = new Set(
+    parsedGrants
+      .map((grant) => kindById.get(grant.kind)?.structuralPart)
+      .filter((part): part is string => part !== undefined),
+  );
+  const strippedGrants = parsedGrants.filter(
+    (grant) => grant.kind === "Structure:UnregisteredAncillaryStripped",
+  );
+  const strippedKind = kindById.get("Structure:UnregisteredAncillaryStripped");
+  const explainedStrippedValues = new Set<string>();
+
+  const toEntries = (parts: readonly string[]): readonly MetadataEntry[] =>
+    parts.map((part) => ({ part }));
+  const { onlyLeft, onlyRight } = multisetDiff(
+    toEntries(nativeParts),
+    toEntries(referenceParts),
+  );
+
+  for (const entry of onlyLeft) {
+    const part = String(entry.part);
+    if (!activeStructuralParts.has(part))
+      throw new Error(`Unpermitted structural difference: ${part}`);
+  }
+
+  for (const entry of onlyRight) {
+    const part = String(entry.part);
+    const grant = strippedGrants.find((item) => item.value === part);
+    if (
+      grant === undefined ||
+      strippedKind?.admitsPart === undefined ||
+      !strippedKind.admitsPart(part)
+    )
+      throw new Error(`Structural over-strip: ${part}`);
+    explainedStrippedValues.add(part);
+  }
+
+  for (const grant of strippedGrants)
+    if (!explainedStrippedValues.has(grant.value))
+      throw new Error(
+        `Stale permitted difference: Structure:UnregisteredAncillaryStripped=${grant.value}`,
+      );
+
+  return [];
+}
+
+/**
  * Runs the pinned ExifTool authority's own `-all=` sanitize against `input`, inside the
  * same temp directory `withInput` already created for materializing it, and returns the
  * resulting bytes. This is the reference baseline `compareDifferential` compares native
@@ -655,6 +762,14 @@ export function runExiftoolDifferential(
     options.permittedDifferences,
     options.profile.permittedKinds,
   );
+  if (options.profile.structuralParts !== undefined) {
+    compareStructuralDifferential(
+      options.profile.structuralParts(options.output),
+      options.profile.structuralParts(referenceBytes),
+      options.permittedDifferences,
+      options.profile.permittedKinds,
+    );
+  }
   const authority = tools().authority.authorities.find(
     (item) => item.id === "exiftool-13.59",
   );
