@@ -210,10 +210,7 @@ export async function sanitizeFile(
           feature: "orientation-preservation",
         }),
       );
-    if (
-      options.preserveResolution &&
-      !handler.capability.preserves.resolution
-    )
+    if (options.preserveResolution && !handler.capability.preserves.resolution)
       return err(
         admissionDecline({
           code: "unsupported-feature",

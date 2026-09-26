@@ -4,17 +4,18 @@
 
 ## Supported Surface
 
-| Area         | Contract                                                                                           |
-| ------------ | -------------------------------------------------------------------------------------------------- |
-| Runtime      | Node.js 22+, ESM                                                                                   |
-| Formats      | WebP only, detected by `RIFF` + `WEBP` magic                                                       |
-| Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                               |
-| Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                       |
-| Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable |
-| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract                       |
-| Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized        |
-| Cancellation | Optional `AbortSignal` on inspection and sanitization                                              |
-| Failures     | Discriminated `MetadataError` returned through `Result`                                            |
+| Area         | Contract                                                                                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime      | Node.js 22+, ESM                                                                                                                             |
+| Formats      | WebP only, detected by `RIFF` + `WEBP` magic                                                                                                 |
+| Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                                                                         |
+| Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                                                                 |
+| Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable                                           |
+| Resolution   | Capability-gated by `preserves.resolution`; a format reporting `false` (WebP) declines a `preserveResolution: true` request before any write |
+| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract                                                                 |
+| Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized                                                  |
+| Cancellation | Optional `AbortSignal` on inspection and sanitization                                                                                        |
+| Failures     | Discriminated `MetadataError` returned through `Result`                                                                                      |
 
 `NativeFormat` is the format-neutral discriminant (currently `"webp"`).
 `FormatCapabilities` is the format-neutral capability union, currently refined
@@ -31,7 +32,10 @@ verified `SanitizeResult` or one structured terminal/non-admission
 `phase: "admission"` with `nativeWrite: "not-started"` yields
 `"safe-to-fallback"`; every other error yields `"do-not-fallback"`. The safe
 disposition permits at most one ExifTool substitute, never another native write,
-a retry loop, or a second writer after uncertainty.
+a retry loop, or a second writer after uncertainty. A `preserveResolution: true`
+request against a format whose capability reports `preserves.resolution: false`
+declines with `unsupported-feature`/`resolution-preservation` before any
+destination exists, and is always `"safe-to-fallback"`.
 
 The transaction completes admission before creating a randomly named,
 owner-private same-parent stage. It writes, syncs, reopens, verifies, rechecks the

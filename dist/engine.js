@@ -141,8 +141,7 @@ export async function sanitizeFile(options) {
                 path: sourcePath,
                 feature: "orientation-preservation",
             }));
-        if (options.preserveResolution &&
-            !handler.capability.preserves.resolution)
+        if (options.preserveResolution && !handler.capability.preserves.resolution)
             return err(admissionDecline({
                 code: "unsupported-feature",
                 detail: "This format cannot preserve resolution natively.",

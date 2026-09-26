@@ -1055,7 +1055,8 @@ describe("sanitizeFile", () => {
         nativeWrite: "not-started",
       },
     });
-    if (!result.ok) expect(classifyFallback(result.error)).toBe("safe-to-fallback");
+    if (!result.ok)
+      expect(classifyFallback(result.error)).toBe("safe-to-fallback");
     await expect(readdir(directory)).resolves.toEqual(["source.webp"]);
     await expect(readFile(sourcePath)).resolves.toEqual(sourceBytes);
   });
