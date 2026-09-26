@@ -207,7 +207,7 @@ describe("PNG removedNamespaces reporting (D-15)", () => {
     if (!inspected.ok) throw new Error("unreachable");
     const xmpEntries = parseXmp(XMP_DATA).entries;
     expect(inspected.value.entries).toEqual(
-      expect.arrayContaining(xmpEntries),
+      expect.arrayContaining([...xmpEntries]),
     );
     expect(
       inspected.value.entries.some((entry) => entry.namespace === "PNG"),

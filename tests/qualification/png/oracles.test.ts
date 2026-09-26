@@ -23,10 +23,14 @@ import {
   pngPhys,
   pngTextChunkData,
   pngWithChunksBefore,
+  pngZtxtChunkData,
+  rawProfileExifText,
   screenshotShapedPng,
   xmpPacket,
+  xmpWithOrientation,
   XMP_ITXT_KEYWORD,
 } from "../../fixtures.js";
+import { RAW_PROFILE_EXIF_KEYWORDS } from "../../../src/png/orientation-sources.js";
 import { materializeCorpusRecord } from "../kit/corpus.js";
 import {
   compareStructuralDifferential,
@@ -862,6 +866,131 @@ describe("PNG differential red controls (Plan 09 Task 3)", () => {
       }
       expect(firedMessage).toBeTruthy();
       console.log("iCCP trailing-bytes red control fired:", firedMessage);
+    },
+    180_000,
+  );
+});
+
+/**
+ * WR-01 (56-17 Task 2): closes the gap Task 1 fixed on the handler side with
+ * a live invariant -- for every one of the same 12 non-eXIf orientation-
+ * source shapes, if the pinned ExifTool authority itself would write an
+ * Orientation tag from the source (via `-TagsFromFile @ -Orientation`
+ * re-deriving it after `-all=` strips everything else), native must decline
+ * orientation preservation rather than silently drop it. This is the test
+ * that turns red if the WR-01 routing regresses in the future.
+ */
+describe("PNG orientation-source cross-engine consistency (WR-01)", () => {
+  it.runIf(admittedHost)(
+    "keeps native and the ExifTool fallback consistent for every non-eXIf orientation source shape",
+    async () => {
+      type Carrier = "tEXt" | "zTXt" | "iTXt" | "iTXt-compressed";
+      const CARRIERS: readonly Carrier[] = [
+        "tEXt",
+        "zTXt",
+        "iTXt",
+        "iTXt-compressed",
+      ];
+      const KEYWORDS: readonly string[] = [
+        XMP_ITXT_KEYWORD,
+        ...RAW_PROFILE_EXIF_KEYWORDS,
+      ];
+
+      function payloadFor(keyword: string): Buffer {
+        return keyword === XMP_ITXT_KEYWORD
+          ? xmpWithOrientation(6)
+          : Buffer.from(rawProfileExifText(exifWithOrientation(6)), "latin1");
+      }
+
+      function chunkFor(
+        carrier: Carrier,
+        keyword: string,
+      ): readonly [string, Buffer] {
+        const payload = payloadFor(keyword);
+        switch (carrier) {
+          case "tEXt":
+            return [
+              "tEXt",
+              pngTextChunkData(keyword, payload.toString("latin1")),
+            ];
+          case "zTXt":
+            return [
+              "zTXt",
+              pngZtxtChunkData(keyword, payload.toString("latin1")),
+            ];
+          case "iTXt":
+            return ["iTXt", pngItxt(keyword, payload, false)];
+          case "iTXt-compressed":
+            return ["iTXt", pngItxt(keyword, payload, true)];
+        }
+      }
+
+      interface ShapeResult {
+        readonly shape: string;
+        readonly exiftoolWrites: boolean;
+        readonly native: boolean;
+      }
+
+      const table: ShapeResult[] = [];
+
+      for (const carrier of CARRIERS) {
+        for (const keyword of KEYWORDS) {
+          const shape = `${carrier} / ${keyword}`;
+          const source = pngWithChunksBefore([chunkFor(carrier, keyword)]);
+
+          const reference = runExiftoolReference(
+            source,
+            pngDifferentialProfile,
+            ["-TagsFromFile", "@", "-Orientation"],
+          );
+          const projected = projectMetadata(reference, pngDifferentialProfile);
+          const exiftoolWrites = (projected.namespaces.EXIF ?? []).some(
+            (entry) => "Orientation" in entry,
+          );
+
+          const directory = await mkdtemp(
+            join(tmpdir(), "exifcleaner-png-wr01-live-"),
+          );
+          const sourcePath = join(directory, "source.png");
+          const destinationPath = join(directory, "destination.png");
+          await writeFile(sourcePath, source);
+          const result = await sanitizeFile({
+            sourcePath,
+            destinationPath,
+            preserveOrientation: true,
+            preserveColorProfile: false,
+            preserveTimestamps: false,
+            preserveResolution: false,
+          });
+          await rm(directory, { recursive: true, force: true });
+
+          const native = result.ok;
+          table.push({ shape, exiftoolWrites, native });
+
+          if (exiftoolWrites) {
+            expect(native).toBe(false);
+            if (result.ok) throw new Error("unreachable");
+            expect(result.error.code).toBe("unsupported-feature");
+          }
+        }
+      }
+
+      console.log(
+        "WR-01 orientation-source cross-engine table:",
+        JSON.stringify(table, null, 2),
+      );
+
+      // Guards against a vacuous pass: REVIEW measured ExifTool 13.59
+      // honouring exactly these two shapes (56-REVIEW.md WR-01), so if
+      // neither fires, the invariant above never actually exercised the
+      // decline path it exists to protect.
+      const measured = table.filter(
+        (row) =>
+          row.shape === `tEXt / ${XMP_ITXT_KEYWORD}` ||
+          row.shape === "iTXt / Raw profile type exif",
+      );
+      expect(measured).toHaveLength(2);
+      for (const row of measured) expect(row.exiftoolWrites).toBe(true);
     },
     180_000,
   );

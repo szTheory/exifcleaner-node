@@ -706,10 +706,19 @@ export function compareStructuralDifferential(
  * same temp directory `withInput` already created for materializing it, and returns the
  * resulting bytes. This is the reference baseline `compareDifferential` compares native
  * output against.
+ *
+ * `tagsFromFileArgs` (WR-01 live invariant, 56-17): an optional argument list spread
+ * between `-all=` and `-o`, defaulting to empty so every existing WebP and PNG
+ * differential call site is unchanged. The PNG orientation-source cross-engine
+ * consistency test passes `["-TagsFromFile", "@", "-Orientation"]` here to ask ExifTool
+ * to re-derive `Orientation` from the same input it just stripped everything else from,
+ * so the reference output can be inspected for whether ExifTool itself would have
+ * written an Orientation tag for a given non-eXIf source shape.
  */
 export function runExiftoolReference(
   input: Buffer,
   profile: DifferentialProfile,
+  tagsFromFileArgs: readonly string[] = [],
 ): Buffer {
   return withInput(input, profile.extension, (inputPath) => {
     const referencePath = join(
@@ -718,6 +727,7 @@ export function runExiftoolReference(
     );
     const result = execute(tools().exiftool, [
       "-all=",
+      ...tagsFromFileArgs,
       "-o",
       referencePath,
       inputPath,
