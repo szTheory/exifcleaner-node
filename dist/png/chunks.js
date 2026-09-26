@@ -502,12 +502,28 @@ function isBufferTooLarge(cause) {
  * relies solely on zlib's own maxOutputLength enforcement plus a post-inflate size check
  * for the exact-boundary case. An over-cap result or invalid zlib data is always a refusal,
  * never a partial read.
+ *
+ * The PNG spec defines a compressed field's datastream as the *entire remainder* of the
+ * chunk -- there is no length prefix separating the zlib stream from anything after it. A
+ * naive `inflateSync` call ignores this: zlib stops consuming input at Z_STREAM_END and
+ * silently discards any bytes past it, so an attacker can append arbitrary content after a
+ * legitimate profile and have it ride through inflate unnoticed (CR-01). This function
+ * therefore requires the whole field to be consumed: `inflateSync(data, { info: true })`
+ * reports `engine.bytesWritten`, the number of input bytes actually consumed, which must
+ * equal `data.length`. A mismatch is a malformed chunk, refused before any write -- never
+ * re-encoded, since native only removes chunks or copies them byte-identical (D-09, SC2).
  */
 export function inflateBounded(data, chunkType, perChunkLimit, budget) {
     const effectiveLimit = Math.min(perChunkLimit, budget.remaining());
     let result;
+    let bytesWritten;
     try {
-        result = inflateSync(data, { maxOutputLength: effectiveLimit + 1 });
+        const info = inflateSync(data, {
+            maxOutputLength: effectiveLimit + 1,
+            info: true,
+        });
+        result = info.buffer;
+        bytesWritten = info.engine.bytesWritten;
     }
     catch (cause) {
         if (isBufferTooLarge(cause)) {
@@ -517,6 +533,9 @@ export function inflateBounded(data, chunkType, perChunkLimit, budget) {
     }
     if (result.length > effectiveLimit) {
         throw new PngStructureError("unsafe-structure", `${chunkType} decompresses past the ${effectiveLimit}-byte policy limit.`, { chunkType, size: result.length, limit: effectiveLimit });
+    }
+    if (bytesWritten !== data.length) {
+        throw new PngStructureError("malformed-file", `${chunkType} has data after its zlib stream.`);
     }
     budget.consume(result.length);
     return result;

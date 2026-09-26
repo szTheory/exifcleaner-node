@@ -452,6 +452,60 @@ describe("inflateBounded (D-14)", () => {
       expect.objectContaining({ kind: "unsafe-structure" }),
     );
   });
+
+  // CR-01: a compressed field is the whole remainder of the chunk (D-09). Bytes
+  // that survive past Z_STREAM_END make the field malformed, not merely
+  // over-sized -- inflateSync silently stops at the stream end and ignores
+  // trailing input, so the check has to be added explicitly.
+  it.each(["iCCP", "zTXt", "iTXt"] as const)(
+    "%s: one extra byte after the zlib stream throws malformed-file with no limit context",
+    (chunkType) => {
+      const source = Buffer.from("hello bounded inflate");
+      const compressed = Buffer.concat([
+        deflateSync(source),
+        Buffer.from([0x99]),
+      ]);
+      const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+      let caught: unknown;
+      try {
+        inflateBounded(compressed, chunkType, PNG_MAX_INFLATED_ICC_BYTES, budget);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(Error);
+      const structureError = caught as PngStructureError;
+      expect(structureError.kind).toBe("malformed-file");
+      expect(structureError.limit).toBeUndefined();
+      expect(structureError.message).toContain("after its zlib stream");
+    },
+  );
+
+  it("refusing trailing bytes does not consume the budget", () => {
+    const source = Buffer.from("hello bounded inflate");
+    const compressed = Buffer.concat([deflateSync(source), Buffer.from([0x99])]);
+    const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+    const before = budget.remaining();
+    expect(() =>
+      inflateBounded(compressed, "iCCP", PNG_MAX_INFLATED_ICC_BYTES, budget),
+    ).toThrow(expect.objectContaining({ kind: "malformed-file" }));
+    expect(budget.remaining()).toBe(before);
+  });
+
+  it("a decompression bomb with one appended trailing byte still refuses as unsafe-structure with a limit context (D-14 class wins)", () => {
+    const bomb = deflateSync(Buffer.alloc(17 * 1024 * 1024, 0));
+    const bombWithTrailer = Buffer.concat([bomb, Buffer.from([0x01])]);
+    const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+    let caught: unknown;
+    try {
+      inflateBounded(bombWithTrailer, "iCCP", PNG_MAX_INFLATED_ICC_BYTES, budget);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toMatchObject({
+      kind: "unsafe-structure",
+      limit: { chunkType: "iCCP" },
+    });
+  });
 });
 
 // Local re-derivation of chunk offsets from raw bytes, independent of parsePng itself,
