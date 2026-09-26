@@ -41,6 +41,11 @@ import {
   ICC_PRESERVATION_POLICY_ID,
   MAX_PROFILE_BYTES,
 } from "../metadata/icc_admission.js";
+import {
+  RAW_PROFILE_EXIF_KEYWORDS,
+  rawProfileExifOrientation,
+  xmpOrientation,
+} from "../png/orientation-sources.js";
 
 // PNG's admission surface (D-05, D-08, D-09, D-15). Mirrors webp-handler.ts's
 // structure (collectMetadata / buildOutputPlan / verifyOutput / capability
@@ -139,6 +144,16 @@ export interface PngOutputPlan {
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
+}
+
+/**
+ * Extracted to a real function boundary so TypeScript widens `orientation`'s
+ * type from its narrowed initializer literal (`{status:"absent"}`) instead of
+ * carrying that narrowing past collectMetadata's `parsed.chunks.forEach`
+ * closure, where every reassignment happens.
+ */
+function validOrientationValue(state: OrientationState): number | undefined {
+  return state.status === "valid" ? state.value : undefined;
 }
 
 function chunkSpan(chunk: PngChunk): number {
@@ -270,6 +285,12 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
   const classes: PngChunkClass[] = [];
   const unregisteredStripped: string[] = [];
   const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+  // D-11/D-12: Orientation values read from every non-eXIf source (XMP iTXt,
+  // ImageMagick raw-EXIF-profile tEXt/zTXt), collected during the same
+  // traversal and reconciled against the eXIf's own Orientation once the
+  // whole file has been scanned (chunk order is "anywhere" for all of
+  // these). Never carries bytes -- only routing values.
+  const otherOrientations: (number | "invalid")[] = [];
 
   parsed.chunks.forEach((chunk, index) => {
     const { type } = chunk;
@@ -375,6 +396,13 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
       if (data !== undefined) {
         const { keyword, text } = parseTextChunkData(data);
         entries.push({ namespace: "PNG", name: keyword, value: text });
+        if (RAW_PROFILE_EXIF_KEYWORDS.has(keyword)) {
+          const found = rawProfileExifOrientation(
+            text,
+            PNG_MAX_INFLATED_TEXT_BYTES,
+          );
+          if (found !== undefined) otherOrientations.push(found);
+        }
       }
       return;
     }
@@ -387,11 +415,19 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
           keywordNul < 0
             ? data.toString("latin1")
             : data.toString("latin1", 0, keywordNul);
+        const textLatin1 = text.toString("latin1");
         entries.push({
           namespace: "PNG",
           name: keyword,
-          value: text.toString("latin1"),
+          value: textLatin1,
         });
+        if (RAW_PROFILE_EXIF_KEYWORDS.has(keyword)) {
+          const found = rawProfileExifOrientation(
+            textLatin1,
+            PNG_MAX_INFLATED_TEXT_BYTES,
+          );
+          if (found !== undefined) otherOrientations.push(found);
+        }
       }
       return;
     }
@@ -406,6 +442,9 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
         const found = parseXmp(text);
         entries.push(...found.entries);
         warnings.push(...found.warnings);
+        const foundOrientation = xmpOrientation(text);
+        if (foundOrientation !== undefined)
+          otherOrientations.push(foundOrientation);
       } else {
         namespaces.add("PNG");
         try {
@@ -422,6 +461,23 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
       }
     }
   });
+
+  // D-11: decline (route to ExifTool) only when a non-eXIf Orientation is
+  // missing from eXIf or disagrees with it. An agreeing non-eXIf Orientation,
+  // or a non-eXIf block carrying no Orientation, does not decline.
+  if (otherOrientations.length > 0) {
+    const sourceValue = validOrientationValue(orientation);
+    const disagrees = otherOrientations.some(
+      (other) => other === "invalid" || other !== sourceValue,
+    );
+    if (disagrees) {
+      orientation = {
+        status: "unsupported",
+        detail:
+          "A non-eXIf Orientation is missing from eXIf or disagrees with it.",
+      };
+    }
+  }
 
   return {
     entries,

@@ -5,6 +5,7 @@ import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
 import { encodePngChunk, inflateBounded, InflateBudget, isPngSignature, parsePng, PNG_CRITICAL_CHUNK_TYPES, PNG_MAX_ANCILLARY_CHUNKS, PNG_MAX_INFLATED_BYTES_TOTAL, PNG_MAX_INFLATED_ICC_BYTES, PNG_MAX_INFLATED_TEXT_BYTES, PNG_MAX_METADATA_BYTES_PER_CHUNK, PNG_REGISTERED_CHUNK_TYPES, PNG_SIGNATURE, PngStructureError, readExactly, } from "../png/chunks.js";
 import { ICC_PRESERVATION_POLICY_ID, MAX_PROFILE_BYTES, } from "../metadata/icc_admission.js";
+import { RAW_PROFILE_EXIF_KEYWORDS, rawProfileExifOrientation, xmpOrientation, } from "../png/orientation-sources.js";
 // D-05 closed lists. Measured ExifTool 13.59 behaviour (56-CONTEXT.md,
 // 56-RESEARCH.md): `-all=` keeps every type in PNG_PRESERVED_CHUNK_TYPES and
 // removes every type in PNG_REMOVED_CHUNK_TYPES; `iCCP`/`pHYs` are removed
@@ -50,6 +51,15 @@ const COPY_BLOCK_BYTES = 64 * 1024;
 const CHUNK_FIXED_OVERHEAD_BYTES = 12; // 4-byte length + 4-byte type + 4-byte CRC
 function isAborted(signal) {
     return signal?.aborted ?? false;
+}
+/**
+ * Extracted to a real function boundary so TypeScript widens `orientation`'s
+ * type from its narrowed initializer literal (`{status:"absent"}`) instead of
+ * carrying that narrowing past collectMetadata's `parsed.chunks.forEach`
+ * closure, where every reassignment happens.
+ */
+function validOrientationValue(state) {
+    return state.status === "valid" ? state.value : undefined;
 }
 function chunkSpan(chunk) {
     return CHUNK_FIXED_OVERHEAD_BYTES + chunk.length;
@@ -137,6 +147,12 @@ function collectMetadata(parsed) {
     const classes = [];
     const unregisteredStripped = [];
     const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
+    // D-11/D-12: Orientation values read from every non-eXIf source (XMP iTXt,
+    // ImageMagick raw-EXIF-profile tEXt/zTXt), collected during the same
+    // traversal and reconciled against the eXIf's own Orientation once the
+    // whole file has been scanned (chunk order is "anywhere" for all of
+    // these). Never carries bytes -- only routing values.
+    const otherOrientations = [];
     parsed.chunks.forEach((chunk, index) => {
         const { type } = chunk;
         if (PNG_CRITICAL_CHUNK_TYPES.has(type)) {
@@ -233,6 +249,11 @@ function collectMetadata(parsed) {
             if (data !== undefined) {
                 const { keyword, text } = parseTextChunkData(data);
                 entries.push({ namespace: "PNG", name: keyword, value: text });
+                if (RAW_PROFILE_EXIF_KEYWORDS.has(keyword)) {
+                    const found = rawProfileExifOrientation(text, PNG_MAX_INFLATED_TEXT_BYTES);
+                    if (found !== undefined)
+                        otherOrientations.push(found);
+                }
             }
             return;
         }
@@ -244,11 +265,17 @@ function collectMetadata(parsed) {
                 const keyword = keywordNul < 0
                     ? data.toString("latin1")
                     : data.toString("latin1", 0, keywordNul);
+                const textLatin1 = text.toString("latin1");
                 entries.push({
                     namespace: "PNG",
                     name: keyword,
-                    value: text.toString("latin1"),
+                    value: textLatin1,
                 });
+                if (RAW_PROFILE_EXIF_KEYWORDS.has(keyword)) {
+                    const found = rawProfileExifOrientation(textLatin1, PNG_MAX_INFLATED_TEXT_BYTES);
+                    if (found !== undefined)
+                        otherOrientations.push(found);
+                }
             }
             return;
         }
@@ -263,6 +290,9 @@ function collectMetadata(parsed) {
                 const found = parseXmp(text);
                 entries.push(...found.entries);
                 warnings.push(...found.warnings);
+                const foundOrientation = xmpOrientation(text);
+                if (foundOrientation !== undefined)
+                    otherOrientations.push(foundOrientation);
             }
             else {
                 namespaces.add("PNG");
@@ -279,6 +309,19 @@ function collectMetadata(parsed) {
             }
         }
     });
+    // D-11: decline (route to ExifTool) only when a non-eXIf Orientation is
+    // missing from eXIf or disagrees with it. An agreeing non-eXIf Orientation,
+    // or a non-eXIf block carrying no Orientation, does not decline.
+    if (otherOrientations.length > 0) {
+        const sourceValue = validOrientationValue(orientation);
+        const disagrees = otherOrientations.some((other) => other === "invalid" || other !== sourceValue);
+        if (disagrees) {
+            orientation = {
+                status: "unsupported",
+                detail: "A non-eXIf Orientation is missing from eXIf or disagrees with it.",
+            };
+        }
+    }
     return {
         entries,
         warnings,
