@@ -135,6 +135,12 @@ registers.
 - **A format admits kinds through its `DifferentialProfile.permittedKinds`.** Each admitted kind
   must cite, in that format's own qualification suite, the title of a test that actually measures
   it — an admitted kind with no measuring test is an unreviewed hole, not evidence.
+- **A structural differential covers container parts ExifTool never reports as metadata.** A
+  format that opts in to an optional `DifferentialProfile.structuralParts` extractor also gets
+  `compareStructuralDifferential` in `tests/qualification/kit/oracles.ts`: it compares the native
+  output's and the ExifTool reference's container parts as multisets, and a kind explains a
+  native-only or reference-only part exactly like it explains a metadata delta — closed, measured,
+  and rejected as stale when no matching delta exists.
 - **Fix the engine; don't grant a structural delta.** When native output differs from ExifTool
   only in container structure that no preserved feature needs, change the handler to match
   ExifTool instead of granting the difference. The run with no preservation requested therefore
