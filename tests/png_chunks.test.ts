@@ -7,6 +7,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   InflateBudget,
+  PNG_CHUNK_READ_WINDOW_BYTES,
   PNG_MAX_ANCILLARY_CHUNKS,
   PNG_MAX_INFLATED_BYTES_TOTAL,
   PNG_MAX_INFLATED_ICC_BYTES,
@@ -325,6 +326,78 @@ describe("parsePng structural refusals (PNG-03)", () => {
       pngChunk("IEND", Buffer.alloc(0)),
     ]);
     await expectStructureError(fixture, "malformed-file");
+  });
+});
+
+// D-16 gap fix (post-56-12): parsePng's chunk-header/data/CRC reads must be bounded by file
+// size, not by chunk count. Before the fix each chunk cost ~3 separate `handle.read` round
+// trips (header, data, CRC); a file at PNG_MAX_ANCILLARY_CHUNKS drove ~30,000 libuv
+// threadpool round trips, which intermittently exceeded vitest's 5000ms timeout under
+// parallel-worker contention (measured in 56-09 and 56-12's `npm run verify`). The bound
+// below -- proportional to ceil(size / PNG_CHUNK_READ_WINDOW_BYTES) plus a small constant --
+// is what a bounded read-ahead window buys; a per-chunk read cost would blow through it.
+describe("parsePng read cost (bounded chunk-header reads)", () => {
+  // Generous constant term: magic-byte read, the read-ahead window's own final partial
+  // fill, and the IDAT chunk's streamed header/data/CRC reads (bounded by IDAT size, not
+  // chunk count, and already parity-tested elsewhere).
+  const FIXED_READ_OVERHEAD = 20;
+
+  async function countReads(
+    fixture: Buffer,
+  ): Promise<{ readCount: number; size: number; error: unknown }> {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-png-cost-"));
+    const path = join(directory, "input.png");
+    try {
+      await writeFile(path, fixture);
+      const handle = await open(path, "r");
+      let readCount = 0;
+      const originalRead = handle.read.bind(handle);
+      // @ts-expect-error -- intentionally wrapping the real read for instrumentation only.
+      handle.read = (...args: Parameters<typeof originalRead>) => {
+        readCount += 1;
+        return originalRead(...args);
+      };
+      let error: unknown;
+      try {
+        await parsePng(handle, fixture.length);
+      } catch (caught) {
+        error = caught;
+      } finally {
+        await handle.close();
+      }
+      return { readCount, size: fixture.length, error };
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+
+  it("bounds handle.read calls by file size, not chunk count, for the over-limit fixture", async () => {
+    const extra = Array.from({ length: PNG_MAX_ANCILLARY_CHUNKS + 1 }, () =>
+      pngChunk("tEXt", Buffer.from("k\0v")),
+    );
+    const fixture = validImage(...extra);
+    const { readCount, size, error } = await countReads(fixture);
+
+    expect(error).toMatchObject({ kind: "unsafe-structure" });
+    const expectedBound =
+      Math.ceil(size / PNG_CHUNK_READ_WINDOW_BYTES) + FIXED_READ_OVERHEAD;
+    expect(readCount).toBeLessThanOrEqual(expectedBound);
+    // Sanity: the naive per-chunk cost this fixture would have cost pre-fix, so the bound
+    // above is meaningfully tighter and this assertion can't pass by accident.
+    expect(readCount).toBeLessThan(PNG_MAX_ANCILLARY_CHUNKS);
+  });
+
+  it("bounds handle.read calls for a normal many-small-chunks valid PNG", async () => {
+    const smallChunks = Array.from({ length: 500 }, (_, index) =>
+      pngChunk("tEXt", Buffer.from(`k${index}\0v`)),
+    );
+    const fixture = validImage(...smallChunks);
+    const { readCount, size, error } = await countReads(fixture);
+
+    expect(error).toBeUndefined();
+    const expectedBound =
+      Math.ceil(size / PNG_CHUNK_READ_WINDOW_BYTES) + FIXED_READ_OVERHEAD;
+    expect(readCount).toBeLessThanOrEqual(expectedBound);
   });
 });
 
