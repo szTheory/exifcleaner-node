@@ -26,17 +26,28 @@ type ClassifyInput = {
   changedPaths: unknown;
 };
 
+type QualificationFormatsInput = {
+  eventName: unknown;
+  ref: unknown;
+  changedPaths: unknown;
+};
+
 const classify = require("../scripts/classify_ci_scope.cjs") as {
   CI_WORKFLOW_NAME: string;
   ALWAYS_FULL_EVENTS: readonly string[];
   FILTERED_EVENTS: readonly string[];
   LINUX_SAFE_PATH_RULES: readonly ClassifyRule[];
   FULL_SCOPE_OVERRIDES: readonly ClassifyRule[];
+  QUALIFIED_FORMATS: readonly string[];
+  FORMAT_PATH_RULES: Readonly<Record<string, readonly RegExp[]>>;
   SKIP_GATED_JOBS: readonly string[];
   NOOP_MATRIX_JOBS: readonly string[];
   ALWAYS_RUN_JOBS: readonly string[];
   isLinuxSafePath(path: unknown): boolean;
   classifyCiScope(input: ClassifyInput): ClassifyResult;
+  classifyQualificationFormats(
+    input: QualificationFormatsInput,
+  ): readonly string[];
   changedPathsForEvent(input: {
     eventName: string;
     before?: string;
@@ -279,6 +290,163 @@ describe("reason is always a non-empty string", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Per-format qualification scoping (D-17, 56-12 handoff)
+// ---------------------------------------------------------------------------
+
+function formatsInput(
+  overrides: Partial<QualificationFormatsInput> = {},
+): QualificationFormatsInput {
+  return {
+    eventName: "pull_request",
+    ref: "refs/pull/1/merge",
+    changedPaths: ["src/png/chunks.ts"],
+    ...overrides,
+  };
+}
+
+describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
+  // Real-path fixtures (must_haves): each of these tests is also this
+  // plan's required negative control -- if a format's own FORMAT_PATH_RULES
+  // entry were ever dropped, the changed path would no longer match exactly
+  // one format and this classifier would fall through to "every format"
+  // instead, so each assertion below fails the moment a format's scoping
+  // rule regresses.
+  it("selects only png for a PNG source path", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ changedPaths: ["src/png/chunks.ts"] }),
+      ),
+    ).toEqual(["png"]);
+  });
+
+  it("selects only png for a PNG qualification suite path", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({
+          changedPaths: ["tests/qualification/png/property.test.ts"],
+        }),
+      ),
+    ).toEqual(["png"]);
+  });
+
+  it("selects only webp for a WebP handler path", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({
+          changedPaths: ["src/admission/webp-handler.ts"],
+        }),
+      ),
+    ).toEqual(["webp"]);
+  });
+
+  it("selects every format for a kit-shared path (matches zero formats)", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({
+          changedPaths: ["tests/qualification/kit/oracles.ts"],
+        }),
+      ),
+    ).toEqual(["png", "webp"]);
+  });
+
+  it("selects every format for a mixed png + full-scope-only diff (matches zero formats on the second path)", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({
+          changedPaths: ["src/png/chunks.ts", "src/engine.ts"],
+        }),
+      ),
+    ).toEqual(["png", "webp"]);
+  });
+
+  it("selects every format for a tag ref even with a png-only diff", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ ref: "refs/tags/v0.3.0" }),
+      ),
+    ).toEqual(["png", "webp"]);
+  });
+
+  it("selects every format for a non-PR/push event", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ eventName: "workflow_dispatch" }),
+      ),
+    ).toEqual(["png", "webp"]);
+  });
+
+  it("selects every format for an unknown eventName", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ eventName: "schedule" }),
+      ),
+    ).toEqual(["png", "webp"]);
+  });
+
+  it("selects every format for an empty diff", () => {
+    expect(
+      classify.classifyQualificationFormats(formatsInput({ changedPaths: [] })),
+    ).toEqual(["png", "webp"]);
+  });
+
+  it("selects every format for a null (errored) diff", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ changedPaths: null }),
+      ),
+    ).toEqual(["png", "webp"]);
+  });
+
+  it.each(MALFORMED_PATHS)(
+    "treats malformed path %j as every format",
+    (path) => {
+      expect(
+        classify.classifyQualificationFormats(
+          formatsInput({ changedPaths: [path] }),
+        ),
+      ).toEqual(["png", "webp"]);
+    },
+  );
+
+  it("the end-to-end dry-run example from the plan verify step", () => {
+    const classifyOne = (paths: readonly string[]) =>
+      classify
+        .classifyQualificationFormats(formatsInput({ changedPaths: paths }))
+        .join(",");
+    expect(
+      [
+        classifyOne(["src/png/chunks.ts"]),
+        classifyOne(["src/admission/webp-handler.ts"]),
+        classifyOne(["tests/qualification/kit/oracles.ts"]),
+        classifyOne(["src/png/chunks.ts", "src/engine.ts"]),
+      ].join("|"),
+    ).toBe("png|webp|png,webp|png,webp");
+  });
+
+  describe("dead-rule coverage (no per-format rule is unreachable)", () => {
+    it("every FORMAT_PATH_RULES pattern matches at least one real git-tracked path", () => {
+      const trackedPaths = spawnSync("git", ["ls-files"], {
+        cwd: packageRoot,
+        encoding: "utf8",
+      })
+        .stdout.split("\n")
+        .filter((path) => path.length > 0);
+      for (const [format, patterns] of Object.entries(
+        classify.FORMAT_PATH_RULES,
+      )) {
+        for (const pattern of patterns) {
+          const matched = trackedPaths.some((path) => pattern.test(path));
+          expect(
+            matched,
+            `format ${format} pattern ${pattern} has no matching tracked path`,
+          ).toBe(true);
+        }
+      }
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // CLI end-to-end (temp git repo)
 // ---------------------------------------------------------------------------
 
@@ -351,7 +519,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=linux\n");
+      expect(outputFileContents).toBe("scope=linux\nformats=png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -375,7 +543,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\n");
+      expect(outputFileContents).toBe("scope=full\nformats=png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -397,7 +565,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=linux\n");
+      expect(outputFileContents).toBe("scope=linux\nformats=png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -414,7 +582,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\n");
+      expect(outputFileContents).toBe("scope=full\nformats=png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -437,7 +605,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\n");
+      expect(outputFileContents).toBe("scope=full\nformats=png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -454,7 +622,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\n");
+      expect(outputFileContents).toBe("scope=full\nformats=png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -553,6 +721,45 @@ describe("ci.yml scope wiring (D-15, D-18)", () => {
     const mutated = workflow.replace(
       "\n  quality:\n    runs-on: ubuntu-24.04\n",
       "\n  quality:\n    needs: [classify]\n    runs-on: ubuntu-24.04\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when qualification-linux drops classify from needs (D-17: it must read outputs.formats)", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "\n  qualification-linux:\n    needs: [quality, classify]\n",
+      "\n  qualification-linux:\n    needs: quality\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when qualification-linux is gated on needs.classify.outputs.scope (it must always run, D-17)", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "\n  qualification-linux:\n    needs: [quality, classify]\n    if: ${{ !cancelled() && needs.quality.result == 'success' }}\n",
+      "\n  qualification-linux:\n    needs: [quality, classify]\n    if: ${{ !cancelled() && needs.quality.result == 'success' && needs.classify.outputs.scope == 'linux' }}\n",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when qualification-linux never reads needs.classify.outputs.formats", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "needs.classify.outputs.formats",
+      "hardcoded-formats-not-read-from-classify",
     );
     expect(mutated).not.toBe(workflow);
     expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
