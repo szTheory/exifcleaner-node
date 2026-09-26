@@ -810,4 +810,59 @@ describe("PNG differential red controls (Plan 09 Task 3)", () => {
     },
     180_000,
   );
+
+  it.runIf(admittedHost)(
+    "rejects an iCCP trailing-bytes leak through the live PNG differential",
+    async () => {
+      // The exact leak shape exifcleaner-node@d1897b1 wrote for this input
+      // (56-gap-reproducers/r1.mts): a profile name, then a legitimate
+      // deflated ICC profile, then an attacker payload appended after the
+      // zlib stream ends.
+      const secret = Buffer.from(
+        "GPS=51.5074,-0.1278;owner=Jon Smith;serial=C02XYZ",
+      );
+      const iccp = Buffer.concat([
+        Buffer.from("Jon Smith MacBook", "latin1"),
+        Buffer.from([0]), // keyword NUL terminator
+        Buffer.from([0]), // compression method 0
+        deflateSync(iccProfileV4()),
+        secret,
+      ]);
+      const source = pngWithChunksBefore([["iCCP", iccp]]);
+
+      // Handler side of CR-01 (56-14): the real native sanitizeFile now
+      // declines this input pre-write, with preserveColorProfile true.
+      await expect(
+        sanitize(source, { preserveColorProfile: true }),
+      ).rejects.toThrow(/malformed-file/);
+
+      // Since the handler now declines, no native output can be produced
+      // from this source. The output fed to the differential is therefore
+      // the source bytes themselves -- byte-identical to what
+      // exifcleaner-node@d1897b1 actually wrote for this input before
+      // CR-01 was fixed (measured 2026-09-26, 56-gap-reproducers/r1.mts).
+      // This proves the harness itself would have gone red on that exact
+      // historical output, not merely that the handler now refuses to
+      // produce it.
+      const output = source;
+
+      let firedMessage: string | undefined;
+      try {
+        runExiftoolDifferential({
+          caseId: "png-iccp-trailing-leak",
+          profile: pngDifferentialProfile,
+          source,
+          output,
+          permittedDifferences: [
+            `ICC_Profile:RawProfile=${digest(iccProfileV4())}`,
+          ],
+        });
+      } catch (error) {
+        firedMessage = error instanceof Error ? error.message : String(error);
+      }
+      expect(firedMessage).toBeTruthy();
+      console.log("iCCP trailing-bytes red control fired:", firedMessage);
+    },
+    180_000,
+  );
 });
