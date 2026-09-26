@@ -192,6 +192,28 @@ describe("PNG removedNamespaces reporting (D-15)", () => {
     expect(result.value.preserved.resolution).toBe(true);
   });
 
+  it("a tEXt XML:com.adobe.xmp packet: inspected under XMP, removedNamespaces includes XMP (WR-01)", async () => {
+    const source = pngWithChunksBefore([
+      ["tEXt", pngTextChunkData(XMP_ITXT_KEYWORD, XMP_DATA.toString("latin1"))],
+    ]);
+    const { sourcePath, result } = await sanitizeToDirectory(source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.value.removedNamespaces).toContain("XMP");
+    expect(result.value.removedNamespaces).not.toContain("PNG");
+
+    const inspected = await inspectFile(sourcePath);
+    expect(inspected.ok).toBe(true);
+    if (!inspected.ok) throw new Error("unreachable");
+    const xmpEntries = parseXmp(XMP_DATA).entries;
+    expect(inspected.value.entries).toEqual(
+      expect.arrayContaining(xmpEntries),
+    );
+    expect(
+      inspected.value.entries.some((entry) => entry.namespace === "PNG"),
+    ).toBe(false);
+  });
+
   it("a caBX PNG: C2PA present in removedNamespaces", async () => {
     const source = pngWithChunksBefore([["caBX", pngCaBX(CABX_PAYLOAD)]]);
     const { result } = await sanitizeToDirectory(source);
