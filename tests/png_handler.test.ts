@@ -2,7 +2,11 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { classifyFallback, getCapabilities, sanitizeFile } from "../dist/index.js";
+import {
+  classifyFallback,
+  getCapabilities,
+  sanitizeFile,
+} from "../dist/index.js";
 import { PNG_MAX_IDAT_CHUNKS } from "../src/png/chunks.js";
 import type { PngCapabilities } from "../src/types.js";
 import {

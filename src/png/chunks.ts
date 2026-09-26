@@ -659,7 +659,13 @@ export async function parsePng(
       // they are never stored in `buffered`. A longer IDAT keeps the pre-existing streamed
       // `streamChunkCrc` path (bounded 64 KiB blocks, no buffering either).
       if (length <= PNG_CHUNK_READ_WINDOW_BYTES) {
-        const data = await readWindowed(handle, window, length, dataOffset, size);
+        const data = await readWindowed(
+          handle,
+          window,
+          length,
+          dataOffset,
+          size,
+        );
         computedCrc = crc32(typeBuffer, data);
       } else {
         computedCrc = await streamChunkCrc(
