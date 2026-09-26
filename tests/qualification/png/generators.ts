@@ -3,7 +3,10 @@ import { deflateSync } from "node:zlib";
 import fc from "fast-check";
 import {
   iccCanaryProfile,
+  idotPayload,
+  minimalPng,
   png,
+  pngBomb,
   pngCaBX,
   pngChrm,
   pngChunk,
@@ -12,6 +15,8 @@ import {
   pngIhdr,
   pngItxt,
   pngPhys,
+  pngTextChunkData,
+  screenshotShapedPng,
   xmpPacket,
   XMP_ITXT_KEYWORD,
 } from "../../fixtures.js";
@@ -21,7 +26,13 @@ import {
   type GeneratedSample,
   type PlantedCanary,
 } from "../kit/generators.js";
-import type { PngStructureError } from "../../../src/png/chunks.js";
+import {
+  PNG_MAX_INFLATED_ICC_BYTES,
+  PNG_MAX_INFLATED_TEXT_BYTES,
+  PNG_MAX_METADATA_BYTES_PER_CHUNK,
+  PNG_SIGNATURE,
+  type PngStructureError,
+} from "../../../src/png/chunks.js";
 
 /**
  * Every metadata kind the PNG property gate plants a canary into (Plan 10).
@@ -277,7 +288,10 @@ const PRESERVE_LIST_TYPES: readonly PreserveListType[] = [
 ];
 
 const PRESERVE_LIST_ORDER: Readonly<
-  Record<PreserveListType, "before-plte-and-idat" | "after-plte-before-idat" | "before-idat">
+  Record<
+    PreserveListType,
+    "before-plte-and-idat" | "after-plte-before-idat" | "before-idat"
+  >
 > = {
   cHRM: "before-plte-and-idat",
   sBIT: "before-plte-and-idat",
@@ -323,7 +337,8 @@ export interface PngSampleOptions {
 export interface QualificationSample {
   readonly id: string;
   readonly bytes: Buffer;
-  readonly expected: "success" | PngStructureError["kind"] | "unsupported-feature";
+  readonly expected:
+    "success" | PngStructureError["kind"] | "unsupported-feature";
   readonly arm: "metadata" | "no-metadata" | "hostile";
   readonly planted: readonly PlantedCanary<PngMetadataKind>[];
   readonly options: PngSampleOptions;
@@ -338,14 +353,12 @@ interface MetadataArmSample {
   readonly plantedOrientation?: number;
 }
 
-const preservationOptionsArbitrary: fc.Arbitrary<PngSampleOptions> = fc.record(
-  {
-    preserveOrientation: fc.boolean(),
-    preserveColorProfile: fc.boolean(),
-    preserveTimestamps: fc.boolean(),
-    preserveResolution: fc.boolean(),
-  },
-);
+const preservationOptionsArbitrary: fc.Arbitrary<PngSampleOptions> = fc.record({
+  preserveOrientation: fc.boolean(),
+  preserveColorProfile: fc.boolean(),
+  preserveTimestamps: fc.boolean(),
+  preserveResolution: fc.boolean(),
+});
 
 /**
  * Builds a structurally-admitted PNG carrying 1-5 unique metadata-kind
@@ -383,7 +396,9 @@ export function pngMetadataArbitrary(): fc.Arbitrary<MetadataArmSample> {
     })
     .chain((base) =>
       fc
-        .tuple(...base.kinds.map((kind) => canaryArbitrary<PngMetadataKind>(kind)))
+        .tuple(
+          ...base.kinds.map((kind) => canaryArbitrary<PngMetadataKind>(kind)),
+        )
         .map((canaries) => ({ ...base, canaries })),
     )
     .map((sample): MetadataArmSample => {
@@ -412,8 +427,12 @@ export function pngMetadataArbitrary(): fc.Arbitrary<MetadataArmSample> {
       }));
 
       const beforePlte = [
-        ...preserveChunks.filter((item) => item.orderClass === "before-plte-and-idat"),
-        ...metadataChunks.filter((item) => item.orderClass === "before-plte-and-idat"),
+        ...preserveChunks.filter(
+          (item) => item.orderClass === "before-plte-and-idat",
+        ),
+        ...metadataChunks.filter(
+          (item) => item.orderClass === "before-plte-and-idat",
+        ),
       ];
       const afterPlteBeforeIdat = preserveChunks.filter(
         (item) => item.orderClass === "after-plte-before-idat",
@@ -427,7 +446,9 @@ export function pngMetadataArbitrary(): fc.Arbitrary<MetadataArmSample> {
 
       const ordered: readonly { type: string; data: Buffer }[] = [
         ...beforePlte,
-        ...(colorType === 3 ? [{ type: "PLTE", data: Buffer.from([0, 0, 0]) }] : []),
+        ...(colorType === 3
+          ? [{ type: "PLTE", data: Buffer.from([0, 0, 0]) }]
+          : []),
         ...afterPlteBeforeIdat,
         ...beforeIdat,
       ];
@@ -486,9 +507,7 @@ function pngNoMetadataArbitrary(): fc.Arbitrary<Buffer> {
     .map(({ width, height, colorType }) =>
       png([
         pngChunk("IHDR", pngIhdr(width, height, 8, colorType)),
-        ...(colorType === 3
-          ? [pngChunk("PLTE", Buffer.from([0, 0, 0]))]
-          : []),
+        ...(colorType === 3 ? [pngChunk("PLTE", Buffer.from([0, 0, 0]))] : []),
         pngChunk("IDAT", pngIdat()),
         pngChunk("IEND", Buffer.alloc(0)),
       ]),
@@ -515,14 +534,444 @@ const NO_PRESERVATION: PngSampleOptions = Object.freeze({
   preserveResolution: false,
 });
 
+// --- Task 2: hostile mutation cases, one per PNG-03 refusal class -------
+
+/** Every PNG-03 refusal class this generator's hostile corpus covers. */
+export type PngHostileCategory =
+  | "crc"
+  | "unknown-critical"
+  | "chunk-order"
+  | "truncation"
+  | "trailing-data"
+  | "apng"
+  | "decompression-bomb"
+  | "length-overflow"
+  | "duplicate-singleton"
+  | "idot-adjacency"
+  | "registered-unmeasured"
+  | "metadata-limit"
+  | "aggregate-inflate";
+
+export interface PngMaterializedMutationCase {
+  readonly prefix: Buffer;
+  readonly fileSize: number;
+}
+
+export interface PngHostileMutationCase {
+  readonly id: string;
+  readonly category: PngHostileCategory;
+  readonly sourceCase: string;
+  readonly seed: number;
+  readonly expectedKind:
+    "malformed-file" | "unsafe-structure" | "unsupported-feature";
+  readonly options?: Partial<PngSampleOptions>;
+  readonly materialize: () => PngMaterializedMutationCase;
+}
+
+const HOSTILE_BASE_SEED = 560056;
+
+function bytesCase(prefix: Buffer): PngMaterializedMutationCase {
+  return { prefix, fileSize: prefix.length };
+}
+
+/** A file whose declared size exceeds its real (sparse-truncated) byte count. */
+function sparseCase(
+  prefix: Buffer,
+  fileSize: number,
+): PngMaterializedMutationCase {
+  return { prefix, fileSize };
+}
+
+function corruptCrc(chunkBuffer: Buffer): Buffer {
+  const result = Buffer.from(chunkBuffer);
+  result[result.length - 1] = (result[result.length - 1]! ^ 0xff) & 0xff;
+  return result;
+}
+
+/** IHDR, the given middle chunks, IDAT, IEND -- mirrors png_chunks.test.ts's own `validImage`. */
+function validImage(...middleChunks: readonly Buffer[]): Buffer {
+  return png([
+    pngChunk("IHDR", pngIhdr()),
+    ...middleChunks,
+    pngChunk("IDAT", pngIdat()),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 /**
- * The hostile arm of `pngQualificationArbitrary`. Plan 10 Task 1: until Task 2
- * adds `hostileMutationCases`, this arm reuses the metadata arm so
- * `pngQualificationArbitrary` is already fully wired end to end. Task 2
- * replaces this function's body outright once the real hostile cases exist.
+ * A minimal chunk header (8 bytes: 4-byte length, 4-byte type) with no
+ * corresponding data or CRC. `parsePng` rejects a chunk whose declared length
+ * exceeds `MAX_CHUNK_LENGTH` immediately after reading its header -- before
+ * any bounds check against the file's actual size -- so this header alone,
+ * appended to a real (non-sparse) prefix, is enough to trigger the refusal.
  */
+function overflowChunkHeader(type: string, length: number): Buffer {
+  const header = Buffer.alloc(8);
+  header.writeUInt32BE(length >>> 0, 0);
+  header.write(type, 4, 4, "ascii");
+  return header;
+}
+
+function metadataLimitCase(): PngMaterializedMutationCase {
+  const oversized = PNG_MAX_METADATA_BYTES_PER_CHUNK + 1;
+  const header = overflowChunkHeader("caBX", oversized);
+  const prefix = Buffer.concat([
+    PNG_SIGNATURE,
+    pngChunk("IHDR", pngIhdr()),
+    header,
+  ]);
+  const fileSize = prefix.length + oversized + 4; // + CRC
+  return sparseCase(prefix, fileSize);
+}
+
+function aggregateInflateCase(): PngMaterializedMutationCase {
+  const bomb = pngBomb("zTXt", 15_000_000);
+  return bytesCase(
+    png([
+      pngChunk("IHDR", pngIhdr()),
+      pngChunk("zTXt", bomb),
+      pngChunk("zTXt", bomb),
+      pngChunk("zTXt", bomb),
+      pngChunk("zTXt", bomb),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]),
+  );
+}
+
+const hostileCases: readonly PngHostileMutationCase[] = [
+  {
+    id: "crc-ihdr",
+    category: "crc",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "malformed-file",
+    materialize: () =>
+      bytesCase(
+        png([
+          corruptCrc(pngChunk("IHDR", pngIhdr())),
+          pngChunk("IDAT", pngIdat()),
+          pngChunk("IEND", Buffer.alloc(0)),
+        ]),
+      ),
+  },
+  {
+    id: "crc-ancillary-chrm",
+    category: "crc",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "malformed-file",
+    materialize: () =>
+      bytesCase(validImage(corruptCrc(pngChunk("cHRM", pngChrm())))),
+  },
+  {
+    id: "crc-idat",
+    category: "crc",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "malformed-file",
+    materialize: () =>
+      bytesCase(
+        png([
+          pngChunk("IHDR", pngIhdr()),
+          corruptCrc(pngChunk("IDAT", pngIdat())),
+          pngChunk("IEND", Buffer.alloc(0)),
+        ]),
+      ),
+  },
+  {
+    id: "unknown-critical-cgbi",
+    category: "unknown-critical",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () => bytesCase(validImage(pngChunk("CgBI", Buffer.alloc(4)))),
+  },
+  {
+    id: "chunk-order-noncontiguous-idat",
+    category: "chunk-order",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () =>
+      bytesCase(
+        png([
+          pngChunk("IHDR", pngIhdr()),
+          pngChunk("IDAT", pngIdat()),
+          pngChunk("tEXt", pngTextChunkData("Comment", "split")),
+          pngChunk("IDAT", pngIdat()),
+          pngChunk("IEND", Buffer.alloc(0)),
+        ]),
+      ),
+  },
+  {
+    id: "chunk-order-bkgd-before-plte",
+    category: "chunk-order",
+    sourceCase: "palette-with-trns",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () =>
+      bytesCase(
+        png([
+          pngChunk("IHDR", pngIhdr(1, 1, 8, 3)),
+          pngChunk("bKGD", Buffer.alloc(1)),
+          pngChunk("PLTE", Buffer.from([0, 0, 0])),
+          pngChunk("IDAT", pngIdat()),
+          pngChunk("IEND", Buffer.alloc(0)),
+        ]),
+      ),
+  },
+  {
+    id: "truncated-iend",
+    category: "truncation",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "malformed-file",
+    materialize: () => {
+      const full = minimalPng();
+      return bytesCase(full.subarray(0, full.length - 1));
+    },
+  },
+  {
+    id: "trailing-byte-after-iend",
+    category: "trailing-data",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "malformed-file",
+    materialize: () =>
+      bytesCase(Buffer.concat([minimalPng(), Buffer.from([0])])),
+  },
+  {
+    id: "apng-actl",
+    category: "apng",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () => bytesCase(validImage(pngChunk("acTL", Buffer.alloc(8)))),
+  },
+  {
+    id: "apng-fctl",
+    category: "apng",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () =>
+      bytesCase(validImage(pngChunk("fcTL", Buffer.alloc(26)))),
+  },
+  {
+    id: "apng-fdat",
+    category: "apng",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () => bytesCase(validImage(pngChunk("fdAT", Buffer.alloc(4)))),
+  },
+  {
+    id: "decompression-bomb-iccp",
+    category: "decompression-bomb",
+    sourceCase: "iccp-only",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () =>
+      bytesCase(
+        validImage(
+          pngChunk("iCCP", pngBomb("iCCP", PNG_MAX_INFLATED_ICC_BYTES + 1)),
+        ),
+      ),
+  },
+  {
+    id: "decompression-bomb-iccp-preserve-requested",
+    category: "decompression-bomb",
+    sourceCase: "iccp-only",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsupported-feature",
+    options: { preserveColorProfile: true },
+    materialize: () =>
+      bytesCase(
+        validImage(
+          pngChunk("iCCP", pngBomb("iCCP", PNG_MAX_INFLATED_ICC_BYTES + 1)),
+        ),
+      ),
+  },
+  {
+    id: "decompression-bomb-ztxt",
+    category: "decompression-bomb",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () =>
+      bytesCase(
+        validImage(
+          pngChunk("zTXt", pngBomb("zTXt", PNG_MAX_INFLATED_TEXT_BYTES + 1)),
+        ),
+      ),
+  },
+  {
+    id: "decompression-bomb-itxt",
+    category: "decompression-bomb",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () =>
+      bytesCase(
+        validImage(
+          pngChunk("iTXt", pngBomb("iTXt", PNG_MAX_INFLATED_TEXT_BYTES + 1)),
+        ),
+      ),
+  },
+  {
+    id: "length-overflow",
+    category: "length-overflow",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "malformed-file",
+    materialize: () =>
+      bytesCase(
+        Buffer.concat([
+          PNG_SIGNATURE,
+          pngChunk("IHDR", pngIhdr()),
+          overflowChunkHeader("tEXt", 0x8000_0000),
+        ]),
+      ),
+  },
+  {
+    id: "duplicate-chrm",
+    category: "duplicate-singleton",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () =>
+      bytesCase(
+        validImage(pngChunk("cHRM", pngChrm()), pngChunk("cHRM", pngChrm())),
+      ),
+  },
+  {
+    id: "idot-adjacency-text-between",
+    category: "idot-adjacency",
+    sourceCase: "screenshot-shaped",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () =>
+      bytesCase(
+        png([
+          pngChunk("IHDR", pngIhdr()),
+          pngChunk("iDOT", idotPayload(40)),
+          pngChunk(
+            "tEXt",
+            pngTextChunkData("Comment", "between-idot-and-idat"),
+          ),
+          pngChunk("IDAT", pngIdat()),
+          pngChunk("IEND", Buffer.alloc(0)),
+        ]),
+      ),
+  },
+  {
+    id: "registered-unmeasured-gifg",
+    category: "registered-unmeasured",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: () => bytesCase(validImage(pngChunk("gIFg", Buffer.alloc(4)))),
+  },
+  {
+    id: "metadata-limit-cabx",
+    category: "metadata-limit",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: metadataLimitCase,
+  },
+  {
+    id: "aggregate-inflate-four-ztxt",
+    category: "aggregate-inflate",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: aggregateInflateCase,
+  },
+];
+
+export const hostileMutationCases: readonly PngHostileMutationCase[] =
+  Object.freeze(
+    [...hostileCases].sort((left, right) => left.id.localeCompare(right.id)),
+  );
+
+export function materializeMutationCase(
+  id: string,
+): PngMaterializedMutationCase {
+  const record = hostileMutationCases.find((item) => item.id === id);
+  if (record === undefined) throw new Error(`Unknown mutation case: ${id}`);
+  const materialized = record.materialize();
+  return {
+    prefix: Buffer.from(materialized.prefix),
+    fileSize: materialized.fileSize,
+  };
+}
+
+export interface PngValidGrammarCase {
+  readonly id: string;
+  readonly bytes: Buffer;
+}
+
+export const validGrammarCases: readonly PngValidGrammarCase[] = Object.freeze([
+  { id: "minimal", bytes: minimalPng() },
+  {
+    id: "palette-with-trns",
+    bytes: png([
+      pngChunk("IHDR", pngIhdr(1, 1, 8, 3)),
+      pngChunk("PLTE", Buffer.from([0, 0, 0])),
+      pngChunk("tRNS", Buffer.from([0])),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]),
+  },
+  {
+    id: "16bit-with-sbit",
+    bytes: png([
+      pngChunk("IHDR", pngIhdr(1, 1, 16, 2)),
+      pngChunk("sBIT", Buffer.alloc(3, 8)),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]),
+  },
+  {
+    id: "interlaced",
+    bytes: png([
+      pngChunk(
+        "IHDR",
+        (() => {
+          const data = pngIhdr();
+          data[12] = 1; // interlace method: Adam7
+          return data;
+        })(),
+      ),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]),
+  },
+  { id: "screenshot-shaped", bytes: screenshotShapedPng() },
+]);
+
+/** The hostile arm of `pngQualificationArbitrary` (Task 2): every hostile
+ * mutation case whose materialization is not sparse (a sparse case's real
+ * on-disk bytes would not reproduce its own declared refusal from a plain
+ * in-memory sample, since fast-check samples never get truncated). */
 function buildHostileArm(): fc.Arbitrary<QualificationSample> {
-  return buildMetadataArm().map((sample) => ({ ...sample, arm: "hostile" as const }));
+  const bufferedHostile = hostileMutationCases.flatMap((item) => {
+    const materialized = item.materialize();
+    if (materialized.fileSize !== materialized.prefix.length) return [];
+    return [
+      {
+        id: item.id,
+        bytes: materialized.prefix,
+        expected: item.expectedKind,
+        arm: "hostile" as const,
+        planted: [] as PlantedCanary<PngMetadataKind>[],
+        options: { ...NO_PRESERVATION, ...item.options },
+      } satisfies QualificationSample,
+    ];
+  });
+  return fc.constantFrom(...bufferedHostile);
 }
 
 export function pngQualificationArbitrary(): fc.Arbitrary<QualificationSample> {

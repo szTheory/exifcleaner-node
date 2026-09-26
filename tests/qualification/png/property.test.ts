@@ -14,7 +14,10 @@ import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../dist/index.js";
-import { createOrientationExif, parseExif } from "../../../src/metadata/exif.js";
+import {
+  createOrientationExif,
+  parseExif,
+} from "../../../src/metadata/exif.js";
 import { parsePng } from "../../../src/png/chunks.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
 import { assertFloors, countSample, createCounters } from "../kit/floors.js";
@@ -50,7 +53,10 @@ function readPngChunkRecords(bytes: Buffer): readonly PngChunkRecord[] {
     const type = bytes.toString("ascii", offset + 4, offset + 8);
     const dataOffset = offset + 8;
     if (dataOffset + length + 4 > bytes.length) break;
-    records.push({ type, data: bytes.subarray(dataOffset, dataOffset + length) });
+    records.push({
+      type,
+      data: bytes.subarray(dataOffset, dataOffset + length),
+    });
     offset = dataOffset + length + 4;
     if (type === "IEND") break;
   }
