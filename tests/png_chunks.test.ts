@@ -468,7 +468,12 @@ describe("inflateBounded (D-14)", () => {
       const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
       let caught: unknown;
       try {
-        inflateBounded(compressed, chunkType, PNG_MAX_INFLATED_ICC_BYTES, budget);
+        inflateBounded(
+          compressed,
+          chunkType,
+          PNG_MAX_INFLATED_ICC_BYTES,
+          budget,
+        );
       } catch (error) {
         caught = error;
       }
@@ -482,7 +487,10 @@ describe("inflateBounded (D-14)", () => {
 
   it("refusing trailing bytes does not consume the budget", () => {
     const source = Buffer.from("hello bounded inflate");
-    const compressed = Buffer.concat([deflateSync(source), Buffer.from([0x99])]);
+    const compressed = Buffer.concat([
+      deflateSync(source),
+      Buffer.from([0x99]),
+    ]);
     const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
     const before = budget.remaining();
     expect(() =>
@@ -497,7 +505,12 @@ describe("inflateBounded (D-14)", () => {
     const budget = new InflateBudget(PNG_MAX_INFLATED_BYTES_TOTAL);
     let caught: unknown;
     try {
-      inflateBounded(bombWithTrailer, "iCCP", PNG_MAX_INFLATED_ICC_BYTES, budget);
+      inflateBounded(
+        bombWithTrailer,
+        "iCCP",
+        PNG_MAX_INFLATED_ICC_BYTES,
+        budget,
+      );
     } catch (error) {
       caught = error;
     }
