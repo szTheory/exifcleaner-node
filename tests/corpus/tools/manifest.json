@@ -75,6 +75,74 @@
           "sha256": "a6b8018093845ac93011307bac4ab630d6604b2365fc7f66bb88c88d7dedb5ed"
         }
       ]
+    },
+    {
+      "id": "libpng-1.6.58",
+      "kind": "compiled-source",
+      "version": "1.6.58",
+      "revision": "3061454d980de7d53608f594194cfac722721d2a",
+      "origin": "https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.58.tar.gz",
+      "archive": {
+        "path": "tests/corpus/tools/archives/libpng-1.6.58.tar.gz",
+        "sha256": "a9d4df463d36a6e5f9c29bd6f4967312d17e996c1854f3511f833924eb1993cf",
+        "root": "libpng-1.6.58"
+      },
+      "license": {
+        "spdx": "libpng-2.0",
+        "path": "tests/corpus/tools/licenses/libpng-LICENSE",
+        "member": "libpng-1.6.58/LICENSE",
+        "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "libpng-1.6.58/png.h",
+        "sha256": "81501c268ec5c3dc79efc6ac9fddb63b22a25e4931360ddd7b29b1744d6cb6b8",
+        "contains": "#define PNG_LIBPNG_VER_STRING \"1.6.58\""
+      },
+      "entrypoints": [
+        {
+          "id": "png-source",
+          "kind": "c-source",
+          "member": "libpng-1.6.58/png.c",
+          "bytes": 135428,
+          "sha256": "e675e106a5cc637a824c4ad9b5c1ee82c43bde9a47466e9ea36d38bb29aa095c"
+        }
+      ]
+    },
+    {
+      "id": "pngcheck-3.0.3",
+      "kind": "compiled-source",
+      "version": "3.0.3",
+      "revision": "cab5ffb14756974e9e04ff432a1a742fd8d95971",
+      "origin": "https://github.com/pnggroup/pngcheck/archive/refs/tags/v3.0.3.tar.gz",
+      "archive": {
+        "path": "tests/corpus/tools/archives/pngcheck-3.0.3.tar.gz",
+        "sha256": "945ff746e04139cc062f87082d005877d9de4e8483350bd4a31f2f0c0e04c9cd",
+        "root": "pngcheck-3.0.3"
+      },
+      "license": {
+        "spdx": "HPND",
+        "path": "tests/corpus/tools/licenses/pngcheck-LICENSE",
+        "member": "pngcheck-3.0.3/LICENSE",
+        "sha256": "c41092dac739c2b41ae91f0e4d3049f51c9127ce4b822fbb13a51b4ef7a44322"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "pngcheck-3.0.3/pngcheck.c",
+        "sha256": "e32c29eaa9b80c9954971c304a9b6f84fefba3ebd0115e2e977ba53e77a0c701",
+        "contains": "VERSION \"3.0.3 of 25 April 2021\""
+      },
+      "entrypoints": [
+        {
+          "id": "pngcheck-source",
+          "kind": "c-source",
+          "member": "pngcheck-3.0.3/pngcheck.c",
+          "bytes": 183427,
+          "sha256": "e32c29eaa9b80c9954971c304a9b6f84fefba3ebd0115e2e977ba53e77a0c701"
+        }
+      ]
     }
   ],
   "fixtures": [

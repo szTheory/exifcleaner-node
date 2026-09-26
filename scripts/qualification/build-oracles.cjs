@@ -113,9 +113,12 @@ function validateAuthorityShape(authority) {
     `${id}.license`,
   );
   if (
-    !new Set(["BSD-3-Clause", "Artistic-1.0-Perl OR GPL-1.0-or-later"]).has(
-      authority.license.spdx,
-    )
+    !new Set([
+      "BSD-3-Clause",
+      "Artistic-1.0-Perl OR GPL-1.0-or-later",
+      "libpng-2.0",
+      "HPND",
+    ]).has(authority.license.spdx)
   )
     fail(`${id}.license.spdx is not admitted`);
   repositoryPath(authority.license.path, `${id}.license.path`);
@@ -186,12 +189,18 @@ function validateFixtureShape(fixture) {
 function validateManifestShape(manifest) {
   exactKeys(manifest, ["schemaVersion", "authorities", "fixtures"], "manifest");
   if (manifest.schemaVersion !== 1) fail("schemaVersion must be 1");
-  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 2)
-    fail("exactly two tool authorities are required");
+  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 4)
+    fail("exactly four tool authorities are required");
   manifest.authorities.forEach(validateAuthorityShape);
   const ids = manifest.authorities.map((item) => item.id);
   if (
-    JSON.stringify(ids) !== JSON.stringify(["libwebp-1.5.0", "exiftool-13.59"])
+    JSON.stringify(ids) !==
+    JSON.stringify([
+      "libwebp-1.5.0",
+      "exiftool-13.59",
+      "libpng-1.6.58",
+      "pngcheck-3.0.3",
+    ])
   )
     fail("authority order and IDs are not exact");
   if (!Array.isArray(manifest.fixtures) || manifest.fixtures.length !== 1)
@@ -351,6 +360,8 @@ function runShapeMutationChecks(manifest) {
     (copy) => (copy.authorities[0].license.spdx = "unknown"),
     (copy) => (copy.authorities[0].entrypoints[0].member = "../dwebp"),
     (copy) => delete copy.fixtures[0].sha256,
+    (copy) => copy.authorities.splice(2, 1), // drop libpng-1.6.58
+    (copy) => copy.authorities.splice(3, 1), // drop pngcheck-3.0.3
   ];
   for (const mutate of mutations) {
     const copy = structuredClone(manifest);
@@ -496,6 +507,85 @@ function prepareOracleTools() {
       "animation oracle build failed",
     );
 
+    const libpng = manifest.authorities[2];
+    const libpngRoot = path.join(workspace, libpng.archive.root);
+    runTool(
+      path.join(libpngRoot, "configure"),
+      ["--disable-shared", "--enable-static", "--disable-dependency-tracking"],
+      { cwd: libpngRoot },
+      "libpng configure failed",
+    );
+    runTool("make", ["-j2"], { cwd: libpngRoot }, "libpng build failed");
+
+    const pngDecodeSourcePath = path.join(
+      projectRoot,
+      "scripts/qualification/png_decode_oracle.c",
+    );
+    if (!fs.existsSync(pngDecodeSourcePath))
+      fail("png decode oracle source is missing");
+    const pngDecodePath = path.join(workspace, "png-decode-oracle");
+    runTool(
+      "cc",
+      [
+        "-std=c11",
+        "-O2",
+        pngDecodeSourcePath,
+        "-I",
+        libpngRoot,
+        "-L",
+        path.join(libpngRoot, ".libs"),
+        "-lpng16",
+        "-lz",
+        "-lm",
+        "-o",
+        pngDecodePath,
+      ],
+      {},
+      "png decode oracle build failed",
+    );
+
+    const pngcheck = manifest.authorities[3];
+    const pngcheckRoot = path.join(workspace, pngcheck.archive.root);
+    const pngcheckPath = path.join(workspace, "pngcheck");
+    runTool(
+      "cc",
+      [
+        "-std=c11",
+        "-O2",
+        path.join(pngcheckRoot, "pngcheck.c"),
+        "-lz",
+        "-o",
+        pngcheckPath,
+      ],
+      {},
+      "pngcheck build failed",
+    );
+
+    // The decode oracle has no `-version` flag (it takes exactly one input
+    // path per its I/O contract); it prints the libpng it was linked
+    // against to stderr unconditionally, even on a bare usage error, so
+    // the builder can confirm the built binary is actually wired to the
+    // pinned libpng without a separate flag.
+    const pngDecodeUsage = spawnSync(pngDecodePath, [], {
+      encoding: "utf8",
+      timeout: 5_000,
+    });
+    if (pngDecodeUsage.error !== undefined)
+      fail(
+        `png decode oracle version check failed: ${pngDecodeUsage.error.message}`,
+      );
+    if (!(pngDecodeUsage.stderr ?? "").includes(`libpng ${libpng.version}`))
+      fail("built oracle version drift");
+
+    const pngcheckVersion = runTool(
+      pngcheckPath,
+      ["-V"],
+      {},
+      "pngcheck version check failed",
+    ).stdout.trim();
+    if (!pngcheckVersion.includes(pngcheck.version))
+      fail("built oracle version drift");
+
     const executable = (filePath) => ({
       path: filePath,
       sha256: digest(fs.readFileSync(filePath)),
@@ -507,6 +597,8 @@ function prepareOracleTools() {
       webpinfo: executable(webpinfoPath),
       animation: executable(animationPath),
       exiftool: executable(exiftoolPath),
+      pngDecode: executable(pngDecodePath),
+      pngcheck: executable(pngcheckPath),
       dispose() {
         fs.rmSync(workspace, { recursive: true, force: true });
       },
