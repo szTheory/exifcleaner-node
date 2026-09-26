@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   EXCLUDED_GROUPS,
   compareDifferential,
+  comparePermittedDifferences,
+  compareStructuralDifferential,
   metadataGroupDisposition,
   type MetadataProjection,
   type PermittedKind,
@@ -111,7 +113,7 @@ describe("metadataGroupDisposition (D-12 total group mapping)", () => {
   });
 
   describe("catch-all: an unrecognized group is compared under its own name, never dropped", () => {
-    for (const group of ["Adobe", "APP14", "PNG-pHYs"]) {
+    for (const group of ["Adobe", "APP14", "Vendor-Resolution"]) {
       it(`compares ${group} under its own group name`, () => {
         expect(metadataGroupDisposition(group)).toEqual({
           compared: true,
@@ -521,6 +523,121 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
       ).toThrow("Requested Orientation was not preserved");
     });
 
+    describe("Resolution:Preserved kind (compareDifferential)", () => {
+      const RESOLUTION_KINDS: readonly PermittedKind[] = [
+        {
+          id: "Resolution:Preserved",
+          measurement: "x",
+          namespace: "Vendor-Resolution",
+        },
+      ];
+
+      it("(a) preserved and granted: passes", () => {
+        const entries = [{ Unit: 1 }];
+        const source = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": entries,
+        });
+        const native = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": entries,
+        });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(
+          compareDifferential(
+            source,
+            native,
+            reference,
+            ["Resolution:Preserved"],
+            RESOLUTION_KINDS,
+          ),
+        ).toEqual([]);
+      });
+
+      it("(b) granted but native lacks the namespace: stale throws", () => {
+        const source = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 1 }],
+        });
+        const native = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(() =>
+          compareDifferential(
+            source,
+            native,
+            reference,
+            ["Resolution:Preserved"],
+            RESOLUTION_KINDS,
+          ),
+        ).toThrow("Stale permitted difference: Resolution:Preserved");
+      });
+
+      it("(c) native entries differ from source: throws", () => {
+        const source = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 1 }],
+        });
+        const native = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 2 }],
+        });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(() =>
+          compareDifferential(
+            source,
+            native,
+            reference,
+            ["Resolution:Preserved"],
+            RESOLUTION_KINDS,
+          ),
+        ).toThrow("Requested resolution was not preserved");
+      });
+
+      it("(d) not granted but native has the namespace: throws Unpermitted metadata difference: Vendor-Resolution (red control)", () => {
+        const source = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 1 }],
+        });
+        const native = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 1 }],
+        });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(() =>
+          compareDifferential(source, native, reference, [], RESOLUTION_KINDS),
+        ).toThrow("Unpermitted metadata difference: Vendor-Resolution");
+      });
+
+      it("(e) grant with no admitted kind: throws Unknown permitted metadata difference", () => {
+        const source = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        const native = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(() =>
+          compareDifferential(
+            source,
+            native,
+            reference,
+            ["Resolution:Preserved"],
+            [],
+          ),
+        ).toThrow("Unknown permitted metadata difference");
+      });
+    });
+
     it("(g) ICC stale grant masked by an implied delta: an ICC_Profile:RawProfile grant with an unchanged ICC projection and an implied Vendor Flag delta still throws Stale permitted difference: ICC_Profile:RawProfile (WR-01)", () => {
       const grantedDigest = "a".repeat(64);
       const iccEntries = [{ RawProfile: "x" }];
@@ -552,5 +669,216 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
         ),
       ).toThrow("Stale permitted difference: ICC_Profile:RawProfile");
     });
+  });
+});
+
+describe("comparePermittedDifferences (Resolution:Preserved kind)", () => {
+  const RESOLUTION_KINDS: readonly PermittedKind[] = [
+    {
+      id: "Resolution:Preserved",
+      measurement: "x",
+      namespace: "Vendor-Resolution",
+    },
+  ];
+
+  it("passes when granted and source/output entries match exactly", () => {
+    const entries = [{ Unit: 1 }];
+    const source = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": entries,
+    });
+    const output = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": entries,
+    });
+    expect(
+      comparePermittedDifferences(
+        source,
+        output,
+        ["Resolution:Preserved"],
+        RESOLUTION_KINDS,
+      ),
+    ).toEqual([]);
+  });
+
+  it("throws when granted but the output lacks the namespace", () => {
+    const source = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": [{ Unit: 1 }],
+    });
+    const output = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    expect(() =>
+      comparePermittedDifferences(
+        source,
+        output,
+        ["Resolution:Preserved"],
+        RESOLUTION_KINDS,
+      ),
+    ).toThrow("Requested resolution was not preserved");
+  });
+
+  it("throws when the output entries differ from source", () => {
+    const source = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": [{ Unit: 1 }],
+    });
+    const output = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": [{ Unit: 2 }],
+    });
+    expect(() =>
+      comparePermittedDifferences(
+        source,
+        output,
+        ["Resolution:Preserved"],
+        RESOLUTION_KINDS,
+      ),
+    ).toThrow("Requested resolution was not preserved");
+  });
+
+  it("throws Unknown permitted metadata difference when no admitted kind supplies a namespace", () => {
+    const source = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    const output = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    expect(() =>
+      comparePermittedDifferences(source, output, ["Resolution:Preserved"], []),
+    ).toThrow("Unknown permitted metadata difference");
+  });
+
+  it("still throws Unknown permitted metadata difference for a completely unrecognized grant string", () => {
+    const source = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    const output = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    expect(() =>
+      comparePermittedDifferences(
+        source,
+        output,
+        ["Bogus:Kind=1"],
+        RESOLUTION_KINDS,
+      ),
+    ).toThrow("Unknown permitted metadata difference");
+  });
+});
+
+describe("compareStructuralDifferential (56-07 Task 2)", () => {
+  const NEUTRAL_STRIP_KIND_ID = "Structure:UnregisteredAncillaryStripped";
+
+  const structureKind = (
+    admitsPart: (part: string) => boolean,
+  ): PermittedKind => ({
+    id: NEUTRAL_STRIP_KIND_ID,
+    measurement: "x",
+    admitsPart,
+  });
+
+  const structuralPartKind = (
+    id: PermittedKind["id"],
+    structuralPart: string,
+  ): PermittedKind => ({
+    id,
+    measurement: "x",
+    structuralPart,
+  });
+
+  it("identical part multisets with no grants pass", () => {
+    expect(
+      compareStructuralDifferential(["A", "B", "C"], ["A", "B", "C"], [], []),
+    ).toEqual([]);
+  });
+
+  describe("native-only part (a preserved container part)", () => {
+    const kinds: readonly PermittedKind[] = [
+      structuralPartKind("Resolution:Preserved", "X"),
+    ];
+
+    it("passes when an active grant's kind declares the matching structuralPart", () => {
+      expect(
+        compareStructuralDifferential(
+          ["A", "X", "C"],
+          ["A", "C"],
+          ["Resolution:Preserved"],
+          kinds,
+        ),
+      ).toEqual([]);
+    });
+
+    it("throws Unpermitted structural difference without the grant", () => {
+      expect(() =>
+        compareStructuralDifferential(["A", "X", "C"], ["A", "C"], [], kinds),
+      ).toThrow("Unpermitted structural difference: X");
+    });
+  });
+
+  describe("reference-only part (an unregistered-ancillary strip)", () => {
+    it("passes with the grant and an admitsPart accepting the part", () => {
+      const kinds = [structureKind(() => true)];
+      expect(
+        compareStructuralDifferential(
+          ["A", "C"],
+          ["A", "p1", "C"],
+          [`${NEUTRAL_STRIP_KIND_ID}=p1`],
+          kinds,
+        ),
+      ).toEqual([]);
+    });
+
+    it("throws Structural over-strip without the grant", () => {
+      const kinds = [structureKind(() => true)];
+      expect(() =>
+        compareStructuralDifferential(["A", "C"], ["A", "p1", "C"], [], kinds),
+      ).toThrow("Structural over-strip: p1");
+    });
+
+    it("throws Structural over-strip when admitsPart rejects the part", () => {
+      const kinds = [structureKind(() => false)];
+      expect(() =>
+        compareStructuralDifferential(
+          ["A", "C"],
+          ["A", "p1", "C"],
+          [`${NEUTRAL_STRIP_KIND_ID}=p1`],
+          kinds,
+        ),
+      ).toThrow("Structural over-strip: p1");
+    });
+
+    it("one grant explains every reference-only occurrence of that part type", () => {
+      const kinds = [structureKind(() => true)];
+      expect(
+        compareStructuralDifferential(
+          [],
+          ["p1", "p1"],
+          [`${NEUTRAL_STRIP_KIND_ID}=p1`],
+          kinds,
+        ),
+      ).toEqual([]);
+    });
+  });
+
+  it("throws Stale permitted difference for a Structure grant naming a part with no delta", () => {
+    const kinds = [structureKind(() => true)];
+    expect(() =>
+      compareStructuralDifferential(
+        ["A"],
+        ["A"],
+        [`${NEUTRAL_STRIP_KIND_ID}=p2`],
+        kinds,
+      ),
+    ).toThrow(
+      "Stale permitted difference: Structure:UnregisteredAncillaryStripped=p2",
+    );
+  });
+
+  it("throws Unknown permitted metadata difference for a grant kind outside kinds", () => {
+    expect(() =>
+      compareStructuralDifferential(["A"], ["A"], ["Resolution:Preserved"], []),
+    ).toThrow("Unknown permitted metadata difference");
   });
 });

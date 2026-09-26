@@ -86,7 +86,13 @@ async function fixture(): Promise<TransactionFixture> {
     sourceSnapshot: snapshotSource(stats),
     sourceMode: stats.mode,
     admission,
-    plan: webpHandler.buildOutputPlan(admission, false, false, undefined),
+    plan: webpHandler.buildOutputPlan(
+      admission,
+      false,
+      false,
+      false,
+      undefined,
+    ),
   };
 }
 
@@ -122,6 +128,7 @@ async function run(
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: options.preserveTimestamps ?? false,
+      preserveResolution: false,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     },
     fileOps: options.fileOps,

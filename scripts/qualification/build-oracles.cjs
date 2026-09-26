@@ -113,9 +113,12 @@ function validateAuthorityShape(authority) {
     `${id}.license`,
   );
   if (
-    !new Set(["BSD-3-Clause", "Artistic-1.0-Perl OR GPL-1.0-or-later"]).has(
-      authority.license.spdx,
-    )
+    !new Set([
+      "BSD-3-Clause",
+      "Artistic-1.0-Perl OR GPL-1.0-or-later",
+      "libpng-2.0",
+      "HPND",
+    ]).has(authority.license.spdx)
   )
     fail(`${id}.license.spdx is not admitted`);
   repositoryPath(authority.license.path, `${id}.license.path`);
@@ -186,17 +189,26 @@ function validateFixtureShape(fixture) {
 function validateManifestShape(manifest) {
   exactKeys(manifest, ["schemaVersion", "authorities", "fixtures"], "manifest");
   if (manifest.schemaVersion !== 1) fail("schemaVersion must be 1");
-  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 2)
-    fail("exactly two tool authorities are required");
+  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 4)
+    fail("exactly four tool authorities are required");
   manifest.authorities.forEach(validateAuthorityShape);
   const ids = manifest.authorities.map((item) => item.id);
   if (
-    JSON.stringify(ids) !== JSON.stringify(["libwebp-1.5.0", "exiftool-13.59"])
+    JSON.stringify(ids) !==
+    JSON.stringify([
+      "libwebp-1.5.0",
+      "exiftool-13.59",
+      "libpng-1.6.58",
+      "pngcheck-4.0.1",
+    ])
   )
     fail("authority order and IDs are not exact");
-  if (!Array.isArray(manifest.fixtures) || manifest.fixtures.length !== 1)
-    fail("exactly one upstream fixture authority is required");
+  if (!Array.isArray(manifest.fixtures) || manifest.fixtures.length === 0)
+    fail("at least one upstream fixture authority is required");
   manifest.fixtures.forEach(validateFixtureShape);
+  const fixtureIds = manifest.fixtures.map((item) => item.id);
+  if (new Set(fixtureIds).size !== fixtureIds.length)
+    fail("fixture ids must be unique");
   return manifest;
 }
 
@@ -289,6 +301,40 @@ function validateAuthorityBytes(authority) {
   return { archivePath, members };
 }
 
+/**
+ * WebP-specific exact oracle assertions (T-56-33): the immutable
+ * libwebp-1.5.0-example fixture's byte structure and dwebp/webpinfo/ExifTool
+ * transcript are pinned exactly, unchanged since before the Phase 56
+ * generalization. Kept in its own function so `validateFixture` stays
+ * format-neutral and this fixture's evidence never widens.
+ */
+function validateWebpFixtureBytes(fixture, member, record) {
+  const payloadSize = member.readUInt32LE(16);
+  const payload = member.subarray(20, 20 + payloadSize);
+  if (
+    member.toString("ascii", 0, 4) !== "RIFF" ||
+    member.toString("ascii", 8, 12) !== "WEBP" ||
+    member.toString("ascii", 12, 16) !== "VP8 " ||
+    payloadSize !== 4860 ||
+    digest(payload) !==
+      "89c641e38f1b10766880e7c81e3ca69246836fdb81100c39cd39881513b9dd36" ||
+    record.oracle?.dwebp?.pamSha256 !==
+      "ff7c5b6f529f2800154e87e3a56f708f9de842cda7ffff2b7284821cc1a9848a" ||
+    record.oracle?.webpinfo?.chunks?.[0]?.spanBytes !== 4868 ||
+    JSON.stringify(record.oracle?.exiftool?.warnings) !== "[]"
+  )
+    fail(`${fixture.id} exact oracle assertion drift`);
+}
+
+/**
+ * Generalized (56-09 KIT-01): every fixture entry ties its committed bytes to
+ * an exact member of a pinned authority archive (T-56-30) and to a
+ * corresponding corpus record whose own provenance/digest fields agree. A
+ * format-specific exact-byte assertion (`validateWebpFixtureBytes`) applies
+ * only to the fixture whose authority is `libwebp-1.5.0`, so the WebP
+ * evidence this kit already pinned never widens; other authorities (for
+ * example `libpng-1.6.58`) validate only the format-neutral shape above.
+ */
 function validateFixture(fixture, manifest, validatedAuthorities) {
   const authority = manifest.authorities.find(
     (item) => item.id === fixture.authority,
@@ -313,8 +359,8 @@ function validateFixture(fixture, manifest, validatedAuthorities) {
   const record = corpus.records?.find((item) => item.id === fixture.id);
   if (
     !isObject(record) ||
-    JSON.stringify(record.roles) !==
-      JSON.stringify(["decode", "differential", "structural"]) ||
+    !Array.isArray(record.roles) ||
+    record.roles.length === 0 ||
     record.localPath !==
       path.relative(
         path.dirname(corpusManifestPath),
@@ -327,21 +373,9 @@ function validateFixture(fixture, manifest, validatedAuthorities) {
     record.sha256 !== fixture.sha256
   )
     fail(`${fixture.id} corpus authority drift`);
-  const payloadSize = member.readUInt32LE(16);
-  const payload = member.subarray(20, 20 + payloadSize);
-  if (
-    member.toString("ascii", 0, 4) !== "RIFF" ||
-    member.toString("ascii", 8, 12) !== "WEBP" ||
-    member.toString("ascii", 12, 16) !== "VP8 " ||
-    payloadSize !== 4860 ||
-    digest(payload) !==
-      "89c641e38f1b10766880e7c81e3ca69246836fdb81100c39cd39881513b9dd36" ||
-    record.oracle?.dwebp?.pamSha256 !==
-      "ff7c5b6f529f2800154e87e3a56f708f9de842cda7ffff2b7284821cc1a9848a" ||
-    record.oracle?.webpinfo?.chunks?.[0]?.spanBytes !== 4868 ||
-    JSON.stringify(record.oracle?.exiftool?.warnings) !== "[]"
-  )
-    fail(`${fixture.id} exact oracle assertion drift`);
+
+  if (fixture.authority === "libwebp-1.5.0")
+    validateWebpFixtureBytes(fixture, member, record);
 }
 
 function runShapeMutationChecks(manifest) {
@@ -351,6 +385,8 @@ function runShapeMutationChecks(manifest) {
     (copy) => (copy.authorities[0].license.spdx = "unknown"),
     (copy) => (copy.authorities[0].entrypoints[0].member = "../dwebp"),
     (copy) => delete copy.fixtures[0].sha256,
+    (copy) => copy.authorities.splice(2, 1), // drop libpng-1.6.58
+    (copy) => copy.authorities.splice(3, 1), // drop pngcheck-4.0.1
   ];
   for (const mutate of mutations) {
     const copy = structuredClone(manifest);
@@ -496,6 +532,85 @@ function prepareOracleTools() {
       "animation oracle build failed",
     );
 
+    const libpng = manifest.authorities[2];
+    const libpngRoot = path.join(workspace, libpng.archive.root);
+    runTool(
+      path.join(libpngRoot, "configure"),
+      ["--disable-shared", "--enable-static", "--disable-dependency-tracking"],
+      { cwd: libpngRoot },
+      "libpng configure failed",
+    );
+    runTool("make", ["-j2"], { cwd: libpngRoot }, "libpng build failed");
+
+    const pngDecodeSourcePath = path.join(
+      projectRoot,
+      "scripts/qualification/png_decode_oracle.c",
+    );
+    if (!fs.existsSync(pngDecodeSourcePath))
+      fail("png decode oracle source is missing");
+    const pngDecodePath = path.join(workspace, "png-decode-oracle");
+    runTool(
+      "cc",
+      [
+        "-std=c11",
+        "-O2",
+        pngDecodeSourcePath,
+        "-I",
+        libpngRoot,
+        "-L",
+        path.join(libpngRoot, ".libs"),
+        "-lpng16",
+        "-lz",
+        "-lm",
+        "-o",
+        pngDecodePath,
+      ],
+      {},
+      "png decode oracle build failed",
+    );
+
+    const pngcheck = manifest.authorities[3];
+    const pngcheckRoot = path.join(workspace, pngcheck.archive.root);
+    const pngcheckPath = path.join(workspace, "pngcheck");
+    runTool(
+      "cc",
+      [
+        "-std=c11",
+        "-O2",
+        path.join(pngcheckRoot, "pngcheck.c"),
+        "-lz",
+        "-o",
+        pngcheckPath,
+      ],
+      {},
+      "pngcheck build failed",
+    );
+
+    // The decode oracle has no `-version` flag (it takes exactly one input
+    // path per its I/O contract); it prints the libpng it was linked
+    // against to stderr unconditionally, even on a bare usage error, so
+    // the builder can confirm the built binary is actually wired to the
+    // pinned libpng without a separate flag.
+    const pngDecodeUsage = spawnSync(pngDecodePath, [], {
+      encoding: "utf8",
+      timeout: 5_000,
+    });
+    if (pngDecodeUsage.error !== undefined)
+      fail(
+        `png decode oracle version check failed: ${pngDecodeUsage.error.message}`,
+      );
+    if (!(pngDecodeUsage.stderr ?? "").includes(`libpng ${libpng.version}`))
+      fail("built oracle version drift");
+
+    const pngcheckVersion = runTool(
+      pngcheckPath,
+      ["-h"],
+      {},
+      "pngcheck version check failed",
+    ).stdout.trim();
+    if (!pngcheckVersion.includes(pngcheck.version))
+      fail("built oracle version drift");
+
     const executable = (filePath) => ({
       path: filePath,
       sha256: digest(fs.readFileSync(filePath)),
@@ -507,6 +622,8 @@ function prepareOracleTools() {
       webpinfo: executable(webpinfoPath),
       animation: executable(animationPath),
       exiftool: executable(exiftoolPath),
+      pngDecode: executable(pngDecodePath),
+      pngcheck: executable(pngcheckPath),
       dispose() {
         fs.rmSync(workspace, { recursive: true, force: true });
       },

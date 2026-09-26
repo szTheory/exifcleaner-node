@@ -81,22 +81,31 @@ non-matrix job as passing its required check directly.
 ## Per-format qualification scoping
 
 A format's Linux qualification suite runs on changes to its own `src/<format>/**`, its registered
-handler, its `tests/qualification/<format>/**` directory, and its fixtures. Any change under
-`tests/qualification/kit/**`, or any shared code the kit or every format depends on, runs **every**
-format's suite — fail-closed, so an ambiguous or shared-surface change never silently skips a
-format's evidence (D-17; see `docs/format-admission.md`'s "CI scoping" section for the full rule).
+handler, its `tests/qualification/<format>/**` directory, and its own `tests/corpus/upstream/**`
+authority. Any change under `tests/qualification/kit/**`, or any shared code the kit or every
+format depends on, runs **every** format's suite — fail-closed, so an ambiguous or shared-surface
+change never silently skips a format's evidence (D-17; see `docs/format-admission.md`'s "CI
+scoping" section for the full rule).
 
-**Phase 56**, not this phase, wires the selection: it adds a `formats` output to
-`scripts/classify_ci_scope.cjs` and does the file selection _inside_ the single existing
-`qualification-linux` job — no new job. This is required, not a style choice: measured directly on
-2026-09-24 with
+**Implemented (Plan 56-12).** `scripts/classify_ci_scope.cjs` exposes a `formats` output
+(`classifyQualificationFormats`) alongside `scope`: a changed path selects exactly one format only
+when it matches that format's own `FORMAT_PATH_RULES` entry; a path matching zero formats (a
+kit/shared path) or more than one, a tag ref, or any non-`pull_request`/`push` event bubbles the
+whole set to every qualified format. The selection happens **inside** the single existing
+`qualification-linux` job — no new job, and no workflow-level `on.paths` filter or job-level skip.
+`qualification-linux` lists `classify` in `needs` **only** to read `outputs.formats`; it is never
+gated by `outputs.scope`, and `validateCiScopeWiring` (the same script) throws if that invariant
+ever regresses. Its run step always executes `QUAL_KIT` (the shared kit suites), then a bash `case`
+over the comma-separated `formats` output appends `QUAL_WEBP` and/or `QUAL_PNG`; an unrecognized
+format name fails the step rather than silently running nothing.
+
+This in-job selection, rather than a workflow-level filter or a job-level skip, is required, not a
+style choice: measured directly on 2026-09-24 (re-measured 2026-09-26; unchanged) with
 `gh api repos/szTheory/exifcleaner-node/branches/main/protection --jq '.required_status_checks.contexts'`,
 `qualification-linux` is one of the 19 required status contexts on `main`. A required status check
 that never reports a conclusion (a workflow-level `on.paths` filter, or a literal job-level skip on
 a _required_ job) leaves that check pending forever on an unrelated PR — the same matrix-name trap
-this document already records above for the platform-matrix jobs. Selecting files inside the job,
-rather than skipping the job itself, is what keeps `qualification-linux` reporting a real
-conclusion on every run.
+this document already records above for the platform-matrix jobs.
 
 ## How to add a new format directory
 

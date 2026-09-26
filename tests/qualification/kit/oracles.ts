@@ -74,7 +74,11 @@ export interface MetadataTranscript {
  * ordinary leak/over-strip failure, so a mismatched implied-tag value still fails.
  */
 export interface PermittedKind {
-  readonly id: "EXIF:Orientation" | "ICC_Profile:RawProfile";
+  readonly id:
+    | "EXIF:Orientation"
+    | "ICC_Profile:RawProfile"
+    | "Resolution:Preserved"
+    | "Structure:UnregisteredAncillaryStripped";
   readonly measurement: string;
   readonly impliedDifference?: {
     readonly namespace: string;
@@ -83,6 +87,25 @@ export interface PermittedKind {
       activeKindIds: readonly PermittedKind["id"][],
     ) => boolean;
   };
+  /**
+   * Profile-supplied only. For `Resolution:Preserved`, the ExifTool group
+   * (namespace) this kind's metadata lives under -- the kit itself names no
+   * format, so a format's own oracles.ts supplies the concrete group.
+   */
+  readonly namespace?: string;
+  /**
+   * Profile-supplied only. For a kind whose grant also explains a native-only
+   * *container* part (as opposed to a metadata tag), the part name this kind
+   * declares -- consumed by `compareStructuralDifferential`, never by the
+   * metadata-only comparisons.
+   */
+  readonly structuralPart?: string;
+  /**
+   * Profile-supplied only. For `Structure:UnregisteredAncillaryStripped`, the
+   * eligibility predicate deciding whether a reference-only container part
+   * may be explained by this kind's grant.
+   */
+  readonly admitsPart?: (part: string) => boolean;
 }
 
 /**
@@ -96,6 +119,16 @@ export interface DifferentialProfile {
   readonly extension: string;
   readonly rawColorProfileSha256: (bytes: Buffer) => string | undefined;
   readonly permittedKinds: readonly PermittedKind[];
+  /**
+   * Optional, profile-supplied structural part extractor for a container
+   * whose ExifTool differential alone cannot see every permitted difference
+   * -- for example a stripped part ExifTool never reports as metadata. When
+   * present, `runExiftoolDifferential` also runs
+   * `compareStructuralDifferential` against `structuralParts(output)` and
+   * `structuralParts(reference)`. A format that omits it keeps its existing
+   * differential behaviour unchanged.
+   */
+  readonly structuralParts?: (bytes: Buffer) => readonly string[];
 }
 
 export interface ExiftoolDifferentialOptions {
@@ -273,6 +306,22 @@ function runMetadata(
   });
 }
 
+/**
+ * A named, single-file metadata projection for a format whose own source
+ * ExifTool warns on read (measured: a format's own text chunk placed after
+ * its own image data) -- `runMetadata`'s
+ * warning rule only ever applies inside `runExiftoolDifferential`'s
+ * two-projection comparison, so a format needing to project exactly one file
+ * on its own calls this instead of going around `validateInput`.
+ */
+export function projectMetadata(
+  bytes: Buffer,
+  profile: DifferentialProfile,
+): MetadataProjection {
+  validateInput(profile.format, bytes);
+  return runMetadata(bytes, profile.extension, profile.rawColorProfileSha256);
+}
+
 function tagValues(entries: readonly MetadataEntry[], tag: string): unknown[] {
   return entries.flatMap((entry) =>
     Object.entries(entry)
@@ -285,17 +334,25 @@ export function comparePermittedDifferences(
   source: MetadataProjection,
   output: MetadataProjection,
   permittedDifferences: readonly string[],
+  kinds: readonly PermittedKind[] = [],
 ): readonly string[] {
   if (source.warnings.length > 0 || output.warnings.length > 0)
     throw new Error("Oracle warning is not permitted");
   let expectedOrientation: number | undefined;
   let expectedIcc: string | undefined;
+  let resolutionGranted = false;
   for (const item of permittedDifferences) {
     const orientation = item.match(/^EXIF:Orientation=([1-8])$/);
     const icc = item.match(/^ICC_Profile:RawProfile=([a-f0-9]{64})$/);
+    const structure =
+      /^Structure:UnregisteredAncillaryStripped=[A-Za-z0-9 ]{1,16}$/.test(item);
     if (orientation !== null) expectedOrientation = Number(orientation[1]);
     else if (icc !== null) expectedIcc = icc[1];
-    else throw new Error("Unknown permitted metadata difference");
+    else if (item === "Resolution:Preserved") resolutionGranted = true;
+    // A Structure:UnregisteredAncillaryStripped grant has no metadata
+    // assertion here -- it is checked only by compareStructuralDifferential.
+    else if (!structure)
+      throw new Error("Unknown permitted metadata difference");
   }
 
   const sourceExif = source.namespaces.EXIF ?? [];
@@ -336,10 +393,32 @@ export function comparePermittedDifferences(
   )
     throw new Error("Requested ICC profile was not preserved");
 
+  if (resolutionGranted) {
+    const resolutionKind = kinds.find(
+      (kind) => kind.id === "Resolution:Preserved",
+    );
+    if (resolutionKind?.namespace === undefined)
+      throw new Error("Unknown permitted metadata difference");
+    const namespace = resolutionKind.namespace;
+    const sourceEntries = source.namespaces[namespace] ?? [];
+    const outputEntries = output.namespaces[namespace] ?? [];
+    const { onlyLeft, onlyRight } = multisetDiff(sourceEntries, outputEntries);
+    if (
+      sourceEntries.length === 0 ||
+      onlyLeft.length > 0 ||
+      onlyRight.length > 0
+    )
+      throw new Error("Requested resolution was not preserved");
+  }
+
   return [];
 }
 
-type ParsedGrantKind = "EXIF:Orientation" | "ICC_Profile:RawProfile";
+type ParsedGrantKind =
+  | "EXIF:Orientation"
+  | "ICC_Profile:RawProfile"
+  | "Resolution:Preserved"
+  | "Structure:UnregisteredAncillaryStripped";
 
 interface ParsedGrant {
   readonly kind: ParsedGrantKind;
@@ -352,6 +431,16 @@ function parseGrant(item: string): ParsedGrant {
     return { kind: "EXIF:Orientation", value: orientation[1]! };
   const icc = item.match(/^ICC_Profile:RawProfile=([a-f0-9]{64})$/);
   if (icc !== null) return { kind: "ICC_Profile:RawProfile", value: icc[1]! };
+  if (item === "Resolution:Preserved")
+    return { kind: "Resolution:Preserved", value: "" };
+  const structure = item.match(
+    /^Structure:UnregisteredAncillaryStripped=([A-Za-z0-9 ]{1,16})$/,
+  );
+  if (structure !== null)
+    return {
+      kind: "Structure:UnregisteredAncillaryStripped",
+      value: structure[1]!,
+    };
   throw new Error("Unknown permitted metadata difference");
 }
 
@@ -423,8 +512,13 @@ export function compareDifferential(
   const iccGrant = parsedGrants.find(
     (grant) => grant.kind === "ICC_Profile:RawProfile",
   );
+  const resolutionGrant = parsedGrants.find(
+    (grant) => grant.kind === "Resolution:Preserved",
+  );
+  const resolutionKind = kindById.get("Resolution:Preserved");
   let orientationExplainedDelta = false;
   let iccExplainedDelta = false;
+  let resolutionExplainedDelta = false;
   const activeKindIds = parsedGrants.map((grant) => grant.kind);
 
   const namespaceNames = new Set([
@@ -476,6 +570,25 @@ export function compareDifferential(
       throw new Error("Requested ICC profile was not preserved");
     }
 
+    if (
+      resolutionGrant !== undefined &&
+      resolutionKind?.namespace !== undefined &&
+      namespace === resolutionKind.namespace
+    ) {
+      const sourceEntries = source.namespaces[namespace] ?? [];
+      const sourceDiff = multisetDiff(nativeEntries, sourceEntries);
+      if (
+        sourceEntries.length > 0 &&
+        sourceDiff.onlyLeft.length === 0 &&
+        sourceDiff.onlyRight.length === 0 &&
+        referenceEntries.length === 0
+      ) {
+        resolutionExplainedDelta = true;
+        continue;
+      }
+      throw new Error("Requested resolution was not preserved");
+    }
+
     const impliedKinds = parsedGrants
       .map((grant) => kindById.get(grant.kind))
       .filter(
@@ -501,6 +614,89 @@ export function compareDifferential(
     throw new Error("Stale permitted difference: EXIF:Orientation");
   if (iccGrant !== undefined && !iccExplainedDelta)
     throw new Error("Stale permitted difference: ICC_Profile:RawProfile");
+  if (resolutionGrant !== undefined && !resolutionExplainedDelta)
+    throw new Error("Stale permitted difference: Resolution:Preserved");
+
+  return [];
+}
+
+/**
+ * A structural differential (D-12/KIT-04's metadata-only comparison has no
+ * visibility into a container part ExifTool never reports as metadata --
+ * for example a stripped unregistered ancillary chunk). Compares two
+ * container-part multisets, order-insensitively:
+ *
+ * - A part `nativeParts` has that `referenceParts` lacks (native-only) is
+ *   explained ONLY by an active grant whose declared kind carries a matching
+ *   `structuralPart` -- any admitted kind, not only a structural-strip kind,
+ *   since a preservation grant (for example a resolution or orientation
+ *   grant) can itself be the reason a part survives natively that the
+ *   reference lacks.
+ * - A part `referenceParts` keeps that `nativeParts` lacks (reference-only)
+ *   is explained ONLY by an active `Structure:UnregisteredAncillaryStripped`
+ *   grant naming that exact part, whose kind's `admitsPart(part)` returns
+ *   true. One such grant explains every reference-only occurrence of that
+ *   same part type.
+ * - A `Structure:UnregisteredAncillaryStripped` grant that explains no
+ *   observed reference-only occurrence is stale and throws, exactly like the
+ *   metadata-only differential's stale-grant rule.
+ *
+ * Fail-closed on its own, mirroring `compareDifferential`: a grant naming a
+ * kind outside `kinds` is rejected outright before any comparison runs.
+ */
+export function compareStructuralDifferential(
+  nativeParts: readonly string[],
+  referenceParts: readonly string[],
+  grants: readonly string[],
+  kinds: readonly PermittedKind[],
+): readonly string[] {
+  const kindById = new Map(kinds.map((kind) => [kind.id, kind] as const));
+  const parsedGrants = grants.map(parseGrant);
+  for (const grant of parsedGrants)
+    if (!kindById.has(grant.kind))
+      throw new Error("Unknown permitted metadata difference");
+
+  const activeStructuralParts = new Set(
+    parsedGrants
+      .map((grant) => kindById.get(grant.kind)?.structuralPart)
+      .filter((part): part is string => part !== undefined),
+  );
+  const strippedGrants = parsedGrants.filter(
+    (grant) => grant.kind === "Structure:UnregisteredAncillaryStripped",
+  );
+  const strippedKind = kindById.get("Structure:UnregisteredAncillaryStripped");
+  const explainedStrippedValues = new Set<string>();
+
+  const toEntries = (parts: readonly string[]): readonly MetadataEntry[] =>
+    parts.map((part) => ({ part }));
+  const { onlyLeft, onlyRight } = multisetDiff(
+    toEntries(nativeParts),
+    toEntries(referenceParts),
+  );
+
+  for (const entry of onlyLeft) {
+    const part = String(entry.part);
+    if (!activeStructuralParts.has(part))
+      throw new Error(`Unpermitted structural difference: ${part}`);
+  }
+
+  for (const entry of onlyRight) {
+    const part = String(entry.part);
+    const grant = strippedGrants.find((item) => item.value === part);
+    if (
+      grant === undefined ||
+      strippedKind?.admitsPart === undefined ||
+      !strippedKind.admitsPart(part)
+    )
+      throw new Error(`Structural over-strip: ${part}`);
+    explainedStrippedValues.add(part);
+  }
+
+  for (const grant of strippedGrants)
+    if (!explainedStrippedValues.has(grant.value))
+      throw new Error(
+        `Stale permitted difference: Structure:UnregisteredAncillaryStripped=${grant.value}`,
+      );
 
   return [];
 }
@@ -547,7 +743,12 @@ export function runExiftoolDifferential(
     options.profile.extension,
     options.profile.rawColorProfileSha256,
   );
-  comparePermittedDifferences(source, output, options.permittedDifferences);
+  comparePermittedDifferences(
+    source,
+    output,
+    options.permittedDifferences,
+    options.profile.permittedKinds,
+  );
   const referenceBytes = runExiftoolReference(options.source, options.profile);
   const reference = runMetadata(
     referenceBytes,
@@ -561,6 +762,14 @@ export function runExiftoolDifferential(
     options.permittedDifferences,
     options.profile.permittedKinds,
   );
+  if (options.profile.structuralParts !== undefined) {
+    compareStructuralDifferential(
+      options.profile.structuralParts(options.output),
+      options.profile.structuralParts(referenceBytes),
+      options.permittedDifferences,
+      options.profile.permittedKinds,
+    );
+  }
   const authority = tools().authority.authorities.find(
     (item) => item.id === "exiftool-13.59",
   );

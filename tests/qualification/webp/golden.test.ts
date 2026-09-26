@@ -25,6 +25,7 @@ const CAPTURE_REASON = "pre-FormatHandler baseline (D-22)";
 
 interface ManifestRecordSummary {
   readonly id: string;
+  readonly format: string;
   readonly outcome: { readonly status: "success" | "refused" };
 }
 
@@ -35,6 +36,10 @@ const FLAG_COMBINATIONS: readonly PreservationOptions[] = [false, true].flatMap(
         preserveOrientation,
         preserveColorProfile,
         preserveTimestamps,
+        // Held constant (never randomized here): WebP declines
+        // preserveResolution: true before any write (D-03), so varying it
+        // would change golden keys and the byte-neutrality proof (D-03).
+        preserveResolution: false,
       })),
     ),
 );
@@ -80,7 +85,14 @@ async function collectCorpusEntries(
 ): Promise<void> {
   const manifest: { readonly records: readonly ManifestRecordSummary[] } =
     JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
-  for (const record of manifest.records) {
+  // This golden harness pins only the pre-FormatHandler WebP baseline
+  // (D-22); Phase 56 widened the shared corpus manifest to carry non-WebP
+  // records too (KIT-01), which this file's own sanitize/digest loop below
+  // is not built to golden-pin. Filter to this suite's own format so the
+  // corpus generalization does not silently grow this file's golden set.
+  for (const record of manifest.records.filter(
+    (item) => item.format === "webp",
+  )) {
     const sourceBytes = await materializeCorpusRecord(record.id);
     for (const options of FLAG_COMBINATIONS) {
       const key = `corpus:${record.id}|${flagKey(options)}`;
@@ -160,6 +172,7 @@ describe("kit golden-digest harness (KIT-02)", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     };
 
     it("(1) fails the gate when one byte of the output changes", async () => {

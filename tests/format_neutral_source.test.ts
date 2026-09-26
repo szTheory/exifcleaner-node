@@ -8,11 +8,15 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 /**
  * A format-specific vocabulary token. Any of these appearing in a file meant
  * to stay format-neutral (the shared engine and transaction) is a sign a
- * WebP-only concept crept back into shared code. Plan 08 extends the scan
- * target list with a per-format `oracles.ts`/`webp-handler.ts` allowlist for
- * the kit-neutrality scan; the token set and matcher here stay unchanged.
+ * WebP- or PNG-only concept crept back into shared code. Plan 08 extended
+ * the scan target list with a per-format `oracles.ts`/`webp-handler.ts`
+ * allowlist for the kit-neutrality scan; Phase 56 widened the token set
+ * itself to also cover PNG's own vocabulary (56-03). The PNG chunk codes
+ * need word boundaries: measured 2026-09-25, an unbounded `idat` matches
+ * `validate` (and similar identifiers) in shared source.
  */
-export const FORMAT_SPECIFIC_TOKEN = /webp|riff|vp8|fourcc|iccp/giu;
+export const FORMAT_SPECIFIC_TOKEN =
+  /webp|riff|vp8|fourcc|iccp|png|\bihdr\b|\bidat\b|\biend\b|\bphys\b|\bidot\b|\bitxt\b|\bztxt\b/giu;
 
 export interface FormatSpecificHit {
   readonly line: number;
@@ -58,15 +62,16 @@ function describeHits(
   target: ScanTarget,
   hits: readonly FormatSpecificHit[],
 ): string {
-  return `${target.path} contains WebP-specific tokens: ${hits
+  return `${target.path} contains format-specific tokens: ${hits
     .map((hit) => `line ${hit.line} ("${hit.token}")`)
     .join(", ")}`;
 }
 
 /**
  * The permanent format-neutrality gate (KIT-01 success criterion 1, D-03).
- * Every file listed here must stay free of WebP's own vocabulary; a format
- * handler owns its own naming, the shared engine and transaction never do.
+ * Every file listed here must stay free of any registered format's own
+ * vocabulary; a format handler owns its own naming, the shared engine and
+ * transaction never do.
  */
 const NEUTRAL_TARGETS: readonly ScanTarget[] = [
   { path: "src/engine.ts" },
@@ -74,10 +79,13 @@ const NEUTRAL_TARGETS: readonly ScanTarget[] = [
 ];
 
 describe("format-neutral source scan (KIT-01 D-03)", () => {
-  it.each(NEUTRAL_TARGETS)("$path carries no WebP-specific token", (target) => {
-    const hits = scanTargetForFormatSpecificTokens(target);
-    expect(hits.length, describeHits(target, hits)).toBe(0);
-  });
+  it.each(NEUTRAL_TARGETS)(
+    "$path carries no format-specific token",
+    (target) => {
+      const hits = scanTargetForFormatSpecificTokens(target);
+      expect(hits.length, describeHits(target, hits)).toBe(0);
+    },
+  );
 
   it("returns at least two hits for a fixture carrying WebP-specific tokens", () => {
     const hits = formatSpecificTokens(
@@ -91,6 +99,16 @@ describe("format-neutral source scan (KIT-01 D-03)", () => {
     expect(hits).toHaveLength(1);
     expect(hits[0]).toMatchObject({ line: 1, token: "WEBP" });
   });
+
+  it("returns two hits for a fixture carrying word-bounded PNG chunk codes", () => {
+    const hits = formatSpecificTokens("copy IDAT then IEND");
+    expect(hits).toHaveLength(2);
+  });
+
+  it("does not false-positive on an identifier that merely contains a PNG chunk code as a substring", () => {
+    const hits = formatSpecificTokens("validateRegularFile");
+    expect(hits).toHaveLength(0);
+  });
 });
 
 /**
@@ -102,12 +120,16 @@ describe("format-neutral source scan (KIT-01 D-03)", () => {
  * checks every exception key names a file that still exists, so a stale
  * exception (the file was made neutral, or renamed, or removed) fails instead
  * of silently widening the allowlist forever.
+ *
+ * Plan 09 closed the one carried exception (`corpus.ts`): the manifest
+ * schema's own payload vocabulary moved out to each format's own
+ * `payloadDigests` callback (`webpPayloadDigests`, `pngPayloadDigests`), so
+ * this object is now empty. A dedicated non-vacuous assertion below pins
+ * that emptiness, so re-adding an exception is a reviewed diff, not a silent
+ * widening.
  */
 export const KIT_NEUTRALITY_EXCEPTIONS: Readonly<Record<string, string>> =
-  Object.freeze({
-    "corpus.ts":
-      "manifest schema still uses WebP payload vocabulary; generalized when the first non-WebP corpus record lands (Phase 56)",
-  });
+  Object.freeze({});
 
 function listKitFiles(): string[] {
   const kitDir = join(packageRoot, "tests/qualification/kit");
@@ -117,6 +139,10 @@ function listKitFiles(): string[] {
 }
 
 describe("kit-neutrality scan (Plan 08)", () => {
+  it("carries no open exceptions (Plan 09 closed corpus.ts)", () => {
+    expect(KIT_NEUTRALITY_EXCEPTIONS).toEqual({});
+  });
+
   it("every exception key names a file that exists under tests/qualification/kit/", () => {
     const kitFiles = new Set(
       listKitFiles().map((path) => path.split("/").pop()),
@@ -130,7 +156,7 @@ describe("kit-neutrality scan (Plan 08)", () => {
     listKitFiles()
       .map((path) => ({ path, basename: path.split("/").pop() ?? "" }))
       .filter(({ basename }) => !(basename in KIT_NEUTRALITY_EXCEPTIONS)),
-  )("$path carries no WebP-specific token", ({ path }) => {
+  )("$path carries no format-specific token", ({ path }) => {
     const hits = scanTargetForFormatSpecificTokens({ path });
     expect(hits.length, describeHits({ path }, hits)).toBe(0);
   });

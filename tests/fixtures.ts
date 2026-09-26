@@ -1,3 +1,6 @@
+import { deflateSync } from "node:zlib";
+import { PNG_SIGNATURE, encodePngChunk } from "../src/png/chunks.js";
+
 export interface FixtureChunk {
   readonly fourCc: string;
   readonly data: Buffer;
@@ -160,7 +163,7 @@ export interface IccTagFixture {
   readonly reserved?: number;
 }
 
-export type IccProfileMutation = "signature";
+export type IccProfileMutation = "signature" | "device-class";
 
 export function iccProfileV4(
   {
@@ -237,11 +240,38 @@ export function mutateIccProfile(
 ): Buffer {
   const result = Buffer.from(profile);
   if (mutation === "signature") result.write("nope", 36, 4, "ascii");
+  // "prtr" (printer) is a real ICC device class the structural policy does
+  // not admit (only scnr/mntr) -- used to exercise the policy-rejection path
+  // (56-05 D-08 Photoshop-style fixture) distinctly from a structurally
+  // invalid profile.
+  if (mutation === "device-class") result.write("prtr", 12, 4, "ascii");
   return result;
 }
 
 export function iccProfile(): Buffer {
   return iccProfileV4();
+}
+
+/**
+ * Builds a structurally-admitted ICC v4 profile (per `validateIccForPreservation`)
+ * carrying the canary text inside a second `cprt`/`text` tag, after the default
+ * `rTRC` tag. Offsets/sizes stay canonical contiguous ranges with zero padding,
+ * since `iccProfileV4` computes them from the tag list and this only writes into
+ * the already-zeroed data region past the 8-byte type+reserved tag header. Shared
+ * by both WebP's and PNG's qualification generators (56-10) -- the ICC container
+ * format and its structural admission are format-neutral.
+ */
+export function iccCanaryProfile(canaryText: string): Buffer {
+  const canary = Buffer.from(canaryText, "ascii");
+  const tags = [
+    { signature: "rTRC" },
+    { signature: "cprt", type: "text", size: 8 + canary.length },
+  ] as const;
+  const tableEnd = 132 + tags.length * 12;
+  const cprtOffset = tableEnd + 1 * 8; // matches iccProfileV4's default per-index offset
+  const profile = iccProfileV4({}, tags);
+  canary.copy(profile, cprtOffset + 8);
+  return profile;
 }
 
 export function metadataWebp(imagePayload = vp8()): Buffer {
@@ -252,6 +282,436 @@ export function metadataWebp(imagePayload = vp8()): Buffer {
     { fourCc: "EXIF", data: exifWithOrientation(6) },
     { fourCc: "XMP ", data: xmpPacket() },
   ]);
+}
+
+// PNG builders. A CRC-correct chunk is produced via the src encoder itself
+// (encodePngChunk), so the fixture builders and the parser share one encoder while the
+// CRC-32 algorithm itself is pinned by png_chunks.test.ts's reference vectors.
+
+export function pngChunk(type: string, data: Buffer): Buffer {
+  return encodePngChunk(type, data);
+}
+
+export function png(chunks: readonly Buffer[]): Buffer {
+  return Buffer.concat([PNG_SIGNATURE, ...chunks]);
+}
+
+export function pngIhdr(
+  width = 1,
+  height = 1,
+  bitDepth = 8,
+  colorType = 2,
+): Buffer {
+  const data = Buffer.alloc(13);
+  data.writeUInt32BE(width, 0);
+  data.writeUInt32BE(height, 4);
+  data[8] = bitDepth;
+  data[9] = colorType;
+  data[10] = 0; // compression method
+  data[11] = 0; // filter method
+  data[12] = 0; // interlace method
+  return data;
+}
+
+export function pngIdat(): Buffer {
+  // One filter-0 scanline for a 1x1 truecolor (colorType 2) pixel: filter byte + RGB.
+  const scanline = Buffer.from([0, 0, 0, 0]);
+  return deflateSync(scanline);
+}
+
+export function minimalPng(): Buffer {
+  return png([
+    pngChunk("IHDR", pngIhdr()),
+    pngChunk("IDAT", pngIdat()),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+export function pngChrm(): Buffer {
+  // Eight 4-byte unsigned values (white point + RGB primaries), each in units
+  // of 1/100000. Arbitrary admitted values -- content is opaque to the handler.
+  const data = Buffer.alloc(32);
+  const values = [31270, 32900, 64000, 33000, 30000, 60000, 15000, 6000];
+  values.forEach((value, index) => data.writeUInt32BE(value, index * 4));
+  return data;
+}
+
+export function pngBkgd(): Buffer {
+  // colorType 2 (truecolor, pngIhdr()'s default): three 2-byte RGB samples.
+  return Buffer.alloc(6);
+}
+
+/** PNG `gAMA` chunk payload: a single 4-byte gamma value in units of
+ * 1/100000. D-08: this chunk is removed by every request, unconditionally. */
+export function pngGama(value = 45455): Buffer {
+  const data = Buffer.alloc(4);
+  data.writeUInt32BE(value, 0);
+  return data;
+}
+
+export function pngPhys(): Buffer {
+  const data = Buffer.alloc(9);
+  data.writeUInt32BE(2835, 0); // pixels per unit, X (72 DPI)
+  data.writeUInt32BE(2835, 4); // pixels per unit, Y
+  data[8] = 1; // unit specifier: meters
+  return data;
+}
+
+export function pngTime(): Buffer {
+  const data = Buffer.alloc(7);
+  data.writeUInt16BE(2026, 0);
+  data[2] = 9;
+  data[3] = 25;
+  data[4] = 12;
+  data[5] = 0;
+  data[6] = 0;
+  return data;
+}
+
+export function pngTextChunkData(keyword: string, text: string): Buffer {
+  return Buffer.from(`${keyword}\0${text}`, "latin1");
+}
+
+/** PNG `zTXt` chunk payload: keyword, null terminator, compression method (0
+ * = deflate), then the deflated text. */
+export function pngZtxtChunkData(keyword: string, text: string): Buffer {
+  return Buffer.concat([
+    Buffer.from(keyword, "latin1"),
+    Buffer.from([0]),
+    Buffer.from([0]),
+    deflateSync(Buffer.from(text, "latin1")),
+  ]);
+}
+
+/**
+ * IHDR, cHRM (32 bytes), bKGD (6 bytes), pHYs (9 bytes), a tEXt "Comment"
+ * private-workflow marker, tIME (7 bytes), IDAT, IEND. Every chunk except
+ * IHDR/IDAT/IEND is either D-05 preserve-list (cHRM, bKGD) or D-05/D-02
+ * removed-by-default (pHYs, tEXt, tIME) -- exercising the 56-03 tracer's full
+ * classification surface in one fixture.
+ */
+export function metadataPng(): Buffer {
+  return png([
+    pngChunk("IHDR", pngIhdr()),
+    pngChunk("cHRM", pngChrm()),
+    pngChunk("bKGD", pngBkgd()),
+    pngChunk("pHYs", pngPhys()),
+    pngChunk("tEXt", pngTextChunkData("Comment", "private workflow")),
+    pngChunk("tIME", pngTime()),
+    pngChunk("IDAT", pngIdat()),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+/**
+ * Builds `IHDR`, the given `[type, data]` chunks in order, `IDAT`, `IEND`.
+ * The caller is responsible for choosing types/positions that satisfy
+ * src/png/chunks.ts's PNG_ORDER structural rules for the intended fixture.
+ */
+export function pngWithChunksBefore(
+  types: readonly (readonly [string, Buffer])[],
+): Buffer {
+  return png([
+    pngChunk("IHDR", pngIhdr()),
+    ...types.map(([type, data]) => pngChunk(type, data)),
+    pngChunk("IDAT", pngIdat()),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+/** PNG `iCCP` chunk payload: profile name, null terminator, compression
+ * method (0 = deflate), then the deflated profile bytes. */
+export function pngIccp(profile: Buffer, name = "icc"): Buffer {
+  return Buffer.concat([
+    Buffer.from(name, "latin1"),
+    Buffer.from([0]),
+    Buffer.from([0]),
+    deflateSync(profile),
+  ]);
+}
+
+/** PNG `cICP` chunk payload: colour primaries, transfer characteristics,
+ * matrix coefficients, video full range flag -- one byte each. */
+export function pngCicp(
+  primaries = 1,
+  transfer = 13,
+  matrix = 0,
+  fullRange = 1,
+): Buffer {
+  return Buffer.from([primaries, transfer, matrix, fullRange]);
+}
+
+/** PNG `sRGB` chunk payload: a single rendering-intent byte (0-3). D-08: this
+ * chunk is removed by every request, unconditionally, like `gAMA`. */
+export function pngSrgb(renderingIntent = 0): Buffer {
+  return Buffer.from([renderingIntent]);
+}
+
+/** PNG `mDCv` (Mastering Display Color Volume) chunk payload: three CIE 1931
+ * xy chromaticity pairs (RGB primaries) plus white point, each a 2-byte
+ * fraction of 0.00002, then 4-byte max/min luminance -- 24 bytes total.
+ * Content is opaque to the handler; this is D-05's "keep" list. */
+export function pngMdcv(): Buffer {
+  const data = Buffer.alloc(24);
+  const chromaticities = [34000, 16000, 13250, 34500, 7500, 3000, 15635, 16450];
+  chromaticities.forEach((value, index) =>
+    data.writeUInt16BE(value, index * 2),
+  );
+  data.writeUInt32BE(10_000_000, 16); // max display mastering luminance
+  data.writeUInt32BE(1, 20); // min display mastering luminance
+  return data;
+}
+
+/** PNG `cLLi` (Content Light Level Information) chunk payload: max content
+ * light level and max frame-average light level, each a 4-byte fraction of
+ * 0.0001 cd/m^2 -- 8 bytes total. */
+export function pngClli(): Buffer {
+  const data = Buffer.alloc(8);
+  data.writeUInt32BE(10_000_0000, 0);
+  data.writeUInt32BE(4_000_0000, 4);
+  return data;
+}
+
+/** PNG `caBX` (C2PA) chunk payload: an opaque JUMBF box. The handler never
+ * parses its contents -- only its byte length is reported (D-15). */
+export function pngCaBX(payload: Buffer): Buffer {
+  return payload;
+}
+
+/**
+ * An XMP packet asserting `tiff:Orientation` as an rdf:Description attribute
+ * (D-11/D-12). Read only for routing by `xmpOrientation` -- never written.
+ */
+export function xmpWithOrientation(value: number | string): Buffer {
+  return Buffer.from(
+    `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:tiff="http://ns.adobe.com/tiff/1.0/" tiff:Orientation="${String(value)}"></rdf:Description></rdf:RDF></x:xmpmeta>`,
+    "utf8",
+  );
+}
+
+/**
+ * An ImageMagick-style "Raw profile type exif"/"Raw profile type APP1"
+ * text-chunk payload wrapping `exif` (D-11/D-12): a newline, the profile
+ * name, a newline, a right-aligned decimal byte count, a newline, then hex
+ * digits wrapped at 36 bytes (72 hex characters) per line -- matching
+ * `rawProfileExifOrientation`'s expected grammar exactly.
+ */
+export function rawProfileExifText(exif: Buffer): string {
+  const hex = exif.toString("hex");
+  const lines: string[] = [];
+  for (let index = 0; index < hex.length; index += 72) {
+    lines.push(hex.slice(index, index + 72));
+  }
+  const count = String(exif.length).padStart(8, " ");
+  return `\nexif\n${count}\n${lines.join("\n")}\n`;
+}
+
+export interface ColourFixture {
+  readonly id: string;
+  readonly build: () => Buffer;
+}
+
+/**
+ * D-10's nine colour fixtures. Exported from this module (not a `.test.ts`
+ * file) so both 56-05's it.each matrix and Plan 08's live-oracle
+ * differential test can reuse the same table.
+ */
+export const COLOUR_FIXTURES: readonly ColourFixture[] = [
+  { id: "gama-only", build: () => pngWithChunksBefore([["gAMA", pngGama()]]) },
+  { id: "srgb-only", build: () => pngWithChunksBefore([["sRGB", pngSrgb()]]) },
+  {
+    id: "gama-chrm",
+    build: () =>
+      pngWithChunksBefore([
+        ["gAMA", pngGama()],
+        ["cHRM", pngChrm()],
+      ]),
+  },
+  {
+    id: "srgb-chrm",
+    build: () =>
+      pngWithChunksBefore([
+        ["sRGB", pngSrgb()],
+        ["cHRM", pngChrm()],
+      ]),
+  },
+  {
+    id: "iccp-only",
+    build: () => pngWithChunksBefore([["iCCP", pngIccp(iccProfileV4())]]),
+  },
+  {
+    id: "iccp-gama-chrm",
+    build: () =>
+      pngWithChunksBefore([
+        ["iCCP", pngIccp(iccProfileV4())],
+        ["gAMA", pngGama()],
+        ["cHRM", pngChrm()],
+      ]),
+  },
+  { id: "cicp", build: () => pngWithChunksBefore([["cICP", pngCicp()]]) },
+  {
+    id: "cicp-mdcv-clli",
+    build: () =>
+      pngWithChunksBefore([
+        ["cICP", pngCicp()],
+        ["mDCV", pngMdcv()],
+        ["cLLI", pngClli()],
+      ]),
+  },
+  { id: "none", build: () => pngWithChunksBefore([]) },
+];
+
+export const XMP_ITXT_KEYWORD = "XML:com.adobe.xmp";
+
+/** PNG `iTXt` chunk payload: keyword, compression flag/method, empty
+ * language tag and translated keyword, then the (optionally deflated) text. */
+export function pngItxt(
+  keyword: string,
+  text: Buffer,
+  compressed = false,
+): Buffer {
+  const payload = compressed ? deflateSync(text) : text;
+  return Buffer.concat([
+    Buffer.from(keyword, "latin1"),
+    Buffer.from([0]), // keyword terminator
+    Buffer.from([compressed ? 1 : 0]), // compression flag
+    Buffer.from([0]), // compression method
+    Buffer.from([0]), // empty language tag + terminator
+    Buffer.from([0]), // empty translated keyword + terminator
+    payload,
+  ]);
+}
+
+/**
+ * A decompression-bomb chunk payload for `iCCP`, `zTXt`, or a compressed
+ * `iTXt` (D-14): a well-formed header (valid keyword/method/flags) around
+ * `inflatedBytes` zero bytes, deflated at level 9. The header is intentionally
+ * valid so the resulting decline is purely a decompression-bound refusal, not
+ * a malformed-structure one.
+ */
+export function pngBomb(
+  type: "iCCP" | "zTXt" | "iTXt",
+  inflatedBytes: number,
+): Buffer {
+  const compressed = deflateSync(Buffer.alloc(inflatedBytes), { level: 9 });
+  if (type === "iCCP") {
+    return Buffer.concat([
+      Buffer.from("bomb", "latin1"),
+      Buffer.from([0]), // keyword terminator
+      Buffer.from([0]), // compression method
+      compressed,
+    ]);
+  }
+  if (type === "zTXt") {
+    return Buffer.concat([
+      Buffer.from("bomb", "latin1"),
+      Buffer.from([0]), // keyword terminator
+      Buffer.from([0]), // compression method
+      compressed,
+    ]);
+  }
+  return Buffer.concat([
+    Buffer.from("bomb", "latin1"),
+    Buffer.from([0]), // keyword terminator
+    Buffer.from([1]), // compression flag: compressed
+    Buffer.from([0]), // compression method
+    Buffer.from([0]), // empty language tag + terminator
+    Buffer.from([0]), // empty translated keyword + terminator
+    compressed,
+  ]);
+}
+
+/**
+ * Apple's private `iDOT` chunk payload (D-06/D-07): seven big-endian uint32
+ * words `[2, 0, height, 40, height/2, height/2, offsetToSecondIdat]`. The
+ * last word is the byte distance from the `iDOT` chunk's own start (its
+ * length-field position) to the second IDAT segment's chunk start.
+ */
+export function idotPayload(offsetToSecondIdat: number, height = 4): Buffer {
+  const data = Buffer.alloc(28);
+  const words = [
+    2,
+    0,
+    height,
+    40,
+    Math.floor(height / 2),
+    Math.floor(height / 2),
+    offsetToSecondIdat,
+  ];
+  words.forEach((word, index) => data.writeUInt32BE(word >>> 0, index * 4));
+  return data;
+}
+
+/**
+ * A synthetic fixture shaped like a real macOS screenshot (56-CONTEXT.md):
+ * `IHDR iCCP cICP eXIf pHYs iTXt iDOT IDAT IDAT IEND`. The `iDOT` second-
+ * segment offset is computed from the real byte layout, so
+ * `idotSecondSegmentTarget()` always lands on the second IDAT chunk's start.
+ */
+export function screenshotShapedPng(height = 4, orientation = 1): Buffer {
+  const ihdr = pngChunk("IHDR", pngIhdr(1, height));
+  const iccp = pngChunk("iCCP", pngIccp(iccProfileV4()));
+  const cicp = pngChunk("cICP", pngCicp());
+  const exif = pngChunk("eXIf", exifWithOrientation(orientation));
+  const phys = pngChunk("pHYs", pngPhys());
+  const itxt = pngChunk("iTXt", pngItxt(XMP_ITXT_KEYWORD, xmpPacket()));
+  const idat1 = pngChunk("IDAT", pngIdat());
+  const idat2 = pngChunk("IDAT", Buffer.from("second-idat-segment", "ascii"));
+  const iend = pngChunk("IEND", Buffer.alloc(0));
+
+  const IDOT_CHUNK_SPAN = 40; // 8-byte header + 28-byte payload + 4-byte CRC
+  const offsetToSecondIdat = IDOT_CHUNK_SPAN + idat1.length;
+  const idot = pngChunk("iDOT", idotPayload(offsetToSecondIdat, height));
+
+  return Buffer.concat([
+    PNG_SIGNATURE,
+    ihdr,
+    iccp,
+    cicp,
+    exif,
+    phys,
+    itxt,
+    idot,
+    idat1,
+    idat2,
+    iend,
+  ]);
+}
+
+/**
+ * Returns the absolute file offset the `iDOT` chunk's second-segment word
+ * points at (`idotStart + word[6]`), or undefined when no `iDOT` chunk
+ * exists.
+ */
+export function idotSecondSegmentTarget(file: Buffer): number | undefined {
+  let offset = 8;
+  while (offset + 8 <= file.length) {
+    const length = file.readUInt32BE(offset);
+    const type = file.toString("ascii", offset + 4, offset + 8);
+    const dataOffset = offset + 8;
+    if (type === "iDOT") {
+      const secondSegmentWord = file.readUInt32BE(dataOffset + 24);
+      return offset + secondSegmentWord;
+    }
+    offset = dataOffset + length + 4;
+    if (type === "IEND") break;
+  }
+  return undefined;
+}
+
+/** The chunk type whose 8-byte header starts exactly at `offset`, or
+ * undefined if no chunk starts there. */
+export function chunkTypeAt(file: Buffer, offset: number): string | undefined {
+  let cursor = 8;
+  while (cursor + 8 <= file.length) {
+    if (cursor === offset)
+      return file.toString("ascii", cursor + 4, cursor + 8);
+    const length = file.readUInt32BE(cursor);
+    const type = file.toString("ascii", cursor + 4, cursor + 8);
+    cursor += 12 + length;
+    if (type === "IEND") break;
+  }
+  return undefined;
 }
 
 export function readChunks(file: Buffer): readonly FixtureChunk[] {

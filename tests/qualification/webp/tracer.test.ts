@@ -7,12 +7,15 @@ import {
   materializeCorpusRecord,
   runQualificationCase,
 } from "../kit/corpus.js";
+import { webpPayloadDigests } from "./oracles.js";
 
 const corpusRoot = fileURLToPath(new URL("../../corpus/", import.meta.url));
 
 describe("WebP qualification tracer", () => {
   it("proves the provenance-bound sample through built-package sanitize, reopen, and payload checks", async () => {
-    const transcript = await runQualificationCase("exifcleaner-sample");
+    const transcript = await runQualificationCase("exifcleaner-sample", {
+      payloadDigests: webpPayloadDigests,
+    });
 
     expect(transcript).toMatchObject({
       version: 1,
@@ -32,12 +35,14 @@ describe("WebP qualification tracer", () => {
     });
     expect(
       transcript.status === "success" && transcript.retainedPayloads,
-    ).toEqual([expect.objectContaining({ fourCc: "VP8 " })]);
+    ).toEqual([expect.objectContaining({ part: "VP8 " })]);
     expect(JSON.stringify(transcript)).not.toMatch(/\/(?:Users|home|tmp)\//);
   });
 
   it("refuses the manifested declared-size control before creating a destination", async () => {
-    const transcript = await runQualificationCase("declared-size-plus-one");
+    const transcript = await runQualificationCase("declared-size-plus-one", {
+      payloadDigests: webpPayloadDigests,
+    });
 
     expect(transcript).toMatchObject({
       version: 1,
@@ -58,6 +63,7 @@ describe("WebP qualification tracer", () => {
     );
     const validRecord = {
       id: "reviewed",
+      format: "webp",
       roles: ["decode"],
       localPath: "sample.webp",
       provenance: {
@@ -89,8 +95,9 @@ describe("WebP qualification tracer", () => {
       { ...validRecord, outcome: { status: "success" } },
       {
         ...validRecord,
-        retainedPayloads: [{ fourCc: "JUNK", sha256: validRecord.sha256 }],
+        retainedPayloads: [{ part: "", sha256: validRecord.sha256 }],
       },
+      { ...validRecord, format: "gif" },
       { ...validRecord, permittedDifferences: [false] },
     ])
       expect(() => assertCorpusRecord(malformed)).toThrow(
@@ -114,7 +121,7 @@ describe("WebP qualification tracer", () => {
       bytes: 4_880,
       retainedPayloads: [
         {
-          fourCc: "VP8 ",
+          part: "VP8 ",
           sha256:
             "89c641e38f1b10766880e7c81e3ca69246836fdb81100c39cd39881513b9dd36",
         },

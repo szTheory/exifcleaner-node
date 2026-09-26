@@ -117,6 +117,7 @@ describe("grammar-aware WebP qualification cases", () => {
             preserveOrientation: false,
             preserveColorProfile: false,
             preserveTimestamps: false,
+            preserveResolution: false,
           });
           expect(result).toMatchObject({
             ok: false,

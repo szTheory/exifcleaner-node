@@ -144,7 +144,7 @@ export async function runSafeTransaction(input) {
             }, "started");
             throw new Error("Staged output identity unavailable.");
         }
-        const verified = await handler.verifyOutput(sourceHandle, admission, stageFile, stageStats.size, destinationPath, options.preserveOrientation, options.preserveColorProfile, orientation, signal);
+        const verified = await handler.verifyOutput(sourceHandle, admission, stageFile, stageStats.size, destinationPath, options.preserveOrientation, options.preserveColorProfile, options.preserveResolution, orientation, signal);
         if (!verified.ok) {
             failure = verified.error;
             throw new Error("Staged output verification failed.");
@@ -253,24 +253,37 @@ export async function runSafeTransaction(input) {
         stageFile = undefined;
         sourceHandleOpen = false;
         const postCommitResidue = await closePostPublicationResources(committedResources);
-        const namespaces = new Set(admission.namespaces);
+        const namespaceSet = new Set(admission.namespaces);
+        const resolutionNamespace = admission.resolutionNamespace;
+        const preservedResolution = options.preserveResolution && resolutionNamespace !== undefined;
+        const removedNamespaces = [];
+        const seenRemoved = new Set();
+        const addRemoved = (namespace) => {
+            if (seenRemoved.has(namespace))
+                return;
+            seenRemoved.add(namespace);
+            removedNamespaces.push(namespace);
+        };
+        for (const namespace of admission.namespaces) {
+            if (namespace === "EXIF" &&
+                options.preserveOrientation &&
+                orientation !== undefined)
+                continue;
+            if (namespace === "ICC" && options.preserveColorProfile)
+                continue;
+            addRemoved(namespace);
+        }
+        if (resolutionNamespace !== undefined && !options.preserveResolution)
+            addRemoved(resolutionNamespace);
         return ok({
             format: handler.capability.format,
             destinationPath,
-            removedNamespaces: [
-                ...(namespaces.has("EXIF") &&
-                    !(options.preserveOrientation && orientation !== undefined)
-                    ? ["EXIF"]
-                    : []),
-                ...(namespaces.has("XMP") ? ["XMP"] : []),
-                ...(namespaces.has("ICC") && !options.preserveColorProfile
-                    ? ["ICC"]
-                    : []),
-            ],
+            removedNamespaces,
             preserved: {
                 orientation: options.preserveOrientation && orientation !== undefined,
-                colorProfile: options.preserveColorProfile && namespaces.has("ICC"),
+                colorProfile: options.preserveColorProfile && namespaceSet.has("ICC"),
                 timestamps: options.preserveTimestamps,
+                resolution: preservedResolution,
             },
             warnings: admission.warnings,
             postCommitResidue,

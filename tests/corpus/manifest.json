@@ -3,6 +3,7 @@
   "records": [
     {
       "id": "exifcleaner-sample",
+      "format": "webp",
       "roles": ["differential"],
       "localPath": "sample.webp",
       "provenance": {
@@ -20,7 +21,7 @@
       },
       "retainedPayloads": [
         {
-          "fourCc": "VP8 ",
+          "part": "VP8 ",
           "sha256": "1300ec4f408f0960b09a5265851b14e81ac0c120fae6c3d555306df849235697"
         }
       ],
@@ -28,6 +29,7 @@
     },
     {
       "id": "declared-size-plus-one",
+      "format": "webp",
       "roles": ["negative-control"],
       "generator": {
         "kind": "riff-declared-size-plus-one",
@@ -53,6 +55,7 @@
     },
     {
       "id": "libwebp-1.5.0-example",
+      "format": "webp",
       "roles": ["decode", "differential", "structural"],
       "localPath": "upstream/libwebp-1.5.0-example.webp",
       "provenance": {
@@ -70,7 +73,7 @@
       },
       "retainedPayloads": [
         {
-          "fourCc": "VP8 ",
+          "part": "VP8 ",
           "sha256": "89c641e38f1b10766880e7c81e3ca69246836fdb81100c39cd39881513b9dd36"
         }
       ],
@@ -97,10 +100,456 @@
         },
         "exiftool": {
           "warnings": [],
-          "source": { "EXIF": [], "XMP": [], "ICC_Profile": [] },
-          "output": { "EXIF": [], "XMP": [], "ICC_Profile": [] }
+          "source": {
+            "EXIF": [],
+            "XMP": [],
+            "ICC_Profile": []
+          },
+          "output": {
+            "EXIF": [],
+            "XMP": [],
+            "ICC_Profile": []
+          }
         }
       }
+    },
+    {
+      "id": "libpng-1.6.58-rgb-8-srgb",
+      "format": "png",
+      "roles": ["differential", "structural"],
+      "localPath": "upstream/libpng-1.6.58/rgb-8-sRGB.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/rgb-8-sRGB.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "4f94dfdb92acaeffab3aff43fbaf935fe0e5816566792b56a75a9f8802028e7e",
+      "bytes": 772,
+      "topology": ["IHDR", "sRGB", "tEXt", "iTXt", "IDAT", "IEND"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["PNG"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "fea3e74d1f90bcb62535c68e6b055b0716f0e50ec189f11b7627919dbbadd222"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-rgb-8-1.8",
+      "format": "png",
+      "roles": ["differential"],
+      "localPath": "upstream/libpng-1.6.58/rgb-8-1.8.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/rgb-8-1.8.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "327589867a6a3a21fe17ffc55b29f34ceb8446cf87bc4435c80aa098d8ae7b4a",
+      "bytes": 819,
+      "topology": ["IHDR", "gAMA", "cHRM", "tEXt", "iTXt", "IDAT", "IEND"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["PNG"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "fea3e74d1f90bcb62535c68e6b055b0716f0e50ec189f11b7627919dbbadd222"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-rgb-8-trns",
+      "format": "png",
+      "roles": ["differential"],
+      "localPath": "upstream/libpng-1.6.58/rgb-8-tRNS.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/rgb-8-tRNS.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "42d6f96da278fa6264a9e267caa4cbfc75ddf0734ef67187e4c4b2d29e2d26fc",
+      "bytes": 777,
+      "topology": ["IHDR", "tRNS", "tEXt", "iTXt", "IDAT", "IEND"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["PNG"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "fea3e74d1f90bcb62535c68e6b055b0716f0e50ec189f11b7627919dbbadd222"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-palette-8-srgb-trns",
+      "format": "png",
+      "roles": ["differential"],
+      "localPath": "upstream/libpng-1.6.58/palette-8-sRGB-tRNS.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/palette-8-sRGB-tRNS.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "7e1465ed17f633b6dde5da989a44d910b815ffa78e77892864ab2e2ac56d6261",
+      "bytes": 1313,
+      "topology": [
+        "IHDR",
+        "sRGB",
+        "PLTE",
+        "tRNS",
+        "tEXt",
+        "iTXt",
+        "IDAT",
+        "IEND"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["PNG"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "b6127089524649a42b8d312e357779c83d188e6f061cd20496e35d655b58fd0d"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-gray-16-linear-trns",
+      "format": "png",
+      "roles": ["differential"],
+      "localPath": "upstream/libpng-1.6.58/gray-16-linear-tRNS.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/gray-16-linear-tRNS.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "4f079601662e06fa01dbbfb09a6e0e5d154e084f52e97abc4f9c142ec3aff755",
+      "bytes": 744,
+      "topology": ["IHDR", "gAMA", "cHRM", "tEXt", "iTXt", "IDAT", "IEND"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["PNG"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "a468c32743f16531b9c74442d03e224d0758989b20723dc81da7f9a1f7f59630"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-rgb-alpha-16-srgb",
+      "format": "png",
+      "roles": ["differential"],
+      "localPath": "upstream/libpng-1.6.58/rgb-alpha-16-sRGB.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/rgb-alpha-16-sRGB.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "f287dc434a985a9478aadc0f8fe6c6053899ea61735ec15f41db47816bd184d3",
+      "bytes": 1390,
+      "topology": ["IHDR", "sRGB", "tEXt", "iTXt", "IDAT", "IEND"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["PNG"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "7393a311c276c5e15928d154f31f04eddda5d95271035ef91be9d7464a3fdc92"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-cicp-display-p3-reencoded",
+      "format": "png",
+      "roles": ["differential"],
+      "localPath": "upstream/libpng-1.6.58/cicp-display-p3_reencoded.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/png-3/cicp-display-p3_reencoded.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "e162b7af4677c088f8ae584d1f0cbc852901e020fdfa0f41b54b4e001b7a2d23",
+      "bytes": 142,
+      "topology": ["IHDR", "cICP", "PLTE", "IDAT", "IEND"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "f8a3ff4259ac4c7ef738f645d2629760a40e0b264cd1a70f6957324d70240a58"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-basn3p08",
+      "format": "png",
+      "roles": ["differential"],
+      "localPath": "upstream/libpng-1.6.58/basn3p08.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/pngsuite/basn3p08.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "eca1db90338a8481e4d3f2469befa06d7564534e9323b6a8040ed0cdd281d952",
+      "bytes": 1286,
+      "topology": ["IHDR", "gAMA", "PLTE", "IDAT", "IEND"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["PNG"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "6498c7a1dc235056f4ce3a7ad85dac02b76b7edc6892601c331245489410b1cc"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-ibasn2c08",
+      "format": "png",
+      "roles": ["differential"],
+      "localPath": "upstream/libpng-1.6.58/ibasn2c08.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/pngsuite/ibasn2c08.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "67ac80581c63559889a9f5d5ba8f70ab1e77d304a2e54b916dd23953bf7d3fc7",
+      "bytes": 299,
+      "topology": ["IHDR", "IDAT", "IEND"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "c34b06a2dfc56c64908df8c6d98554f8929fa2839caf7cc5198055f0b068d47e"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-badadler",
+      "format": "png",
+      "roles": ["structural"],
+      "localPath": "upstream/libpng-1.6.58/badadler.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/crashers/badadler.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "3614bbe9494f6374567cbf897e022a16abb8edd3f166745ce73a2f472eef6136",
+      "bytes": 67,
+      "topology": ["IHDR", "IDAT", "IEND"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "IDAT",
+          "sha256": "bf916adc77c0c5296ce593a57a9696e9222853ca861c3968f08163465aed7a23"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-badcrc",
+      "format": "png",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libpng-1.6.58/badcrc.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/crashers/badcrc.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "ec5b6a711ea2325404ea56575df2f8a28292e5ef15a950f42a1d39ce06a6a96a",
+      "bytes": 67,
+      "topology": ["IHDR", "IDAT", "IEND"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-bad-iccp",
+      "format": "png",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libpng-1.6.58/bad_iCCP.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/crashers/bad_iCCP.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "0c1ec5ece28d8574e80a3842939e8939f3451c71e8b2e013dcf26a80d292168e",
+      "bytes": 321,
+      "topology": ["IHDR", "iCCP"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-empty-ancillary-chunks",
+      "format": "png",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libpng-1.6.58/empty_ancillary_chunks.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/crashers/empty_ancillary_chunks.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "bdc133d532c03cdaa6b6a8188a722c3845d4b2f76e89c63e1c70c1bf6a364be7",
+      "bytes": 730,
+      "topology": [
+        "IHDR",
+        "bKGD",
+        "cHRM",
+        "eXIf",
+        "gAMA",
+        "hIST",
+        "iCCP",
+        "iTXt",
+        "juNk",
+        "juNK",
+        "pCAL",
+        "pHYs",
+        "sCAL",
+        "sPLT",
+        "sRGB",
+        "sTER",
+        "tEXt",
+        "tIME",
+        "zTXt",
+        "PLTE",
+        "bKGD",
+        "cHRM",
+        "eXIf",
+        "gAMA",
+        "hIST",
+        "iCCP",
+        "iTXt",
+        "juNk",
+        "juNK",
+        "pCAL",
+        "pHYs",
+        "sCAL",
+        "sPLT",
+        "sRGB",
+        "sTER",
+        "tEXt",
+        "tIME",
+        "zTXt",
+        "IDAT",
+        "bKGD",
+        "cHRM",
+        "eXIf",
+        "gAMA",
+        "hIST",
+        "iCCP",
+        "iTXt",
+        "juNk",
+        "juNK",
+        "pCAL",
+        "pHYs",
+        "sCAL",
+        "sPLT",
+        "sRGB",
+        "sTER",
+        "tEXt",
+        "tIME",
+        "zTXt",
+        "IEND"
+      ],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-huge-itxt-chunk",
+      "format": "png",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libpng-1.6.58/huge_iTXt_chunk.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/crashers/huge_iTXt_chunk.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "cf52cbac99198baf5e72e0d1423de217aa9cff327981356ab20e9b47d32ab0fd",
+      "bytes": 57,
+      "topology": ["IHDR", "iTXt"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libpng-1.6.58-huge-junk-unsafe-to-copy",
+      "format": "png",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libpng-1.6.58/huge_juNK_unsafe_to_copy.png",
+      "provenance": {
+        "revision": "3061454d980de7d53608f594194cfac722721d2a",
+        "url": "https://github.com/pnggroup/libpng/blob/v1.6.58/contrib/testpngs/crashers/huge_juNK_unsafe_to_copy.png",
+        "license": "libpng-2.0",
+        "licenseStatus": "approved"
+      },
+      "sha256": "8f9ef7f8931919fc8a73d896ff2e3bd5cf233141dc6b7801e4fbe7c0c7b4037b",
+      "bytes": 57,
+      "topology": ["IHDR", "juNK"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
     }
   ],
   "benchmarks": {

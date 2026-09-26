@@ -16,7 +16,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
-import { getCapabilities, inspectFile, sanitizeFile } from "../src/index.js";
+import {
+  classifyFallback,
+  getCapabilities,
+  inspectFile,
+  sanitizeFile,
+} from "../src/index.js";
 import {
   loadNativePublicationBindingForTests,
   setNativePublicationBindingForTests,
@@ -35,6 +40,7 @@ import {
   iccProfile,
   iccProfileV2,
   iccProfileV4,
+  metadataPng,
   metadataWebp,
   mutateIccProfile,
   readChunks,
@@ -119,78 +125,75 @@ afterEach(async () => {
 describe("getCapabilities", () => {
   it("reports the exact conservative WebP feature set as immutable data", () => {
     const capabilities = getCapabilities();
-    expect(capabilities).toEqual({
-      formats: [
-        {
-          format: "webp",
-          mimeTypes: ["image/webp"],
-          extensions: [".webp"],
-          inspect: true,
-          sanitize: true,
-          preserves: {
-            orientation: true,
-            colorProfile: true,
-            timestamps: true,
-            resolution: false,
-            imagePayload: true,
-            animationPayload: true,
-          },
-          animation: {
-            supported: true,
-            payloadPreservation: "byte-for-byte",
-            boundary: "aggregate-chunk-count",
-          },
-          validation: {
-            container: "full",
-            codecBitstream: "header-only",
-          },
-          colorProfile: {
-            policy: "icc-structural-v0.2",
-            preservation: "preserve-if-present",
-            versions: ["v2.0-v2.4", "v4.0-v4.4"],
-            classes: ["scnr", "mntr"],
-            spaces: ["RGB /XYZ ", "RGB /Lab "],
-            maxProfileBytes: 16 * 1024 * 1024,
-            maxTagCount: 4_096,
-          },
-          limits: {
-            maxMetadataBytesPerChunk: 16 * 1024 * 1024,
-            maxChunkCount: 10_000,
-            maxRiffBytes: 4_294_967_294,
-          },
-          refuses: [
-            "unknown-chunks",
-            "malformed-container",
-            "unsupported-features",
-            "resource-limits",
-            "trailing-data",
-          ],
-          removes: ["EXIF", "XMP", "ICC"],
-          detection: "magic",
-        },
+    // 56-03 registers a second (PNG) handler; this test now asserts WebP's
+    // own entry (index 0, registration order) rather than the whole array,
+    // since `formats` legitimately grows as more formats are admitted.
+    expect(capabilities.formats).toHaveLength(2);
+    expect(capabilities.formats[0]).toEqual({
+      format: "webp",
+      mimeTypes: ["image/webp"],
+      extensions: [".webp"],
+      inspect: true,
+      sanitize: true,
+      preserves: {
+        orientation: true,
+        colorProfile: true,
+        timestamps: true,
+        resolution: false,
+        imagePayload: true,
+        animationPayload: true,
+      },
+      animation: {
+        supported: true,
+        payloadPreservation: "byte-for-byte",
+        boundary: "aggregate-chunk-count",
+      },
+      validation: {
+        container: "full",
+        codecBitstream: "header-only",
+      },
+      colorProfile: {
+        policy: "icc-structural-v0.2",
+        preservation: "preserve-if-present",
+        versions: ["v2.0-v2.4", "v4.0-v4.4"],
+        classes: ["scnr", "mntr"],
+        spaces: ["RGB /XYZ ", "RGB /Lab "],
+        maxProfileBytes: 16 * 1024 * 1024,
+        maxTagCount: 4_096,
+      },
+      limits: {
+        maxMetadataBytesPerChunk: 16 * 1024 * 1024,
+        maxChunkCount: 10_000,
+        maxRiffBytes: 4_294_967_294,
+      },
+      refuses: [
+        "unknown-chunks",
+        "malformed-container",
+        "unsupported-features",
+        "resource-limits",
+        "trailing-data",
       ],
+      removes: ["EXIF", "XMP", "ICC"],
+      detection: "magic",
     });
+    const webpCapability = capabilities.formats[0];
+    if (webpCapability === undefined || webpCapability.format !== "webp")
+      throw new Error("unreachable");
     expect(Object.isFrozen(capabilities)).toBe(true);
     expect(Object.isFrozen(capabilities.formats)).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0])).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.mimeTypes)).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.extensions)).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.animation)).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.validation)).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.preserves)).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.colorProfile)).toBe(true);
-    expect(
-      Object.isFrozen(capabilities.formats[0]?.colorProfile.versions),
-    ).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.colorProfile.classes)).toBe(
-      true,
-    );
-    expect(Object.isFrozen(capabilities.formats[0]?.colorProfile.spaces)).toBe(
-      true,
-    );
-    expect(Object.isFrozen(capabilities.formats[0]?.limits)).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.refuses)).toBe(true);
-    expect(Object.isFrozen(capabilities.formats[0]?.removes)).toBe(true);
+    expect(Object.isFrozen(webpCapability)).toBe(true);
+    expect(Object.isFrozen(webpCapability.mimeTypes)).toBe(true);
+    expect(Object.isFrozen(webpCapability.extensions)).toBe(true);
+    expect(Object.isFrozen(webpCapability.animation)).toBe(true);
+    expect(Object.isFrozen(webpCapability.validation)).toBe(true);
+    expect(Object.isFrozen(webpCapability.preserves)).toBe(true);
+    expect(Object.isFrozen(webpCapability.colorProfile)).toBe(true);
+    expect(Object.isFrozen(webpCapability.colorProfile.versions)).toBe(true);
+    expect(Object.isFrozen(webpCapability.colorProfile.classes)).toBe(true);
+    expect(Object.isFrozen(webpCapability.colorProfile.spaces)).toBe(true);
+    expect(Object.isFrozen(webpCapability.limits)).toBe(true);
+    expect(Object.isFrozen(webpCapability.refuses)).toBe(true);
+    expect(Object.isFrozen(webpCapability.removes)).toBe(true);
   });
 
   it("reports preserves.resolution as a boolean for every registered format (KIT-03)", () => {
@@ -429,6 +432,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({ ok: true });
@@ -455,6 +459,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -488,11 +493,12 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
       ok: true,
-      value: { preserved: { colorProfile: false } },
+      value: { preserved: { colorProfile: false, resolution: false } },
     });
     expect(readChunks(await readFile(destinationPath))).not.toContainEqual(
       expect.objectContaining({ fourCc: "ICCP" }),
@@ -513,6 +519,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -520,11 +527,16 @@ describe("sanitizeFile", () => {
       value: {
         format: "webp",
         destinationPath,
-        removedNamespaces: ["EXIF", "XMP", "ICC"],
+        // Order follows admission.namespaces' first-seen order (56-03 made
+        // safe-transaction.ts's removedNamespaces computation format-neutral):
+        // metadataWebp()'s chunk order is VP8X, ICCP, VP8 , EXIF, XMP , so ICC
+        // is encountered before EXIF/XMP.
+        removedNamespaces: ["ICC", "EXIF", "XMP"],
         preserved: {
           orientation: false,
           colorProfile: false,
           timestamps: false,
+          resolution: false,
         },
       },
     });
@@ -558,6 +570,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({ ok: true });
@@ -578,13 +591,14 @@ describe("sanitizeFile", () => {
       preserveOrientation: true,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
       ok: true,
       value: {
         removedNamespaces: ["XMP"],
-        preserved: { orientation: true, colorProfile: true },
+        preserved: { orientation: true, colorProfile: true, resolution: false },
       },
     });
     const inspection = await inspectFile(destinationPath);
@@ -632,11 +646,12 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
       ok: true,
-      value: { preserved: { colorProfile: true } },
+      value: { preserved: { colorProfile: true, resolution: false } },
     });
     expect(
       readChunks(await readFile(destinationPath)).find(
@@ -679,11 +694,12 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
       ok: true,
-      value: { preserved: { colorProfile: true } },
+      value: { preserved: { colorProfile: true, resolution: false } },
     });
     expect(
       readChunks(await readFile(destinationPath)).find(
@@ -711,6 +727,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -744,6 +761,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: true,
       preserveTimestamps: false,
+      preserveResolution: false,
     } as const;
 
     const results = await Promise.all([
@@ -802,6 +820,7 @@ describe("sanitizeFile", () => {
         preserveOrientation: false,
         preserveColorProfile: true,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
 
       expect(result).toMatchObject({
@@ -862,13 +881,14 @@ describe("sanitizeFile", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
 
       expect(result).toMatchObject({
         ok: true,
         value: {
           removedNamespaces: ["ICC"],
-          preserved: { colorProfile: false },
+          preserved: { colorProfile: false, resolution: false },
         },
       });
       const chunks = readChunks(await readFile(destinationPath));
@@ -912,6 +932,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result.ok).toBe(true);
@@ -941,6 +962,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -963,6 +985,7 @@ describe("sanitizeFile", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
       expect(result).toMatchObject({ ok: true });
       await expect(
@@ -993,6 +1016,7 @@ describe("sanitizeFile", () => {
         preserveOrientation: true,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
 
       expect(result).toMatchObject({
@@ -1008,6 +1032,58 @@ describe("sanitizeFile", () => {
     },
   );
 
+  it("declines WebP resolution preservation before any write (D-03)", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    const sourceBytes = metadataWebp();
+    await writeFile(sourcePath, sourceBytes);
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: true,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "unsupported-feature",
+        feature: "resolution-preservation",
+        phase: "admission",
+        nativeWrite: "not-started",
+      },
+    });
+    if (!result.ok)
+      expect(classifyFallback(result.error)).toBe("safe-to-fallback");
+    await expect(readdir(directory)).resolves.toEqual(["source.webp"]);
+    await expect(readFile(sourcePath)).resolves.toEqual(sourceBytes);
+  });
+
+  it("rejects a non-boolean preserveResolution as invalid options", async () => {
+    const directory = await workspace();
+    const sourcePath = join(directory, "source.webp");
+    const destinationPath = join(directory, "clean.webp");
+    await writeFile(sourcePath, metadataWebp());
+
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: "yes" as unknown as boolean,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "invalid-options", phase: "request" },
+    });
+  });
+
   it("strips malformed EXIF when orientation preservation is not requested", async () => {
     const directory = await workspace();
     const sourcePath = join(directory, "source.webp");
@@ -1020,6 +1096,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -1071,6 +1148,7 @@ describe("sanitizeFile", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: true,
+        preserveResolution: false,
       });
     } finally {
       restore();
@@ -1099,11 +1177,12 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: true,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
       ok: true,
-      value: { preserved: { timestamps: true } },
+      value: { preserved: { timestamps: true, resolution: false } },
     });
     const destinationStats = await stat(destinationPath);
     expect(destinationStats.atimeMs).toBe(atime.getTime());
@@ -1124,6 +1203,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
       signal: controller.signal,
     });
 
@@ -1146,6 +1226,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result).toMatchObject({
@@ -1166,6 +1247,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     } as const;
 
     expect(
@@ -1216,6 +1298,7 @@ describe("sanitizeFile", () => {
             preserveOrientation: false,
             preserveColorProfile: false,
             preserveTimestamps: false,
+            preserveResolution: false,
           });
           expect(result.ok).toBe(true);
           const outputPayload = readChunks(
@@ -1244,6 +1327,7 @@ describe("sanitizeFile", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
 
     expect(result.ok).toBe(true);
@@ -1279,6 +1363,7 @@ describe("sanitizeFile", () => {
             preserveOrientation: false,
             preserveColorProfile: false,
             preserveTimestamps: false,
+            preserveResolution: false,
           });
           expect(result.ok).toBe(true);
           expect(
@@ -1361,6 +1446,7 @@ describe("pinned upstream ExifCleaner fixture", () => {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
     expect(sanitized).toMatchObject({
       ok: true,
@@ -1378,6 +1464,7 @@ describe("format-neutral admission boundary", () => {
   it("round-trips every advertised format through the three semantic roots", async () => {
     const fixtures: Record<NativeFormat, Buffer> = {
       webp: metadataWebp(),
+      png: metadataPng(),
     };
     const directory = await workspace();
     const capabilities = getCapabilities();
@@ -1397,6 +1484,7 @@ describe("format-neutral admission boundary", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
 
       expect(inspected).toMatchObject({
@@ -1420,6 +1508,8 @@ describe("format-neutral admission boundary", () => {
     expect(webp).toBeDefined();
     if (webp === undefined) return;
     const formatCapability: FormatCapabilities = webp;
+    if (formatCapability.format !== "webp")
+      throw new Error("unreachable: registration order puts WebP first");
     const webpCapability: WebpCapabilities = formatCapability;
     const result: SanitizeResult = {
       format: webpCapability.format,
@@ -1429,6 +1519,7 @@ describe("format-neutral admission boundary", () => {
         orientation: false,
         colorProfile: false,
         timestamps: false,
+        resolution: false,
       },
       warnings: [],
       postCommitResidue: { state: "none" },

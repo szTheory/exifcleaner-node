@@ -743,6 +743,7 @@ async function runCorpusCase(api, sandbox, id, source, index) {
     preserveOrientation: false,
     preserveColorProfile: false,
     preserveTimestamps: false,
+    preserveResolution: false,
   });
   if (!result.ok)
     throw new Error(`Installed corpus case failed: ${id}:${result.error.code}`);
@@ -824,6 +825,7 @@ async function runDeterministicCancellation(
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
       signal: controller.signal,
     },
     fileOps: fileOpsModule.NODE_FILE_OPS,
@@ -973,6 +975,7 @@ async function runInstalledProperties(api, packageRoot, sandbox) {
       preserveOrientation: false,
       preserveColorProfile: false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
     if (!result.ok || !readFileSync(sourcePath).equals(source))
       throw await installedPropertyFailure(
@@ -1281,6 +1284,7 @@ async function runTransactions(
     preserveOrientation: false,
     preserveColorProfile: false,
     preserveTimestamps: false,
+    preserveResolution: false,
   });
   if (collision.ok || collision.error.code !== "destination-exists")
     throw new Error(

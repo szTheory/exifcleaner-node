@@ -4,24 +4,26 @@
 
 ## Supported Surface
 
-| Area         | Contract                                                                                           |
-| ------------ | -------------------------------------------------------------------------------------------------- |
-| Runtime      | Node.js 22+, ESM                                                                                   |
-| Formats      | WebP only, detected by `RIFF` + `WEBP` magic                                                       |
-| Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                               |
-| Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                       |
-| Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable |
-| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract                       |
-| Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized        |
-| Cancellation | Optional `AbortSignal` on inspection and sanitization                                              |
-| Failures     | Discriminated `MetadataError` returned through `Result`                                            |
+| Area         | Contract                                                                                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime      | Node.js 22+, ESM                                                                                                                             |
+| Formats      | WebP and PNG, both detected by magic: WebP by `RIFF` + `WEBP`, PNG by its 8-byte signature                                                   |
+| Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                                                                         |
+| Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                                                                 |
+| Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable                                           |
+| Resolution   | Capability-gated by `preserves.resolution`; a format reporting `false` (WebP) declines a `preserveResolution: true` request before any write |
+| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract                                                                 |
+| Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized                                                  |
+| Cancellation | Optional `AbortSignal` on inspection and sanitization                                                                                        |
+| Failures     | Discriminated `MetadataError` returned through `Result`                                                                                      |
 
-`NativeFormat` is the format-neutral discriminant (currently `"webp"`).
+`NativeFormat` is the format-neutral discriminant (currently `"webp" | "png"`).
 `FormatCapabilities` is the format-neutral capability union, currently refined
-by the supported `WebpCapabilities` shape. Admission is by magic admission:
-the already-open source must begin with `RIFF` + `WEBP`, never merely carry a
-matching extension. The private registry is frozen and contains only that
-qualified WebP handler; this package exposes no handler registration API.
+by the supported `WebpCapabilities` and `PngCapabilities` shapes. Admission is
+by magic admission: the already-open source must begin with `RIFF` + `WEBP`,
+or with PNG's own 8-byte signature, never merely carry a matching extension.
+The private registry is frozen and contains only those two qualified
+handlers; this package exposes no handler registration API.
 
 ## Consumer and Publication Contract
 
@@ -31,7 +33,10 @@ verified `SanitizeResult` or one structured terminal/non-admission
 `phase: "admission"` with `nativeWrite: "not-started"` yields
 `"safe-to-fallback"`; every other error yields `"do-not-fallback"`. The safe
 disposition permits at most one ExifTool substitute, never another native write,
-a retry loop, or a second writer after uncertainty.
+a retry loop, or a second writer after uncertainty. A `preserveResolution: true`
+request against a format whose capability reports `preserves.resolution: false`
+declines with `unsupported-feature`/`resolution-preservation` before any
+destination exists, and is always `"safe-to-fallback"`.
 
 The transaction completes admission before creating a randomly named,
 owner-private same-parent stage. It writes, syncs, reopens, verifies, rechecks the
@@ -153,7 +158,9 @@ There is no third state.
 
 WebP reports `resolution: false`. WebP has no dedicated resolution-bearing
 chunk in its supported surface, and native WebP resolution preservation is
-future work (FUT-01), not a capability of the current handler.
+future work (FUT-01), not a capability of the current handler. PNG reports
+`resolution: true`: its `pHYs` chunk is always kept byte-identical when
+`preserveResolution: true` (see "## PNG" below).
 
 Capability-shape changes -- adding a required field to `CommonFormatCapabilities`
 or widening the discriminated union with a new format -- are a minor version
@@ -164,6 +171,98 @@ PNG and JPEG handlers land in Phases 56 and 57.
 The ExifCleaner app reads only `preserves.orientation`, `preserves.colorProfile`,
 and `preserves.timestamps` until its own adoption phase; it does not yet read
 `preserves.resolution`.
+
+## PNG
+
+PNG admission is a **closed preserve-list**, never a delete-list: a chunk type
+that is not on one of three code-defined lists declines the whole source with
+a typed pre-write `unsafe-structure` refusal, rather than guessing whether to
+keep or strip it.
+
+- **Always kept** (critical): `IHDR`, `PLTE`, `IDAT`, `IEND`.
+- **Always kept** (measured against ExifTool `-all=`, `PNG_PRESERVED_CHUNK_TYPES`):
+  `tRNS`, `cHRM`, `bKGD`, `sBIT`, `sPLT`, `hIST`, `cICP`, `mDCV`, `cLLI`,
+  `sCAL`, `oFFs`, `pCAL`, `sTER`, `iDOT`, `vpAg`.
+- **Always removed** (`PNG_REMOVED_CHUNK_TYPES`): `tEXt`, `zTXt`, `iTXt`,
+  `eXIf`, `tIME`, `caBX` (C2PA), and -- matching ExifTool's own behavior even
+  with color-profile preservation requested -- `gAMA` and `sRGB`. The handler
+  never writes a colour chunk of its own; it only removes chunks or copies
+  them byte-identically (D-09).
+- **Conditional** (`PNG_CONDITIONAL_CHUNK_TYPES`): `iCCP` is kept
+  byte-identical in place when `preserveColorProfile: true` (after its
+  bounded-inflate profile passes the same `icc-structural-v0.2` policy WebP
+  uses), else removed. `pHYs` is kept byte-identical in its original relative
+  position when `preserveResolution: true`, else removed.
+- **Unregistered private ancillary chunk** (a type in neither the PNG
+  extensions registry nor any of the lists above, for example Android's
+  `npTc` nine-patch data) is **stripped** as a privacy-reasoned difference
+  from ExifTool `-all=`, which keeps it: an opaque payload nobody can audit.
+  Its type is recorded so a permitted-difference kind can grant it in the
+  differential harness.
+- **Registered but unmeasured ancillary chunk** (present in the PNG
+  extensions registry but not on any list above, for example `gIFg`, `gIFt`,
+  `gIFx`, `dSIG`, `fRAc`, or the deprecated `mDCv`/`cLLi` lower-last-letter
+  casing) declines the source with a typed pre-write refusal
+  (`unmeasured-registered-chunks` in `refuses`). A future measurement can
+  graduate such a type onto one of the lists above; the handler never
+  guesses.
+- **`iDOT` adjacency** (Apple's private chunk, D-06): its offsets are
+  relative to its own chunk start, so nothing may be inserted or removed
+  between `iDOT` and the first `IDAT`. A request that would remove a chunk in
+  that span declines with a typed pre-write refusal
+  (`unsafe-chunk-adjacency` in `refuses`) instead of writing a stale offset.
+
+### PNG orientation (D-11, D-12, D-13)
+
+`eXIf` is PNG's only orientation source: when `preserveOrientation: true` and
+`eXIf` IFD0 tag `0x0112` (Orientation) is valid (1-8), the source `eXIf` is
+removed and a minimal `eXIf` -- Orientation only, via `createOrientationExif`,
+no writer defaults such as `YCbCrPositioning` -- is inserted immediately after
+`IHDR`, always before any `iDOT` and the first `IDAT`. The destination is
+re-parsed and the inserted `eXIf` compared byte-for-byte against
+`createOrientationExif(orientation)` before publication.
+
+A PNG whose Orientation comes only from an XMP `iTXt` (`tiff:Orientation`,
+keyword `XML:com.adobe.xmp`) or a legacy ImageMagick raw-EXIF-profile text
+chunk (`tEXt`/`zTXt` keyword `Raw profile type exif` or
+`Raw profile type APP1`) -- or whose non-`eXIf` Orientation disagrees with
+`eXIf` -- declines orientation preservation (`unsupported-feature`,
+`feature: "orientation-preservation"`) before any write, rather than guessing
+which source should win: ExifTool's own pick in that case depends on chunk
+order, and promoting an XMP-only Orientation into a fresh `eXIf` would rotate
+pixels in viewers that currently display the image unrotated. An agreeing
+non-`eXIf` Orientation, or a non-`eXIf` block carrying no Orientation, does
+not decline. These readers return only a routing value or its absence -- their
+bytes never reach the output -- and the raw-EXIF-profile reader's declared
+byte count is bounds-checked against the same text-decompression limit as
+`tEXt`/`zTXt` (`PNG_MAX_INFLATED_TEXT_BYTES`) before any hex is decoded,
+independent of any preservation flag.
+
+### PNG namespace mapping (D-15)
+
+`inspectFile` and `removedNamespaces` report PNG's removable metadata under
+the same closed namespace set (`EXIF`, `XMP`, `ICC`, `PNG`, `C2PA`) every
+format uses. No entry is produced for `pHYs`, `gAMA`, or `sRGB`, or an
+unregistered chunk stripped under D-05 -- those are reported through
+`removedNamespaces`/`preserved` only, never as an inspection entry.
+
+| Chunk                               | Namespace | Entry                                                                                                                         |
+| ----------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `eXIf`                              | `EXIF`    | One entry per decoded EXIF tag (`parseExif`).                                                                                 |
+| `iCCP` (inflated)                   | `ICC`     | One entry per decoded ICC field (`parseIcc`).                                                                                 |
+| `tEXt`                              | `PNG`     | `{ name: keyword, value: Latin-1 text }`.                                                                                     |
+| `zTXt` (inflated)                   | `PNG`     | `{ name: keyword, value: Latin-1 text }`.                                                                                     |
+| `iTXt`, keyword `XML:com.adobe.xmp` | `XMP`     | One entry per decoded XMP property (`parseXmp`).                                                                              |
+| `iTXt`, any other keyword           | `PNG`     | `{ name: keyword, value: UTF-8 text }`; invalid UTF-8 adds a `metadata-invalid` warning and produces no entry (fatal decode). |
+| `tIME`                              | `PNG`     | `{ name: "ModifyDate", value: "YYYY:MM:DD HH:MM:SS" }`.                                                                       |
+| `caBX` (C2PA)                       | `C2PA`    | `{ name: "JUMBF", value: <byte length of the chunk data> }`. The JUMBF box contents are never parsed.                         |
+| `pHYs`, `gAMA`, `sRGB`              | `PNG`     | No entry -- reported only via `removedNamespaces`/`preserved.resolution`.                                                     |
+
+Every successful PNG sanitize re-parses the staged destination (CRC and chunk
+order re-checked), asserts its chunk-type sequence against the plan computed
+from admission, and compares every kept chunk byte-for-byte against its
+source range before publication. A mismatch is `verification-failed` and the
+destination is never published.
 
 ## Safety Guarantees
 
@@ -199,7 +298,7 @@ package.
 ## Explicit Non-Capabilities
 
 - No CMM, color transform, tag-content grammar validation, class-required-tag matrix, registry validation, full ICC semantic conformance, transform-quality evaluation, or color-correctness claim.
-- No JPEG, PNG, GIF, TIFF, AVIF, HEIF, PDF, audio, video, RAW, or sidecar support.
+- No JPEG, GIF, TIFF, AVIF, HEIF, PDF, audio, video, RAW, or sidecar support. No APNG (refused as an animation, FUT-03).
 - No in-place rewrite, no ExifTool command-line compatibility, and no exhaustive tag database.
 - No Electron routing, UI control, native-engine switch, or second native format is introduced by this policy.
 - Animation is limited to recognized `ANIM`/`ANMF` structures with validated nested `VP8`, `VP8L`, and optional `ALPH` chunks. Unknown nested chunks are refused.

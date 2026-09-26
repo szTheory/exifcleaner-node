@@ -5,8 +5,8 @@ import {
   anim,
   animationFrame,
   exifWithOrientation,
+  iccCanaryProfile,
   iccProfile,
-  iccProfileV4,
   metadataWebp,
   vp8,
   vp8l,
@@ -64,6 +64,7 @@ export interface WebpSampleOptions {
   readonly preserveOrientation: boolean;
   readonly preserveColorProfile: boolean;
   readonly preserveTimestamps: boolean;
+  readonly preserveResolution: boolean;
 }
 
 export interface QualificationSample {
@@ -380,6 +381,7 @@ const NO_PRESERVATION: WebpSampleOptions = Object.freeze({
   preserveOrientation: false,
   preserveColorProfile: false,
   preserveTimestamps: false,
+  preserveResolution: false,
 });
 
 const preservationOptionsArbitrary: fc.Arbitrary<WebpSampleOptions> = fc.record(
@@ -387,6 +389,11 @@ const preservationOptionsArbitrary: fc.Arbitrary<WebpSampleOptions> = fc.record(
     preserveOrientation: fc.boolean(),
     preserveColorProfile: fc.boolean(),
     preserveTimestamps: fc.boolean(),
+    // Held constant (never randomized): WebP declines preserveResolution:
+    // true before any write (D-03), which would collapse every property
+    // sample under it into a decline instead of exercising the metadata
+    // preservation properties this generator exists to test.
+    preserveResolution: fc.constant(false),
   },
 );
 
@@ -395,26 +402,6 @@ interface MetadataArmSample {
   readonly planted: readonly PlantedCanary<WebpMetadataKind>[];
   readonly options: WebpSampleOptions;
   readonly plantedOrientation?: number;
-}
-
-/**
- * Builds a structurally-admitted ICC v4 profile (per `validateIccForPreservation`)
- * carrying the canary text inside a second `cprt`/`text` tag, after the default
- * `rTRC` tag. Offsets/sizes stay canonical contiguous ranges with zero padding,
- * since `iccProfileV4` computes them from the tag list and this only writes into
- * the already-zeroed data region past the 8-byte type+reserved tag header.
- */
-function iccCanaryProfile(canaryText: string): Buffer {
-  const canary = Buffer.from(canaryText, "ascii");
-  const tags = [
-    { signature: "rTRC" },
-    { signature: "cprt", type: "text", size: 8 + canary.length },
-  ] as const;
-  const tableEnd = 132 + tags.length * 12;
-  const cprtOffset = tableEnd + 1 * 8; // matches iccProfileV4's default per-index offset
-  const profile = iccProfileV4({}, tags);
-  canary.copy(profile, cprtOffset + 8);
-  return profile;
 }
 
 /**

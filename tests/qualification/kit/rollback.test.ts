@@ -46,11 +46,23 @@ async function freshDirectory(): Promise<string> {
 
 const STAGING_FILE_NAME_PATTERN = /^output\.[a-z0-9]+$/;
 
+/**
+ * Rollback coverage completeness (56-11): the `it.each` above runs once per
+ * currently registered handler, but a silently-shrunk registry (or a handler
+ * that throws before this array is appended to) would still let the suite
+ * pass with fewer formats covered than expected. This collects the format
+ * each iteration actually ran for, and the closing assertion checks that set
+ * against `QUALIFICATION_FORMATS` -- never a literal format name -- so it
+ * stays format-neutral as another format is registered.
+ */
+const formatsExercisedByRollback: string[] = [];
+
 describe("registry rollback proof (KIT-07 D-24)", () => {
   it.each(registeredHandlersForTests())(
     "declines a $capability.format sample as unsupported-format once its handler is removed, and accepts it again once restored",
     async (handler) => {
       const format = handler.capability.format;
+      formatsExercisedByRollback.push(format);
       const entry: QualificationFormat | undefined =
         QUALIFICATION_FORMATS[format as keyof typeof QUALIFICATION_FORMATS];
       if (entry === undefined) {
@@ -86,6 +98,7 @@ describe("registry rollback proof (KIT-07 D-24)", () => {
           preserveOrientation: true,
           preserveColorProfile: true,
           preserveTimestamps: true,
+          preserveResolution: false,
         });
         expect(sanitized.ok).toBe(false);
         if (sanitized.ok) throw new Error("unreachable");
@@ -118,6 +131,7 @@ describe("registry rollback proof (KIT-07 D-24)", () => {
         preserveOrientation: true,
         preserveColorProfile: true,
         preserveTimestamps: true,
+        preserveResolution: false,
       });
       expect(restored.ok).toBe(true);
       expect(
@@ -125,6 +139,12 @@ describe("registry rollback proof (KIT-07 D-24)", () => {
       ).toBe(true);
     },
   );
+
+  it("ran the rollback proof for every qualified format", () => {
+    expect(new Set(formatsExercisedByRollback)).toEqual(
+      new Set(Object.keys(QUALIFICATION_FORMATS)),
+    );
+  });
 
   it("every registered handler's stagingFileName follows the output.<ext> convention and matches its first capability extension", () => {
     for (const handler of registeredHandlersForTests()) {

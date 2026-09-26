@@ -150,7 +150,8 @@ export async function sanitizeFile(
   if (
     typeof options.preserveOrientation !== "boolean" ||
     typeof options.preserveColorProfile !== "boolean" ||
-    typeof options.preserveTimestamps !== "boolean"
+    typeof options.preserveTimestamps !== "boolean" ||
+    typeof options.preserveResolution !== "boolean"
   )
     return invalidOptions(
       "All preservation options must be explicit booleans.",
@@ -209,6 +210,15 @@ export async function sanitizeFile(
           feature: "orientation-preservation",
         }),
       );
+    if (options.preserveResolution && !handler.capability.preserves.resolution)
+      return err(
+        admissionDecline({
+          code: "unsupported-feature",
+          detail: "This format cannot preserve resolution natively.",
+          path: sourcePath,
+          feature: "resolution-preservation",
+        }),
+      );
     const orientation =
       admission.orientation.status === "valid"
         ? admission.orientation.value
@@ -217,6 +227,7 @@ export async function sanitizeFile(
       admission,
       options.preserveOrientation,
       options.preserveColorProfile,
+      options.preserveResolution,
       orientation,
     );
     const overflow = handler.checkOutputPlan(plan);

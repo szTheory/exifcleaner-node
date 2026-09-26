@@ -97,7 +97,8 @@ export async function sanitizeFile(options) {
         return invalidOptions("destinationPath must be a non-empty string.");
     if (typeof options.preserveOrientation !== "boolean" ||
         typeof options.preserveColorProfile !== "boolean" ||
-        typeof options.preserveTimestamps !== "boolean")
+        typeof options.preserveTimestamps !== "boolean" ||
+        typeof options.preserveResolution !== "boolean")
         return invalidOptions("All preservation options must be explicit booleans.");
     if (resolve(sourcePath) === resolve(destinationPath))
         return invalidOptions("Source and destination paths must be different.", destinationPath);
@@ -140,10 +141,17 @@ export async function sanitizeFile(options) {
                 path: sourcePath,
                 feature: "orientation-preservation",
             }));
+        if (options.preserveResolution && !handler.capability.preserves.resolution)
+            return err(admissionDecline({
+                code: "unsupported-feature",
+                detail: "This format cannot preserve resolution natively.",
+                path: sourcePath,
+                feature: "resolution-preservation",
+            }));
         const orientation = admission.orientation.status === "valid"
             ? admission.orientation.value
             : undefined;
-        const plan = handler.buildOutputPlan(admission, options.preserveOrientation, options.preserveColorProfile, orientation);
+        const plan = handler.buildOutputPlan(admission, options.preserveOrientation, options.preserveColorProfile, options.preserveResolution, orientation);
         const overflow = handler.checkOutputPlan(plan);
         if (overflow !== undefined)
             return err(admissionDecline({

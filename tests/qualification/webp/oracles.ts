@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,6 +12,7 @@ import {
   type MetadataEntry,
   type PermittedKind,
 } from "../kit/oracles.js";
+import type { PayloadDigest } from "../kit/corpus.js";
 
 const require = createRequire(import.meta.url);
 const authorityBuilder =
@@ -18,6 +20,39 @@ const authorityBuilder =
 const SHA256 = /^[a-f0-9]{64}$/;
 
 export const WEBP_EXTENSION = ".webp";
+
+/**
+ * The RIFF FourCCs whose payload identity `runQualificationCase` checks
+ * (56-09 KIT-01 generalization: previously `kit/corpus.ts`'s own
+ * `PAYLOAD_CHUNKS`, moved here as the WebP suite's own
+ * `payloadDigests` callback).
+ */
+const PAYLOAD_CHUNKS = new Set(["VP8 ", "VP8L", "ALPH", "ANIM", "ANMF"]);
+
+function riffDigest(value: Buffer): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+/**
+ * Walks a RIFF/WebP chunk stream and returns the sha256 of every payload
+ * chunk's data, keyed by its FourCC (`PayloadDigest.part`). The WebP suite's
+ * own `payloadDigests` callback for `runQualificationCase` (KIT-01 D-03: the
+ * kit itself carries no RIFF vocabulary).
+ */
+export function webpPayloadDigests(data: Buffer): readonly PayloadDigest[] {
+  const payloads: PayloadDigest[] = [];
+  for (let offset = 12; offset < data.length;) {
+    const fourCc = data.toString("ascii", offset, offset + 4);
+    const size = data.readUInt32LE(offset + 4);
+    if (PAYLOAD_CHUNKS.has(fourCc))
+      payloads.push({
+        part: fourCc,
+        sha256: riffDigest(data.subarray(offset + 8, offset + 8 + size)),
+      });
+    offset += 8 + size + (size & 1);
+  }
+  return payloads;
+}
 
 interface ExecutableAuthority {
   readonly path: string;

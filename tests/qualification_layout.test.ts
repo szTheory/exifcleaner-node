@@ -23,7 +23,8 @@ export const PENDING_FLAT_FILES: readonly string[] = Object.freeze([
 ]);
 
 export interface QualificationListProblemsInput {
-  readonly ciList: readonly string[];
+  readonly kitList: readonly string[];
+  readonly perFormatLists: Readonly<Record<string, readonly string[]>>;
   readonly ciListExists: ReadonlySet<string>;
   readonly qualifyList: readonly string[];
   readonly onDiskTestFiles: readonly string[];
@@ -36,21 +37,29 @@ function isBenchmarkPath(path: string): boolean {
 }
 
 /**
- * Pure helper (D-16): takes the ci.yml qualification-linux list, the qualify.cjs full-run
- * list, the on-disk kit/webp `.test.ts` set, and the pending-flat allowlist as data, and
- * returns a list of problem strings. Empty means the three sources agree.
+ * Pure helper (D-16, widened 56-12 D-17): takes the ci.yml qualification-linux
+ * job's `QUAL_KIT` list and its per-format `QUAL_<FORMAT>` lists, the
+ * qualify.cjs full-run list, the on-disk kit/webp/png `.test.ts` set, and the
+ * pending-flat allowlist as data, and returns a list of problem strings.
+ * Empty means every source agrees, AND every per-format list's files live
+ * under that format's own `tests/qualification/<format>/` directory (D-17:
+ * a stray cross-format entry would silently widen or narrow a format's own
+ * CI selection).
  */
 export function qualificationListProblems(
   input: QualificationListProblemsInput,
 ): string[] {
   const {
-    ciList,
+    kitList,
+    perFormatLists,
     ciListExists,
     qualifyList,
     onDiskTestFiles,
     pendingFlatFiles,
   } = input;
   const problems: string[] = [];
+
+  const ciList = [...kitList, ...Object.values(perFormatLists).flat()];
 
   if (ciList.length === 0) {
     problems.push("ci.yml qualification-linux run step has an empty file list");
@@ -64,6 +73,17 @@ export function qualificationListProblems(
       problems.push(
         `ci.yml lists a file that does not exist on disk: ${entry}`,
       );
+    }
+  }
+
+  for (const [format, entries] of Object.entries(perFormatLists)) {
+    const requiredPrefix = `tests/qualification/${format}/`;
+    for (const entry of entries) {
+      if (!entry.startsWith(requiredPrefix)) {
+        problems.push(
+          `QUAL_${format.toUpperCase()} lists ${entry}, which is not under ${requiredPrefix}`,
+        );
+      }
     }
   }
 
@@ -102,7 +122,7 @@ export function qualificationListProblems(
   for (const entry of ciSet) {
     if (!expected.has(entry)) {
       problems.push(
-        `ci.yml lists ${entry}, which is neither an on-disk kit/webp suite nor a pinned PENDING_FLAT_FILES entry`,
+        `ci.yml lists ${entry}, which is neither an on-disk kit/webp/png suite nor a pinned PENDING_FLAT_FILES entry`,
       );
     }
   }
@@ -110,20 +130,28 @@ export function qualificationListProblems(
   return problems;
 }
 
-function extractCiList(ciYmlText: string): string[] {
+function extractJobBody(ciYmlText: string, jobName: string): string {
   const jobMatch = ciYmlText.match(
-    /\n {2}qualification-linux:\n([\s\S]*?)(?=\n {2}[A-Za-z0-9_-]+:\n|$)/,
+    new RegExp(
+      `\\n {2}${jobName}:\\n([\\s\\S]*?)(?=\\n {2}[A-Za-z0-9_-]+:\\n|$)`,
+    ),
   );
   const jobBody = jobMatch?.[1];
   if (jobBody === undefined)
-    throw new Error("qualification-linux job not found in ci.yml");
-  const runMatch = jobBody.match(/run: npm test -- (.+)/);
-  const runArgs = runMatch?.[1];
-  if (runArgs === undefined)
-    throw new Error(
-      "qualification-linux run step (npm test --) not found in ci.yml",
-    );
-  return runArgs.trim().split(/\s+/);
+    throw new Error(`${jobName} job not found in ci.yml`);
+  return jobBody;
+}
+
+/** Extracts a literal, double-quoted `KEY: "a b c"` job-level env value as a space-split list. */
+function extractEnvList(jobBody: string, key: string): string[] {
+  const match = jobBody.match(new RegExp(`\\n {6}${key}: "([^"]*)"`));
+  const value = match?.[1];
+  if (value === undefined)
+    throw new Error(`${key} not found in qualification-linux env block`);
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter((entry) => entry.length > 0);
 }
 
 function extractQualifyList(qualifyCjsText: string): string[] {
@@ -166,25 +194,49 @@ function listFlatEntries(absoluteDir: string): string[] {
     );
 }
 
-describe("qualification test layout (D-15/D-16)", () => {
+describe("qualification test layout (D-15/D-16, per-format scoping D-17)", () => {
   const ciYmlPath = join(projectRoot, ".github/workflows/ci.yml");
   const qualifyCjsPath = join(projectRoot, "scripts/qualification/qualify.cjs");
   const ciYmlText = readFileSync(ciYmlPath, "utf8");
   const qualifyCjsText = readFileSync(qualifyCjsPath, "utf8");
 
-  const ciList = extractCiList(ciYmlText);
-  const qualifyList = extractQualifyList(qualifyCjsText);
-  const onDiskTestFiles = [
-    ...listTestFilesRecursive(join(projectRoot, "tests/qualification/kit")),
-    ...listTestFilesRecursive(join(projectRoot, "tests/qualification/webp")),
-  ];
-  const ciListExists = new Set(
-    ciList.filter((entry) => existsSync(join(projectRoot, entry))),
+  const qualificationLinuxBody = extractJobBody(
+    ciYmlText,
+    "qualification-linux",
+  );
+  const qualificationRoot = join(projectRoot, "tests/qualification");
+  const qualificationSubdirectories = readdirSync(qualificationRoot, {
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+  // "kit" is the shared, format-neutral suite (QUAL_KIT); every other
+  // subdirectory is a registered format and must have its own QUAL_<FORMAT>
+  // env list in qualification-linux.
+  const formatDirectoryNames = qualificationSubdirectories.filter(
+    (name) => name !== "kit",
   );
 
-  it("has no problems: ci.yml, qualify.cjs, and the on-disk kit/webp suites agree", () => {
+  const kitList = extractEnvList(qualificationLinuxBody, "QUAL_KIT");
+  const perFormatLists: Record<string, readonly string[]> = Object.fromEntries(
+    formatDirectoryNames.map((name) => [
+      name,
+      extractEnvList(qualificationLinuxBody, `QUAL_${name.toUpperCase()}`),
+    ]),
+  );
+  const qualifyList = extractQualifyList(qualifyCjsText);
+  const onDiskTestFiles = qualificationSubdirectories.flatMap((name) =>
+    listTestFilesRecursive(join(qualificationRoot, name)),
+  );
+  const fullCiList = [...kitList, ...Object.values(perFormatLists).flat()];
+  const ciListExists = new Set(
+    fullCiList.filter((entry) => existsSync(join(projectRoot, entry))),
+  );
+
+  it("has no problems: ci.yml (QUAL_KIT + every QUAL_<FORMAT>), qualify.cjs, and the on-disk kit/webp/png suites agree", () => {
     const problems = qualificationListProblems({
-      ciList,
+      kitList,
+      perFormatLists,
       ciListExists,
       qualifyList,
       onDiskTestFiles,
@@ -202,15 +254,52 @@ describe("qualification test layout (D-15/D-16)", () => {
     expect(unexpected).toEqual([]);
   });
 
-  // Permanent negative controls (D-16): each proves qualificationListProblems
+  // Permanent negative controls (D-16, D-17): each proves qualificationListProblems
   // actually detects the failure mode it exists for, by mutating the real,
   // currently-green inputs and asserting a problem is reported.
   describe("negative controls (must report a problem when triggered)", () => {
-    it("(i) reports a problem when the ci.yml list drops an on-disk suite", () => {
+    it("(i) reports a problem when a QUAL_<FORMAT> list drops an on-disk suite", () => {
       const droppedFile = "tests/qualification/webp/parser.test.ts";
-      const droppedCiList = ciList.filter((entry) => entry !== droppedFile);
+      const droppedPerFormatLists = Object.fromEntries(
+        Object.entries(perFormatLists).map(([format, entries]) => [
+          format,
+          entries.filter((entry) => entry !== droppedFile),
+        ]),
+      );
+      const droppedCiList = [
+        ...kitList,
+        ...Object.values(droppedPerFormatLists).flat(),
+      ];
       const problems = qualificationListProblems({
-        ciList: droppedCiList,
+        kitList,
+        perFormatLists: droppedPerFormatLists,
+        ciListExists: new Set(
+          droppedCiList.filter((entry) => ciListExists.has(entry)),
+        ),
+        qualifyList,
+        onDiskTestFiles,
+        pendingFlatFiles: PENDING_FLAT_FILES,
+      });
+      expect(problems.some((problem) => problem.includes(droppedFile))).toBe(
+        true,
+      );
+    });
+
+    it("(i-png) reports a problem when a PNG suite is missing from QUAL_PNG (the required 56-12 negative control)", () => {
+      const droppedFile = "tests/qualification/png/property.test.ts";
+      const droppedPerFormatLists = {
+        ...perFormatLists,
+        png: (perFormatLists.png ?? []).filter(
+          (entry) => entry !== droppedFile,
+        ),
+      };
+      const droppedCiList = [
+        ...kitList,
+        ...Object.values(droppedPerFormatLists).flat(),
+      ];
+      const problems = qualificationListProblems({
+        kitList,
+        perFormatLists: droppedPerFormatLists,
         ciListExists: new Set(
           droppedCiList.filter((entry) => ciListExists.has(entry)),
         ),
@@ -225,8 +314,13 @@ describe("qualification test layout (D-15/D-16)", () => {
 
     it("(ii) reports a problem when a listed path does not exist on disk", () => {
       const bogusPath = "tests/qualification/webp/does-not-exist.test.ts";
+      const injectedPerFormatLists = {
+        ...perFormatLists,
+        webp: [...(perFormatLists.webp ?? []), bogusPath],
+      };
       const problems = qualificationListProblems({
-        ciList: [...ciList, bogusPath],
+        kitList,
+        perFormatLists: injectedPerFormatLists,
         ciListExists,
         qualifyList: [...qualifyList, bogusPath],
         onDiskTestFiles,
@@ -241,8 +335,13 @@ describe("qualification test layout (D-15/D-16)", () => {
 
     it("(iii) reports a problem for a stray non-allowlisted flat file", () => {
       const strayPath = "tests/qualification/stray.test.ts";
+      const injectedPerFormatLists = {
+        ...perFormatLists,
+        webp: [...(perFormatLists.webp ?? []), strayPath],
+      };
       const problems = qualificationListProblems({
-        ciList: [...ciList, strayPath],
+        kitList,
+        perFormatLists: injectedPerFormatLists,
         ciListExists: new Set([...ciListExists, strayPath]),
         qualifyList: [...qualifyList, strayPath],
         onDiskTestFiles,
@@ -251,8 +350,47 @@ describe("qualification test layout (D-15/D-16)", () => {
       expect(
         problems.some((problem) =>
           problem.includes(
-            `${strayPath}, which is neither an on-disk kit/webp suite nor a pinned PENDING_FLAT_FILES entry`,
+            `${strayPath}, which is neither an on-disk kit/webp/png suite nor a pinned PENDING_FLAT_FILES entry`,
           ),
+        ),
+      ).toBe(true);
+    });
+
+    it("(iv) reports a problem when an on-disk suite in a non-kit qualification subdirectory is missing from ci.yml -- proves the generalized subdirectory scan actually runs", () => {
+      const missingPngSuite = "tests/qualification/png/x.test.ts";
+      const problems = qualificationListProblems({
+        kitList,
+        perFormatLists,
+        ciListExists,
+        qualifyList,
+        onDiskTestFiles: [...onDiskTestFiles, missingPngSuite],
+        pendingFlatFiles: PENDING_FLAT_FILES,
+      });
+      expect(
+        problems.some((problem) => problem.includes(missingPngSuite)),
+      ).toBe(true);
+    });
+
+    it("(v) reports a problem when a format's QUAL_<FORMAT> list contains a file from another format's directory", () => {
+      const wrongDirectoryEntry = "tests/qualification/webp/parser.test.ts";
+      const injectedPerFormatLists = {
+        ...perFormatLists,
+        png: [...(perFormatLists.png ?? []), wrongDirectoryEntry],
+      };
+      const problems = qualificationListProblems({
+        kitList,
+        perFormatLists: injectedPerFormatLists,
+        ciListExists,
+        qualifyList,
+        onDiskTestFiles,
+        pendingFlatFiles: PENDING_FLAT_FILES,
+      });
+      expect(
+        problems.some(
+          (problem) =>
+            problem.includes("QUAL_PNG") &&
+            problem.includes(wrongDirectoryEntry) &&
+            problem.includes("not under tests/qualification/png/"),
         ),
       ).toBe(true);
     });

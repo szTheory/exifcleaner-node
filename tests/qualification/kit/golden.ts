@@ -15,6 +15,7 @@ export interface PreservationOptions {
   readonly preserveOrientation: boolean;
   readonly preserveColorProfile: boolean;
   readonly preserveTimestamps: boolean;
+  readonly preserveResolution: boolean;
 }
 
 export interface GoldenFile {
@@ -46,7 +47,8 @@ export function flagKey(options: PreservationOptions): string {
   const o = options.preserveOrientation ? 1 : 0;
   const c = options.preserveColorProfile ? 1 : 0;
   const t = options.preserveTimestamps ? 1 : 0;
-  return `o${o}c${c}t${t}`;
+  const r = options.preserveResolution ? "r1" : "";
+  return `o${o}c${c}t${t}${r}`;
 }
 
 function isValidEntryValue(value: unknown): value is string {

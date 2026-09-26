@@ -74,6 +74,14 @@ const allMetadataErrors = [
     nativeWrite: "not-started",
   }),
   metadataError({
+    code: "unsupported-feature",
+    detail: "Resolution cannot be retained.",
+    path: "/tmp/source.webp",
+    feature: "resolution-preservation",
+    phase: "admission",
+    nativeWrite: "not-started",
+  }),
+  metadataError({
     code: "source-changed",
     detail: "Source changed.",
     path: "/tmp/source.webp",
@@ -215,6 +223,7 @@ describe("classifyFallback", () => {
       { code: "unsupported-format", disposition: "safe-to-fallback" },
       { code: "malformed-file", disposition: "safe-to-fallback" },
       { code: "unsafe-structure", disposition: "safe-to-fallback" },
+      { code: "unsupported-feature", disposition: "safe-to-fallback" },
       { code: "unsupported-feature", disposition: "safe-to-fallback" },
       { code: "unsupported-feature", disposition: "safe-to-fallback" },
       { code: "source-changed", disposition: "do-not-fallback" },
@@ -375,6 +384,7 @@ describe("classifyFallback", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
       const invalidRequest = await sanitizeFile(null as never);
 
@@ -410,6 +420,7 @@ describe("classifyFallback", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
       const controller = new AbortController();
       controller.abort();
@@ -419,6 +430,7 @@ describe("classifyFallback", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
         signal: controller.signal,
       });
       await writeFile(destinationPath, "pre-existing destination");
@@ -428,6 +440,7 @@ describe("classifyFallback", () => {
         preserveOrientation: false,
         preserveColorProfile: false,
         preserveTimestamps: false,
+        preserveResolution: false,
       });
 
       expect(missing).toMatchObject({

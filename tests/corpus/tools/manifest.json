@@ -75,6 +75,74 @@
           "sha256": "a6b8018093845ac93011307bac4ab630d6604b2365fc7f66bb88c88d7dedb5ed"
         }
       ]
+    },
+    {
+      "id": "libpng-1.6.58",
+      "kind": "compiled-source",
+      "version": "1.6.58",
+      "revision": "3061454d980de7d53608f594194cfac722721d2a",
+      "origin": "https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.58.tar.gz",
+      "archive": {
+        "path": "tests/corpus/tools/archives/libpng-1.6.58.tar.gz",
+        "sha256": "a9d4df463d36a6e5f9c29bd6f4967312d17e996c1854f3511f833924eb1993cf",
+        "root": "libpng-1.6.58"
+      },
+      "license": {
+        "spdx": "libpng-2.0",
+        "path": "tests/corpus/tools/licenses/libpng-LICENSE",
+        "member": "libpng-1.6.58/LICENSE",
+        "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "libpng-1.6.58/png.h",
+        "sha256": "81501c268ec5c3dc79efc6ac9fddb63b22a25e4931360ddd7b29b1744d6cb6b8",
+        "contains": "#define PNG_LIBPNG_VER_STRING \"1.6.58\""
+      },
+      "entrypoints": [
+        {
+          "id": "png-source",
+          "kind": "c-source",
+          "member": "libpng-1.6.58/png.c",
+          "bytes": 135428,
+          "sha256": "e675e106a5cc637a824c4ad9b5c1ee82c43bde9a47466e9ea36d38bb29aa095c"
+        }
+      ]
+    },
+    {
+      "id": "pngcheck-4.0.1",
+      "kind": "compiled-source",
+      "version": "4.0.1",
+      "revision": "861c978c3b1bac93659202fd25b9b76bc852eee1",
+      "origin": "https://github.com/pnggroup/pngcheck/archive/refs/tags/v4.0.1.tar.gz",
+      "archive": {
+        "path": "tests/corpus/tools/archives/pngcheck-4.0.1.tar.gz",
+        "sha256": "a24ac2348efca5895e9d6f53fd316f3d5c409ab92a74b2b8106541759304da53",
+        "root": "pngcheck-4.0.1"
+      },
+      "license": {
+        "spdx": "HPND",
+        "path": "tests/corpus/tools/licenses/pngcheck-LICENSE",
+        "member": "pngcheck-4.0.1/LICENSE",
+        "sha256": "137951967c258cdbed01d0af67317236244ef6c750bef9e5a7020098e53b1445"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "pngcheck-4.0.1/pngcheck.c",
+        "sha256": "728e82da1e26bcd2142bec2162e908b39dd4b3bbcf6145e2af264114be625dd2",
+        "contains": "#define VERSION \"4.0.1\""
+      },
+      "entrypoints": [
+        {
+          "id": "pngcheck-source",
+          "kind": "c-source",
+          "member": "pngcheck-4.0.1/pngcheck.c",
+          "bytes": 202827,
+          "sha256": "728e82da1e26bcd2142bec2162e908b39dd4b3bbcf6145e2af264114be625dd2"
+        }
+      ]
     }
   ],
   "fixtures": [
@@ -86,6 +154,141 @@
       "bytes": 4880,
       "sha256": "1bf9449d529b491c6eb22ec84d42217e43cf9af0ffe391fa7a30b29b037f098a",
       "licenseMember": "libwebp-1.5.0/COPYING"
+    },
+    {
+      "id": "libpng-1.6.58-rgb-8-srgb",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/rgb-8-sRGB.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/rgb-8-sRGB.png",
+      "bytes": 772,
+      "sha256": "4f94dfdb92acaeffab3aff43fbaf935fe0e5816566792b56a75a9f8802028e7e",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-rgb-8-1.8",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/rgb-8-1.8.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/rgb-8-1.8.png",
+      "bytes": 819,
+      "sha256": "327589867a6a3a21fe17ffc55b29f34ceb8446cf87bc4435c80aa098d8ae7b4a",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-rgb-8-trns",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/rgb-8-tRNS.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/rgb-8-tRNS.png",
+      "bytes": 777,
+      "sha256": "42d6f96da278fa6264a9e267caa4cbfc75ddf0734ef67187e4c4b2d29e2d26fc",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-palette-8-srgb-trns",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/palette-8-sRGB-tRNS.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/palette-8-sRGB-tRNS.png",
+      "bytes": 1313,
+      "sha256": "7e1465ed17f633b6dde5da989a44d910b815ffa78e77892864ab2e2ac56d6261",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-gray-16-linear-trns",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/gray-16-linear-tRNS.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/gray-16-linear-tRNS.png",
+      "bytes": 744,
+      "sha256": "4f079601662e06fa01dbbfb09a6e0e5d154e084f52e97abc4f9c142ec3aff755",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-rgb-alpha-16-srgb",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/rgb-alpha-16-sRGB.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/rgb-alpha-16-sRGB.png",
+      "bytes": 1390,
+      "sha256": "f287dc434a985a9478aadc0f8fe6c6053899ea61735ec15f41db47816bd184d3",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-cicp-display-p3-reencoded",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/png-3/cicp-display-p3_reencoded.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/cicp-display-p3_reencoded.png",
+      "bytes": 142,
+      "sha256": "e162b7af4677c088f8ae584d1f0cbc852901e020fdfa0f41b54b4e001b7a2d23",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-basn3p08",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/pngsuite/basn3p08.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/basn3p08.png",
+      "bytes": 1286,
+      "sha256": "eca1db90338a8481e4d3f2469befa06d7564534e9323b6a8040ed0cdd281d952",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-ibasn2c08",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/pngsuite/ibasn2c08.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/ibasn2c08.png",
+      "bytes": 299,
+      "sha256": "67ac80581c63559889a9f5d5ba8f70ab1e77d304a2e54b916dd23953bf7d3fc7",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-badadler",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/crashers/badadler.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/badadler.png",
+      "bytes": 67,
+      "sha256": "3614bbe9494f6374567cbf897e022a16abb8edd3f166745ce73a2f472eef6136",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-badcrc",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/crashers/badcrc.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/badcrc.png",
+      "bytes": 67,
+      "sha256": "ec5b6a711ea2325404ea56575df2f8a28292e5ef15a950f42a1d39ce06a6a96a",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-bad-iccp",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/crashers/bad_iCCP.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/bad_iCCP.png",
+      "bytes": 321,
+      "sha256": "0c1ec5ece28d8574e80a3842939e8939f3451c71e8b2e013dcf26a80d292168e",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-empty-ancillary-chunks",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/crashers/empty_ancillary_chunks.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/empty_ancillary_chunks.png",
+      "bytes": 730,
+      "sha256": "bdc133d532c03cdaa6b6a8188a722c3845d4b2f76e89c63e1c70c1bf6a364be7",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-huge-itxt-chunk",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/crashers/huge_iTXt_chunk.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/huge_iTXt_chunk.png",
+      "bytes": 57,
+      "sha256": "cf52cbac99198baf5e72e0d1423de217aa9cff327981356ab20e9b47d32ab0fd",
+      "licenseMember": "libpng-1.6.58/LICENSE"
+    },
+    {
+      "id": "libpng-1.6.58-huge-junk-unsafe-to-copy",
+      "authority": "libpng-1.6.58",
+      "member": "libpng-1.6.58/contrib/testpngs/crashers/huge_juNK_unsafe_to_copy.png",
+      "path": "tests/corpus/upstream/libpng-1.6.58/huge_juNK_unsafe_to_copy.png",
+      "bytes": 57,
+      "sha256": "8f9ef7f8931919fc8a73d896ff2e3bd5cf233141dc6b7801e4fbe7c0c7b4037b",
+      "licenseMember": "libpng-1.6.58/LICENSE"
     }
   ]
 }

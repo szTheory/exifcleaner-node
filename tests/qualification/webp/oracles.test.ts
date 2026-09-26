@@ -52,6 +52,7 @@ async function sanitize(
       preserveOrientation: options.preserveOrientation ?? false,
       preserveColorProfile: options.preserveColorProfile ?? false,
       preserveTimestamps: false,
+      preserveResolution: false,
     });
     if (!result.ok) throw new Error(`sanitize failed: ${result.error.code}`);
     return await readFile(destinationPath);
@@ -79,6 +80,7 @@ function sanitizeOptionsForGrants(grants: readonly string[]): SanitizeOptions {
 
 interface ManifestRecord {
   readonly id: string;
+  readonly format: string;
   readonly roles: readonly string[];
   readonly outcome: { readonly status: string };
   readonly permittedDifferences: readonly string[];
@@ -93,6 +95,7 @@ function differentialSuccessRecords(): readonly ManifestRecord[] {
   };
   return manifest.records.filter(
     (record) =>
+      record.format === "webp" &&
       record.roles.includes("differential") &&
       record.outcome.status === "success",
   );
