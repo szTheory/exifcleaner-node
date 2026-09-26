@@ -21,6 +21,19 @@ Orientation disagrees with `eXIf`, declines orientation preservation to
 ExifTool rather than guessing which source wins (D-11, D-12). An agreeing or
 orientation-free non-`eXIf` source does not decline.
 
+PNG decompression is bounded: streaming inflate refuses rather than hangs on
+a compression-bomb `iCCP`, `zTXt` or `iTXt` chunk, capped at 16 MiB per
+metadata chunk, 16 MiB inflated per ICC profile, 16 MiB inflated per text
+chunk, 48 MiB inflated in total, and 10,000 aggregate ancillary chunks
+(D-14). `getCapabilities()`'s new `PngCapabilities` member states these
+limits plus its `refuses` list: `unknown-critical-chunks`,
+`malformed-container`, `crc-mismatch`, `chunk-order`, `truncation`,
+`trailing-data`, `animation`, `resource-limits`,
+`unmeasured-registered-chunks`, and `unsafe-chunk-adjacency` (the D-06 `iDOT`
+adjacency decline). `preserves` reports `orientation`, `colorProfile`,
+`timestamps` and `resolution` all `true` -- PNG can honor every preservation
+flag WebP cannot.
+
 ### Fixed (PNG)
 
 D-05's preserve-list now keeps `mDCV`/`cLLI` (the PNG Third Edition spelling)
