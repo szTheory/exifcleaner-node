@@ -155,10 +155,7 @@ async function expectedOutput(prepared: TransactionFixture): Promise<Buffer> {
     ...prepared.plan.parts.map((part) =>
       part.kind === "insert"
         ? part.data
-        : source.subarray(
-            part.sourceOffset,
-            part.sourceOffset + part.length,
-          ),
+        : source.subarray(part.sourceOffset, part.sourceOffset + part.length),
     ),
   ]);
 }

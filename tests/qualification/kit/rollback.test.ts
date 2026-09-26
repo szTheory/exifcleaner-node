@@ -47,13 +47,13 @@ async function freshDirectory(): Promise<string> {
 const STAGING_FILE_NAME_PATTERN = /^output\.[a-z0-9]+$/;
 
 /**
- * PNG-04 rollback coverage (56-11): the `it.each` above runs once per
+ * Rollback coverage completeness (56-11): the `it.each` above runs once per
  * currently registered handler, but a silently-shrunk registry (or a handler
  * that throws before this array is appended to) would still let the suite
- * pass with fewer format names covered than expected. This collects the
- * format each iteration actually ran for, and the closing assertion checks
- * that set against `QUALIFICATION_FORMATS` (never a `webp`/`png` literal), so
- * it stays format-neutral as a third format is registered.
+ * pass with fewer formats covered than expected. This collects the format
+ * each iteration actually ran for, and the closing assertion checks that set
+ * against `QUALIFICATION_FORMATS` -- never a literal format name -- so it
+ * stays format-neutral as another format is registered.
  */
 const formatsExercisedByRollback: string[] = [];
 
@@ -140,7 +140,7 @@ describe("registry rollback proof (KIT-07 D-24)", () => {
     },
   );
 
-  it("ran the rollback proof for every qualified format, including png", () => {
+  it("ran the rollback proof for every qualified format", () => {
     expect(new Set(formatsExercisedByRollback)).toEqual(
       new Set(Object.keys(QUALIFICATION_FORMATS)),
     );
