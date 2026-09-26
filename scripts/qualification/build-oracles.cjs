@@ -579,7 +579,7 @@ function prepareOracleTools() {
 
     const pngcheckVersion = runTool(
       pngcheckPath,
-      ["-V"],
+      ["-h"],
       {},
       "pngcheck version check failed",
     ).stdout.trim();
