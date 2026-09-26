@@ -2,7 +2,7 @@
 
 A small, typed metadata inspection and sanitization engine for Node.js.
 
-This project is pre-1.0 and supports **WebP only**. It is an evidence-led experiment related to [ExifCleaner issue #303](https://github.com/szTheory/exifcleaner/issues/303), not a complete ExifTool replacement. ExifCleaner should retain ExifTool as the fallback for unsupported formats, features, and refused inputs.
+This project is pre-1.0 and supports **WebP and PNG**. It is an evidence-led experiment related to [ExifCleaner issue #303](https://github.com/szTheory/exifcleaner/issues/303), not a complete ExifTool replacement. ExifCleaner should retain ExifTool as the fallback for unsupported formats, features, and refused inputs.
 
 ## Install
 
@@ -64,12 +64,12 @@ The support contract is stated in format-neutral vocabulary rather than in
 WebP-specific fields, so a future format is additive rather than breaking:
 
 - `NativeFormat`: the format tag carried by `Inspection.format` and
-  `SanitizeResult.format`. It is currently exactly `"webp"`; read it, do not
+  `SanitizeResult.format`. It is currently `"webp" | "png"`; read it, do not
   assume it.
 - `Capabilities` / `FormatCapabilities`: what `getCapabilities()` returns.
   `formats` is a non-empty list of per-format contracts, each stating
   `detection: "magic"` — recognition is by file magic, never by extension.
-  `WebpCapabilities` is the one `FormatCapabilities` member today.
+  `WebpCapabilities` and `PngCapabilities` are the `FormatCapabilities` members today.
 - `FallbackDisposition`: `"safe-to-fallback" | "do-not-fallback"`, the return of
   `classifyFallback`.
 - `PostCommitResidue`: the bounded private-stage residue reported on success.
