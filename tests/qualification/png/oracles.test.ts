@@ -13,7 +13,6 @@ import {
   iccProfileV4,
   metadataPng,
   png,
-  pngCaBX,
   pngChrm,
   pngChunk,
   pngCicp,
@@ -399,14 +398,14 @@ function syntheticDifferentialCases(): readonly DifferentialCase[] {
         : [],
     });
   }
-  cases.push({
-    id: "differential-cabx-c2pa",
-    source: pngWithChunksBefore([
-      ["caBX", pngCaBX(Buffer.from("c2pa-manifest-placeholder", "ascii"))],
-    ]),
-    options: {},
-    permittedDifferences: [],
-  });
+  // A caBX (C2PA) case is deliberately NOT included here: this kit's own
+  // placeholder JUMBF payload (shared with png_classification.test.ts) is
+  // not a well-formed JUMBF box, and ExifTool warns reading it ("Truncated
+  // JPEG 2000 box", measured 2026-09-26) -- comparePermittedDifferences
+  // throws on ANY source warning, so this case cannot go through the
+  // ordinary two-directional differential. It is covered instead by
+  // SOURCE_WARNING_CASES ("cabx-invalid-jumbf") below, mirroring the
+  // post-IDAT-text case's own structural-comparison-only path.
   return cases;
 }
 
@@ -597,11 +596,9 @@ describe("PNG differential (Plan 09)", () => {
 
         const outputProjection = projectMetadata(output, pngDifferentialProfile);
         expect(outputProjection.warnings).toEqual([]);
-        expect(
-          (outputProjection.namespaces.PNG ?? []).some(
-            (entry) => "Comment" in entry,
-          ),
-        ).toBe(false);
+        expect(() =>
+          sourceWarningCase.assertNoLeak(outputProjection),
+        ).not.toThrow();
       }
     },
     30_000,
@@ -632,4 +629,128 @@ describe("PNG differential (Plan 09)", () => {
       "libpng-1.6.58-ibasn2c08",
     ]);
   });
+});
+
+/**
+ * Removes the given chunk type entirely (header, data, and CRC) from a raw
+ * PNG buffer -- a pure structural deletion, independent of the src encoder.
+ */
+function removeChunk(bytes: Buffer, type: string): Buffer {
+  const chunk = findChunk(bytes, type);
+  if (chunk === undefined) throw new Error(`fixture has no ${type} chunk`);
+  return Buffer.concat([
+    bytes.subarray(0, chunk.offset),
+    bytes.subarray(chunk.dataOffset + chunk.length + 4),
+  ]);
+}
+
+/**
+ * Inserts a CRC-correct chunk immediately before `IDAT` -- an independently
+ * assembled leak, built with the src encoder (mirrors `flipFirstIdatByte`'s
+ * own reuse of `encodePngChunk` above) so the injected bytes are a real,
+ * well-formed PNG chunk rather than a synthetic string splice. Before `IDAT`
+ * (not before `IEND`) deliberately: a text chunk placed after `IDAT` is
+ * itself a source ExifTool warns on read (`SOURCE_WARNING_CASES`), which
+ * would make `comparePermittedDifferences` throw "Oracle warning is not
+ * permitted" before ever reaching the leak check this control means to
+ * exercise (measured 2026-09-26, when this control was first written).
+ */
+function insertChunkBeforeIdat(
+  bytes: Buffer,
+  type: string,
+  data: Buffer,
+): Buffer {
+  const idat = findChunk(bytes, "IDAT");
+  if (idat === undefined) throw new Error("fixture has no IDAT chunk");
+  const inserted = encodePngChunk(type, data);
+  return Buffer.concat([
+    bytes.subarray(0, idat.offset),
+    inserted,
+    bytes.subarray(idat.offset),
+  ]);
+}
+
+/**
+ * The ROADMAP's two red controls (success criterion 1) plus the D-05
+ * unregistered-strip-without-grant control, run live against real native
+ * output (Plan 09 Task 3). Mirrors webp/oracles.test.ts's own leak/over-strip
+ * live controls.
+ */
+describe("PNG differential red controls (Plan 09 Task 3)", () => {
+  it.runIf(admittedHost)(
+    "rejects an injected leaked tEXt chunk through the live PNG differential",
+    async () => {
+      const source = metadataPng();
+      const output = await sanitize(source);
+      const tampered = insertChunkBeforeIdat(
+        output,
+        "tEXt",
+        pngTextChunkData("Comment", "leak"),
+      );
+      expect(() =>
+        runExiftoolDifferential({
+          caseId: "png-injected-leak",
+          profile: pngDifferentialProfile,
+          source,
+          output: tampered,
+          permittedDifferences: [],
+        }),
+      ).toThrow(/Unpermitted metadata difference: PNG/);
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "rejects a dropped cHRM as an over-strip through the live PNG differential",
+    async () => {
+      const source = metadataPng();
+      const output = await sanitize(source);
+      const tampered = removeChunk(output, "cHRM");
+      let firedMessage: string | undefined;
+      try {
+        runExiftoolDifferential({
+          caseId: "png-dropped-chrm",
+          profile: pngDifferentialProfile,
+          source,
+          output: tampered,
+          permittedDifferences: [],
+        });
+      } catch (error) {
+        firedMessage = error instanceof Error ? error.message : String(error);
+      }
+      expect(firedMessage).toMatch(/Over-strip: PNG|Structural over-strip: cHRM/);
+      // Recorded for the SUMMARY: cHRM's tags (WhitePointX/Y, RedX/Y, ...)
+      // report under ExifTool group "PNG" itself (measured, see
+      // PNG_RESOLUTION_GROUP's own sibling measurement note in oracles.ts),
+      // so the metadata-level comparison fires first, before the structural
+      // one ever runs.
+      console.log("dropped-cHRM red control fired:", firedMessage);
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "rejects the unregistered strip without its grant",
+    async () => {
+      const source = png([
+        pngChunk("IHDR", pngIhdr()),
+        pngChunk("cHRM", pngChrm()),
+        pngChunk("prVt", Buffer.from("private-metadata-payload", "ascii")),
+        pngChunk("IDAT", pngIdat()),
+        pngChunk("npTc", Buffer.from("nine-patch-payload", "ascii")),
+        pngChunk("IEND", Buffer.alloc(0)),
+      ]);
+      const output = await sanitize(source);
+      expect(() =>
+        runExiftoolDifferential({
+          caseId: "png-unregistered-strip-no-grant",
+          profile: pngDifferentialProfile,
+          source,
+          output,
+          permittedDifferences: [],
+        }),
+      ).toThrow(/Structural over-strip: prVt/);
+    },
+    180_000,
+  );
 });

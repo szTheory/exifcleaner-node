@@ -12,9 +12,18 @@ import {
   execute,
   withInput,
   type DifferentialProfile,
+  type MetadataEntry,
+  type MetadataProjection,
 } from "../kit/oracles.js";
 import type { PayloadDigest } from "../kit/corpus.js";
-import { png, pngChunk, pngIdat, pngIhdr, pngTextChunkData } from "../../fixtures.js";
+import {
+  png,
+  pngCaBX,
+  pngChunk,
+  pngIdat,
+  pngIhdr,
+  pngTextChunkData,
+} from "../../fixtures.js";
 
 const require = createRequire(import.meta.url);
 const authorityBuilder =
@@ -182,6 +191,24 @@ export function pngSanitizeOptionsForGrants(
 }
 
 /**
+ * A PNG `iCCP` chunk carries its own keyword/name field (distinct from the
+ * embedded ICC profile bytes `pngRawColorProfileSha256` hashes), which
+ * ExifTool surfaces as `PNG:ProfileName` -- grouped under the generic `PNG`
+ * namespace, not `ICC_Profile`/`ICC-header` (measured 2026-09-26, ExifTool
+ * 13.59). Preserving `iCCP` byte-identical (the `ICC_Profile:RawProfile`
+ * grant's own contract) therefore always reproduces this one derived `PNG`
+ * tag as a side effect -- exactly the kind of container-level side effect
+ * `PermittedKind.impliedDifference` exists to explain (55 D-14; mirrors
+ * `webp/oracles.ts`'s `explainsRiffFlags` for the analogous WebP_Flags
+ * side effect), not a reason to widen a grant or add a new kind.
+ */
+function explainsPngProfileName(onlyLeft: readonly MetadataEntry[]): boolean {
+  if (onlyLeft.length !== 1) return false;
+  const keys = Object.keys(onlyLeft[0]!);
+  return keys.length === 1 && keys[0] === "ProfileName";
+}
+
+/**
  * The complete PNG differential profile (D-01/D-02/D-05/D-08/D-11 through
  * D-13): the closed four-kind permitted-difference list, plus the
  * structural-part extractor that lets `runExiftoolDifferential` catch the
@@ -202,6 +229,7 @@ export const pngDifferentialProfile: DifferentialProfile = {
       id: "ICC_Profile:RawProfile",
       measurement: PNG_PRESERVATION_MEASUREMENT_TITLE,
       structuralPart: "iCCP",
+      impliedDifference: { namespace: "PNG", explains: explainsPngProfileName },
     },
     {
       id: "Resolution:Preserved",
@@ -372,6 +400,12 @@ export interface SourceWarningCase {
   readonly source: () => Buffer;
   /** The exact ExifTool warning text measured against this source (Plan 09). */
   readonly measuredWarning: string;
+  /**
+   * Asserts the native output carries none of this source's own leaked
+   * content (the companion half of the source-warning check -- distinct per
+   * case, since each source leaks a different kind of content).
+   */
+  readonly assertNoLeak: (projection: MetadataProjection) => void;
 }
 
 /**
@@ -380,10 +414,14 @@ export interface SourceWarningCase {
  * throws on ANY oracle warning, so a source ExifTool warns reading can never go
  * through the ordinary two-directional differential -- it is covered here
  * instead, against the `-all=` structural reference plus an assertion that the
- * native output itself carries no warning and no leaked text.
+ * native output itself carries no warning and no leaked content.
  *
  * Measured 2026-09-25/2026-09-26 (ExifTool 13.59, `-G1 -s -a -u -n -struct
- * -json`) against a minimal PNG with one `tEXt` chunk placed after `IDAT`.
+ * -json`): a minimal PNG with one `tEXt` chunk placed after `IDAT`, and a
+ * `caBX` (C2PA) chunk whose payload is not a well-formed JUMBF box (this
+ * kit's own placeholder payload, shared with `png_classification.test.ts` --
+ * the handler never parses `caBX` content (D-15), only ExifTool's own JUMBF
+ * decoder does, and it warns on any payload it cannot parse as JUMBF).
  */
 export const SOURCE_WARNING_CASES: readonly SourceWarningCase[] = [
   {
@@ -397,5 +435,24 @@ export const SOURCE_WARNING_CASES: readonly SourceWarningCase[] = [
       ]),
     measuredWarning:
       "[minor] Text/EXIF chunk(s) found after PNG IDAT (may be ignored by some readers)",
+    assertNoLeak: (projection) => {
+      if ((projection.namespaces.PNG ?? []).some((entry) => "Comment" in entry))
+        throw new Error("text-after-idat: native output leaked a Comment tag");
+    },
+  },
+  {
+    id: "cabx-invalid-jumbf",
+    source: () =>
+      png([
+        pngChunk("IHDR", pngIhdr()),
+        pngChunk("caBX", pngCaBX(Buffer.from("c2pa-manifest-placeholder", "ascii"))),
+        pngChunk("IDAT", pngIdat()),
+        pngChunk("IEND", Buffer.alloc(0)),
+      ]),
+    measuredWarning: "Truncated JPEG 2000 box",
+    assertNoLeak: (projection) => {
+      if ((projection.namespaces.C2PA ?? []).length > 0)
+        throw new Error("cabx-invalid-jumbf: native output leaked a C2PA tag");
+    },
   },
 ];
