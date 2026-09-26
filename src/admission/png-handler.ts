@@ -745,7 +745,8 @@ async function verifyOutput(
   expectedOrientation: number | undefined,
   signal?: AbortSignal,
 ): Promise<Result<void>> {
-  const insertOrientation = preserveOrientation && expectedOrientation !== undefined;
+  const insertOrientation =
+    preserveOrientation && expectedOrientation !== undefined;
   try {
     const destination = await parsePng(
       destinationHandle,

@@ -42,7 +42,14 @@ async function freshDirectory(): Promise<string> {
   return directory;
 }
 
-const ALL_FALSE = Object.freeze({
+interface PreservationFlags {
+  preserveOrientation: boolean;
+  preserveColorProfile: boolean;
+  preserveTimestamps: boolean;
+  preserveResolution: boolean;
+}
+
+const ALL_FALSE: PreservationFlags = Object.freeze({
   preserveOrientation: false,
   preserveColorProfile: false,
   preserveTimestamps: false,
@@ -84,7 +91,7 @@ function chunkDataOfType(file: Buffer, type: string): Buffer | undefined {
 
 async function sanitizeToDirectory(
   source: Buffer,
-  options: Partial<typeof ALL_FALSE> = {},
+  options: Partial<PreservationFlags> = {},
 ) {
   const directory = await freshDirectory();
   const sourcePath = join(directory, "source.png");
@@ -218,7 +225,7 @@ describe("PNG orientation: non-eXIf sources decline when missing or disagreeing 
     expect(result.ok).toBe(true);
   });
 
-  it("raw-profile-only (tEXt \"Raw profile type exif\", Orientation 8), preserveOrientation true: declined", async () => {
+  it('raw-profile-only (tEXt "Raw profile type exif", Orientation 8), preserveOrientation true: declined', async () => {
     const source = pngWithChunksBefore([
       [
         "tEXt",
@@ -256,7 +263,7 @@ describe("PNG orientation: non-eXIf sources decline when missing or disagreeing 
     expect(result.ok).toBe(true);
   });
 
-  it("raw-profile in zTXt (\"Raw profile type APP1\") agreeing with eXIf: success", async () => {
+  it('raw-profile in zTXt ("Raw profile type APP1") agreeing with eXIf: success', async () => {
     const source = pngWithChunksBefore([
       ["eXIf", exifWithOrientation(4)],
       [

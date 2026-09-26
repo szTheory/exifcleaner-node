@@ -626,11 +626,11 @@ export function idotPayload(offsetToSecondIdat: number, height = 4): Buffer {
  * segment offset is computed from the real byte layout, so
  * `idotSecondSegmentTarget()` always lands on the second IDAT chunk's start.
  */
-export function screenshotShapedPng(height = 4): Buffer {
+export function screenshotShapedPng(height = 4, orientation = 1): Buffer {
   const ihdr = pngChunk("IHDR", pngIhdr(1, height));
   const iccp = pngChunk("iCCP", pngIccp(iccProfileV4()));
   const cicp = pngChunk("cICP", pngCicp());
-  const exif = pngChunk("eXIf", exifWithOrientation(1));
+  const exif = pngChunk("eXIf", exifWithOrientation(orientation));
   const phys = pngChunk("pHYs", pngPhys());
   const itxt = pngChunk("iTXt", pngItxt(XMP_ITXT_KEYWORD, xmpPacket()));
   const idat1 = pngChunk("IDAT", pngIdat());

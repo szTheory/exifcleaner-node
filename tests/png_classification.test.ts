@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { classifyFallback, sanitizeFile } from "../dist/index.js";
+import { createOrientationExif } from "../src/metadata/exif.js";
 import {
   chunkTypeAt,
   exifWithOrientation,
@@ -146,6 +147,31 @@ describe("PNG iDOT adjacency (D-06) and screenshot fixture (D-07)", () => {
     expect(result.ok).toBe(true);
 
     const destination = await readFile(destinationPath);
+    const target = idotSecondSegmentTarget(destination);
+    expect(target).toBeDefined();
+    expect(chunkTypeAt(destination, target!)).toBe("IDAT");
+  });
+
+  it("screenshot-shaped source with preserveOrientation true (D-13): eXIf at index 1, iDOT kept, second-segment offset still lands on IDAT", async () => {
+    const source = screenshotShapedPng(4, 6);
+    const { destinationPath, result } = await sanitizeToDirectory(source, {
+      preserveOrientation: true,
+      preserveColorProfile: true,
+      preserveResolution: true,
+      preserveTimestamps: true,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.value.preserved.orientation).toBe(true);
+
+    const destination = await readFile(destinationPath);
+    const types = chunkTypesOf(destination);
+    expect(types[1]).toBe("eXIf");
+    expect(types).toContain("iDOT");
+    const exifBytes = chunkBytesOfType(destination, "eXIf");
+    const exifData = exifBytes?.subarray(8, 8 + exifBytes.readUInt32BE(0));
+    expect(exifData?.equals(createOrientationExif(6))).toBe(true);
+
     const target = idotSecondSegmentTarget(destination);
     expect(target).toBeDefined();
     expect(chunkTypeAt(destination, target!)).toBe("IDAT");

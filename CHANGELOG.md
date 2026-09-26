@@ -12,6 +12,15 @@ chunk of its own. Apple's `iDOT` chunk is kept, and a request that would
 remove a chunk between `iDOT` and the first `IDAT` declines pre-write instead
 of writing a stale offset (D-06).
 
+PNG orientation is preserved as a minimal `eXIf` (Orientation only, no writer
+defaults) placed immediately after `IHDR`, always before any `iDOT` and the
+first `IDAT` (D-11, D-13). Orientation is read only from `eXIf`; a PNG
+carrying Orientation only in XMP, or in a legacy ImageMagick raw EXIF profile
+(`Raw profile type exif`/`Raw profile type APP1`), or whose non-`eXIf`
+Orientation disagrees with `eXIf`, declines orientation preservation to
+ExifTool rather than guessing which source wins (D-11, D-12). An agreeing or
+orientation-free non-`eXIf` source does not decline.
+
 ### Differences from ExifTool
 
 Native strips unregistered private ancillary PNG chunks (a type in neither

@@ -84,7 +84,10 @@ export function rawProfileExifOrientation(
       { chunkType: "raw-profile", size: declaredLength, limit: maxBytes },
     );
   }
-  const hexChars = lines.slice(3).join("").replace(/[ \t\r]+/gu, "");
+  const hexChars = lines
+    .slice(3)
+    .join("")
+    .replace(/[ \t\r]+/gu, "");
   const hexSlice = hexChars.slice(0, declaredLength * 2);
   if (
     hexSlice.length !== declaredLength * 2 ||

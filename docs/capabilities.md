@@ -212,6 +212,32 @@ keep or strip it.
   that span declines with a typed pre-write refusal
   (`unsafe-chunk-adjacency` in `refuses`) instead of writing a stale offset.
 
+### PNG orientation (D-11, D-12, D-13)
+
+`eXIf` is PNG's only orientation source: when `preserveOrientation: true` and
+`eXIf` IFD0 tag `0x0112` (Orientation) is valid (1-8), the source `eXIf` is
+removed and a minimal `eXIf` -- Orientation only, via `createOrientationExif`,
+no writer defaults such as `YCbCrPositioning` -- is inserted immediately after
+`IHDR`, always before any `iDOT` and the first `IDAT`. The destination is
+re-parsed and the inserted `eXIf` compared byte-for-byte against
+`createOrientationExif(orientation)` before publication.
+
+A PNG whose Orientation comes only from an XMP `iTXt` (`tiff:Orientation`,
+keyword `XML:com.adobe.xmp`) or a legacy ImageMagick raw-EXIF-profile text
+chunk (`tEXt`/`zTXt` keyword `Raw profile type exif` or
+`Raw profile type APP1`) -- or whose non-`eXIf` Orientation disagrees with
+`eXIf` -- declines orientation preservation (`unsupported-feature`,
+`feature: "orientation-preservation"`) before any write, rather than guessing
+which source should win: ExifTool's own pick in that case depends on chunk
+order, and promoting an XMP-only Orientation into a fresh `eXIf` would rotate
+pixels in viewers that currently display the image unrotated. An agreeing
+non-`eXIf` Orientation, or a non-`eXIf` block carrying no Orientation, does
+not decline. These readers return only a routing value or its absence -- their
+bytes never reach the output -- and the raw-EXIF-profile reader's declared
+byte count is bounds-checked against the same text-decompression limit as
+`tEXt`/`zTXt` (`PNG_MAX_INFLATED_TEXT_BYTES`) before any hex is decoded,
+independent of any preservation flag.
+
 ### PNG namespace mapping (D-15)
 
 `inspectFile` and `removedNamespaces` report PNG's removable metadata under
