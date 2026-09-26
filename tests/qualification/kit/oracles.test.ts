@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EXCLUDED_GROUPS,
   compareDifferential,
+  comparePermittedDifferences,
   metadataGroupDisposition,
   type MetadataProjection,
   type PermittedKind,
@@ -521,6 +522,121 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
       ).toThrow("Requested Orientation was not preserved");
     });
 
+    describe("Resolution:Preserved kind (compareDifferential)", () => {
+      const RESOLUTION_KINDS: readonly PermittedKind[] = [
+        {
+          id: "Resolution:Preserved",
+          measurement: "x",
+          namespace: "Vendor-Resolution",
+        },
+      ];
+
+      it("(a) preserved and granted: passes", () => {
+        const entries = [{ Unit: 1 }];
+        const source = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": entries,
+        });
+        const native = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": entries,
+        });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(
+          compareDifferential(
+            source,
+            native,
+            reference,
+            ["Resolution:Preserved"],
+            RESOLUTION_KINDS,
+          ),
+        ).toEqual([]);
+      });
+
+      it("(b) granted but native lacks the namespace: stale throws", () => {
+        const source = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 1 }],
+        });
+        const native = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(() =>
+          compareDifferential(
+            source,
+            native,
+            reference,
+            ["Resolution:Preserved"],
+            RESOLUTION_KINDS,
+          ),
+        ).toThrow("Stale permitted difference: Resolution:Preserved");
+      });
+
+      it("(c) native entries differ from source: throws", () => {
+        const source = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 1 }],
+        });
+        const native = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 2 }],
+        });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(() =>
+          compareDifferential(
+            source,
+            native,
+            reference,
+            ["Resolution:Preserved"],
+            RESOLUTION_KINDS,
+          ),
+        ).toThrow("Requested resolution was not preserved");
+      });
+
+      it("(d) not granted but native has the namespace: throws Unpermitted metadata difference: Vendor-Resolution (red control)", () => {
+        const source = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 1 }],
+        });
+        const native = projection({
+          EXIF: [],
+          XMP: [],
+          ICC_Profile: [],
+          "Vendor-Resolution": [{ Unit: 1 }],
+        });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(() =>
+          compareDifferential(source, native, reference, [], RESOLUTION_KINDS),
+        ).toThrow("Unpermitted metadata difference: Vendor-Resolution");
+      });
+
+      it("(e) grant with no admitted kind: throws Unknown permitted metadata difference", () => {
+        const source = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        const native = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        const reference = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+        expect(() =>
+          compareDifferential(
+            source,
+            native,
+            reference,
+            ["Resolution:Preserved"],
+            [],
+          ),
+        ).toThrow("Unknown permitted metadata difference");
+      });
+    });
+
     it("(g) ICC stale grant masked by an implied delta: an ICC_Profile:RawProfile grant with an unchanged ICC projection and an implied Vendor Flag delta still throws Stale permitted difference: ICC_Profile:RawProfile (WR-01)", () => {
       const grantedDigest = "a".repeat(64);
       const iccEntries = [{ RawProfile: "x" }];
@@ -552,5 +668,101 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
         ),
       ).toThrow("Stale permitted difference: ICC_Profile:RawProfile");
     });
+  });
+});
+
+describe("comparePermittedDifferences (Resolution:Preserved kind)", () => {
+  const RESOLUTION_KINDS: readonly PermittedKind[] = [
+    {
+      id: "Resolution:Preserved",
+      measurement: "x",
+      namespace: "Vendor-Resolution",
+    },
+  ];
+
+  it("passes when granted and source/output entries match exactly", () => {
+    const entries = [{ Unit: 1 }];
+    const source = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": entries,
+    });
+    const output = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": entries,
+    });
+    expect(
+      comparePermittedDifferences(
+        source,
+        output,
+        ["Resolution:Preserved"],
+        RESOLUTION_KINDS,
+      ),
+    ).toEqual([]);
+  });
+
+  it("throws when granted but the output lacks the namespace", () => {
+    const source = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": [{ Unit: 1 }],
+    });
+    const output = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    expect(() =>
+      comparePermittedDifferences(
+        source,
+        output,
+        ["Resolution:Preserved"],
+        RESOLUTION_KINDS,
+      ),
+    ).toThrow("Requested resolution was not preserved");
+  });
+
+  it("throws when the output entries differ from source", () => {
+    const source = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": [{ Unit: 1 }],
+    });
+    const output = projection({
+      EXIF: [],
+      XMP: [],
+      ICC_Profile: [],
+      "Vendor-Resolution": [{ Unit: 2 }],
+    });
+    expect(() =>
+      comparePermittedDifferences(
+        source,
+        output,
+        ["Resolution:Preserved"],
+        RESOLUTION_KINDS,
+      ),
+    ).toThrow("Requested resolution was not preserved");
+  });
+
+  it("throws Unknown permitted metadata difference when no admitted kind supplies a namespace", () => {
+    const source = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    const output = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    expect(() =>
+      comparePermittedDifferences(source, output, ["Resolution:Preserved"], []),
+    ).toThrow("Unknown permitted metadata difference");
+  });
+
+  it("still throws Unknown permitted metadata difference for a completely unrecognized grant string", () => {
+    const source = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    const output = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
+    expect(() =>
+      comparePermittedDifferences(
+        source,
+        output,
+        ["Bogus:Kind=1"],
+        RESOLUTION_KINDS,
+      ),
+    ).toThrow("Unknown permitted metadata difference");
   });
 });

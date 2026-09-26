@@ -74,7 +74,11 @@ export interface MetadataTranscript {
  * ordinary leak/over-strip failure, so a mismatched implied-tag value still fails.
  */
 export interface PermittedKind {
-  readonly id: "EXIF:Orientation" | "ICC_Profile:RawProfile";
+  readonly id:
+    | "EXIF:Orientation"
+    | "ICC_Profile:RawProfile"
+    | "Resolution:Preserved"
+    | "Structure:UnregisteredAncillaryStripped";
   readonly measurement: string;
   readonly impliedDifference?: {
     readonly namespace: string;
@@ -83,6 +87,25 @@ export interface PermittedKind {
       activeKindIds: readonly PermittedKind["id"][],
     ) => boolean;
   };
+  /**
+   * Profile-supplied only. For `Resolution:Preserved`, the ExifTool group
+   * (namespace) this kind's metadata lives under -- the kit itself names no
+   * format, so a format's own oracles.ts supplies the concrete group.
+   */
+  readonly namespace?: string;
+  /**
+   * Profile-supplied only. For a kind whose grant also explains a native-only
+   * *container* part (as opposed to a metadata tag), the part name this kind
+   * declares -- consumed by `compareStructuralDifferential`, never by the
+   * metadata-only comparisons.
+   */
+  readonly structuralPart?: string;
+  /**
+   * Profile-supplied only. For `Structure:UnregisteredAncillaryStripped`, the
+   * eligibility predicate deciding whether a reference-only container part
+   * may be explained by this kind's grant.
+   */
+  readonly admitsPart?: (part: string) => boolean;
 }
 
 /**
@@ -285,17 +308,25 @@ export function comparePermittedDifferences(
   source: MetadataProjection,
   output: MetadataProjection,
   permittedDifferences: readonly string[],
+  kinds: readonly PermittedKind[] = [],
 ): readonly string[] {
   if (source.warnings.length > 0 || output.warnings.length > 0)
     throw new Error("Oracle warning is not permitted");
   let expectedOrientation: number | undefined;
   let expectedIcc: string | undefined;
+  let resolutionGranted = false;
   for (const item of permittedDifferences) {
     const orientation = item.match(/^EXIF:Orientation=([1-8])$/);
     const icc = item.match(/^ICC_Profile:RawProfile=([a-f0-9]{64})$/);
+    const structure =
+      /^Structure:UnregisteredAncillaryStripped=[A-Za-z0-9 ]{1,16}$/.test(item);
     if (orientation !== null) expectedOrientation = Number(orientation[1]);
     else if (icc !== null) expectedIcc = icc[1];
-    else throw new Error("Unknown permitted metadata difference");
+    else if (item === "Resolution:Preserved") resolutionGranted = true;
+    // A Structure:UnregisteredAncillaryStripped grant has no metadata
+    // assertion here -- it is checked only by compareStructuralDifferential.
+    else if (!structure)
+      throw new Error("Unknown permitted metadata difference");
   }
 
   const sourceExif = source.namespaces.EXIF ?? [];
@@ -336,10 +367,32 @@ export function comparePermittedDifferences(
   )
     throw new Error("Requested ICC profile was not preserved");
 
+  if (resolutionGranted) {
+    const resolutionKind = kinds.find(
+      (kind) => kind.id === "Resolution:Preserved",
+    );
+    if (resolutionKind?.namespace === undefined)
+      throw new Error("Unknown permitted metadata difference");
+    const namespace = resolutionKind.namespace;
+    const sourceEntries = source.namespaces[namespace] ?? [];
+    const outputEntries = output.namespaces[namespace] ?? [];
+    const { onlyLeft, onlyRight } = multisetDiff(sourceEntries, outputEntries);
+    if (
+      sourceEntries.length === 0 ||
+      onlyLeft.length > 0 ||
+      onlyRight.length > 0
+    )
+      throw new Error("Requested resolution was not preserved");
+  }
+
   return [];
 }
 
-type ParsedGrantKind = "EXIF:Orientation" | "ICC_Profile:RawProfile";
+type ParsedGrantKind =
+  | "EXIF:Orientation"
+  | "ICC_Profile:RawProfile"
+  | "Resolution:Preserved"
+  | "Structure:UnregisteredAncillaryStripped";
 
 interface ParsedGrant {
   readonly kind: ParsedGrantKind;
@@ -352,6 +405,16 @@ function parseGrant(item: string): ParsedGrant {
     return { kind: "EXIF:Orientation", value: orientation[1]! };
   const icc = item.match(/^ICC_Profile:RawProfile=([a-f0-9]{64})$/);
   if (icc !== null) return { kind: "ICC_Profile:RawProfile", value: icc[1]! };
+  if (item === "Resolution:Preserved")
+    return { kind: "Resolution:Preserved", value: "" };
+  const structure = item.match(
+    /^Structure:UnregisteredAncillaryStripped=([A-Za-z0-9 ]{1,16})$/,
+  );
+  if (structure !== null)
+    return {
+      kind: "Structure:UnregisteredAncillaryStripped",
+      value: structure[1]!,
+    };
   throw new Error("Unknown permitted metadata difference");
 }
 
@@ -423,8 +486,13 @@ export function compareDifferential(
   const iccGrant = parsedGrants.find(
     (grant) => grant.kind === "ICC_Profile:RawProfile",
   );
+  const resolutionGrant = parsedGrants.find(
+    (grant) => grant.kind === "Resolution:Preserved",
+  );
+  const resolutionKind = kindById.get("Resolution:Preserved");
   let orientationExplainedDelta = false;
   let iccExplainedDelta = false;
+  let resolutionExplainedDelta = false;
   const activeKindIds = parsedGrants.map((grant) => grant.kind);
 
   const namespaceNames = new Set([
@@ -476,6 +544,25 @@ export function compareDifferential(
       throw new Error("Requested ICC profile was not preserved");
     }
 
+    if (
+      resolutionGrant !== undefined &&
+      resolutionKind?.namespace !== undefined &&
+      namespace === resolutionKind.namespace
+    ) {
+      const sourceEntries = source.namespaces[namespace] ?? [];
+      const sourceDiff = multisetDiff(nativeEntries, sourceEntries);
+      if (
+        sourceEntries.length > 0 &&
+        sourceDiff.onlyLeft.length === 0 &&
+        sourceDiff.onlyRight.length === 0 &&
+        referenceEntries.length === 0
+      ) {
+        resolutionExplainedDelta = true;
+        continue;
+      }
+      throw new Error("Requested resolution was not preserved");
+    }
+
     const impliedKinds = parsedGrants
       .map((grant) => kindById.get(grant.kind))
       .filter(
@@ -501,6 +588,8 @@ export function compareDifferential(
     throw new Error("Stale permitted difference: EXIF:Orientation");
   if (iccGrant !== undefined && !iccExplainedDelta)
     throw new Error("Stale permitted difference: ICC_Profile:RawProfile");
+  if (resolutionGrant !== undefined && !resolutionExplainedDelta)
+    throw new Error("Stale permitted difference: Resolution:Preserved");
 
   return [];
 }
@@ -547,7 +636,12 @@ export function runExiftoolDifferential(
     options.profile.extension,
     options.profile.rawColorProfileSha256,
   );
-  comparePermittedDifferences(source, output, options.permittedDifferences);
+  comparePermittedDifferences(
+    source,
+    output,
+    options.permittedDifferences,
+    options.profile.permittedKinds,
+  );
   const referenceBytes = runExiftoolReference(options.source, options.profile);
   const reference = runMetadata(
     referenceBytes,
