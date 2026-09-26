@@ -107,6 +107,23 @@ that never reports a conclusion (a workflow-level `on.paths` filter, or a litera
 a _required_ job) leaves that check pending forever on an unrelated PR — the same matrix-name trap
 this document already records above for the platform-matrix jobs.
 
+**Fail-closed on a failed or untrustworthy classification (WR-03, Plan 56-18).** A failed
+`classify` job, or one that reported an empty `outputs.formats`, must never narrow the selection
+to the kit suite alone — that would make the required `qualification-linux` check go green
+without the PNG or WebP suites having run at all. The selection step also reads
+`needs.classify.result` (`CLASSIFY_RESULT`); when that result is not `success`, or `FORMATS` is
+empty, it derives the fallback list from `scripts/classify_ci_scope.cjs`'s own `QUALIFIED_FORMATS`
+export (`node -p "require('./scripts/classify_ci_scope.cjs').QUALIFIED_FORMATS.join(',')"`) rather
+than a hardcoded literal, so a newly-added format is picked up automatically. The step always
+prints the effective, comma-separated format list to the hosted job log
+(`qualification-linux: effective formats=...`) so the selection is auditable after the fact.
+`validateCiScopeWiring` throws if the job stops reading `needs.classify.result` or the fallback
+stops deriving from `QUALIFIED_FORMATS`, and `tests/classify_ci_scope.test.ts`'s "WR-03" describe
+executes the real step body under `bash` (with a recording `npm` stub) to prove the fallback
+behaviourally, not just by text presence. No job is added and no minutes are spent when classify
+succeeds with a narrowed format list; the fallback only costs extra minutes on the failure path
+it exists to cover.
+
 ## How to add a new format directory
 
 Add a `LINUX_SAFE_PATH_RULES` entry (and, if the format also needs full-scope carve-outs, a

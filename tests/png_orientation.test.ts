@@ -16,6 +16,7 @@ import {
   xmpWithOrientation,
   XMP_ITXT_KEYWORD,
 } from "./fixtures.js";
+import { RAW_PROFILE_EXIF_KEYWORDS } from "../src/png/orientation-sources.js";
 
 /**
  * D-11/D-13: eXIf Orientation is preserved as a minimal eXIf (Orientation
@@ -334,6 +335,98 @@ describe("PNG orientation: non-eXIf sources decline when missing or disagreeing 
       expect(result.error.nativeWrite).toBe("not-started");
       expect(classifyFallback(result.error)).toBe("safe-to-fallback");
       expect(await readdir(directory)).toEqual(["source.png"]);
+    },
+  );
+});
+
+describe("WR-01: orientation sources are routed by keyword across tEXt, zTXt and iTXt", () => {
+  type Carrier = "tEXt" | "zTXt" | "iTXt" | "iTXt-compressed";
+
+  const CARRIERS: readonly Carrier[] = [
+    "tEXt",
+    "zTXt",
+    "iTXt",
+    "iTXt-compressed",
+  ];
+
+  const KEYWORDS: readonly string[] = [
+    XMP_ITXT_KEYWORD,
+    ...RAW_PROFILE_EXIF_KEYWORDS,
+  ];
+
+  function payloadFor(keyword: string, value: number): Buffer {
+    return keyword === XMP_ITXT_KEYWORD
+      ? xmpWithOrientation(value)
+      : Buffer.from(rawProfileExifText(exifWithOrientation(value)), "latin1");
+  }
+
+  function chunkFor(
+    carrier: Carrier,
+    keyword: string,
+    value: number,
+  ): readonly [string, Buffer] {
+    const payload = payloadFor(keyword, value);
+    switch (carrier) {
+      case "tEXt":
+        return ["tEXt", pngTextChunkData(keyword, payload.toString("latin1"))];
+      case "zTXt":
+        return ["zTXt", pngZtxtChunkData(keyword, payload.toString("latin1"))];
+      case "iTXt":
+        return ["iTXt", pngItxt(keyword, payload, false)];
+      case "iTXt-compressed":
+        return ["iTXt", pngItxt(keyword, payload, true)];
+    }
+  }
+
+  const ROWS = CARRIERS.flatMap((carrier) =>
+    KEYWORDS.map((keyword) => ({ carrier, keyword })),
+  );
+
+  it.each(ROWS.map(({ carrier, keyword }) => [carrier, keyword] as const))(
+    "%s / %s: no eXIf, preserveOrientation true declines unsupported-feature/orientation-preservation",
+    async (carrier, keyword) => {
+      const source = pngWithChunksBefore([chunkFor(carrier, keyword, 6)]);
+      const { directory, result } = await sanitizeToDirectory(source, {
+        preserveOrientation: true,
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.error.code).toBe("unsupported-feature");
+      if (result.error.code !== "unsupported-feature")
+        throw new Error("unreachable");
+      expect(result.error.feature).toBe("orientation-preservation");
+      expect(await readdir(directory)).toEqual(["source.png"]);
+    },
+  );
+
+  it.each(ROWS.map(({ carrier, keyword }) => [carrier, keyword] as const))(
+    "%s / %s: eXIf 6 plus the source, preserveOrientation true succeeds with the minimal eXIf",
+    async (carrier, keyword) => {
+      const source = pngWithChunksBefore([
+        ["eXIf", exifWithOrientation(6)],
+        chunkFor(carrier, keyword, 6),
+      ]);
+      const { destinationPath, result } = await sanitizeToDirectory(source, {
+        preserveOrientation: true,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("unreachable");
+      expect(result.value.preserved.orientation).toBe(true);
+
+      const destination = await readFile(destinationPath);
+      const exifData = chunkDataOfType(destination, "eXIf");
+      expect(exifData?.equals(createOrientationExif(6))).toBe(true);
+    },
+  );
+
+  it.each(ROWS.map(({ carrier, keyword }) => [carrier, keyword] as const))(
+    "%s / %s: no eXIf, preserveOrientation false succeeds",
+    async (carrier, keyword) => {
+      const source = pngWithChunksBefore([chunkFor(carrier, keyword, 6)]);
+      const { result } = await sanitizeToDirectory(source, {
+        preserveOrientation: false,
+      });
+      expect(result.ok).toBe(true);
     },
   );
 });

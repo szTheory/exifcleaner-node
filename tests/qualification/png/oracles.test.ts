@@ -23,10 +23,14 @@ import {
   pngPhys,
   pngTextChunkData,
   pngWithChunksBefore,
+  pngZtxtChunkData,
+  rawProfileExifText,
   screenshotShapedPng,
   xmpPacket,
+  xmpWithOrientation,
   XMP_ITXT_KEYWORD,
 } from "../../fixtures.js";
+import { RAW_PROFILE_EXIF_KEYWORDS } from "../../../src/png/orientation-sources.js";
 import { materializeCorpusRecord } from "../kit/corpus.js";
 import {
   compareStructuralDifferential,
@@ -40,6 +44,7 @@ import {
   pngAdmitsUnregisteredAncillaryPart,
   pngDifferentialProfile,
   PNG_PRESERVATION_MEASUREMENT_TITLE,
+  pngRawColorProfileSha256,
   pngSanitizeOptionsForGrants,
   pngStructuralParts,
   PNG_UNREGISTERED_STRIP_MEASUREMENT_TITLE,
@@ -163,6 +168,54 @@ describe("pngDifferentialProfile (56-07 Task 3)", () => {
 
   it("wires structuralParts to pngStructuralParts", () => {
     expect(pngDifferentialProfile.structuralParts).toBe(pngStructuralParts);
+  });
+});
+
+/**
+ * A host-independent iCCP fixture builder with a trailing payload appended
+ * after the zlib stream (mirrors `png_preservation.test.ts`'s CR-01
+ * `trailingBytesIccpSource`, but parameterized on the trailing bytes so this
+ * describe can prove two different payloads hash to two different digests).
+ * `pngChunk` (`encodePngChunk`) computes a correct CRC over whatever data
+ * buffer it is given, so appending bytes to the compressed field alone still
+ * produces a structurally valid chunk.
+ */
+function iccpWithTrailingBytes(trailing: Buffer): Buffer {
+  const iccp = Buffer.concat([
+    Buffer.from("icc", "latin1"),
+    Buffer.from([0]), // keyword NUL terminator
+    Buffer.from([0]), // compression method 0
+    deflateSync(iccProfileV4()),
+    trailing,
+  ]);
+  return pngWithChunksBefore([["iCCP", iccp]]);
+}
+
+describe("pngRawColorProfileSha256 strictness (CR-01)", () => {
+  it("hashes a clean iCCP profile to digest(profile)", () => {
+    const source = pngWithChunksBefore([["iCCP", pngIccp(iccProfileV4())]]);
+    expect(pngRawColorProfileSha256(source)).toBe(digest(iccProfileV4()));
+  });
+
+  it("hashes an iCCP profile with trailing bytes to a digest that is not digest(profile)", () => {
+    const source = iccpWithTrailingBytes(
+      Buffer.from("GPS=51.5074,-0.1278;owner=Jon Smith;serial=C02XYZ"),
+    );
+    const result = pngRawColorProfileSha256(source);
+    expect(result).toMatch(/^[a-f0-9]{64}$/);
+    expect(result).not.toBe(digest(iccProfileV4()));
+  });
+
+  it("hashes two different trailing payloads to two different digests", () => {
+    const first = pngRawColorProfileSha256(
+      iccpWithTrailingBytes(Buffer.from("secret-payload-one")),
+    );
+    const second = pngRawColorProfileSha256(
+      iccpWithTrailingBytes(Buffer.from("secret-payload-two")),
+    );
+    expect(first).toMatch(/^[a-f0-9]{64}$/);
+    expect(second).toMatch(/^[a-f0-9]{64}$/);
+    expect(first).not.toBe(second);
   });
 });
 
@@ -758,6 +811,186 @@ describe("PNG differential red controls (Plan 09 Task 3)", () => {
           permittedDifferences: [],
         }),
       ).toThrow(/Structural over-strip: prVt/);
+    },
+    180_000,
+  );
+
+  it.runIf(admittedHost)(
+    "rejects an iCCP trailing-bytes leak through the live PNG differential",
+    async () => {
+      // The exact leak shape exifcleaner-node@d1897b1 wrote for this input
+      // (56-gap-reproducers/r1.mts): a profile name, then a legitimate
+      // deflated ICC profile, then an attacker payload appended after the
+      // zlib stream ends.
+      const secret = Buffer.from(
+        "GPS=51.5074,-0.1278;owner=Jon Smith;serial=C02XYZ",
+      );
+      const iccp = Buffer.concat([
+        Buffer.from("Jon Smith MacBook", "latin1"),
+        Buffer.from([0]), // keyword NUL terminator
+        Buffer.from([0]), // compression method 0
+        deflateSync(iccProfileV4()),
+        secret,
+      ]);
+      const source = pngWithChunksBefore([["iCCP", iccp]]);
+
+      // Handler side of CR-01 (56-14): the real native sanitizeFile now
+      // declines this input pre-write, with preserveColorProfile true.
+      await expect(
+        sanitize(source, { preserveColorProfile: true }),
+      ).rejects.toThrow(/malformed-file/);
+
+      // Since the handler now declines, no native output can be produced
+      // from this source. The output fed to the differential is therefore
+      // the source bytes themselves -- byte-identical to what
+      // exifcleaner-node@d1897b1 actually wrote for this input before
+      // CR-01 was fixed (measured 2026-09-26, 56-gap-reproducers/r1.mts).
+      // This proves the harness itself would have gone red on that exact
+      // historical output, not merely that the handler now refuses to
+      // produce it.
+      const output = source;
+
+      let firedMessage: string | undefined;
+      try {
+        runExiftoolDifferential({
+          caseId: "png-iccp-trailing-leak",
+          profile: pngDifferentialProfile,
+          source,
+          output,
+          permittedDifferences: [
+            `ICC_Profile:RawProfile=${digest(iccProfileV4())}`,
+          ],
+        });
+      } catch (error) {
+        firedMessage = error instanceof Error ? error.message : String(error);
+      }
+      expect(firedMessage).toBeTruthy();
+      console.log("iCCP trailing-bytes red control fired:", firedMessage);
+    },
+    180_000,
+  );
+});
+
+/**
+ * WR-01 (56-17 Task 2): closes the gap Task 1 fixed on the handler side with
+ * a live invariant -- for every one of the same 12 non-eXIf orientation-
+ * source shapes, if the pinned ExifTool authority itself would write an
+ * Orientation tag from the source (via `-TagsFromFile @ -Orientation`
+ * re-deriving it after `-all=` strips everything else), native must decline
+ * orientation preservation rather than silently drop it. This is the test
+ * that turns red if the WR-01 routing regresses in the future.
+ */
+describe("PNG orientation-source cross-engine consistency (WR-01)", () => {
+  it.runIf(admittedHost)(
+    "keeps native and the ExifTool fallback consistent for every non-eXIf orientation source shape",
+    async () => {
+      type Carrier = "tEXt" | "zTXt" | "iTXt" | "iTXt-compressed";
+      const CARRIERS: readonly Carrier[] = [
+        "tEXt",
+        "zTXt",
+        "iTXt",
+        "iTXt-compressed",
+      ];
+      const KEYWORDS: readonly string[] = [
+        XMP_ITXT_KEYWORD,
+        ...RAW_PROFILE_EXIF_KEYWORDS,
+      ];
+
+      function payloadFor(keyword: string): Buffer {
+        return keyword === XMP_ITXT_KEYWORD
+          ? xmpWithOrientation(6)
+          : Buffer.from(rawProfileExifText(exifWithOrientation(6)), "latin1");
+      }
+
+      function chunkFor(
+        carrier: Carrier,
+        keyword: string,
+      ): readonly [string, Buffer] {
+        const payload = payloadFor(keyword);
+        switch (carrier) {
+          case "tEXt":
+            return [
+              "tEXt",
+              pngTextChunkData(keyword, payload.toString("latin1")),
+            ];
+          case "zTXt":
+            return [
+              "zTXt",
+              pngZtxtChunkData(keyword, payload.toString("latin1")),
+            ];
+          case "iTXt":
+            return ["iTXt", pngItxt(keyword, payload, false)];
+          case "iTXt-compressed":
+            return ["iTXt", pngItxt(keyword, payload, true)];
+        }
+      }
+
+      interface ShapeResult {
+        readonly shape: string;
+        readonly exiftoolWrites: boolean;
+        readonly native: boolean;
+      }
+
+      const table: ShapeResult[] = [];
+
+      for (const carrier of CARRIERS) {
+        for (const keyword of KEYWORDS) {
+          const shape = `${carrier} / ${keyword}`;
+          const source = pngWithChunksBefore([chunkFor(carrier, keyword)]);
+
+          const reference = runExiftoolReference(
+            source,
+            pngDifferentialProfile,
+            ["-TagsFromFile", "@", "-Orientation"],
+          );
+          const projected = projectMetadata(reference, pngDifferentialProfile);
+          const exiftoolWrites = (projected.namespaces.EXIF ?? []).some(
+            (entry) => "Orientation" in entry,
+          );
+
+          const directory = await mkdtemp(
+            join(tmpdir(), "exifcleaner-png-wr01-live-"),
+          );
+          const sourcePath = join(directory, "source.png");
+          const destinationPath = join(directory, "destination.png");
+          await writeFile(sourcePath, source);
+          const result = await sanitizeFile({
+            sourcePath,
+            destinationPath,
+            preserveOrientation: true,
+            preserveColorProfile: false,
+            preserveTimestamps: false,
+            preserveResolution: false,
+          });
+          await rm(directory, { recursive: true, force: true });
+
+          const native = result.ok;
+          table.push({ shape, exiftoolWrites, native });
+
+          if (exiftoolWrites) {
+            expect(native).toBe(false);
+            if (result.ok) throw new Error("unreachable");
+            expect(result.error.code).toBe("unsupported-feature");
+          }
+        }
+      }
+
+      console.log(
+        "WR-01 orientation-source cross-engine table:",
+        JSON.stringify(table, null, 2),
+      );
+
+      // Guards against a vacuous pass: REVIEW measured ExifTool 13.59
+      // honouring exactly these two shapes (56-REVIEW.md WR-01), so if
+      // neither fires, the invariant above never actually exercised the
+      // decline path it exists to protect.
+      const measured = table.filter(
+        (row) =>
+          row.shape === `tEXt / ${XMP_ITXT_KEYWORD}` ||
+          row.shape === "iTXt / Raw profile type exif",
+      );
+      expect(measured).toHaveLength(2);
+      for (const row of measured) expect(row.exiftoolWrites).toBe(true);
     },
     180_000,
   );

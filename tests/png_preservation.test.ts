@@ -1,10 +1,19 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { deflateSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
 import { classifyFallback, sanitizeFile } from "../dist/index.js";
 import {
   COLOUR_FIXTURES,
+  iccProfile,
   iccProfileV4,
   mutateIccProfile,
   png,
@@ -448,4 +457,53 @@ describe("PNG decompression bounds: text-chunk bombs decline pre-write regardles
     const listing = await readdir(directory);
     expect(listing).toEqual(["source.png"]);
   }, 2000);
+});
+
+/**
+ * CR-01 (56-VERIFICATION.md BLOCKER): an attacker-appended payload riding a
+ * preserved iCCP profile past the zlib stream must decline pre-write on both
+ * flag values, not just leak through when preserveColorProfile is on.
+ */
+describe("CR-01: bytes after an iCCP zlib stream decline pre-write", () => {
+  function trailingBytesIccpSource(): Buffer {
+    const name = Buffer.from("Jon Smith MacBook", "latin1");
+    const secret = Buffer.from(
+      "GPS=51.5074,-0.1278;owner=Jon Smith;serial=C02XYZ",
+    );
+    const iccp = Buffer.concat([
+      name,
+      Buffer.from([0]), // keyword NUL terminator
+      Buffer.from([0]), // compression method 0
+      deflateSync(iccProfile()),
+      secret, // attacker payload after the zlib stream ends
+    ]);
+    return pngWithChunksBefore([["iCCP", iccp]]);
+  }
+
+  it.each([
+    ["preserveColorProfile true", { preserveColorProfile: true }],
+    ["preserveColorProfile false", { preserveColorProfile: false }],
+  ] as const)(
+    "%s: declines malformed-file pre-write, no destination, source unchanged",
+    async (_label, options) => {
+      const source = trailingBytesIccpSource();
+      const { destinationPath, sourcePath, result } = await sanitizeToDirectory(
+        source,
+        options,
+      );
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.error).toMatchObject({
+        code: "malformed-file",
+        phase: "admission",
+        nativeWrite: "not-started",
+      });
+
+      await expect(access(destinationPath)).rejects.toThrow();
+
+      const sourceBytes = await readFile(sourcePath);
+      expect(sourceBytes.length).toBe(source.length);
+      expect(sourceBytes.equals(source)).toBe(true);
+    },
+  );
 });

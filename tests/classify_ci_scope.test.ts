@@ -1,6 +1,8 @@
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -786,4 +788,266 @@ describe("ci.yml scope wiring (D-15, D-18)", () => {
     const mutated = `${workflow}\n      - uses: dorny/paths-filter@v3\n`;
     expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
   });
+
+  it("throws when qualification-linux's CLASSIFY_RESULT env is removed (WR-03)", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      "          CLASSIFY_RESULT: ${{ needs.classify.result }}\n",
+      "",
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
+
+  it("throws when qualification-linux's fallback stops deriving formats from QUALIFIED_FORMATS (WR-03)", async () => {
+    const workflow = await readFile(
+      join(packageRoot, ".github", "workflows", "ci.yml"),
+      "utf8",
+    );
+    const mutated = workflow.replace(
+      `FORMATS="$(node -p "require('./scripts/classify_ci_scope.cjs').QUALIFIED_FORMATS.join(',')")"`,
+      `FORMATS="png,webp"`,
+    );
+    expect(mutated).not.toBe(workflow);
+    expect(() => classify.validateCiScopeWiring(mutated)).toThrow();
+  });
 });
+
+// ---------------------------------------------------------------------------
+// WR-03: qualification-linux selection fails closed (56-18)
+// ---------------------------------------------------------------------------
+
+const JOB_HEADER_RE_LOCAL = /\n {2}([a-z][a-z0-9-]+):\n/gu;
+
+/**
+ * A local re-slice of ci.yml's top-level jobs, mirroring
+ * scripts/classify_ci_scope.cjs's own (unexported) sliceJobs -- kept in the
+ * test file rather than exporting production-only slicing machinery for a
+ * single caller.
+ */
+function extractJob(workflowText: string, jobName: string): string {
+  const jobsHeaderIndex = workflowText.indexOf("\njobs:\n");
+  const searchText =
+    jobsHeaderIndex >= 0
+      ? workflowText.slice(jobsHeaderIndex + 1)
+      : workflowText;
+  const matches = [...searchText.matchAll(JOB_HEADER_RE_LOCAL)];
+  const targetIndex = matches.findIndex((match) => match[1] === jobName);
+  if (targetIndex < 0) throw new Error(`${jobName} job not found in ci.yml`);
+  const targetMatch = matches[targetIndex];
+  if (targetMatch === undefined)
+    throw new Error(`${jobName} job not found in ci.yml`);
+  const start = targetMatch.index + 1;
+  const nextMatch = matches[targetIndex + 1];
+  const end = nextMatch === undefined ? searchText.length : nextMatch.index + 1;
+  return searchText.slice(start, end);
+}
+
+function extractQuotedEnvVar(jobText: string, name: string): string {
+  const match = jobText.match(new RegExp(`\\n {6}${name}: "([^"]*)"\\n`, "u"));
+  const value = match?.[1];
+  if (value === undefined)
+    throw new Error(`${name} not found in qualification-linux env block`);
+  return value;
+}
+
+/**
+ * Extracts and dedents the `run: |` body of the named step inside a sliced
+ * job's text.
+ */
+function extractStepRunBody(jobText: string, stepName: string): string {
+  const stepsIndex = jobText.indexOf("\n    steps:\n");
+  if (stepsIndex < 0) throw new Error("steps: block not found in job");
+  const chunks = jobText.slice(stepsIndex).split("\n      - ").slice(1);
+  const stepChunk = chunks.find((chunk) =>
+    chunk.startsWith(`name: ${stepName}`),
+  );
+  if (stepChunk === undefined)
+    throw new Error(`step "${stepName}" not found in job`);
+  const runMatch = stepChunk.match(/\n {8}run: \|\n([\s\S]*)$/u);
+  const runBody = runMatch?.[1];
+  if (runBody === undefined)
+    throw new Error(`run: | block not found in step "${stepName}"`);
+  return runBody
+    .split("\n")
+    .map((line) => (line.startsWith("          ") ? line.slice(10) : line))
+    .join("\n");
+}
+
+const SELECT_STEP_NAME =
+  "Select and run qualification suites for touched formats (D-17)";
+
+/**
+ * Runs the real (or mutated) qualification-linux selection step body under
+ * bash with a recording `npm` stub on PATH, exactly the way the hosted step
+ * invokes it -- proving behaviour, not just text presence.
+ */
+function runQualificationSelectionStep(
+  jobText: string,
+  scriptBody: string,
+  env: { formats: string; classifyResult: string },
+): { status: number | null; recordedArgs: string[] } {
+  const qualKit = extractQuotedEnvVar(jobText, "QUAL_KIT");
+  const qualWebp = extractQuotedEnvVar(jobText, "QUAL_WEBP");
+  const qualPng = extractQuotedEnvVar(jobText, "QUAL_PNG");
+
+  const workDir = mkdtempSync(join(tmpdir(), "wr03-qualselect-"));
+  const binDir = join(workDir, "bin");
+  mkdirSync(binDir);
+  const recordFile = join(workDir, "npm-args.txt");
+  const scriptFile = join(workDir, "select.sh");
+
+  writeFileSync(scriptFile, scriptBody, "utf8");
+  writeFileSync(
+    join(binDir, "npm"),
+    [
+      "#!/usr/bin/env bash",
+      ': > "$WR03_NPM_RECORD_FILE"',
+      'for arg in "$@"; do',
+      '  printf \'%s\\n\' "$arg" >> "$WR03_NPM_RECORD_FILE"',
+      "done",
+      "exit 0",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  chmodSync(join(binDir, "npm"), 0o755);
+
+  try {
+    const result = spawnSync("bash", [scriptFile], {
+      cwd: packageRoot,
+      env: {
+        ...process.env,
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        FORMATS: env.formats,
+        CLASSIFY_RESULT: env.classifyResult,
+        QUAL_KIT: qualKit,
+        QUAL_WEBP: qualWebp,
+        QUAL_PNG: qualPng,
+        WR03_NPM_RECORD_FILE: recordFile,
+      },
+      encoding: "utf8",
+    });
+    const recordedArgs = existsSync(recordFile)
+      ? readFileSync(recordFile, "utf8")
+          .split("\n")
+          .filter((line) => line.length > 0)
+      : [];
+    return { status: result.status, recordedArgs };
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+function loadSelectionStep(): { jobText: string; scriptBody: string } {
+  const workflow = readFileSync(
+    join(packageRoot, ".github", "workflows", "ci.yml"),
+    "utf8",
+  );
+  const jobText = extractJob(workflow, "qualification-linux");
+  const scriptBody = extractStepRunBody(jobText, SELECT_STEP_NAME);
+  return { jobText, scriptBody };
+}
+
+describe.skipIf(process.platform === "win32")(
+  "WR-03: qualification-linux selection fails closed",
+  () => {
+    it("classify failure + empty formats runs every qualified format", () => {
+      const { jobText, scriptBody } = loadSelectionStep();
+      const { status, recordedArgs } = runQualificationSelectionStep(
+        jobText,
+        scriptBody,
+        { formats: "", classifyResult: "failure" },
+      );
+      expect(status).toBe(0);
+      const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
+      const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
+      const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
+      for (const file of [...kit, ...png, ...webp]) {
+        expect(recordedArgs).toContain(file);
+      }
+    });
+
+    it("classify failure + partial formats still runs every qualified format (a failed classify is never trusted)", () => {
+      const { jobText, scriptBody } = loadSelectionStep();
+      const { status, recordedArgs } = runQualificationSelectionStep(
+        jobText,
+        scriptBody,
+        { formats: "png", classifyResult: "failure" },
+      );
+      expect(status).toBe(0);
+      const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
+      const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
+      const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
+      for (const file of [...kit, ...png, ...webp]) {
+        expect(recordedArgs).toContain(file);
+      }
+    });
+
+    it("classify success + empty formats runs every qualified format", () => {
+      const { jobText, scriptBody } = loadSelectionStep();
+      const { status, recordedArgs } = runQualificationSelectionStep(
+        jobText,
+        scriptBody,
+        { formats: "", classifyResult: "success" },
+      );
+      expect(status).toBe(0);
+      const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
+      const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
+      const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
+      for (const file of [...kit, ...png, ...webp]) {
+        expect(recordedArgs).toContain(file);
+      }
+    });
+
+    it("classify success + narrowed formats runs only the selected formats (narrowing still works)", () => {
+      const { jobText, scriptBody } = loadSelectionStep();
+      const { status, recordedArgs } = runQualificationSelectionStep(
+        jobText,
+        scriptBody,
+        { formats: "png", classifyResult: "success" },
+      );
+      expect(status).toBe(0);
+      const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
+      const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
+      const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
+      for (const file of [...kit, ...png]) {
+        expect(recordedArgs).toContain(file);
+      }
+      for (const file of webp) {
+        expect(recordedArgs).not.toContain(file);
+      }
+    });
+
+    it("classify success + an unknown format still fails the step (unknown-format guard intact)", () => {
+      const { jobText, scriptBody } = loadSelectionStep();
+      const { status } = runQualificationSelectionStep(jobText, scriptBody, {
+        formats: "bogus",
+        classifyResult: "success",
+      });
+      expect(status).not.toBe(0);
+    });
+
+    it("a mutation deleting the fallback branch drops the PNG/WebP suites on a classify failure (behavioural negative control)", () => {
+      const { jobText, scriptBody } = loadSelectionStep();
+      const mutatedBody = scriptBody.replace(
+        /if \[ "\$CLASSIFY_RESULT" != "success" \][\s\S]*?\nfi\n/u,
+        "",
+      );
+      expect(mutatedBody).not.toBe(scriptBody);
+      const { recordedArgs } = runQualificationSelectionStep(
+        jobText,
+        mutatedBody,
+        { formats: "", classifyResult: "failure" },
+      );
+      const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
+      const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
+      for (const file of [...png, ...webp]) {
+        expect(recordedArgs).not.toContain(file);
+      }
+    });
+  },
+);

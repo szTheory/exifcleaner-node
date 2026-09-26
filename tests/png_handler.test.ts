@@ -2,7 +2,13 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { classifyFallback, sanitizeFile } from "../dist/index.js";
+import {
+  classifyFallback,
+  getCapabilities,
+  sanitizeFile,
+} from "../dist/index.js";
+import { PNG_MAX_IDAT_CHUNKS } from "../src/png/chunks.js";
+import type { PngCapabilities } from "../src/types.js";
 import {
   metadataPng,
   minimalPng,
@@ -233,5 +239,15 @@ describe("PNG handler end to end (56-03 tracer)", () => {
 
     const destination = await readFile(destinationPath);
     expect(readPngChunkTypes(destination)).toEqual(["IHDR", "IDAT", "IEND"]);
+  });
+});
+
+describe("PNG capabilities (CR-02, 56-16)", () => {
+  it("reports maxIdatChunkCount equal to PNG_MAX_IDAT_CHUNKS", () => {
+    const png = getCapabilities().formats.find(
+      (format) => format.format === "png",
+    ) as PngCapabilities | undefined;
+    expect(png).toBeDefined();
+    expect(png?.limits.maxIdatChunkCount).toBe(PNG_MAX_IDAT_CHUNKS);
   });
 });

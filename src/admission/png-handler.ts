@@ -26,6 +26,7 @@ import {
   parsePng,
   PNG_CRITICAL_CHUNK_TYPES,
   PNG_MAX_ANCILLARY_CHUNKS,
+  PNG_MAX_IDAT_CHUNKS,
   PNG_MAX_INFLATED_BYTES_TOTAL,
   PNG_MAX_INFLATED_ICC_BYTES,
   PNG_MAX_INFLATED_TEXT_BYTES,
@@ -264,6 +265,49 @@ function parseTextChunkData(data: Buffer): {
 }
 
 /**
+ * WR-01: routes a decoded text-chunk keyword to its metadata/orientation
+ * source, shared by the tEXt, zTXt and iTXt branches below (the sole place
+ * that checks RAW_PROFILE_EXIF_KEYWORDS membership). Before this fix, XMP
+ * (`XML:com.adobe.xmp`) was only recognised in iTXt and the raw EXIF/APP1
+ * profile keywords were only recognised in tEXt/zTXt, so a PNG carrying
+ * either source in the "wrong" chunk type silently lost its orientation
+ * decline -- confirmed against ExifTool 13.59 (56-REVIEW.md), which honours
+ * both keywords in every text chunk type. `textBuffer` is the chunk's
+ * decoded text bytes (already decompressed for zTXt/compressed iTXt).
+ * Returns `true` when the keyword was the XMP packet, so the caller skips
+ * pushing a duplicate `PNG` text entry -- the XMP namespace/entries already
+ * cover it. Never returns the source bytes themselves (D-12).
+ */
+function routeTextKeyword(
+  keyword: string,
+  textBuffer: Buffer,
+  namespaces: Set<PngMetadataNamespace>,
+  entries: MetadataEntry[],
+  warnings: MetadataWarning[],
+  otherOrientations: (number | "invalid")[],
+): boolean {
+  if (keyword === XMP_ITXT_KEYWORD) {
+    namespaces.add("XMP");
+    const found = parseXmp(textBuffer);
+    entries.push(...found.entries);
+    warnings.push(...found.warnings);
+    const foundOrientation = xmpOrientation(textBuffer);
+    if (foundOrientation !== undefined)
+      otherOrientations.push(foundOrientation);
+    return true;
+  }
+  if (RAW_PROFILE_EXIF_KEYWORDS.has(keyword)) {
+    const foundOrientation = rawProfileExifOrientation(
+      textBuffer.toString("latin1"),
+      PNG_MAX_INFLATED_TEXT_BYTES,
+    );
+    if (foundOrientation !== undefined)
+      otherOrientations.push(foundOrientation);
+  }
+  return false;
+}
+
+/**
  * PNG `tIME` chunk payload (7 bytes: 2-byte year, then month/day/hour/
  * minute/second) formatted to match ExifTool's measured `PNG:ModifyDate`
  * output shape (D-15).
@@ -397,22 +441,26 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
       return;
     }
     if (type === "tEXt") {
-      namespaces.add("PNG");
       if (data !== undefined) {
         const { keyword, text } = parseTextChunkData(data);
-        entries.push({ namespace: "PNG", name: keyword, value: text });
-        if (RAW_PROFILE_EXIF_KEYWORDS.has(keyword)) {
-          const found = rawProfileExifOrientation(
-            text,
-            PNG_MAX_INFLATED_TEXT_BYTES,
-          );
-          if (found !== undefined) otherOrientations.push(found);
+        const wasXmp = routeTextKeyword(
+          keyword,
+          Buffer.from(text, "latin1"),
+          namespaces,
+          entries,
+          warnings,
+          otherOrientations,
+        );
+        if (!wasXmp) {
+          namespaces.add("PNG");
+          entries.push({ namespace: "PNG", name: keyword, value: text });
         }
+      } else {
+        namespaces.add("PNG");
       }
       return;
     }
     if (type === "zTXt") {
-      namespaces.add("PNG");
       if (data !== undefined) {
         const keywordNul = data.indexOf(0);
         const text = parseZtxtChunk(data, budget);
@@ -420,19 +468,24 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
           keywordNul < 0
             ? data.toString("latin1")
             : data.toString("latin1", 0, keywordNul);
-        const textLatin1 = text.toString("latin1");
-        entries.push({
-          namespace: "PNG",
-          name: keyword,
-          value: textLatin1,
-        });
-        if (RAW_PROFILE_EXIF_KEYWORDS.has(keyword)) {
-          const found = rawProfileExifOrientation(
-            textLatin1,
-            PNG_MAX_INFLATED_TEXT_BYTES,
-          );
-          if (found !== undefined) otherOrientations.push(found);
+        const wasXmp = routeTextKeyword(
+          keyword,
+          text,
+          namespaces,
+          entries,
+          warnings,
+          otherOrientations,
+        );
+        if (!wasXmp) {
+          namespaces.add("PNG");
+          entries.push({
+            namespace: "PNG",
+            name: keyword,
+            value: text.toString("latin1"),
+          });
         }
+      } else {
+        namespaces.add("PNG");
       }
       return;
     }
@@ -442,15 +495,15 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
         return;
       }
       const { keyword, text } = parseItxtChunk(data, budget);
-      if (keyword === XMP_ITXT_KEYWORD) {
-        namespaces.add("XMP");
-        const found = parseXmp(text);
-        entries.push(...found.entries);
-        warnings.push(...found.warnings);
-        const foundOrientation = xmpOrientation(text);
-        if (foundOrientation !== undefined)
-          otherOrientations.push(foundOrientation);
-      } else {
+      const wasXmp = routeTextKeyword(
+        keyword,
+        text,
+        namespaces,
+        entries,
+        warnings,
+        otherOrientations,
+      );
+      if (!wasXmp) {
         namespaces.add("PNG");
         try {
           const decoded = new TextDecoder("utf-8", { fatal: true }).decode(
@@ -916,6 +969,7 @@ const capability: PngCapabilities = Object.freeze({
   limits: Object.freeze({
     maxMetadataBytesPerChunk: PNG_MAX_METADATA_BYTES_PER_CHUNK,
     maxAncillaryChunkCount: PNG_MAX_ANCILLARY_CHUNKS,
+    maxIdatChunkCount: PNG_MAX_IDAT_CHUNKS,
     maxInflatedIccBytes: PNG_MAX_INFLATED_ICC_BYTES,
     maxInflatedTextBytes: PNG_MAX_INFLATED_TEXT_BYTES,
     maxInflatedBytesTotal: PNG_MAX_INFLATED_BYTES_TOTAL,

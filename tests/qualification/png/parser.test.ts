@@ -97,6 +97,7 @@ describe("grammar-aware PNG qualification cases", () => {
         "registered-unmeasured",
         "metadata-limit",
         "aggregate-inflate",
+        "chunk-count",
       ]),
     );
   });

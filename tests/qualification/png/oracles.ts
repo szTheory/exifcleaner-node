@@ -57,12 +57,50 @@ process.once("exit", () => preparedTools?.dispose());
 
 export const PNG_EXTENSION = ".png";
 
+/** Narrow local shape for zlib's `inflateSync(data, { info: true })` return
+ * value -- avoids `any` while only relying on the one field this function
+ * needs (mirrors `src/png/chunks.ts`'s own `InflateSyncInfoResult`, but this
+ * oracle deliberately does not import that file -- see the doc comment
+ * below). */
+interface InflateSyncInfoResult {
+  readonly buffer: Buffer;
+  readonly engine: { readonly bytesWritten: number };
+}
+
+const TRAILING_BYTES_DOMAIN_TAG = "png-iccp-trailing-bytes\0";
+
 /**
- * Walks a PNG chunk stream and returns the sha256 of the first `iCCP` chunk's
- * *decompressed* profile, or undefined when no `iCCP` chunk is present.
- * ExifTool re-deflates the profile it copies back, so a byte comparison of
- * the compressed chunk would fail even when the underlying profile is
- * unchanged -- matching webpRawColorProfileSha256's own rationale.
+ * Walks a PNG chunk stream and returns the sha256 of the first `iCCP`
+ * chunk's *decompressed* profile, or undefined when no `iCCP` chunk is
+ * present. ExifTool re-deflates the profile it copies back, so a byte
+ * comparison of the compressed chunk would fail even when the underlying
+ * profile is unchanged -- matching webpRawColorProfileSha256's own
+ * rationale.
+ *
+ * CR-01: the PNG spec defines a compressed field's datastream as the
+ * *entire remainder* of the chunk data -- there is no length prefix
+ * separating the zlib stream from anything after it. A naive `inflateSync`
+ * call ignores this: zlib stops consuming input at Z_STREAM_END and
+ * silently discards any bytes past it, so an attacker-appended payload
+ * riding after a legitimate profile hashed identically to the clean
+ * profile, and the differential oracle could never flag the leak (the same
+ * gap the handler's own compressed-field consumption check closes,
+ * `src/png/chunks.ts`). This oracle applies the same whole-field-consumption
+ * rule independently: `inflateSync(compressed, { info: true })` reports
+ * `engine.bytesWritten`, the number of input bytes zlib actually consumed.
+ * When it equals the compressed field's full length, the digest is exactly
+ * `digest(profile)` as before -- every existing `ICC_Profile:RawProfile`
+ * grant stays valid for honest files. When it does not, the trailing bytes
+ * are inflate-adjacent secrets the handler must also refuse, so the digest
+ * is domain-separated (see `TRAILING_BYTES_DOMAIN_TAG` above) rather than
+ * silently equal to the clean digest -- a differential comparing this digest
+ * against a grant computed from the clean profile now sees a mismatch
+ * instead of a false match.
+ *
+ * Deliberately does not import the handler's own compressed-field decoder
+ * from `src/png/chunks.ts`: the oracle and the handler must independently
+ * agree that a compressed field is clean, never share a single
+ * implementation that could hide the same bug on both sides (T-56-50).
  */
 export function pngRawColorProfileSha256(input: Buffer): string | undefined {
   let offset = 8; // past the 8-byte PNG signature
@@ -76,11 +114,25 @@ export function pngRawColorProfileSha256(input: Buffer): string | undefined {
       const nul = data.indexOf(0);
       if (nul < 0 || nul + 1 >= data.length) return undefined;
       const compressed = data.subarray(nul + 2);
+      let info: InflateSyncInfoResult;
       try {
-        return digest(inflateSync(compressed));
+        info = inflateSync(compressed, {
+          info: true,
+        }) as unknown as InflateSyncInfoResult;
       } catch {
         return undefined;
       }
+      const { buffer, engine } = info;
+      if (engine.bytesWritten === compressed.length) return digest(buffer);
+      const unconsumed = compressed.subarray(engine.bytesWritten);
+      return digest(
+        Buffer.concat([
+          Buffer.from(TRAILING_BYTES_DOMAIN_TAG, "ascii"),
+          buffer,
+          Buffer.from([0]),
+          unconsumed,
+        ]),
+      );
     }
     offset = dataOffset + length + 4;
     if (type === "IEND") break;

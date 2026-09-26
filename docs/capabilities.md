@@ -192,7 +192,13 @@ keep or strip it.
   byte-identical in place when `preserveColorProfile: true` (after its
   bounded-inflate profile passes the same `icc-structural-v0.2` policy WebP
   uses), else removed. `pHYs` is kept byte-identical in its original relative
-  position when `preserveResolution: true`, else removed.
+  position when `preserveResolution: true`, else removed. A compressed
+  `iCCP`, `zTXt` or `iTXt` field whose zlib stream ends before the chunk data
+  does declines pre-write as `malformed-file`, regardless of
+  `preserveColorProfile` (CR-01): the PNG spec defines the compressed
+  datastream as the entire remainder of the chunk, so trailing bytes make it
+  malformed rather than merely oversized, and the handler never re-encodes a
+  profile to strip them (D-09).
 - **Unregistered private ancillary chunk** (a type in neither the PNG
   extensions registry nor any of the lists above, for example Android's
   `npTc` nine-patch data) is **stripped** as a privacy-reasoned difference
@@ -212,6 +218,23 @@ keep or strip it.
   that span declines with a typed pre-write refusal
   (`unsafe-chunk-adjacency` in `refuses`) instead of writing a stale offset.
 
+### PNG limits
+
+| Member                            | Value      | Meaning                                                                       |
+| --------------------------------- | ---------- | ----------------------------------------------------------------------------- |
+| `limits.maxMetadataBytesPerChunk` | `16777216` | Maximum on-disk size of any single non-`IDAT` chunk's data (16 MiB).          |
+| `limits.maxAncillaryChunkCount`   | `10000`    | Maximum number of non-`IDAT` chunks accepted during one parse.                |
+| `limits.maxIdatChunkCount`        | `65536`    | Maximum number of `IDAT` chunks accepted during one parse (CR-02).            |
+| `limits.maxInflatedIccBytes`      | `16777216` | Maximum inflated size of an `iCCP` profile (16 MiB, the ICC policy cap).      |
+| `limits.maxInflatedTextBytes`     | `16777216` | Maximum inflated size of a `zTXt` or compressed `iTXt` field (16 MiB).        |
+| `limits.maxInflatedBytesTotal`    | `50331648` | Aggregate inflated-bytes budget shared across all compressed fields (48 MiB). |
+
+`maxIdatChunkCount` is derived from a census of 19,979 real PNGs (the largest
+measured 1,786 `IDAT` chunks): 65,536 is 36x that headroom and still admits
+512 MiB of image data at libpng's 8 KiB default `IDAT` size, so a file above
+the cap falls back to ExifTool (a typed pre-write decline, classified safe)
+rather than failing.
+
 ### PNG orientation (D-11, D-12, D-13)
 
 `eXIf` is PNG's only orientation source: when `preserveOrientation: true` and
@@ -222,21 +245,24 @@ no writer defaults such as `YCbCrPositioning` -- is inserted immediately after
 re-parsed and the inserted `eXIf` compared byte-for-byte against
 `createOrientationExif(orientation)` before publication.
 
-A PNG whose Orientation comes only from an XMP `iTXt` (`tiff:Orientation`,
+A PNG whose Orientation comes only from an XMP packet (`tiff:Orientation`,
 keyword `XML:com.adobe.xmp`) or a legacy ImageMagick raw-EXIF-profile text
-chunk (`tEXt`/`zTXt` keyword `Raw profile type exif` or
-`Raw profile type APP1`) -- or whose non-`eXIf` Orientation disagrees with
-`eXIf` -- declines orientation preservation (`unsupported-feature`,
-`feature: "orientation-preservation"`) before any write, rather than guessing
-which source should win: ExifTool's own pick in that case depends on chunk
-order, and promoting an XMP-only Orientation into a fresh `eXIf` would rotate
-pixels in viewers that currently display the image unrotated. An agreeing
-non-`eXIf` Orientation, or a non-`eXIf` block carrying no Orientation, does
-not decline. These readers return only a routing value or its absence -- their
-bytes never reach the output -- and the raw-EXIF-profile reader's declared
-byte count is bounds-checked against the same text-decompression limit as
-`tEXt`/`zTXt` (`PNG_MAX_INFLATED_TEXT_BYTES`) before any hex is decoded,
-independent of any preservation flag.
+chunk (keyword `Raw profile type exif` or `Raw profile type APP1`) -- or
+whose non-`eXIf` Orientation disagrees with `eXIf` -- declines orientation
+preservation (`unsupported-feature`, `feature: "orientation-preservation"`)
+before any write, rather than guessing which source should win: ExifTool's
+own pick in that case depends on chunk order, and promoting an XMP-only
+Orientation into a fresh `eXIf` would rotate pixels in viewers that
+currently display the image unrotated. Both keywords are recognised
+regardless of which text chunk type carries them -- `tEXt`, `zTXt`, and
+`iTXt` are routed by keyword, not by chunk type (WR-01; measured against
+ExifTool 13.59, which honours the same keyword in any of the three). An
+agreeing non-`eXIf` Orientation, or a non-`eXIf` block carrying no
+Orientation, does not decline. These readers return only a routing value or
+its absence -- their bytes never reach the output -- and the raw-EXIF-profile
+reader's declared byte count is bounds-checked against the same
+text-decompression limit as `tEXt`/`zTXt` (`PNG_MAX_INFLATED_TEXT_BYTES`)
+before any hex is decoded, independent of any preservation flag.
 
 ### PNG namespace mapping (D-15)
 
@@ -246,17 +272,19 @@ format uses. No entry is produced for `pHYs`, `gAMA`, or `sRGB`, or an
 unregistered chunk stripped under D-05 -- those are reported through
 `removedNamespaces`/`preserved` only, never as an inspection entry.
 
-| Chunk                               | Namespace | Entry                                                                                                                         |
-| ----------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `eXIf`                              | `EXIF`    | One entry per decoded EXIF tag (`parseExif`).                                                                                 |
-| `iCCP` (inflated)                   | `ICC`     | One entry per decoded ICC field (`parseIcc`).                                                                                 |
-| `tEXt`                              | `PNG`     | `{ name: keyword, value: Latin-1 text }`.                                                                                     |
-| `zTXt` (inflated)                   | `PNG`     | `{ name: keyword, value: Latin-1 text }`.                                                                                     |
-| `iTXt`, keyword `XML:com.adobe.xmp` | `XMP`     | One entry per decoded XMP property (`parseXmp`).                                                                              |
-| `iTXt`, any other keyword           | `PNG`     | `{ name: keyword, value: UTF-8 text }`; invalid UTF-8 adds a `metadata-invalid` warning and produces no entry (fatal decode). |
-| `tIME`                              | `PNG`     | `{ name: "ModifyDate", value: "YYYY:MM:DD HH:MM:SS" }`.                                                                       |
-| `caBX` (C2PA)                       | `C2PA`    | `{ name: "JUMBF", value: <byte length of the chunk data> }`. The JUMBF box contents are never parsed.                         |
-| `pHYs`, `gAMA`, `sRGB`              | `PNG`     | No entry -- reported only via `removedNamespaces`/`preserved.resolution`.                                                     |
+| Chunk                                          | Namespace | Entry                                                                                                                         |
+| ---------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `eXIf`                                         | `EXIF`    | One entry per decoded EXIF tag (`parseExif`).                                                                                 |
+| `iCCP` (inflated)                              | `ICC`     | One entry per decoded ICC field (`parseIcc`).                                                                                 |
+| `tEXt`, keyword `XML:com.adobe.xmp`            | `XMP`     | One entry per decoded XMP property (`parseXmp`). Same routing as `iTXt` (WR-01) -- no duplicate `PNG` entry.                  |
+| `tEXt`, any other keyword                      | `PNG`     | `{ name: keyword, value: Latin-1 text }`.                                                                                     |
+| `zTXt` (inflated), keyword `XML:com.adobe.xmp` | `XMP`     | One entry per decoded XMP property (`parseXmp`). Same routing as `iTXt` (WR-01) -- no duplicate `PNG` entry.                  |
+| `zTXt` (inflated), any other keyword           | `PNG`     | `{ name: keyword, value: Latin-1 text }`.                                                                                     |
+| `iTXt`, keyword `XML:com.adobe.xmp`            | `XMP`     | One entry per decoded XMP property (`parseXmp`).                                                                              |
+| `iTXt`, any other keyword                      | `PNG`     | `{ name: keyword, value: UTF-8 text }`; invalid UTF-8 adds a `metadata-invalid` warning and produces no entry (fatal decode). |
+| `tIME`                                         | `PNG`     | `{ name: "ModifyDate", value: "YYYY:MM:DD HH:MM:SS" }`.                                                                       |
+| `caBX` (C2PA)                                  | `C2PA`    | `{ name: "JUMBF", value: <byte length of the chunk data> }`. The JUMBF box contents are never parsed.                         |
+| `pHYs`, `gAMA`, `sRGB`                         | `PNG`     | No entry -- reported only via `removedNamespaces`/`preserved.resolution`.                                                     |
 
 Every successful PNG sanitize re-parses the staged destination (CRC and chunk
 order re-checked), asserts its chunk-type sequence against the plan computed

@@ -15,24 +15,40 @@ of writing a stale offset (D-06).
 PNG orientation is preserved as a minimal `eXIf` (Orientation only, no writer
 defaults) placed immediately after `IHDR`, always before any `iDOT` and the
 first `IDAT` (D-11, D-13). Orientation is read only from `eXIf`; a PNG
-carrying Orientation only in XMP, or in a legacy ImageMagick raw EXIF profile
-(`Raw profile type exif`/`Raw profile type APP1`), or whose non-`eXIf`
-Orientation disagrees with `eXIf`, declines orientation preservation to
-ExifTool rather than guessing which source wins (D-11, D-12). An agreeing or
-orientation-free non-`eXIf` source does not decline.
+carrying Orientation only in XMP (`XML:com.adobe.xmp`) or in a legacy
+ImageMagick raw EXIF profile (`Raw profile type exif`/`Raw profile type
+APP1`), or whose non-`eXIf` Orientation disagrees with `eXIf`, declines
+orientation preservation to ExifTool rather than guessing which source wins
+(D-11, D-12). Both keywords are recognised in any of `tEXt`, `zTXt` or
+`iTXt` -- routed by keyword, not by chunk type (WR-01) -- and XMP carried in
+`tEXt`/`zTXt` is reported under the `XMP` namespace exactly like XMP in
+`iTXt`. An agreeing or orientation-free non-`eXIf` source does not decline.
 
 PNG decompression is bounded: streaming inflate refuses rather than hangs on
 a compression-bomb `iCCP`, `zTXt` or `iTXt` chunk, capped at 16 MiB per
 metadata chunk, 16 MiB inflated per ICC profile, 16 MiB inflated per text
 chunk, 48 MiB inflated in total, and 10,000 aggregate ancillary chunks
-(D-14). `getCapabilities()`'s new `PngCapabilities` member states these
-limits plus its `refuses` list: `unknown-critical-chunks`,
-`malformed-container`, `crc-mismatch`, `chunk-order`, `truncation`,
-`trailing-data`, `animation`, `resource-limits`,
-`unmeasured-registered-chunks`, and `unsafe-chunk-adjacency` (the D-06 `iDOT`
-adjacency decline). `preserves` reports `orientation`, `colorProfile`,
-`timestamps` and `resolution` all `true` -- PNG can honor every preservation
-flag WebP cannot.
+(D-14). The number of `IDAT` chunks is separately capped at 65,536 `IDAT`
+chunks, refused as `unsafe-structure` as soon as the count is exceeded and
+before that chunk's data or CRC is read, closing a gap where a file of tiny
+`IDAT` chunks could occupy sanitize for seconds to minutes with superlinear
+cost (CR-02); the cap is 36x the largest `IDAT` count measured across 19,979
+real PNGs and still admits 512 MiB of image data at libpng's 8 KiB default
+`IDAT` size, so a file above it falls back to ExifTool rather than failing.
+`getCapabilities()`'s new `PngCapabilities` member states these limits
+(including the new `limits.maxIdatChunkCount`) plus its `refuses` list:
+`unknown-critical-chunks`, `malformed-container`, `crc-mismatch`,
+`chunk-order`, `truncation`, `trailing-data`, `animation`,
+`resource-limits`, `unmeasured-registered-chunks`, and
+`unsafe-chunk-adjacency` (the D-06 `iDOT` adjacency decline). `preserves`
+reports `orientation`, `colorProfile`, `timestamps` and `resolution` all
+`true` -- PNG can honor every preservation flag WebP cannot. A compressed
+`iCCP`, `zTXt` or `iTXt` field with bytes after its zlib stream declines
+pre-write as `malformed-file` (safe to fall back), closing a gap where an
+attacker-appended payload could ride an otherwise legitimate profile past
+inflate unnoticed (CR-01); a preserved `iCCP` is therefore always exactly
+the profile ExifTool would keep, since native never re-encodes a profile
+(D-09).
 
 ### Fixed (PNG)
 
