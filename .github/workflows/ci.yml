@@ -66,6 +66,9 @@ jobs:
     # and only to read outputs.formats for in-job file selection below --
     # never to gate whether this job runs at all (it is a required status
     # check; see docs/ci-budget.md's "Per-format qualification scoping").
+    # WR-03 (56-18): classify's result (needs.classify.result) gates only the
+    # in-step fallback to every qualified format below -- it never gates
+    # whether qualification-linux itself runs.
     needs: [quality, classify]
     if: ${{ !cancelled() && needs.quality.result == 'success' }}
     runs-on: ubuntu-24.04
@@ -92,9 +95,15 @@ jobs:
       - name: Select and run qualification suites for touched formats (D-17)
         env:
           FORMATS: ${{ needs.classify.outputs.formats }}
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
         shell: bash
         run: |
           set -euo pipefail
+          if [ "$CLASSIFY_RESULT" != "success" ] || [ -z "$FORMATS" ]; then
+            echo "qualification-linux: classify result was '$CLASSIFY_RESULT' with formats '$FORMATS' -- running every qualified format (fail-closed, WR-03)" >&2
+            FORMATS="$(node -p "require('./scripts/classify_ci_scope.cjs').QUALIFIED_FORMATS.join(',')")"
+          fi
+          echo "qualification-linux: effective formats=$FORMATS" >&2
           files="$QUAL_KIT"
           IFS=',' read -r -a selected_formats <<< "$FORMATS"
           for format in "${selected_formats[@]}"; do
