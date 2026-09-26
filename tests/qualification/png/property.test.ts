@@ -327,52 +327,73 @@ async function checkSample(
  * both examples already folded into `generators.ts`). Binds only at
  * FC_SEED 460046 / FC_RUNS 200 (55-REVIEW WR-01) -- see the guard below.
  * Re-measured in 56-14 after `trailing-data` grew from 2 to 4 cases
- * (CR-01's iCCP/zTXt/compressed-iTXt fixtures): every number below is
- * unchanged at all four seeds, because `buildHostileArm` draws the category
+ * (CR-01's iCCP/zTXt/compressed-iTXt fixtures): every number was unchanged
+ * at all four seeds, because `buildHostileArm` draws the category
  * uniformly first and only then a case within it, so growing a category's
  * case count does not change how often that category itself is drawn.
- * Measured 200-run distributions (arm/kind/flag/hostile -> count):
  *
- *   seed 460046: metadata 116, no-metadata 22, hostile 62;
- *                tEXt 35, zTXt 41, iTXt 33, iTXtCompressed 38, XMP 42,
- *                eXIf 45, caBX 41, private 29, iCCP 44;
- *                preserveOrientation 21, preserveColorProfile 21,
- *                preserveResolution 19, preserveTimestamps 68;
- *                crc 3, unknown-critical 6, chunk-order 6, truncation 5,
- *                trailing-data 4, apng 5, decompression-bomb 3,
- *                length-overflow 6, duplicate-singleton 8,
- *                idot-adjacency 2, registered-unmeasured 8,
- *                aggregate-inflate 6
- *   seed 1:      metadata 105, no-metadata 24, hostile 71;
- *                tEXt 34, zTXt 36, iTXt 36, iTXtCompressed 40, XMP 32,
- *                eXIf 33, caBX 34, private 35, iCCP 33;
+ * Re-measured again in 56-16 after `chunk-count` (CR-02's IDAT/ancillary
+ * flood cases) added a 13th hostile category: the per-category uniform
+ * draw now gives every OTHER category ~1/13 of the hostile arm instead of
+ * ~1/12, diluting each one's count. At the unchanged top-level hostile-arm
+ * weight (6 of 18), that dilution alone pushed `hostile:chunk-order`
+ * (measured 2) and `hostile:duplicate-singleton` (measured 1) below their
+ * existing floors (3 and 2) at the binding seed 460046. Per this file's own
+ * rule -- fix the generator's weighting, never lower a floor -- the
+ * top-level hostile-arm weight in `pngQualificationArbitrary` was raised
+ * from 6 to 7 (metadata 10, no-metadata 2, hostile 7), which increases
+ * every hostile category's raw count roughly proportionally without
+ * changing their relative within-arm ratios, and restores both floors
+ * (chunk-order 3, duplicate-singleton 4 at 460046) with no other existing
+ * floor number changed. Measured 200-run distributions (arm/kind/flag/
+ * hostile -> count) at the new weight:
+ *
+ *   seed 460046: metadata 98, no-metadata 18, hostile 84;
+ *                tEXt 35, zTXt 28, iTXt 31, iTXtCompressed 34, XMP 35,
+ *                eXIf 35, caBX 27, private 18, iCCP 32;
  *                preserveOrientation 18, preserveColorProfile 17,
- *                preserveResolution 14, preserveTimestamps 68;
- *                crc 3, unknown-critical 6, chunk-order 10, truncation 6,
- *                trailing-data 8, apng 5, decompression-bomb 6,
- *                length-overflow 3, duplicate-singleton 4,
- *                idot-adjacency 5, registered-unmeasured 6,
- *                aggregate-inflate 9
- *   seed 2:      metadata 109, no-metadata 22, hostile 69;
- *                tEXt 40, zTXt 28, iTXt 34, iTXtCompressed 32, XMP 36,
- *                eXIf 36, caBX 33, private 35, iCCP 33;
- *                preserveOrientation 14, preserveColorProfile 18,
- *                preserveResolution 23, preserveTimestamps 67;
- *                crc 5, unknown-critical 8, chunk-order 6, truncation 6,
- *                trailing-data 8, apng 4, decompression-bomb 5,
- *                length-overflow 6, duplicate-singleton 10,
- *                idot-adjacency 5, registered-unmeasured 2,
- *                aggregate-inflate 4
- *   seed 3:      metadata 114, no-metadata 23, hostile 63;
- *                tEXt 40, zTXt 35, iTXt 33, iTXtCompressed 36, XMP 27,
- *                eXIf 41, caBX 34, private 37, iCCP 38;
- *                preserveOrientation 21, preserveColorProfile 20,
- *                preserveResolution 28, preserveTimestamps 72;
- *                crc 4, unknown-critical 7, chunk-order 6, truncation 9,
- *                trailing-data 4, apng 5, decompression-bomb 5,
- *                length-overflow 3, duplicate-singleton 5,
- *                idot-adjacency 8, registered-unmeasured 4,
- *                aggregate-inflate 3
+ *                preserveResolution 17, preserveTimestamps 52;
+ *                crc 8, unknown-critical 7, chunk-order 3, truncation 2,
+ *                trailing-data 5, apng 6, decompression-bomb 11,
+ *                length-overflow 4, duplicate-singleton 7,
+ *                idot-adjacency 7, registered-unmeasured 10,
+ *                aggregate-inflate 7, chunk-count 7
+ *   seed 1:      metadata 107, no-metadata 28, hostile 65;
+ *                tEXt 31, zTXt 43, iTXt 38, iTXtCompressed 41, XMP 32,
+ *                eXIf 28, caBX 33, private 35, iCCP 39;
+ *                preserveOrientation 13, preserveColorProfile 15,
+ *                preserveResolution 15, preserveTimestamps 69;
+ *                crc 2, unknown-critical 6, chunk-order 7, truncation 8,
+ *                trailing-data 4, apng 6, decompression-bomb 4,
+ *                length-overflow 6, duplicate-singleton 5,
+ *                idot-adjacency 5, registered-unmeasured 0,
+ *                aggregate-inflate 5, chunk-count 7
+ *   seed 2:      metadata 101, no-metadata 27, hostile 72;
+ *                tEXt 28, zTXt 25, iTXt 33, iTXtCompressed 30, XMP 37,
+ *                eXIf 29, caBX 35, private 35, iCCP 36;
+ *                preserveOrientation 11, preserveColorProfile 18,
+ *                preserveResolution 18, preserveTimestamps 69;
+ *                crc 4, unknown-critical 8, chunk-order 7, truncation 5,
+ *                trailing-data 2, apng 10, decompression-bomb 2,
+ *                length-overflow 7, duplicate-singleton 4,
+ *                idot-adjacency 4, registered-unmeasured 14,
+ *                aggregate-inflate 3, chunk-count 2
+ *   seed 3:      metadata 110, no-metadata 21, hostile 69;
+ *                tEXt 39, zTXt 37, iTXt 31, iTXtCompressed 35, XMP 32,
+ *                eXIf 36, caBX 31, private 31, iCCP 36;
+ *                preserveOrientation 17, preserveColorProfile 20,
+ *                preserveResolution 23, preserveTimestamps 65;
+ *                crc 8, unknown-critical 6, chunk-order 8, truncation 5,
+ *                trailing-data 3, apng 3, decompression-bomb 4,
+ *                length-overflow 5, duplicate-singleton 7,
+ *                idot-adjacency 6, registered-unmeasured 4,
+ *                aggregate-inflate 7, chunk-count 3
+ *
+ * `hostile:chunk-count`'s floor is floor(min(7, 7, 2, 3) / 2) = 1 (the D-20
+ * hard minimum). `hostile:registered-unmeasured` measures 0 at seed 1, but
+ * -- like every seed other than 460046 -- that seed is never asserted
+ * against a floor (D-20/55-REVIEW WR-01 binds only at FC_SEED 460046); its
+ * own floor (1) is satisfied at 460046 (measured 10).
  */
 const PNG_FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze({
   "arm:metadata": 52,
@@ -403,6 +424,7 @@ const PNG_FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze({
   "hostile:idot-adjacency": 1,
   "hostile:registered-unmeasured": 1,
   "hostile:aggregate-inflate": 1,
+  "hostile:chunk-count": 1,
 });
 
 describe("replayable PNG qualification properties", () => {

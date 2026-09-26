@@ -29,6 +29,8 @@ import {
   type PlantedCanary,
 } from "../kit/generators.js";
 import {
+  PNG_MAX_ANCILLARY_CHUNKS,
+  PNG_MAX_IDAT_CHUNKS,
   PNG_MAX_INFLATED_ICC_BYTES,
   PNG_MAX_INFLATED_TEXT_BYTES,
   PNG_MAX_METADATA_BYTES_PER_CHUNK,
@@ -554,7 +556,8 @@ export type PngHostileCategory =
   | "idot-adjacency"
   | "registered-unmeasured"
   | "metadata-limit"
-  | "aggregate-inflate";
+  | "aggregate-inflate"
+  | "chunk-count";
 
 export interface PngMaterializedMutationCase {
   readonly prefix: Buffer;
@@ -626,6 +629,25 @@ function metadataLimitCase(): PngMaterializedMutationCase {
   ]);
   const fileSize = prefix.length + oversized + 4; // + CRC
   return sparseCase(prefix, fileSize);
+}
+
+/** CR-02 (56-16): PNG_MAX_IDAT_CHUNKS + 1 one-byte IDAT chunks. The repeated chunk buffer is
+ * built once and reused for every iteration. */
+function idatFloodCase(): PngMaterializedMutationCase {
+  const one = pngChunk("IDAT", Buffer.from([0]));
+  const parts: Buffer[] = [pngChunk("IHDR", pngIhdr())];
+  for (let i = 0; i < PNG_MAX_IDAT_CHUNKS + 1; i += 1) parts.push(one);
+  parts.push(pngChunk("IEND", Buffer.alloc(0)));
+  return bytesCase(png(parts));
+}
+
+/** CR-02 (56-16): PNG_MAX_ANCILLARY_CHUNKS + 1 small tEXt chunks before IDAT, exercising the
+ * pre-existing ancillary-chunk cap (parsePng, PNG-03) rather than the new IDAT one. */
+function ancillaryFloodCase(): PngMaterializedMutationCase {
+  const one = pngChunk("tEXt", Buffer.from("k\0v"));
+  const middle: Buffer[] = [];
+  for (let i = 0; i < PNG_MAX_ANCILLARY_CHUNKS + 1; i += 1) middle.push(one);
+  return bytesCase(validImage(...middle));
 }
 
 function aggregateInflateCase(): PngMaterializedMutationCase {
@@ -957,6 +979,24 @@ const hostileCases: readonly PngHostileMutationCase[] = [
         ),
       ),
   },
+  // CR-02 (56-16): an unbounded IDAT (or ancillary) chunk count cost superlinear parse
+  // time. One case per cap this category's floods exercise.
+  {
+    id: "chunk-count-idat-flood",
+    category: "chunk-count",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: idatFloodCase,
+  },
+  {
+    id: "chunk-count-ancillary-flood",
+    category: "chunk-count",
+    sourceCase: "minimal",
+    seed: HOSTILE_BASE_SEED,
+    expectedKind: "unsafe-structure",
+    materialize: ancillaryFloodCase,
+  },
 ];
 
 export const hostileMutationCases: readonly PngHostileMutationCase[] =
@@ -1039,17 +1079,20 @@ function toHostileSample(item: PngHostileMutationCase): QualificationSample {
 
 /**
  * Picks a category uniformly first, then a case within it, instead of
- * picking uniformly across all 24 cases. `decompression-bomb` (4 cases) and
- * `crc` (3 cases) would otherwise draw ~4x as often as the six
- * single-case categories (`unknown-critical`, `length-overflow`,
- * `duplicate-singleton`, `idot-adjacency`, `registered-unmeasured`,
- * `metadata-limit`), which measured well under the D-20 20-run re-measure
- * threshold for those categories on more than one of the four fixed seeds
- * (Task 3). `trailing-data` grew from 2 to 4 cases in 56-14 (CR-01's iCCP,
- * zTXt and compressed-iTXt trailing-bytes fixtures joined the pre-existing
- * `trailing-byte-after-iend` case), still no re-weighting needed. Every case
- * here has a real (non-sparse) `prefix`/`fileSize` -- `hostileMutationCases`
- * has no sparse entries as of Task 2, so nothing is filtered out here.
+ * picking uniformly across all 26 cases. `decompression-bomb` (4 cases) and
+ * `crc` (3 cases) would otherwise draw ~4x as often as the single-case
+ * categories (`unknown-critical`, `length-overflow`, `duplicate-singleton`,
+ * `idot-adjacency`, `registered-unmeasured`, `metadata-limit`), which
+ * measured well under the D-20 20-run re-measure threshold for those
+ * categories on more than one of the four fixed seeds (Task 3).
+ * `trailing-data` grew from 2 to 4 cases in 56-14 (CR-01's iCCP, zTXt and
+ * compressed-iTXt trailing-bytes fixtures joined the pre-existing
+ * `trailing-byte-after-iend` case), still no re-weighting needed.
+ * `chunk-count` (56-16, CR-02) adds a 13th category (idat-flood,
+ * ancillary-flood), diluting every other category's per-run draw frequency
+ * from 1/12 to 1/13 -- re-measured in Task 3; see the fixed-seed
+ * distribution comment in property.test.ts. Both new cases have a real
+ * (non-sparse) `prefix`/`fileSize`, so neither is filtered out below.
  */
 function buildHostileArm(): fc.Arbitrary<QualificationSample> {
   const byCategory = new Map<PngHostileCategory, PngHostileMutationCase[]>();
@@ -1071,7 +1114,7 @@ export function pngQualificationArbitrary(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 10, arbitrary: buildMetadataArm() },
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 6, arbitrary: buildHostileArm() },
+    { weight: 7, arbitrary: buildHostileArm() },
   );
 }
 
@@ -1084,7 +1127,7 @@ export function pngQualificationArbitrary(): fc.Arbitrary<QualificationSample> {
 export function pngQualificationArbitraryWithoutMetadataArm(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 6, arbitrary: buildHostileArm() },
+    { weight: 7, arbitrary: buildHostileArm() },
   );
 }
 
