@@ -271,6 +271,7 @@ function execute(options) {
     "tests/qualification/png/golden.test.ts",
     "tests/qualification/jpeg/tracer.test.ts",
     "tests/qualification/jpeg/oracles.test.ts",
+    "tests/qualification/jpeg/property.test.ts",
   ]);
 }
 

@@ -81,7 +81,7 @@ jobs:
       # 57-07: the JPEG qualification suite's first file (tracer.test.ts)
       # lands here; later 57-* plans append their own suite files to this
       # list (D-16 layout gate requires every on-disk suite file listed).
-      QUAL_JPEG: "tests/qualification/jpeg/tracer.test.ts tests/qualification/jpeg/oracles.test.ts"
+      QUAL_JPEG: "tests/qualification/jpeg/tracer.test.ts tests/qualification/jpeg/oracles.test.ts tests/qualification/jpeg/property.test.ts"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
