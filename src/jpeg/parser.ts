@@ -1,8 +1,17 @@
 import type { FileHandle } from "node:fs/promises";
 import {
   APP0,
+  APP1,
+  APP2,
+  APP14,
   APP15,
   classifyMarker,
+  JPEG_MAX_EXTENDED_XMP_BYTES,
+  JPEG_MAX_FILE_BYTES,
+  JPEG_MAX_ICC_SEGMENTS,
+  JPEG_MAX_SCAN_COUNT,
+  JPEG_MAX_SEGMENT_COUNT,
+  JPEG_MAX_TABLE_SEGMENT_COUNT,
   JPEG_REFUSAL_DETAILS,
   JPEG_REFUSAL_KIND,
   RST0,
@@ -158,6 +167,55 @@ function readIdentifier(payload: Buffer): string | undefined {
   const nul = window.indexOf(0);
   if (nul < 0) return undefined;
   return window.subarray(0, nul).toString("ascii");
+}
+
+// Task 3 bounded-buffering classification (57-EVIDENCE.md buffering rule): matched
+// against the raw payload prefix, not the 32-byte-truncated `identifier` field --
+// ExtendedXMP's real identifier ("http://ns.adobe.com/xmp/extension/\0") is 36
+// bytes, past that field's own 32-byte window.
+const JFIF_ID = Buffer.from("JFIF\0", "ascii");
+const EXIF_ID = Buffer.from("Exif\0\0", "ascii");
+const XMP_STANDARD_ID = Buffer.from("http://ns.adobe.com/xap/1.0/\0", "ascii");
+const XMP_EXTENDED_ID = Buffer.from(
+  "http://ns.adobe.com/xmp/extension/\0",
+  "ascii",
+);
+const ICC_PROFILE_ID = Buffer.from("ICC_PROFILE\0", "ascii");
+const MPF_ID = Buffer.from("MPF\0", "ascii");
+const ADOBE_ID = Buffer.from("Adobe", "ascii");
+
+type AppSegmentClass =
+  | "jfif"
+  | "exif"
+  | "xmp"
+  | "extended-xmp"
+  | "icc"
+  | "mpf"
+  | "adobe"
+  | undefined;
+
+function startsWithBytes(payload: Buffer, prefix: Buffer): boolean {
+  return (
+    payload.length >= prefix.length &&
+    payload.subarray(0, prefix.length).equals(prefix)
+  );
+}
+
+function classifyAppPayload(marker: number, payload: Buffer): AppSegmentClass {
+  if (marker === APP0 && startsWithBytes(payload, JFIF_ID)) return "jfif";
+  if (marker === APP1 && startsWithBytes(payload, EXIF_ID)) return "exif";
+  if (marker === APP1 && startsWithBytes(payload, XMP_EXTENDED_ID)) {
+    return "extended-xmp";
+  }
+  if (marker === APP1 && startsWithBytes(payload, XMP_STANDARD_ID)) {
+    return "xmp";
+  }
+  if (marker === APP2 && startsWithBytes(payload, ICC_PROFILE_ID)) {
+    return "icc";
+  }
+  if (marker === APP2 && startsWithBytes(payload, MPF_ID)) return "mpf";
+  if (marker === APP14 && startsWithBytes(payload, ADOBE_ID)) return "adobe";
+  return undefined;
 }
 
 function refuse(refusal: JpegRefusal, detail?: string): never {
@@ -366,6 +424,15 @@ export async function parseJpeg(
   if (isAborted(signal)) {
     throw signal?.reason ?? new DOMException("Aborted", "AbortError");
   }
+  // The file-size cap is checked before any read (Task 3): a file above it never
+  // touches the file handle at all.
+  if (size > JPEG_MAX_FILE_BYTES) {
+    throw new JpegStructureError(
+      "resource-limits",
+      `${JPEG_REFUSAL_DETAILS["resource-limits"]} File is ${size} bytes, exceeding the ${JPEG_MAX_FILE_BYTES}-byte limit.`,
+      { segment: "file-bytes", size, limit: JPEG_MAX_FILE_BYTES },
+    );
+  }
   if (!Number.isSafeInteger(size) || size < 4) {
     throw new JpegStructureError(
       "malformed-container",
@@ -389,6 +456,19 @@ export async function parseJpeg(
   let offset = 2;
   let frame: JpegFrame | undefined;
   let primaryEoiEnd: number | undefined;
+
+  // Task 3: census caps, each checked incrementally as its own segment kind is
+  // recognized -- before that segment's payload is read, mirroring
+  // src/png/chunks.ts's cap-before-buffer discipline.
+  let segmentCount = 0;
+  let scanCount = 0;
+  let tableSegmentCount = 0;
+  let iccSegmentCount = 0;
+  let extendedXmpBytesTotal = 0;
+  let sawJfif = false;
+  let sawExif = false;
+  let sawXmp = false;
+  let sawMpf = false;
 
   while (offset < size) {
     if (isAborted(signal)) {
@@ -431,6 +511,48 @@ export async function parseJpeg(
         "malformed-container",
         "A restart marker appeared outside entropy-coded scan data.",
       );
+    }
+
+    // Every other admitted kind (sos/dqt/dht/dri/sof-admitted/app/com) is a real
+    // segment: count and cap-check it now, before its length or payload is read.
+    segmentCount += 1;
+    if (segmentCount > JPEG_MAX_SEGMENT_COUNT) {
+      throw new JpegStructureError(
+        "resource-limits",
+        `${JPEG_REFUSAL_DETAILS["resource-limits"]} More than ${JPEG_MAX_SEGMENT_COUNT} segments.`,
+        {
+          segment: "segment-count",
+          size: segmentCount,
+          limit: JPEG_MAX_SEGMENT_COUNT,
+        },
+      );
+    }
+    if (classification.kind === "sos") {
+      scanCount += 1;
+      if (scanCount > JPEG_MAX_SCAN_COUNT) {
+        throw new JpegStructureError(
+          "resource-limits",
+          `${JPEG_REFUSAL_DETAILS["resource-limits"]} More than ${JPEG_MAX_SCAN_COUNT} scans.`,
+          {
+            segment: "scan-count",
+            size: scanCount,
+            limit: JPEG_MAX_SCAN_COUNT,
+          },
+        );
+      }
+    } else if (classification.kind === "dqt" || classification.kind === "dht") {
+      tableSegmentCount += 1;
+      if (tableSegmentCount > JPEG_MAX_TABLE_SEGMENT_COUNT) {
+        throw new JpegStructureError(
+          "resource-limits",
+          `${JPEG_REFUSAL_DETAILS["resource-limits"]} More than ${JPEG_MAX_TABLE_SEGMENT_COUNT} DQT/DHT segments.`,
+          {
+            segment: "table-segment-count",
+            size: tableSegmentCount,
+            limit: JPEG_MAX_TABLE_SEGMENT_COUNT,
+          },
+        );
+      }
     }
 
     if (classification.kind === "sos") {
@@ -577,6 +699,64 @@ export async function parseJpeg(
 
     const identifier =
       marker >= APP0 && marker <= APP15 ? readIdentifier(payload) : undefined;
+
+    if (marker >= APP0 && marker <= APP15) {
+      const appClass = classifyAppPayload(marker, payload);
+      if (appClass === "icc") {
+        iccSegmentCount += 1;
+        if (iccSegmentCount > JPEG_MAX_ICC_SEGMENTS) {
+          throw new JpegStructureError(
+            "resource-limits",
+            `${JPEG_REFUSAL_DETAILS["resource-limits"]} More than ${JPEG_MAX_ICC_SEGMENTS} ICC_PROFILE segments.`,
+            {
+              segment: "icc-segment-count",
+              size: iccSegmentCount,
+              limit: JPEG_MAX_ICC_SEGMENTS,
+            },
+          );
+        }
+        buffered.set(segments.length, payload);
+      } else if (appClass === "extended-xmp") {
+        extendedXmpBytesTotal += payload.length;
+        if (extendedXmpBytesTotal > JPEG_MAX_EXTENDED_XMP_BYTES) {
+          throw new JpegStructureError(
+            "resource-limits",
+            `${JPEG_REFUSAL_DETAILS["resource-limits"]} ExtendedXMP payloads exceed ${JPEG_MAX_EXTENDED_XMP_BYTES} bytes.`,
+            {
+              segment: "extended-xmp-bytes",
+              size: extendedXmpBytesTotal,
+              limit: JPEG_MAX_EXTENDED_XMP_BYTES,
+            },
+          );
+        }
+        buffered.set(segments.length, payload);
+      } else if (appClass === "jfif") {
+        if (!sawJfif) {
+          buffered.set(segments.length, payload);
+          sawJfif = true;
+        }
+      } else if (appClass === "exif") {
+        if (!sawExif) {
+          buffered.set(segments.length, payload);
+          sawExif = true;
+        }
+      } else if (appClass === "xmp") {
+        if (!sawXmp) {
+          buffered.set(segments.length, payload);
+          sawXmp = true;
+        }
+      } else if (appClass === "mpf") {
+        if (!sawMpf) {
+          buffered.set(segments.length, payload);
+          sawMpf = true;
+        }
+      } else if (appClass === "adobe") {
+        // Every APP14 Adobe segment is buffered (D-01: always kept).
+        buffered.set(segments.length, payload);
+      }
+      // Every other payload (COM, APP13, unknown APPn, duplicates beyond the
+      // first) is skipped by offset -- never buffered.
+    }
 
     segments.push({
       marker,
