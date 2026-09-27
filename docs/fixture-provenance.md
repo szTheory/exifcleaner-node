@@ -159,6 +159,33 @@ Exact sha256/bytes/topology/outcome values for all 35 records live in
 permanent guard that keeps this doc from drifting out of sync with the committed
 bytes.
 
+**Phase 57 Plan 11 byte-parity fix:** `fixtures.ts`'s `standardXmpPayload` (shared by the
+`app1-xmp` per-identifier fixture above and the MPF/motion-photo class builders below)
+was missing the UTF-8 BOM (`﻿`, 3 bytes) `build-fixtures.mjs`'s own `xpacket begin`
+attribute carries -- found live when Plan 11 Task 2 measured `google-motion-photo-shape.jpg`
+and `gainmap-mpf-hdrgm.jpg` 3 bytes short of the sha256 57-EVIDENCE.md recorded. Fixed in
+`standardXmpPayload` itself; `jpeg-seg-app1-xmp`'s own committed bytes/sha256 changed as a
+side effect (507 -> 510 bytes) and are re-recorded in `tests/corpus/manifest.json`.
+
+## MPF and Motion-Photo Trailer Fixtures (Phase 57 Plan 11)
+
+Six more fixtures committed under `tests/corpus/constructed/jpeg/`, built from
+`exiftool-jpeg-writer` through the same `tests/qualification/jpeg/fixtures.ts` builders
+57-04 ported from `build-fixtures.mjs` (`buildCipaMpfTwoImages`,
+`buildGoogleMotionPhotoShape`, `buildSamsungSefhSeftTrailer`, `buildGainmapMpfHdrgm`,
+`buildMpfIndexTruncated`, `buildMpfIndexOutOfRange`) -- one per `JpegTrailerClass` shape
+57-EVIDENCE.md's "Full MPF/motion/trailer decision table" measured. Every committed
+sha256/bytes value matches 57-EVIDENCE.md's own recorded value exactly (asserted live by
+this plan's own regeneration proof). Two (`jpeg-trailer-cipa-mpf-two-images`,
+`jpeg-trailer-gainmap-mpf-hdrgm`) are the measured-confound `mpf`/`gain-map` classes and
+carry the `negative-control` role with a `refused` outcome; the other four carry the
+`differential` role with a `success` outcome. The real Google.jpg fixture
+(`exiftool-jpeg-google`, above) is the seventh and only real (non-constructed) class member
+this plan measures -- see its own D-12/D-13 promotion note in the ExifTool table above.
+
+Exact sha256/bytes/topology/outcome values for all six records live in
+`tests/corpus/manifest.json` (ids `jpeg-trailer-*`).
+
 ## Generated Fixtures
 
 Repository-generated fixtures are not upstream ExifCleaner evidence. Their provenance record should include:

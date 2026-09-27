@@ -125,8 +125,15 @@ function identifierPayload(
 }
 
 function standardXmpPayload(rdfInner: string): Buffer {
+  // "﻿" (UTF-8 BOM, 3 bytes) in the xpacket `begin` attribute matches
+  // `build-fixtures.mjs`'s own `standardXmpPayload` exactly (57-11, D-13
+  // byte-parity fix: an earlier TS port silently dropped this attribute's
+  // value to an empty string, producing google-motion-photo-shape.jpg and
+  // gainmap-mpf-hdrgm.jpg 3 bytes short of the sha256 57-EVIDENCE.md
+  // recorded -- found live when this plan's own sha256 assertion measured
+  // the mismatch).
   const xml =
-    `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>` +
+    `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>` +
     `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">` +
     rdfInner +
     `</rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;

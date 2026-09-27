@@ -1228,13 +1228,13 @@
       "roles": ["differential"],
       "localPath": "constructed/jpeg/app1-xmp.jpg",
       "provenance": {
-        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
-        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
         "license": "MIT",
         "licenseStatus": "approved"
       },
-      "sha256": "819a622aa52df1735609fc51693143545110a3682fa744722d70e910f4f5d44f",
-      "bytes": 507,
+      "sha256": "26262389e1c29e9c537b62ff1f8a22f25392af15197c74e7f44f214dd1f5cc7e",
+      "bytes": 510,
       "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
       "outcome": {
         "status": "success",
@@ -2025,6 +2025,154 @@
         "0xDA",
         "EOI"
       ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-cipa-mpf-two-images",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "constructed/jpeg/cipa-mpf-two-images.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "781604893aa6f17f0c0c9d0910513d97fe33bdbe328f3ff30f593470ce21fa15",
+      "bytes": 626,
+      "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-google-motion-photo-shape",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/google-motion-photo-shape.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "6676017672a174374d99ff6995a374bdcd5719e3e8f5639584662d8b62cfbd6a",
+      "bytes": 5226,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-samsung-sefh-seft-trailer",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/samsung-sefh-seft-trailer.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "188d67065a92675c64ecf2b0551232fd2e784525c814243fb4aabf37d0588ae5",
+      "bytes": 529,
+      "topology": ["0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-gainmap-mpf-hdrgm",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "constructed/jpeg/gainmap-mpf-hdrgm.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "a5ca173a66f2705c1eb48e3cdd50be8fb3a324e00eb78c6db4764ba8bba4ecc1",
+      "bytes": 1437,
+      "topology": ["0xE1", "0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-mpf-index-truncated",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/mpf-index-truncated.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "618439b78845f0337b929fcbe1f1d56b50afb62b2e7c8f59b980b47668329821",
+      "bytes": 333,
+      "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-mpf-index-out-of-range",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/mpf-index-out-of-range.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "41ca839938e289ad5daeeae830a4b051d53a579ac1a02fd76f634a438dec6cf2",
+      "bytes": 341,
+      "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
       "outcome": {
         "status": "success",
         "removedNamespaces": []

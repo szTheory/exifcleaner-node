@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import {
   mkdtemp,
+  readdir,
   readFile as readFileAsync,
   rm,
   writeFile,
@@ -730,6 +731,96 @@ describe("JPEG MPF and motion-photo promotion (D-12, D-13)", () => {
       }
     },
     480_000,
+  );
+
+  /**
+   * Every provisional-promote trailer-class manifest record (Plan 11 Task 2):
+   * the four constructed classes built from `exiftool-jpeg-writer`
+   * (`google-motion-photo`, `samsung-trailer`, and the two `mpf-index-invalid`
+   * shapes) each pass both halves of D-13 -- the live differential, and the
+   * same containment check the Google.jpg tracer above runs. `mpf`/`gain-map`
+   * (the two classes 57-01 measured a genuine confound for) are proven
+   * refused below instead, not here.
+   */
+  const PROMOTED_TRAILER_RECORD_IDS = [
+    "jpeg-trailer-google-motion-photo-shape",
+    "jpeg-trailer-samsung-sefh-seft-trailer",
+    "jpeg-trailer-mpf-index-truncated",
+    "jpeg-trailer-mpf-index-out-of-range",
+  ] as const;
+
+  it.runIf(admittedHost).each(PROMOTED_TRAILER_RECORD_IDS)(
+    "promotes %s through both engines with no secondary bytes surviving",
+    async (caseId) => {
+      const source = await materializeCorpusRecord(caseId);
+      const output = await sanitizeToPath(source, ALL_FALSE);
+      try {
+        const outputBytes = await readFileAsync(output.outputPath);
+        assertJpegDifferential({
+          caseId,
+          source,
+          output: outputBytes,
+          permittedDifferences: [],
+        });
+        const outputWalk = jpegMarkerSequence(outputBytes);
+        expect(outputWalk.trailerBytes).toBe(0);
+        const windows = secondaryWindows(source);
+        expect(anyWindowInOutput(windows, outputBytes)).toBe(false);
+      } finally {
+        await rm(output.directory, { recursive: true, force: true });
+      }
+    },
+    480_000,
+  );
+
+  /**
+   * Every refused trailer-class manifest record (Plan 11 Task 2): both
+   * measured-confound constructed fixtures (`mpf`, `gain-map`) decline
+   * pre-write with the `mpf-secondary-image` refusal, report
+   * `nativeWrite: "not-started"`, leave the source byte-identical, and leave
+   * the temp directory holding only the source (no partial/staged
+   * destination). No class moves from refuse to promote in this plan
+   * (must-haves prohibition) -- both stay exactly as 57-04 recorded them.
+   */
+  const REFUSED_TRAILER_RECORD_IDS = [
+    "jpeg-trailer-cipa-mpf-two-images",
+    "jpeg-trailer-gainmap-mpf-hdrgm",
+  ] as const;
+
+  it.each(REFUSED_TRAILER_RECORD_IDS)(
+    "declines %s pre-write with the mpf-secondary-image refusal and leaves only the source on disk",
+    async (caseId) => {
+      const record = await loadCorpusRecord(caseId);
+      const source = await materializeCorpusRecord(caseId);
+      const directory = await mkdtemp(
+        join(tmpdir(), "exifcleaner-jpeg-trailer-refuse-"),
+      );
+      const sourcePath = join(directory, "source.jpg");
+      const destinationPath = join(directory, "output.jpg");
+      await writeFile(sourcePath, source);
+      try {
+        const result = await sanitizeFile({
+          sourcePath,
+          destinationPath,
+          preserveOrientation: false,
+          preserveColorProfile: false,
+          preserveTimestamps: false,
+          preserveResolution: false,
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error.code).toBe("unsafe-structure");
+          expect(result.error.nativeWrite).toBe("not-started");
+        }
+        expect(record.outcome.status).toBe("refused");
+        const sourceAfter = await readFileAsync(sourcePath);
+        expect(sourceAfter.equals(source)).toBe(true);
+        const entries = await readdir(directory);
+        expect(entries).toEqual(["source.jpg"]);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
   );
 });
 
