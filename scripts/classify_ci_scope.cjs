@@ -136,6 +136,7 @@ const FORMAT_PATH_RULES = Object.freeze({
     /^tests\/qualification\/jpeg\/.+/u,
     /^tests\/jpeg[a-z0-9_-]*\.test\.ts$/u,
     /^tests\/corpus\/upstream\/libjpeg-turbo-3\.2\.0\/.+/u,
+    /^tests\/corpus\/(?:upstream\/exiftool-13\.59-jpeg|constructed\/jpeg)\/.+/u,
   ]),
   png: Object.freeze([
     /^src\/png\/.+/u,

@@ -1057,6 +1057,66 @@
       },
       "retainedPayloads": [],
       "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-exiftool",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/ExifTool.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/ExifTool.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "fdca3287a21453b51e250e67aba836d560e6043559a6e37acb429a03e720e412",
+      "bytes": 26106,
+      "topology": [
+        "0xE1",
+        "0xE0",
+        "0xE0",
+        "0xE8",
+        "0xE0",
+        "0xE0",
+        "0xE1",
+        "0xE2",
+        "0xE2",
+        "0xE2",
+        "0xE2",
+        "0xE2",
+        "0xE3",
+        "0xE5",
+        "0xE6",
+        "0xE6",
+        "0xE7",
+        "0xE9",
+        "0xEA",
+        "0xEB",
+        "0xEB",
+        "0xEC",
+        "0xEC",
+        "0xED",
+        "0xED",
+        "0xEE",
+        "0xEF",
+        "0xFE",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
     }
   ],
   "benchmarks": {

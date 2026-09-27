@@ -109,6 +109,31 @@ cmake --build build --target djpeg-static jpegtran-static rdjpgcom cjpeg-static 
 | `libjpeg-turbo-jpeg-ls`              | `testorig.jpg` with SOF0 patched to `0xF7` (JPEG-LS)                                                                                                              | `f67f9d1f75fa8599fa966a13188cd856b218cbd75873547130026b53f9c23e98` | 5770  | negative-control | refused, `unsafe-structure` (non-t81-frame)       |
 | `libjpeg-turbo-dnl`                  | `testorig.jpg` with frame height zeroed in SOF0 and a DNL segment inserted after the first scan                                                                   | `7f074514149f4a1581a6d9974984205e5fa119f4f47d82d34331f5adb934db8c` | 5776  | negative-control | refused, `unsafe-structure` (dnl-marker)          |
 
+## Pinned ExifTool JPEG Fixtures (Phase 57 Plan 10)
+
+Eleven JPEG fixtures committed under `tests/corpus/upstream/exiftool-13.59-jpeg/`,
+members of `Image-ExifTool-13.59/t/images/` in the pinned ExifTool archive
+(`tests/corpus/tools/manifest.json`, authority id `exiftool-13.59`, revision
+`2200871d9cef988051d2a99d67df3bda6cbb30a8`), licensed "same terms as Perl itself"
+(`LICENSE-exiftool.txt`, sourced from `tests/corpus/tools/licenses/exiftool-README`'s
+own `COPYRIGHT AND LICENSE` section). Every "measured outcome" below was captured by
+running the built package's own `sanitizeFile` against the committed bytes (every
+preservation flag false) before the corpus record was written.
+
+| Fixture ID                    | Member path                  | SHA-256                          | Bytes | Role(s)      | Measured outcome                            |
+| ----------------------------- | ---------------------------- | -------------------------------- | ----- | ------------ | ------------------------------------------- |
+| `exiftool-jpeg-exiftool`      | `t/images/ExifTool.jpg`      | see `tests/corpus/manifest.json` | 26106 | differential | success, removes nothing (APP14 Adobe kept) |
+| `exiftool-jpeg-writer`        | `t/images/Writer.jpg`        | see `tests/corpus/manifest.json` | 251   | differential | success, removes nothing                    |
+| `exiftool-jpeg-extendedxmp`   | `t/images/ExtendedXMP.jpg`   | see `tests/corpus/manifest.json` | 1380  | differential | success, removes nothing                    |
+| `exiftool-jpeg-afcp`          | `t/images/AFCP.jpg`          | see `tests/corpus/manifest.json` | 1110  | differential | success, removes nothing                    |
+| `exiftool-jpeg-photomechanic` | `t/images/PhotoMechanic.jpg` | see `tests/corpus/manifest.json` | 3417  | differential | success, removes nothing                    |
+| `exiftool-jpeg-fotostation`   | `t/images/FotoStation.jpg`   | see `tests/corpus/manifest.json` | 4320  | differential | success, removes nothing                    |
+| `exiftool-jpeg-xmp`           | `t/images/XMP.jpg`           | see `tests/corpus/manifest.json` | 10314 | differential | success, removes nothing                    |
+| `exiftool-jpeg-iptc`          | `t/images/IPTC.jpg`          | see `tests/corpus/manifest.json` | 9851  | differential | success, removes nothing                    |
+| `exiftool-jpeg-canon`         | `t/images/Canon.jpg`         | see `tests/corpus/manifest.json` | 2697  | differential | success, removes nothing                    |
+| `exiftool-jpeg-nikon`         | `t/images/Nikon.jpg`         | see `tests/corpus/manifest.json` | 1703  | differential | success, removes nothing                    |
+| `exiftool-jpeg-apple`         | `t/images/Apple.jpg`         | see `tests/corpus/manifest.json` | 2355  | differential | success, removes nothing                    |
+
 ## Generated Fixtures
 
 Repository-generated fixtures are not upstream ExifCleaner evidence. Their provenance record should include:

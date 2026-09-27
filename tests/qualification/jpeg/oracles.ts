@@ -84,13 +84,114 @@ export function jpegRawColorProfileSha256(input: Buffer): string | undefined {
   return digest(Buffer.concat(chunks));
 }
 
+const JPEG_APP0 = 0xe0;
+const JPEG_APP15 = 0xef;
+const JPEG_COM = 0xfe;
+const JPEG_SOS = 0xda;
+const PRINTABLE_ASCII = /^[\x20-\x7e]+$/u;
+
+/**
+ * The identifier prefix of an APPn/COM segment payload: the bytes up to the
+ * first NUL (bounded to 32 bytes, matching every identifier this format
+ * measures -- see 57-EVIDENCE.md's segment table), or empty when no NUL
+ * appears in that window or the candidate is not printable ASCII (a JUMBF
+ * APP11 payload's "JP" prefix is followed by a NUL two bytes in, so this
+ * extracts "JP" for it -- distinguishing it from a plain COM/unidentified
+ * segment without decoding JUMBF box structure).
+ */
+function jpegSegmentIdentifier(payload: Buffer): string {
+  const nul = payload.indexOf(0x00);
+  const end = nul === -1 ? Math.min(payload.length, 32) : Math.min(nul, 32);
+  if (end === 0) return "";
+  const candidate = payload.subarray(0, end).toString("latin1");
+  return PRINTABLE_ASCII.test(candidate) ? candidate : "";
+}
+
+/**
+ * Walks a JPEG marker stream (a third, independent test-local parse --
+ * distinct from both `jpegMarkerSequence` and `jpegEntropyCodedBytes` above,
+ * and from `src/jpeg/parser.ts`) and returns every APPn/COM segment in file
+ * order as `<MARKER>:<identifier>` (or bare `<MARKER>` when no identifier
+ * prefix is present) -- the structural-part list `runExiftoolDifferential`
+ * compares independently of the metadata-only differential (mirrors
+ * `png/oracles.ts`'s `pngStructuralParts`). Stops at the first SOS (entropy
+ * data begins) or EOI, whichever comes first.
+ */
+export function jpegStructuralParts(bytes: Buffer): readonly string[] {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return [];
+  const parts: string[] = [];
+  let offset = 2;
+  while (offset + 4 <= bytes.length) {
+    if (bytes[offset] !== 0xff) break;
+    const marker = bytes[offset + 1]!;
+    if (marker === 0xd9 /* EOI */) break;
+    if (marker >= 0xd0 && marker <= 0xd7 /* RSTn */) {
+      offset += 2;
+      continue;
+    }
+    const length = bytes.readUInt16BE(offset + 2);
+    if (length < 2 || offset + 2 + length > bytes.length) break;
+    if ((marker >= JPEG_APP0 && marker <= JPEG_APP15) || marker === JPEG_COM) {
+      const name = marker === JPEG_COM ? "COM" : `APP${marker - JPEG_APP0}`;
+      const identifier =
+        marker === JPEG_COM
+          ? ""
+          : jpegSegmentIdentifier(
+              bytes.subarray(offset + 4, offset + 2 + length),
+            );
+      parts.push(identifier.length > 0 ? `${name}:${identifier}` : name);
+    }
+    if (marker === JPEG_SOS) break;
+    offset = offset + 2 + length;
+  }
+  return parts;
+}
+
+export interface JpegSanitizeOptionsForGrants {
+  readonly preserveOrientation: boolean;
+  readonly preserveColorProfile: boolean;
+  readonly preserveResolution: boolean;
+  readonly preserveTimestamps: boolean;
+}
+
+/**
+ * Derives sanitize preservation options from a fixture's own
+ * `permittedDifferences` grants (mirrors `pngSanitizeOptionsForGrants`), so
+ * granting an existing kind to one more fixture is a one-line manifest data
+ * change. `preserveTimestamps` is always `false` -- this kit exercises
+ * metadata/structure preservation only.
+ */
+export function jpegSanitizeOptionsForGrants(
+  grants: readonly string[],
+): JpegSanitizeOptionsForGrants {
+  return {
+    preserveOrientation: grants.some((grant) =>
+      grant.startsWith("EXIF:Orientation="),
+    ),
+    preserveColorProfile: grants.some((grant) =>
+      grant.startsWith("ICC_Profile:RawProfile="),
+    ),
+    preserveResolution: grants.some(
+      (grant) => grant === "Resolution:Preserved",
+    ),
+    preserveTimestamps: false,
+  };
+}
+
+/**
+ * The complete JPEG differential profile (D-01/D-02/D-04/D-06/D-07 land in
+ * Plan 10 Task 2) -- Task 1 wires `structuralParts` so the tracer's first
+ * live differential case (ExifTool.jpg, every flag false) can also catch a
+ * kept-vs-dropped APPn/COM segment the metadata-only comparison alone would
+ * miss. `permittedKinds` stays empty until Task 2 measures JPEG's own
+ * preservation grants.
+ */
 export const jpegDifferentialProfile: DifferentialProfile = {
   format: "jpeg",
   extension: JPEG_EXTENSION,
   rawColorProfileSha256: jpegRawColorProfileSha256,
-  // 57-09 fills this once JPEG's own preservation grants (orientation,
-  // color profile, resolution) are measured against ExifTool.
   permittedKinds: [],
+  structuralParts: jpegStructuralParts,
 };
 
 export interface JpegMarkerWalk {

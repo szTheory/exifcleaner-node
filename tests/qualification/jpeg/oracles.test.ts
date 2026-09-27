@@ -10,8 +10,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../dist/index.js";
+import { runExiftoolDifferential } from "../kit/oracles.js";
 import { loadCorpusRecord, materializeCorpusRecord } from "../kit/corpus.js";
-import { assertPayloadIdentity } from "./oracles.js";
+import { assertPayloadIdentity, jpegDifferentialProfile } from "./oracles.js";
 
 const admittedHost = process.platform === "linux" && process.arch === "x64";
 
@@ -220,6 +221,42 @@ describe("JPG-03 payload identity through the pinned libjpeg-turbo oracle", () =
         }
       } finally {
         await rm(sourceDirectory, { recursive: true, force: true });
+      }
+    },
+    480_000,
+  );
+});
+
+/**
+ * The live two-directional ExifTool differential (D-01/D-02/D-04/D-06,
+ * Plan 10). Task 1's tracer slice: ExifTool's own reference JPEG through the
+ * full differential with every preservation flag false -- proves the D-01
+ * segment-policy rule (every identifier removed except the kept APP14
+ * Adobe) end to end before Task 2 adds one case per measured identifier.
+ */
+describe("JPEG differential", () => {
+  it.runIf(admittedHost)(
+    "runs the live differential against ExifTool's own reference image with every flag false",
+    async () => {
+      const record = await loadCorpusRecord("exiftool-jpeg-exiftool");
+      const source = await materializeCorpusRecord(record.id);
+      const output = await sanitizeToPath(source, ALL_FALSE);
+      try {
+        const outputBytes = await readFileAsync(output.outputPath);
+        const transcript = runExiftoolDifferential({
+          caseId: record.id,
+          profile: jpegDifferentialProfile,
+          source,
+          output: outputBytes,
+          permittedDifferences: [],
+        });
+        expect(transcript).toMatchObject({
+          version: 1,
+          caseId: record.id,
+          equivalent: true,
+        });
+      } finally {
+        await rm(output.directory, { recursive: true, force: true });
       }
     },
     480_000,
