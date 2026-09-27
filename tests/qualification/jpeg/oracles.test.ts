@@ -913,14 +913,32 @@ function insertSegmentAfterSoi(bytes: Buffer, segment: Buffer): Buffer {
  * projection these red controls could ever inspect). Neither segment here
  * triggers any ExifTool warning or unknown-tag match.
  */
+/**
+ * A standard XMP APP1 payload carrying one real, reportable property
+ * (`dc:creator`) -- not `JPEG_SEGMENT_IDENTIFIER_FIXTURES`'s own
+ * `app1-xmp` payload, whose empty `<rdf:Description rdf:about=""/>` has no
+ * property for ExifTool to report at all (measured 2026-09-27: that empty
+ * RDF produces zero `XMP:` keys in `-G1 -json` output, so re-splicing it
+ * into a sanitized output produces no detectable metadata delta -- the D-01
+ * identifier-removal test that fixture exists for never needed one, but
+ * this leak control does).
+ */
+function xmpLeakPayload(): Buffer {
+  const xml =
+    `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>` +
+    `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">` +
+    `<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" dc:creator="private-workflow-marker"/>` +
+    `</rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
+  return Buffer.concat([
+    Buffer.from("http://ns.adobe.com/xap/1.0/\0", "ascii"),
+    Buffer.from(xml, "utf8"),
+  ]);
+}
+
 function buildRedControlSource(primary: Buffer): Buffer {
-  const xmpFixture = JPEG_SEGMENT_IDENTIFIER_FIXTURES.find(
-    (fixture) => fixture.id === "app1-xmp",
-  );
-  if (xmpFixture === undefined) throw new Error("app1-xmp fixture missing");
   return spliceSegments(primary, [
     appSegment(0xee, jpegAdobePayload(1)),
-    appSegment(0xe1, xmpFixture.payload()),
+    appSegment(0xe1, xmpLeakPayload()),
   ]);
 }
 
