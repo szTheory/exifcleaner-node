@@ -88,3 +88,70 @@ export const jpegDifferentialProfile: DifferentialProfile = {
   // color profile, resolution) are measured against ExifTool.
   permittedKinds: [],
 };
+
+export interface JpegMarkerWalk {
+  /** Ordered one-byte marker codes seen between SOI and the first EOI
+   * (SOI/EOI/RSTn excluded; SOS is included once per scan, its
+   * entropy-coded data skipped rather than interpreted). */
+  readonly markers: readonly number[];
+  /** Bytes after the first EOI (`57-07` tracer: 0 proves the primary-EOI
+   * truncation cleanly removed any trailer/MPF/motion-photo payload). */
+  readonly trailerBytes: number;
+}
+
+/**
+ * Independent JPEG marker walker (57-07 tracer companion). Deliberately does
+ * not import anything from `src/jpeg/parser.ts` -- the oracle and the
+ * handler must independently agree on a sanitized output's shape, never
+ * share one implementation (mirrors `jpegRawColorProfileSha256` above and
+ * png/oracles.ts's own T-56-50 rationale). Walks the length-prefixed marker
+ * segments from just after SOI, skips each SOS's entropy-coded scan data by
+ * scanning for the next non-stuffed, non-restart marker byte, and stops at
+ * the first EOI.
+ */
+export function jpegMarkerSequence(bytes: Buffer): JpegMarkerWalk {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    throw new Error("jpegMarkerSequence: not a JPEG (missing SOI).");
+  }
+  const markers: number[] = [];
+  let offset = 2;
+  while (offset < bytes.length - 1) {
+    if (bytes[offset] !== 0xff) {
+      throw new Error(
+        `jpegMarkerSequence: expected a marker prefix byte at offset ${offset}.`,
+      );
+    }
+    const marker = bytes[offset + 1]!;
+    if (marker === 0xd9 /* EOI */) {
+      return { markers, trailerBytes: bytes.length - (offset + 2) };
+    }
+    if (marker >= 0xd0 && marker <= 0xd7 /* stray RSTn, never expected here */) {
+      offset += 2;
+      continue;
+    }
+    if (marker === 0xda /* SOS */) {
+      markers.push(marker);
+      const length = bytes.readUInt16BE(offset + 2);
+      offset += 2 + length;
+      for (;;) {
+        while (offset < bytes.length && bytes[offset] !== 0xff) offset += 1;
+        if (offset >= bytes.length - 1) {
+          throw new Error(
+            "jpegMarkerSequence: truncated entropy-coded data (no EOI found).",
+          );
+        }
+        const next = bytes[offset + 1]!;
+        if (next === 0x00 || (next >= 0xd0 && next <= 0xd7)) {
+          offset += 2;
+          continue;
+        }
+        break;
+      }
+      continue;
+    }
+    markers.push(marker);
+    const length = bytes.readUInt16BE(offset + 2);
+    offset += 2 + length;
+  }
+  throw new Error("jpegMarkerSequence: no EOI found.");
+}

@@ -341,6 +341,32 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
     ).toEqual(["webp"]);
   });
 
+  it("selects only jpeg for a JPEG source path", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ changedPaths: ["src/jpeg/parser.ts"] }),
+      ),
+    ).toEqual(["jpeg"]);
+  });
+
+  it("selects only jpeg for a JPEG qualification suite path", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({
+          changedPaths: ["tests/qualification/jpeg/tracer.test.ts"],
+        }),
+      ),
+    ).toEqual(["jpeg"]);
+  });
+
+  it("selects every qualified format for a shared src/metadata path", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ changedPaths: ["src/metadata/exif.ts"] }),
+      ),
+    ).toEqual(["jpeg", "png", "webp"]);
+  });
+
   it("selects every format for a kit-shared path (matches zero formats)", () => {
     expect(
       classify.classifyQualificationFormats(
@@ -348,7 +374,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
           changedPaths: ["tests/qualification/kit/oracles.ts"],
         }),
       ),
-    ).toEqual(["png", "webp"]);
+    ).toEqual(["jpeg", "png", "webp"]);
   });
 
   it("selects every format for a mixed png + full-scope-only diff (matches zero formats on the second path)", () => {
@@ -358,7 +384,17 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
           changedPaths: ["src/png/chunks.ts", "src/engine.ts"],
         }),
       ),
-    ).toEqual(["png", "webp"]);
+    ).toEqual(["jpeg", "png", "webp"]);
+  });
+
+  it("selects jpeg and png for a mixed jpeg + png diff (each path matches exactly one different format)", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({
+          changedPaths: ["src/jpeg/parser.ts", "src/png/chunks.ts"],
+        }),
+      ),
+    ).toEqual(["jpeg", "png"]);
   });
 
   it("selects every format for a tag ref even with a png-only diff", () => {
@@ -366,7 +402,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       classify.classifyQualificationFormats(
         formatsInput({ ref: "refs/tags/v0.3.0" }),
       ),
-    ).toEqual(["png", "webp"]);
+    ).toEqual(["jpeg", "png", "webp"]);
   });
 
   it("selects every format for a non-PR/push event", () => {
@@ -374,7 +410,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       classify.classifyQualificationFormats(
         formatsInput({ eventName: "workflow_dispatch" }),
       ),
-    ).toEqual(["png", "webp"]);
+    ).toEqual(["jpeg", "png", "webp"]);
   });
 
   it("selects every format for an unknown eventName", () => {
@@ -382,13 +418,13 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       classify.classifyQualificationFormats(
         formatsInput({ eventName: "schedule" }),
       ),
-    ).toEqual(["png", "webp"]);
+    ).toEqual(["jpeg", "png", "webp"]);
   });
 
   it("selects every format for an empty diff", () => {
     expect(
       classify.classifyQualificationFormats(formatsInput({ changedPaths: [] })),
-    ).toEqual(["png", "webp"]);
+    ).toEqual(["jpeg", "png", "webp"]);
   });
 
   it("selects every format for a null (errored) diff", () => {
@@ -396,7 +432,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       classify.classifyQualificationFormats(
         formatsInput({ changedPaths: null }),
       ),
-    ).toEqual(["png", "webp"]);
+    ).toEqual(["jpeg", "png", "webp"]);
   });
 
   it.each(MALFORMED_PATHS)(
@@ -406,7 +442,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
         classify.classifyQualificationFormats(
           formatsInput({ changedPaths: [path] }),
         ),
-      ).toEqual(["png", "webp"]);
+      ).toEqual(["jpeg", "png", "webp"]);
     },
   );
 
@@ -419,10 +455,12 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       [
         classifyOne(["src/png/chunks.ts"]),
         classifyOne(["src/admission/webp-handler.ts"]),
+        classifyOne(["src/jpeg/parser.ts"]),
         classifyOne(["tests/qualification/kit/oracles.ts"]),
         classifyOne(["src/png/chunks.ts", "src/engine.ts"]),
+        classifyOne(["src/jpeg/parser.ts", "src/png/chunks.ts"]),
       ].join("|"),
-    ).toBe("png|webp|png,webp|png,webp");
+    ).toBe("png|webp|jpeg|jpeg,png,webp|jpeg,png,webp|jpeg,png");
   });
 
   describe("dead-rule coverage (no per-format rule is unreachable)", () => {
@@ -521,7 +559,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=linux\nformats=png,webp\n");
+      expect(outputFileContents).toBe("scope=linux\nformats=jpeg,png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -545,7 +583,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\nformats=png,webp\n");
+      expect(outputFileContents).toBe("scope=full\nformats=jpeg,png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -567,7 +605,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=linux\nformats=png,webp\n");
+      expect(outputFileContents).toBe("scope=linux\nformats=jpeg,png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -584,7 +622,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\nformats=png,webp\n");
+      expect(outputFileContents).toBe("scope=full\nformats=jpeg,png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -607,7 +645,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\nformats=png,webp\n");
+      expect(outputFileContents).toBe("scope=full\nformats=jpeg,png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -624,7 +662,7 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\nformats=png,webp\n");
+      expect(outputFileContents).toBe("scope=full\nformats=jpeg,png,webp\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -893,6 +931,7 @@ function runQualificationSelectionStep(
   const qualKit = extractQuotedEnvVar(jobText, "QUAL_KIT");
   const qualWebp = extractQuotedEnvVar(jobText, "QUAL_WEBP");
   const qualPng = extractQuotedEnvVar(jobText, "QUAL_PNG");
+  const qualJpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG");
 
   const workDir = mkdtempSync(join(tmpdir(), "wr03-qualselect-"));
   const binDir = join(workDir, "bin");
@@ -927,6 +966,7 @@ function runQualificationSelectionStep(
         QUAL_KIT: qualKit,
         QUAL_WEBP: qualWebp,
         QUAL_PNG: qualPng,
+        QUAL_JPEG: qualJpeg,
         WR03_NPM_RECORD_FILE: recordFile,
       },
       encoding: "utf8",
@@ -942,14 +982,21 @@ function runQualificationSelectionStep(
   }
 }
 
+function loadSelectionStepFromWorkflow(workflowText: string): {
+  jobText: string;
+  scriptBody: string;
+} {
+  const jobText = extractJob(workflowText, "qualification-linux");
+  const scriptBody = extractStepRunBody(jobText, SELECT_STEP_NAME);
+  return { jobText, scriptBody };
+}
+
 function loadSelectionStep(): { jobText: string; scriptBody: string } {
   const workflow = readFileSync(
     join(packageRoot, ".github", "workflows", "ci.yml"),
     "utf8",
   );
-  const jobText = extractJob(workflow, "qualification-linux");
-  const scriptBody = extractStepRunBody(jobText, SELECT_STEP_NAME);
-  return { jobText, scriptBody };
+  return loadSelectionStepFromWorkflow(workflow);
 }
 
 describe.skipIf(process.platform === "win32")(
@@ -966,7 +1013,8 @@ describe.skipIf(process.platform === "win32")(
       const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
       const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
       const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
-      for (const file of [...kit, ...png, ...webp]) {
+      const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
+      for (const file of [...kit, ...png, ...webp, ...jpeg]) {
         expect(recordedArgs).toContain(file);
       }
     });
@@ -982,7 +1030,8 @@ describe.skipIf(process.platform === "win32")(
       const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
       const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
       const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
-      for (const file of [...kit, ...png, ...webp]) {
+      const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
+      for (const file of [...kit, ...png, ...webp, ...jpeg]) {
         expect(recordedArgs).toContain(file);
       }
     });
@@ -998,7 +1047,8 @@ describe.skipIf(process.platform === "win32")(
       const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
       const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
       const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
-      for (const file of [...kit, ...png, ...webp]) {
+      const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
+      for (const file of [...kit, ...png, ...webp, ...jpeg]) {
         expect(recordedArgs).toContain(file);
       }
     });
@@ -1014,10 +1064,31 @@ describe.skipIf(process.platform === "win32")(
       const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
       const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
       const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
+      const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
       for (const file of [...kit, ...png]) {
         expect(recordedArgs).toContain(file);
       }
-      for (const file of webp) {
+      for (const file of [...webp, ...jpeg]) {
+        expect(recordedArgs).not.toContain(file);
+      }
+    });
+
+    it("classify success + narrowed formats (jpeg) runs only the JPEG suite", () => {
+      const { jobText, scriptBody } = loadSelectionStep();
+      const { status, recordedArgs } = runQualificationSelectionStep(
+        jobText,
+        scriptBody,
+        { formats: "jpeg", classifyResult: "success" },
+      );
+      expect(status).toBe(0);
+      const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
+      const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
+      const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
+      const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
+      for (const file of [...kit, ...jpeg]) {
+        expect(recordedArgs).toContain(file);
+      }
+      for (const file of [...png, ...webp]) {
         expect(recordedArgs).not.toContain(file);
       }
     });
@@ -1031,7 +1102,7 @@ describe.skipIf(process.platform === "win32")(
       expect(status).not.toBe(0);
     });
 
-    it("a mutation deleting the fallback branch drops the PNG/WebP suites on a classify failure (behavioural negative control)", () => {
+    it("a mutation deleting the fallback branch drops the PNG/WebP/JPEG suites on a classify failure (behavioural negative control)", () => {
       const { jobText, scriptBody } = loadSelectionStep();
       const mutatedBody = scriptBody.replace(
         /if \[ "\$CLASSIFY_RESULT" != "success" \][\s\S]*?\nfi\n/u,
@@ -1045,7 +1116,75 @@ describe.skipIf(process.platform === "win32")(
       );
       const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
       const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
-      for (const file of [...png, ...webp]) {
+      const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
+      for (const file of [...png, ...webp, ...jpeg]) {
+        expect(recordedArgs).not.toContain(file);
+      }
+    });
+
+    it("a mutation removing the jpeg case arm fails an unrecognized-format-shaped run (Plan 57-07 negative control 1)", () => {
+      const { jobText, scriptBody } = loadSelectionStep();
+      const mutatedBody = scriptBody.replace(
+        '    jpeg) files="$files $QUAL_JPEG" ;;\n',
+        "",
+      );
+      expect(mutatedBody).not.toBe(scriptBody);
+      const { status } = runQualificationSelectionStep(jobText, mutatedBody, {
+        formats: "jpeg",
+        classifyResult: "success",
+      });
+      expect(status).not.toBe(0);
+    });
+
+    it("emptying QUAL_JPEG drops the jpeg tracer from the WR-03 fallback file list (Plan 57-07 negative control 2)", () => {
+      const workflow = readFileSync(
+        join(packageRoot, ".github", "workflows", "ci.yml"),
+        "utf8",
+      );
+      const mutated = workflow.replace(
+        /QUAL_JPEG: "[^"]*"/u,
+        'QUAL_JPEG: ""',
+      );
+      expect(mutated).not.toBe(workflow);
+      const { jobText, scriptBody } = loadSelectionStepFromWorkflow(mutated);
+      const { status, recordedArgs } = runQualificationSelectionStep(
+        jobText,
+        scriptBody,
+        { formats: "", classifyResult: "failure" },
+      );
+      expect(status).toBe(0);
+      const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
+      const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
+      const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
+      for (const file of [...kit, ...png, ...webp]) {
+        expect(recordedArgs).toContain(file);
+      }
+      expect(recordedArgs).not.toContain(
+        "tests/qualification/jpeg/tracer.test.ts",
+      );
+    });
+
+    it("a QUALIFIED_FORMATS stand-in without jpeg makes the fallback run only png and webp (Plan 57-07 negative control 3)", () => {
+      const { jobText, scriptBody } = loadSelectionStep();
+      const mutatedBody = scriptBody.replace(
+        `FORMATS="$(node -p "require('./scripts/classify_ci_scope.cjs').QUALIFIED_FORMATS.join(',')")"`,
+        `FORMATS="png,webp"`,
+      );
+      expect(mutatedBody).not.toBe(scriptBody);
+      const { status, recordedArgs } = runQualificationSelectionStep(
+        jobText,
+        mutatedBody,
+        { formats: "", classifyResult: "failure" },
+      );
+      expect(status).toBe(0);
+      const kit = extractQuotedEnvVar(jobText, "QUAL_KIT").split(" ");
+      const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
+      const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
+      const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
+      for (const file of [...kit, ...png, ...webp]) {
+        expect(recordedArgs).toContain(file);
+      }
+      for (const file of jpeg) {
         expect(recordedArgs).not.toContain(file);
       }
     });

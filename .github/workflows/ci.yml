@@ -78,11 +78,10 @@ jobs:
       QUAL_KIT: "tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts"
       QUAL_WEBP: "tests/qualification/webp/tracer.test.ts tests/qualification/webp/parser.test.ts tests/qualification/webp/property.test.ts tests/qualification/webp/transaction.test.ts tests/qualification/webp/oracles.test.ts tests/qualification/webp/golden.test.ts"
       QUAL_PNG: "tests/qualification/png/oracles.test.ts tests/qualification/png/tracer.test.ts tests/qualification/png/property.test.ts tests/qualification/png/parser.test.ts tests/qualification/png/transaction.test.ts tests/qualification/png/golden.test.ts"
-      # 57-04: tests/qualification/jpeg/ exists (fixtures.ts, D-16 layout gate
-      # requires a QUAL_<FORMAT> entry for every non-kit subdirectory) but has
-      # no .test.ts files yet -- the JPEG qualification suite itself is a
-      # later phase's scope. Empty until that suite lands.
-      QUAL_JPEG: ""
+      # 57-07: the JPEG qualification suite's first file (tracer.test.ts)
+      # lands here; later 57-* plans append their own suite files to this
+      # list (D-16 layout gate requires every on-disk suite file listed).
+      QUAL_JPEG: "tests/qualification/jpeg/tracer.test.ts"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -115,6 +114,7 @@ jobs:
             case "$format" in
               webp) files="$files $QUAL_WEBP" ;;
               png) files="$files $QUAL_PNG" ;;
+              jpeg) files="$files $QUAL_JPEG" ;;
               *)
                 echo "qualification-linux: unknown format '$format' from classify.outputs.formats" >&2
                 exit 1
