@@ -92,8 +92,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build && npm run build:native
-      - name: Install zlib headers for the libpng oracle build
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq zlib1g-dev
+      - name: Install oracle build prerequisites (zlib headers, cmake)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zlib1g-dev cmake
       - name: Admit committed offline oracle authority
         run: node scripts/qualification/build-oracles.cjs --verify-authority > oracle-authority.json
       - name: Select and run qualification suites for touched formats (D-17)

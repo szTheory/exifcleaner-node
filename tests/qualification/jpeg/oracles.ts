@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import type { DifferentialProfile } from "../kit/oracles.js";
 
 // JPEG's differential-oracle profile (57-05 tracer slice). Deliberately does
@@ -157,4 +159,127 @@ export function jpegMarkerSequence(bytes: Buffer): JpegMarkerWalk {
     offset += 2 + length;
   }
   throw new Error("jpegMarkerSequence: no EOI found.");
+}
+
+// libjpeg-turbo runners (57-08, D-08). These build on
+// `scripts/qualification/build-oracles.cjs`'s pinned, feature-asserted
+// libjpeg-turbo 3.2.0 authority -- never on the handler's own
+// `src/jpeg/parser.ts` -- so the payload-identity tests 57-09 adds compare
+// against a genuinely independent decoder.
+
+const SHA256 = /^[a-f0-9]{64}$/;
+
+const require = createRequire(import.meta.url);
+const authorityBuilder =
+  require("../../../scripts/qualification/build-oracles.cjs") as AuthorityBuilder;
+
+interface ExecutableAuthority {
+  readonly path: string;
+  readonly sha256: string;
+}
+
+interface PreparedJpegOracleTools {
+  readonly jpegDecode: ExecutableAuthority;
+  readonly djpeg: ExecutableAuthority;
+  readonly jpegtran: ExecutableAuthority;
+  readonly rdjpgcom: ExecutableAuthority;
+  readonly dispose: () => void;
+}
+
+interface AuthorityBuilder {
+  readonly prepareOracleTools: () => PreparedJpegOracleTools;
+}
+
+let preparedTools: PreparedJpegOracleTools | undefined;
+
+function tools(): PreparedJpegOracleTools {
+  preparedTools ??= authorityBuilder.prepareOracleTools();
+  return preparedTools;
+}
+
+process.once("exit", () => preparedTools?.dispose());
+
+/**
+ * A binary-safe process runner (mirrors `png/oracles.ts`'s own
+ * `executeBinary`): JPEG pixel and PNM bytes are arbitrary and would be
+ * corrupted by the kit's UTF-8-decoding `execute`.
+ */
+function executeBinary(
+  authority: ExecutableAuthority,
+  args: readonly string[],
+): {
+  readonly status: number;
+  readonly stdout: Buffer;
+  readonly stderr: string;
+} {
+  if (!SHA256.test(authority.sha256)) throw new Error("Invalid tool authority");
+  const result = spawnSync(authority.path, args, {
+    encoding: "buffer",
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 20_000,
+  });
+  if (result.error !== undefined) throw new Error("Oracle process failed");
+  return {
+    status: result.status ?? 1,
+    stdout: result.stdout ?? Buffer.alloc(0),
+    stderr: (result.stderr ?? Buffer.alloc(0)).toString("utf8"),
+  };
+}
+
+/**
+ * Decodes `path` through the pinned libjpeg-turbo `jpeg_decode_oracle`
+ * (raw component output -- see `scripts/qualification/jpeg_decode_oracle.c`)
+ * and returns its exact `DIM ...` header line plus the sha256 of the raw
+ * decoded scanline bytes. Rejects on any non-zero exit, the oracle's own
+ * stderr included in the message.
+ */
+export async function jpegDecodePixels(
+  path: string,
+): Promise<{ readonly header: string; readonly pixelsSha256: string }> {
+  const result = executeBinary(tools().jpegDecode, [path]);
+  if (result.status !== 0)
+    throw new Error(
+      `jpegDecodePixels: oracle rejected input (${result.stderr.trim()})`,
+    );
+  const newline = result.stdout.indexOf(0x0a);
+  if (newline < 0)
+    throw new Error("jpegDecodePixels: oracle emitted an unknown transcript");
+  const header = result.stdout.subarray(0, newline).toString("utf8");
+  if (!header.startsWith("DIM "))
+    throw new Error("jpegDecodePixels: oracle emitted an unknown transcript");
+  const pixels = result.stdout.subarray(newline + 1);
+  if (pixels.length === 0)
+    throw new Error("jpegDecodePixels: oracle produced no pixel bytes");
+  return { header, pixelsSha256: digest(pixels) };
+}
+
+/**
+ * Decodes `path` to PNM through the pinned libjpeg-turbo `djpeg` (no
+ * `-outfile`, so the PNM bytes are written to stdout per IJG convention).
+ * Rejects on any non-zero exit, the oracle's own stderr included in the
+ * message.
+ */
+export async function djpegPnm(path: string): Promise<Buffer> {
+  const result = executeBinary(tools().djpeg, [path]);
+  if (result.status !== 0)
+    throw new Error(
+      `djpegPnm: oracle rejected input (${result.stderr.trim()})`,
+    );
+  if (result.stdout.length === 0)
+    throw new Error("djpegPnm: oracle produced no output");
+  return result.stdout;
+}
+
+/**
+ * Reads `path`'s JPEG comment (COM) segments through the pinned
+ * libjpeg-turbo `rdjpgcom`. Rejects on any non-zero exit, the oracle's own
+ * stderr included in the message.
+ */
+export async function rdjpgcomText(path: string): Promise<string> {
+  const result = executeBinary(tools().rdjpgcom, [path]);
+  if (result.status !== 0)
+    throw new Error(
+      `rdjpgcomText: oracle rejected input (${result.stderr.trim()})`,
+    );
+  return result.stdout.toString("utf8");
 }
