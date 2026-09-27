@@ -1285,8 +1285,8 @@
         "license": "MIT",
         "licenseStatus": "approved"
       },
-      "sha256": "62434ee83099b4bdaaa7caea4c34949fe6e137684bf80380cc7241abfb13cdfd",
-      "bytes": 277,
+      "sha256": "de86fe2af0d7d886b8e9101364d3627d73b05d39e153277987d4e4b64248c021",
+      "bytes": 421,
       "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
       "outcome": {
         "status": "success",

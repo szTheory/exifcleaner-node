@@ -4,6 +4,8 @@
 // segments into a real, parseable JPEG (typically `minimalJpeg()` from
 // tests/fixtures.ts) without needing a full re-encode.
 
+import { iccProfileV4 } from "../../fixtures.js";
+
 const SOI_BYTES = 2;
 const SOF_MARKERS: ReadonlySet<number> = new Set([0xc0, 0xc1, 0xc2]);
 const RESTART_FIRST = 0xd0;
@@ -674,13 +676,24 @@ export const JPEG_SEGMENT_IDENTIFIER_FIXTURES: readonly JpegSegmentIdentifierFix
       kept: false,
     },
     {
+      // A real, well-formed single-chunk ICC_PROFILE segment (ICC.1 Annex
+      // B.4 shape: identifier, sequence=1, count=1, then a real ICC v4
+      // profile) -- not the garbage payload an earlier revision used, which
+      // `preserveColorProfile: true` (JPG-03's own payload-identity `.each`
+      // exercises every admitted record under both all-flags-false and
+      // all-flags-true) correctly refuses as `unsupported-feature` (D-01 is
+      // about identifier REMOVAL under bare `-all=`, not about whether an
+      // ICC payload is well-formed enough to ever be preserved).
       id: "app2-icc-profile",
       marker: 0xe2,
-      payload: () =>
-        identifierPayload(
-          "ICC_PROFILE",
-          Buffer.concat([Buffer.from([1, 1]), fillerBytes(8, 2)]),
-        ),
+      payload: () => {
+        const profile = iccProfileV4();
+        return Buffer.concat([
+          Buffer.from("ICC_PROFILE\0", "ascii"),
+          Buffer.from([1, 1]),
+          profile,
+        ]);
+      },
       kept: false,
     },
     {
