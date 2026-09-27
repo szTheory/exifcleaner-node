@@ -2,13 +2,13 @@ import type { FileHandle } from "node:fs/promises";
 import {
   APP0,
   APP15,
-  EOI,
-  JPEG_ADMITTED_SOF_MARKERS,
+  classifyMarker,
+  JPEG_REFUSAL_DETAILS,
   JPEG_REFUSAL_KIND,
   RST0,
   RST7,
+  SOF2,
   SOI,
-  SOS,
   type JpegRefusal,
 } from "./markers.js";
 
@@ -160,6 +160,154 @@ function readIdentifier(payload: Buffer): string | undefined {
   return window.subarray(0, nul).toString("ascii");
 }
 
+function refuse(refusal: JpegRefusal, detail?: string): never {
+  const prefix = JPEG_REFUSAL_DETAILS[refusal];
+  throw new JpegStructureError(
+    refusal,
+    detail === undefined ? prefix : `${prefix} ${detail}`,
+  );
+}
+
+/** DQT payload: repeated [PqTq(1)][64 or 128 bytes of table values]. Populates
+ * `dqtSlots` with every Tq id defined (Task 2/D-10 table-slot tracking). */
+function parseDqtSlots(payload: Buffer, dqtSlots: Set<number>): void {
+  let cursor = 0;
+  while (cursor < payload.length) {
+    if (cursor + 1 > payload.length) {
+      refuse("malformed-container", "DQT table header is truncated.");
+    }
+    const pqTq = payload.readUInt8(cursor);
+    const pq = (pqTq >> 4) & 0x0f;
+    const tq = pqTq & 0x0f;
+    const tableBytes = pq === 0 ? 64 : 128;
+    if (cursor + 1 + tableBytes > payload.length) {
+      refuse("malformed-container", "DQT table is truncated.");
+    }
+    dqtSlots.add(tq);
+    cursor += 1 + tableBytes;
+  }
+}
+
+/** DHT payload: repeated [TcTh(1)][BITS(16)][VALUES(sum(BITS))]. Populates
+ * `dcSlots`/`acSlots` with every Th id defined for the matching Tc class. */
+function parseDhtSlots(
+  payload: Buffer,
+  dcSlots: Set<number>,
+  acSlots: Set<number>,
+): void {
+  let cursor = 0;
+  while (cursor < payload.length) {
+    if (cursor + 1 + 16 > payload.length) {
+      refuse("malformed-container", "DHT table header is truncated.");
+    }
+    const tcTh = payload.readUInt8(cursor);
+    const tc = (tcTh >> 4) & 0x0f;
+    const th = tcTh & 0x0f;
+    const bits = payload.subarray(cursor + 1, cursor + 1 + 16);
+    let valueCount = 0;
+    for (const count of bits) valueCount += count;
+    if (cursor + 1 + 16 + valueCount > payload.length) {
+      refuse("malformed-container", "DHT table is truncated.");
+    }
+    (tc === 0 ? dcSlots : acSlots).add(th);
+    cursor += 1 + 16 + valueCount;
+  }
+}
+
+interface JpegSosComponent {
+  readonly cs: number;
+  readonly td: number;
+  readonly ta: number;
+}
+
+interface JpegSosHeader {
+  readonly components: readonly JpegSosComponent[];
+  readonly ss: number;
+  readonly se: number;
+  readonly ah: number;
+  readonly al: number;
+}
+
+function parseSosHeader(payload: Buffer): JpegSosHeader {
+  if (payload.length < 1) {
+    refuse("malformed-container", "SOS header is too short.");
+  }
+  const ns = payload.readUInt8(0);
+  if (payload.length < 1 + ns * 2 + 3) {
+    refuse("malformed-container", "SOS header is truncated.");
+  }
+  const components: JpegSosComponent[] = [];
+  for (let index = 0; index < ns; index += 1) {
+    const base = 1 + index * 2;
+    const cs = payload.readUInt8(base);
+    const tdTa = payload.readUInt8(base + 1);
+    components.push({ cs, td: (tdTa >> 4) & 0x0f, ta: tdTa & 0x0f });
+  }
+  const tailBase = 1 + ns * 2;
+  const ss = payload.readUInt8(tailBase);
+  const se = payload.readUInt8(tailBase + 1);
+  const ahAl = payload.readUInt8(tailBase + 2);
+  return { components, ss, se, ah: (ahAl >> 4) & 0x0f, al: ahAl & 0x0f };
+}
+
+/**
+ * D-10 / RESEARCH Pitfall 2: validates that every scan component's frame
+ * quantization table, and (per scan type) DC and/or AC Huffman table, was
+ * defined by a preceding DQT/DHT before this SOS. A sequential frame
+ * (SOF0/SOF1) always needs both DC and AC for every component. A progressive
+ * frame (SOF2) needs only DC for a DC-first scan (Ss=0, Ah=0), nothing for a
+ * DC-refinement scan (Ss=0, Ah>0), and only AC for an AC scan (Ss>0).
+ */
+function validateScanTables(
+  frame: JpegFrame,
+  sos: JpegSosHeader,
+  dqtSlots: ReadonlySet<number>,
+  dcSlots: ReadonlySet<number>,
+  acSlots: ReadonlySet<number>,
+): void {
+  let needsDc = true;
+  let needsAc = true;
+  if (frame.marker === SOF2) {
+    if (sos.ss === 0 && sos.ah === 0) {
+      needsDc = true;
+      needsAc = false;
+    } else if (sos.ss === 0 && sos.ah > 0) {
+      needsDc = false;
+      needsAc = false;
+    } else {
+      needsDc = false;
+      needsAc = true;
+    }
+  }
+  for (const component of sos.components) {
+    const frameComponent = frame.components.find((c) => c.id === component.cs);
+    if (frameComponent === undefined) {
+      refuse(
+        "malformed-container",
+        `SOS references undefined component id ${component.cs}.`,
+      );
+    }
+    if (!dqtSlots.has(frameComponent.tq)) {
+      refuse(
+        "undefined-table-reference",
+        `Component ${component.cs} references quantization table ${frameComponent.tq}, which was never defined.`,
+      );
+    }
+    if (needsDc && !dcSlots.has(component.td)) {
+      refuse(
+        "undefined-table-reference",
+        `Component ${component.cs} references DC Huffman table ${component.td}, which was never defined.`,
+      );
+    }
+    if (needsAc && !acSlots.has(component.ta)) {
+      refuse(
+        "undefined-table-reference",
+        `Component ${component.cs} references AC Huffman table ${component.ta}, which was never defined.`,
+      );
+    }
+  }
+}
+
 /**
  * The entropy-coded scan data has no length field (D-10). It ends at the next marker
  * that is not `0xFF00` (byte-stuffed data) or `0xFFD0`..`0xFFD7` (RSTn, restart
@@ -235,6 +383,9 @@ export async function parseJpeg(
 
   const segments: JpegSegment[] = [];
   const buffered = new Map<number, Buffer>();
+  const dqtSlots = new Set<number>();
+  const dcSlots = new Set<number>();
+  const acSlots = new Set<number>();
   let offset = 2;
   let frame: JpegFrame | undefined;
   let primaryEoiEnd: number | undefined;
@@ -260,24 +411,29 @@ export async function parseJpeg(
       offset += 1;
     }
 
-    if (marker === SOI) {
+    const classification = classifyMarker(marker);
+    if (!classification.admitted) {
+      refuse(classification.refusal);
+    }
+
+    if (classification.kind === "soi") {
       throw new JpegStructureError(
         "malformed-container",
         "A second SOI appeared before the primary EOI.",
       );
     }
-    if (marker === EOI) {
+    if (classification.kind === "eoi") {
       primaryEoiEnd = offset;
       break;
     }
-    if (marker >= RST0 && marker <= RST7) {
+    if (classification.kind === "restart") {
       throw new JpegStructureError(
         "malformed-container",
         "A restart marker appeared outside entropy-coded scan data.",
       );
     }
 
-    if (marker === SOS) {
+    if (classification.kind === "sos") {
       if (frame === undefined) {
         throw new JpegStructureError(
           "malformed-container",
@@ -306,6 +462,15 @@ export async function parseJpeg(
           "SOS segment exceeds file bounds.",
         );
       }
+      const sosPayload = await readWindowed(
+        handle,
+        window,
+        payloadLength,
+        payloadOffset,
+        size,
+      );
+      const sosHeader = parseSosHeader(sosPayload);
+      validateScanTables(frame, sosHeader, dqtSlots, dcSlots, acSlots);
       const headerEnd = payloadOffset + payloadLength;
       const entropyEnd = await scanEntropyData(handle, window, headerEnd, size);
       segments.push({
@@ -354,7 +519,11 @@ export async function parseJpeg(
       size,
     );
 
-    if (JPEG_ADMITTED_SOF_MARKERS.has(marker)) {
+    if (classification.kind === "dqt") {
+      parseDqtSlots(payload, dqtSlots);
+    } else if (classification.kind === "dht") {
+      parseDhtSlots(payload, dcSlots, acSlots);
+    } else if (classification.kind === "sof-admitted") {
       if (frame !== undefined) {
         throw new JpegStructureError(
           "malformed-container",
@@ -376,6 +545,19 @@ export async function parseJpeg(
           "malformed-container",
           "SOF component table is truncated.",
         );
+      }
+      if (precision !== 8) {
+        refuse("non-8-bit-precision");
+      }
+      if (height === 0) {
+        refuse("dnl-marker");
+      }
+      if (
+        componentCount !== 1 &&
+        componentCount !== 3 &&
+        componentCount !== 4
+      ) {
+        refuse("unsupported-component-count");
       }
       const components: JpegFrameComponent[] = [];
       for (let index = 0; index < componentCount; index += 1) {
@@ -405,10 +587,6 @@ export async function parseJpeg(
       identifier,
     });
     offset = payloadOffset + payloadLength;
-
-    // DQT/DHT/DRI table headers are structurally accepted here without table-slot
-    // tracking; that state machine and its "table referenced but never defined"
-    // refusal are added in Task 2.
   }
 
   if (primaryEoiEnd === undefined) {

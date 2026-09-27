@@ -457,7 +457,7 @@ describe("parseJpeg: structural refusals (D-10)", () => {
   it("refuses a scan referencing an undefined DC table as undefined-table-reference", async () => {
     const bytes = minimalJpeg();
     const sosOffset = markerOffset(bytes, 0xda);
-    const tdTaOffset = sosOffset + 4 + 1; // header(4) + Ns(1) + Cs(1) => TdTa
+    const tdTaOffset = sosOffset + 4 + 1 + 1; // header(4) + Ns(1) + Cs(1) => TdTa
     await expectRefusal(
       patchByte(bytes, tdTaOffset, 0x10),
       "undefined-table-reference",
@@ -470,10 +470,14 @@ describe("parseJpeg: structural refusals (D-10)", () => {
   });
 
   it("refuses a progressive AC scan with no AC table as undefined-table-reference", async () => {
-    const bytes = dropAcHuffmanTable(minimalJpeg({ sofMarker: 0xc2 }));
+    // AC scans are non-interleaved (Ns=1) per T.81; components:1 keeps the SOS
+    // payload shape [Ns(1) Cs(1) TdTa(1) Ss(1) Se(1) AhAl(1)].
+    const bytes = dropAcHuffmanTable(
+      minimalJpeg({ sofMarker: 0xc2, components: 1 }),
+    );
     const sosOffset = markerOffset(bytes, 0xda);
-    // Ss is the byte before Se/AhAl: header(2)+Ns(1)+Cs/TdTa(2) then Ss.
-    const ssOffset = sosOffset + 2 + 1 + 2;
+    // Ss: header(4) + Ns(1) + Cs(1) + TdTa(1).
+    const ssOffset = sosOffset + 4 + 1 + 1 + 1;
     const patched = patchByte(bytes, ssOffset, 1);
     await expectRefusal(patched, "undefined-table-reference");
   });
