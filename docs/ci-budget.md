@@ -131,6 +131,25 @@ behaviourally, not just by text presence. No job is added and no minutes are spe
 succeeds with a narrowed format list; the fallback only costs extra minutes on the failure path
 it exists to cover.
 
+## JPEG onboarding cost (Phase 57)
+
+The last hosted `qualification-linux` run before JPEG's suites were added (Phase 56 PR head
+`e9c5b9a`, run `36259855039`) took **2.52 job-minutes** (`startedAt` 17:42:26Z, `completedAt`
+17:44:57Z, 2 min 31 sec) running `formats=png,webp` (249/249 tests, 0 skipped). This is the
+before-JPEG baseline this section's hosted after-figure (recorded once this phase's own PR runs,
+see Plan 57-15) is measured against.
+
+Locally, `prepareOracleTools()`'s libjpeg-turbo build step alone (extract + `cmake -S ... -B ...`
+configure + `cmake --build ... --target djpeg-static jpegtran-static rdjpgcom jpeg-static
+--parallel 2`, pinned CMake flags: shared libraries disabled, SIMD disabled, arithmetic decode
+enabled/encode disabled) measured **128 seconds** in a `node:22-bookworm --platform linux/amd64`
+container (57-08, Task 3). This is the single largest new fixed cost JPEG's oracle authority adds
+to a cold qualification run — libwebp's and libpng's authorities were already paid for before this
+phase.
+
+The hosted `qualification-linux` job-minute figure with JPEG's suites (`formats=png,webp,jpeg`)
+included is recorded in Plan 57-15, once this phase's own PR has a real hosted run to measure.
+
 ## How to add a new format directory
 
 Add a `LINUX_SAFE_PATH_RULES` entry (and, if the format also needs full-scope carve-outs, a

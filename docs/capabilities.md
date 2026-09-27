@@ -163,11 +163,16 @@ chunk in its supported surface, and native WebP resolution preservation is
 future work (FUT-01), not a capability of the current handler. PNG reports
 `resolution: true`: its `pHYs` chunk is always kept byte-identical when
 `preserveResolution: true` (see "## PNG" below). JPEG also reports
-`resolution: true` (its JFIF density fields or EXIF IFD0 resolution are
-always retained or preserved), though until orientation/resolution synthesis
-lands, a `preserveResolution: true` request against a source whose EXIF
-carries its own IFD0 resolution declines pre-write rather than silently
-falling back to JFIF-only preservation (see "## JPEG" below).
+`resolution: true`: its JFIF density fields are kept byte-identical, and, when
+the source's EXIF also carries its own IFD0 X/YResolution, a minimal IFD0 is
+synthesized to carry those same three values forward -- each group is kept
+independently with no reconciliation between them, matching ExifTool's own
+measured behavior. The one `preserveResolution: true` pre-write decline is a
+JFIF segment whose embedded thumbnail is non-empty: a kept JFIF must stay
+byte-identical (D-01), and the grouped resolution copy-back would otherwise
+recreate a fresh JFIF header without the source's thumbnail bytes, so the
+whole request declines and falls back to ExifTool instead of silently losing
+the thumbnail (see "## JPEG" below).
 
 Capability-shape changes -- adding a required field to `CommonFormatCapabilities`
 or widening the discriminated union with a new format -- are a minor version
@@ -365,6 +370,15 @@ shape is refused before any write, with a typed pre-write decline
 A file above any of these caps declines pre-write (`resource-limits`,
 classified safe-to-fallback) rather than failing outright; ExifTool remains
 available for it.
+
+**56-REVIEW WR-02 disposition:** WR-02 flagged that PNG's `parsePng` buffered every non-IDAT
+chunk's data with only a per-chunk/aggregate-count bound, not an aggregate-bytes cap. JPEG's own
+`parseJpeg` (`src/jpeg/parser.ts`) was written from the start with a bounded 64 KiB read-ahead
+window shared across every segment-header, small-segment-data, and marker read in its main loop --
+the same fix PNG needed only after the fact (56-12's post-plan `PNG_CHUNK_READ_WINDOW_BYTES` gap
+fix) is present in JPEG by construction (57-03), so WR-02 does not recur for JPEG. PNG's own WR-02
+(the aggregate-buffered-bytes cap) stays deferred: this phase did not touch PNG's ancillary-chunk
+buffering path.
 
 ### JPEG trailer truncation (D-11) and MPF/motion-photo classification (D-12, D-13)
 

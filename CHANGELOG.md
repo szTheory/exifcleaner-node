@@ -1,6 +1,62 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+
+### Added (JPEG)
+
+Native JPEG sanitize is a closed classification rule (D-01), never a per-identifier keep registry:
+every marker segment maps to exactly one of four classes. `SOI`, `EOI`, `DQT`, `DHT`, `DRI`, an
+admitted `SOF` (`SOF0` baseline, `SOF1` extended-sequential Huffman, `SOF2` progressive, all 8-bit
+only), and every `SOS` plus its entropy-coded scan data are copied byte-identical. An `APP14`
+segment identified `Adobe` is always kept, matching ExifTool `-all=`. Every other APPn/`COM` segment
+is removed by default -- `APP0` `JFXX`, `APP1` `Exif`/`XMP`/`ExtendedXMP`, `APP2` `FPXR`/`MPF`,
+`APP11` (JUMBF/C2PA), `APP13` (Photoshop), any non-`Adobe` `APP14`, every other/unknown `APPn`, and
+every `COM`. **Both engines remove C2PA/JUMBF (APP11); ExifTool has deleted JUMBF since 12.64** --
+this library's removal is measured parity (D-02), not a difference it introduces.
+
+On request, `APP2` `ICC_PROFILE` is kept byte-identical across every sequence number
+(`preserveColorProfile`, the same `icc-structural-v0.2` policy WebP and PNG use), `APP0` `JFIF` is
+kept byte-identical (`preserveResolution`, unless an `APP14` `Adobe` segment is also present, D-06:
+`JFIF` is then always dropped with no decline), and a minimal EXIF IFD0 is synthesized holding
+Orientation and/or X/YResolution (`preserveOrientation`/`preserveResolution`) copied from the
+source's own first `APP1` `Exif` segment -- the source Exif segment itself is never copied forward.
+A JFIF and an IFD0 resolution source are each kept independently with no reconciliation and no unit
+conversion (D-04), matching ExifTool. `preserveOrientation: true` declines pre-write
+(`unsupported-feature`, `feature: "orientation-preservation"`) when a non-`eXIf`-analog XMP/
+ExtendedXMP `tiff:Orientation` disagrees with or is missing alongside a present EXIF Orientation, or
+when an ExtendedXMP cannot be reassembled (D-05); segment order, not "EXIF always wins," decides
+which of a disagreeing EXIF/XMP Orientation value ExifTool itself would pick, a correction to an
+earlier planning assumption. A `preserveResolution: true` request against a kept `JFIF` carrying a
+non-empty embedded thumbnail declines pre-write instead of silently dropping the thumbnail (D-01/
+JPG-01).
+
+Every admitted frame class outside baseline/extended-sequential/progressive 8-bit refuses before any
+write with one of twelve typed pre-write declines: `malformed-container`, `truncation`,
+`undefined-table-reference`, `lossless-frame` (`SOF3`), `hierarchical-frame` (`SOF5`-`SOF7`, `DHP`,
+`EXP`), `arithmetic-frame` (`SOF9`-`SOF11`, `SOF13`-`SOF15`, `DAC`), `non-t81-frame` (`JPG`, `JPGn`
+including JPEG-LS), `non-8-bit-precision`, `unsupported-component-count`, `dnl-marker`,
+`resource-limits`, and `mpf-secondary-image`. Structural caps, derived from a 7,187-real-JPEG plus
+ExifTool-corpus census (never lowered to make a fixture pass): `maxSegmentCount` 2048,
+`maxScanCount` 512, `maxTableSegmentCount` 512, `maxIccSegments` 255, `maxReassembledIccBytes` and
+`maxExtendedXmpBytes` 16 MiB each, `maxFileBytes` 512 MiB. A file above any cap declines pre-write
+(`resource-limits`, safe-to-fallback) rather than failing outright.
+
+Anything after the primary `EOI` -- a trailing secondary image, a Multi-Picture Format (MPF, CIPA
+DC-007) container, a Google Motion Photo or Adobe gain-map XMP-linked payload, or a Samsung
+`SEFH`/`SEFT` embedded-picture trailer -- is truncated at the primary `EOI`, matching ExifTool
+`-all=`, which truncates any trailer regardless of content. **Native JPEG removes MPF secondary
+images and motion-photo video just as the ExifTool path already does** for every class this phase
+measured a clean promotion: a real Google Motion Photo (Google.jpg, D-13), a Google Motion Photo
+shape built from an appended MP4 blob, a Samsung SEFH/SEFT trailer, and a malformed MPF index
+(truncated or out-of-range, which ExifTool's own `-all=` deletes before ever parsing). Two
+constructed classes measured a residual confound -- their "secondary" JPEG reuses the primary's own
+DQT/DHT/SOF0/SOS tables, so the sampling method used to measure them cannot distinguish shared
+codec-table bytes from an actual leak -- and are recorded refused (`mpf-secondary-image`) per the
+measured-refusal rule applied mechanically, not by preference: a CIPA two-image MPF container and an
+Adobe-gain-map-shaped MPF container.
+
+`getCapabilities()`'s new `JpegCapabilities` member states these limits and the full `refuses` list
+above, plus `preserves.orientation`, `.colorProfile`, `.timestamps` and `.resolution` all `true`.
 
 ### Added (PNG)
 
@@ -83,3 +139,18 @@ WebP with `preserveResolution: true` now returns a typed admission decline
 write, and `classifyFallback` returns `safe-to-fallback`. Previously the flag
 did not exist. WebP output for `preserveResolution: false` is byte-identical
 to 0.2.2.
+
+### Changed (JPEG)
+
+`NativeFormat` widens to `"webp" | "png" | "jpeg"`, and `FormatCapabilities` gains the
+`JpegCapabilities` member alongside `WebpCapabilities` and `PngCapabilities`. `inspectFile` and
+`removedNamespaces` report JPEG's removable metadata under the existing cross-format `EXIF`, `XMP`,
+`ICC` and `C2PA` namespaces, widened by exactly one new member: `JPEG` (JFIF/JFXX density and
+thumbnail fields, `COM`, `APP13`, `MPF`, every other removable `APPn`, and trailer data).
+
+### Release
+
+The `release` job now retains the CycloneDX SBOM it already generates as a workflow artifact
+(`sbom-cyclonedx`, `if-no-files-found: error`), instead of generating it and discarding it --
+`scripts/release_workflow_gate.cjs` fails closed if this retention step is ever removed or moved
+before generation.
