@@ -98,7 +98,8 @@ function findFirst(
 }
 
 const isAdobe = (item: JpegSegmentRecord): boolean =>
-  item.marker === 0xee && item.payload.subarray(0, 5).toString("ascii") === "Adobe";
+  item.marker === 0xee &&
+  item.payload.subarray(0, 5).toString("ascii") === "Adobe";
 const isJfif = (item: JpegSegmentRecord): boolean =>
   item.marker === 0xe0 &&
   item.payload.subarray(0, 5).toString("latin1") === "JFIF\0";
@@ -135,7 +136,11 @@ async function insertSegmentsAfterSoi(
   const destination = await readFile(destinationPath);
   await writeFile(
     destinationPath,
-    Buffer.concat([destination.subarray(0, 2), ...segments, destination.subarray(2)]),
+    Buffer.concat([
+      destination.subarray(0, 2),
+      ...segments,
+      destination.subarray(2),
+    ]),
   );
 }
 
@@ -151,7 +156,9 @@ async function replaceFirstPreSosSegment(
   let offset = 2;
   while (offset < destination.length - 1) {
     if (destination[offset] !== 0xff)
-      throw new Error("replaceFirstPreSosSegment: expected a marker prefix byte");
+      throw new Error(
+        "replaceFirstPreSosSegment: expected a marker prefix byte",
+      );
     const marker = destination[offset + 1]!;
     if (marker === 0xda) break; // stop before SOS/entropy data
     const length = destination.readUInt16BE(offset + 2);
@@ -186,7 +193,8 @@ const PRESERVATION_MESSAGES = Object.freeze({
     "checkSample: JFIF is present in the output when it must be dropped (D-06)",
   jfifMissing:
     "checkSample: requested JFIF resolution preservation is missing from the output",
-  iccMissing: "checkSample: requested ICC color profile is missing from the output",
+  iccMissing:
+    "checkSample: requested ICC color profile is missing from the output",
   exifMissing: "checkSample: requested APP1 Exif is missing from the output",
   exifBytes:
     "checkSample: APP1 Exif TIFF bytes differ from the recomputed createMinimalExif bytes",
@@ -260,9 +268,10 @@ async function checkSample(
       const outputRecords = readJpegSegmentRecords(output);
 
       // Zero trailer bytes in the output, always.
-      expect(outputRecords.trailerBytes, PRESERVATION_MESSAGES.trailerPresent).toBe(
-        0,
-      );
+      expect(
+        outputRecords.trailerBytes,
+        PRESERVATION_MESSAGES.trailerPresent,
+      ).toBe(0);
 
       // Every entropy-coded scan range is byte-identical (asserted via the
       // independent walker's own segment list -- an SOS record's payload
@@ -270,8 +279,12 @@ async function checkSample(
       // untouched by the native writer whenever the scan is kept at all, so
       // this walker finding the same scan header for source and output is
       // the byte-identity proof for the entropy data it brackets).
-      const sourceScans = sourceRecords.segments.filter((s) => s.marker === 0xda);
-      const outputScans = outputRecords.segments.filter((s) => s.marker === 0xda);
+      const sourceScans = sourceRecords.segments.filter(
+        (s) => s.marker === 0xda,
+      );
+      const outputScans = outputRecords.segments.filter(
+        (s) => s.marker === 0xda,
+      );
       expect(outputScans.length).toBe(sourceScans.length);
       outputScans.forEach((scan, index) => {
         expect(scan.payload).toEqual(sourceScans[index]!.payload);
@@ -301,7 +314,10 @@ async function checkSample(
           counterKeys.push("flag:preserveResolutionJfif");
           expect(outputJfif, PRESERVATION_MESSAGES.jfifMissing).toBeDefined();
         } else {
-          expect(outputJfif, PRESERVATION_MESSAGES.jfifUnexpected).toBeUndefined();
+          expect(
+            outputJfif,
+            PRESERVATION_MESSAGES.jfifUnexpected,
+          ).toBeUndefined();
         }
       }
 
@@ -524,11 +540,14 @@ describe("replayable JPEG qualification properties", () => {
     const config = resolveReplayConfig(process.env);
     let executed = 0;
     const counters = createCounters();
-    const property = fc.asyncProperty(jpegQualificationArbitrary(), async (sample) => {
-      executed += 1;
-      const keys = await checkSample(sample);
-      countSample(counters, keys);
-    });
+    const property = fc.asyncProperty(
+      jpegQualificationArbitrary(),
+      async (sample) => {
+        executed += 1;
+        const keys = await checkSample(sample);
+        countSample(counters, keys);
+      },
+    );
     const result = await fc.check(property, config);
     if (result.failed) {
       throw new Error(
@@ -590,7 +609,11 @@ describe("replayable JPEG qualification properties", () => {
   });
 
   describe("negative controls (JPEG)", () => {
-    const REPLAY_PARAMS = { seed: 460_046, numRuns: 200, endOnFailure: true } as const;
+    const REPLAY_PARAMS = {
+      seed: 460_046,
+      numRuns: 200,
+      endOnFailure: true,
+    } as const;
 
     const successBytesResult = (destinationPath: string) =>
       ok({
@@ -685,12 +708,16 @@ describe("replayable JPEG qualification properties", () => {
     });
 
     it("(4) fails a generator with no metadata arm on the floor assertion itself", () => {
-      const samples = fc.sample(jpegQualificationArbitraryWithoutMetadataArm(), {
-        seed: 460_046,
-        numRuns: 200,
-      });
+      const samples = fc.sample(
+        jpegQualificationArbitraryWithoutMetadataArm(),
+        {
+          seed: 460_046,
+          numRuns: 200,
+        },
+      );
       const counters = createCounters();
-      for (const sample of samples) countSample(counters, [`arm:${sample.arm}`]);
+      for (const sample of samples)
+        countSample(counters, [`arm:${sample.arm}`]);
       expect(() => assertFloors(counters, JPEG_FIXED_SEED_FLOORS)).toThrow(
         /kind:ICC/,
       );
@@ -727,13 +754,17 @@ describe("replayable JPEG qualification properties", () => {
         if (sourceJfif.length === 0) return outcome;
         await insertSegmentsAfterSoi(
           options.destinationPath,
-          sourceJfif.map((item) => buildSegmentBytes(item.marker, item.payload)),
+          sourceJfif.map((item) =>
+            buildSegmentBytes(item.marker, item.payload),
+          ),
         );
         return outcome;
       };
       const arbitrary = jpegQualificationArbitrary().filter(
         (sample) =>
-          sample.expected === "success" && sample.plantedJfif && sample.plantedAdobe,
+          sample.expected === "success" &&
+          sample.plantedJfif &&
+          sample.plantedAdobe,
       );
       const result = await fc.check(
         fc.asyncProperty(arbitrary, async (sample) => {
@@ -757,7 +788,9 @@ describe("replayable JPEG qualification properties", () => {
       const result = await fc.check(
         fc.asyncProperty(arbitrary, async (sample) => {
           const other = sample.plantedOrientation === 1 ? 2 : 1;
-          const writesWrongOrientation: typeof sanitizeFile = async (options) => {
+          const writesWrongOrientation: typeof sanitizeFile = async (
+            options,
+          ) => {
             const outcome = await sanitizeFile(options);
             if (!outcome.ok) return outcome;
             const wrongTiff = createMinimalExif({
@@ -766,8 +799,14 @@ describe("replayable JPEG qualification properties", () => {
               sample.plantedResolution !== undefined
                 ? {
                     resolution: {
-                      x: { numerator: sample.plantedResolution.x, denominator: 1 },
-                      y: { numerator: sample.plantedResolution.y, denominator: 1 },
+                      x: {
+                        numerator: sample.plantedResolution.x,
+                        denominator: 1,
+                      },
+                      y: {
+                        numerator: sample.plantedResolution.y,
+                        denominator: 1,
+                      },
                       unit: sample.plantedResolution.unit,
                     },
                   }

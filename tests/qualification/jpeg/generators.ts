@@ -301,7 +301,10 @@ export function jpegExifSegmentWithCanary(
     });
   }
   const tiff = buildTiffIfd(entries);
-  return appSegment(0xe1, Buffer.concat([Buffer.from("Exif\0\0", "ascii"), tiff]));
+  return appSegment(
+    0xe1,
+    Buffer.concat([Buffer.from("Exif\0\0", "ascii"), tiff]),
+  );
 }
 
 export interface JpegSampleOptions {
@@ -398,7 +401,9 @@ export function jpegQualificationMetadataArbitrary(): fc.Arbitrary<MetadataArmSa
     })
     .chain((base) =>
       fc
-        .tuple(...base.kinds.map((kind) => canaryArbitrary<JpegMetadataKind>(kind)))
+        .tuple(
+          ...base.kinds.map((kind) => canaryArbitrary<JpegMetadataKind>(kind)),
+        )
         .map((genericCanaries) => ({ ...base, genericCanaries })),
     )
     .map((sample): MetadataArmSample => {
@@ -425,7 +430,10 @@ export function jpegQualificationMetadataArbitrary(): fc.Arbitrary<MetadataArmSa
 
       const planted: PlantedCanary<JpegMetadataKind>[] = [...genericCanaries];
       const segments: Buffer[] = genericCanaries.map((item) =>
-        genericSegment(item.kind as (typeof GENERIC_KINDS)[number], item.canary),
+        genericSegment(
+          item.kind as (typeof GENERIC_KINDS)[number],
+          item.canary,
+        ),
       );
 
       let plantedOrientation: number | undefined;
@@ -465,7 +473,11 @@ export function jpegQualificationMetadataArbitrary(): fc.Arbitrary<MetadataArmSa
           ),
         );
         if (index !== -1) {
-          segments.splice(index, 1, ...extendedXmpChunks(extendedXmpKind.canary));
+          segments.splice(
+            index,
+            1,
+            ...extendedXmpChunks(extendedXmpKind.canary),
+          );
         }
       }
 
@@ -485,7 +497,10 @@ export function jpegQualificationMetadataArbitrary(): fc.Arbitrary<MetadataArmSa
       let bytes = spliceSegments(minimalJpeg({ components }), segments);
       if (trailerCanary !== undefined) {
         planted.push(trailerCanary);
-        bytes = appendTrailer(bytes, Buffer.from(trailerCanary.canary, "ascii"));
+        bytes = appendTrailer(
+          bytes,
+          Buffer.from(trailerCanary.canary, "ascii"),
+        );
       }
 
       return {
@@ -595,7 +610,11 @@ function segmentLength(bytes: Buffer, markerOff: number): number {
   return bytes.readUInt16BE(markerOff + 2);
 }
 
-function patchMarkerByte(bytes: Buffer, markerOff: number, newMarker: number): Buffer {
+function patchMarkerByte(
+  bytes: Buffer,
+  markerOff: number,
+  newMarker: number,
+): Buffer {
   const result = Buffer.from(bytes);
   result[markerOff + 1] = newMarker;
   return result;
@@ -620,7 +639,11 @@ function insertSegmentBefore(
   from = 2,
 ): Buffer {
   const offset = markerOffset(bytes, beforeMarker, from);
-  return Buffer.concat([bytes.subarray(0, offset), segment, bytes.subarray(offset)]);
+  return Buffer.concat([
+    bytes.subarray(0, offset),
+    segment,
+    bytes.subarray(offset),
+  ]);
 }
 
 function removeSegment(bytes: Buffer, marker: number, from = 2): Buffer {
@@ -666,7 +689,10 @@ function comSegment(): Buffer {
 }
 
 function dqtSegment(): Buffer {
-  return appSegment(0xdb, Buffer.concat([Buffer.from([0x00]), Buffer.alloc(64, 1)]));
+  return appSegment(
+    0xdb,
+    Buffer.concat([Buffer.from([0x00]), Buffer.alloc(64, 1)]),
+  );
 }
 
 /** Builds a fixture with exactly `sosCount` per-component SOS(+entropy)
@@ -683,7 +709,11 @@ function withScanCount(sosCount: number): Buffer {
   ]);
 }
 
-function iccSegmentRaw(sequence: number, count: number, dataBytes: number): Buffer {
+function iccSegmentRaw(
+  sequence: number,
+  count: number,
+  dataBytes: number,
+): Buffer {
   return appSegment(
     0xe2,
     Buffer.concat([
@@ -724,7 +754,10 @@ function bytesCase(prefix: Buffer): JpegMaterializedMutationCase {
   return { prefix, fileSize: prefix.length };
 }
 
-function sparseCase(prefix: Buffer, fileSize: number): JpegMaterializedMutationCase {
+function sparseCase(
+  prefix: Buffer,
+  fileSize: number,
+): JpegMaterializedMutationCase {
   return { prefix, fileSize };
 }
 
@@ -737,7 +770,11 @@ const hostileCases: readonly JpegHostileMutationCase[] = [
     materialize: () => {
       const bytes = minimalJpeg();
       return bytesCase(
-        Buffer.concat([bytes.subarray(0, 2), Buffer.from([0xff, 0xd8]), bytes.subarray(2)]),
+        Buffer.concat([
+          bytes.subarray(0, 2),
+          Buffer.from([0xff, 0xd8]),
+          bytes.subarray(2),
+        ]),
       );
     },
   },
@@ -767,7 +804,11 @@ const hostileCases: readonly JpegHostileMutationCase[] = [
       const sofLength = segmentLength(bytes, sofOffset);
       const sofSegment = bytes.subarray(sofOffset, sofOffset + 2 + sofLength);
       return bytesCase(
-        Buffer.concat([bytes.subarray(0, sofOffset), sofSegment, bytes.subarray(sofOffset)]),
+        Buffer.concat([
+          bytes.subarray(0, sofOffset),
+          sofSegment,
+          bytes.subarray(sofOffset),
+        ]),
       );
     },
   },
@@ -803,7 +844,11 @@ const hostileCases: readonly JpegHostileMutationCase[] = [
       ]);
       const offset = markerOffset(base, 0xdb);
       return bytesCase(
-        Buffer.concat([base.subarray(0, offset), segments, base.subarray(offset)]),
+        Buffer.concat([
+          base.subarray(0, offset),
+          segments,
+          base.subarray(offset),
+        ]),
       );
     },
   },
@@ -931,7 +976,8 @@ const hostileCases: readonly JpegHostileMutationCase[] = [
     id: "unsupported-component-count-2",
     expectedRefusal: "unsupported-component-count",
     sourceCase: "minimal",
-    materialize: () => bytesCase(dropLastSofComponent(minimalJpeg({ components: 3 }))),
+    materialize: () =>
+      bytesCase(dropLastSofComponent(minimalJpeg({ components: 3 }))),
   },
   // dnl-marker (1)
   {
@@ -945,7 +991,8 @@ const hostileCases: readonly JpegHostileMutationCase[] = [
     id: "mpf-secondary-image-cipa",
     expectedRefusal: "mpf-secondary-image",
     sourceCase: "mpf-two-images",
-    materialize: () => bytesCase(buildCipaMpfTwoImages(minimalJpeg({ components: 3 }))),
+    materialize: () =>
+      bytesCase(buildCipaMpfTwoImages(minimalJpeg({ components: 3 }))),
   },
   // resource-limits (7 cases: 6 census caps + the ICC.1 profile-size cap)
   {
@@ -982,11 +1029,17 @@ const hostileCases: readonly JpegHostileMutationCase[] = [
       const base = minimalJpeg();
       const count = JPEG_MAX_ICC_SEGMENTS + 1;
       const segments = Buffer.concat(
-        Array.from({ length: count }, (_, index) => iccSegmentRaw(index + 1, count, 4)),
+        Array.from({ length: count }, (_, index) =>
+          iccSegmentRaw(index + 1, count, 4),
+        ),
       );
       const offset = markerOffset(base, 0xdb);
       return bytesCase(
-        Buffer.concat([base.subarray(0, offset), segments, base.subarray(offset)]),
+        Buffer.concat([
+          base.subarray(0, offset),
+          segments,
+          base.subarray(offset),
+        ]),
       );
     },
   },
@@ -996,14 +1049,21 @@ const hostileCases: readonly JpegHostileMutationCase[] = [
     sourceCase: "minimal",
     materialize: () => {
       const perSegment = 65_000;
-      const segmentCount = Math.ceil(JPEG_MAX_EXTENDED_XMP_BYTES / perSegment) + 1;
+      const segmentCount =
+        Math.ceil(JPEG_MAX_EXTENDED_XMP_BYTES / perSegment) + 1;
       const base = minimalJpeg();
       const segments = Buffer.concat(
-        Array.from({ length: segmentCount }, () => extendedXmpSegmentRaw(perSegment)),
+        Array.from({ length: segmentCount }, () =>
+          extendedXmpSegmentRaw(perSegment),
+        ),
       );
       const offset = markerOffset(base, 0xdb);
       return bytesCase(
-        Buffer.concat([base.subarray(0, offset), segments, base.subarray(offset)]),
+        Buffer.concat([
+          base.subarray(0, offset),
+          segments,
+          base.subarray(offset),
+        ]),
       );
     },
   },
@@ -1027,11 +1087,14 @@ const hostileCases: readonly JpegHostileMutationCase[] = [
   // silently dropped).
 ];
 
-export const hostileMutationCases: readonly JpegHostileMutationCase[] = Object.freeze(
-  [...hostileCases].sort((left, right) => left.id.localeCompare(right.id)),
-);
+export const hostileMutationCases: readonly JpegHostileMutationCase[] =
+  Object.freeze(
+    [...hostileCases].sort((left, right) => left.id.localeCompare(right.id)),
+  );
 
-export function materializeMutationCase(id: string): JpegMaterializedMutationCase {
+export function materializeMutationCase(
+  id: string,
+): JpegMaterializedMutationCase {
   const record = hostileMutationCases.find((item) => item.id === id);
   if (record === undefined) throw new Error(`Unknown mutation case: ${id}`);
   const materialized = record.materialize();
@@ -1046,17 +1109,19 @@ export interface JpegValidGrammarCase {
   readonly bytes: Buffer;
 }
 
-export const validGrammarCases: readonly JpegValidGrammarCase[] = Object.freeze([
-  { id: "minimal-1-component", bytes: minimalJpeg({ components: 1 }) },
-  { id: "minimal-3-component", bytes: minimalJpeg({ components: 3 }) },
-  { id: "minimal-4-component", bytes: minimalJpeg({ components: 4 }) },
-  { id: "progressive", bytes: minimalJpeg({ sofMarker: 0xc2 }) },
-  { id: "extended-sequential", bytes: minimalJpeg({ sofMarker: 0xc1 }) },
-  {
-    id: "with-restart-interval",
-    bytes: minimalJpeg({ restartInterval: 1 }),
-  },
-]);
+export const validGrammarCases: readonly JpegValidGrammarCase[] = Object.freeze(
+  [
+    { id: "minimal-1-component", bytes: minimalJpeg({ components: 1 }) },
+    { id: "minimal-3-component", bytes: minimalJpeg({ components: 3 }) },
+    { id: "minimal-4-component", bytes: minimalJpeg({ components: 4 }) },
+    { id: "progressive", bytes: minimalJpeg({ sofMarker: 0xc2 }) },
+    { id: "extended-sequential", bytes: minimalJpeg({ sofMarker: 0xc1 }) },
+    {
+      id: "with-restart-interval",
+      bytes: minimalJpeg({ restartInterval: 1 }),
+    },
+  ],
+);
 
 function toHostileSample(item: JpegHostileMutationCase): QualificationSample {
   const materialized = item.materialize();
@@ -1141,7 +1206,13 @@ export function resolveReplayConfig(environment: NodeJS.ProcessEnv): {
   readonly path?: string;
   readonly numRuns: number;
 } {
-  const seed = boundedInteger(environment.FC_SEED, BASE_SEED, 0, 0x7fff_ffff, "FC_SEED");
+  const seed = boundedInteger(
+    environment.FC_SEED,
+    BASE_SEED,
+    0,
+    0x7fff_ffff,
+    "FC_SEED",
+  );
   const numRuns = boundedInteger(
     environment.FC_RUNS,
     environment.FC_PATH === undefined ? 200 : 1,

@@ -5,7 +5,10 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { getCapabilities, sanitizeFile } from "../../../dist/index.js";
 import { parseJpeg } from "../../../src/jpeg/parser.js";
-import { JPEG_REFUSAL_KIND, type JpegRefusal } from "../../../src/jpeg/markers.js";
+import {
+  JPEG_REFUSAL_KIND,
+  type JpegRefusal,
+} from "../../../src/jpeg/markers.js";
 import {
   hostileMutationCases,
   materializeMutationCase,
@@ -94,8 +97,11 @@ describe("grammar-aware JPEG qualification cases", () => {
     const jpegCapability = capabilities.formats.find(
       (format) => format.format === "jpeg",
     );
-    if (jpegCapability === undefined) throw new Error("No jpeg capability registered");
-    const declaredRefusals = new Set(jpegCapability.refuses as readonly JpegRefusal[]);
+    if (jpegCapability === undefined)
+      throw new Error("No jpeg capability registered");
+    const declaredRefusals = new Set(
+      jpegCapability.refuses as readonly JpegRefusal[],
+    );
     const coveredRefusals = new Set(
       hostileMutationCases.map((item) => item.expectedRefusal),
     );
@@ -105,40 +111,43 @@ describe("grammar-aware JPEG qualification cases", () => {
   it.each(hostileMutationCases)(
     "refuses $id as $expectedRefusal before creating output",
     async ({ id, expectedRefusal, options }) => {
-      await withMaterializedCase(id, async (sourcePath, _fileSize, directory) => {
-        const destinationPath = join(directory, "sanitized.jpg");
-        const sourceSize = (await stat(sourcePath)).size;
-        const result = await sanitizeFile({
-          sourcePath,
-          destinationPath,
-          preserveOrientation: false,
-          preserveColorProfile: false,
-          preserveTimestamps: false,
-          preserveResolution: false,
-          ...options,
-        });
-        expect(result).toMatchObject({
-          ok: false,
-          error: {
-            code: JPEG_REFUSAL_KIND[expectedRefusal],
-            phase: "admission",
-            nativeWrite: "not-started",
-          },
-        });
-        if (!result.ok) {
-          expect(
-            result.error.detail,
-            `expected ${id} to fail with the ${expectedRefusal} refusal detail`,
-          ).toBeDefined();
-        }
-        await expect(access(destinationPath)).rejects.toBeDefined();
-        expect((await stat(sourcePath)).size).toBe(sourceSize);
-        // The temp directory holds only the untouched source -- no partial
-        // output, no leftover.
-        const { readdir } = await import("node:fs/promises");
-        const entries = await readdir(directory);
-        expect(entries).toEqual(["source.jpg"]);
-      });
+      await withMaterializedCase(
+        id,
+        async (sourcePath, _fileSize, directory) => {
+          const destinationPath = join(directory, "sanitized.jpg");
+          const sourceSize = (await stat(sourcePath)).size;
+          const result = await sanitizeFile({
+            sourcePath,
+            destinationPath,
+            preserveOrientation: false,
+            preserveColorProfile: false,
+            preserveTimestamps: false,
+            preserveResolution: false,
+            ...options,
+          });
+          expect(result).toMatchObject({
+            ok: false,
+            error: {
+              code: JPEG_REFUSAL_KIND[expectedRefusal],
+              phase: "admission",
+              nativeWrite: "not-started",
+            },
+          });
+          if (!result.ok) {
+            expect(
+              result.error.detail,
+              `expected ${id} to fail with the ${expectedRefusal} refusal detail`,
+            ).toBeDefined();
+          }
+          await expect(access(destinationPath)).rejects.toBeDefined();
+          expect((await stat(sourcePath)).size).toBe(sourceSize);
+          // The temp directory holds only the untouched source -- no partial
+          // output, no leftover.
+          const { readdir } = await import("node:fs/promises");
+          const entries = await readdir(directory);
+          expect(entries).toEqual(["source.jpg"]);
+        },
+      );
     },
     30_000,
   );
