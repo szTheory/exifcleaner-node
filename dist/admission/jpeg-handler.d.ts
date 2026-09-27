@@ -14,6 +14,12 @@ export interface JpegAdmission extends FormatAdmission {
     readonly jfifDroppedForAdobe: boolean;
     /** The source's raw (unreduced) IFD0 X/YResolution, if its Exif carries one. */
     readonly sourceResolution: MinimalExifResolution | undefined;
+    /** D-01/JPG-01: true when a kept-candidate APP0 JFIF segment carries a
+     * non-zero Xthumbnail/Ythumbnail -- such a JFIF is never kept byte-identical
+     * (its thumbnail bytes never survive the grouped resolution copy-back), so
+     * `checkOutputPlan` declines resolution preservation pre-write instead of
+     * silently dropping the thumbnail. */
+    readonly jfifHasThumbnail: boolean;
     readonly trailerClasses: ReadonlySet<JpegTrailerClass>;
 }
 export type JpegOutputPlanPart = {
@@ -33,10 +39,11 @@ export interface JpegOutputPlan {
     }[];
     readonly preserveResolution: boolean;
     /**
-     * Fail-closed placeholder (until 57-06 lands): set when the plan was built
-     * with preserveResolution true and the source carries an EXIF IFD0
-     * resolution -- JPEG resolution synthesis is not yet admitted, so
-     * checkOutputPlan declines before any write.
+     * D-01/JPG-01: set when the plan was built with preserveResolution true
+     * and the source's kept-candidate JFIF carries a non-zero embedded
+     * thumbnail -- such a JFIF can never be kept byte-identical, so
+     * checkOutputPlan declines resolution preservation before any write,
+     * falling back to the ExifTool route.
      */
     readonly declineReason?: string;
 }

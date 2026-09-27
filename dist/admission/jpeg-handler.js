@@ -1,11 +1,12 @@
-import { parseExif, readIfd0Resolution, } from "../metadata/exif.js";
-import { parseXmp } from "../metadata/xmp.js";
+import { createMinimalExif, parseExif, readIfd0Resolution, } from "../metadata/exif.js";
+import { parseXmp, xmpOrientation } from "../metadata/xmp.js";
+import { parseIcc } from "../metadata/icc.js";
 import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
 import { APP0, APP1, APP2, APP14, COM, DHT, DQT, DRI, EOI, JPEG_MAX_EXTENDED_XMP_BYTES, JPEG_MAX_FILE_BYTES, JPEG_MAX_ICC_SEGMENTS, JPEG_MAX_SCAN_COUNT, JPEG_MAX_SEGMENT_COUNT, JPEG_MAX_TABLE_SEGMENT_COUNT, JPEG_ADMITTED_SOF_MARKERS, JPEG_REFUSAL_DETAILS, SOI, SOS, isAppMarker, } from "../jpeg/markers.js";
 import { JpegStructureError, isJpegSignature, parseJpeg, } from "../jpeg/parser.js";
 import { ICC_SEGMENT_IDENTIFIER, reassembleIccSegments } from "../jpeg/icc.js";
-import { STANDARD_XMP_IDENTIFIER } from "../jpeg/xmp.js";
+import { EXTENDED_XMP_IDENTIFIER, STANDARD_XMP_IDENTIFIER, reassembleExtendedXmp, } from "../jpeg/xmp.js";
 import { classifyTrailerClasses, trailerRefusal, } from "../jpeg/trailer.js";
 import { ICC_PRESERVATION_POLICY_ID, MAX_PROFILE_BYTES, } from "../metadata/icc_admission.js";
 const COPY_BLOCK_BYTES = 64 * 1024;
@@ -18,6 +19,7 @@ const ADOBE_PREFIX = Buffer.from("Adobe", "ascii");
 const MPF_PREFIX = Buffer.from("MPF\0", "ascii");
 const ICC_PROFILE_PREFIX = Buffer.from(`${ICC_SEGMENT_IDENTIFIER}\0`, "ascii");
 const XMP_STANDARD_PREFIX = Buffer.from(STANDARD_XMP_IDENTIFIER, "ascii");
+const XMP_EXTENDED_PREFIX = Buffer.from(`${EXTENDED_XMP_IDENTIFIER}\0`, "ascii");
 // APP11 (JUMBF/C2PA) and APP13 (Photoshop) have no admitted constants in
 // src/jpeg/markers.ts -- both are treated generically there (every APPn is
 // admitted structurally); their D-01/D-02 meaning is format-handler-only.
@@ -46,6 +48,8 @@ function classifyAppSegment(marker, payload) {
         return "jfif";
     if (marker === APP1 && startsWith(payload, EXIF_PREFIX))
         return "exif";
+    if (marker === APP1 && startsWith(payload, XMP_EXTENDED_PREFIX))
+        return "extended-xmp";
     if (marker === APP1 && startsWith(payload, XMP_STANDARD_PREFIX))
         return "xmp";
     if (marker === APP2 && startsWith(payload, ICC_PROFILE_PREFIX))
@@ -103,6 +107,43 @@ function classifySegments(parsed) {
 function isValidOrientation(state) {
     return state.status === "valid";
 }
+/** Same function-boundary widening as `isValidOrientation` (both exist for the
+ * same TS control-flow limitation): returns the EXIF Orientation value when
+ * `state` is valid, else `undefined`. */
+function validOrientationValue(state) {
+    return state.status === "valid" ? state.value : undefined;
+}
+const JFIF_HEADER_BYTES = 14; // identifier(5) + version(2) + units(1) + density(4) + thumbnail dims(2)
+/** JFIF payload layout (D-04): units at byte 7, X/Ydensity at 8/10 (BE u16),
+ * Xthumbnail/Ythumbnail at 12/13 -- the raw buffered payload, identifier
+ * prefix included. Returns `undefined` when the payload is too short to hold
+ * the fixed header (malformed; never guessed at). */
+function readJfifDensity(payload) {
+    if (payload.length < JFIF_HEADER_BYTES)
+        return undefined;
+    return {
+        unit: payload.readUInt8(7),
+        x: payload.readUInt16BE(8),
+        y: payload.readUInt16BE(10),
+    };
+}
+function jfifHasEmbeddedThumbnail(payload) {
+    if (payload.length < JFIF_HEADER_BYTES)
+        return false;
+    return payload.readUInt8(12) !== 0 || payload.readUInt8(13) !== 0;
+}
+/** D-15 analog: `<MARKER>` for a COM segment, `APP<n>` for an APPn segment,
+ * `APP<n>:<identifier>` when the segment carries an identifiable prefix. */
+function markerLabel(marker, identifier) {
+    const name = marker === COM
+        ? "COM"
+        : isAppMarker(marker)
+            ? `APP${marker - APP0}`
+            : `0x${marker.toString(16).padStart(2, "0")}`;
+    return identifier === undefined || identifier.length === 0
+        ? name
+        : `${name}:${identifier}`;
+}
 function isKept(cls, preserveColorProfile, preserveResolution) {
     if (cls === "structural" || cls === "keep")
         return true;
@@ -123,9 +164,12 @@ function collectMetadata(parsed, trailerTail) {
     let exifSlot;
     let jfifDroppedForAdobe = false;
     let jfifConditionallyKept = false;
+    let jfifHasThumbnail = false;
     let sourceResolution;
     let mpfPayload;
     const xmpEntries = [];
+    let standardXmpPayload;
+    const extendedXmpPayloads = [];
     const classes = classifySegments(parsed);
     parsed.segments.forEach((segment, index) => {
         const cls = classes[index];
@@ -140,12 +184,39 @@ function collectMetadata(parsed, trailerTail) {
             return;
         }
         if (cls === "conditional-resolution") {
+            // The only way a JFIF segment classifies "conditional-resolution" is
+            // when no Adobe APP14 is present anywhere in the file (classifySegments).
             jfifConditionallyKept = true;
+            const payload = parsed.buffered.get(index);
+            if (payload !== undefined) {
+                // Never `namespaces.add("JPEG")` here: this JFIF is a *candidate*
+                // for the resolution namespace mechanism (`resolutionNamespace`
+                // below), which safe-transaction.ts only reports removed when
+                // `preserveResolution` is false (D-06). Adding it to the general
+                // `namespaces` set would double-report it as removed even when
+                // preserved -- the entries below still carry namespace "JPEG" for
+                // inspect(), which is a separate, unconditional concern.
+                const density = readJfifDensity(payload);
+                if (density !== undefined) {
+                    entries.push({
+                        namespace: "JPEG",
+                        name: "JFIF:ResolutionUnit",
+                        value: density.unit,
+                    }, { namespace: "JPEG", name: "JFIF:XResolution", value: density.x }, { namespace: "JPEG", name: "JFIF:YResolution", value: density.y });
+                }
+                if (jfifHasEmbeddedThumbnail(payload))
+                    jfifHasThumbnail = true;
+            }
             return;
         }
         // cls === "remove"
         if (marker === COM) {
             namespaces.add("JPEG");
+            entries.push({
+                namespace: "JPEG",
+                name: markerLabel(marker, undefined),
+                value: segment.payloadLength,
+            });
             return;
         }
         const payload = parsed.buffered.get(index);
@@ -154,6 +225,16 @@ function collectMetadata(parsed, trailerTail) {
             // The only way a JFIF segment classifies "remove" is D-06's Adobe drop.
             namespaces.add("JPEG");
             jfifDroppedForAdobe = true;
+            if (payload !== undefined) {
+                const density = readJfifDensity(payload);
+                if (density !== undefined) {
+                    entries.push({
+                        namespace: "JPEG",
+                        name: "JFIF:ResolutionUnit",
+                        value: density.unit,
+                    }, { namespace: "JPEG", name: "JFIF:XResolution", value: density.x }, { namespace: "JPEG", name: "JFIF:YResolution", value: density.y });
+                }
+            }
             return;
         }
         if (kind === "exif") {
@@ -174,17 +255,32 @@ function collectMetadata(parsed, trailerTail) {
         if (kind === "xmp") {
             namespaces.add("XMP");
             if (payload !== undefined) {
-                const found = parseXmp(payload.subarray(XMP_STANDARD_PREFIX.length));
+                const standard = payload.subarray(XMP_STANDARD_PREFIX.length);
+                standardXmpPayload ??= standard;
+                const found = parseXmp(standard);
                 entries.push(...found.entries);
                 warnings.push(...found.warnings);
                 xmpEntries.push(...found.entries);
             }
             return;
         }
+        if (kind === "extended-xmp") {
+            // Read-only, for D-05 orientation reconciliation only -- never feeds
+            // output bytes or `entries` (JPG-01 removes all XMP outright).
+            namespaces.add("XMP");
+            if (payload !== undefined)
+                extendedXmpPayloads.push(payload);
+            return;
+        }
         if (kind === "mpf") {
             namespaces.add("JPEG");
             if (payload !== undefined)
                 mpfPayload = payload;
+            entries.push({
+                namespace: "JPEG",
+                name: markerLabel(marker, segment.identifier),
+                value: segment.payloadLength,
+            });
             return;
         }
         if (marker === APP11) {
@@ -199,18 +295,55 @@ function collectMetadata(parsed, trailerTail) {
         // APP0 JFXX, APP13 Photoshop, non-Adobe APP14, APP15, unknown
         // identifiers, and duplicate jfif/exif/xmp/mpf beyond the first.
         namespaces.add("JPEG");
+        entries.push({
+            namespace: "JPEG",
+            name: markerLabel(marker, segment.identifier),
+            value: segment.payloadLength,
+        });
     });
-    // Fail-closed placeholder (until 57-06 lands): a valid source Orientation
-    // always declines pre-write via engine.ts's generic orientation-
-    // preservation check, since JPEG orientation synthesis is not yet admitted.
-    if (isValidOrientation(orientation)) {
-        orientation = {
-            status: "unsupported",
-            detail: "JPEG orientation preservation is not yet admitted.",
-        };
+    // D-05: the written Orientation comes only from EXIF IFD0 0x0112. A
+    // standard XMP or complete ExtendedXMP tiff:Orientation that is present
+    // while EXIF Orientation is missing or different declines pre-write
+    // (mirrors PNG D-11's reconciliation shape: png-handler.ts:522-538).
+    //
+    // Measured (57-EVIDENCE.md "D-05 discrepancy"): unlike 57-CONTEXT.md's
+    // prose, ExifTool does NOT pick EXIF over XMP "regardless of segment
+    // order" -- whichever of EXIF/XMP appears first in the file wins. The
+    // decline below is kept anyway, and is still correct regardless of that
+    // order dependency: declining routes the whole file through the real
+    // ExifTool fallback, which reproduces whatever ExifTool would have written
+    // for the actual segment order for free. No order-awareness is needed here.
+    if (standardXmpPayload !== undefined) {
+        const candidates = [];
+        const primary = xmpOrientation(standardXmpPayload);
+        if (primary !== undefined)
+            candidates.push(primary);
+        const extended = reassembleExtendedXmp(standardXmpPayload, extendedXmpPayloads);
+        if (extended.status === "complete") {
+            const extendedValue = xmpOrientation(extended.xmp);
+            if (extendedValue !== undefined)
+                candidates.push(extendedValue);
+        }
+        else if (extended.status === "incomplete") {
+            candidates.push("invalid");
+            warnings.push({ code: "metadata-invalid", detail: extended.detail });
+        }
+        if (candidates.length > 0) {
+            const sourceValue = validOrientationValue(orientation);
+            const disagrees = candidates.some((candidate) => candidate === "invalid" || candidate !== sourceValue);
+            if (disagrees) {
+                orientation = {
+                    status: "unsupported",
+                    detail: "A non-EXIF Orientation is missing from EXIF IFD0 or disagrees with it.",
+                };
+            }
+        }
     }
     if (iccPayloads.length > 0) {
         colorProfile = reassembleIccSegments(iccPayloads);
+        const found = parseIcc(colorProfile);
+        entries.push(...found.entries);
+        warnings.push(...found.warnings);
     }
     const fileSize = parsed.primaryEoiEnd + parsed.trailerBytes;
     const trailerClasses = classifyTrailerClasses({
@@ -231,6 +364,14 @@ function collectMetadata(parsed, trailerTail) {
         resolutionNamespace = "EXIF";
     else if (jfifConditionallyKept)
         resolutionNamespace = "JPEG";
+    if (parsed.trailerBytes > 0) {
+        namespaces.add("JPEG");
+        entries.push({
+            namespace: "JPEG",
+            name: "Trailer",
+            value: parsed.trailerBytes,
+        });
+    }
     return {
         entries,
         warnings,
@@ -241,16 +382,51 @@ function collectMetadata(parsed, trailerTail) {
         classes,
         exifSlot,
         jfifDroppedForAdobe,
+        jfifHasThumbnail,
         sourceResolution,
         trailerClasses,
     };
 }
-function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, preserveResolution, _orientation) {
+/**
+ * D-03: the minimal IFD0 tag set `buildOutputPlan`/`verifyOutput` synthesize
+ * -- orientation only when `preserveOrientation` requested a valid one,
+ * resolution only from the source's own EXIF IFD0 (never JFIF/SPIFF/
+ * Photoshop, D-04) when `preserveResolution` requested it. `undefined` when
+ * neither tag applies (nothing to insert).
+ */
+function computeMinimalExifTags(admission, preserveOrientation, preserveResolution, orientation) {
+    const tags = {
+        ...(preserveOrientation && orientation !== undefined
+            ? { orientation }
+            : {}),
+        ...(preserveResolution && admission.sourceResolution !== undefined
+            ? { resolution: admission.sourceResolution }
+            : {}),
+    };
+    return tags.orientation === undefined && tags.resolution === undefined
+        ? undefined
+        : tags;
+}
+/** Wraps a synthesized TIFF body in a complete APP1 Exif segment
+ * (`0xFF 0xE1`, big-endian length, `Exif\0\0`, the TIFF bytes). */
+function buildExifInsertSegment(tiff) {
+    const length = 2 + EXIF_PREFIX.length + tiff.length;
+    if (length > 0xffff) {
+        throw new RangeError("Synthesized EXIF segment exceeds the 16-bit segment length field.");
+    }
+    const header = Buffer.alloc(4);
+    header[0] = 0xff;
+    header[1] = APP1;
+    header.writeUInt16BE(length, 2);
+    return Buffer.concat([header, EXIF_PREFIX, tiff]);
+}
+function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, preserveResolution, orientation) {
     const parts = [];
     const expectedMarkers = [];
     const copiedRanges = [];
     let pendingStart;
     let pendingEnd;
+    const tags = computeMinimalExifTags(admission, preserveOrientation, preserveResolution, orientation);
     const flush = () => {
         if (pendingStart === undefined || pendingEnd === undefined)
             return;
@@ -261,6 +437,16 @@ function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, 
         pendingEnd = undefined;
     };
     admission.parsed.segments.forEach((segment, index) => {
+        // D-03: the synthesized Exif always lands in the source Exif segment's
+        // own slot, replacing it -- the source Exif segment itself is never
+        // copied, whatever it classified as.
+        if (tags !== undefined && index === admission.exifSlot) {
+            flush();
+            const tiff = createMinimalExif(tags);
+            parts.push({ kind: "insert", data: buildExifInsertSegment(tiff) });
+            expectedMarkers.push(APP1);
+            return;
+        }
         const cls = admission.classes[index] ?? "remove";
         if (!isKept(cls, preserveColorProfile, preserveResolution)) {
             flush();
@@ -279,8 +465,13 @@ function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, 
         expectedMarkers.push(segment.marker);
     });
     flush();
-    const declineReason = preserveResolution && admission.sourceResolution !== undefined
-        ? "JPEG resolution synthesis is not yet admitted."
+    // D-01/JPG-01 (JFIF thumbnail): a kept-candidate JFIF carrying a non-zero
+    // thumbnail is never kept byte-identical (D-01 forbids editing a kept
+    // JFIF), so the only safe native outcomes are remove or decline; declining
+    // resolution preservation pre-write falls back to ExifTool, which recreates
+    // JFIF from density alone (57-EVIDENCE.md D-01 jfif-thumbnail measurement).
+    const declineReason = preserveResolution && admission.jfifHasThumbnail
+        ? "JPEG JFIF segment carries an embedded thumbnail; resolution preservation falls back."
         : undefined;
     return {
         parts,
@@ -290,14 +481,32 @@ function buildOutputPlan(admission, _preserveOrientation, preserveColorProfile, 
         ...(declineReason === undefined ? {} : { declineReason }),
     };
 }
-function recomputeExpectedMarkers(admission, preserveColorProfile, preserveResolution) {
+function recomputeExpectedMarkers(admission, preserveColorProfile, preserveResolution, hasInsert) {
     const markers = [];
     admission.parsed.segments.forEach((segment, index) => {
+        if (hasInsert && index === admission.exifSlot) {
+            markers.push(APP1);
+            return;
+        }
         const cls = admission.classes[index] ?? "remove";
         if (isKept(cls, preserveColorProfile, preserveResolution))
             markers.push(segment.marker);
     });
     return markers;
+}
+/** The destination segment index the synthesized Exif insert lands at --
+ * the count of source segments kept before `admission.exifSlot`, since the
+ * insert always replaces that slot 1:1 (never adjacent-coalesced with a kept
+ * neighbor in the expected-marker sequence). */
+function findInsertPosition(admission, preserveColorProfile, preserveResolution) {
+    let position = 0;
+    const stopAt = admission.exifSlot ?? 0;
+    for (let index = 0; index < stopAt; index += 1) {
+        const cls = admission.classes[index] ?? "remove";
+        if (isKept(cls, preserveColorProfile, preserveResolution))
+            position += 1;
+    }
+    return position;
 }
 async function writeAll(handle, data, position) {
     let written = 0;
@@ -370,32 +579,70 @@ function verificationError(detail, path) {
 function verificationAborted(path) {
     return executionError({ code: "aborted", detail: "Operation was aborted.", path }, "started");
 }
-async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, _preserveOrientation, preserveColorProfile, preserveResolution, _expectedOrientation, signal) {
+async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, preserveResolution, expectedOrientation, signal) {
+    const tags = computeMinimalExifTags(admission, preserveOrientation, preserveResolution, expectedOrientation);
+    const hasInsert = tags !== undefined;
     try {
         const destination = await parseJpeg(destinationHandle, destinationSize, signal);
         if (destination.trailerBytes !== 0)
             return err(verificationError("Destination retains trailer bytes after the primary EOI.", destinationPath));
-        const expectedMarkers = recomputeExpectedMarkers(admission, preserveColorProfile, preserveResolution);
+        const expectedMarkers = recomputeExpectedMarkers(admission, preserveColorProfile, preserveResolution, hasInsert);
         const destinationMarkers = destination.segments.map((segment) => segment.marker);
         if (destinationMarkers.length !== expectedMarkers.length ||
             destinationMarkers.some((marker, index) => marker !== expectedMarkers[index]))
             return err(verificationError("Destination marker sequence did not match the sanitized plan.", destinationPath));
+        const insertPosition = hasInsert
+            ? findInsertPosition(admission, preserveColorProfile, preserveResolution)
+            : -1;
         // D-01: independently re-derive the destination's own classification --
         // never merely trust the marker-sequence check above -- so a removed
-        // identifier that somehow survived is always caught here.
+        // identifier that somehow survived is always caught here. The inserted
+        // Exif at `insertPosition` is the deliberately synthesized D-03 payload,
+        // not a leaked source segment -- it is byte- and content-verified
+        // separately below.
         const destinationClasses = classifySegments(destination);
         for (const [index, cls] of destinationClasses.entries()) {
+            if (hasInsert && index === insertPosition)
+                continue;
             if (!isKept(cls, preserveColorProfile, preserveResolution)) {
                 const marker = destination.segments[index]?.marker ?? 0;
                 return err(verificationError(`Marker 0x${marker.toString(16)} remained after sanitization.`, destinationPath));
             }
         }
-        const sourceKept = admission.parsed.segments.filter((_segment, index) => isKept(admission.classes[index] ?? "remove", preserveColorProfile, preserveResolution));
-        if (sourceKept.length !== destination.segments.length)
+        if (hasInsert) {
+            const exifSegment = destination.segments[insertPosition];
+            if (exifSegment === undefined || exifSegment.marker !== APP1)
+                return err(verificationError("Expected synthesized Exif segment is missing from its source slot.", destinationPath));
+            const exifPayload = await readTail(destinationHandle, exifSegment.payloadLength, exifSegment.payloadOffset);
+            const expectedTiff = createMinimalExif(tags);
+            const expectedPayload = Buffer.concat([EXIF_PREFIX, expectedTiff]);
+            const reparsed = parseExif(exifPayload);
+            const expectedEntryCount = (tags.orientation === undefined ? 0 : 1) +
+                (tags.resolution === undefined
+                    ? 0
+                    : tags.resolution.unit === undefined
+                        ? 2
+                        : 3);
+            if (!exifPayload.equals(expectedPayload) ||
+                reparsed.entries.length !== expectedEntryCount ||
+                (tags.orientation !== undefined &&
+                    (reparsed.orientation.status !== "valid" ||
+                        reparsed.orientation.value !== tags.orientation)))
+                return err(verificationError("Inserted Exif did not equal the recomputed minimal EXIF payload.", destinationPath));
+        }
+        const sourceKept = admission.parsed.segments.filter((_segment, index) => {
+            if (hasInsert && index === admission.exifSlot)
+                return false;
+            return isKept(admission.classes[index] ?? "remove", preserveColorProfile, preserveResolution);
+        });
+        const destinationForComparison = hasInsert
+            ? destination.segments.filter((_segment, index) => index !== insertPosition)
+            : destination.segments;
+        if (sourceKept.length !== destinationForComparison.length)
             return err(verificationError("Destination segment count did not match the sanitized plan.", destinationPath));
         for (let index = 0; index < sourceKept.length; index += 1) {
             const left = sourceKept[index];
-            const right = destination.segments[index];
+            const right = destinationForComparison[index];
             if (left === undefined ||
                 right === undefined ||
                 left.marker !== right.marker ||

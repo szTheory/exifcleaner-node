@@ -379,27 +379,91 @@ MPF index, a real Google Motion Photo, a Samsung trailer, or a plain
 trailer) truncates cleanly. This decision table is populated only from
 direct measurement against ExifTool 13.59, never by assumption.
 
-### JPEG orientation and resolution (interim, until 57-06)
+### JPEG orientation and resolution (D-03, D-04, D-05, D-06)
 
-Until dedicated orientation/resolution synthesis lands, `JpegCapabilities`
-advertises `preserves.orientation: true` and `preserves.resolution: true`,
-but both requests fail closed rather than silently degrade: a
-`preserveOrientation: true` request against a source with a valid EXIF
-Orientation declines pre-write (`unsupported-feature`,
-`feature: "orientation-preservation"`), and a `preserveResolution: true`
-request against a source whose EXIF carries its own IFD0 resolution declines
-pre-write (`unsafe-structure`) rather than guessing which resolution source
-should be synthesized. A `preserveResolution: true` request against a
-JFIF-only source (no EXIF resolution) is honored today by keeping the `JFIF`
-segment in place -- no synthesis required.
+`JpegCapabilities` advertises `preserves.orientation: true` and
+`preserves.resolution: true`. When a preserved IFD0 tag (Orientation or
+resolution) is requested and present in the source's first `APP1` `Exif`
+segment, the sanitized output carries exactly one freshly synthesized `APP1`
+`Exif` segment -- a minimal EXIF TIFF holding only the preserved tags -- in
+the source Exif segment's own slot. **The source Exif segment itself is
+never copied**: no GPS, thumbnail, Make/Model, Artist, or any other IFD0/
+ExifIFD tag survives. When no preserved IFD0 tag exists in the source (for
+example, a JFIF-only source with `preserveResolution: true`), no EXIF is
+created.
 
-### JPEG namespace mapping (D-15 analog)
+- **D-03 (Orientation + resolution synthesis)**: the inserted TIFF equals
+  `createMinimalExif({ orientation?, resolution? })` for only the tags that
+  were both requested and present. Re-parsing the destination after write
+  (`verifyOutput`) recomputes the same expected bytes and asserts an exact
+  match, plus that `parseExif` on the destination yields exactly the
+  preserved tag set.
+- **D-04 (independent resolution sources, no unit conversion)**: with
+  `preserveResolution: true`, `APP0` `JFIF` (when kept, D-06) is byte-
+  identical and independent of any IFD0 resolution tag -- a JFIF 72 dpi plus
+  an IFD0 300 dpi source keeps both unchanged. EXIF resolution is read only
+  from the source's own IFD0 `XResolution`/`YResolution`/`ResolutionUnit`;
+  no code path derives it from JFIF, SPIFF, or Photoshop values, or maps
+  JFIF density units (0/1/2) onto EXIF resolution units (1/2/3). Raw IFD0
+  rationals (for example `600/2`) are written unreduced. With
+  `preserveResolution: false`, `JFIF` and every IFD0 resolution tag are
+  absent from the output.
+- **D-06 (APP14 Adobe + JFIF)**: when an `APP14` `Adobe` segment is present,
+  `JFIF` is always dropped (matching ExifTool), with no decline; IFD0
+  resolution still synthesizes through D-03 when present, so
+  `preserved.resolution` is `true` when IFD0 resolution survived and `false`
+  when the source's only resolution source was the dropped `JFIF` (both
+  outcomes report `removedNamespaces` including `JPEG`).
+- **JFIF thumbnail (D-01/JPG-01)**: an `APP0` `JFIF` segment whose
+  `Xthumbnail`/`Ythumbnail` are not both zero is never kept byte-identical
+  (D-01 forbids editing a kept `JFIF`, and its thumbnail bytes never survive
+  the grouped resolution copy-back). With `preserveResolution: true` and no
+  `APP14`, such a source declines resolution preservation pre-write
+  (`checkOutputPlan`, safe-to-fallback) so the ExifTool route handles it;
+  with `preserveResolution: false` the `JFIF` is removed like every other
+  `JFIF`.
+- **D-05 (EXIF-only orientation, XMP/ExtendedXMP decline)**: the written
+  Orientation comes only from EXIF IFD0 `0x0112`. With
+  `preserveOrientation: true`, a standard XMP or complete ExtendedXMP
+  `tiff:Orientation` that is present while the EXIF Orientation is missing
+  or differs, or an ExtendedXMP that cannot be reassembled, declines
+  orientation preservation pre-write (`unsupported-feature`,
+  `feature: "orientation-preservation"`, `reason: "safe-to-fallback"`); an
+  agreeing XMP value, or XMP carrying no Orientation at all, does not
+  decline. With `preserveOrientation: false` nothing declines. **Measured
+  correction (57-01/57-EVIDENCE.md):** unlike this document's earlier D-05
+  prose, ExifTool does not pick EXIF over XMP "regardless of segment
+  order" -- whichever of EXIF/XMP appears first in the file wins. The decline
+  above is kept regardless: declining always routes the file through the
+  real ExifTool fallback, which reproduces whatever ExifTool would have
+  written for the actual segment order for free, so no order-awareness is
+  needed in the native path.
+- A duplicate Exif segment (a source with more than one `APP1` `Exif`) is
+  read from the first Exif slot only, per the same rule every other JPEG
+  metadata source uses (first occurrence wins, D-15 analog).
+
+### JPEG namespace mapping and inspection vocabulary (D-15 analog)
 
 `inspectFile` and `removedNamespaces` report JPEG's removable metadata under
 the same closed namespace set every format uses, widened by exactly one
 member: `JPEG` (reporting removed `JFIF`/`JFXX`, `COM`, `APP13`, `MPF`,
 other `APPn`, and trailer data). `EXIF`, `XMP`, `ICC`, and `C2PA` keep their
-existing cross-format meanings.
+existing cross-format meanings. Entries are read from buffered payloads
+only -- no unbuffered segment payload (for example an unclassified `COM`
+among thousands) is read merely to produce an inspection entry.
+
+| Entry name(s)                                           | Namespace | Source |
+| -------------------------------------------------------- | --------- | ------ |
+| (tag names from `parseExif`)                              | `EXIF`    | The first `APP1` `Exif` segment.                                                |
+| (tag names from `parseXmp`)                                | `XMP`     | The first standard XMP `APP1` packet.                                           |
+| (tag names from `parseIcc`)                                | `ICC`     | The reassembled `APP2` `ICC_PROFILE` sequence, only when it is a valid profile. |
+| `JFIF:ResolutionUnit`, `JFIF:XResolution`, `JFIF:YResolution` | `JPEG`    | The buffered `APP0` `JFIF` segment's density fields, whether kept or removed.    |
+| `JUMBF`                                                     | `C2PA`    | An `APP11` segment; value is the payload byte length.                           |
+| `<MARKER>` or `<MARKER>:<identifier>`                       | `JPEG`    | Every other removable segment (`COM`, `APP13:Photoshop 3.0`, `APP2:MPF`, an unknown `APPn`, and so on); value is the payload byte length. |
+| `Trailer`                                                   | `JPEG`    | Bytes after the primary `EOI`, only when the trailer is non-zero length.        |
+
+An incomplete ExtendedXMP (cannot be reassembled) adds a `metadata-invalid`
+warning rather than an entry.
 
 Every successful JPEG sanitize re-parses the staged destination, recomputes
 the expected marker sequence and every copied byte range from admission and

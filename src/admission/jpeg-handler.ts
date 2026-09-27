@@ -122,10 +122,11 @@ export interface JpegOutputPlan {
   }[];
   readonly preserveResolution: boolean;
   /**
-   * Fail-closed placeholder (until 57-06 lands): set when the plan was built
-   * with preserveResolution true and the source carries an EXIF IFD0
-   * resolution -- JPEG resolution synthesis is not yet admitted, so
-   * checkOutputPlan declines before any write.
+   * D-01/JPG-01: set when the plan was built with preserveResolution true
+   * and the source's kept-candidate JFIF carries a non-zero embedded
+   * thumbnail -- such a JFIF can never be kept byte-identical, so
+   * checkOutputPlan declines resolution preservation before any write,
+   * falling back to the ExifTool route.
    */
   readonly declineReason?: string;
 }
