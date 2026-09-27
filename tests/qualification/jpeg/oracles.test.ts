@@ -1,5 +1,10 @@
 import { readFileSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile as readFileAsync,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -83,6 +88,47 @@ async function assertRecordPayloadIdentity(caseId: string): Promise<void> {
   }
 }
 
+/**
+ * Locates the first SOS marker's entropy-coded data start offset via a
+ * test-local marker walk -- deliberately independent of `jpegEntropyCodedBytes`
+ * in `./oracles.ts` (the function under test through `assertPayloadIdentity`),
+ * so the red control cannot share a bug with the code it means to catch.
+ */
+function firstScanDataOffset(bytes: Buffer): number {
+  let offset = 2;
+  while (offset < bytes.length - 1) {
+    if (bytes[offset] !== 0xff)
+      throw new Error("expected a marker prefix byte");
+    const marker = bytes[offset + 1]!;
+    if (marker === 0xda) {
+      const length = bytes.readUInt16BE(offset + 2);
+      return offset + 2 + length;
+    }
+    const length = bytes.readUInt16BE(offset + 2);
+    offset += 2 + length;
+  }
+  throw new Error("firstScanDataOffset: no SOS marker found");
+}
+
+/**
+ * Returns a copy of `bytes` with one byte flipped in the middle of the first
+ * entropy-coded range, chosen and transformed so the mutation never produces
+ * an `0xFF` byte (which would otherwise be read as a stuffed byte or a real
+ * marker prefix, changing what is being tested).
+ */
+function flipFirstEntropyByte(bytes: Buffer): Buffer {
+  const scanStart = firstScanDataOffset(bytes);
+  let target = scanStart + 20;
+  while (bytes[target] === 0xff) target += 1;
+  if (target >= bytes.length) throw new Error("no safe byte found to flip");
+  const mutated = Buffer.from(bytes);
+  const original = mutated[target]!;
+  let flipped = original ^ 0x01;
+  if (flipped === 0xff) flipped = original ^ 0x02;
+  mutated[target] = flipped;
+  return mutated;
+}
+
 interface ManifestRecordSummary {
   readonly id: string;
   readonly format: string;
@@ -133,6 +179,42 @@ describe("JPG-03 payload identity through the pinned libjpeg-turbo oracle", () =
     "proves %s pixel-identical with every preservation flag false and every flag true",
     async (caseId) => {
       await assertRecordPayloadIdentity(caseId);
+    },
+    60_000,
+  );
+
+  /**
+   * The T-57-31 permanent red control (Plan 57-09 Task 3): a copy of a real
+   * sanitized output with one byte flipped inside its first entropy range
+   * must fail `assertPayloadIdentity`. Proves the gate can actually fail,
+   * not merely that it passes on already-correct output.
+   */
+  it.runIf(admittedHost)(
+    "rejects an output with one flipped entropy byte through the pixel oracle",
+    async () => {
+      const record = await loadCorpusRecord("libjpeg-turbo-testorig");
+      const source = await materializeCorpusRecord(record.id);
+      const sourceDirectory = await mkdtemp(
+        join(tmpdir(), "exifcleaner-jpeg-oracle-source-"),
+      );
+      const sourcePath = join(sourceDirectory, "source.jpg");
+      await writeFile(sourcePath, source);
+      try {
+        const output = await sanitizeToPath(source, ALL_FALSE);
+        try {
+          const outputBytes = await readFileAsync(output.outputPath);
+          const flipped = flipFirstEntropyByte(outputBytes);
+          const mutatedPath = join(output.directory, "mutated.jpg");
+          await writeFile(mutatedPath, flipped);
+          await expect(
+            assertPayloadIdentity(sourcePath, mutatedPath),
+          ).rejects.toThrow(/entropy-coded ranges differ/);
+        } finally {
+          await rm(output.directory, { recursive: true, force: true });
+        }
+      } finally {
+        await rm(sourceDirectory, { recursive: true, force: true });
+      }
     },
     60_000,
   );
