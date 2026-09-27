@@ -274,6 +274,7 @@ function execute(options) {
     "tests/qualification/jpeg/property.test.ts",
     "tests/qualification/jpeg/parser.test.ts",
     "tests/qualification/jpeg/transaction.test.ts",
+    "tests/qualification/jpeg/golden.test.ts",
   ]);
 }
 
