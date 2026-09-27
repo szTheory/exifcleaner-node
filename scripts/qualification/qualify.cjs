@@ -272,6 +272,7 @@ function execute(options) {
     "tests/qualification/jpeg/tracer.test.ts",
     "tests/qualification/jpeg/oracles.test.ts",
     "tests/qualification/jpeg/property.test.ts",
+    "tests/qualification/jpeg/parser.test.ts",
   ]);
 }
 
