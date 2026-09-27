@@ -3,3 +3,10 @@ node_modules/
 coverage/
 *.tgz
 native/phase-46-final-candidate.json
+# Vendored upstream licence text (57-08): must stay byte-identical to the
+# archived tar member -- its sha256 is pinned in
+# tests/corpus/tools/manifest.json's libjpeg-turbo-3.2.0 authority.
+# Every sibling licence file in this directory is already exempt by having
+# no extension prettier recognizes; this one is a real .md, so it needs an
+# explicit ignore entry to get the same treatment.
+tests/corpus/tools/licenses/libjpeg-turbo-LICENSE.md
