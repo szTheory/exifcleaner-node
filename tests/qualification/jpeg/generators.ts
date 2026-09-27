@@ -62,7 +62,9 @@ export function jpegMetadataArbitrary(): fc.Arbitrary<
       fc.tuple(...kinds.map((kind) => canaryArbitrary<JpegMetadataKind>(kind))),
     )
     .map((planted: readonly PlantedCanary<JpegMetadataKind>[]) => {
-      const segments = planted.map((item) => segmentForKind(item.kind, item.canary));
+      const segments = planted.map((item) =>
+        segmentForKind(item.kind, item.canary),
+      );
       const bytes = spliceSegments(minimalJpeg({ components: 3 }), segments);
       return { bytes, planted };
     });

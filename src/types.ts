@@ -253,7 +253,8 @@ export interface Capabilities {
  * Phase 56 added the PNG member; Phase 57 adds the JPEG member without
  * changing this contract's shape.
  */
-export type FormatCapabilities = WebpCapabilities | PngCapabilities | JpegCapabilities;
+export type FormatCapabilities =
+  WebpCapabilities | PngCapabilities | JpegCapabilities;
 
 export type ColorProfileAdmissionReason =
   "invalid" | "unsupported" | "policy-limit";

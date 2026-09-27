@@ -3,8 +3,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { classifyFallback, sanitizeFile } from "../dist/index.js";
-import { iccProfileV4, jpegAdobe, jpegExif, jpegJfif, jpegPhotoshop, minimalJpeg, exifWithArtist } from "./fixtures.js";
-import { appSegment, iccSegments, spliceSegments, appendTrailer } from "./qualification/jpeg/fixtures.js";
+import {
+  iccProfileV4,
+  jpegAdobe,
+  jpegExif,
+  jpegJfif,
+  jpegPhotoshop,
+  minimalJpeg,
+  exifWithArtist,
+} from "./fixtures.js";
+import {
+  appSegment,
+  iccSegments,
+  spliceSegments,
+  appendTrailer,
+} from "./qualification/jpeg/fixtures.js";
 
 /**
  * End-to-end proof that a JPEG travels the whole native path (57-05's
@@ -53,7 +66,8 @@ function readMarkerRanges(bytes: Buffer): MarkerRange[] {
   let offset = 2; // past SOI
   while (offset < bytes.length) {
     const start = offset;
-    if (bytes[offset] !== 0xff) throw new Error("expected a marker prefix byte");
+    if (bytes[offset] !== 0xff)
+      throw new Error("expected a marker prefix byte");
     const marker = bytes[offset + 1]!;
     offset += 2;
     if (marker === 0xd9) {

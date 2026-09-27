@@ -72,7 +72,11 @@ import {
 type JpegMetadataNamespace = "EXIF" | "XMP" | "ICC" | "C2PA" | "JPEG";
 
 export type JpegSegmentClass =
-  "structural" | "keep" | "conditional-color" | "conditional-resolution" | "remove";
+  | "structural"
+  | "keep"
+  | "conditional-color"
+  | "conditional-resolution"
+  | "remove";
 
 export interface JpegAdmission extends FormatAdmission {
   readonly parsed: ParsedJpeg;
@@ -140,7 +144,8 @@ function startsWith(payload: Buffer, prefix: Buffer): boolean {
   );
 }
 
-type AppSegmentKind = "jfif" | "exif" | "xmp" | "icc" | "mpf" | "adobe" | "other";
+type AppSegmentKind =
+  "jfif" | "exif" | "xmp" | "icc" | "mpf" | "adobe" | "other";
 
 /**
  * Classifies an APPn segment's raw payload (as buffered by `parseJpeg`) by
@@ -196,7 +201,8 @@ function classifySegments(parsed: ParsedJpeg): readonly JpegSegmentClass[] {
     if (marker === COM || !isAppMarker(marker)) return "remove";
     const kind = classifyAppSegment(marker, parsed.buffered.get(index));
     if (kind === "adobe") return "keep";
-    if (kind === "jfif") return adobePresent ? "remove" : "conditional-resolution";
+    if (kind === "jfif")
+      return adobePresent ? "remove" : "conditional-resolution";
     if (kind === "icc") return "conditional-color";
     // exif, xmp, mpf and "other" (APP0 JFXX, APP11, APP13, non-Adobe APP14,
     // APP15, unknown identifiers, duplicates beyond the first) are all
@@ -499,7 +505,12 @@ async function readTail(
   const result = Buffer.alloc(length);
   let read = 0;
   while (read < length) {
-    const next = await handle.read(result, read, length - read, position + read);
+    const next = await handle.read(
+      result,
+      read,
+      length - read,
+      position + read,
+    );
     if (next.bytesRead === 0) break;
     read += next.bytesRead;
   }
@@ -576,7 +587,11 @@ async function verifyOutput(
   signal?: AbortSignal,
 ): Promise<Result<void>> {
   try {
-    const destination = await parseJpeg(destinationHandle, destinationSize, signal);
+    const destination = await parseJpeg(
+      destinationHandle,
+      destinationSize,
+      signal,
+    );
 
     if (destination.trailerBytes !== 0)
       return err(
@@ -591,10 +606,14 @@ async function verifyOutput(
       preserveColorProfile,
       preserveResolution,
     );
-    const destinationMarkers = destination.segments.map((segment) => segment.marker);
+    const destinationMarkers = destination.segments.map(
+      (segment) => segment.marker,
+    );
     if (
       destinationMarkers.length !== expectedMarkers.length ||
-      destinationMarkers.some((marker, index) => marker !== expectedMarkers[index])
+      destinationMarkers.some(
+        (marker, index) => marker !== expectedMarkers[index],
+      )
     )
       return err(
         verificationError(
@@ -640,10 +659,19 @@ async function verifyOutput(
         left === undefined ||
         right === undefined ||
         left.marker !== right.marker ||
-        !(await segmentsEqual(sourceHandle, left, destinationHandle, right, signal))
+        !(await segmentsEqual(
+          sourceHandle,
+          left,
+          destinationHandle,
+          right,
+          signal,
+        ))
       )
         return err(
-          verificationError("Kept JPEG segment bytes changed.", destinationPath),
+          verificationError(
+            "Kept JPEG segment bytes changed.",
+            destinationPath,
+          ),
         );
     }
 
@@ -743,7 +771,10 @@ export const jpegHandler: FormatHandler<JpegAdmission, JpegOutputPlan> =
       signal?: AbortSignal,
     ): Promise<JpegAdmission> {
       const parsed = await parseJpeg(handle, size, signal);
-      const trailerStart = Math.max(parsed.primaryEoiEnd, size - TRAILER_TAIL_BYTES);
+      const trailerStart = Math.max(
+        parsed.primaryEoiEnd,
+        size - TRAILER_TAIL_BYTES,
+      );
       const trailerLength = size - trailerStart;
       const trailerTail =
         trailerLength > 0

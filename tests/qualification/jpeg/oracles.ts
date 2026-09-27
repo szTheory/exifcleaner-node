@@ -49,7 +49,9 @@ export function jpegRawColorProfileSha256(input: Buffer): string | undefined {
     if (
       marker === 0xe2 /* APP2 */ &&
       payloadLength >= identifier.length + 2 &&
-      input.subarray(payloadOffset, payloadOffset + identifier.length).equals(identifier)
+      input
+        .subarray(payloadOffset, payloadOffset + identifier.length)
+        .equals(identifier)
     ) {
       const sequence = input.readUInt8(payloadOffset + identifier.length);
       const count = input.readUInt8(payloadOffset + identifier.length + 1);
@@ -59,7 +61,10 @@ export function jpegRawColorProfileSha256(input: Buffer): string | undefined {
       if (bySequence.has(sequence)) return undefined;
       bySequence.set(
         sequence,
-        input.subarray(payloadOffset + identifier.length + 2, payloadOffset + payloadLength),
+        input.subarray(
+          payloadOffset + identifier.length + 2,
+          payloadOffset + payloadLength,
+        ),
       );
     }
     offset = payloadOffset + payloadLength;
