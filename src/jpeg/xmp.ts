@@ -29,9 +29,7 @@ interface ExtendedXmpChunk {
   readonly data: Buffer;
 }
 
-function parseExtendedXmpChunk(
-  payload: Buffer,
-): ExtendedXmpChunk | undefined {
+function parseExtendedXmpChunk(payload: Buffer): ExtendedXmpChunk | undefined {
   const base = EXTENDED_XMP_IDENTIFIER_PREFIX_BYTES;
   if (payload.length < base + GUID_BYTES + CHUNK_HEADER_BYTES) {
     return undefined;
@@ -98,7 +96,9 @@ export function reassembleExtendedXmp(
     };
   }
 
-  const sorted = [...matching].sort((left, right) => left.offset - right.offset);
+  const sorted = [...matching].sort(
+    (left, right) => left.offset - right.offset,
+  );
   let coveredTo = 0;
   for (const chunk of sorted) {
     if (chunk.offset > coveredTo) {
@@ -122,5 +122,11 @@ export function reassembleExtendedXmp(
     };
   }
 
-  return { status: "complete", xmp: Buffer.concat(sorted.map((chunk) => chunk.data), fullLength) };
+  return {
+    status: "complete",
+    xmp: Buffer.concat(
+      sorted.map((chunk) => chunk.data),
+      fullLength,
+    ),
+  };
 }

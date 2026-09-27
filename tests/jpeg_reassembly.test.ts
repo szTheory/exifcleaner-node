@@ -4,8 +4,15 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { iccProfileV4, minimalJpeg } from "./fixtures.js";
 import { iccSegments, spliceSegments } from "./qualification/jpeg/fixtures.js";
-import { type ParsedJpeg, JpegStructureError, parseJpeg } from "../src/jpeg/parser.js";
-import { ICC_SEGMENT_IDENTIFIER, reassembleIccSegments } from "../src/jpeg/icc.js";
+import {
+  type ParsedJpeg,
+  JpegStructureError,
+  parseJpeg,
+} from "../src/jpeg/parser.js";
+import {
+  ICC_SEGMENT_IDENTIFIER,
+  reassembleIccSegments,
+} from "../src/jpeg/icc.js";
 import { MAX_PROFILE_BYTES } from "../src/metadata/icc_admission.js";
 import { JPEG_MAX_EXTENDED_XMP_BYTES } from "../src/jpeg/markers.js";
 import { xmpOrientation } from "../src/metadata/xmp.js";
@@ -191,10 +198,12 @@ const GUID_B = "FEDCBA9876543210FEDCBA9876543210";
 
 /** A minimal standard-XMP APP1 payload (identifier + RDF), optionally naming
  * an ExtendedXMP GUID via `xmpNote:HasExtendedXMP`. */
-function standardXmpPayload(options: {
-  readonly hasExtendedXmpGuid?: string;
-  readonly orientation?: number;
-} = {}): Buffer {
+function standardXmpPayload(
+  options: {
+    readonly hasExtendedXmpGuid?: string;
+    readonly orientation?: number;
+  } = {},
+): Buffer {
   const attributes = [
     options.hasExtendedXmpGuid !== undefined
       ? `xmlns:xmpNote="http://ns.adobe.com/xmp/1.0/mm/" xmpNote:HasExtendedXMP="${options.hasExtendedXmpGuid}"`
@@ -272,9 +281,7 @@ describe("reassembleExtendedXmp: GUID-scoped, bounded reassembly (D-05, Task 2)"
 
   it("ignores chunks of a different GUID", () => {
     const standard = standardXmpPayload({ hasExtendedXmpGuid: GUID_A });
-    const chunks = [
-      extendedXmpChunkPayload(GUID_B, 10, 0, Buffer.alloc(10)),
-    ];
+    const chunks = [extendedXmpChunkPayload(GUID_B, 10, 0, Buffer.alloc(10))];
     const result = reassembleExtendedXmp(standard, chunks);
     expect(result.status).toBe("absent");
   });
@@ -333,9 +340,7 @@ describe("reassembleExtendedXmp: GUID-scoped, bounded reassembly (D-05, Task 2)"
 
   it("returns absent when there is no HasExtendedXMP, even with extension chunks present", () => {
     const standard = standardXmpPayload();
-    const chunks = [
-      extendedXmpChunkPayload(GUID_A, 10, 0, Buffer.alloc(10)),
-    ];
+    const chunks = [extendedXmpChunkPayload(GUID_A, 10, 0, Buffer.alloc(10))];
     const result = reassembleExtendedXmp(standard, chunks);
     expect(result.status).toBe("absent");
   });

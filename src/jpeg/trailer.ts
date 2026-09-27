@@ -121,9 +121,8 @@ function isSamsungSeftTail(trailerTail: Buffer): boolean {
   if (trailerTail.length < SEFT_TAIL_BYTES) return false;
   const magicStart = trailerTail.length - SEFT_TAIL_BYTES;
   return (
-    trailerTail
-      .subarray(magicStart, magicStart + 4)
-      .toString("ascii") === SEFT_MAGIC
+    trailerTail.subarray(magicStart, magicStart + 4).toString("ascii") ===
+    SEFT_MAGIC
   );
 }
 

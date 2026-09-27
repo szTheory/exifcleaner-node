@@ -53,7 +53,9 @@ async function parseFile(bytes: Buffer): Promise<ParsedJpeg> {
  * buffered APP2 MPF payload (if any), the standard XMP's parsed entries (if
  * any), the trailer bytes themselves as `trailerTail`, the trailer byte
  * count, and the file size. */
-async function classifyFile(bytes: Buffer): Promise<ReadonlySet<JpegTrailerClass>> {
+async function classifyFile(
+  bytes: Buffer,
+): Promise<ReadonlySet<JpegTrailerClass>> {
   const parsed = await parseFile(bytes);
   let mpfPayload: Buffer | undefined;
   let xmpEntries: readonly MetadataEntry[] = [];

@@ -111,7 +111,10 @@ function fillerBytes(n: number, seed: number): Buffer {
   return buf;
 }
 
-function identifierPayload(identifier: string, extra: Buffer = Buffer.alloc(0)): Buffer {
+function identifierPayload(
+  identifier: string,
+  extra: Buffer = Buffer.alloc(0),
+): Buffer {
   return Buffer.concat([
     Buffer.from(identifier, "latin1"),
     Buffer.from([0x00]),
@@ -273,7 +276,10 @@ function buildMpfSegmentEntries({
  * bytes (spliced after its SOI), with a distinguishing COM marker so its
  * bytes are never a subset of a sanitized-primary output that reused the
  * same source tables (57-01's measured confound). */
-function buildDistinguishableSecondary(primary: Buffer, markerText: string): Buffer {
+function buildDistinguishableSecondary(
+  primary: Buffer,
+  markerText: string,
+): Buffer {
   const comSeg = appSegment(0xfe, Buffer.from(markerText, "ascii"));
   return spliceSegments(primary, [comSeg]);
 }
