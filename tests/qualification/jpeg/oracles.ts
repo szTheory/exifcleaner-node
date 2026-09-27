@@ -125,7 +125,10 @@ export function jpegMarkerSequence(bytes: Buffer): JpegMarkerWalk {
     if (marker === 0xd9 /* EOI */) {
       return { markers, trailerBytes: bytes.length - (offset + 2) };
     }
-    if (marker >= 0xd0 && marker <= 0xd7 /* stray RSTn, never expected here */) {
+    if (
+      marker >= 0xd0 &&
+      marker <= 0xd7 /* stray RSTn, never expected here */
+    ) {
       offset += 2;
       continue;
     }

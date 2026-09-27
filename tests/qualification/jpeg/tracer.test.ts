@@ -15,7 +15,11 @@ import {
 } from "../../../src/jpeg/markers.js";
 import type { JpegCapabilities } from "../../../src/types.js";
 import { metadataJpeg, minimalJpeg } from "../../fixtures.js";
-import { buildCipaMpfTwoImages, iccSegments, spliceSegments } from "./fixtures.js";
+import {
+  buildCipaMpfTwoImages,
+  iccSegments,
+  spliceSegments,
+} from "./fixtures.js";
 import { jpegMarkerSequence } from "./oracles.js";
 
 /**
@@ -64,7 +68,11 @@ function markerOffset(bytes: Buffer, marker: number, from = 2): number {
   throw new Error(`marker 0x${marker.toString(16)} not found in fixture`);
 }
 
-function patchMarkerByte(bytes: Buffer, markerOff: number, newMarker: number): Buffer {
+function patchMarkerByte(
+  bytes: Buffer,
+  markerOff: number,
+  newMarker: number,
+): Buffer {
   const result = Buffer.from(bytes);
   result[markerOff + 1] = newMarker;
   return result;

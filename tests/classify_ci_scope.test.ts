@@ -1141,10 +1141,7 @@ describe.skipIf(process.platform === "win32")(
         join(packageRoot, ".github", "workflows", "ci.yml"),
         "utf8",
       );
-      const mutated = workflow.replace(
-        /QUAL_JPEG: "[^"]*"/u,
-        'QUAL_JPEG: ""',
-      );
+      const mutated = workflow.replace(/QUAL_JPEG: "[^"]*"/u, 'QUAL_JPEG: ""');
       expect(mutated).not.toBe(workflow);
       const { jobText, scriptBody } = loadSelectionStepFromWorkflow(mutated);
       const { status, recordedArgs } = runQualificationSelectionStep(
