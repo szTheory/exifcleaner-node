@@ -123,10 +123,15 @@ describe("reassembleIccSegments: consistency rules (D-01, Task 2)", () => {
     expect(result.equals(chunk)).toBe(true);
   });
 
-  it("throws malformed-container on a duplicate sequence number", () => {
+  it("throws malformed-container on a duplicate sequence number (never silently overwrites)", () => {
+    // count=1 with two payloads both claiming sequence 1: without an explicit
+    // duplicate check, the second would silently overwrite the first in a
+    // sequence-keyed map and reassembly would succeed on the wrong bytes --
+    // no other check (missing-sequence, mismatched-count) would catch this
+    // shape, so this is the one test that isolates the duplicate check.
     const payloads = [
-      iccPayload(1, 2, Buffer.from([0x01])),
-      iccPayload(1, 2, Buffer.from([0x02])),
+      iccPayload(1, 1, Buffer.from([0x01])),
+      iccPayload(1, 1, Buffer.from([0x02])),
     ];
     expect(() => reassembleIccSegments(payloads)).toThrow(JpegStructureError);
     try {
