@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import type { DifferentialProfile } from "../kit/oracles.js";
+import type { DifferentialProfile, MetadataEntry } from "../kit/oracles.js";
 import type { PayloadDigest } from "../kit/corpus.js";
 
 // JPEG's differential-oracle profile (57-05 tracer slice). Deliberately does
@@ -179,18 +179,116 @@ export function jpegSanitizeOptionsForGrants(
 }
 
 /**
- * The complete JPEG differential profile (D-01/D-02/D-04/D-06/D-07 land in
- * Plan 10 Task 2) -- Task 1 wires `structuralParts` so the tracer's first
- * live differential case (ExifTool.jpg, every flag false) can also catch a
- * kept-vs-dropped APPn/COM segment the metadata-only comparison alone would
- * miss. `permittedKinds` stays empty until Task 2 measures JPEG's own
- * preservation grants.
+ * The exact title of the live test (oracles.test.ts, Plan 10) that measures
+ * EXIF Orientation and ICC color-profile preservation as permitted JPEG
+ * metadata differences.
+ */
+export const JPEG_PRESERVATION_MEASUREMENT_TITLE =
+  "measures EXIF Orientation and ICC color-profile preservation as permitted JPEG metadata differences";
+
+/**
+ * The exact title of the live test (oracles.test.ts, Plan 10) that measures
+ * JFIF-resolution preservation (D-04(a)/D-04(c)) as a permitted JPEG
+ * metadata difference, including the D-07 IFD0 resolution side effect a
+ * simultaneous EXIF-sourced conflict produces.
+ */
+export const JPEG_RESOLUTION_MEASUREMENT_TITLE =
+  "measures JFIF resolution preservation, including the simultaneous IFD0 conflict case, as a permitted JPEG metadata difference";
+
+const IFD0_RESOLUTION_TAGS: ReadonlySet<string> = new Set([
+  "XResolution",
+  "YResolution",
+  "ResolutionUnit",
+]);
+
+/**
+ * D-07: when the source JFIF and a real EXIF IFD0 resolution both exist
+ * (57-EVIDENCE.md D-04(c)), `preserveResolution` keeps the JFIF segment
+ * unconditionally (the `Resolution:Preserved` grant's own JFIF-namespace
+ * branch explains that half) *and* synthesizes a minimal EXIF IFD0 holding
+ * the source's own X/YResolution and ResolutionUnit (measured
+ * 2026-09-27 against the built package: no YCbCrPositioning or any other
+ * IFD0 tag is ever added -- `src/metadata/exif.ts`'s `createMinimalExif`
+ * writes only the tags it is asked for). This is the EXIF-namespace side
+ * effect of that same grant, closed to an exact match of those three tags
+ * -- mirrors `png/oracles.ts`'s `explainsPngProfileName` shape. Citing
+ * 52-04-PLAN.md's planner measurements line (IFD0:YCbCrPositioning) and this
+ * plan's re-measurement: ExifTool's own reference for this differential is
+ * always bare `-all=` (`runExiftoolDifferential` never passes
+ * `tagsFromFileArgs`), which recreates neither JFIF nor EXIF at all -- so
+ * the reference carries zero entries in both namespaces, and 52-04-PLAN's
+ * JFIF:JFIFVersion/File:ExifByteOrder/IFD0:YCbCrPositioning side effects
+ * (measured against ExifTool's *grouped TagsFromFile* reference, a
+ * different code path this kit's differential never runs) do not arise
+ * here: File:ExifByteOrder is excluded from every comparison by the kit's
+ * own `EXCLUDED_GROUPS`, and JFIFVersion/YCbCrPositioning simply have
+ * nothing on the reference side to diverge from.
+ */
+function explainsJpegIfd0Resolution(
+  onlyLeft: readonly MetadataEntry[],
+): boolean {
+  return (
+    onlyLeft.length > 0 &&
+    onlyLeft.every((entry) => {
+      const keys = Object.keys(entry);
+      return keys.length === 1 && IFD0_RESOLUTION_TAGS.has(keys[0]!);
+    })
+  );
+}
+
+/**
+ * The complete JPEG differential profile (D-01/D-02/D-04/D-06/D-07): the
+ * closed three-kind permitted-difference list (identical ids to PNG/WebP --
+ * D-07's own must-have forbids a fourth), plus the structural-part
+ * extractor so `runExiftoolDifferential` also runs
+ * `compareStructuralDifferential` (D-01 guard: a kept-vs-dropped APPn/COM
+ * segment the metadata-only comparison alone cannot see, e.g. the kept
+ * APP14 Adobe segment carries no ExifTool-reported tags of its own group
+ * name distinct from "Adobe", which IS compared, but a dropped unknown
+ * identifier with zero metadata payload would not otherwise register).
+ *
+ * `Resolution:Preserved.namespace` is fixed to `"JFIF"` -- the JFIF segment
+ * is the one resolution home `comparePermittedDifferences`'s own namespace
+ * check and `compareDifferential`'s resolutionKind branch (both written
+ * once, shared with PNG/WebP, requiring `referenceEntries.length === 0` for
+ * the granted namespace) can validate cleanly for every JPEG preservation
+ * case that keeps *something* in that namespace: D-04(a) (JFIF-only) and
+ * D-04(c) (JFIF plus a simultaneous EXIF IFD0 conflict, whose IFD0 side is
+ * covered by `impliedDifference` above). D-06 (Adobe present, JFIF
+ * unconditionally dropped, IFD0 kept alone) cannot grant this same kind --
+ * `comparePermittedDifferences` would compare source's JFIF entries against
+ * the *output's own zero* JFIF entries and reject a drop that is correct,
+ * not a preservation failure -- so oracles.test.ts's D-06 case is proven by
+ * a direct `projectMetadata`/`compareStructuralDifferential` assertion
+ * instead of the generic grant mechanism (measured 2026-09-27, recorded in
+ * the Plan 10 SUMMARY).
  */
 export const jpegDifferentialProfile: DifferentialProfile = {
   format: "jpeg",
   extension: JPEG_EXTENSION,
   rawColorProfileSha256: jpegRawColorProfileSha256,
-  permittedKinds: [],
+  permittedKinds: [
+    {
+      id: "EXIF:Orientation",
+      measurement: JPEG_PRESERVATION_MEASUREMENT_TITLE,
+      structuralPart: "APP1:Exif",
+    },
+    {
+      id: "ICC_Profile:RawProfile",
+      measurement: JPEG_PRESERVATION_MEASUREMENT_TITLE,
+      structuralPart: "APP2:ICC_PROFILE",
+    },
+    {
+      id: "Resolution:Preserved",
+      measurement: JPEG_RESOLUTION_MEASUREMENT_TITLE,
+      namespace: "JFIF",
+      structuralPart: "APP0:JFIF",
+      impliedDifference: {
+        namespace: "EXIF",
+        explains: explainsJpegIfd0Resolution,
+      },
+    },
+  ],
   structuralParts: jpegStructuralParts,
 };
 

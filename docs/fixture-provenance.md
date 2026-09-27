@@ -134,6 +134,30 @@ preservation flag false) before the corpus record was written.
 | `exiftool-jpeg-nikon`         | `t/images/Nikon.jpg`         | see `tests/corpus/manifest.json` | 1703  | differential | success, removes nothing                    |
 | `exiftool-jpeg-apple`         | `t/images/Apple.jpg`         | see `tests/corpus/manifest.json` | 2355  | differential | success, removes nothing                    |
 
+## Constructed JPEG Segment/Preservation Fixtures (Phase 57 Plan 10)
+
+35 fixtures committed under `tests/corpus/constructed/jpeg/`, built from
+`exiftool-jpeg-writer` (above) through `tests/qualification/jpeg/fixtures.ts`'s own
+builders (MIT-licensed, this repository) -- never derived from any upstream archive.
+31 cover one row each of 57-EVIDENCE.md's D-01/D-02 segment-policy table plus the D-02
+"non-JUMBF APP11" edge case (`JPEG_SEGMENT_IDENTIFIER_FIXTURES`, ids `jpeg-seg-*`); one
+is the dedicated D-02 constructed C2PA manifest parity fixture
+(`jpeg-c2pa-manifest`); three are the D-04/D-06 preservation shapes
+(`jpeg-preservation-jfif-only`, `jpeg-preservation-jfif-ifd0-conflict`,
+`jpeg-preservation-adobe-jfif-exif`). Every "measured outcome" was captured by running
+the built package's own `sanitizeFile` against the committed bytes before the corpus
+record was written; a host-independent test
+(`tests/qualification/jpeg/oracles.test.ts`, "JPEG constructed fixtures regenerate
+byte-identically") regenerates every one of these 35 fixtures from
+`exiftool-jpeg-writer` and asserts byte-for-byte equality against the committed file on
+every platform, not just linux/amd64.
+
+Exact sha256/bytes/topology/outcome values for all 35 records live in
+`tests/corpus/manifest.json` (ids `jpeg-seg-*`, `jpeg-c2pa-manifest`,
+`jpeg-preservation-*`) rather than restated here -- the regeneration test is the
+permanent guard that keeps this doc from drifting out of sync with the committed
+bytes.
+
 ## Generated Fixtures
 
 Repository-generated fixtures are not upstream ExifCleaner evidence. Their provenance record should include:

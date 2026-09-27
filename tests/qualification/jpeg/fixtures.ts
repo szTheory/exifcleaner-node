@@ -391,3 +391,444 @@ export function buildMpfIndexOutOfRange(primary: Buffer): Buffer {
   });
   return spliceSegments(primary, [mpfSeg]);
 }
+
+// -----------------------------------------------------------------------------
+// Plan 57-10: per-identifier segment (D-01), C2PA (D-02) and preservation
+// (D-04/D-06) fixture builders, all spliced onto a real Writer.jpg-shaped
+// `primary` (`buildSegmentFixture` mirrors `build-fixtures.mjs`'s `segment` +
+// `spliceAfterSoi` pair, ported to TS so this plan can commit its output
+// bytes and regenerate them byte-identically in a test).
+// -----------------------------------------------------------------------------
+
+/** Splices one APPn/COM segment (`marker`, `payload`) right after `primary`'s
+ * SOI -- the one-segment-per-identifier shape every D-01 segment-policy
+ * fixture shares. */
+export function buildSegmentFixture(
+  primary: Buffer,
+  marker: number,
+  payload: Buffer,
+): Buffer {
+  return spliceSegments(primary, [appSegment(marker, payload)]);
+}
+
+/** A JFIF APP0 payload (`build-fixtures.mjs`'s `jfifPayload`, no thumbnail):
+ * `"JFIF\0"`, version 1.2 (ExifTool's own default JFIF-write version, so a
+ * bare `-all=`-reference differential run needs no JFIFVersion grant), a
+ * density unit (1 = dots per inch) and the given X/Y density. */
+export function jpegJfifPayload(xDensity = 72, yDensity = 72): Buffer {
+  const buf = Buffer.alloc(14);
+  buf.write("JFIF\0", 0, 5, "latin1");
+  buf[5] = 1; // version major
+  buf[6] = 2; // version minor -- matches ExifTool 13.59's own JFIF-write default
+  buf[7] = 1; // units: dots per inch
+  buf.writeUInt16BE(xDensity, 8);
+  buf.writeUInt16BE(yDensity, 10);
+  buf[12] = 0; // thumbnail width
+  buf[13] = 0; // thumbnail height
+  return buf;
+}
+
+/** An EXIF APP1 payload carrying only an IFD0 Orientation tag (`"Exif\0\0"` +
+ * a minimal big-endian TIFF/IFD0, mirrors `build-fixtures.mjs`'s
+ * `exifOrientationPayload`). */
+export function jpegExifOrientationPayload(orientation: number): Buffer {
+  const buf = Buffer.alloc(6 + 8 + 2 + 12 + 4);
+  let o = 0;
+  buf.write("Exif\0\0", o, 6, "latin1");
+  o += 6;
+  buf.write("MM", o, 2, "latin1");
+  o += 2;
+  buf.writeUInt16BE(0x002a, o);
+  o += 2;
+  buf.writeUInt32BE(8, o);
+  o += 4;
+  buf.writeUInt16BE(1, o);
+  o += 2;
+  buf.writeUInt16BE(0x0112, o);
+  o += 2;
+  buf.writeUInt16BE(3, o);
+  o += 2;
+  buf.writeUInt32BE(1, o);
+  o += 4;
+  buf.writeUInt16BE(orientation, o);
+  o += 2;
+  buf.writeUInt16BE(0, o);
+  o += 2;
+  buf.writeUInt32BE(0, o);
+  return buf;
+}
+
+/** An EXIF APP1 payload carrying only IFD0 X/YResolution + ResolutionUnit
+ * (big-endian TIFF/IFD0, ascending tag order, RATIONALs stored after the IFD
+ * -- mirrors `src/metadata/exif.ts`'s `createMinimalExif` layout but built
+ * independently for fixture construction). */
+export function jpegExifResolutionPayload(
+  x: number,
+  y: number,
+  unit: number,
+): Buffer {
+  const ifdBytes = 2 + 3 * 12 + 4;
+  const total = 8 + ifdBytes + 2 * 8;
+  const buf = Buffer.alloc(total);
+  buf.write("MM", 0, 2, "latin1");
+  buf.writeUInt16BE(0x002a, 2);
+  buf.writeUInt32BE(8, 4);
+  buf.writeUInt16BE(3, 8);
+  let rationalOffset = 8 + ifdBytes;
+  const entryOffset = (index: number): number => 10 + index * 12;
+  // 0x011A XResolution RATIONAL
+  buf.writeUInt16BE(0x011a, entryOffset(0));
+  buf.writeUInt16BE(5, entryOffset(0) + 2);
+  buf.writeUInt32BE(1, entryOffset(0) + 4);
+  buf.writeUInt32BE(rationalOffset, entryOffset(0) + 8);
+  buf.writeUInt32BE(x, rationalOffset);
+  buf.writeUInt32BE(1, rationalOffset + 4);
+  rationalOffset += 8;
+  // 0x011B YResolution RATIONAL
+  buf.writeUInt16BE(0x011b, entryOffset(1));
+  buf.writeUInt16BE(5, entryOffset(1) + 2);
+  buf.writeUInt32BE(1, entryOffset(1) + 4);
+  buf.writeUInt32BE(rationalOffset, entryOffset(1) + 8);
+  buf.writeUInt32BE(y, rationalOffset);
+  buf.writeUInt32BE(1, rationalOffset + 4);
+  rationalOffset += 8;
+  // 0x0128 ResolutionUnit SHORT
+  buf.writeUInt16BE(0x0128, entryOffset(2));
+  buf.writeUInt16BE(3, entryOffset(2) + 2);
+  buf.writeUInt32BE(1, entryOffset(2) + 4);
+  buf.writeUInt16BE(unit, entryOffset(2) + 8);
+  buf.writeUInt32BE(0, 8 + ifdBytes - 4); // next IFD offset
+  return Buffer.concat([Buffer.from("Exif\0\0", "ascii"), buf]);
+}
+
+/** APP14 Adobe payload (12 bytes): `"Adobe"` (no NUL), DCTEncodeVersion 100,
+ * APP14Flags0/1 zero, the given ColorTransform byte -- mirrors
+ * `tests/fixtures.ts`'s `jpegAdobe`, ported so this file needs no cross-import
+ * from a `describe`-scoped test helper module. */
+export function jpegAdobePayload(transform = 1): Buffer {
+  const data = Buffer.alloc(7);
+  data.writeUInt16BE(100, 0);
+  data.writeUInt16BE(0, 2);
+  data.writeUInt16BE(0, 4);
+  data[6] = transform;
+  return Buffer.concat([Buffer.from("Adobe", "ascii"), data]);
+}
+
+function jumbfBox(type: string, content: Buffer): Buffer {
+  const head = Buffer.alloc(8);
+  head.writeUInt32BE(8 + content.length, 0);
+  head.write(type, 4, 4, "latin1");
+  return Buffer.concat([head, content]);
+}
+
+function jumdBox(label: string): Buffer {
+  const uuid = Buffer.alloc(16, 0x11);
+  const toggles = Buffer.from([0x03]);
+  const label8 = Buffer.from(`${label}\0`, "latin1");
+  return jumbfBox("jumd", Buffer.concat([uuid, toggles, label8]));
+}
+
+/** APP11 JUMBF payload carrying a CAI-labelled manifest box (D-01/D-02): `"JP"`
+ * + a 2-byte box instance number + a `jumb(jumd(cai) + bfdb(json))` box.
+ * Mirrors `build-fixtures.mjs`'s `buildCaiJumbf`. */
+export function jpegCaiJumbfPayload(): Buffer {
+  const contentJson = Buffer.from(
+    JSON.stringify({ note: "constructed CAI test box" }),
+    "utf8",
+  );
+  const contentBox = jumbfBox("bfdb", contentJson);
+  const outer = jumbfBox("jumb", Buffer.concat([jumdBox("cai"), contentBox]));
+  return Buffer.concat([
+    Buffer.from("JP", "latin1"),
+    Buffer.from([0x00, 0x01]),
+    outer,
+  ]);
+}
+
+/** APP11 JUMBF payload carrying a nested C2PA manifest/claim/claim-content box
+ * structure (D-02): `jumd(c2pa)` -> `jumd(c2ma)` -> `jumd(c2pa.claim)` + a
+ * `json` content box. Mirrors `build-fixtures.mjs`'s `buildC2paJumbf`. */
+export function jpegC2paJumbfPayload(): Buffer {
+  const claimJson = Buffer.from(
+    JSON.stringify({
+      claim_generator: "exifcleaner-57-10-fixture/1.0",
+      assertions: [],
+    }),
+    "utf8",
+  );
+  const claimContentBox = jumbfBox("json", claimJson);
+  const claimBox = jumbfBox(
+    "jumb",
+    Buffer.concat([jumdBox("c2pa.claim"), claimContentBox]),
+  );
+  const c2maBox = jumbfBox("jumb", Buffer.concat([jumdBox("c2ma"), claimBox]));
+  return Buffer.concat([
+    Buffer.from("JP", "latin1"),
+    Buffer.from([0x00, 0x02]),
+    jumbfBox("jumb", Buffer.concat([jumdBox("c2pa"), c2maBox])),
+  ]);
+}
+
+/** APP11 payload carrying a non-JUMBF identifier (D-02 edge: an APP11
+ * segment that is not JP/JUMBF-shaped at all -- mirrors the real
+ * `HDR_RI`-identified APP11 segment ExifTool.jpg itself carries). */
+export function jpegNonJumbfApp11Payload(): Buffer {
+  return Buffer.concat([
+    Buffer.from("HDR_RI ver=11\n", "ascii"),
+    fillerBytes(16, 42),
+  ]);
+}
+
+/** `preservation-jfif-only`: a JFIF-only source (72dpi) with no EXIF segment
+ * at all (D-04(a): native keeps this JFIF byte-identical under
+ * `preserveResolution`, synthesizing no EXIF). */
+export function buildPreservationJfifOnly(primary: Buffer): Buffer {
+  return buildSegmentFixture(primary, 0xe0, jpegJfifPayload(72, 72));
+}
+
+/** `preservation-jfif-ifd0-conflict`: JFIF (72dpi) plus a real EXIF IFD0
+ * resolution block (300dpi), no Adobe APP14 (D-04(c): both groups are kept
+ * independently under `preserveResolution`, with no reconciliation). */
+export function buildPreservationJfifIfd0Conflict(primary: Buffer): Buffer {
+  const jfifSeg = appSegment(0xe0, jpegJfifPayload(72, 72));
+  const exifSeg = appSegment(0xe1, jpegExifResolutionPayload(300, 300, 2));
+  return spliceSegments(primary, [jfifSeg, exifSeg]);
+}
+
+/** `preservation-adobe-jfif-exif`: Adobe APP14 plus JFIF (72dpi) plus a real
+ * EXIF IFD0 resolution block (300dpi) (D-06: JFIF is unconditionally dropped
+ * because Adobe is present; IFD0 resolution is kept via the synthesized
+ * minimal EXIF). */
+export function buildPreservationAdobeJfifExif(primary: Buffer): Buffer {
+  const adobeSeg = appSegment(0xee, jpegAdobePayload(1));
+  const jfifSeg = appSegment(0xe0, jpegJfifPayload(72, 72));
+  const exifSeg = appSegment(0xe1, jpegExifResolutionPayload(300, 300, 2));
+  return spliceSegments(primary, [adobeSeg, jfifSeg, exifSeg]);
+}
+
+/** One entry per row of 57-EVIDENCE.md's segment-policy table (D-01/D-02):
+ * every identifier `-all=` removes, plus the one it keeps (`Adobe`). `id` is
+ * this plan's corpus/manifest id suffix (`jpeg-seg-<id>`); `kept` mirrors the
+ * evidence table's own disposition, so a fixture whose D-01 disposition is
+ * ever measured differently trips the D-01 guard mechanically rather than by
+ * a hand-maintained expectation living twice. */
+export interface JpegSegmentIdentifierFixture {
+  readonly id: string;
+  readonly marker: number;
+  readonly payload: () => Buffer;
+  readonly kept: boolean;
+}
+
+export const JPEG_SEGMENT_IDENTIFIER_FIXTURES: readonly JpegSegmentIdentifierFixture[] =
+  [
+    {
+      id: "app0-jfif",
+      marker: 0xe0,
+      payload: () => jpegJfifPayload(),
+      kept: false,
+    },
+    {
+      id: "app0-jfxx",
+      marker: 0xe0,
+      payload: () => identifierPayload("JFXX", Buffer.from([0x10, 0x00, 0x00])),
+      kept: false,
+    },
+    {
+      id: "app0-avi1",
+      marker: 0xe0,
+      payload: () => identifierPayload("AVI1", fillerBytes(8, 1)),
+      kept: false,
+    },
+    {
+      id: "app1-exif",
+      marker: 0xe1,
+      payload: () => jpegExifOrientationPayload(1),
+      kept: false,
+    },
+    {
+      id: "app1-xmp",
+      marker: 0xe1,
+      payload: () => standardXmpPayload('<rdf:Description rdf:about=""/>'),
+      kept: false,
+    },
+    {
+      id: "app1-extended-xmp",
+      marker: 0xe1,
+      payload: () =>
+        identifierPayload(
+          "http://ns.adobe.com/xmp/extension/",
+          Buffer.concat([
+            Buffer.from("0123456789ABCDEF0123456789ABCDEF", "latin1"),
+            (() => {
+              const chunk = Buffer.from(
+                '<x:xmpmeta xmlns:x="adobe:ns:meta/"/>',
+                "utf8",
+              );
+              const head = Buffer.alloc(8);
+              head.writeUInt32BE(chunk.length, 0);
+              head.writeUInt32BE(0, 4);
+              return Buffer.concat([head, chunk]);
+            })(),
+          ]),
+        ),
+      kept: false,
+    },
+    {
+      id: "app2-icc-profile",
+      marker: 0xe2,
+      payload: () =>
+        identifierPayload(
+          "ICC_PROFILE",
+          Buffer.concat([Buffer.from([1, 1]), fillerBytes(8, 2)]),
+        ),
+      kept: false,
+    },
+    {
+      id: "app2-fpxr",
+      marker: 0xe2,
+      payload: () => identifierPayload("FPXR", fillerBytes(8, 3)),
+      kept: false,
+    },
+    {
+      id: "app2-mpf",
+      marker: 0xe2,
+      payload: () => identifierPayload("MPF", fillerBytes(8, 4)),
+      kept: false,
+    },
+    {
+      id: "app3-meta",
+      marker: 0xe3,
+      payload: () => identifierPayload("Meta", fillerBytes(8, 5)),
+      kept: false,
+    },
+    {
+      id: "app5-rmeta",
+      marker: 0xe5,
+      payload: () => identifierPayload("RMETA", fillerBytes(8, 6)),
+      kept: false,
+    },
+    {
+      id: "app6-eppim",
+      marker: 0xe6,
+      payload: () => identifierPayload("EPPIM", fillerBytes(8, 7)),
+      kept: false,
+    },
+    {
+      id: "app7-qualcomm",
+      marker: 0xe7,
+      payload: () =>
+        identifierPayload(
+          "\x1aQualcomm Camera Attributes\x01",
+          fillerBytes(4, 8),
+        ),
+      kept: false,
+    },
+    {
+      id: "app8-spiff",
+      marker: 0xe8,
+      payload: () => identifierPayload("SPIFF", fillerBytes(8, 9)),
+      kept: false,
+    },
+    {
+      id: "app9-media-jukebox",
+      marker: 0xe9,
+      payload: () => identifierPayload("Media Jukebox", fillerBytes(4, 10)),
+      kept: false,
+    },
+    {
+      id: "app10-unicode",
+      marker: 0xea,
+      payload: () => identifierPayload("UNICODE", fillerBytes(8, 11)),
+      kept: false,
+    },
+    {
+      id: "app11-cai",
+      marker: 0xeb,
+      payload: jpegCaiJumbfPayload,
+      kept: false,
+    },
+    {
+      id: "app11-c2pa",
+      marker: 0xeb,
+      payload: jpegC2paJumbfPayload,
+      kept: false,
+    },
+    {
+      id: "app11-non-jumbf",
+      marker: 0xeb,
+      payload: jpegNonJumbfApp11Payload,
+      kept: false,
+    },
+    {
+      id: "app12-ducky",
+      marker: 0xec,
+      payload: () => identifierPayload("Ducky", fillerBytes(8, 12)),
+      kept: false,
+    },
+    {
+      id: "app13-photoshop3",
+      marker: 0xed,
+      payload: () => identifierPayload("Photoshop 3.0", fillerBytes(8, 13)),
+      kept: false,
+    },
+    {
+      id: "app14-adobe",
+      marker: 0xee,
+      payload: () => jpegAdobePayload(1),
+      kept: true,
+    },
+    {
+      id: "app14-not-adobe",
+      marker: 0xee,
+      payload: () => identifierPayload("NotAdobe", fillerBytes(6, 14)),
+      kept: false,
+    },
+    {
+      id: "app15-q70",
+      marker: 0xef,
+      payload: () => identifierPayload("Q 70", fillerBytes(2, 15)),
+      kept: false,
+    },
+    {
+      id: "com",
+      marker: 0xfe,
+      payload: () => Buffer.from("Test comment", "ascii"),
+      kept: false,
+    },
+    {
+      id: "app1-qvci",
+      marker: 0xe1,
+      payload: () => identifierPayload("QVCI", fillerBytes(8, 16)),
+      kept: false,
+    },
+    {
+      id: "app1-myvendor",
+      marker: 0xe1,
+      payload: () => identifierPayload("MYVENDOR", fillerBytes(8, 17)),
+      kept: false,
+    },
+    {
+      id: "app13-not-photoshop",
+      marker: 0xed,
+      payload: () => identifierPayload("NotPhotoshop", fillerBytes(8, 18)),
+      kept: false,
+    },
+    {
+      id: "app1-random1",
+      marker: 0xe1,
+      payload: () => identifierPayload("Random1", fillerBytes(8, 19)),
+      kept: false,
+    },
+    {
+      id: "app12-random-app12",
+      marker: 0xec,
+      payload: () => identifierPayload("RandomApp12", fillerBytes(8, 20)),
+      kept: false,
+    },
+    {
+      id: "app15-random-app15",
+      marker: 0xef,
+      payload: () => identifierPayload("RandomApp15", fillerBytes(8, 21)),
+      kept: false,
+    },
+  ];
