@@ -550,6 +550,43 @@
       },
       "retainedPayloads": [],
       "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-testorig",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/testorig.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "acc6ec555d41d15b368320edaa3b20958ee6fa97cb6e4a18d1213d5ae8bec73b",
+      "bytes": 5770,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "38170d9ab6c090dfa35a0229e566e492882a858f338384a11fe170ddb599bffa"
+        }
+      ],
+      "permittedDifferences": []
     }
   ],
   "benchmarks": {

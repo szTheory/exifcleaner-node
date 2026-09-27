@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   classifyFallback,
   getCapabilities,
-  inspectFile,
   sanitizeFile,
 } from "../../../dist/index.js";
 import {
@@ -14,23 +13,26 @@ import {
   type JpegRefusal,
 } from "../../../src/jpeg/markers.js";
 import type { JpegCapabilities } from "../../../src/types.js";
-import { metadataJpeg, minimalJpeg } from "../../fixtures.js";
+import { minimalJpeg } from "../../fixtures.js";
+import { loadCorpusRecord, runQualificationCase } from "../kit/corpus.js";
 import {
   buildCipaMpfTwoImages,
   iccSegments,
   spliceSegments,
 } from "./fixtures.js";
-import { jpegMarkerSequence } from "./oracles.js";
+import { jpegPayloadDigests } from "./oracles.js";
 
 /**
- * The JPEG qualification tracer (Plan 57-07 Task 1): proves a real JPEG
- * round-trips through the built-package `sanitizeFile`/`inspectFile` pair
- * cleanly, and that every `JpegRefusal` literal `JpegCapabilities` advertises
- * is refused pre-write with the temp directory left holding exactly the
- * unchanged source file. No upstream JPEG corpus exists yet (57-09's scope),
- * so unlike the PNG/WebP tracers this file builds its own fixtures with
- * `minimalJpeg`/`metadataJpeg` and `./fixtures.js` rather than reading a
- * `tests/corpus/manifest.json` record.
+ * The JPEG qualification tracer (Plan 57-07 Task 1; round-trip case switched
+ * to the real upstream corpus record in Plan 57-09 Task 1): proves the
+ * `libjpeg-turbo-testorig` corpus record round-trips through the
+ * built-package `sanitizeFile`/`inspectFile` pair via the format-neutral
+ * `runQualificationCase` (mirrors `png/tracer.test.ts`'s own pattern), and
+ * that every `JpegRefusal` literal `JpegCapabilities` advertises is refused
+ * pre-write with the temp directory left holding exactly the unchanged
+ * source file. The refusal cases still build their own fixtures with
+ * `minimalJpeg` and `./fixtures.js` (no upstream refusal-class corpus record
+ * exists for every `JpegRefusal` literal).
  */
 
 const directories: string[] = [];
@@ -48,10 +50,6 @@ async function freshDirectory(): Promise<string> {
   directories.push(directory);
   return directory;
 }
-
-const APP1 = 0xe1;
-const APP13 = 0xed;
-const COM = 0xfe;
 
 // ---------------------------------------------------------------------------
 // Task 1 refusal-fixture byte-level helpers (local, minimal). Independent of
@@ -184,45 +182,47 @@ const refusalCases: readonly {
 });
 
 describe("JPEG qualification tracer", () => {
-  it("proves a metadata-bearing JPEG through built-package sanitize, reopen, and payload checks", async () => {
-    const source = metadataJpeg();
-    const directory = await freshDirectory();
-    const sourcePath = join(directory, "source.jpg");
-    const destinationPath = join(directory, "destination.jpg");
-    await writeFile(sourcePath, source);
-
-    const result = await sanitizeFile({
-      sourcePath,
-      destinationPath,
-      preserveOrientation: false,
-      preserveColorProfile: false,
-      preserveTimestamps: false,
-      preserveResolution: false,
+  it("proves the libjpeg-turbo testorig upstream fixture through built-package sanitize, reopen, and payload checks", async () => {
+    const transcript = await runQualificationCase("libjpeg-turbo-testorig", {
+      payloadDigests: jpegPayloadDigests,
     });
-    expect(result.ok).toBe(true);
 
-    const destination = await readFile(destinationPath);
-    const walk = jpegMarkerSequence(destination);
-    expect(walk.trailerBytes).toBe(0);
-    expect(walk.markers).not.toContain(APP1);
-    expect(walk.markers).not.toContain(APP13);
-    expect(walk.markers).not.toContain(COM);
+    expect(transcript).toMatchObject({
+      version: 1,
+      caseId: "libjpeg-turbo-testorig",
+      status: "success",
+      source: {
+        relativePath: "upstream/libjpeg-turbo-3.2.0/testorig.jpg",
+        unchanged: true,
+        sha256:
+          "acc6ec555d41d15b368320edaa3b20958ee6fa97cb6e4a18d1213d5ae8bec73b",
+      },
+      destination: { state: "created" },
+      reopened: {
+        format: "jpeg",
+        namespaces: { EXIF: 0, XMP: 0, ICC: 0, C2PA: 0, JPEG: 0 },
+      },
+    });
+    expect(
+      transcript.status === "success" && transcript.retainedPayloads,
+    ).toEqual([expect.objectContaining({ part: "ENTROPY" })]);
+    expect(JSON.stringify(transcript)).not.toMatch(/\/(?:Users|home|tmp)\//);
+  });
 
-    const inspected = await inspectFile(destinationPath);
-    expect(inspected.ok).toBe(true);
-    if (!inspected.ok) throw new Error("unreachable");
-    expect(inspected.value.format).toBe("jpeg");
-    expect(
-      inspected.value.entries.some((entry) => entry.namespace === "EXIF"),
-    ).toBe(false);
-    expect(
-      inspected.value.entries.some((entry) => entry.namespace === "XMP"),
-    ).toBe(false);
-    expect(
-      inspected.value.entries.some(
-        (entry) => entry.namespace === "JPEG" && entry.name === "COM",
-      ),
-    ).toBe(false);
+  it("admits the immutable libjpeg-turbo fixture with the differential role", async () => {
+    const record = await loadCorpusRecord("libjpeg-turbo-testorig");
+    expect(record).toMatchObject({
+      format: "jpeg",
+      roles: ["differential"],
+      localPath: "upstream/libjpeg-turbo-3.2.0/testorig.jpg",
+      provenance: {
+        revision: "c85e6b905bf237038faa936dab160ebfc5da0344",
+        license: "IJG",
+        licenseStatus: "approved",
+      },
+      bytes: 5770,
+      outcome: { status: "success", removedNamespaces: [] },
+    });
   });
 
   it.each(refusalCases)(

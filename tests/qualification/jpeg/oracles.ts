@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import type { DifferentialProfile } from "../kit/oracles.js";
+import type { PayloadDigest } from "../kit/corpus.js";
 
 // JPEG's differential-oracle profile (57-05 tracer slice). Deliberately does
 // not import anything from src/jpeg (the oracle and the handler must
@@ -161,6 +163,85 @@ export function jpegMarkerSequence(bytes: Buffer): JpegMarkerWalk {
   throw new Error("jpegMarkerSequence: no EOI found.");
 }
 
+/**
+ * Walks a JPEG marker stream (a test-local parse, independent of
+ * `src/jpeg/parser.ts` and of `jpegMarkerSequence` above -- the payload
+ * identity check must not share a bug with either the handler or the
+ * tracer's own walker) and returns the concatenation, in scan order, of
+ * every SOS's entropy-coded scan data -- the raw byte range libjpeg-turbo's
+ * own decoder consumes, restart markers and stuffed 0x00 bytes included
+ * exactly as encoded. Correctly treats a run of 0xFF fill bytes (D-08's own
+ * `fill-bytes.jpg` variant) as padding per T.81 B.1.1.5: any number of 0xFF
+ * bytes may precede a marker code, so the real marker is the first non-0xFF
+ * byte following a run of 0xFF, both when scanning for a segment marker and
+ * when scanning for the marker that ends a scan's entropy data.
+ */
+export function jpegEntropyCodedBytes(bytes: Buffer): Buffer {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    throw new Error("jpegEntropyCodedBytes: not a JPEG (missing SOI).");
+  }
+  const parts: Buffer[] = [];
+  let offset = 2;
+  while (offset < bytes.length - 1) {
+    if (bytes[offset] !== 0xff) {
+      throw new Error(
+        `jpegEntropyCodedBytes: expected a marker prefix byte at offset ${offset}.`,
+      );
+    }
+    while (bytes[offset + 1] === 0xff) offset += 1;
+    const marker = bytes[offset + 1]!;
+    if (marker === 0xd9 /* EOI */) break;
+    if (marker >= 0xd0 && marker <= 0xd7 /* stray RSTn outside a scan */) {
+      offset += 2;
+      continue;
+    }
+    if (marker === 0x01 /* TEM, standalone */) {
+      offset += 2;
+      continue;
+    }
+    const length = bytes.readUInt16BE(offset + 2);
+    if (marker === 0xda /* SOS */) {
+      const scanStart = offset + 2 + length;
+      let scanEnd = scanStart;
+      for (;;) {
+        while (scanEnd < bytes.length && bytes[scanEnd] !== 0xff) scanEnd += 1;
+        if (scanEnd >= bytes.length - 1) {
+          throw new Error(
+            "jpegEntropyCodedBytes: truncated entropy-coded data (no terminating marker found).",
+          );
+        }
+        let peek = scanEnd;
+        while (bytes[peek + 1] === 0xff) peek += 1;
+        const next = bytes[peek + 1]!;
+        if (next === 0x00 || (next >= 0xd0 && next <= 0xd7)) {
+          scanEnd = peek + 2;
+          continue;
+        }
+        scanEnd = peek;
+        break;
+      }
+      parts.push(bytes.subarray(scanStart, scanEnd));
+      offset = scanEnd;
+      continue;
+    }
+    offset += 2 + length;
+  }
+  return Buffer.concat(parts);
+}
+
+/**
+ * The JPEG suite's own `payloadDigests` callback for `runQualificationCase`
+ * (mirrors `pngPayloadDigests`/`webpPayloadDigests`): the sha256 of every
+ * scan's concatenated entropy-coded bytes, reported as one payload part
+ * (`"ENTROPY"`) when the stream carries at least one SOS.
+ */
+export function jpegPayloadDigests(data: Buffer): readonly PayloadDigest[] {
+  const entropy = jpegEntropyCodedBytes(data);
+  return entropy.length === 0
+    ? []
+    : [{ part: "ENTROPY", sha256: digest(entropy) }];
+}
+
 // libjpeg-turbo runners (57-08, D-08). These build on
 // `scripts/qualification/build-oracles.cjs`'s pinned, feature-asserted
 // libjpeg-turbo 3.2.0 authority -- never on the handler's own
@@ -282,4 +363,76 @@ export async function rdjpgcomText(path: string): Promise<string> {
       `rdjpgcomText: oracle rejected input (${result.stderr.trim()})`,
     );
   return result.stdout.toString("utf8");
+}
+
+/**
+ * JPG-03 payload identity (57-09 D-08): the five independent checks
+ * `must_haves` truth 2 requires, run against a source file and a sanitized
+ * output file already materialized on disk. Throws a labelled error on the
+ * first mismatch so a failing assertion always names which of the five
+ * checks fired.
+ *
+ * 1. Entropy-coded ranges byte-identical (this file's own `jpegEntropyCodedBytes`
+ *    walker, independent of both `src/jpeg/parser.ts` and the pinned decoder).
+ * 2. `jpeg_decode_oracle` reports an identical `DIM` header and an identical
+ *    raw-pixel sha256 for source and output.
+ * 3. `djpeg -pnm` output is identical for 1- and 3-component fixtures (the
+ *    component count is read from the pixel oracle's own `DIM` header;
+ *    other component counts, e.g. the 4-component CMYK/YCCK fixture, skip
+ *    this check -- `djpeg`'s PNM writer has no CMYK output mode).
+ * 4. `rdjpgcom` prints nothing for the output (no surviving COM segment).
+ * 5. `jpegtran` re-reads the output with exit 0 (structural validity).
+ */
+export async function assertPayloadIdentity(
+  sourcePath: string,
+  outputPath: string,
+): Promise<void> {
+  const sourceBytes = await readFile(sourcePath);
+  const outputBytes = await readFile(outputPath);
+
+  const sourceEntropy = jpegEntropyCodedBytes(sourceBytes);
+  const outputEntropy = jpegEntropyCodedBytes(outputBytes);
+  if (!sourceEntropy.equals(outputEntropy)) {
+    throw new Error(
+      "assertPayloadIdentity: entropy-coded ranges differ between source and output",
+    );
+  }
+
+  const sourceDecoded = await jpegDecodePixels(sourcePath);
+  const outputDecoded = await jpegDecodePixels(outputPath);
+  if (sourceDecoded.header !== outputDecoded.header) {
+    throw new Error(
+      `assertPayloadIdentity: pixel oracle DIM header differs (source "${sourceDecoded.header}" vs output "${outputDecoded.header}")`,
+    );
+  }
+  if (sourceDecoded.pixelsSha256 !== outputDecoded.pixelsSha256) {
+    throw new Error(
+      "assertPayloadIdentity: pixel oracle raw-pixel sha256 differs between source and output",
+    );
+  }
+
+  const componentsField = Number(sourceDecoded.header.split(" ")[3]);
+  if (componentsField === 1 || componentsField === 3) {
+    const sourcePnm = await djpegPnm(sourcePath);
+    const outputPnm = await djpegPnm(outputPath);
+    if (!sourcePnm.equals(outputPnm)) {
+      throw new Error(
+        "assertPayloadIdentity: djpeg -pnm output differs between source and output",
+      );
+    }
+  }
+
+  const comText = await rdjpgcomText(outputPath);
+  if (comText.length !== 0) {
+    throw new Error(
+      `assertPayloadIdentity: rdjpgcom printed surviving COM text for the output ("${comText.trim()}")`,
+    );
+  }
+
+  const jpegtranResult = executeBinary(tools().jpegtran, [outputPath]);
+  if (jpegtranResult.status !== 0) {
+    throw new Error(
+      `assertPayloadIdentity: jpegtran failed to re-read the output (${jpegtranResult.stderr.trim()})`,
+    );
+  }
 }

@@ -270,6 +270,7 @@ function execute(options) {
     "tests/qualification/png/transaction.test.ts",
     "tests/qualification/png/golden.test.ts",
     "tests/qualification/jpeg/tracer.test.ts",
+    "tests/qualification/jpeg/oracles.test.ts",
   ]);
 }
 
