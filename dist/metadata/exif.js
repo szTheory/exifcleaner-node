@@ -261,9 +261,7 @@ export function createMinimalExif(tags) {
         throw new RangeError("createMinimalExif requires at least one of orientation or resolution");
     }
     if (orientation !== undefined) {
-        if (!Number.isInteger(orientation) ||
-            orientation < 1 ||
-            orientation > 8) {
+        if (!Number.isInteger(orientation) || orientation < 1 || orientation > 8) {
             throw new RangeError("EXIF Orientation must be an integer from 1 through 8");
         }
     }

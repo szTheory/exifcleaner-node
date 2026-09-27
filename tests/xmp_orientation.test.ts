@@ -15,7 +15,7 @@ function xmpWithOrientationElement(value: number | string): Buffer {
 }
 
 describe("xmpOrientation", () => {
-  it("attribute form: tiff:Orientation=\"6\" returns 6", () => {
+  it('attribute form: tiff:Orientation="6" returns 6', () => {
     expect(xmpOrientation(xmpWithOrientation(6))).toBe(6);
   });
 

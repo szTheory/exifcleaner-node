@@ -41,7 +41,9 @@ describe("createMinimalExif: tracer — orientation-only output is byte-identica
     "orientation %d: createOrientationExif delegates to createMinimalExif",
     (value) => {
       expect(
-        createOrientationExif(value).equals(createMinimalExif({ orientation: value })),
+        createOrientationExif(value).equals(
+          createMinimalExif({ orientation: value }),
+        ),
       ).toBe(true);
     },
   );
