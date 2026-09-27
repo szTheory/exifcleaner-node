@@ -587,6 +587,476 @@
         }
       ],
       "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-testimgint",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/testimgint.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testimgint.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "491679b8057739b3c8e5bacd1e918efb1691d271cbbd69820ff8d480dcb90963",
+      "bytes": 5756,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "e4558200f7bdf5382b0a428448fa1c1b7840601bff012947b50ef8b382191925"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-gray",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/gray.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.ppm",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "b39ba716128c02501db3e461d025d76225f7b68710e41227fead5389a3e2288f",
+      "bytes": 4333,
+      "topology": ["0xE0", "0xDB", "0xC0", "0xC4", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "fd02ed2acf829a4152ec9d10bd211f421d954dcbbd280d00deb872deb7821e9b"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-sof1",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/sof1.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "ab552fd54218fe6bb5ceaa91d43179b08af6b3d6c06942250468d9d1e83a4196",
+      "bytes": 5770,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC1",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "38170d9ab6c090dfa35a0229e566e492882a858f338384a11fe170ddb599bffa"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-progressive",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/progressive.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "24770f706b81b40a71944af3b39aad8a3f7ffb21c4f2725447022e518222d823",
+      "bytes": 5655,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC2",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "351d2a57e9f9942c6ae4ca34ce0d19208fe3feb0940be8efd5da14760158287e"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-restart",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/restart.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.ppm",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "2e387f4d3adc579125ea024ab314d5a1579cb45cf0fdbc42b0d644bfcb8ac9a4",
+      "bytes": 5787,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDD",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "7e68cd83f86b1069c6851945e5073718ef4056bb14cadc90387199d858be5902"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-multiscan-sequential",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/multiscan-sequential.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.ppm",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "8a741e3b18a7dacebdc8d971c866992f46e8d8498379762202f79b2c8dd994de",
+      "bytes": 5721,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "751dc769f2b921b91a383ccf1bab535fc5b9878b1fae9f746e71d2dcc3346675"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-fill-bytes",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/fill-bytes.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "6059d2f9b083f60d4106b5dff0d6e8084e6cd4194935ec404f76d830efa6b546",
+      "bytes": 5773,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "38170d9ab6c090dfa35a0229e566e492882a858f338384a11fe170ddb599bffa"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-cmyk-adobe",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/cmyk-adobe.jpg",
+      "provenance": {
+        "revision": "21a5077d060770c1be2498a9681a3a127061dfa3",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/21a5077d060770c1be2498a9681a3a127061dfa3/tests/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "51888b576afd14a4a6e9033b8b5aa4b1c685e7b81c402c27075aff4a9fde311f",
+      "bytes": 168,
+      "topology": ["0xEE", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-testimgari",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/testimgari.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testimgari.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "4672c7f08864cd0a8c73a4fa4b66ca32b635d38464551c1ecf06564ae8c89b38",
+      "bytes": 5126,
+      "topology": ["0xE0", "0xDB", "0xDB", "0xC9", "0xCC", "0xDA", "EOI"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-monkey12",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/monkey12.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/monkey12.jpg",
+        "license": "BSD-3-Clause",
+        "licenseStatus": "approved"
+      },
+      "sha256": "a3cb218412cecfa877a4adee520aa3d58ac0d6d0f36a7a2541e598324ce481e3",
+      "bytes": 32831,
+      "topology": [
+        "0xE0",
+        "0xE2",
+        "0xDB",
+        "0xDB",
+        "0xC1",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-lossless",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/lossless.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.ppm",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "ab586bf71b54af6f8934aff330f21793c88886c375cf6d4fd6082648ed8d39b2",
+      "bytes": 59131,
+      "topology": ["0xEE", "0xC3", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-hierarchical",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/hierarchical.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "20ae0c11eae8393d9676589c071f6633762be4dcf043d6ca4b7676d9ec2cd879",
+      "bytes": 5770,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC5",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-jpeg-ls",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/jpeg-ls.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "f67f9d1f75fa8599fa966a13188cd856b218cbd75873547130026b53f9c23e98",
+      "bytes": 5770,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xF7",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-dnl",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/dnl.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "7f074514149f4a1581a6d9974984205e5fa119f4f47d82d34331f5adb934db8c",
+      "bytes": 5776,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "0xDC",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
     }
   ],
   "benchmarks": {

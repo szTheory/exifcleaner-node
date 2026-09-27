@@ -63,6 +63,52 @@ Every "measured outcome" above was captured by running the built package's own
 `sanitizeFile`/`inspectFile` against the committed bytes (not inferred from the
 filename or upstream comments) before the corpus record was written.
 
+## Pinned libjpeg-turbo Fixtures (Phase 57)
+
+Fifteen JPEG fixtures committed under `tests/corpus/upstream/libjpeg-turbo-3.2.0/`,
+built from the pinned `libjpeg-turbo-3.2.0` archive (`tests/corpus/tools/manifest.json`,
+revision `c85e6b905bf237038faa936dab160ebfc5da0344`, tag `3.2.0`). Four are unmodified
+upstream `testimages/` members (`IJG` or `BSD-3-Clause` per the archive's own
+`testimages/LICENSE.txt`); ten are generated locally with the pinned source's own
+`djpeg`/`cjpeg`/`jpegtran`/`rdjpgcom` binaries, configured and built with the same
+CMake flags 57-08 pinned for the CI oracle authority; one (`cmyk-adobe.jpg`) is
+constructed with this repo's own `minimalJpeg`/`jpegAdobe` test builders (MIT-licensed,
+`tests/fixtures.ts`). Every "measured outcome" below was captured by running the built
+package's own `sanitizeFile` against the committed bytes (not inferred from the
+filename or upstream comments) before the corpus record was written.
+
+Local build (macOS, `cmake` at `/opt/homebrew/bin/cmake`), the same flags
+`scripts/qualification/build-oracles.cjs`'s `prepareOracleTools` uses for the linux/x64
+CI authority, plus `cjpeg-static` for fixture generation:
+
+```sh
+tar -xzf tests/corpus/tools/archives/libjpeg-turbo-3.2.0.tar.gz -C <workspace>
+cd <workspace>/libjpeg-turbo-3.2.0
+cmake -S . -B build \
+  -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=0 -DENABLE_STATIC=1 \
+  -DWITH_SIMD=0 -DWITH_ARITH_DEC=1 -DWITH_ARITH_ENC=0 \
+  -DWITH_TURBOJPEG=0 -DWITH_TESTS=0
+cmake --build build --target djpeg-static jpegtran-static rdjpgcom cjpeg-static jpeg-static --parallel 4
+```
+
+| Fixture ID                           | Member path / generation command                                                                                                                                  | SHA-256                                                            | Bytes | Role(s)          | Measured outcome                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----- | ---------------- | ------------------------------------------------- |
+| `libjpeg-turbo-testorig`             | `testimages/testorig.jpg`                                                                                                                                         | `acc6ec555d41d15b368320edaa3b20958ee6fa97cb6e4a18d1213d5ae8bec73b` | 5770  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-testimgint`           | `testimages/testimgint.jpg`                                                                                                                                       | `491679b8057739b3c8e5bacd1e918efb1691d271cbbd69820ff8d480dcb90963` | 5756  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-gray`                 | `cjpeg-static -grayscale -outfile gray.jpg testimages/testorig.ppm`                                                                                               | `b39ba716128c02501db3e461d025d76225f7b68710e41227fead5389a3e2288f` | 4333  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-sof1`                 | `testorig.jpg` with the SOF0 marker byte (`0xC0`) patched to `0xC1` (extended sequential DCT)                                                                     | `ab552fd54218fe6bb5ceaa91d43179b08af6b3d6c06942250468d9d1e83a4196` | 5770  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-progressive`          | `jpegtran-static -progressive -outfile progressive.jpg testimages/testorig.jpg`                                                                                   | `24770f706b81b40a71944af3b39aad8a3f7ffb21c4f2725447022e518222d823` | 5655  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-restart`              | `cjpeg-static -restart 1 -outfile restart.jpg testimages/testorig.ppm`                                                                                            | `2e387f4d3adc579125ea024ab314d5a1579cb45cf0fdbc42b0d644bfcb8ac9a4` | 5787  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-multiscan-sequential` | `cjpeg-static -scans multiscan.txt -outfile multiscan-sequential.jpg testimages/testorig.ppm` (script: `0;`/`1;`/`2;`, one component per scan, no `-progressive`) | `8a741e3b18a7dacebdc8d971c866992f46e8d8498379762202f79b2c8dd994de` | 5721  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-fill-bytes`           | `testorig.jpg` with three `0xFF` fill bytes inserted immediately before the SOS marker                                                                            | `6059d2f9b083f60d4106b5dff0d6e8084e6cd4194935ec404f76d830efa6b546` | 5773  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-cmyk-adobe`           | `minimalJpeg({ components: 4 })` + a constructed APP14 Adobe segment (`jpegAdobe(0)`)                                                                             | `51888b576afd14a4a6e9033b8b5aa4b1c685e7b81c402c27075aff4a9fde311f` | 168   | differential     | success, removes nothing (APP14 preserved)        |
+| `libjpeg-turbo-testimgari`           | `testimages/testimgari.jpg` (arithmetic coding, SOF9)                                                                                                             | `4672c7f08864cd0a8c73a4fa4b66ca32b635d38464551c1ecf06564ae8c89b38` | 5126  | negative-control | refused, `unsafe-structure` (arithmetic-frame)    |
+| `libjpeg-turbo-monkey12`             | `testimages/monkey12.jpg` (12-bit precision, SOF1)                                                                                                                | `a3cb218412cecfa877a4adee520aa3d58ac0d6d0f36a7a2541e598324ce481e3` | 32831 | negative-control | refused, `unsafe-structure` (non-8-bit-precision) |
+| `libjpeg-turbo-lossless`             | `cjpeg-static -lossless 1 -outfile lossless.jpg testimages/testorig.ppm` (SOF3)                                                                                   | `ab586bf71b54af6f8934aff330f21793c88886c375cf6d4fd6082648ed8d39b2` | 59131 | negative-control | refused, `unsafe-structure` (lossless-frame)      |
+| `libjpeg-turbo-hierarchical`         | `testorig.jpg` with SOF0 patched to `0xC5` (hierarchical)                                                                                                         | `20ae0c11eae8393d9676589c071f6633762be4dcf043d6ca4b7676d9ec2cd879` | 5770  | negative-control | refused, `unsafe-structure` (hierarchical-frame)  |
+| `libjpeg-turbo-jpeg-ls`              | `testorig.jpg` with SOF0 patched to `0xF7` (JPEG-LS)                                                                                                              | `f67f9d1f75fa8599fa966a13188cd856b218cbd75873547130026b53f9c23e98` | 5770  | negative-control | refused, `unsafe-structure` (non-t81-frame)       |
+| `libjpeg-turbo-dnl`                  | `testorig.jpg` with frame height zeroed in SOF0 and a DNL segment inserted after the first scan                                                                   | `7f074514149f4a1581a6d9974984205e5fa119f4f47d82d34331f5adb934db8c` | 5776  | negative-control | refused, `unsafe-structure` (dnl-marker)          |
+
 ## Generated Fixtures
 
 Repository-generated fixtures are not upstream ExifCleaner evidence. Their provenance record should include:
