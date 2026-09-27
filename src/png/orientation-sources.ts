@@ -1,46 +1,18 @@
 import { parseExif } from "../metadata/exif.js";
-import { parseXmp } from "../metadata/xmp.js";
 import { PngStructureError } from "./chunks.js";
 
 // D-11/D-12: non-eXIf Orientation sources are read only for routing -- their
 // bytes never reach the output. Both readers return a value, "invalid" (a
 // present but unusable/disagreeable Orientation), or undefined (absent).
-
-const XMP_ORIENTATION_NAME = "tiff:Orientation";
+//
+// D-05: xmpOrientation moved to ../metadata/xmp.js (format-neutral) so JPEG
+// can reuse it without importing PNG code. Import it from there directly.
 
 /** ImageMagick's legacy raw-EXIF-profile text-chunk keywords (D-11). */
 export const RAW_PROFILE_EXIF_KEYWORDS: ReadonlySet<string> = new Set([
   "Raw profile type exif",
   "Raw profile type APP1",
 ]);
-
-function isOrientationValue(value: number): boolean {
-  return Number.isInteger(value) && value >= 1 && value <= 8;
-}
-
-/**
- * Reads a `tiff:Orientation` entry out of an XMP packet (D-11/D-12). Returns
- * the value when it parses as an integer 1-8, `"invalid"` when the entry is
- * present but unusable, or `undefined` when no such entry exists. Never
- * returns XMP bytes -- only a value for routing.
- */
-export function xmpOrientation(xmp: Buffer): number | "invalid" | undefined {
-  const { entries } = parseXmp(xmp);
-  const entry = entries.find((item) => item.name === XMP_ORIENTATION_NAME);
-  if (entry === undefined) return undefined;
-  const raw = entry.value;
-  const text =
-    typeof raw === "string"
-      ? raw.trim()
-      : typeof raw === "number"
-        ? String(raw)
-        : undefined;
-  if (text === undefined || text.length === 0) return "invalid";
-  const parsed = Number.parseInt(text, 10);
-  return String(parsed) === text && isOrientationValue(parsed)
-    ? parsed
-    : "invalid";
-}
 
 /**
  * Parses an ImageMagick-style "Raw profile type exif"/"Raw profile type

@@ -1,13 +1,6 @@
 /** ImageMagick's legacy raw-EXIF-profile text-chunk keywords (D-11). */
 export declare const RAW_PROFILE_EXIF_KEYWORDS: ReadonlySet<string>;
 /**
- * Reads a `tiff:Orientation` entry out of an XMP packet (D-11/D-12). Returns
- * the value when it parses as an integer 1-8, `"invalid"` when the entry is
- * present but unusable, or `undefined` when no such entry exists. Never
- * returns XMP bytes -- only a value for routing.
- */
-export declare function xmpOrientation(xmp: Buffer): number | "invalid" | undefined;
-/**
  * Parses an ImageMagick-style "Raw profile type exif"/"Raw profile type
  * APP1" text-chunk payload (a newline, the profile name, a newline, a
  * right-aligned decimal byte count, a newline, then hex digits in lines) and
