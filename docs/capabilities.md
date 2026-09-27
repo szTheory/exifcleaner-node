@@ -452,15 +452,15 @@ existing cross-format meanings. Entries are read from buffered payloads
 only -- no unbuffered segment payload (for example an unclassified `COM`
 among thousands) is read merely to produce an inspection entry.
 
-| Entry name(s)                                           | Namespace | Source |
-| -------------------------------------------------------- | --------- | ------ |
-| (tag names from `parseExif`)                              | `EXIF`    | The first `APP1` `Exif` segment.                                                |
-| (tag names from `parseXmp`)                                | `XMP`     | The first standard XMP `APP1` packet.                                           |
-| (tag names from `parseIcc`)                                | `ICC`     | The reassembled `APP2` `ICC_PROFILE` sequence, only when it is a valid profile. |
-| `JFIF:ResolutionUnit`, `JFIF:XResolution`, `JFIF:YResolution` | `JPEG`    | The buffered `APP0` `JFIF` segment's density fields, whether kept or removed.    |
-| `JUMBF`                                                     | `C2PA`    | An `APP11` segment; value is the payload byte length.                           |
-| `<MARKER>` or `<MARKER>:<identifier>`                       | `JPEG`    | Every other removable segment (`COM`, `APP13:Photoshop 3.0`, `APP2:MPF`, an unknown `APPn`, and so on); value is the payload byte length. |
-| `Trailer`                                                   | `JPEG`    | Bytes after the primary `EOI`, only when the trailer is non-zero length.        |
+| Entry name(s)                                                 | Namespace | Source                                                                                                                                    |
+| ------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| (tag names from `parseExif`)                                  | `EXIF`    | The first `APP1` `Exif` segment.                                                                                                          |
+| (tag names from `parseXmp`)                                   | `XMP`     | The first standard XMP `APP1` packet.                                                                                                     |
+| (tag names from `parseIcc`)                                   | `ICC`     | The reassembled `APP2` `ICC_PROFILE` sequence, only when it is a valid profile.                                                           |
+| `JFIF:ResolutionUnit`, `JFIF:XResolution`, `JFIF:YResolution` | `JPEG`    | The buffered `APP0` `JFIF` segment's density fields, whether kept or removed.                                                             |
+| `JUMBF`                                                       | `C2PA`    | An `APP11` segment; value is the payload byte length.                                                                                     |
+| `<MARKER>` or `<MARKER>:<identifier>`                         | `JPEG`    | Every other removable segment (`COM`, `APP13:Photoshop 3.0`, `APP2:MPF`, an unknown `APPn`, and so on); value is the payload byte length. |
+| `Trailer`                                                     | `JPEG`    | Bytes after the primary `EOI`, only when the trailer is non-zero length.                                                                  |
 
 An incomplete ExtendedXMP (cannot be reassembled) adds a `metadata-invalid`
 warning rather than an entry.
