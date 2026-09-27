@@ -450,11 +450,14 @@ describe("JPEG preservation (D-04/D-06/D-07)", () => {
         ...iccSegments(profile, profile.length),
       ]);
       const withOrientation = buildSegmentFixture(source, 0xe1, orientationSeg);
-      const output = await sanitizeToPath(withOrientation, {
-        preserveOrientation: true,
-        preserveColorProfile: true,
-        preserveResolution: false,
-      });
+      const grants = [
+        "EXIF:Orientation=6",
+        `ICC_Profile:RawProfile=${digest(profile)}`,
+      ];
+      const output = await sanitizeToPath(
+        withOrientation,
+        jpegSanitizeOptionsForGrants(grants),
+      );
       try {
         const outputBytes = await readFileAsync(output.outputPath);
         const transcript = runExiftoolDifferential({
@@ -462,10 +465,7 @@ describe("JPEG preservation (D-04/D-06/D-07)", () => {
           profile: jpegDifferentialProfile,
           source: withOrientation,
           output: outputBytes,
-          permittedDifferences: [
-            "EXIF:Orientation=6",
-            `ICC_Profile:RawProfile=${digest(profile)}`,
-          ],
+          permittedDifferences: grants,
         });
         expect(transcript).toMatchObject({ version: 1, equivalent: true });
       } finally {
@@ -483,11 +483,10 @@ describe("JPEG preservation (D-04/D-06/D-07)", () => {
       // D-04(a): JFIF-only, no EXIF at all -- native keeps JFIF unchanged.
       {
         const source = buildPreservationJfifOnly(primary);
-        const output = await sanitizeToPath(source, {
-          preserveOrientation: false,
-          preserveColorProfile: false,
-          preserveResolution: true,
-        });
+        const output = await sanitizeToPath(
+          source,
+          jpegSanitizeOptionsForGrants(["Resolution:Preserved"]),
+        );
         try {
           const outputBytes = await readFileAsync(output.outputPath);
           const transcript = runExiftoolDifferential({
@@ -512,11 +511,10 @@ describe("JPEG preservation (D-04/D-06/D-07)", () => {
       // other IFD0 tag is ever added).
       {
         const source = buildPreservationJfifIfd0Conflict(primary);
-        const output = await sanitizeToPath(source, {
-          preserveOrientation: false,
-          preserveColorProfile: false,
-          preserveResolution: true,
-        });
+        const output = await sanitizeToPath(
+          source,
+          jpegSanitizeOptionsForGrants(["Resolution:Preserved"]),
+        );
         try {
           const outputBytes = await readFileAsync(output.outputPath);
           const transcript = runExiftoolDifferential({
@@ -552,11 +550,10 @@ describe("JPEG preservation (D-04/D-06/D-07)", () => {
     async () => {
       const primary = await materializeCorpusRecord("exiftool-jpeg-writer");
       const source = buildPreservationAdobeJfifExif(primary);
-      const output = await sanitizeToPath(source, {
-        preserveOrientation: false,
-        preserveColorProfile: false,
-        preserveResolution: true,
-      });
+      const output = await sanitizeToPath(
+        source,
+        jpegSanitizeOptionsForGrants(["Resolution:Preserved"]),
+      );
       try {
         const outputBytes = await readFileAsync(output.outputPath);
 
@@ -672,4 +669,151 @@ describe("JPEG constructed fixtures regenerate byte-identically", () => {
       expect(rebuilt.equals(await materializeCorpusRecord(id))).toBe(true);
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// ROADMAP red controls (Plan 10 Task 3). Local, test-file-scoped byte
+// manipulation helpers -- independent of `jpegStructuralParts`/
+// `jpegEntropyCodedBytes` above and of `src/jpeg/parser.ts`, so a red
+// control cannot share a bug with the code it means to catch (mirrors
+// `png/oracles.test.ts`'s own `removeChunk`/`insertChunkBeforeIdat`).
+// ---------------------------------------------------------------------------
+
+interface RawSegment {
+  readonly offset: number;
+  readonly totalLength: number;
+  readonly bytes: Buffer;
+}
+
+/**
+ * Finds the first APPn segment in `bytes` whose payload starts with
+ * `identifierPrefix` (a NUL- or otherwise-terminated ASCII identifier,
+ * matched as a literal byte prefix). Returns `undefined` when no SOI is
+ * present or no matching segment is found before the first SOS/EOI.
+ */
+function findAppSegmentByIdentifier(
+  bytes: Buffer,
+  marker: number,
+  identifierPrefix: string,
+): RawSegment | undefined {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    return undefined;
+  }
+  const needle = Buffer.from(identifierPrefix, "latin1");
+  let offset = 2;
+  while (offset + 4 <= bytes.length) {
+    if (bytes[offset] !== 0xff) return undefined;
+    const found = bytes[offset + 1]!;
+    if (found === 0xd9 || found === 0xda) return undefined;
+    if (found >= 0xd0 && found <= 0xd7) {
+      offset += 2;
+      continue;
+    }
+    const length = bytes.readUInt16BE(offset + 2);
+    if (length < 2 || offset + 2 + length > bytes.length) return undefined;
+    const payloadStart = offset + 4;
+    const payloadEnd = offset + 2 + length;
+    if (
+      found === marker &&
+      payloadEnd - payloadStart >= needle.length &&
+      bytes.subarray(payloadStart, payloadStart + needle.length).equals(needle)
+    ) {
+      return {
+        offset,
+        totalLength: payloadEnd - offset,
+        bytes: bytes.subarray(offset, payloadEnd),
+      };
+    }
+    offset = payloadEnd;
+  }
+  return undefined;
+}
+
+/** Removes the segment matching `marker`+`identifierPrefix` entirely
+ * (header, length field and payload) from a raw JPEG buffer. Throws if no
+ * such segment is present. */
+function removeAppSegment(
+  bytes: Buffer,
+  marker: number,
+  identifierPrefix: string,
+): Buffer {
+  const segment = findAppSegmentByIdentifier(bytes, marker, identifierPrefix);
+  if (segment === undefined) {
+    throw new Error(
+      `removeAppSegment: no APP${marker - 0xe0} segment identified "${identifierPrefix}" found`,
+    );
+  }
+  return Buffer.concat([
+    bytes.subarray(0, segment.offset),
+    bytes.subarray(segment.offset + segment.totalLength),
+  ]);
+}
+
+/** Inserts `segment` (a complete, already-length-prefixed marker segment)
+ * immediately after `bytes`'s SOI. */
+function insertSegmentAfterSoi(bytes: Buffer, segment: Buffer): Buffer {
+  return Buffer.concat([bytes.subarray(0, 2), segment, bytes.subarray(2)]);
+}
+
+describe("JPEG differential red controls (Plan 10 Task 3)", () => {
+  it.runIf(admittedHost)(
+    "rejects an injected leaked APP1 segment through the live JPEG differential",
+    async () => {
+      const source = await materializeCorpusRecord("exiftool-jpeg-exiftool");
+      const output = await sanitizeToPath(source, ALL_FALSE);
+      try {
+        const outputBytes = await readFileAsync(output.outputPath);
+        const standardXmp = findAppSegmentByIdentifier(
+          source,
+          0xe1,
+          "http://ns.adobe.com/xap/1.0/",
+        );
+        expect(standardXmp).toBeDefined();
+        const tampered = insertSegmentAfterSoi(outputBytes, standardXmp!.bytes);
+        expect(() =>
+          runExiftoolDifferential({
+            caseId: "jpeg-injected-leak",
+            profile: jpegDifferentialProfile,
+            source,
+            output: tampered,
+            permittedDifferences: [],
+          }),
+        ).toThrow(/Unpermitted metadata difference: XMP/);
+      } finally {
+        await rm(output.directory, { recursive: true, force: true });
+      }
+    },
+    480_000,
+  );
+
+  it.runIf(admittedHost)(
+    "rejects a dropped APP14 marker as an over-strip through the live JPEG differential",
+    async () => {
+      const source = await materializeCorpusRecord("exiftool-jpeg-exiftool");
+      const output = await sanitizeToPath(source, ALL_FALSE);
+      try {
+        const outputBytes = await readFileAsync(output.outputPath);
+        const tampered = removeAppSegment(outputBytes, 0xee, "Adobe");
+        let firedMessage: string | undefined;
+        try {
+          runExiftoolDifferential({
+            caseId: "jpeg-dropped-app14",
+            profile: jpegDifferentialProfile,
+            source,
+            output: tampered,
+            permittedDifferences: [],
+          });
+        } catch (error) {
+          firedMessage = error instanceof Error ? error.message : String(error);
+        }
+        expect(firedMessage).toMatch(
+          /Over-strip: Adobe|Unpermitted structural difference: APP14:Adobe|Structural over-strip: APP14:Adobe/,
+        );
+        console.log("dropped-APP14 red control fired:", firedMessage);
+      } finally {
+        await rm(output.directory, { recursive: true, force: true });
+      }
+    },
+    480_000,
+  );
 });
