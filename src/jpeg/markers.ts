@@ -57,7 +57,12 @@ export type JpegRefusal =
   | "non-8-bit-precision"
   | "unsupported-component-count"
   | "dnl-marker"
-  | "resource-limits";
+  | "resource-limits"
+  // Task 3 / D-13: a measured-unsafe trailer class (57-EVIDENCE.md "Full
+  // MPF/motion/trailer decision table"). Only classes the measurement records
+  // `refuse` map to this literal -- see src/jpeg/trailer.ts
+  // JPEG_REFUSED_TRAILER_CLASSES for the exact set and its citation.
+  | "mpf-secondary-image";
 
 // D-09/D-10: malformed-container and truncation are well-formed-JSON-schema-style
 // violations (bad SOI/EOI/length/marker); every other refusal literal is a
@@ -76,6 +81,7 @@ export const JPEG_REFUSAL_KIND: Readonly<
   "unsupported-component-count": "unsafe-structure",
   "dnl-marker": "unsafe-structure",
   "resource-limits": "unsafe-structure",
+  "mpf-secondary-image": "unsafe-structure",
 });
 
 // One fixed detail sentence per refusal literal (D-09/D-10, Task 2). Used as the
@@ -102,6 +108,8 @@ export const JPEG_REFUSAL_DETAILS: Readonly<Record<JpegRefusal, string>> =
       "JPEG files using the DNL mechanism (a zero frame height or a DNL marker) are refused.",
     "resource-limits":
       "JPEG structure exceeds a census-derived resource limit.",
+    "mpf-secondary-image":
+      "JPEG carries a measured-unsafe MPF secondary image or gain-map trailer.",
   });
 
 export type MarkerKind =
