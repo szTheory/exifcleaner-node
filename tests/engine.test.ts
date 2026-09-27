@@ -40,6 +40,7 @@ import {
   iccProfile,
   iccProfileV2,
   iccProfileV4,
+  metadataJpeg,
   metadataPng,
   metadataWebp,
   mutateIccProfile,
@@ -125,10 +126,11 @@ afterEach(async () => {
 describe("getCapabilities", () => {
   it("reports the exact conservative WebP feature set as immutable data", () => {
     const capabilities = getCapabilities();
-    // 56-03 registers a second (PNG) handler; this test now asserts WebP's
-    // own entry (index 0, registration order) rather than the whole array,
-    // since `formats` legitimately grows as more formats are admitted.
-    expect(capabilities.formats).toHaveLength(2);
+    // 56-03 registered a second (PNG) handler and 57-05 a third (JPEG); this
+    // test now asserts WebP's own entry (index 0, registration order) rather
+    // than the whole array, since `formats` legitimately grows as more
+    // formats are admitted.
+    expect(capabilities.formats).toHaveLength(3);
     expect(capabilities.formats[0]).toEqual({
       format: "webp",
       mimeTypes: ["image/webp"],
@@ -1465,6 +1467,7 @@ describe("format-neutral admission boundary", () => {
     const fixtures: Record<NativeFormat, Buffer> = {
       webp: metadataWebp(),
       png: metadataPng(),
+      jpeg: metadataJpeg(),
     };
     const directory = await workspace();
     const capabilities = getCapabilities();

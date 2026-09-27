@@ -3,10 +3,12 @@ import type { Capabilities, FormatCapabilities } from "../types.js";
 import type { RegisteredHandler } from "./handler.js";
 import { webpHandler } from "./webp-handler.js";
 import { pngHandler } from "./png-handler.js";
+import { jpegHandler } from "./jpeg-handler.js";
 
 const HANDLERS: readonly RegisteredHandler[] = Object.freeze([
   webpHandler,
   pngHandler,
+  jpegHandler,
 ]);
 
 // Private test seam (mirrors setNativePublicationBindingForTests in

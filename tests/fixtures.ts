@@ -930,3 +930,90 @@ export function minimalJpeg({
   parts.push(JPEG_EOI);
   return Buffer.concat(parts);
 }
+
+// JPEG metadata builders (57-05). Segment payloads only -- `jpegSegment`
+// above wraps them in the `0xFFmarker` length-prefixed shape.
+
+const JPEG_EXIF_IDENTIFIER = Buffer.from("Exif\0\0", "ascii");
+
+/** APP0 JFIF payload (14 bytes): "JFIF\0", version 1.1, a density unit (1 =
+ * dots per inch), X/Y density, and no embedded thumbnail. */
+export function jpegJfif(xDensity = 72, yDensity = 72): Buffer {
+  const data = Buffer.alloc(9);
+  data[0] = 1; // version major
+  data[1] = 1; // version minor
+  data[2] = 1; // units: dots per inch
+  data.writeUInt16BE(xDensity, 3);
+  data.writeUInt16BE(yDensity, 5);
+  data[7] = 0; // thumbnail width
+  data[8] = 0; // thumbnail height
+  return Buffer.concat([Buffer.from("JFIF\0", "ascii"), data]);
+}
+
+/**
+ * A bare (no "Exif\0\0" prefix) little-endian TIFF/EXIF payload carrying a
+ * single IFD0 Artist tag (ASCII, external value) -- no Orientation, no
+ * resolution. Mirrors `exifWithOrientation`'s layout shape (WebP/PNG builder
+ * above) for a single-entry IFD with an out-of-line value.
+ */
+export function exifWithArtist(text = "private workflow"): Buffer {
+  const valueBytes = Buffer.from(`${text}\0`, "ascii");
+  const ifdBytes = 2 + 1 * 12 + 4; // count(2) + one 12-byte entry + next-IFD(4)
+  const dataOffset = 8 + ifdBytes;
+  const result = Buffer.alloc(dataOffset + valueBytes.length);
+  result.write("II", 0, 2, "ascii");
+  result.writeUInt16LE(42, 2);
+  result.writeUInt32LE(8, 4);
+  result.writeUInt16LE(1, 8); // one IFD0 entry
+
+  result.writeUInt16LE(0x013b, 10); // Artist
+  result.writeUInt16LE(2, 12); // type: ASCII
+  result.writeUInt32LE(valueBytes.length, 14);
+  result.writeUInt32LE(dataOffset, 18);
+
+  result.writeUInt32LE(0, 8 + ifdBytes - 4); // next-IFD offset: none
+  valueBytes.copy(result, dataOffset);
+  return result;
+}
+
+/** APP1 Exif payload: the "Exif\0\0" identifier prefix plus a bare TIFF body. */
+export function jpegExif(tiff: Buffer): Buffer {
+  return Buffer.concat([JPEG_EXIF_IDENTIFIER, tiff]);
+}
+
+/** APP13 Photoshop 3.0 Image Resources payload. Content is opaque to the
+ * handler (every APP13 segment is removed unconditionally, D-01); this is
+ * just a realistic-shaped identifier prefix. */
+export function jpegPhotoshop(): Buffer {
+  return Buffer.from("Photoshop 3.0\0", "ascii");
+}
+
+/** APP14 Adobe payload (12 bytes): "Adobe" (no NUL), DCTEncodeVersion 100,
+ * APP14Flags0/1 zero, then the given ColorTransform byte. */
+export function jpegAdobe(transform = 1): Buffer {
+  const data = Buffer.alloc(7);
+  data.writeUInt16BE(100, 0);
+  data.writeUInt16BE(0, 2);
+  data.writeUInt16BE(0, 4);
+  data[6] = transform;
+  return Buffer.concat([Buffer.from("Adobe", "ascii"), data]);
+}
+
+/**
+ * A JPEG carrying APP0 JFIF (72 dpi), APP1 Exif (Artist "private workflow",
+ * no Orientation or resolution), APP13 Photoshop 3.0, APP14 Adobe (transform
+ * 1) and a COM "private comment", in that order after SOI -- 57-05's
+ * QUALIFICATION_FORMATS.jpeg sample.
+ */
+export function metadataJpeg(): Buffer {
+  const base = minimalJpeg({ components: 3 });
+  return Buffer.concat([
+    base.subarray(0, 2),
+    jpegSegment(0xe0, jpegJfif()),
+    jpegSegment(0xe1, jpegExif(exifWithArtist("private workflow"))),
+    jpegSegment(0xed, jpegPhotoshop()),
+    jpegSegment(0xee, jpegAdobe(1)),
+    jpegSegment(0xfe, Buffer.from("private comment", "ascii")),
+    base.subarray(2),
+  ]);
+}

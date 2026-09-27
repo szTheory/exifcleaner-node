@@ -7,7 +7,9 @@ import { webpDifferentialProfile } from "./webp/oracles.js";
 import { webpMetadataGenerator } from "./webp/generators.js";
 import { pngDifferentialProfile } from "./png/oracles.js";
 import { pngMetadataGenerator } from "./png/generators.js";
-import { metadataPng, metadataWebp } from "../fixtures.js";
+import { jpegDifferentialProfile } from "./jpeg/oracles.js";
+import { jpegMetadataGenerator } from "./jpeg/generators.js";
+import { metadataJpeg, metadataPng, metadataWebp } from "../fixtures.js";
 
 /**
  * The compile-time-exhaustive per-format qualification wiring (KIT-01).
@@ -32,6 +34,11 @@ export const QUALIFICATION_FORMATS = {
     differential: pngDifferentialProfile,
     generator: pngMetadataGenerator,
     sample: metadataPng,
+  },
+  jpeg: {
+    differential: jpegDifferentialProfile,
+    generator: jpegMetadataGenerator,
+    sample: metadataJpeg,
   },
 } as const satisfies Record<NativeFormat, QualificationFormat>;
 
