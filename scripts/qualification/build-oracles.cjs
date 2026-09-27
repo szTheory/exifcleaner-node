@@ -118,6 +118,7 @@ function validateAuthorityShape(authority) {
       "Artistic-1.0-Perl OR GPL-1.0-or-later",
       "libpng-2.0",
       "HPND",
+      "IJG AND BSD-3-Clause AND Zlib",
     ]).has(authority.license.spdx)
   )
     fail(`${id}.license.spdx is not admitted`);
@@ -189,8 +190,8 @@ function validateFixtureShape(fixture) {
 function validateManifestShape(manifest) {
   exactKeys(manifest, ["schemaVersion", "authorities", "fixtures"], "manifest");
   if (manifest.schemaVersion !== 1) fail("schemaVersion must be 1");
-  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 4)
-    fail("exactly four tool authorities are required");
+  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 5)
+    fail("exactly five tool authorities are required");
   manifest.authorities.forEach(validateAuthorityShape);
   const ids = manifest.authorities.map((item) => item.id);
   if (
@@ -200,6 +201,7 @@ function validateManifestShape(manifest) {
       "exiftool-13.59",
       "libpng-1.6.58",
       "pngcheck-4.0.1",
+      "libjpeg-turbo-3.2.0",
     ])
   )
     fail("authority order and IDs are not exact");
@@ -387,6 +389,7 @@ function runShapeMutationChecks(manifest) {
     (copy) => delete copy.fixtures[0].sha256,
     (copy) => copy.authorities.splice(2, 1), // drop libpng-1.6.58
     (copy) => copy.authorities.splice(3, 1), // drop pngcheck-4.0.1
+    (copy) => copy.authorities.splice(4, 1), // drop libjpeg-turbo-3.2.0
   ];
   for (const mutate of mutations) {
     const copy = structuredClone(manifest);
@@ -438,6 +441,58 @@ function authoritySummary(manifest) {
 
 function loadAndValidateAuthority() {
   return authoritySummary(validateAllAuthority().manifest);
+}
+
+/**
+ * The exact SIMD-disabled report line printed by libjpeg-turbo 3.2.0's
+ * CMakeLists.txt (`message(STATUS ...)`, not `report_option` -- SIMD has its
+ * own bespoke report path) when `WITH_SIMD=0`. Measured directly against the
+ * pinned 3.2.0 source (2026-09-27): `cmake -S <root> -B <build>
+ * -DWITH_SIMD=0 ...` prints this line verbatim.
+ */
+const LIBJPEG_TURBO_SIMD_DISABLED_REPORT_LINE =
+  "SIMD extensions: None (WITH_SIMD = 0)";
+
+/**
+ * D-08's feature-set assertion (57-08 A4 correction): libjpeg-turbo 3.x has
+ * no 12-bit-precision CMake toggle (12-bit decode is always built in), so
+ * this never widens the admitted JPEG variant list -- it only proves the
+ * oracle was actually built with the flags `prepareOracleTools` requested, throwing
+ * `libjpeg-turbo feature drift: <feature>` (not wrapped by `fail()`, so the
+ * message names exactly which of the five independent checks failed) the
+ * moment any one of them drifts.
+ */
+function assertLibjpegTurboFeatures({
+  configureLog,
+  djpegVersionText,
+  arithmeticDecodeExitCode,
+}) {
+  const checks = [
+    [
+      "arithmetic decoding enabled",
+      configureLog.includes(
+        "Arithmetic decoding support enabled (WITH_ARITH_DEC = 1)",
+      ),
+    ],
+    [
+      "arithmetic encoding disabled",
+      configureLog.includes(
+        "Arithmetic encoding support disabled (WITH_ARITH_ENC = 0)",
+      ),
+    ],
+    [
+      "shared libraries disabled",
+      configureLog.includes("Shared libraries disabled (ENABLE_SHARED = 0)"),
+    ],
+    [
+      "SIMD disabled",
+      configureLog.includes(LIBJPEG_TURBO_SIMD_DISABLED_REPORT_LINE),
+    ],
+    ["djpeg version", djpegVersionText.includes("libjpeg-turbo version 3.2.0")],
+    ["arithmetic decode of testimgari.jpg", arithmeticDecodeExitCode === 0],
+  ];
+  for (const [feature, ok] of checks)
+    if (!ok) throw new Error(`libjpeg-turbo feature drift: ${feature}`);
 }
 
 function prepareOracleTools() {
@@ -611,6 +666,126 @@ function prepareOracleTools() {
     if (!pngcheckVersion.includes(pngcheck.version))
       fail("built oracle version drift");
 
+    const libjpegTurbo = manifest.authorities[4];
+    const libjpegTurboRoot = path.join(workspace, libjpegTurbo.archive.root);
+    const libjpegTurboBuild = path.join(workspace, "libjpeg-turbo-build");
+    const configure = runTool(
+      "cmake",
+      [
+        "-S",
+        libjpegTurboRoot,
+        "-B",
+        libjpegTurboBuild,
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DENABLE_SHARED=0",
+        "-DENABLE_STATIC=1",
+        "-DWITH_SIMD=0",
+        "-DWITH_ARITH_DEC=1",
+        "-DWITH_ARITH_ENC=0",
+        "-DWITH_TURBOJPEG=0",
+        "-DWITH_TESTS=0",
+      ],
+      {},
+      "libjpeg-turbo configure failed",
+    );
+    const configureLog = `${configure.stdout ?? ""}\n${configure.stderr ?? ""}`;
+    runTool(
+      "cmake",
+      [
+        "--build",
+        libjpegTurboBuild,
+        "--target",
+        "djpeg-static",
+        "jpegtran-static",
+        "rdjpgcom",
+        "jpeg-static",
+        "--parallel",
+        "2",
+      ],
+      {},
+      "libjpeg-turbo build failed",
+    );
+
+    const djpegPath = path.join(libjpegTurboBuild, "djpeg-static");
+    const jpegtranPath = path.join(libjpegTurboBuild, "jpegtran-static");
+    const rdjpgcomPath = path.join(libjpegTurboBuild, "rdjpgcom");
+    const libjpegStaticPath = path.join(libjpegTurboBuild, "libjpeg.a");
+    const libjpegTurboIncludeDir = libjpegTurboBuild; // jconfig.h/jconfigint.h land here
+
+    const djpegVersion = spawnSync(djpegPath, ["-version"], {
+      encoding: "utf8",
+      timeout: 5_000,
+    });
+    if (djpegVersion.error !== undefined)
+      fail(`djpeg version check failed: ${djpegVersion.error.message}`);
+    const djpegVersionText = djpegVersion.stderr ?? "";
+
+    const arithmeticSourcePath = path.join(
+      libjpegTurboRoot,
+      "testimages/testimgari.jpg",
+    );
+    const arithmeticDecode = spawnSync(
+      djpegPath,
+      [
+        "-outfile",
+        path.join(workspace, "testimgari.ppm"),
+        arithmeticSourcePath,
+      ],
+      { encoding: "utf8", timeout: 20_000 },
+    );
+    if (arithmeticDecode.error !== undefined)
+      fail(
+        `libjpeg-turbo arithmetic decode smoke failed: ${arithmeticDecode.error.message}`,
+      );
+    const arithmeticDecodeExitCode = arithmeticDecode.status ?? 1;
+
+    assertLibjpegTurboFeatures({
+      configureLog,
+      djpegVersionText,
+      arithmeticDecodeExitCode,
+    });
+
+    const jpegDecodeSourcePath = path.join(
+      projectRoot,
+      "scripts/qualification/jpeg_decode_oracle.c",
+    );
+    if (!fs.existsSync(jpegDecodeSourcePath))
+      fail("jpeg decode oracle source is missing");
+    const jpegDecodePath = path.join(workspace, "jpeg-decode-oracle");
+    runTool(
+      "cc",
+      [
+        "-std=c11",
+        "-O2",
+        jpegDecodeSourcePath,
+        "-I",
+        libjpegTurboIncludeDir,
+        "-I",
+        path.join(libjpegTurboRoot, "src"),
+        "-L",
+        libjpegTurboBuild,
+        "-ljpeg",
+        "-o",
+        jpegDecodePath,
+      ],
+      {},
+      "jpeg decode oracle build failed",
+    );
+    const jpegDecodeUsage = spawnSync(jpegDecodePath, [], {
+      encoding: "utf8",
+      timeout: 5_000,
+    });
+    if (jpegDecodeUsage.error !== undefined)
+      fail(
+        `jpeg decode oracle version check failed: ${jpegDecodeUsage.error.message}`,
+      );
+    if (
+      !(jpegDecodeUsage.stderr ?? "").includes(
+        `libjpeg-turbo ${libjpegTurbo.version}`,
+      )
+    )
+      fail("built oracle version drift");
+
     const executable = (filePath) => ({
       path: filePath,
       sha256: digest(fs.readFileSync(filePath)),
@@ -624,6 +799,11 @@ function prepareOracleTools() {
       exiftool: executable(exiftoolPath),
       pngDecode: executable(pngDecodePath),
       pngcheck: executable(pngcheckPath),
+      djpeg: executable(djpegPath),
+      jpegtran: executable(jpegtranPath),
+      rdjpgcom: executable(rdjpgcomPath),
+      jpegStatic: executable(libjpegStaticPath),
+      jpegDecode: executable(jpegDecodePath),
       dispose() {
         fs.rmSync(workspace, { recursive: true, force: true });
       },
@@ -637,6 +817,7 @@ module.exports = {
   loadAndValidateAuthority,
   prepareOracleTools,
   readTarMembers,
+  assertLibjpegTurboFeatures,
 };
 
 if (require.main === module) {

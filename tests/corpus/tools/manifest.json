@@ -143,6 +143,54 @@
           "sha256": "728e82da1e26bcd2142bec2162e908b39dd4b3bbcf6145e2af264114be625dd2"
         }
       ]
+    },
+    {
+      "id": "libjpeg-turbo-3.2.0",
+      "kind": "compiled-source",
+      "version": "3.2.0",
+      "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+      "origin": "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.2.0/libjpeg-turbo-3.2.0.tar.gz",
+      "archive": {
+        "path": "tests/corpus/tools/archives/libjpeg-turbo-3.2.0.tar.gz",
+        "sha256": "6f30092cef9fb839779646608f4ee14ae3cbac989c47fa05e841b0841f09878e",
+        "root": "libjpeg-turbo-3.2.0"
+      },
+      "license": {
+        "spdx": "IJG AND BSD-3-Clause AND Zlib",
+        "path": "tests/corpus/tools/licenses/libjpeg-turbo-LICENSE.md",
+        "member": "libjpeg-turbo-3.2.0/LICENSE.md",
+        "sha256": "ba6bceebcba0fdd35488477c2cca8c4632ce82c74dbfbc87d886ce6fc4433579"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "libjpeg-turbo-3.2.0/CMakeLists.txt",
+        "sha256": "2dbbf2b215dce634c3c5dd383311937733b69e6699e4868e3a6e257700aa3ff6",
+        "contains": "set(VERSION 3.2.0)"
+      },
+      "entrypoints": [
+        {
+          "id": "djpeg-source",
+          "kind": "c-source",
+          "member": "libjpeg-turbo-3.2.0/src/djpeg.c",
+          "bytes": 35664,
+          "sha256": "53baf62e9aff85f79d2ac1b3fe13fe3e2f69abad7c619dfb2f5a89bef70744dc"
+        },
+        {
+          "id": "jpegtran-source",
+          "kind": "c-source",
+          "member": "libjpeg-turbo-3.2.0/src/jpegtran.c",
+          "bytes": 26401,
+          "sha256": "92211d9d8883156d101f329ac86b5f996c90cd3afdf8b7b84ff042d14c85d17d"
+        },
+        {
+          "id": "rdjpgcom-source",
+          "kind": "c-source",
+          "member": "libjpeg-turbo-3.2.0/src/rdjpgcom.c",
+          "bytes": 14558,
+          "sha256": "c7ce8e4b94a69c1eb250575618ce4e61a2df89cc49622a352afbe846f8bc6d8b"
+        }
+      ]
     }
   ],
   "fixtures": [
