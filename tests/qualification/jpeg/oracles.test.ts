@@ -166,13 +166,19 @@ function admittedJpegRecordIds(): readonly string[] {
  * sanitized output file already materialized on disk.
  */
 describe("JPG-03 payload identity through the pinned libjpeg-turbo oracle", () => {
+  // 480s, not vitest's 5s default: `tools()` lazily builds and caches all
+  // five oracle authorities on first call (57-08's `prepareOracleTools`),
+  // including libwebp's own slow `make` step under amd64 emulation
+  // (measured ~266s cold in a linux/amd64 container, 57-09 container
+  // pre-flight); whichever test in this file runs first pays that one-time
+  // cost, every later test in the same worker reuses the cached tools.
   it.runIf(admittedHost)(
     "proves the libjpeg-turbo testorig fixture pixel-identical with every preservation flag false and every flag true",
     async () => {
       const record = await loadCorpusRecord("libjpeg-turbo-testorig");
       await assertRecordPayloadIdentity(record.id);
     },
-    60_000,
+    480_000,
   );
 
   it.runIf(admittedHost).each(admittedJpegRecordIds())(
@@ -180,7 +186,7 @@ describe("JPG-03 payload identity through the pinned libjpeg-turbo oracle", () =
     async (caseId) => {
       await assertRecordPayloadIdentity(caseId);
     },
-    60_000,
+    480_000,
   );
 
   /**
@@ -216,6 +222,6 @@ describe("JPG-03 payload identity through the pinned libjpeg-turbo oracle", () =
         await rm(sourceDirectory, { recursive: true, force: true });
       }
     },
-    60_000,
+    480_000,
   );
 });
