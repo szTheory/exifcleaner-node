@@ -2325,6 +2325,42 @@
         }
       ],
       "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-google",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/Google.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/Google.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "156a7510315a4fb27c97d12a6dedb4e791eaf26e4810458e86b629f862e34651",
+      "bytes": 41417,
+      "topology": [
+        "0xE1",
+        "0xE0",
+        "0xE1",
+        "0xE1",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
     }
   ],
   "benchmarks": {

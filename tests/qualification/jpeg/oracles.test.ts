@@ -19,7 +19,7 @@ import {
   runExiftoolReference,
 } from "../kit/oracles.js";
 import { loadCorpusRecord, materializeCorpusRecord } from "../kit/corpus.js";
-import { iccProfileV4 } from "../../fixtures.js";
+import { iccProfileV4, minimalJpeg } from "../../fixtures.js";
 import {
   JPEG_SEGMENT_IDENTIFIER_FIXTURES,
   appSegment,
@@ -38,6 +38,7 @@ import {
   JPEG_PRESERVATION_MEASUREMENT_TITLE,
   JPEG_RESOLUTION_MEASUREMENT_TITLE,
   jpegDifferentialProfile,
+  jpegMarkerSequence,
   jpegSanitizeOptionsForGrants,
   jpegStructuralParts,
 } from "./oracles.js";
@@ -553,6 +554,183 @@ describe("JPEG C2PA parity (D-02)", () => {
       )?.kept,
     ).toBe(false);
   });
+});
+
+// ---------------------------------------------------------------------------
+// D-12/D-13 promotion: MPF and motion-photo trailer classes (Plan 11).
+// `secondaryWindows`/`sampleWindows`/`parseMpfSecondaryRanges` are a direct
+// TS port of `.planning/phases/57-native-jpeg-and-node-0-3-0/57-reproducers/
+// measure-trailers.mjs`'s own `sampleWindows`/`parseMpfEntries`/
+// `findMpfSecondaryRanges` -- the exact containment-sampling method
+// 57-EVIDENCE.md's decision table was measured with -- kept independent of
+// `findAppSegmentByIdentifier` below only for the MPF segment lookup (reused,
+// since both need the same "find an APP2 segment by identifier prefix" walk).
+// ---------------------------------------------------------------------------
+
+/** 16 evenly spaced 64-byte windows of `source[start, end)` (or fewer/smaller
+ * when the span is under 64*16 bytes) -- matches `measure-trailers.mjs`'s
+ * `sampleWindows` exactly. */
+function sampleWindows(
+  source: Buffer,
+  start: number,
+  end: number,
+): readonly Buffer[] {
+  const span = end - start;
+  if (span <= 0) return [];
+  const windowSize = Math.min(64, span);
+  const count = 16;
+  const windows: Buffer[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const offset =
+      start + Math.floor((i * (span - windowSize)) / Math.max(1, count - 1));
+    windows.push(source.subarray(offset, offset + windowSize));
+  }
+  return windows;
+}
+
+interface MpfSecondaryRange {
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * Locates an APP2 `MPF\0` segment (if any) and returns the absolute byte
+ * range of every secondary-image `MPEntry` it declares (index 0, the
+ * primary, is never a secondary range) -- a direct port of
+ * `measure-trailers.mjs`'s `parseMpfEntries`/`findMpfSecondaryRanges`, best
+ * effort (returns `[]` rather than throwing on any malformed shape, since
+ * this is a measurement helper, not `src/jpeg/trailer.ts`'s own production
+ * `classifyMpfPayload`, and must never share a bug with it).
+ */
+function parseMpfSecondaryRanges(bytes: Buffer): readonly MpfSecondaryRange[] {
+  const segment = findAppSegmentByIdentifier(bytes, 0xe2, "MPF\0");
+  if (segment === undefined) return [];
+  const base = segment.offset + 8; // marker(2) + length(2) + "MPF\0"(4)
+  if (base + 8 > bytes.length) return [];
+  const byteOrder = bytes.toString("latin1", base, base + 2);
+  const little = byteOrder === "II";
+  const big = byteOrder === "MM";
+  if (!little && !big) return [];
+  const read16 = (offset: number): number =>
+    little ? bytes.readUInt16LE(offset) : bytes.readUInt16BE(offset);
+  const read32 = (offset: number): number =>
+    little ? bytes.readUInt32LE(offset) : bytes.readUInt32BE(offset);
+  if (read16(base + 2) !== 0x002a) return [];
+  const ifdOffset = read32(base + 4);
+  const ifdStart = base + ifdOffset;
+  if (ifdStart + 2 > bytes.length) return [];
+  const entryCount = read16(ifdStart);
+  let mpEntryOffset: number | undefined;
+  let mpEntryCount: number | undefined;
+  for (let index = 0; index < entryCount; index += 1) {
+    const entryStart = ifdStart + 2 + index * 12;
+    if (entryStart + 12 > bytes.length) return [];
+    if (read16(entryStart) === 0xb002 /* MPEntry */) {
+      const byteCount = read32(entryStart + 4);
+      mpEntryCount = Math.floor(byteCount / 16);
+      mpEntryOffset =
+        byteCount > 4 ? base + read32(entryStart + 8) : entryStart + 8;
+    }
+  }
+  if (mpEntryOffset === undefined || !mpEntryCount) return [];
+  const ranges: MpfSecondaryRange[] = [];
+  for (let index = 1; index < mpEntryCount; index += 1) {
+    const entryStart = mpEntryOffset + index * 16;
+    if (entryStart + 16 > bytes.length) continue;
+    const size = read32(entryStart + 4);
+    const dataOffset = read32(entryStart + 8);
+    const start = base + dataOffset;
+    const end = start + size;
+    if (start >= 0 && size > 0 && end <= bytes.length) {
+      ranges.push({ start, end });
+    }
+  }
+  return ranges;
+}
+
+/**
+ * The containment-sampling windows `source` offers for a secondary-image
+ * leak check: 16 windows of its own trailer bytes (bytes after the primary
+ * EOI), plus 16 more per MPF-declared secondary range, if any. Matches
+ * `measure-trailers.mjs` exactly -- including its own measured shape for a
+ * source with neither (returns `[]`, not a fixed 16): Google.jpg's own real
+ * XMP names a gain-map secondary but never appends it as trailer bytes or an
+ * MPF payload (57-EVIDENCE.md, `trailerBytesBefore: 0`), so it offers zero
+ * windows -- the strongest possible containment result, since there is
+ * nothing to leak in the first place.
+ */
+function secondaryWindows(source: Buffer): readonly Buffer[] {
+  const walk = jpegMarkerSequence(source);
+  const primaryEoiEnd = source.length - walk.trailerBytes;
+  let windows: Buffer[] = [];
+  if (walk.trailerBytes > 0) {
+    windows = windows.concat(
+      sampleWindows(source, primaryEoiEnd, source.length),
+    );
+  }
+  for (const range of parseMpfSecondaryRanges(source)) {
+    windows = windows.concat(sampleWindows(source, range.start, range.end));
+  }
+  return windows;
+}
+
+/** True when any window occurs anywhere in `haystack` -- matches
+ * `measure-trailers.mjs`'s `anyWindowInOutput`. */
+function anyWindowInOutput(
+  windows: readonly Buffer[],
+  haystack: Buffer,
+): boolean {
+  return windows.some(
+    (window) => window.length > 0 && haystack.includes(window),
+  );
+}
+
+describe("JPEG MPF and motion-photo promotion (D-12, D-13)", () => {
+  it("computes zero secondary-byte windows for the real Google.jpg fixture (measured: its XMP names a gain-map secondary that is never appended as trailer bytes or an MPF payload) and none occur in minimalJpeg() (host-independent)", async () => {
+    const source = await materializeCorpusRecord("exiftool-jpeg-google");
+    const windows = secondaryWindows(source);
+    // Measured 2026-09-27 (57-EVIDENCE.md, "trailerBytesBefore: 0",
+    // "windowsSampled: 0"): this is the REAL fixture's own shape, not the
+    // plan's illustrative "16 windows" prose -- Google.jpg carries no
+    // trailer bytes and no APP2 MPF segment, so there is nothing for
+    // `secondaryWindows` to sample. Recorded as measured, per this phase's
+    // own precedent for correcting prose against direct re-measurement
+    // (57-01's D-05 finding, 57-04's mpf-index-* trailer-byte finding).
+    expect(windows.length).toBe(0);
+    expect(anyWindowInOutput(windows, minimalJpeg())).toBe(false);
+  });
+
+  it.runIf(admittedHost)(
+    "promotes the real Google.jpg motion photo through both engines with no secondary bytes surviving",
+    async () => {
+      const source = await materializeCorpusRecord("exiftool-jpeg-google");
+      const output = await sanitizeToPath(source, ALL_FALSE);
+      try {
+        const outputBytes = await readFileAsync(output.outputPath);
+        // ExifTool half (D-13): the live two-directional differential finds
+        // zero unpermitted difference.
+        assertJpegDifferential({
+          caseId: "exiftool-jpeg-google",
+          source,
+          output: outputBytes,
+          permittedDifferences: [],
+        });
+        // Native half (D-13): the native output itself ends at its own EOI
+        // (no trailer bytes survive), and none of the source's own
+        // secondary-byte windows occur anywhere in it. `windows` is `[]` for
+        // this fixture (see the host-independent case above), which is
+        // still a valid -- indeed the strongest -- containment proof: there
+        // is no secondary data in the source to leak.
+        const outputWalk = jpegMarkerSequence(outputBytes);
+        expect(outputWalk.trailerBytes).toBe(0);
+        const windows = secondaryWindows(source);
+        expect(anyWindowInOutput(windows, outputBytes)).toBe(false);
+      } finally {
+        await rm(output.directory, { recursive: true, force: true });
+      }
+    },
+    480_000,
+  );
 });
 
 /**

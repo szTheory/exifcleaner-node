@@ -142,10 +142,23 @@ export function classifyTrailerClasses(
     classes.add(classifyMpfPayload(input.mpfPayload, input.fileSize));
   }
 
-  if (hasEntry(input.xmpEntries, "GCamera:MotionPhoto")) {
+  // 57-11 (D-13 native half, measured 2026-09-27): an XMP tag NAMING a
+  // motion-photo/gain-map container is only a residue risk when the file
+  // also carries actual secondary bytes to leak (an appended trailer or an
+  // MPF payload) -- classifying purely on the XMP tag's presence refused the
+  // REAL Google.jpg fixture (hdrgm:Version XMP, zero trailer bytes, no MPF
+  // segment: nothing for a secondary image to leak from) even though 57-01
+  // measured its ExifTool half as a clean `promote` with no secondary bytes
+  // in the output. Every constructed class fixture that actually carries
+  // secondary bytes (buildGainmapMpfHdrgm, buildGoogleMotionPhotoShape) still
+  // appends a real trailer, so this added condition does not change their
+  // classification.
+  const hasSecondaryBytes =
+    input.trailerBytes > 0 || input.mpfPayload !== undefined;
+  if (hasEntry(input.xmpEntries, "GCamera:MotionPhoto") && hasSecondaryBytes) {
     classes.add("google-motion-photo");
   }
-  if (hasEntry(input.xmpEntries, "hdrgm:Version")) {
+  if (hasEntry(input.xmpEntries, "hdrgm:Version") && hasSecondaryBytes) {
     classes.add("gain-map");
   }
 
@@ -170,8 +183,19 @@ export function classifyTrailerClasses(
 //     promote -- ExifTool's `-all=` deletes the whole MPF segment before ever
 //     parsing its IFD, so a malformed index produces a clean output with no
 //     warning (measured, not assumed).
-//   - google-motion-photo (real Google.jpg, google-motion-photo-shape.jpg):
-//     promote -- clean measurement, no shared bytes with the primary.
+//   - google-motion-photo (google-motion-photo-shape.jpg): promote -- clean
+//     measurement, no shared bytes with the primary. (57-11: the REAL
+//     Google.jpg fixture does not actually classify google-motion-photo --
+//     its XMP carries hdrgm:Version, not GCamera:MotionPhoto -- see below.)
+//   - gain-map, real Google.jpg (hdrgm:Version XMP, zero trailer bytes, no
+//     MPF segment): classifies as an EMPTY set, not gain-map -- 57-11
+//     measured that classifyTrailerClasses's added hasSecondaryBytes
+//     condition (an XMP tag alone, with nothing appended or MPF-referenced,
+//     is not itself a leak risk) correctly promotes this file, matching
+//     57-01's ExifTool-half `promote` measurement. This is why the
+//     evidence table's own "gain-map (Google.jpg)" row and the constructed
+//     "gain-map (gainmap-mpf-hdrgm.jpg)" row diverge: only the latter
+//     carries real secondary bytes.
 //   - samsung-trailer (samsung-sefh-seft-trailer.jpg): promote.
 //   - plain-trailer: never refused (D-11 -- `-all=` truncates any trailer at
 //     the primary EOI regardless of content).

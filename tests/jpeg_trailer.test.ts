@@ -5,12 +5,14 @@ import { describe, expect, it } from "vitest";
 import { minimalJpeg } from "./fixtures.js";
 import {
   appendTrailer,
+  appSegment,
   buildCipaMpfTwoImages,
   buildGainmapMpfHdrgm,
   buildGoogleMotionPhotoShape,
   buildMpfIndexOutOfRange,
   buildMpfIndexTruncated,
   buildSamsungSefhSeftTrailer,
+  spliceSegments,
 } from "./qualification/jpeg/fixtures.js";
 import { type ParsedJpeg, parseJpeg } from "../src/jpeg/parser.js";
 import { parseXmp } from "../src/metadata/xmp.js";
@@ -126,6 +128,35 @@ describe("classifyTrailerClasses (D-12/D-13)", () => {
   it("classifies the gain-map MPF+hdrgm shape as { mpf, gain-map, plain-trailer }", async () => {
     const classes = await classifyFile(buildGainmapMpfHdrgm(minimalJpeg()));
     expect(classes).toEqual(new Set(["mpf", "gain-map", "plain-trailer"]));
+  });
+
+  /**
+   * 57-11 (D-13 native half): the REAL Google.jpg fixture's own measured
+   * shape -- an XMP tag naming a gain-map secondary, but zero trailer bytes
+   * and no APP2 MPF segment (57-EVIDENCE.md, `trailerBytesBefore: 0`). An
+   * XMP tag alone is not itself a leak risk: there is no secondary-image
+   * data anywhere in the file for a refusal to protect. Classifying this as
+   * `gain-map` would refuse a file 57-01 measured its ExifTool half as a
+   * clean `promote` for no residue-prevention benefit.
+   */
+  function gainMapXmpOnlyPayload(): Buffer {
+    const xml =
+      `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>` +
+      `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">` +
+      `<rdf:Description rdf:about="" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0"/>` +
+      `</rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
+    return Buffer.concat([
+      Buffer.from("http://ns.adobe.com/xap/1.0/\0", "ascii"),
+      Buffer.from(xml, "utf8"),
+    ]);
+  }
+
+  it("classifies an hdrgm:Version XMP tag with zero trailer bytes and no MPF payload as an empty set (Google.jpg's real measured shape, D-13)", async () => {
+    const source = spliceSegments(minimalJpeg(), [
+      appSegment(0xe1, gainMapXmpOnlyPayload()),
+    ]);
+    const classes = await classifyFile(source);
+    expect(classes.size).toBe(0);
   });
 
   it("classifies a hostile MPF payload claiming 65,535 entries in a 40-byte payload as mpf-index-invalid, without reading past the payload", () => {
