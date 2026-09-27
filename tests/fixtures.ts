@@ -726,3 +726,207 @@ export function readChunks(file: Buffer): readonly FixtureChunk[] {
   }
   return chunks;
 }
+
+// JPEG builders (57-03). A minimal but genuinely decodable baseline/progressive
+// JPEG, built entropy-code-first so every admitted fixture is real -- never a
+// throwaway. Every block's DC/AC coefficients decode to exactly zero (a single
+// 1-bit Huffman code per symbol: DC category 0, AC "EOB"), so the quantization
+// table's actual values never affect the decoded image (mid-gray, 128 after the
+// level shift) and no true bit-packing complexity is needed. `sofMarker` and
+// `precision` patching exists to build refusal fixtures (Task 2), which are not
+// decodable -- only the default (SOF0/1/2, 8-bit) output is a real, djpeg-decodable
+// JPEG.
+
+const JPEG_SOI = Buffer.from([0xff, 0xd8]);
+const JPEG_EOI = Buffer.from([0xff, 0xd9]);
+
+function jpegSegment(marker: number, payload: Buffer): Buffer {
+  const header = Buffer.alloc(4);
+  header[0] = 0xff;
+  header[1] = marker;
+  header.writeUInt16BE(payload.length + 2, 2);
+  return Buffer.concat([header, payload]);
+}
+
+/** A DHT segment defining one Huffman table with a single 1-bit code "0" for
+ * the given single symbol value -- `tableClass` 0 = DC, 1 = AC; `tableId` 0-3. */
+function singleCodeHuffmanTable(
+  tableClass: 0 | 1,
+  tableId: number,
+  symbol: number,
+): Buffer {
+  const bits = Buffer.alloc(16);
+  bits[0] = 1; // exactly one 1-bit code
+  return Buffer.concat([
+    Buffer.from([(tableClass << 4) | tableId]),
+    bits,
+    Buffer.from([symbol]),
+  ]);
+}
+
+class JpegBitWriter {
+  private readonly bytes: number[] = [];
+  private current = 0;
+  private bitCount = 0;
+
+  private emitByte(byte: number): void {
+    this.bytes.push(byte);
+    if (byte === 0xff) this.bytes.push(0x00); // byte-stuff literal 0xFF data
+  }
+
+  writeBit(bit: 0 | 1): void {
+    this.current = (this.current << 1) | bit;
+    this.bitCount += 1;
+    if (this.bitCount === 8) {
+      this.emitByte(this.current);
+      this.current = 0;
+      this.bitCount = 0;
+    }
+  }
+
+  /** Pads the current partial byte with 1-bits (JPEG's required padding) and
+   * flushes it, if a partial byte is pending. */
+  padToByte(): void {
+    while (this.bitCount !== 0) this.writeBit(1);
+  }
+
+  /** Flushes any pending partial byte, then appends a raw marker (e.g. an
+   * RSTn restart marker) directly -- never byte-stuffed. */
+  appendMarker(marker: number): void {
+    this.padToByte();
+    this.bytes.push(0xff, marker);
+  }
+
+  toBuffer(): Buffer {
+    return Buffer.from(this.bytes);
+  }
+}
+
+/** Encodes `mcuCount` MCUs, each containing `componentsPerMcu` blocks (every
+ * block: a 1-bit DC-category-0 code then a 1-bit AC-EOB code), inserting an
+ * RSTn restart marker (cycling 0xD0..0xD7) every `restartInterval` MCUs. */
+function encodeScanEntropy(
+  componentsPerMcu: number,
+  mcuCount: number,
+  restartInterval?: number,
+): Buffer {
+  const writer = new JpegBitWriter();
+  let sinceRestart = 0;
+  let restartIndex = 0;
+  for (let mcu = 0; mcu < mcuCount; mcu += 1) {
+    for (let component = 0; component < componentsPerMcu; component += 1) {
+      writer.writeBit(0); // DC category 0 (diff = 0)
+      writer.writeBit(0); // AC EOB (all 63 AC coefficients zero)
+    }
+    sinceRestart += 1;
+    if (
+      restartInterval !== undefined &&
+      sinceRestart === restartInterval &&
+      mcu !== mcuCount - 1
+    ) {
+      writer.appendMarker(0xd0 + (restartIndex % 8));
+      restartIndex += 1;
+      sinceRestart = 0;
+    }
+  }
+  writer.padToByte();
+  return writer.toBuffer();
+}
+
+export interface MinimalJpegOptions {
+  readonly components?: 1 | 3 | 4;
+  readonly width?: number;
+  readonly height?: number;
+  readonly sofMarker?: number;
+  readonly precision?: number;
+  readonly restartInterval?: number;
+  readonly scans?: "interleaved" | "per-component";
+}
+
+/**
+ * Builds a real, decodable flat-grey baseline JPEG (or a patched variant for
+ * refusal fixtures): SOI; one DQT (table 0, all ones); SOF (`sofMarker`, default
+ * 0xC0) with `precision` (default 8), `width`x`height` (default 8x8) and
+ * `components` (default 3; ids 1..N, sampling 1x1, Tq 0); a DHT with DC table 0
+ * (one code, category 0) and AC table 0 (one code, EOB); an optional DRI plus
+ * RSTn restart markers every `restartInterval` MCUs; one SOS per `scans`; EOI.
+ */
+export function minimalJpeg({
+  components = 3,
+  width = 8,
+  height = 8,
+  sofMarker = 0xc0,
+  precision = 8,
+  restartInterval,
+  scans = "interleaved",
+}: MinimalJpegOptions = {}): Buffer {
+  const parts: Buffer[] = [JPEG_SOI];
+
+  // DQT: one table, id 0, 8-bit precision, all values 1 (moot -- every
+  // coefficient this builder emits is zero, so the quant step never matters).
+  const dqtPayload = Buffer.concat([Buffer.from([0x00]), Buffer.alloc(64, 1)]);
+  parts.push(jpegSegment(0xdb, dqtPayload));
+
+  // SOF: precision, height, width, component count, then id/sampling/Tq per
+  // component.
+  const componentIds = Array.from({ length: components }, (_, i) => i + 1);
+  const sofPayload = Buffer.alloc(6 + components * 3);
+  sofPayload.writeUInt8(precision, 0);
+  sofPayload.writeUInt16BE(height, 1);
+  sofPayload.writeUInt16BE(width, 3);
+  sofPayload.writeUInt8(components, 5);
+  componentIds.forEach((id, index) => {
+    const base = 6 + index * 3;
+    sofPayload.writeUInt8(id, base);
+    sofPayload.writeUInt8(0x11, base + 1); // H=1, V=1
+    sofPayload.writeUInt8(0, base + 2); // Tq=0
+  });
+  parts.push(jpegSegment(sofMarker, sofPayload));
+
+  // DHT: DC table 0 (symbol 0x00 = category 0), AC table 0 (symbol 0x00 = EOB).
+  const dhtPayload = Buffer.concat([
+    singleCodeHuffmanTable(0, 0, 0x00),
+    singleCodeHuffmanTable(1, 0, 0x00),
+  ]);
+  parts.push(jpegSegment(0xc4, dhtPayload));
+
+  if (restartInterval !== undefined) {
+    const driPayload = Buffer.alloc(2);
+    driPayload.writeUInt16BE(restartInterval, 0);
+    parts.push(jpegSegment(0xdd, driPayload));
+  }
+
+  const blocksX = Math.ceil(width / 8);
+  const blocksY = Math.ceil(height / 8);
+  const totalBlocks = blocksX * blocksY;
+
+  if (scans === "interleaved") {
+    const sosPayload = Buffer.alloc(1 + components * 2 + 3);
+    sosPayload.writeUInt8(components, 0);
+    componentIds.forEach((id, index) => {
+      const base = 1 + index * 2;
+      sosPayload.writeUInt8(id, base);
+      sosPayload.writeUInt8(0x00, base + 1); // Td=0, Ta=0
+    });
+    sosPayload.writeUInt8(0, 1 + components * 2); // Ss
+    sosPayload.writeUInt8(63, 1 + components * 2 + 1); // Se
+    sosPayload.writeUInt8(0, 1 + components * 2 + 2); // Ah/Al
+    parts.push(jpegSegment(0xda, sosPayload));
+    parts.push(encodeScanEntropy(components, totalBlocks, restartInterval));
+  } else {
+    for (const id of componentIds) {
+      const sosPayload = Buffer.alloc(1 + 1 * 2 + 3);
+      sosPayload.writeUInt8(1, 0);
+      sosPayload.writeUInt8(id, 1);
+      sosPayload.writeUInt8(0x00, 2);
+      sosPayload.writeUInt8(0, 3);
+      sosPayload.writeUInt8(63, 4);
+      sosPayload.writeUInt8(0, 5);
+      parts.push(jpegSegment(0xda, sosPayload));
+      parts.push(encodeScanEntropy(1, totalBlocks, restartInterval));
+    }
+  }
+
+  parts.push(JPEG_EOI);
+  return Buffer.concat(parts);
+}
