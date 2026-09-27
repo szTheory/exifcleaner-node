@@ -8,7 +8,16 @@ import {
   JpegStructureError,
   parseJpeg,
 } from "../src/jpeg/parser.js";
-import { JPEG_REFUSAL_KIND, type JpegRefusal } from "../src/jpeg/markers.js";
+import {
+  JPEG_MAX_EXTENDED_XMP_BYTES,
+  JPEG_MAX_FILE_BYTES,
+  JPEG_MAX_ICC_SEGMENTS,
+  JPEG_MAX_SCAN_COUNT,
+  JPEG_MAX_SEGMENT_COUNT,
+  JPEG_MAX_TABLE_SEGMENT_COUNT,
+  JPEG_REFUSAL_KIND,
+  type JpegRefusal,
+} from "../src/jpeg/markers.js";
 
 const PNG_SIGNATURE = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -517,5 +526,282 @@ describe("parseJpeg: structural refusals (D-10)", () => {
       Buffer.from([0xff, 0xd0]),
     );
     await expectRefusal(withStrayRst, "malformed-container");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 3: census caps, checked incrementally, and bounded buffering.
+// ---------------------------------------------------------------------------
+
+/** Builds a minimal empty COM segment (length 2, zero-byte payload). */
+function comSegment(): Buffer {
+  return buildSegment(0xfe, Buffer.alloc(0));
+}
+
+/** Builds a minimal one-table DQT segment (Tq=0, 64 bytes of value 1). */
+function dqtSegment(): Buffer {
+  return buildSegment(
+    0xdb,
+    Buffer.concat([Buffer.from([0x00]), Buffer.alloc(64, 1)]),
+  );
+}
+
+/** Inserts `count` copies of `segment` immediately before `beforeMarker`'s
+ * first occurrence. */
+function insertRepeatedBefore(
+  bytes: Buffer,
+  beforeMarker: number,
+  segment: Buffer,
+  count: number,
+): Buffer {
+  const offset = markerOffset(bytes, beforeMarker);
+  return Buffer.concat([
+    bytes.subarray(0, offset),
+    Buffer.concat(Array.from({ length: count }, () => segment)),
+    bytes.subarray(offset),
+  ]);
+}
+
+/** Builds a fixture with exactly `sosCount` per-component SOS(+entropy) scans
+ * of a 1-component 8x8 frame (DQT, SOF, DHT, then `sosCount` repeats of the
+ * SOS+1-byte-entropy span, then EOI). */
+function withScanCount(sosCount: number): Buffer {
+  const base = minimalJpeg({ components: 1 });
+  const sosOffset = markerOffset(base, 0xda);
+  const eoiOffset = base.length - 2;
+  const scanSpan = base.subarray(sosOffset, eoiOffset);
+  return Buffer.concat([
+    base.subarray(0, sosOffset),
+    Buffer.concat(Array.from({ length: sosCount }, () => scanSpan)),
+    base.subarray(eoiOffset),
+  ]);
+}
+
+function iccSegment(sequence: number, count: number): Buffer {
+  return buildSegment(
+    0xe2,
+    Buffer.concat([
+      Buffer.from("ICC_PROFILE\0", "ascii"),
+      Buffer.from([sequence, count]),
+      Buffer.alloc(4, 0),
+    ]),
+  );
+}
+
+function extendedXmpSegment(dataBytes: number): Buffer {
+  return buildSegment(
+    0xe1,
+    Buffer.concat([
+      Buffer.from("http://ns.adobe.com/xmp/extension/\0", "ascii"),
+      Buffer.alloc(32, 0x41), // GUID (opaque to the parser)
+      Buffer.alloc(4, 0), // total length (opaque to the parser here)
+      Buffer.alloc(4, 0), // offset (opaque to the parser here)
+      Buffer.alloc(dataBytes, 0),
+    ]),
+  );
+}
+
+describe("parseJpeg: census caps (D-10, Task 3)", () => {
+  it("parses a file at exactly JPEG_MAX_SEGMENT_COUNT segments", async () => {
+    const base = minimalJpeg(); // DQT, SOF, DHT, SOS = 4 segments
+    const extra = JPEG_MAX_SEGMENT_COUNT - 4;
+    const bytes = insertRepeatedBefore(base, 0xdb, comSegment(), extra);
+    await expectAdmitted(bytes);
+  });
+
+  it("refuses one more than JPEG_MAX_SEGMENT_COUNT segments as resource-limits", async () => {
+    const base = minimalJpeg();
+    const extra = JPEG_MAX_SEGMENT_COUNT - 4 + 1;
+    const bytes = insertRepeatedBefore(base, 0xdb, comSegment(), extra);
+    const path = await writeTempFile(bytes);
+    const handle = await open(path, "r");
+    try {
+      await expect(parseJpeg(handle, bytes.length)).rejects.toMatchObject({
+        refusal: "resource-limits",
+        kind: "unsafe-structure",
+        limit: { segment: "segment-count", limit: JPEG_MAX_SEGMENT_COUNT },
+      });
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("parses a file at exactly JPEG_MAX_SCAN_COUNT scans", async () => {
+    await expectAdmitted(withScanCount(JPEG_MAX_SCAN_COUNT));
+  });
+
+  it("refuses one more than JPEG_MAX_SCAN_COUNT scans as resource-limits", async () => {
+    const bytes = withScanCount(JPEG_MAX_SCAN_COUNT + 1);
+    const path = await writeTempFile(bytes);
+    const handle = await open(path, "r");
+    try {
+      await expect(parseJpeg(handle, bytes.length)).rejects.toMatchObject({
+        refusal: "resource-limits",
+        kind: "unsafe-structure",
+        limit: { segment: "scan-count", limit: JPEG_MAX_SCAN_COUNT },
+      });
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("parses a file at exactly JPEG_MAX_TABLE_SEGMENT_COUNT DQT+DHT segments", async () => {
+    const base = minimalJpeg(); // 1 DQT + 1 DHT = 2 table segments
+    const extra = JPEG_MAX_TABLE_SEGMENT_COUNT - 2;
+    const bytes = insertRepeatedBefore(base, 0xc0, dqtSegment(), extra);
+    await expectAdmitted(bytes);
+  });
+
+  it("refuses one more than JPEG_MAX_TABLE_SEGMENT_COUNT DQT+DHT segments as resource-limits", async () => {
+    const base = minimalJpeg();
+    const extra = JPEG_MAX_TABLE_SEGMENT_COUNT - 2 + 1;
+    const bytes = insertRepeatedBefore(base, 0xc0, dqtSegment(), extra);
+    const path = await writeTempFile(bytes);
+    const handle = await open(path, "r");
+    try {
+      await expect(parseJpeg(handle, bytes.length)).rejects.toMatchObject({
+        refusal: "resource-limits",
+        kind: "unsafe-structure",
+        limit: {
+          segment: "table-segment-count",
+          limit: JPEG_MAX_TABLE_SEGMENT_COUNT,
+        },
+      });
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("refuses one more than JPEG_MAX_ICC_SEGMENTS ICC_PROFILE segments as resource-limits", async () => {
+    const base = minimalJpeg();
+    const segments = Buffer.concat(
+      Array.from({ length: JPEG_MAX_ICC_SEGMENTS + 1 }, (_, index) =>
+        iccSegment(index + 1, JPEG_MAX_ICC_SEGMENTS + 1),
+      ),
+    );
+    const offset = markerOffset(base, 0xdb);
+    const bytes = Buffer.concat([
+      base.subarray(0, offset),
+      segments,
+      base.subarray(offset),
+    ]);
+    const path = await writeTempFile(bytes);
+    const handle = await open(path, "r");
+    try {
+      await expect(parseJpeg(handle, bytes.length)).rejects.toMatchObject({
+        refusal: "resource-limits",
+        kind: "unsafe-structure",
+        limit: { segment: "icc-segment-count", limit: JPEG_MAX_ICC_SEGMENTS },
+      });
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("refuses ExtendedXMP payloads summing past JPEG_MAX_EXTENDED_XMP_BYTES as resource-limits", async () => {
+    const perSegment = 65_000;
+    const segmentCount =
+      Math.ceil(JPEG_MAX_EXTENDED_XMP_BYTES / perSegment) + 1;
+    const base = minimalJpeg();
+    const segments = Buffer.concat(
+      Array.from({ length: segmentCount }, () =>
+        extendedXmpSegment(perSegment),
+      ),
+    );
+    const offset = markerOffset(base, 0xdb);
+    const bytes = Buffer.concat([
+      base.subarray(0, offset),
+      segments,
+      base.subarray(offset),
+    ]);
+    const path = await writeTempFile(bytes);
+    const handle = await open(path, "r");
+    try {
+      await expect(parseJpeg(handle, bytes.length)).rejects.toMatchObject({
+        refusal: "resource-limits",
+        kind: "unsafe-structure",
+        limit: {
+          segment: "extended-xmp-bytes",
+          limit: JPEG_MAX_EXTENDED_XMP_BYTES,
+        },
+      });
+    } finally {
+      await handle.close();
+    }
+  }, 20_000);
+
+  it("refuses a size argument above JPEG_MAX_FILE_BYTES before any read", async () => {
+    let readCalls = 0;
+    const fakeHandle = {
+      read() {
+        readCalls += 1;
+        throw new Error("must not be called");
+      },
+    } as unknown as Parameters<typeof parseJpeg>[0];
+    await expect(
+      parseJpeg(fakeHandle, JPEG_MAX_FILE_BYTES + 1),
+    ).rejects.toMatchObject({
+      refusal: "resource-limits",
+      kind: "unsafe-structure",
+      limit: { segment: "file-bytes", limit: JPEG_MAX_FILE_BYTES },
+    });
+    expect(readCalls).toBe(0);
+  });
+
+  it("parses 1000 COM segments of 65533 bytes each with zero buffered COM bytes", async () => {
+    const base = minimalJpeg();
+    const comPayload = Buffer.alloc(65_533, 0x2a);
+    const bigCom = buildSegment(0xfe, comPayload);
+    const bytes = insertRepeatedBefore(base, 0xdb, bigCom, 1000);
+    const path = await writeTempFile(bytes);
+    const handle = await open(path, "r");
+    try {
+      const parsed = await parseJpeg(handle, bytes.length);
+      let bufferedBytes = 0;
+      for (const buf of parsed.buffered.values()) bufferedBytes += buf.length;
+      expect(bufferedBytes).toBeLessThan(70_000);
+    } finally {
+      await handle.close();
+    }
+  }, 20_000);
+
+  it("buffers only the first APP1 Exif and first standard XMP when two of each are present", async () => {
+    const bytes = minimalJpeg();
+    const exifPayload = Buffer.concat([
+      Buffer.from("Exif\0\0", "ascii"),
+      Buffer.alloc(8, 0),
+    ]);
+    const xmpPayload = Buffer.concat([
+      Buffer.from("http://ns.adobe.com/xap/1.0/\0", "ascii"),
+      Buffer.from("<x:xmpmeta/>", "ascii"),
+    ]);
+    const withDuplicates = insertRepeatedBefore(
+      insertRepeatedBefore(
+        insertRepeatedBefore(
+          insertRepeatedBefore(bytes, 0xdb, buildSegment(0xe1, exifPayload), 1),
+          0xdb,
+          buildSegment(0xe1, exifPayload),
+          1,
+        ),
+        0xdb,
+        buildSegment(0xe1, xmpPayload),
+        1,
+      ),
+      0xdb,
+      buildSegment(0xe1, xmpPayload),
+      1,
+    );
+    const path = await writeTempFile(withDuplicates);
+    const handle = await open(path, "r");
+    try {
+      const parsed = await parseJpeg(handle, withDuplicates.length);
+      const app1Segments = parsed.segments.filter(
+        (segment) => segment.marker === 0xe1,
+      );
+      expect(app1Segments).toHaveLength(4);
+      expect(parsed.buffered.size).toBe(2);
+    } finally {
+      await handle.close();
+    }
   });
 });

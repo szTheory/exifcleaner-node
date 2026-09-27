@@ -21,6 +21,9 @@ export const SOF1 = 0xc1;
 export const SOF2 = 0xc2;
 
 export const APP0 = 0xe0;
+export const APP1 = 0xe1;
+export const APP2 = 0xe2;
+export const APP14 = 0xee;
 export const APP15 = 0xef;
 export const RST0 = 0xd0;
 export const RST7 = 0xd7;
@@ -165,3 +168,35 @@ export function classifyMarker(marker: number): MarkerClassification {
   // marker (D-10).
   return { admitted: false, refusal: "malformed-container" };
 }
+
+// D-10 census-derived structural caps (57-EVIDENCE.md "Census: structural caps
+// (D-10)", 2026-09-27, 7187 host + corpus JPEGs). Never lowered below its derived
+// value to make a fixture pass; a file above a cap is a typed pre-write decline
+// (resource-limits) that falls back to ExifTool, never a hard failure.
+
+// Rule: next power of two >= 32x census max totalSegments (max=34).
+// 57-EVIDENCE: 32*34=1088 -> 2048.
+export const JPEG_MAX_SEGMENT_COUNT = 2048;
+
+// Rule: next power of two >= 32x census max maxSosScans (max=14).
+// 57-EVIDENCE: 32*14=448 -> 512.
+export const JPEG_MAX_SCAN_COUNT = 512;
+
+// Rule: next power of two >= 32x census max dqtDhtSegments (max=9).
+// 57-EVIDENCE: 32*9=288 -> 512.
+export const JPEG_MAX_TABLE_SEGMENT_COUNT = 512;
+
+// Rule: fixed -- ICC.1 Annex B.4's one-byte sequence-number ceiling. The
+// reassembled profile is bounded separately by MAX_PROFILE_BYTES (16 MiB).
+// 57-EVIDENCE: 255.
+export const JPEG_MAX_ICC_SEGMENTS = 255;
+
+// Rule: fixed -- the PNG_MAX_INFLATED_TEXT_BYTES precedent (census
+// extendedXmpSegments max was 0 in this scan, no real-world signal to derive
+// from). 57-EVIDENCE: 16 MiB (16,777,216 bytes).
+export const JPEG_MAX_EXTENDED_XMP_BYTES = 16 * 1024 * 1024;
+
+// Rule: larger of 512 MiB and the next power of two >= 8x census max fileBytes
+// (max=6,721,323 bytes). 57-EVIDENCE: 8*6,721,323=53,770,584 -> next pow2
+// 67,108,864 (64 MiB), smaller than the 512 MiB floor -> 512 MiB.
+export const JPEG_MAX_FILE_BYTES = 512 * 1024 * 1024;
