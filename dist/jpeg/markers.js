@@ -52,6 +52,7 @@ export const JPEG_REFUSAL_KIND = Object.freeze({
     "unsupported-component-count": "unsafe-structure",
     "dnl-marker": "unsafe-structure",
     "resource-limits": "unsafe-structure",
+    "mpf-secondary-image": "unsafe-structure",
 });
 // One fixed detail sentence per refusal literal (D-09/D-10, Task 2). Used as the
 // JpegStructureError message prefix so tests can assert the refusal class from the
@@ -68,6 +69,7 @@ export const JPEG_REFUSAL_DETAILS = Object.freeze({
     "unsupported-component-count": "JPEG frames with a component count other than 1, 3 or 4 are refused.",
     "dnl-marker": "JPEG files using the DNL mechanism (a zero frame height or a DNL marker) are refused.",
     "resource-limits": "JPEG structure exceeds a census-derived resource limit.",
+    "mpf-secondary-image": "JPEG carries a measured-unsafe MPF secondary image or gain-map trailer.",
 });
 /**
  * Classifies every 0x00..0xFF marker byte exactly once against the closed

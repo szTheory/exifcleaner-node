@@ -26,7 +26,7 @@ export declare const JPGN_LAST = 253;
 export declare function isAppMarker(marker: number): boolean;
 export declare function isRestartMarker(marker: number): boolean;
 export declare const JPEG_ADMITTED_SOF_MARKERS: ReadonlySet<number>;
-export type JpegRefusal = "malformed-container" | "truncation" | "undefined-table-reference" | "lossless-frame" | "hierarchical-frame" | "arithmetic-frame" | "non-t81-frame" | "non-8-bit-precision" | "unsupported-component-count" | "dnl-marker" | "resource-limits";
+export type JpegRefusal = "malformed-container" | "truncation" | "undefined-table-reference" | "lossless-frame" | "hierarchical-frame" | "arithmetic-frame" | "non-t81-frame" | "non-8-bit-precision" | "unsupported-component-count" | "dnl-marker" | "resource-limits" | "mpf-secondary-image";
 export declare const JPEG_REFUSAL_KIND: Readonly<Record<JpegRefusal, "malformed-file" | "unsafe-structure">>;
 export declare const JPEG_REFUSAL_DETAILS: Readonly<Record<JpegRefusal, string>>;
 export type MarkerKind = "soi" | "eoi" | "sos" | "dqt" | "dht" | "dri" | "sof-admitted" | "app" | "com" | "restart";
