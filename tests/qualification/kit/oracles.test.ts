@@ -113,7 +113,7 @@ describe("metadataGroupDisposition (D-12 total group mapping)", () => {
   });
 
   describe("catch-all: an unrecognized group is compared under its own name, never dropped", () => {
-    for (const group of ["Adobe", "APP14", "Vendor-Resolution"]) {
+    for (const group of ["VendorZ", "GroupOmega", "Vendor-Resolution"]) {
       it(`compares ${group} under its own group name`, () => {
         expect(metadataGroupDisposition(group)).toEqual({
           compared: true,
@@ -122,9 +122,9 @@ describe("metadataGroupDisposition (D-12 total group mapping)", () => {
       });
     }
 
-    it("metadataGroupDisposition(APP14) and metadataGroupDisposition(Adobe) are compared", () => {
-      expect(metadataGroupDisposition("APP14").compared).toBe(true);
-      expect(metadataGroupDisposition("Adobe").compared).toBe(true);
+    it("metadataGroupDisposition(GroupOmega) and metadataGroupDisposition(VendorZ) are compared", () => {
+      expect(metadataGroupDisposition("GroupOmega").compared).toBe(true);
+      expect(metadataGroupDisposition("VendorZ").compared).toBe(true);
     });
   });
 
@@ -162,11 +162,11 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
       EXIF: [],
       XMP: [],
       ICC_Profile: [],
-      Adobe: [{ DCTEncodeVersion: 100 }],
+      VendorZ: [{ DCTEncodeVersion: 100 }],
     });
     expect(() =>
       compareDifferential(EMPTY_SOURCE, native, reference, [], KINDS),
-    ).toThrow("Over-strip: Adobe");
+    ).toThrow("Over-strip: VendorZ");
   });
 
   describe("EXIF:Orientation grant", () => {
@@ -333,7 +333,7 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
         EXIF: [],
         XMP: [],
         ICC_Profile: [],
-        Adobe: [{ DCTEncodeVersion: 100 }],
+        VendorZ: [{ DCTEncodeVersion: 100 }],
       });
       expect(() =>
         compareDifferential(
@@ -343,7 +343,7 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
           [],
           KINDS,
         ),
-      ).toThrow("Over-strip: Adobe");
+      ).toThrow("Over-strip: VendorZ");
     });
 
     it("ordering: reversed entry order within a namespace still yields []", () => {
@@ -435,31 +435,31 @@ describe("compareDifferential (D-10, D-12 two-directional differential)", () => 
       ).toThrow("Unpermitted metadata difference");
     });
 
-    it("(b) over-strip: a reference-kept Adobe entry missing from native throws Over-strip: Adobe", () => {
+    it("(b) over-strip: a reference-kept VendorZ entry missing from native throws Over-strip: VendorZ", () => {
       const native = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
       const reference = projection({
         EXIF: [],
         XMP: [],
         ICC_Profile: [],
-        Adobe: [{ DCTEncodeVersion: 100 }],
+        VendorZ: [{ DCTEncodeVersion: 100 }],
       });
       expect(() =>
         compareDifferential(EMPTY_SOURCE, native, reference, [], KINDS),
-      ).toThrow("Over-strip: Adobe");
+      ).toThrow("Over-strip: VendorZ");
     });
 
-    it("(c) silent-drop fix: APP14 is compared (was silently dropped under the old mapping) and over-strips", () => {
-      expect(metadataGroupDisposition("APP14").compared).toBe(true);
+    it("(c) silent-drop fix: GroupOmega is compared (was silently dropped under the old mapping) and over-strips", () => {
+      expect(metadataGroupDisposition("GroupOmega").compared).toBe(true);
       const native = projection({ EXIF: [], XMP: [], ICC_Profile: [] });
       const reference = projection({
         EXIF: [],
         XMP: [],
         ICC_Profile: [],
-        APP14: [{ DCTEncodeVersion: 100 }],
+        GroupOmega: [{ DCTEncodeVersion: 100 }],
       });
       expect(() =>
         compareDifferential(EMPTY_SOURCE, native, reference, [], KINDS),
-      ).toThrow("Over-strip: APP14");
+      ).toThrow("Over-strip: GroupOmega");
     });
 
     it("(d) stale grant: EXIF:Orientation=6 with neither source nor native carrying Orientation throws", () => {

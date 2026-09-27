@@ -8,6 +8,7 @@ export type {
   FormatCapabilities,
   Inspection,
   InspectOptions,
+  JpegCapabilities,
   JsonSafeCause,
   MetadataEntry,
   MetadataError,

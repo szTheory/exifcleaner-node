@@ -20,12 +20,12 @@ export interface FormatAdmission {
      * set `src/types.ts` declares privately as `MetadataNamespace` (D-15) rather
      * than importing it, since that alias is intentionally not exported.
      */
-    readonly namespaces: readonly ("EXIF" | "XMP" | "ICC" | "PNG" | "C2PA")[];
+    readonly namespaces: readonly ("EXIF" | "XMP" | "ICC" | "PNG" | "C2PA" | "JPEG")[];
     /**
      * The metadata namespace that holds the source's resolution record, or
      * undefined when the source carries none or the format cannot preserve it.
      */
-    readonly resolutionNamespace: "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA" | undefined;
+    readonly resolutionNamespace: "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA" | "JPEG" | undefined;
 }
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 /** admissionDecline's error parameter, minus the `path` the caller supplies. */

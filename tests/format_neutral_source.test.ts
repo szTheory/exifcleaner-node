@@ -8,15 +8,35 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 /**
  * A format-specific vocabulary token. Any of these appearing in a file meant
  * to stay format-neutral (the shared engine and transaction) is a sign a
- * WebP- or PNG-only concept crept back into shared code. Plan 08 extended
- * the scan target list with a per-format `oracles.ts`/`webp-handler.ts`
- * allowlist for the kit-neutrality scan; Phase 56 widened the token set
- * itself to also cover PNG's own vocabulary (56-03). The PNG chunk codes
- * need word boundaries: measured 2026-09-25, an unbounded `idat` matches
- * `validate` (and similar identifiers) in shared source.
+ * WebP-, PNG- or JPEG-only concept crept back into shared code. Plan 08
+ * extended the scan target list with a per-format `oracles.ts`/
+ * `webp-handler.ts` allowlist for the kit-neutrality scan; Phase 56 widened
+ * the token set itself to also cover PNG's own vocabulary (56-03). The PNG
+ * chunk codes need word boundaries: measured 2026-09-25, an unbounded `idat`
+ * matches `validate` (and similar identifiers) in shared source.
+ *
+ * 57-05 measured every JPEG candidate token (`jpeg`, `jpg`, `jfif`, `jfxx`,
+ * `exif`, `mpf`, `sof`, `sos`, `soi`, `eoi`, `dqt`, `dht`, `app14`, `adobe`)
+ * against the current NEUTRAL_TARGETS files and every `tests/qualification/
+ * kit/*.ts` file (the kit-neutrality scan below reuses this same regex):
+ * `jpeg`, `jpg`, `jfif`, `jfxx`, `mpf`, `sof`, `sos`, `soi`, `eoi`, `dqt` and
+ * `dht` all measured zero incidental hits and are added unbounded, per this
+ * gate's own "unbounded only when zero incidental hits" rule (56-03). `app14`
+ * and `adobe` measured 7 and 11 hits respectively -- entirely inside
+ * `tests/qualification/kit/oracles.test.ts`, which used "APP14"/"Adobe" as
+ * illustrative example ExifTool group-name literals for a format-neutral
+ * group-comparison utility test, unrelated to any real JPEG parsing; fixed
+ * by renaming those literals in that file to "GroupOmega"/"VendorZ" (never
+ * by adding an exception) and bounding both tokens with `\b`. `exif`
+ * measured 178 hits, including 3 *legitimate* hits inside the NEUTRAL_TARGETS
+ * files themselves (`EXIF` is shared cross-format vocabulary every format's
+ * admission already reports through the format-neutral `namespaces`
+ * mechanism, not a JPEG-only concept) -- excluded from this token set
+ * entirely, per the same reasoning that keeps "resolution"/"orientation" out
+ * of it.
  */
 export const FORMAT_SPECIFIC_TOKEN =
-  /webp|riff|vp8|fourcc|iccp|png|\bihdr\b|\bidat\b|\biend\b|\bphys\b|\bidot\b|\bitxt\b|\bztxt\b/giu;
+  /webp|riff|vp8|fourcc|iccp|png|jpeg|jpg|jfif|jfxx|mpf|sof|sos|soi|eoi|dqt|dht|\bapp14\b|\badobe\b|\bihdr\b|\bidat\b|\biend\b|\bphys\b|\bidot\b|\bitxt\b|\bztxt\b/giu;
 
 export interface FormatSpecificHit {
   readonly line: number;
@@ -107,6 +127,16 @@ describe("format-neutral source scan (KIT-01 D-03)", () => {
 
   it("does not false-positive on an identifier that merely contains a PNG chunk code as a substring", () => {
     const hits = formatSpecificTokens("validateRegularFile");
+    expect(hits).toHaveLength(0);
+  });
+
+  it("returns two hits for a fixture carrying JPEG marker acronyms", () => {
+    const hits = formatSpecificTokens("copy SOS then EOI");
+    expect(hits).toHaveLength(2);
+  });
+
+  it("does not false-positive on an identifier that merely contains a JPEG token as a substring", () => {
+    const hits = formatSpecificTokens("resolvesOutputPath");
     expect(hits).toHaveLength(0);
   });
 });
