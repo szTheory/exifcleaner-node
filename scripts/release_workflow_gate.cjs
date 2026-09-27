@@ -115,6 +115,26 @@ function validateReleaseGraph({ jobs }) {
   }
 }
 
+const SBOM_RETENTION_MISSING_MESSAGE =
+  "release.yml must retain the CycloneDX SBOM as the sbom-cyclonedx artifact";
+
+// T-57-46: `npm sbom` writes package.cdx.json to the runner's disk, but nothing
+// retained it as a workflow artifact until this check existed (measured on the
+// v0.2.2 release run: the SBOM was generated and never uploaded). The check
+// scans only the text AFTER the generation step's own name, so a retention step
+// authored earlier in the file (including in an unrelated job) does not satisfy
+// it -- ordering matters, not mere presence.
+function validateSbomRetentionStep(text) {
+  const generatedAt = text.indexOf("Generate checksum and CycloneDX SBOM");
+  if (generatedAt < 0) throw new Error(SBOM_RETENTION_MISSING_MESSAGE);
+  const afterGeneration = text.slice(generatedAt);
+  const retained =
+    /\n\s+- name: Retain CycloneDX SBOM\n\s+uses: actions\/upload-artifact@[0-9a-f]{40} # v[0-9][0-9.]*\n\s+with:\n\s+name: sbom-cyclonedx\n\s+path: package\.cdx\.json\n\s+if-no-files-found: error\n/u.test(
+      afterGeneration,
+    );
+  if (!retained) throw new Error(SBOM_RETENTION_MISSING_MESSAGE);
+}
+
 function parseWorkflow(path) {
   const text = readFileSync(path, "utf8");
   const jobs = {};
@@ -157,16 +177,20 @@ function parseWorkflow(path) {
 
 function main() {
   const path = process.argv[2] ?? ".github/workflows/release.yml";
-  validateReleaseGraph(parseWorkflow(resolve(path)));
+  const resolvedPath = resolve(path);
+  validateSbomRetentionStep(readFileSync(resolvedPath, "utf8"));
+  validateReleaseGraph(parseWorkflow(resolvedPath));
   console.log("Release workflow gate passed");
 }
 
 module.exports = {
   CANONICAL_NATIVE_TUPLES,
   REQUIRED_AUTHORITIES,
+  SBOM_RETENTION_MISSING_MESSAGE,
   parseWorkflow,
   validateExactNativeManifestTuples,
   validateReleaseGraph,
+  validateSbomRetentionStep,
 };
 if (require.main === module) {
   try {
