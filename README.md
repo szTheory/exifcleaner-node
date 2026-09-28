@@ -106,14 +106,19 @@ Use `getCapabilities()` as the machine-readable support contract; do not infer s
 - The source is never overwritten.
 - Output is written in a private same-parent stage and published once through a
   native atomic no-replace operation; an existing destination is never replaced.
-- A failed or cancelled post-create operation retains its structured root error
-  and reports bounded private-stage residue. Pre-publication uncertainty never
-  performs pathname cleanup: Windows may dispose an already-open private
-  directory capability only when no stage file exists; otherwise residue remains.
-- A successful result carries `postCommitResidue`: POSIX retains one empty
-  private stage directory, and Windows may report the same residue if its
-  capability disposition fails. That private path is never exposed and cannot
-  revoke the committed destination.
+- A failed or cancelled post-create operation retains its structured root
+  error and reports bounded private-stage residue.
+  Pre-publication uncertainty never performs pathname cleanup: Windows may
+  dispose an already-open private directory capability only when no stage
+  file exists; otherwise residue remains.
+- A successful result carries `postCommitResidue`. After the output is
+  committed the library removes its own empty private stage directory: POSIX
+  performs one non-recursive `rmdir` of the directory it still holds open,
+  only while the path still has that directory's identity; Windows disposes
+  its opened-directory capability. If that removal does not complete, the
+  result is still a success and `postCommitResidue` reports
+  `private-empty-stage-directory-remains` with the cause. That private path
+  is never exposed and cannot revoke the committed destination.
 - Successful output is synced, independently reopened, parsed, and checked before success is returned.
 - Image and animation payload bytes are copied without decoding or re-encoding.
 - Runtime processing makes no network request and launches no subprocess.

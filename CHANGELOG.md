@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1
+
+### Fixed
+
+A successful `sanitizeFile` on macOS and Linux no longer leaves an empty hidden private stage
+directory (`.exifcleaner-stage-<uuid>`) beside the output. After the output is committed, the
+library now removes only the empty stage directory it created, and only while it still holds
+that directory open and the path still matches the directory's original identity (a
+non-recursive `rmdir`, never a recursive removal). If removal does not complete -- the directory
+is not empty, the identity has changed, or the `rmdir` itself fails -- the result is still a
+success, and `postCommitResidue` reports `private-empty-stage-directory-remains` with the
+underlying cause. Windows behaviour is unchanged: its opened-directory capability disposition
+already reported `{ state: "none" }` on success. The public API and types are unchanged.
+
 ## 0.3.0
 
 ### Added (JPEG)

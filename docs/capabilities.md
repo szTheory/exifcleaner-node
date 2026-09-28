@@ -46,11 +46,15 @@ source, applies requested timestamps, and then performs exactly one platform-nat
 atomic no-replace publication. A collision after the native write has started is
 terminal. A successful result is the only completion signal; the private stage path is never exposed.
 
-Success includes `postCommitResidue`. POSIX deterministically retains one empty
-private stage directory; Windows may also report that residue if its opened-directory
-capability disposition fails. In either case the destination is already committed,
-and the residue cannot revoke success. No success contract claims that only the
-destination is created.
+Success includes `postCommitResidue`. After the destination is committed, the
+library removes its own empty private stage directory: POSIX performs one
+non-recursive `rmdir` of the directory it still holds open, only while the
+path still has that directory's identity; Windows disposes its
+opened-directory capability. In either case the destination is already
+committed, and a removal failure cannot revoke success — it is reported as
+`private-empty-stage-directory-remains` with the cause. A successful commit
+is expected to leave only the destination; any leftover stage is reported
+through `postCommitResidue`.
 
 Pre-publication failures retain their root cause and attach one bounded
 `owned-partial-remains` finalization when stage residue is uncertain. They never
@@ -488,18 +492,18 @@ destination is never published.
 
 ## Safety Guarantees
 
-| Guarantee                 | Consequence                                                                                                                      |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Source never overwritten  | `sourcePath` remains unchanged on success and failure.                                                                           |
-| Distinct paths            | Equal or aliased source/destination paths are refused.                                                                           |
-| Atomic no-replace publish | A pre-existing destination is never replaced; the native publication call is the single success authority.                       |
-| Stage finalization        | Error cleanup never removes a pathname. Only a Windows opened-directory capability may dispose a directory-only stage.           |
-| Full classification first | Unknown/unsupported content is refused before output is accepted as sanitized.                                                   |
-| Reopen verification       | A write is not success until the destination reparses and satisfies removal, preservation, structure, and payload checks.        |
-| Payload identity          | Image, animation, and admitted ICC payload chunks are copied without decode/re-encode and compared byte-for-byte where retained. |
-| Local operation           | No network calls, telemetry, or subprocesses occur in runtime inspection/sanitization.                                           |
-| Total expected failures   | Consumers branch on `Result.ok` and `MetadataError.code`, not thrown message strings.                                            |
-| Output mode               | Output is created with non-executable ordinary permission bits no more permissive than the source, subject to umask.             |
+| Guarantee                 | Consequence                                                                                                                                                                                                           |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source never overwritten  | `sourcePath` remains unchanged on success and failure.                                                                                                                                                                |
+| Distinct paths            | Equal or aliased source/destination paths are refused.                                                                                                                                                                |
+| Atomic no-replace publish | A pre-existing destination is never replaced; the native publication call is the single success authority.                                                                                                            |
+| Stage finalization        | Error cleanup never removes a pathname. Only a Windows opened-directory capability may dispose a directory-only stage. A successful commit removes only the owned empty stage directory it created, after the commit. |
+| Full classification first | Unknown/unsupported content is refused before output is accepted as sanitized.                                                                                                                                        |
+| Reopen verification       | A write is not success until the destination reparses and satisfies removal, preservation, structure, and payload checks.                                                                                             |
+| Payload identity          | Image, animation, and admitted ICC payload chunks are copied without decode/re-encode and compared byte-for-byte where retained.                                                                                      |
+| Local operation           | No network calls, telemetry, or subprocesses occur in runtime inspection/sanitization.                                                                                                                                |
+| Total expected failures   | Consumers branch on `Result.ok` and `MetadataError.code`, not thrown message strings.                                                                                                                                 |
+| Output mode               | Output is created with non-executable ordinary permission bits no more permissive than the source, subject to umask.                                                                                                  |
 
 ## Filesystem Boundaries and Non-Guarantees
 
