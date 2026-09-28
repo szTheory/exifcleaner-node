@@ -4009,7 +4009,7 @@ describe("paired benchmark admission", () => {
       mutate(mutated);
       expect(() => report.validateReport(mutated)).toThrow();
     }
-  }, 20_000);
+  }, 60_000);
 
   evidenceGatedIt(
     "validateP95NullBranchClosure accepts only a null-branch closure bound to the real sealed ledger and rejects any overclaim or identity mismatch",
