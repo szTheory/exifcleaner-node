@@ -26,6 +26,7 @@ const gate = require("../scripts/release_workflow_gate.cjs") as {
   CANONICAL_NATIVE_TUPLES: readonly string[];
   REQUIRED_AUTHORITIES: string[];
   SBOM_RETENTION_MISSING_MESSAGE: string;
+  SBOM_RETENTION_BEFORE_PUBLISH_MESSAGE: string;
   validateExactNativeManifestTuples(
     manifest: readonly Record<string, unknown>[],
   ): Map<string, Record<string, unknown>>;
@@ -1384,6 +1385,33 @@ describe("release SBOM retention gate (T-57-46)", () => {
     expect(mutated).not.toBe(workflow);
     expect(() => gate.validateSbomRetentionStep(mutated)).toThrow(
       gate.SBOM_RETENTION_MISSING_MESSAGE,
+    );
+  });
+
+  // WR-02 (57-REVIEW.md): the gate's own comment says "ordering matters, not
+  // mere presence," but until this test existed nothing exercised moving the
+  // retention step to *after* publish -- still textually after generation, so
+  // the pre-fix gate would have passed a workflow that could make the package
+  // public on npm before its SBOM artifact is ever retained.
+  it("rejects a copy with the retention step moved after Trusted publish to npm", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const match = workflow.match(sbomRetentionStepPattern);
+    expect(match).not.toBeNull();
+    const step = match![0];
+    const withoutStep = workflow.replace(step, "\n");
+    const publishStepStart = withoutStep.indexOf(
+      "      - name: Trusted publish to npm",
+    );
+    expect(publishStepStart).toBeGreaterThan(-1);
+    const publishStepEnd = withoutStep.indexOf("      - name: Dry-run publish");
+    expect(publishStepEnd).toBeGreaterThan(publishStepStart);
+    const mutated =
+      withoutStep.slice(0, publishStepEnd) +
+      step +
+      withoutStep.slice(publishStepEnd);
+    expect(mutated).not.toBe(workflow);
+    expect(() => gate.validateSbomRetentionStep(mutated)).toThrow(
+      gate.SBOM_RETENTION_BEFORE_PUBLISH_MESSAGE,
     );
   });
 });
