@@ -14,6 +14,32 @@ function stageResidue(cause) {
         cause,
     };
 }
+/**
+ * Removes the private stage directory this transaction created and still
+ * holds open, after a committed POSIX publication. Post-commit only,
+ * identity-bound, non-recursive -- never throws; a failure to remove is
+ * reported as residue and never revokes the already-committed success.
+ */
+async function removeOwnedEmptyStageDirectory(fileOps, stageDirectoryPath, stageDirectoryIdentity) {
+    if (stageDirectoryIdentity === undefined)
+        return {
+            code: "stage-identity-unavailable",
+            message: "The private stage directory has no recorded identity.",
+        };
+    try {
+        const stats = await fileOps.statPath(stageDirectoryPath);
+        if (!identityMatches(stageDirectoryIdentity, stats))
+            return {
+                code: "stage-identity-changed",
+                message: "The private stage directory no longer matches its owned identity and was not removed.",
+            };
+        await fileOps.removeDirectory(stageDirectoryPath);
+        return undefined;
+    }
+    catch (cause) {
+        return jsonSafeCause(cause);
+    }
+}
 function isVerifiedPosixStageDirectory(stats) {
     const euid = process.geteuid?.();
     return (stats.isDirectory() &&
@@ -21,21 +47,17 @@ function isVerifiedPosixStageDirectory(stats) {
         stats.uid === euid &&
         (stats.mode & 0o077) === 0);
 }
-async function closePostPublicationResources({ fileOps, stageDirectory, destinationDirectory, stageFile, sourceHandle, directoryCapability, cleanupCapability, stagePath, platform, }) {
-    let stageDirectoryCloseCause;
-    const close = async (handle, stage = false) => {
+async function closePostPublicationResources({ fileOps, stageDirectory, destinationDirectory, stageFile, sourceHandle, directoryCapability, cleanupCapability, stagePath, stageDirectoryPath, stageDirectoryIdentity, platform, }) {
+    const close = async (handle) => {
         if (handle === undefined)
             return;
-        await fileOps.close(handle).catch((cause) => {
-            if (stage)
-                stageDirectoryCloseCause = jsonSafeCause(cause);
-        });
+        await fileOps.close(handle).catch(() => undefined);
     };
-    await close(stageDirectory, true);
-    await close(destinationDirectory);
-    await close(stageFile);
-    await close(sourceHandle);
     if (directoryCapability !== undefined) {
+        await close(stageDirectory);
+        await close(destinationDirectory);
+        await close(stageFile);
+        await close(sourceHandle);
         if (cleanupCapability === undefined)
             return stageResidue({
                 code: "unsupported-retained",
@@ -55,12 +77,24 @@ async function closePostPublicationResources({ fileOps, stageDirectory, destinat
                 message: "Private stage-directory disposal did not complete.",
             });
     }
-    return stageDirectory === undefined
+    // POSIX: the stage directory handle is still open here, pinning the
+    // directory's inode. Remove the owned empty stage directory BEFORE that
+    // handle is closed -- the dev/ino identity comparison inside
+    // removeOwnedEmptyStageDirectory is only meaningful while the handle keeps
+    // the inode alive. Post-commit only, identity-bound, non-recursive;
+    // failure is reported as residue and never revokes success.
+    const removalCause = stageDirectory === undefined
+        ? undefined
+        : await removeOwnedEmptyStageDirectory(fileOps, stageDirectoryPath, stageDirectoryIdentity);
+    await close(stageDirectory);
+    await close(destinationDirectory);
+    await close(stageFile);
+    await close(sourceHandle);
+    if (stageDirectory === undefined)
+        return { state: "none" };
+    return removalCause === undefined
         ? { state: "none" }
-        : stageResidue(stageDirectoryCloseCause ?? {
-            code: "ENOTSUP",
-            message: "Private empty stage-directory cleanup is unavailable.",
-        });
+        : stageResidue(removalCause);
 }
 export async function runSafeTransaction(input) {
     const { sourceHandle, sourceSnapshot, sourceMode, handler, admission, plan, orientation, options, fileOps, beforePublish, beforeStageFinalization, onTerminalCleanupRecord, platform = process.platform, } = input;
@@ -246,6 +280,8 @@ export async function runSafeTransaction(input) {
             directoryCapability,
             cleanupCapability,
             stagePath,
+            stageDirectoryPath,
+            stageDirectoryIdentity,
             platform,
         };
         stageDirectory = undefined;

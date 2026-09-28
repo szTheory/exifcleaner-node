@@ -156,4 +156,46 @@ export const JPEG_MAX_EXTENDED_XMP_BYTES = 16 * 1024 * 1024;
 // (max=6,721,323 bytes). 57-EVIDENCE: 8*6,721,323=53,770,584 -> next pow2
 // 67,108,864 (64 MiB), smaller than the 512 MiB floor -> 512 MiB.
 export const JPEG_MAX_FILE_BYTES = 512 * 1024 * 1024;
+const JFIF_ID = Buffer.from("JFIF\0", "ascii");
+const EXIF_ID = Buffer.from("Exif\0\0", "ascii");
+const XMP_STANDARD_ID = Buffer.from("http://ns.adobe.com/xap/1.0/\0", "ascii");
+const XMP_EXTENDED_ID = Buffer.from("http://ns.adobe.com/xmp/extension/\0", "ascii");
+const ICC_PROFILE_ID = Buffer.from("ICC_PROFILE\0", "ascii");
+const MPF_ID = Buffer.from("MPF\0", "ascii");
+const ADOBE_ID = Buffer.from("Adobe", "ascii");
+function startsWithAppId(payload, prefix) {
+    return (payload.length >= prefix.length &&
+        payload.subarray(0, prefix.length).equals(prefix));
+}
+/**
+ * Classifies an APPn segment's raw payload by matching its own identifying
+ * byte prefix directly -- never the 32-byte NUL-truncated `identifier` field,
+ * which can misclassify a genuine Adobe/JFIF/MPF segment if its content bytes
+ * happen to place the first NUL byte somewhere other than immediately after
+ * the identifier string (ExtendedXMP's real identifier is 36 bytes, past a
+ * 32-byte window). `payload` is `undefined` for any segment the caller never
+ * buffered; that case always classifies as "other".
+ */
+export function classifyAppPayload(marker, payload) {
+    if (payload === undefined)
+        return "other";
+    if (marker === APP0 && startsWithAppId(payload, JFIF_ID))
+        return "jfif";
+    if (marker === APP1 && startsWithAppId(payload, EXIF_ID))
+        return "exif";
+    if (marker === APP1 && startsWithAppId(payload, XMP_EXTENDED_ID)) {
+        return "extended-xmp";
+    }
+    if (marker === APP1 && startsWithAppId(payload, XMP_STANDARD_ID)) {
+        return "xmp";
+    }
+    if (marker === APP2 && startsWithAppId(payload, ICC_PROFILE_ID)) {
+        return "icc";
+    }
+    if (marker === APP2 && startsWithAppId(payload, MPF_ID))
+        return "mpf";
+    if (marker === APP14 && startsWithAppId(payload, ADOBE_ID))
+        return "adobe";
+    return "other";
+}
 //# sourceMappingURL=markers.js.map

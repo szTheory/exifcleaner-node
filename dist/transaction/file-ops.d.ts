@@ -8,6 +8,12 @@ export interface FileOps {
     readonly sync: (handle: FileHandle) => Promise<void>;
     readonly close: (handle: FileHandle) => Promise<void>;
     readonly utimes: (handle: FileHandle, atime: Date, mtime: Date) => Promise<void>;
+    /**
+     * Removes a single, already-empty directory by pathname (non-recursive
+     * `rmdir`, no `recursive` option, never `rm`). The OS refuses this for a
+     * non-empty directory -- that refusal is load-bearing, not incidental.
+     */
+    readonly removeDirectory: (path: string) => Promise<void>;
 }
 export declare const NODE_FILE_OPS: FileOps;
 export declare const DIRECT_FINAL_FLAGS: number;

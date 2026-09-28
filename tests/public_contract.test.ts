@@ -173,8 +173,9 @@ describe("published generic transaction contract", () => {
       "private same-parent stage",
       "atomic no-replace publication",
       "postCommitResidue",
-      "POSIX deterministically retains one empty",
-      "Windows may also report",
+      "removes its own empty private stage directory",
+      "private-empty-stage-directory-remains",
+      "Windows disposes its",
       "owned-partial-removed",
       "owned-partial-remains",
       "atime and mtime only",
@@ -200,7 +201,7 @@ describe("published generic transaction contract", () => {
       "directly creating the final path",
     );
     expect(normalizedCapabilities).toContain(
-      "No success contract claims that only the destination is created",
+      "A successful commit is expected to leave only the destination",
     );
     expect(normalizedCapabilities).not.toContain(
       "Identity checks bound cleanup to the object created by this transaction",

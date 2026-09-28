@@ -422,7 +422,7 @@ describe("inspectFile", () => {
 });
 
 describe("sanitizeFile", () => {
-  it("publishes a fully verified private stage and reports its bounded residue", async () => {
+  it("publishes a fully verified private stage and removes it, reporting zero post-commit residue", async () => {
     const directory = await workspace();
     const sourcePath = join(directory, "source.webp");
     const destinationPath = join(directory, "clean.webp");
@@ -440,13 +440,7 @@ describe("sanitizeFile", () => {
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) return;
     expect(await readFile(destinationPath)).toEqual(expect.any(Buffer));
-    expect(result.value.postCommitResidue).toEqual({
-      state: "private-empty-stage-directory-remains",
-      cause: {
-        code: "ENOTSUP",
-        message: "Private empty stage-directory cleanup is unavailable.",
-      },
-    });
+    expect(result.value.postCommitResidue).toEqual({ state: "none" });
   });
 
   it("maps an oversized requested ICCP to a typed pre-write policy-limit refusal", async () => {

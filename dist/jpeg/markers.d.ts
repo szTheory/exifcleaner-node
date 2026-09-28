@@ -50,4 +50,15 @@ export declare const JPEG_MAX_TABLE_SEGMENT_COUNT = 512;
 export declare const JPEG_MAX_ICC_SEGMENTS = 255;
 export declare const JPEG_MAX_EXTENDED_XMP_BYTES: number;
 export declare const JPEG_MAX_FILE_BYTES: number;
+export type AppSegmentKind = "jfif" | "exif" | "xmp" | "extended-xmp" | "icc" | "mpf" | "adobe" | "other";
+/**
+ * Classifies an APPn segment's raw payload by matching its own identifying
+ * byte prefix directly -- never the 32-byte NUL-truncated `identifier` field,
+ * which can misclassify a genuine Adobe/JFIF/MPF segment if its content bytes
+ * happen to place the first NUL byte somewhere other than immediately after
+ * the identifier string (ExtendedXMP's real identifier is 36 bytes, past a
+ * 32-byte window). `payload` is `undefined` for any segment the caller never
+ * buffered; that case always classifies as "other".
+ */
+export declare function classifyAppPayload(marker: number, payload: Buffer | undefined): AppSegmentKind;
 //# sourceMappingURL=markers.d.ts.map

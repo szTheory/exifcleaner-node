@@ -18,6 +18,7 @@ export const LOGICAL_OPERATIONS = [
   "destination-directory-open",
   "publication",
   "stage-disposition",
+  "stage-directory-remove",
 ] as const;
 
 export type LogicalOperation = (typeof LOGICAL_OPERATIONS)[number];
@@ -153,6 +154,10 @@ export function applyFaultPlan(
     utimes: async (handle, atime, mtime) => {
       hit("timestamps");
       await base.utimes(handle, atime, mtime);
+    },
+    removeDirectory: async (path) => {
+      hit("stage-directory-remove");
+      await base.removeDirectory(path);
     },
   };
 

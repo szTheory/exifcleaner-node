@@ -59,6 +59,37 @@ function stageResidue(cause: JsonSafeCause): PostCommitResidue {
   };
 }
 
+/**
+ * Removes the private stage directory this transaction created and still
+ * holds open, after a committed POSIX publication. Post-commit only,
+ * identity-bound, non-recursive -- never throws; a failure to remove is
+ * reported as residue and never revokes the already-committed success.
+ */
+async function removeOwnedEmptyStageDirectory(
+  fileOps: FileOps,
+  stageDirectoryPath: string,
+  stageDirectoryIdentity: FileIdentity | undefined,
+): Promise<JsonSafeCause | undefined> {
+  if (stageDirectoryIdentity === undefined)
+    return {
+      code: "stage-identity-unavailable",
+      message: "The private stage directory has no recorded identity.",
+    };
+  try {
+    const stats = await fileOps.statPath(stageDirectoryPath);
+    if (!identityMatches(stageDirectoryIdentity, stats))
+      return {
+        code: "stage-identity-changed",
+        message:
+          "The private stage directory no longer matches its owned identity and was not removed.",
+      };
+    await fileOps.removeDirectory(stageDirectoryPath);
+    return undefined;
+  } catch (cause) {
+    return jsonSafeCause(cause);
+  }
+}
+
 function isVerifiedPosixStageDirectory(stats: Stats): boolean {
   const euid = process.geteuid?.();
   return (
@@ -78,6 +109,8 @@ interface PostPublicationResources {
   readonly directoryCapability: NativeStageDirectoryCapability | undefined;
   readonly cleanupCapability: NativeStageCleanupCapability | undefined;
   readonly stagePath: string;
+  readonly stageDirectoryPath: string;
+  readonly stageDirectoryIdentity: FileIdentity | undefined;
   readonly platform: NodeJS.Platform;
 }
 
@@ -90,22 +123,21 @@ async function closePostPublicationResources({
   directoryCapability,
   cleanupCapability,
   stagePath,
+  stageDirectoryPath,
+  stageDirectoryIdentity,
   platform,
 }: PostPublicationResources): Promise<PostCommitResidue> {
-  let stageDirectoryCloseCause: JsonSafeCause | undefined;
-  const close = async (handle: FileHandle | undefined, stage = false) => {
+  const close = async (handle: FileHandle | undefined) => {
     if (handle === undefined) return;
-    await fileOps.close(handle).catch((cause) => {
-      if (stage) stageDirectoryCloseCause = jsonSafeCause(cause);
-    });
+    await fileOps.close(handle).catch(() => undefined);
   };
 
-  await close(stageDirectory, true);
-  await close(destinationDirectory);
-  await close(stageFile);
-  await close(sourceHandle);
-
   if (directoryCapability !== undefined) {
+    await close(stageDirectory);
+    await close(destinationDirectory);
+    await close(stageFile);
+    await close(sourceHandle);
+
     if (cleanupCapability === undefined)
       return stageResidue({
         code: "unsupported-retained",
@@ -126,14 +158,31 @@ async function closePostPublicationResources({
           message: "Private stage-directory disposal did not complete.",
         });
   }
-  return stageDirectory === undefined
+
+  // POSIX: the stage directory handle is still open here, pinning the
+  // directory's inode. Remove the owned empty stage directory BEFORE that
+  // handle is closed -- the dev/ino identity comparison inside
+  // removeOwnedEmptyStageDirectory is only meaningful while the handle keeps
+  // the inode alive. Post-commit only, identity-bound, non-recursive;
+  // failure is reported as residue and never revokes success.
+  const removalCause =
+    stageDirectory === undefined
+      ? undefined
+      : await removeOwnedEmptyStageDirectory(
+          fileOps,
+          stageDirectoryPath,
+          stageDirectoryIdentity,
+        );
+
+  await close(stageDirectory);
+  await close(destinationDirectory);
+  await close(stageFile);
+  await close(sourceHandle);
+
+  if (stageDirectory === undefined) return { state: "none" };
+  return removalCause === undefined
     ? { state: "none" }
-    : stageResidue(
-        stageDirectoryCloseCause ?? {
-          code: "ENOTSUP",
-          message: "Private empty stage-directory cleanup is unavailable.",
-        },
-      );
+    : stageResidue(removalCause);
 }
 
 export interface SafeTransactionInput<
@@ -500,6 +549,8 @@ export async function runSafeTransaction<
       directoryCapability,
       cleanupCapability,
       stagePath,
+      stageDirectoryPath,
+      stageDirectoryIdentity,
       platform,
     };
     stageDirectory = undefined;

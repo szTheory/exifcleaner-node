@@ -1,5 +1,5 @@
 import { constants as fsConstants } from "node:fs";
-import { mkdir, open, stat } from "node:fs/promises";
+import { mkdir, open, rmdir, stat } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import type { Stats } from "node:fs";
 
@@ -19,6 +19,12 @@ export interface FileOps {
     atime: Date,
     mtime: Date,
   ) => Promise<void>;
+  /**
+   * Removes a single, already-empty directory by pathname (non-recursive
+   * `rmdir`, no `recursive` option, never `rm`). The OS refuses this for a
+   * non-empty directory -- that refusal is load-bearing, not incidental.
+   */
+  readonly removeDirectory: (path: string) => Promise<void>;
 }
 
 export const NODE_FILE_OPS: FileOps = Object.freeze({
@@ -30,6 +36,7 @@ export const NODE_FILE_OPS: FileOps = Object.freeze({
   close: (handle: FileHandle) => handle.close(),
   utimes: (handle: FileHandle, atime: Date, mtime: Date) =>
     handle.utimes(atime, mtime),
+  removeDirectory: (path: string) => rmdir(path),
 });
 
 export const DIRECT_FINAL_FLAGS =
