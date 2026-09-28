@@ -28,6 +28,19 @@ chunks (`IHDR`, `PLTE`, `IDAT`, `IEND`), every entry of `PNG_PRESERVED_CHUNK_TYP
 `src/admission/png-handler.ts`, and, on request, iCCP (`preserveColorProfile`) and pHYs
 (`preserveResolution`).
 
+**JPEG:** an SOI/EOI-bounded ITU-T T.81 marker stream: `classifyMarker` in `src/jpeg/markers.ts`
+admits SOI, EOI, SOS, DQT, DHT, DRI, `COM`, every APPn, every restart marker, and only the baseline
+and extended/progressive Huffman frames (`JPEG_ADMITTED_SOF_MARKERS`: SOF0, SOF1, SOF2); every other
+frame class (lossless SOF3, hierarchical SOF5-7/DHP/EXP, arithmetic-coded, non-T.81, non-8-bit,
+DNL) refuses pre-write via one of the twelve `JpegRefusal` literals. Identifying metadata lives in
+every APPn segment and `COM`; a sanitize must strip every one of them except the Adobe APP14
+segment (D-01, kept byte-identical), and, on request, ICC (`APP2:ICC_PROFILE`, multi-segment,
+`preserveColorProfile`), JFIF resolution (`APP0:JFIF`, `preserveResolution`) and EXIF Orientation
+(`preserveOrientation`, written only into a minimal synthesized IFD0 -- never the source's own EXIF
+bytes). A trailer or an APP2 MPF payload after the primary EOI is truncated at that EOI unless
+`classifyTrailerClasses`/`trailerRefusal` (`src/jpeg/trailer.ts`) measures it a `mpf-secondary-image`
+refusal (D-13).
+
 ## 2. Hostile corpus
 
 A fixture set with provenance, exercising truncation, size overflow, duplicate critical parts,
@@ -45,6 +58,15 @@ and refusal-class records for the malformed cases specific to its container gram
 duplicated critical chunk, an unknown critical chunk, and trailing data; `validGrammarCases` in the
 same module pins one keep assertion per `PNG_PRESERVED_CHUNK_TYPES` entry. Real-world fixtures come
 from the pinned `libpng-1.6.58` test suite under `tests/corpus/upstream/libpng-1.6.58/`.
+
+**JPEG:** `hostileMutationCases` in `tests/qualification/jpeg/generators.ts` covers the malformed and
+resource-limit refusal classes (truncation, an undefined DQT/DHT table reference, a refused frame
+class, and each census-derived cap in `src/jpeg/markers.ts` such as `JPEG_MAX_SEGMENT_COUNT`);
+`validGrammarCases` pins one keep assertion per admitted marker/frame combination.
+`materializeMutationCase` materializes the recorded cases on demand. Real-world fixtures come from the pinned ExifTool 13.59 `t/images/` corpus under
+`tests/corpus/upstream/exiftool-13.59-jpeg/` (the MPF/motion-photo evidence table's real classes:
+Google.jpg, AFCP.jpg, ExifTool.jpg, FotoStation.jpg, PhotoMechanic.jpg) and the pinned
+`libjpeg-turbo-3.2.0` test images under `tests/corpus/upstream/libjpeg-turbo-3.2.0/`.
 
 ## 3. Differential
 
@@ -68,6 +90,12 @@ not supplied by the format) and, per fixture, the `permittedDifferences` grants 
 removed on every request, matching ExifTool `-all=` exactly even with `preserveColorProfile`
 requested, so native never disagrees with the fallback on colour-space signalling.
 
+**JPEG:** `jpegDifferentialProfile` in `tests/qualification/jpeg/oracles.ts` (`JPEG_EXTENSION`,
+`jpegRawColorProfileSha256`, `jpegStructuralParts` for the structural extension, so a kept-vs-dropped
+APP14 Adobe segment registers even though it carries no ExifTool-reported metadata of its own). The
+reference is always bare `-all=` (JPEG never passes `tagsFromFileArgs`), matching the app's real
+`sanitize()` invocation shape for a JPEG source.
+
 ## 4. Properties
 
 Property-based tests whose generators actually emit metadata, so a sanitizer that only copies its
@@ -85,6 +113,12 @@ the floor counts derived from its own fixed-seed distribution.
 `tests/qualification/png/generators.ts` plant one canary per `PngMetadataKind` arm (text, time,
 C2PA, and each preservable structural chunk), sampled at seed `460046`.
 
+**JPEG:** `jpegMetadataGenerator` and `jpegQualificationArbitrary` in
+`tests/qualification/jpeg/generators.ts` plant one canary per `JpegMetadataKind` arm (every removed
+APPn/COM identifier class, plus `TRAILER` and the preservable `ICC`/`APP1-EXIF` arms), sampled at
+seed `460046` with `FC_RUNS=200`; coverage floors are derived across four seeds
+(`460046`, `1`, `2`, `3`), never lowered to fit a low measurement.
+
 ## 5. Payload identity
 
 Proof that the format's image payload survives sanitize unchanged: either the payload chunk bytes
@@ -99,6 +133,11 @@ vocabulary, or an independent decode oracle it wires in (as WebP does with `dweb
 **PNG:** `assertPngPayloadIdentity` in `tests/qualification/png/oracles.ts` compares
 `pngIdatData`/`pngPayloadDigests` chunk bytes directly, and independently confirms the decoded
 result through `runPngDecodeOracle` and `runPngcheck` (the pinned `pngcheck` 4.0.1 authority).
+
+**JPEG:** `assertPayloadIdentity` in `tests/qualification/jpeg/oracles.ts` compares
+`jpegPayloadDigests`/`jpegEntropyCodedBytes` scan bytes directly, and independently confirms the
+decoded result through the pinned libjpeg-turbo `djpeg`/`rdjpgcom` binaries (`djpegPnm`,
+`rdjpgcomText`).
 
 ## 6. Fault injection
 
@@ -116,6 +155,15 @@ per-format code change.
 plan unchanged: every `LOGICAL_OPERATIONS` terminal fault, every named abort barrier, a
 post-publication close-target fault, and a structurally complex screenshot-shaped fixture
 (iDOT/iCCP/cICP/eXIf) all pass with no PNG-specific code in the shared layer.
+
+**JPEG:** `tests/qualification/jpeg/transaction.test.ts` reuses `jpegHandler.stagingFileName` and the
+shared fault plan unchanged: every `LOGICAL_OPERATIONS` terminal fault, post-publication
+close-target faults, the capability-disposition residue case, a terminal fault on the
+`libjpeg-turbo-testorig` corpus record, every named abort barrier, and a two-destination concurrent
+sanitize byte-identity check. Three of JPEG's six abort barriers (after-stage-creation,
+during-bounded-copy, after-write-sync) are caught only by `jpegHandler`'s own `isAborted` checks, not
+by the shared transaction's independent checks -- proven by a negative control disabling those
+checks and re-running the barrier suite (measured 2026-09-27, restored immediately).
 
 ## 7. Preservation parity
 
@@ -135,6 +183,15 @@ ExifTool).
 `preserveResolution` (unlike WebP, which reports `resolution: false` and declines the request
 pre-write). Orientation is written only from eXIf; a non-eXIf source that disagrees with (or is
 missing from) eXIf declines rather than guessing.
+
+**JPEG:** `JpegCapabilities` in `src/types.ts` reports `preserves.orientation`, `.colorProfile`,
+`.timestamps` and `.resolution` all `true`. Orientation is written into a minimal synthesized IFD0
+only, never copying the source's own EXIF Orientation bytes forward, and segment order (not "EXIF
+always wins") decides which of a disagreeing EXIF/XMP Orientation value ExifTool would pick — a
+JPEG-specific discrepancy from an earlier planning assumption, measured and recorded in
+`57-EVIDENCE.md`'s D-05 section. Adobe APP14 present forces JFIF to drop unconditionally
+(`preserveResolution` then keeps only the synthesized IFD0 resolution, matching ExifTool's own
+"Not creating JFIF in JPEG with Adobe APP14" behavior).
 
 ## 8. Rollback
 
@@ -156,6 +213,11 @@ registers.
 `tests/qualification/kit/rollback.test.ts`'s registry-removal proof runs for PNG automatically, and
 its closing completeness assertion (derived from `QUALIFICATION_FORMATS`, never a literal format
 name) fails if PNG's iteration were ever silently skipped.
+
+**JPEG:** registered in `tests/qualification/formats.ts`'s `QUALIFICATION_FORMATS`, so
+`tests/qualification/kit/rollback.test.ts`'s registry-removal proof runs for JPEG automatically:
+removing `jpegHandler` from `HANDLERS` returns JPEG to `unsupported-format` before any write, then
+restoring it accepts the same sample again, with the source unchanged throughout.
 
 ## Permitted differences
 
@@ -198,6 +260,15 @@ name) fails if PNG's iteration were ever silently skipped.
   `Resolution:Preserved` (namespace `PNG_RESOLUTION_GROUP`) all cite
   `PNG_PRESERVATION_MEASUREMENT_TITLE`; `Structure:UnregisteredAncillaryStripped` cites
   `PNG_UNREGISTERED_STRIP_MEASUREMENT_TITLE`.
+- **JPEG's three kinds** (D-07's own must-have forbids a fourth), all declared in
+  `jpegDifferentialProfile.permittedKinds` (`tests/qualification/jpeg/oracles.ts`):
+  `EXIF:Orientation` and `ICC_Profile:RawProfile` cite `JPEG_PRESERVATION_MEASUREMENT_TITLE`;
+  `Resolution:Preserved` (namespace `JFIF`, with an `impliedDifference` in the `EXIF` namespace for
+  the D-07 synthesized-IFD0-resolution side effect) cites `JPEG_RESOLUTION_MEASUREMENT_TITLE`. D-06
+  (Adobe APP14 present, JFIF unconditionally dropped) does not grant `Resolution:Preserved` — that
+  case is proven by a direct structural-projection assertion instead of the generic grant mechanism,
+  since the output correctly carries zero JFIF entries and the generic comparator would otherwise
+  reject a correct drop as a preservation failure.
 
 ## CI scoping
 
@@ -206,6 +277,14 @@ registered handler, its `tests/qualification/<format>/**` directory, or its fixt
 under `tests/qualification/kit/**`, or any shared code the kit or every format depends on, runs
 **every** format's suite — this is fail-closed by design: an ambiguous or shared-surface change
 must never silently skip a format's evidence.
+
+**JPEG** is a qualified format in `scripts/classify_ci_scope.cjs`; its own per-format path rules
+scope `src/jpeg/**`, `src/admission/jpeg-handler.ts`, `tests/qualification/jpeg/**`,
+`tests/jpeg*.test.ts`, and its two pinned corpus directories
+(`tests/corpus/upstream/libjpeg-turbo-3.2.0/`,
+`tests/corpus/upstream/exiftool-13.59-jpeg/`). A change matching none or more than one format's
+rules — or a tag push, or a non-PR/push event — widens to JPEG's own qualification env list plus
+every other qualified format's suite, never silently narrowing.
 
 ## Evidence tiers
 
@@ -226,3 +305,8 @@ because a format's own code changed.
 - Note: the first non-WebP corpus record generalizes `tests/qualification/kit/corpus.ts`'s payload
   vocabulary, which is currently WebP-chunk-specific — this is the one allowlisted neutrality
   exception the kit-neutrality scan already documents (`tests/format_neutral_source.test.ts`).
+
+**PNG and JPEG both completed this checklist** (Phases 56 and 57): each has its `HANDLERS`
+registration, its `NativeFormat`/`FormatCapabilities` member, its `QUALIFICATION_FORMATS` entry, its
+full `tests/qualification/<format>/` suite, and its own `tests/corpus/manifest.json` fixture
+records.

@@ -63,6 +63,129 @@ Every "measured outcome" above was captured by running the built package's own
 `sanitizeFile`/`inspectFile` against the committed bytes (not inferred from the
 filename or upstream comments) before the corpus record was written.
 
+## Pinned libjpeg-turbo Fixtures (Phase 57)
+
+Fifteen JPEG fixtures committed under `tests/corpus/upstream/libjpeg-turbo-3.2.0/`,
+built from the pinned `libjpeg-turbo-3.2.0` archive (`tests/corpus/tools/manifest.json`,
+revision `c85e6b905bf237038faa936dab160ebfc5da0344`, tag `3.2.0`). Four are unmodified
+upstream `testimages/` members (`IJG` or `BSD-3-Clause` per the archive's own
+`testimages/LICENSE.txt`); ten are generated locally with the pinned source's own
+`djpeg`/`cjpeg`/`jpegtran`/`rdjpgcom` binaries, configured and built with the same
+CMake flags 57-08 pinned for the CI oracle authority; one (`cmyk-adobe.jpg`) is
+constructed with this repo's own `minimalJpeg`/`jpegAdobe` test builders (MIT-licensed,
+`tests/fixtures.ts`). Every "measured outcome" below was captured by running the built
+package's own `sanitizeFile` against the committed bytes (not inferred from the
+filename or upstream comments) before the corpus record was written.
+
+Local build (macOS, `cmake` at `/opt/homebrew/bin/cmake`), the same flags
+`scripts/qualification/build-oracles.cjs`'s `prepareOracleTools` uses for the linux/x64
+CI authority, plus `cjpeg-static` for fixture generation:
+
+```sh
+tar -xzf tests/corpus/tools/archives/libjpeg-turbo-3.2.0.tar.gz -C <workspace>
+cd <workspace>/libjpeg-turbo-3.2.0
+cmake -S . -B build \
+  -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=0 -DENABLE_STATIC=1 \
+  -DWITH_SIMD=0 -DWITH_ARITH_DEC=1 -DWITH_ARITH_ENC=0 \
+  -DWITH_TURBOJPEG=0 -DWITH_TESTS=0
+cmake --build build --target djpeg-static jpegtran-static rdjpgcom cjpeg-static jpeg-static --parallel 4
+```
+
+| Fixture ID                           | Member path / generation command                                                                                                                                  | SHA-256                                                            | Bytes | Role(s)          | Measured outcome                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----- | ---------------- | ------------------------------------------------- |
+| `libjpeg-turbo-testorig`             | `testimages/testorig.jpg`                                                                                                                                         | `acc6ec555d41d15b368320edaa3b20958ee6fa97cb6e4a18d1213d5ae8bec73b` | 5770  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-testimgint`           | `testimages/testimgint.jpg`                                                                                                                                       | `491679b8057739b3c8e5bacd1e918efb1691d271cbbd69820ff8d480dcb90963` | 5756  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-gray`                 | `cjpeg-static -grayscale -outfile gray.jpg testimages/testorig.ppm`                                                                                               | `b39ba716128c02501db3e461d025d76225f7b68710e41227fead5389a3e2288f` | 4333  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-sof1`                 | `testorig.jpg` with the SOF0 marker byte (`0xC0`) patched to `0xC1` (extended sequential DCT)                                                                     | `ab552fd54218fe6bb5ceaa91d43179b08af6b3d6c06942250468d9d1e83a4196` | 5770  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-progressive`          | `jpegtran-static -progressive -outfile progressive.jpg testimages/testorig.jpg`                                                                                   | `24770f706b81b40a71944af3b39aad8a3f7ffb21c4f2725447022e518222d823` | 5655  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-restart`              | `cjpeg-static -restart 1 -outfile restart.jpg testimages/testorig.ppm`                                                                                            | `2e387f4d3adc579125ea024ab314d5a1579cb45cf0fdbc42b0d644bfcb8ac9a4` | 5787  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-multiscan-sequential` | `cjpeg-static -scans multiscan.txt -outfile multiscan-sequential.jpg testimages/testorig.ppm` (script: `0;`/`1;`/`2;`, one component per scan, no `-progressive`) | `8a741e3b18a7dacebdc8d971c866992f46e8d8498379762202f79b2c8dd994de` | 5721  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-fill-bytes`           | `testorig.jpg` with three `0xFF` fill bytes inserted immediately before the SOS marker                                                                            | `6059d2f9b083f60d4106b5dff0d6e8084e6cd4194935ec404f76d830efa6b546` | 5773  | differential     | success, removes nothing                          |
+| `libjpeg-turbo-cmyk-adobe`           | `minimalJpeg({ components: 4 })` + a constructed APP14 Adobe segment (`jpegAdobe(0)`)                                                                             | `51888b576afd14a4a6e9033b8b5aa4b1c685e7b81c402c27075aff4a9fde311f` | 168   | differential     | success, removes nothing (APP14 preserved)        |
+| `libjpeg-turbo-testimgari`           | `testimages/testimgari.jpg` (arithmetic coding, SOF9)                                                                                                             | `4672c7f08864cd0a8c73a4fa4b66ca32b635d38464551c1ecf06564ae8c89b38` | 5126  | negative-control | refused, `unsafe-structure` (arithmetic-frame)    |
+| `libjpeg-turbo-monkey12`             | `testimages/monkey12.jpg` (12-bit precision, SOF1)                                                                                                                | `a3cb218412cecfa877a4adee520aa3d58ac0d6d0f36a7a2541e598324ce481e3` | 32831 | negative-control | refused, `unsafe-structure` (non-8-bit-precision) |
+| `libjpeg-turbo-lossless`             | `cjpeg-static -lossless 1 -outfile lossless.jpg testimages/testorig.ppm` (SOF3)                                                                                   | `ab586bf71b54af6f8934aff330f21793c88886c375cf6d4fd6082648ed8d39b2` | 59131 | negative-control | refused, `unsafe-structure` (lossless-frame)      |
+| `libjpeg-turbo-hierarchical`         | `testorig.jpg` with SOF0 patched to `0xC5` (hierarchical)                                                                                                         | `20ae0c11eae8393d9676589c071f6633762be4dcf043d6ca4b7676d9ec2cd879` | 5770  | negative-control | refused, `unsafe-structure` (hierarchical-frame)  |
+| `libjpeg-turbo-jpeg-ls`              | `testorig.jpg` with SOF0 patched to `0xF7` (JPEG-LS)                                                                                                              | `f67f9d1f75fa8599fa966a13188cd856b218cbd75873547130026b53f9c23e98` | 5770  | negative-control | refused, `unsafe-structure` (non-t81-frame)       |
+| `libjpeg-turbo-dnl`                  | `testorig.jpg` with frame height zeroed in SOF0 and a DNL segment inserted after the first scan                                                                   | `7f074514149f4a1581a6d9974984205e5fa119f4f47d82d34331f5adb934db8c` | 5776  | negative-control | refused, `unsafe-structure` (dnl-marker)          |
+
+## Pinned ExifTool JPEG Fixtures (Phase 57 Plan 10)
+
+Eleven JPEG fixtures committed under `tests/corpus/upstream/exiftool-13.59-jpeg/`,
+members of `Image-ExifTool-13.59/t/images/` in the pinned ExifTool archive
+(`tests/corpus/tools/manifest.json`, authority id `exiftool-13.59`, revision
+`2200871d9cef988051d2a99d67df3bda6cbb30a8`), licensed "same terms as Perl itself"
+(`LICENSE-exiftool.txt`, sourced from `tests/corpus/tools/licenses/exiftool-README`'s
+own `COPYRIGHT AND LICENSE` section). Every "measured outcome" below was captured by
+running the built package's own `sanitizeFile` against the committed bytes (every
+preservation flag false) before the corpus record was written.
+
+| Fixture ID                    | Member path                  | SHA-256                          | Bytes | Role(s)      | Measured outcome                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------- | ---------------------------- | -------------------------------- | ----- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exiftool-jpeg-exiftool`      | `t/images/ExifTool.jpg`      | see `tests/corpus/manifest.json` | 26106 | differential | success, removes nothing (APP14 Adobe kept)                                                                                                                                                                                                                                                                                                                                                          |
+| `exiftool-jpeg-writer`        | `t/images/Writer.jpg`        | see `tests/corpus/manifest.json` | 251   | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-extendedxmp`   | `t/images/ExtendedXMP.jpg`   | see `tests/corpus/manifest.json` | 1380  | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-afcp`          | `t/images/AFCP.jpg`          | see `tests/corpus/manifest.json` | 1110  | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-photomechanic` | `t/images/PhotoMechanic.jpg` | see `tests/corpus/manifest.json` | 3417  | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-fotostation`   | `t/images/FotoStation.jpg`   | see `tests/corpus/manifest.json` | 4320  | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-xmp`           | `t/images/XMP.jpg`           | see `tests/corpus/manifest.json` | 10314 | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-iptc`          | `t/images/IPTC.jpg`          | see `tests/corpus/manifest.json` | 9851  | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-canon`         | `t/images/Canon.jpg`         | see `tests/corpus/manifest.json` | 2697  | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-nikon`         | `t/images/Nikon.jpg`         | see `tests/corpus/manifest.json` | 1703  | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-apple`         | `t/images/Apple.jpg`         | see `tests/corpus/manifest.json` | 2355  | differential | success, removes nothing                                                                                                                                                                                                                                                                                                                                                                             |
+| `exiftool-jpeg-google`        | `t/images/Google.jpg`        | see `tests/corpus/manifest.json` | 41417 | differential | success (Phase 57 Plan 11, D-13 native half): a real Pixel gain-map motion photo (`XMP-hdrgm:Version` present, zero trailer bytes, no APP2 MPF segment); promotes because there is no secondary-image data anywhere in the file to leak -- native output is byte-identical to `exiftool-jpeg-writer`'s own sanitized output (251 bytes), matching 57-EVIDENCE.md's ExifTool-half measurement exactly |
+
+## Constructed JPEG Segment/Preservation Fixtures (Phase 57 Plan 10)
+
+35 fixtures committed under `tests/corpus/constructed/jpeg/`, built from
+`exiftool-jpeg-writer` (above) through `tests/qualification/jpeg/fixtures.ts`'s own
+builders (MIT-licensed, this repository) -- never derived from any upstream archive.
+31 cover one row each of 57-EVIDENCE.md's D-01/D-02 segment-policy table plus the D-02
+"non-JUMBF APP11" edge case (`JPEG_SEGMENT_IDENTIFIER_FIXTURES`, ids `jpeg-seg-*`); one
+is the dedicated D-02 constructed C2PA manifest parity fixture
+(`jpeg-c2pa-manifest`); three are the D-04/D-06 preservation shapes
+(`jpeg-preservation-jfif-only`, `jpeg-preservation-jfif-ifd0-conflict`,
+`jpeg-preservation-adobe-jfif-exif`). Every "measured outcome" was captured by running
+the built package's own `sanitizeFile` against the committed bytes before the corpus
+record was written; a host-independent test
+(`tests/qualification/jpeg/oracles.test.ts`, "JPEG constructed fixtures regenerate
+byte-identically") regenerates every one of these 35 fixtures from
+`exiftool-jpeg-writer` and asserts byte-for-byte equality against the committed file on
+every platform, not just linux/amd64.
+
+Exact sha256/bytes/topology/outcome values for all 35 records live in
+`tests/corpus/manifest.json` (ids `jpeg-seg-*`, `jpeg-c2pa-manifest`,
+`jpeg-preservation-*`) rather than restated here -- the regeneration test is the
+permanent guard that keeps this doc from drifting out of sync with the committed
+bytes.
+
+**Phase 57 Plan 11 byte-parity fix:** `fixtures.ts`'s `standardXmpPayload` (shared by the
+`app1-xmp` per-identifier fixture above and the MPF/motion-photo class builders below)
+was missing the UTF-8 BOM (`﻿`, 3 bytes) `build-fixtures.mjs`'s own `xpacket begin`
+attribute carries -- found live when Plan 11 Task 2 measured `google-motion-photo-shape.jpg`
+and `gainmap-mpf-hdrgm.jpg` 3 bytes short of the sha256 57-EVIDENCE.md recorded. Fixed in
+`standardXmpPayload` itself; `jpeg-seg-app1-xmp`'s own committed bytes/sha256 changed as a
+side effect (507 -> 510 bytes) and are re-recorded in `tests/corpus/manifest.json`.
+
+## MPF and Motion-Photo Trailer Fixtures (Phase 57 Plan 11)
+
+Six more fixtures committed under `tests/corpus/constructed/jpeg/`, built from
+`exiftool-jpeg-writer` through the same `tests/qualification/jpeg/fixtures.ts` builders
+57-04 ported from `build-fixtures.mjs` (`buildCipaMpfTwoImages`,
+`buildGoogleMotionPhotoShape`, `buildSamsungSefhSeftTrailer`, `buildGainmapMpfHdrgm`,
+`buildMpfIndexTruncated`, `buildMpfIndexOutOfRange`) -- one per `JpegTrailerClass` shape
+57-EVIDENCE.md's "Full MPF/motion/trailer decision table" measured. Every committed
+sha256/bytes value matches 57-EVIDENCE.md's own recorded value exactly (asserted live by
+this plan's own regeneration proof). Two (`jpeg-trailer-cipa-mpf-two-images`,
+`jpeg-trailer-gainmap-mpf-hdrgm`) are the measured-confound `mpf`/`gain-map` classes and
+carry the `negative-control` role with a `refused` outcome; the other four carry the
+`differential` role with a `success` outcome. The real Google.jpg fixture
+(`exiftool-jpeg-google`, above) is the seventh and only real (non-constructed) class member
+this plan measures -- see its own D-12/D-13 promotion note in the ExifTool table above.
+
+Exact sha256/bytes/topology/outcome values for all six records live in
+`tests/corpus/manifest.json` (ids `jpeg-trailer-*`).
+
 ## Generated Fixtures
 
 Repository-generated fixtures are not upstream ExifCleaner evidence. Their provenance record should include:

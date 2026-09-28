@@ -1,8 +1,10 @@
 import { webpHandler } from "./webp-handler.js";
 import { pngHandler } from "./png-handler.js";
+import { jpegHandler } from "./jpeg-handler.js";
 const HANDLERS = Object.freeze([
     webpHandler,
     pngHandler,
+    jpegHandler,
 ]);
 // Private test seam (mirrors setNativePublicationBindingForTests in
 // src/transaction/native-publication.ts): lets a test roll a handler out of

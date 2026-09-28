@@ -80,24 +80,31 @@ non-matrix job as passing its required check directly.
 
 ## Per-format qualification scoping
 
-A format's Linux qualification suite runs on changes to its own `src/<format>/**`, its registered
-handler, its `tests/qualification/<format>/**` directory, and its own `tests/corpus/upstream/**`
-authority. Any change under `tests/qualification/kit/**`, or any shared code the kit or every
-format depends on, runs **every** format's suite — fail-closed, so an ambiguous or shared-surface
+Three formats are qualified today (`QUALIFIED_FORMATS`: `jpeg`, `png`, `webp`). A format's Linux
+qualification suite runs on changes to its own `src/<format>/**`, its registered handler, its
+`tests/qualification/<format>/**` directory, and (for jpeg/png/webp) its own
+`tests/corpus/upstream/**` authority where one exists. JPEG's own `FORMAT_PATH_RULES` entry covers
+`src/jpeg/**`, `src/admission/jpeg-handler.ts`, the matching `dist/` output,
+`tests/qualification/jpeg/**`, and `tests/jpeg*.test.ts` (JPEG has no upstream corpus authority
+path yet — that lands with the corpus in a later plan). Any change under
+`tests/qualification/kit/**`, or any shared code the kit or every format depends on (for example
+`src/metadata/**`), runs **every** format's suite — fail-closed, so an ambiguous or shared-surface
 change never silently skips a format's evidence (D-17; see `docs/format-admission.md`'s "CI
 scoping" section for the full rule).
 
-**Implemented (Plan 56-12).** `scripts/classify_ci_scope.cjs` exposes a `formats` output
-(`classifyQualificationFormats`) alongside `scope`: a changed path selects exactly one format only
-when it matches that format's own `FORMAT_PATH_RULES` entry; a path matching zero formats (a
-kit/shared path) or more than one, a tag ref, or any non-`pull_request`/`push` event bubbles the
-whole set to every qualified format. The selection happens **inside** the single existing
-`qualification-linux` job — no new job, and no workflow-level `on.paths` filter or job-level skip.
-`qualification-linux` lists `classify` in `needs` **only** to read `outputs.formats`; it is never
-gated by `outputs.scope`, and `validateCiScopeWiring` (the same script) throws if that invariant
-ever regresses. Its run step always executes `QUAL_KIT` (the shared kit suites), then a bash `case`
-over the comma-separated `formats` output appends `QUAL_WEBP` and/or `QUAL_PNG`; an unrecognized
-format name fails the step rather than silently running nothing.
+**Implemented (Plan 56-12; JPEG added Plan 57-07).** `scripts/classify_ci_scope.cjs` exposes a
+`formats` output (`classifyQualificationFormats`) alongside `scope`: a changed path selects exactly
+one format only when it matches that format's own `FORMAT_PATH_RULES` entry; a path matching zero
+formats (a kit/shared path) or more than one, a tag ref, or any non-`pull_request`/`push` event
+bubbles the whole set to every qualified format. The selection happens **inside** the single
+existing `qualification-linux` job — no new job, and no workflow-level `on.paths` filter or
+job-level skip. `qualification-linux` lists `classify` in `needs` **only** to read
+`outputs.formats`; it is never gated by `outputs.scope`, and `validateCiScopeWiring` (the same
+script) throws if that invariant ever regresses. Its run step always executes `QUAL_KIT` (the
+shared kit suites), then a bash `case` over the comma-separated `formats` output appends
+`QUAL_WEBP`, `QUAL_PNG`, and/or `QUAL_JPEG`; an unrecognized format name fails the step rather than
+silently running nothing. `QUAL_JPEG` currently lists only `tests/qualification/jpeg/tracer.test.ts`
+-- every later JPEG qualification plan appends its own suite file to this list.
 
 This in-job selection, rather than a workflow-level filter or a job-level skip, is required, not a
 style choice: measured directly on 2026-09-24 (re-measured 2026-09-26; unchanged) with
@@ -110,7 +117,7 @@ this document already records above for the platform-matrix jobs.
 **Fail-closed on a failed or untrustworthy classification (WR-03, Plan 56-18).** A failed
 `classify` job, or one that reported an empty `outputs.formats`, must never narrow the selection
 to the kit suite alone — that would make the required `qualification-linux` check go green
-without the PNG or WebP suites having run at all. The selection step also reads
+without the JPEG, PNG, or WebP suites having run at all. The selection step also reads
 `needs.classify.result` (`CLASSIFY_RESULT`); when that result is not `success`, or `FORMATS` is
 empty, it derives the fallback list from `scripts/classify_ci_scope.cjs`'s own `QUALIFIED_FORMATS`
 export (`node -p "require('./scripts/classify_ci_scope.cjs').QUALIFIED_FORMATS.join(',')"`) rather
@@ -123,6 +130,25 @@ executes the real step body under `bash` (with a recording `npm` stub) to prove 
 behaviourally, not just by text presence. No job is added and no minutes are spent when classify
 succeeds with a narrowed format list; the fallback only costs extra minutes on the failure path
 it exists to cover.
+
+## JPEG onboarding cost (Phase 57)
+
+The last hosted `qualification-linux` run before JPEG's suites were added (Phase 56 PR head
+`e9c5b9a`, run `36259855039`) took **2.52 job-minutes** (`startedAt` 17:42:26Z, `completedAt`
+17:44:57Z, 2 min 31 sec) running `formats=png,webp` (249/249 tests, 0 skipped). This is the
+before-JPEG baseline this section's hosted after-figure (recorded once this phase's own PR runs,
+see Plan 57-15) is measured against.
+
+Locally, `prepareOracleTools()`'s libjpeg-turbo build step alone (extract + `cmake -S ... -B ...`
+configure + `cmake --build ... --target djpeg-static jpegtran-static rdjpgcom jpeg-static
+--parallel 2`, pinned CMake flags: shared libraries disabled, SIMD disabled, arithmetic decode
+enabled/encode disabled) measured **128 seconds** in a `node:22-bookworm --platform linux/amd64`
+container (57-08, Task 3). This is the single largest new fixed cost JPEG's oracle authority adds
+to a cold qualification run — libwebp's and libpng's authorities were already paid for before this
+phase.
+
+The hosted `qualification-linux` job-minute figure with JPEG's suites (`formats=png,webp,jpeg`)
+included is recorded in Plan 57-15, once this phase's own PR has a real hosted run to measure.
 
 ## How to add a new format directory
 

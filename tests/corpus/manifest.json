@@ -550,6 +550,1965 @@
       },
       "retainedPayloads": [],
       "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-testorig",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/testorig.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "acc6ec555d41d15b368320edaa3b20958ee6fa97cb6e4a18d1213d5ae8bec73b",
+      "bytes": 5770,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "38170d9ab6c090dfa35a0229e566e492882a858f338384a11fe170ddb599bffa"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-testimgint",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/testimgint.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testimgint.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "491679b8057739b3c8e5bacd1e918efb1691d271cbbd69820ff8d480dcb90963",
+      "bytes": 5756,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "e4558200f7bdf5382b0a428448fa1c1b7840601bff012947b50ef8b382191925"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-gray",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/gray.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.ppm",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "b39ba716128c02501db3e461d025d76225f7b68710e41227fead5389a3e2288f",
+      "bytes": 4333,
+      "topology": ["0xE0", "0xDB", "0xC0", "0xC4", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "fd02ed2acf829a4152ec9d10bd211f421d954dcbbd280d00deb872deb7821e9b"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-sof1",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/sof1.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "ab552fd54218fe6bb5ceaa91d43179b08af6b3d6c06942250468d9d1e83a4196",
+      "bytes": 5770,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC1",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "38170d9ab6c090dfa35a0229e566e492882a858f338384a11fe170ddb599bffa"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-progressive",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/progressive.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "24770f706b81b40a71944af3b39aad8a3f7ffb21c4f2725447022e518222d823",
+      "bytes": 5655,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC2",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "351d2a57e9f9942c6ae4ca34ce0d19208fe3feb0940be8efd5da14760158287e"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-restart",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/restart.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.ppm",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "2e387f4d3adc579125ea024ab314d5a1579cb45cf0fdbc42b0d644bfcb8ac9a4",
+      "bytes": 5787,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDD",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "7e68cd83f86b1069c6851945e5073718ef4056bb14cadc90387199d858be5902"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-multiscan-sequential",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/multiscan-sequential.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.ppm",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "8a741e3b18a7dacebdc8d971c866992f46e8d8498379762202f79b2c8dd994de",
+      "bytes": 5721,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "751dc769f2b921b91a383ccf1bab535fc5b9878b1fae9f746e71d2dcc3346675"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-fill-bytes",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/fill-bytes.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "6059d2f9b083f60d4106b5dff0d6e8084e6cd4194935ec404f76d830efa6b546",
+      "bytes": 5773,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "38170d9ab6c090dfa35a0229e566e492882a858f338384a11fe170ddb599bffa"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-cmyk-adobe",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/cmyk-adobe.jpg",
+      "provenance": {
+        "revision": "21a5077d060770c1be2498a9681a3a127061dfa3",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/21a5077d060770c1be2498a9681a3a127061dfa3/tests/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "51888b576afd14a4a6e9033b8b5aa4b1c685e7b81c402c27075aff4a9fde311f",
+      "bytes": 168,
+      "topology": ["0xEE", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-testimgari",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/testimgari.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testimgari.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "4672c7f08864cd0a8c73a4fa4b66ca32b635d38464551c1ecf06564ae8c89b38",
+      "bytes": 5126,
+      "topology": ["0xE0", "0xDB", "0xDB", "0xC9", "0xCC", "0xDA", "EOI"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-monkey12",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/monkey12.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/monkey12.jpg",
+        "license": "BSD-3-Clause",
+        "licenseStatus": "approved"
+      },
+      "sha256": "a3cb218412cecfa877a4adee520aa3d58ac0d6d0f36a7a2541e598324ce481e3",
+      "bytes": 32831,
+      "topology": [
+        "0xE0",
+        "0xE2",
+        "0xDB",
+        "0xDB",
+        "0xC1",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-lossless",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/lossless.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.ppm",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "ab586bf71b54af6f8934aff330f21793c88886c375cf6d4fd6082648ed8d39b2",
+      "bytes": 59131,
+      "topology": ["0xEE", "0xC3", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-hierarchical",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/hierarchical.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "20ae0c11eae8393d9676589c071f6633762be4dcf043d6ca4b7676d9ec2cd879",
+      "bytes": 5770,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC5",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-jpeg-ls",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/jpeg-ls.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "f67f9d1f75fa8599fa966a13188cd856b218cbd75873547130026b53f9c23e98",
+      "bytes": 5770,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xF7",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "libjpeg-turbo-dnl",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "upstream/libjpeg-turbo-3.2.0/dnl.jpg",
+      "provenance": {
+        "revision": "c85e6b905bf237038faa936dab160ebfc5da0344",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/c85e6b905bf237038faa936dab160ebfc5da0344/testimages/testorig.jpg",
+        "license": "IJG",
+        "licenseStatus": "approved"
+      },
+      "sha256": "7f074514149f4a1581a6d9974984205e5fa119f4f47d82d34331f5adb934db8c",
+      "bytes": 5776,
+      "topology": [
+        "0xE0",
+        "0xDB",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xC4",
+        "0xDA",
+        "0xDC",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-exiftool",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/ExifTool.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/ExifTool.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "fdca3287a21453b51e250e67aba836d560e6043559a6e37acb429a03e720e412",
+      "bytes": 26106,
+      "topology": [
+        "0xE1",
+        "0xE0",
+        "0xE0",
+        "0xE8",
+        "0xE0",
+        "0xE0",
+        "0xE1",
+        "0xE2",
+        "0xE2",
+        "0xE2",
+        "0xE2",
+        "0xE2",
+        "0xE3",
+        "0xE5",
+        "0xE6",
+        "0xE6",
+        "0xE7",
+        "0xE9",
+        "0xEA",
+        "0xEB",
+        "0xEB",
+        "0xEC",
+        "0xEC",
+        "0xED",
+        "0xED",
+        "0xEE",
+        "0xEF",
+        "0xFE",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app0-jfif",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app0-jfif.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "fd1e0b84abee75dfa41d65d22189968284ef09018b654448b14e31d837b330ee",
+      "bytes": 269,
+      "topology": ["0xE0", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app0-jfxx",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app0-jfxx.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "a1b88f138f4cf7b79f7bdd02916687d26520ba7defad12505669bc2195abd790",
+      "bytes": 263,
+      "topology": ["0xE0", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app0-avi1",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app0-avi1.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "0e02eeb13cd7527234c56f0374f837fea6217fedb737d4d1554d63d8d871f76f",
+      "bytes": 268,
+      "topology": ["0xE0", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app1-exif",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app1-exif.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "b35adac9c34ed0e395b03f172f93f540286cdb0c05311e2ca15f5767bdf847a8",
+      "bytes": 287,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app1-xmp",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app1-xmp.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "26262389e1c29e9c537b62ff1f8a22f25392af15197c74e7f44f214dd1f5cc7e",
+      "bytes": 510,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app1-extended-xmp",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app1-extended-xmp.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "03f48dd5dbb76d78fcb2d20c7b1291c10f307f61238d85556f3fbcc69c888746",
+      "bytes": 367,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app2-icc-profile",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app2-icc-profile.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "de86fe2af0d7d886b8e9101364d3627d73b05d39e153277987d4e4b64248c021",
+      "bytes": 421,
+      "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app2-fpxr",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app2-fpxr.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "fbc196ba03f1e00f4173653d69b53cce29e8cfecd968688281de7be9acb633e1",
+      "bytes": 268,
+      "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app2-mpf",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app2-mpf.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "2e345461218e24e5cca1ccc21d4fbb9a3b607804bbd2de186fb63e94709ccf27",
+      "bytes": 267,
+      "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app3-meta",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app3-meta.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "ed2c05d20865786a94d8bef63db784833db5f756bba829e0a15f94d3439a1eb1",
+      "bytes": 268,
+      "topology": ["0xE3", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app5-rmeta",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app5-rmeta.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "3f7b28314c9153a4b06271649111c584e156cf2be114e572a76c5916df0bd779",
+      "bytes": 269,
+      "topology": ["0xE5", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app6-eppim",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app6-eppim.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "39910f9ca3347c9ceea8cf42db9afb3bcf478d076a76eeb6c4a8524f39c648d9",
+      "bytes": 269,
+      "topology": ["0xE6", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app7-qualcomm",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app7-qualcomm.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "6a58c26dc893d19fc9f721eec7961ae132d4534e37620fa29b79e7d529707d9f",
+      "bytes": 288,
+      "topology": ["0xE7", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app8-spiff",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app8-spiff.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "c1f75a89b1c898732e43a04b3dfd5f39fe41ed6286d1f95d417ecaf9b68a7995",
+      "bytes": 269,
+      "topology": ["0xE8", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app9-media-jukebox",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app9-media-jukebox.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "5a726357a181eae5fcd5e4f82f27ebdc72a629e129037973867e984188f868c9",
+      "bytes": 273,
+      "topology": ["0xE9", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app10-unicode",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app10-unicode.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "011a1adc7f592ad07d55785b49f8d0e8ac48c1dd7e297b42da7f075cb768f7c9",
+      "bytes": 271,
+      "topology": ["0xEA", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app11-cai",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app11-cai.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "80c99250d8799214fba3a5610228e04b1c7a22e3231f53e79d5ebb932c75b710",
+      "bytes": 339,
+      "topology": ["0xEB", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app11-c2pa",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app11-c2pa.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "7941c0844b13bf8fb0979df5a9ab5cb54359e6144e27f7089922547a476f528e",
+      "bytes": 454,
+      "topology": ["0xEB", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app11-non-jumbf",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app11-non-jumbf.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "48296b791d4214db01d1cf2fb91e537d66c643ec802a47b8df2ff9397dfa31e9",
+      "bytes": 285,
+      "topology": ["0xEB", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app12-ducky",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app12-ducky.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "76103f1111832d1fd6b6fa5bebb747da95ab0e7531fc843d4da1d974eec469a2",
+      "bytes": 269,
+      "topology": ["0xEC", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app13-photoshop3",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app13-photoshop3.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "ab139ef82c2d1cc6cedc18ba8afb2f34c04ffbfceb2896d8866907eeefa2ed1f",
+      "bytes": 277,
+      "topology": ["0xED", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app14-adobe",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app14-adobe.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "47684e05475e7591e15140449b12bd6e3e1c82c44a89f1803410e82051a2c88e",
+      "bytes": 267,
+      "topology": ["0xEE", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app14-not-adobe",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app14-not-adobe.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "3ce3741e6d8eb34d4bfc582a1751b1e9f801d25d0ea08e2976b4312b36ec8b13",
+      "bytes": 270,
+      "topology": ["0xEE", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app15-q70",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app15-q70.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "2a073b0d7386c2ec7609cc78ab2f33c4dd843e7643ef582cfc4dfb91404b068d",
+      "bytes": 262,
+      "topology": ["0xEF", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-com",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/com.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "a9903e884df655ce173c50f6700246a35e38ffa2dfcd88efb6bf13b49969febf",
+      "bytes": 267,
+      "topology": ["0xFE", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app1-qvci",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app1-qvci.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "d1de20878522b185a57424ea902c056782ff183dc9ab84c86a393f8f126bae0b",
+      "bytes": 268,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app1-myvendor",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app1-myvendor.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "312e9e6ff544d320f46876b3cf061f74e1c1615fff1850546cd1e787f5b1f97c",
+      "bytes": 272,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app13-not-photoshop",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app13-not-photoshop.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "0540d96fd9615ac0a154f9644e66ffdb1c4879d0b322647adf405ede1d9664ce",
+      "bytes": 276,
+      "topology": ["0xED", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app1-random1",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app1-random1.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "6adbb1e773d311d703aec4e194372608bf86e019f11719cedc2c35e70fba3198",
+      "bytes": 271,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app12-random-app12",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app12-random-app12.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "bf6c722f1b88273c8922a6e05d8b0cc6402b4990337419e5973a88cdee45b1e4",
+      "bytes": 275,
+      "topology": ["0xEC", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-seg-app15-random-app15",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/app15-random-app15.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "cb80fdc65e915ab4e4030032385b6b7037207438dd00a4d8cdbc7294e8416d35",
+      "bytes": 275,
+      "topology": ["0xEF", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-c2pa-manifest",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/c2pa-manifest.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "7941c0844b13bf8fb0979df5a9ab5cb54359e6144e27f7089922547a476f528e",
+      "bytes": 454,
+      "topology": ["0xEB", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-preservation-jfif-only",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/preservation-jfif-only.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "fd1e0b84abee75dfa41d65d22189968284ef09018b654448b14e31d837b330ee",
+      "bytes": 269,
+      "topology": ["0xE0", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": ["Resolution:Preserved"]
+    },
+    {
+      "id": "jpeg-preservation-jfif-ifd0-conflict",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/preservation-jfif-ifd0-conflict.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "209c487510b740d4ee01848da67e308fd0579802962b3951400685763862e708",
+      "bytes": 345,
+      "topology": ["0xE0", "0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": ["Resolution:Preserved"]
+    },
+    {
+      "id": "jpeg-preservation-adobe-jfif-exif",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/preservation-adobe-jfif-exif.jpg",
+      "provenance": {
+        "revision": "69c5170e05d5a97b3aab238dd69cb51356c8f1fd",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/69c5170e05d5a97b3aab238dd69cb51356c8f1fd/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "66f36263e325ea34b42a1f60c96db0a64eb1ef80d0498e760bb8ebf87dab6137",
+      "bytes": 361,
+      "topology": [
+        "0xEE",
+        "0xE0",
+        "0xE1",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-cipa-mpf-two-images",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "constructed/jpeg/cipa-mpf-two-images.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "781604893aa6f17f0c0c9d0910513d97fe33bdbe328f3ff30f593470ce21fa15",
+      "bytes": 626,
+      "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-google-motion-photo-shape",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/google-motion-photo-shape.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "6676017672a174374d99ff6995a374bdcd5719e3e8f5639584662d8b62cfbd6a",
+      "bytes": 5226,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-samsung-sefh-seft-trailer",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/samsung-sefh-seft-trailer.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "188d67065a92675c64ecf2b0551232fd2e784525c814243fb4aabf37d0588ae5",
+      "bytes": 529,
+      "topology": ["0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-gainmap-mpf-hdrgm",
+      "format": "jpeg",
+      "roles": ["negative-control"],
+      "localPath": "constructed/jpeg/gainmap-mpf-hdrgm.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "a5ca173a66f2705c1eb48e3cdd50be8fb3a324e00eb78c6db4764ba8bba4ecc1",
+      "bytes": 1437,
+      "topology": ["0xE1", "0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-mpf-index-truncated",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/mpf-index-truncated.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "618439b78845f0337b929fcbe1f1d56b50afb62b2e7c8f59b980b47668329821",
+      "bytes": 333,
+      "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "jpeg-trailer-mpf-index-out-of-range",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "constructed/jpeg/mpf-index-out-of-range.jpg",
+      "provenance": {
+        "revision": "862f193d49d00e419e9fa93386493ab382ac36b8",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/862f193d49d00e419e9fa93386493ab382ac36b8/tests/qualification/jpeg/fixtures.ts",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "41ca839938e289ad5daeeae830a4b051d53a579ac1a02fd76f634a438dec6cf2",
+      "bytes": 341,
+      "topology": ["0xE2", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-writer",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/Writer.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/Writer.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "c4ccfb8dc64caf6622d8cf330741dff990fb33b73aa274010352db02aa161aaa",
+      "bytes": 251,
+      "topology": ["0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-extendedxmp",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/ExtendedXMP.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/ExtendedXMP.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "43c971e0db60917a69be759be57ad33bca23028ec6456621a55cd22eb673a0f6",
+      "bytes": 1380,
+      "topology": [
+        "0xE1",
+        "0xE1",
+        "0xE1",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-afcp",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/AFCP.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/AFCP.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "4fcd62252ada39e21b001074e5da4704f4cdae7f34909254d80a6ab94505299a",
+      "bytes": 1110,
+      "topology": ["0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-photomechanic",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/PhotoMechanic.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/PhotoMechanic.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "958036dd4e25c2dcf06d5f1c869e7df3df98538a9423bbcd2daeb505e623ff48",
+      "bytes": 3417,
+      "topology": ["0xED", "0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-fotostation",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/FotoStation.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/FotoStation.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "05c90d683c6d889bfdbaa19c2c32bcc7fdcd3f9d6645acc53e7176e0063b9a1b",
+      "bytes": 4320,
+      "topology": ["0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-xmp",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/XMP.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/XMP.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "8b39cd1636913ef5027dd6816b006a3942e6df5377aa2ebfcf082916e9859b39",
+      "bytes": 10314,
+      "topology": [
+        "0xE0",
+        "0xE1",
+        "0xE1",
+        "0xE2",
+        "0xEE",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-iptc",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/IPTC.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/IPTC.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "2fc7ca78b0abbb694c2483fee8e4b7d137ff085220004d53c5dd86f8c1cca04b",
+      "bytes": 9851,
+      "topology": [
+        "0xE0",
+        "0xED",
+        "0xEE",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-canon",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/Canon.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/Canon.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "98c290283dbff10950bd0eac63bf95804fd09661de727df4f2946d203ca9e7a2",
+      "bytes": 2697,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-nikon",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/Nikon.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/Nikon.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "26e9f26631281d399002b28ac2bb468cbb8cb12ffc7a309631bbfb18fed410be",
+      "bytes": 1703,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-apple",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/Apple.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/Apple.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "113a01f606e2508bda673503e1d62ea94e7fada9f92872880d69bc91f3d45ec8",
+      "bytes": 2355,
+      "topology": ["0xE1", "0xDB", "0xC0", "0xC4", "0xDA", "EOI"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "exiftool-jpeg-google",
+      "format": "jpeg",
+      "roles": ["differential"],
+      "localPath": "upstream/exiftool-13.59-jpeg/Google.jpg",
+      "provenance": {
+        "revision": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+        "url": "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-13.59.tar.gz/download#Image-ExifTool-13.59/t/images/Google.jpg",
+        "license": "Artistic-1.0-Perl OR GPL-1.0-or-later",
+        "licenseStatus": "approved"
+      },
+      "sha256": "156a7510315a4fb27c97d12a6dedb4e791eaf26e4810458e86b629f862e34651",
+      "bytes": 41417,
+      "topology": [
+        "0xE1",
+        "0xE0",
+        "0xE1",
+        "0xE1",
+        "0xDB",
+        "0xC0",
+        "0xC4",
+        "0xDA",
+        "EOI"
+      ],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "ENTROPY",
+          "sha256": "b84a4389a56c6d451683d5fb2ef9fe07ab0f3853ca89a1cb712b457d7655fdc6"
+        }
+      ],
+      "permittedDifferences": []
     }
   ],
   "benchmarks": {

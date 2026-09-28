@@ -12,6 +12,9 @@ const TAG_NAMES: Readonly<Record<number, string>> = {
   0x010f: "Make",
   0x0110: "Model",
   0x0112: "Orientation",
+  0x011a: "XResolution",
+  0x011b: "YResolution",
+  0x0128: "ResolutionUnit",
   0x0131: "Software",
   0x0132: "DateTime",
   0x013b: "Artist",
@@ -286,21 +289,196 @@ export function parseExif(payload: Buffer): ParsedExif {
   return { entries, warnings, orientation };
 }
 
-export function createOrientationExif(orientation: number): Buffer {
-  if (!Number.isInteger(orientation) || orientation < 1 || orientation > 8) {
+/** A single IFD0 X or Y resolution rational, stored exactly as the source held it. */
+export interface MinimalExifResolutionValue {
+  readonly numerator: number;
+  readonly denominator: number;
+}
+
+/**
+ * D-03: the resolution tags `createMinimalExif` may write. `unit` (IFD0 0x0128
+ * ResolutionUnit) is optional; when omitted no ResolutionUnit tag is written.
+ */
+export interface MinimalExifResolution {
+  readonly x: MinimalExifResolutionValue;
+  readonly y: MinimalExifResolutionValue;
+  readonly unit?: number;
+}
+
+/** D-03: the only tags `createMinimalExif` may ever write. */
+export interface MinimalExifTags {
+  readonly orientation?: number;
+  readonly resolution?: MinimalExifResolution;
+}
+
+function assertUint32(value: number, field: string): void {
+  if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {
     throw new RangeError(
-      "EXIF Orientation must be an integer from 1 through 8",
+      `${field} must be an integer from 0 through 4294967295`,
     );
   }
-  const result = Buffer.alloc(26);
+}
+
+function assertResolutionValue(
+  value: MinimalExifResolutionValue,
+  field: string,
+): void {
+  assertUint32(value.numerator, `${field} numerator`);
+  assertUint32(value.denominator, `${field} denominator`);
+}
+
+/**
+ * D-03: builds a minimal little-endian TIFF/EXIF payload containing only the
+ * requested IFD0 tags, in ascending tag order (0x0112 Orientation SHORT,
+ * 0x011A XResolution RATIONAL, 0x011B YResolution RATIONAL, 0x0128
+ * ResolutionUnit SHORT), with RATIONAL values stored after the IFD block and
+ * referenced by offset. No YCbCrPositioning, no ExifIFD pointer, no IFD1, no
+ * Software, no DateTime, no other tag. Resolution values are written exactly
+ * as given — never derived, reduced or reconciled with JFIF/SPIFF/Photoshop
+ * values (D-04).
+ *
+ * Throws `RangeError` when no tag is requested, or any field is out of range.
+ */
+export function createMinimalExif(tags: MinimalExifTags): Buffer {
+  const { orientation, resolution } = tags;
+
+  if (orientation === undefined && resolution === undefined) {
+    throw new RangeError(
+      "createMinimalExif requires at least one of orientation or resolution",
+    );
+  }
+
+  if (orientation !== undefined) {
+    if (!Number.isInteger(orientation) || orientation < 1 || orientation > 8) {
+      throw new RangeError(
+        "EXIF Orientation must be an integer from 1 through 8",
+      );
+    }
+  }
+
+  if (resolution !== undefined) {
+    assertResolutionValue(resolution.x, "XResolution");
+    assertResolutionValue(resolution.y, "YResolution");
+    if (resolution.unit !== undefined) {
+      if (
+        !Number.isInteger(resolution.unit) ||
+        resolution.unit < 0 ||
+        resolution.unit > 0xffff
+      ) {
+        throw new RangeError(
+          "ResolutionUnit must be an integer from 0 through 65535",
+        );
+      }
+    }
+  }
+
+  interface Entry {
+    readonly tag: number;
+    readonly type: 3 | 5;
+    readonly inlineValue?: number;
+    readonly rational?: MinimalExifResolutionValue;
+  }
+
+  const entries: Entry[] = [];
+  if (orientation !== undefined) {
+    entries.push({ tag: 0x0112, type: 3, inlineValue: orientation });
+  }
+  if (resolution !== undefined) {
+    entries.push({ tag: 0x011a, type: 5, rational: resolution.x });
+    entries.push({ tag: 0x011b, type: 5, rational: resolution.y });
+    if (resolution.unit !== undefined) {
+      entries.push({ tag: 0x0128, type: 3, inlineValue: resolution.unit });
+    }
+  }
+  entries.sort((a, b) => a.tag - b.tag);
+
+  const entryCount = entries.length;
+  const ifdBytes = 2 + entryCount * 12 + 4;
+  const rationalCount = entries.filter((entry) => entry.rational).length;
+  const totalBytes = 8 + ifdBytes + rationalCount * 8;
+
+  const result = Buffer.alloc(totalBytes);
   result.write("II", 0, "ascii");
   result.writeUInt16LE(42, 2);
   result.writeUInt32LE(8, 4);
-  result.writeUInt16LE(1, 8);
-  result.writeUInt16LE(0x0112, 10);
-  result.writeUInt16LE(3, 12);
-  result.writeUInt32LE(1, 14);
-  result.writeUInt16LE(orientation, 18);
-  result.writeUInt32LE(0, 22);
+  result.writeUInt16LE(entryCount, 8);
+
+  let rationalOffset = 8 + ifdBytes;
+  entries.forEach((entry, index) => {
+    const entryOffset = 10 + index * 12;
+    result.writeUInt16LE(entry.tag, entryOffset);
+    result.writeUInt16LE(entry.type, entryOffset + 2);
+    result.writeUInt32LE(1, entryOffset + 4);
+    if (entry.type === 3) {
+      result.writeUInt16LE(entry.inlineValue ?? 0, entryOffset + 8);
+    } else {
+      result.writeUInt32LE(rationalOffset, entryOffset + 8);
+      const rational = entry.rational!;
+      result.writeUInt32LE(rational.numerator, rationalOffset);
+      result.writeUInt32LE(rational.denominator, rationalOffset + 4);
+      rationalOffset += 8;
+    }
+  });
+  result.writeUInt32LE(0, 8 + ifdBytes - 4);
+
   return result;
+}
+
+export function createOrientationExif(orientation: number): Buffer {
+  return createMinimalExif({ orientation });
+}
+
+/**
+ * D-03: reads the raw (unreduced) IFD0 X/YResolution and ResolutionUnit from a
+ * TIFF/EXIF payload, without going through `parseExif`'s reduced-rational
+ * decode. Returns `undefined` when either X or Y is absent, of the wrong TIFF
+ * type/count, or the TIFF is malformed — never throws.
+ */
+export function readIfd0Resolution(
+  tiff: Buffer,
+): MinimalExifResolution | undefined {
+  try {
+    if (tiff.length < 8) return undefined;
+    const byteOrder = tiff.toString("ascii", 0, 2);
+    if (byteOrder !== "II" && byteOrder !== "MM") return undefined;
+    const reader = makeReader(tiff, byteOrder === "II");
+    if (reader.u16(2) !== 42) return undefined;
+
+    const ifd0Offset = reader.u32(4);
+    if (!inBounds(tiff, ifd0Offset, 2)) return undefined;
+    const count = reader.u16(ifd0Offset);
+    if (count > MAX_IFD_ENTRIES || !inBounds(tiff, ifd0Offset + 2, count * 12))
+      return undefined;
+
+    let x: MinimalExifResolutionValue | undefined;
+    let y: MinimalExifResolutionValue | undefined;
+    let unit: number | undefined;
+
+    for (let index = 0; index < count; index += 1) {
+      const entryOffset = ifd0Offset + 2 + index * 12;
+      const tag = reader.u16(entryOffset);
+      if (tag !== 0x011a && tag !== 0x011b && tag !== 0x0128) continue;
+      const type = reader.u16(entryOffset + 2);
+      const valueCount = reader.u32(entryOffset + 4);
+      if (tag === 0x0128) {
+        if (type !== 3 || valueCount !== 1) continue;
+        unit = reader.u16(entryOffset + 8);
+        continue;
+      }
+      if (type !== 5 || valueCount !== 1) continue;
+      const valueOffset = reader.u32(entryOffset + 8);
+      if (!inBounds(tiff, valueOffset, 8)) continue;
+      const value: MinimalExifResolutionValue = {
+        numerator: reader.u32(valueOffset),
+        denominator: reader.u32(valueOffset + 4),
+      };
+      if (tag === 0x011a) x = value;
+      else y = value;
+    }
+
+    if (x === undefined || y === undefined) return undefined;
+    return unit === undefined ? { x, y } : { x, y, unit };
+  } catch {
+    return undefined;
+  }
 }

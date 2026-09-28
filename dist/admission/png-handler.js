@@ -1,11 +1,11 @@
 import { createOrientationExif, parseExif } from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
-import { parseXmp } from "../metadata/xmp.js";
+import { parseXmp, xmpOrientation } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
 import { encodePngChunk, inflateBounded, InflateBudget, isPngSignature, parsePng, PNG_CRITICAL_CHUNK_TYPES, PNG_MAX_ANCILLARY_CHUNKS, PNG_MAX_IDAT_CHUNKS, PNG_MAX_INFLATED_BYTES_TOTAL, PNG_MAX_INFLATED_ICC_BYTES, PNG_MAX_INFLATED_TEXT_BYTES, PNG_MAX_METADATA_BYTES_PER_CHUNK, PNG_REGISTERED_CHUNK_TYPES, PNG_SIGNATURE, PngStructureError, readExactly, } from "../png/chunks.js";
 import { ICC_PRESERVATION_POLICY_ID, MAX_PROFILE_BYTES, } from "../metadata/icc_admission.js";
-import { RAW_PROFILE_EXIF_KEYWORDS, rawProfileExifOrientation, xmpOrientation, } from "../png/orientation-sources.js";
+import { RAW_PROFILE_EXIF_KEYWORDS, rawProfileExifOrientation, } from "../png/orientation-sources.js";
 // D-05 closed lists. Measured ExifTool 13.59 behaviour (56-CONTEXT.md,
 // 56-RESEARCH.md): `-all=` keeps every type in PNG_PRESERVED_CHUNK_TYPES and
 // removes every type in PNG_REMOVED_CHUNK_TYPES; `iCCP`/`pHYs` are removed

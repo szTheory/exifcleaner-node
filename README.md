@@ -2,7 +2,7 @@
 
 A small, typed metadata inspection and sanitization engine for Node.js.
 
-This project is pre-1.0 and supports **WebP and PNG**. It is an evidence-led experiment related to [ExifCleaner issue #303](https://github.com/szTheory/exifcleaner/issues/303), not a complete ExifTool replacement. ExifCleaner should retain ExifTool as the fallback for unsupported formats, features, and refused inputs.
+This project is pre-1.0 and supports **WebP, PNG and JPEG**. It is an evidence-led experiment related to [ExifCleaner issue #303](https://github.com/szTheory/exifcleaner/issues/303), not a complete ExifTool replacement. ExifCleaner should retain ExifTool as the fallback for unsupported formats, features, and refused inputs.
 
 ## Install
 
@@ -64,12 +64,13 @@ The support contract is stated in format-neutral vocabulary rather than in
 WebP-specific fields, so a future format is additive rather than breaking:
 
 - `NativeFormat`: the format tag carried by `Inspection.format` and
-  `SanitizeResult.format`. It is currently `"webp" | "png"`; read it, do not
-  assume it.
+  `SanitizeResult.format`. It is currently `"webp" | "png" | "jpeg"`; read it, do
+  not assume it.
 - `Capabilities` / `FormatCapabilities`: what `getCapabilities()` returns.
   `formats` is a non-empty list of per-format contracts, each stating
   `detection: "magic"` — recognition is by file magic, never by extension.
-  `WebpCapabilities` and `PngCapabilities` are the `FormatCapabilities` members today.
+  `WebpCapabilities`, `PngCapabilities` and `JpegCapabilities` are the
+  `FormatCapabilities` members today.
 - `FallbackDisposition`: `"safe-to-fallback" | "do-not-fallback"`, the return of
   `classifyFallback`.
 - `PostCommitResidue`: the bounded private-stage residue reported on success.
@@ -89,7 +90,19 @@ Use `getCapabilities()` as the machine-readable support contract; do not infer s
 
 ## Guarantees
 
-- WebP is detected from file magic, not its extension.
+- WebP, PNG and JPEG are each detected from file magic, not their extension.
+- Both the native path and the ExifTool fallback remove C2PA/JUMBF metadata
+  identically (measured parity, not a difference this library introduces): a
+  JPEG `APP11` JUMBF/C2PA manifest and a PNG `caBX` chunk are removed by both
+  engines, since ExifTool's own `-all=` has deleted JUMBF since version 12.64.
+- Native JPEG truncates any trailing data after the primary `EOI` — including
+  a Multi-Picture Format (MPF, CIPA DC-007) container, a real Google Motion
+  Photo, and a Samsung `SEFH`/`SEFT` embedded-picture trailer — exactly as the
+  ExifTool fallback already does; a measured-unsafe MPF secondary image or
+  gain-map trailer declines pre-write (`mpf-secondary-image`) instead of
+  truncating silently. See [format admission criteria](docs/format-admission.md)
+  and `docs/capabilities.md`'s "JPEG trailer truncation" section for the full
+  measured decision table.
 - The source is never overwritten.
 - Output is written in a private same-parent stage and published once through a
   native atomic no-replace operation; an existing destination is never replaced.

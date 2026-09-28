@@ -25,12 +25,14 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const gate = require("../scripts/release_workflow_gate.cjs") as {
   CANONICAL_NATIVE_TUPLES: readonly string[];
   REQUIRED_AUTHORITIES: string[];
+  SBOM_RETENTION_MISSING_MESSAGE: string;
   validateExactNativeManifestTuples(
     manifest: readonly Record<string, unknown>[],
   ): Map<string, Record<string, unknown>>;
   validateReleaseGraph(graph: {
     jobs: Record<string, { needs?: string[]; script?: string }>;
   }): void;
+  validateSbomRetentionStep(text: string): void;
 };
 const benchmarkReport =
   require("../scripts/qualification/benchmark-report.cjs") as {
@@ -1339,6 +1341,49 @@ describe("release attestation tamper check (NHY-02, D-06a)", () => {
     expect(softened).not.toBe(workflow);
     expect(() => assertAttestationTamperCheck(softened)).toThrow(
       /must not soften failures/u,
+    );
+  });
+});
+
+const sbomRetentionStepPattern =
+  /\n\s+- name: Retain CycloneDX SBOM\n\s+uses: actions\/upload-artifact@[0-9a-f]{40} # v[0-9][0-9.]*\n\s+with:\n\s+name: sbom-cyclonedx\n\s+path: package\.cdx\.json\n\s+if-no-files-found: error\n/u;
+
+describe("release SBOM retention gate (T-57-46)", () => {
+  const workflowPath = join(packageRoot, ".github", "workflows", "release.yml");
+
+  it("accepts the real release.yml", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    expect(() => gate.validateSbomRetentionStep(workflow)).not.toThrow();
+  });
+
+  it("rejects a copy with the retention step removed", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const match = workflow.match(sbomRetentionStepPattern);
+    expect(match).not.toBeNull();
+    const mutated = workflow.replace(sbomRetentionStepPattern, "\n");
+    expect(mutated).not.toBe(workflow);
+    expect(() => gate.validateSbomRetentionStep(mutated)).toThrow(
+      gate.SBOM_RETENTION_MISSING_MESSAGE,
+    );
+  });
+
+  it("rejects a copy with the retention step moved before SBOM generation", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const match = workflow.match(sbomRetentionStepPattern);
+    expect(match).not.toBeNull();
+    const step = match![0];
+    const withoutStep = workflow.replace(step, "\n");
+    const checkoutStep =
+      "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1";
+    const insertAt = withoutStep.indexOf(checkoutStep);
+    expect(insertAt).toBeGreaterThan(-1);
+    const mutated =
+      withoutStep.slice(0, insertAt) +
+      `${step.trimStart()}      ` +
+      withoutStep.slice(insertAt);
+    expect(mutated).not.toBe(workflow);
+    expect(() => gate.validateSbomRetentionStep(mutated)).toThrow(
+      gate.SBOM_RETENTION_MISSING_MESSAGE,
     );
   });
 });

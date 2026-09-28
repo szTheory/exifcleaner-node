@@ -1,0 +1,16 @@
+ExifTool by Phil Harvey (philharvey66 at gmail.com)
+
+COPYRIGHT AND LICENSE
+
+Copyright 2003-2026, Phil Harvey
+
+This is free software; you can redistribute it and/or modify it under the
+same terms as Perl itself (either the Perl Artistic License or GPL).
+
+Source: tests/corpus/tools/licenses/exiftool-README (COPYRIGHT AND LICENSE
+section), from the pinned Image-ExifTool-13.59.tar.gz archive
+(tests/corpus/tools/manifest.json, authority id "exiftool-13.59"). The 11
+JPEG fixtures in this directory (AFCP.jpg, Apple.jpg, Canon.jpg,
+ExifTool.jpg, ExtendedXMP.jpg, FotoStation.jpg, IPTC.jpg, Nikon.jpg,
+PhotoMechanic.jpg, Writer.jpg, XMP.jpg) are members of
+Image-ExifTool-13.59/t/images/ in that same archive.

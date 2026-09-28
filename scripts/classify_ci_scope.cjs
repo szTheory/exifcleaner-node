@@ -115,7 +115,7 @@ const FULL_SCOPE_OVERRIDES = Object.freeze(
  * Phase 55). Keys mirror `NativeFormat`; the `formats` GITHUB_OUTPUT sorts
  * this set alphabetically regardless of declaration order here.
  */
-const QUALIFIED_FORMATS = Object.freeze(["png", "webp"]);
+const QUALIFIED_FORMATS = Object.freeze(["jpeg", "png", "webp"]);
 
 /**
  * Per-format path rules (D-17). A changed path selects exactly one format's
@@ -128,6 +128,16 @@ const QUALIFIED_FORMATS = Object.freeze(["png", "webp"]);
  * can never accidentally narrow a format's own scope.
  */
 const FORMAT_PATH_RULES = Object.freeze({
+  jpeg: Object.freeze([
+    /^src\/jpeg\/.+/u,
+    /^src\/admission\/jpeg-handler\.ts$/u,
+    /^dist\/jpeg\/.+/u,
+    /^dist\/admission\/jpeg-handler\.(?:js|js\.map|d\.ts|d\.ts\.map)$/u,
+    /^tests\/qualification\/jpeg\/.+/u,
+    /^tests\/jpeg[a-z0-9_-]*\.test\.ts$/u,
+    /^tests\/corpus\/upstream\/libjpeg-turbo-3\.2\.0\/.+/u,
+    /^tests\/corpus\/(?:upstream\/exiftool-13\.59-jpeg|constructed\/jpeg)\/.+/u,
+  ]),
   png: Object.freeze([
     /^src\/png\/.+/u,
     /^src\/admission\/png-handler\.ts$/u,

@@ -231,16 +231,19 @@ describe("published format-neutral declaration contract", () => {
       const useRefinement = (capability: WebpCapabilities): FormatCapabilities => capability;
       const narrowPng = (capability: FormatCapabilities): "image/png" | undefined =>
         capability.format === "png" ? capability.mimeTypes[0] : undefined;
-      const narrow = (capability: FormatCapabilities): "image/webp" | "image/png" => {
+      const narrowJpeg = (capability: FormatCapabilities): "image/jpeg" | undefined =>
+        capability.format === "jpeg" ? capability.mimeTypes[0] : undefined;
+      const narrow = (capability: FormatCapabilities): "image/webp" | "image/png" | "image/jpeg" => {
         switch (capability.format) {
           case "webp": return capability.mimeTypes[0];
           case "png": return capability.mimeTypes[0];
+          case "jpeg": return capability.mimeTypes[0];
         }
         return assertNever(capability);
       };
       const advertised = getCapabilities().formats;
       const first: FormatCapabilities = advertised[0];
-      void [useGeneric, useRefinement, narrow, narrowPng, first];
+      void [useGeneric, useRefinement, narrow, narrowPng, narrowJpeg, first];
     `);
   });
 
@@ -306,6 +309,7 @@ describe("published format-neutral declaration contract", () => {
       "FormatCapabilities",
       "InspectOptions",
       "Inspection",
+      "JpegCapabilities",
       "JsonSafeCause",
       "MetadataEntry",
       "MetadataError",
@@ -343,6 +347,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
       import type {
         CommonFormatCapabilities,
         FormatCapabilities,
+        JpegCapabilities,
         NativeFormat,
         PngCapabilities,
         WebpCapabilities,
@@ -353,8 +358,8 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
           ? true
           : false;
 
-      const nativeFormatPin: Equals<NativeFormat, "webp" | "png"> = true;
-      const formatCapabilitiesPin: Equals<FormatCapabilities, WebpCapabilities | PngCapabilities> = true;
+      const nativeFormatPin: Equals<NativeFormat, "webp" | "png" | "jpeg"> = true;
+      const formatCapabilitiesPin: Equals<FormatCapabilities, WebpCapabilities | PngCapabilities | JpegCapabilities> = true;
       const commonPreservesPin: Equals<
         CommonFormatCapabilities["preserves"],
         {
@@ -376,12 +381,14 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
         }
       > = true;
       const pngResolutionPreservesPin: Equals<PngCapabilities["preserves"]["resolution"], true> = true;
+      const jpegResolutionPreservesPin: Equals<JpegCapabilities["preserves"]["resolution"], true> = true;
       void [
         nativeFormatPin,
         formatCapabilitiesPin,
         commonPreservesPin,
         webpPreservesPin,
         pngResolutionPreservesPin,
+        jpegResolutionPreservesPin,
       ];
     `);
   });
@@ -402,7 +409,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
       > = true;
       const removedNamespacesPin: Equals<
         SanitizeResult["removedNamespaces"][number],
-        "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA"
+        "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA" | "JPEG"
       > = true;
       void [preserveResolutionPin, preservedKeysPin, removedNamespacesPin];
     `);
@@ -465,7 +472,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
     expect(omittedCaseDiagnostics).not.toEqual([]);
   });
 
-  it("compiles an exhaustive switch over the real two-member FormatCapabilities union and fails when a case is omitted", async () => {
+  it("compiles an exhaustive switch over the real three-member FormatCapabilities union and fails when a case is omitted", async () => {
     const real = `
       import type { FormatCapabilities } ${rootImport};
 
@@ -478,6 +485,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
         switch (capability.format) {
           case "webp": return "webp";
           case "png": return "png";
+          case "jpeg": return "jpeg";
           default: return assertNever(capability);
         }
       };
@@ -489,6 +497,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
       const describeFormat = (capability: FormatCapabilities): string => {
         switch (capability.format) {
           case "webp": return "webp";
+          case "png": return "png";
           default: return assertNever(capability);
         }
       };

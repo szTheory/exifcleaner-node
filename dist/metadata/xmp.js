@@ -1,3 +1,7 @@
+const XMP_ORIENTATION_NAME = "tiff:Orientation";
+function isOrientationValue(value) {
+    return Number.isInteger(value) && value >= 1 && value <= 8;
+}
 function isValidCodePoint(value) {
     return (Number.isInteger(value) &&
         value >= 0 &&
@@ -162,5 +166,31 @@ export function parseXmp(payload) {
         })),
         warnings,
     };
+}
+/**
+ * D-05: reads a `tiff:Orientation` entry out of an XMP packet for routing
+ * purposes only. Returns the value when it parses as an integer 1-8,
+ * `"invalid"` when the entry is present but unusable, or `undefined` when no
+ * such entry exists. Never returns or forwards XMP bytes — the caller uses
+ * the returned value only to decide whether to decline or proceed; it must
+ * never reach output.
+ */
+export function xmpOrientation(xmp) {
+    const { entries } = parseXmp(xmp);
+    const entry = entries.find((item) => item.name === XMP_ORIENTATION_NAME);
+    if (entry === undefined)
+        return undefined;
+    const raw = entry.value;
+    const text = typeof raw === "string"
+        ? raw.trim()
+        : typeof raw === "number"
+            ? String(raw)
+            : undefined;
+    if (text === undefined || text.length === 0)
+        return "invalid";
+    const parsed = Number.parseInt(text, 10);
+    return String(parsed) === text && isOrientationValue(parsed)
+        ? parsed
+        : "invalid";
 }
 //# sourceMappingURL=xmp.js.map

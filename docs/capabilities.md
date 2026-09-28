@@ -7,23 +7,25 @@
 | Area         | Contract                                                                                                                                     |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime      | Node.js 22+, ESM                                                                                                                             |
-| Formats      | WebP and PNG, both detected by magic: WebP by `RIFF` + `WEBP`, PNG by its 8-byte signature                                                   |
+| Formats      | WebP, PNG and JPEG, all detected by magic: WebP by `RIFF` + `WEBP`, PNG by its 8-byte signature, JPEG by `FF D8 FF`                          |
 | Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                                                                         |
 | Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                                                                 |
 | Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable                                           |
 | Resolution   | Capability-gated by `preserves.resolution`; a format reporting `false` (WebP) declines a `preserveResolution: true` request before any write |
-| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract                                                                 |
+| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract; baseline/extended-sequential/progressive 8-bit JPEG frames     |
 | Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized                                                  |
 | Cancellation | Optional `AbortSignal` on inspection and sanitization                                                                                        |
 | Failures     | Discriminated `MetadataError` returned through `Result`                                                                                      |
 
-`NativeFormat` is the format-neutral discriminant (currently `"webp" | "png"`).
-`FormatCapabilities` is the format-neutral capability union, currently refined
-by the supported `WebpCapabilities` and `PngCapabilities` shapes. Admission is
-by magic admission: the already-open source must begin with `RIFF` + `WEBP`,
-or with PNG's own 8-byte signature, never merely carry a matching extension.
-The private registry is frozen and contains only those two qualified
-handlers; this package exposes no handler registration API.
+`NativeFormat` is the format-neutral discriminant (currently
+`"webp" | "png" | "jpeg"`). `FormatCapabilities` is the format-neutral
+capability union, currently refined by the supported `WebpCapabilities`,
+`PngCapabilities` and `JpegCapabilities` shapes. Admission is by magic
+admission: the already-open source must begin with `RIFF` + `WEBP`, with
+PNG's own 8-byte signature, or with a JPEG SOI marker (`FF D8 FF`), never
+merely carry a matching extension. The private registry is frozen and
+contains only those three qualified handlers; this package exposes no
+handler registration API.
 
 ## Consumer and Publication Contract
 
@@ -160,7 +162,17 @@ WebP reports `resolution: false`. WebP has no dedicated resolution-bearing
 chunk in its supported surface, and native WebP resolution preservation is
 future work (FUT-01), not a capability of the current handler. PNG reports
 `resolution: true`: its `pHYs` chunk is always kept byte-identical when
-`preserveResolution: true` (see "## PNG" below).
+`preserveResolution: true` (see "## PNG" below). JPEG also reports
+`resolution: true`: its JFIF density fields are kept byte-identical, and, when
+the source's EXIF also carries its own IFD0 X/YResolution, a minimal IFD0 is
+synthesized to carry those same three values forward -- each group is kept
+independently with no reconciliation between them, matching ExifTool's own
+measured behavior. The one `preserveResolution: true` pre-write decline is a
+JFIF segment whose embedded thumbnail is non-empty: a kept JFIF must stay
+byte-identical (D-01), and the grouped resolution copy-back would otherwise
+recreate a fresh JFIF header without the source's thumbnail bytes, so the
+whole request declines and falls back to ExifTool instead of silently losing
+the thumbnail (see "## JPEG" below).
 
 Capability-shape changes -- adding a required field to `CommonFormatCapabilities`
 or widening the discriminated union with a new format -- are a minor version
@@ -292,6 +304,188 @@ from admission, and compares every kept chunk byte-for-byte against its
 source range before publication. A mismatch is `verification-failed` and the
 destination is never published.
 
+## JPEG
+
+JPEG admission is a **closed classification rule** (D-01), never a per-
+identifier keep registry: every marker segment maps to exactly one of four
+classes, and the handler never guesses which class a segment belongs to.
+
+- **Structural, always kept**: `SOI`, `EOI`, `DQT`, `DHT`, `DRI`, an admitted
+  `SOF` (baseline, extended-sequential Huffman, or progressive), and every
+  `SOS` plus its entropy-coded scan data -- copied byte-identical, never
+  decoded or re-encoded.
+- **Always kept**: an `APP14` segment identified `Adobe` -- matching
+  ExifTool `-all=`, which also always keeps it.
+- **Conditional**: every `APP2` `ICC_PROFILE` segment is kept byte-identical
+  and in source order only when `preserveColorProfile: true` (after
+  reassembly across sequence numbers passes the same `icc-structural-v0.2`
+  policy WebP and PNG use), else all are removed. `APP0` `JFIF` is kept
+  byte-identical only when `preserveResolution: true` **and** no `APP14`
+  `Adobe` segment is present (D-06); when both are present, `JFIF` is always
+  dropped with no decline, since `Adobe`'s presence in ExifTool's own model
+  determines which resolution source survives.
+- **Always removed**, matching ExifTool `-all=` parity -- no removal here is
+  a difference this library introduces: `APP0` `JFXX`, `APP1` `Exif`/`XMP`/
+  `ExtendedXMP`, `APP2` `FPXR`/`MPF`, `APP11` (JUMBF/C2PA), `APP13`
+  (Photoshop), any non-`Adobe` `APP14`, every other/unknown `APPn`, and every
+  `COM`. APP11 JUMBF/C2PA removal is measured parity (D-02): ExifTool 13.59
+  `-all=` deletes JUMBF too (deletable since 12.64) -- **both engines remove
+  C2PA/JUMBF** identically; this library's removal set matches ExifTool's own
+  here, exactly like every other removal in this list.
+
+### JPEG admitted frames and refusals (D-08, D-09, D-10)
+
+Admitted frames are `SOF0` (baseline), `SOF1` (extended-sequential Huffman),
+and `SOF2` (progressive), all 8-bit precision only. Every other structural
+shape is refused before any write, with a typed pre-write decline
+(`refuses`):
+
+| Refusal                       | Kind               | Meaning                                                                    |
+| ----------------------------- | ------------------ | -------------------------------------------------------------------------- |
+| `malformed-container`         | `malformed-file`   | Bad SOI/EOI/marker/length or an unknown non-`APPn` marker.                 |
+| `truncation`                  | `malformed-file`   | The file ends before a declared segment or the primary EOI.                |
+| `undefined-table-reference`   | `unsafe-structure` | A scan references a DQT/DHT table slot never defined.                      |
+| `lossless-frame`              | `unsafe-structure` | `SOF3` (lossless) is refused.                                              |
+| `hierarchical-frame`          | `unsafe-structure` | `SOF5`-`SOF7`, `DHP`, `EXP` (hierarchical) are refused.                    |
+| `arithmetic-frame`            | `unsafe-structure` | `SOF9`-`SOF11`, `SOF13`-`SOF15`, `DAC` (arithmetic-coded) are refused.     |
+| `non-t81-frame`               | `unsafe-structure` | `JPG`, `JPGn` (including JPEG-LS) fall outside ITU-T T.81 and are refused. |
+| `non-8-bit-precision`         | `unsafe-structure` | A frame with sample precision other than 8 bits is refused.                |
+| `unsupported-component-count` | `unsafe-structure` | A frame with a component count other than 1, 3, or 4 is refused.           |
+| `dnl-marker`                  | `unsafe-structure` | A zero frame height or a `DNL` marker is refused.                          |
+| `resource-limits`             | `unsafe-structure` | A census-derived structural cap is exceeded (see below).                   |
+| `mpf-secondary-image`         | `unsafe-structure` | A measured-unsafe MPF secondary image or gain-map trailer (see below).     |
+
+### JPEG limits (D-10 census)
+
+| Member                          | Value       | Meaning                                                                         |
+| ------------------------------- | ----------- | ------------------------------------------------------------------------------- |
+| `limits.maxFileBytes`           | `536870912` | 512 MiB, derived from a 7,187-real-JPEG plus ExifTool-corpus census.            |
+| `limits.maxSegmentCount`        | `2048`      | 32x the census's largest observed total segment count (34).                     |
+| `limits.maxScanCount`           | `512`       | 32x the census's largest observed SOS-scan count (14).                          |
+| `limits.maxTableSegmentCount`   | `512`       | 32x the census's largest observed DQT/DHT segment count (9).                    |
+| `limits.maxIccSegments`         | `255`       | ICC.1 Annex B.4's fixed one-byte sequence-number ceiling.                       |
+| `limits.maxReassembledIccBytes` | `16777216`  | 16 MiB -- the same ICC policy cap WebP and PNG use.                             |
+| `limits.maxExtendedXmpBytes`    | `16777216`  | 16 MiB, mirroring PNG's text-decompression limit (no real-world census signal). |
+
+A file above any of these caps declines pre-write (`resource-limits`,
+classified safe-to-fallback) rather than failing outright; ExifTool remains
+available for it.
+
+**56-REVIEW WR-02 disposition:** WR-02 flagged that PNG's `parsePng` buffered every non-IDAT
+chunk's data with only a per-chunk/aggregate-count bound, not an aggregate-bytes cap. JPEG's own
+`parseJpeg` (`src/jpeg/parser.ts`) was written from the start with a bounded 64 KiB read-ahead
+window shared across every segment-header, small-segment-data, and marker read in its main loop --
+the same fix PNG needed only after the fact (56-12's post-plan `PNG_CHUNK_READ_WINDOW_BYTES` gap
+fix) is present in JPEG by construction (57-03), so WR-02 does not recur for JPEG. PNG's own WR-02
+(the aggregate-buffered-bytes cap) stays deferred: this phase did not touch PNG's ancillary-chunk
+buffering path.
+
+### JPEG trailer truncation (D-11) and MPF/motion-photo classification (D-12, D-13)
+
+Anything after the primary `EOI` -- a trailing secondary image, a Multi-
+Picture Format (MPF, CIPA DC-007) container, a Google Motion Photo or Adobe
+gain-map XMP-linked payload, or a Samsung `SEFH`/`SEFT` embedded-picture
+trailer -- is truncated at the primary `EOI`, matching ExifTool `-all=`,
+which truncates any trailer regardless of content. A measured-unsafe
+`MPF`/gain-map shape declines pre-write instead of truncating silently
+(`mpf-secondary-image`); every other measured trailer/MPF class (a malformed
+MPF index, a real Google Motion Photo, a Samsung trailer, or a plain
+trailer) truncates cleanly. This decision table is populated only from
+direct measurement against ExifTool 13.59, never by assumption.
+
+### JPEG orientation and resolution (D-03, D-04, D-05, D-06)
+
+`JpegCapabilities` advertises `preserves.orientation: true` and
+`preserves.resolution: true`. When a preserved IFD0 tag (Orientation or
+resolution) is requested and present in the source's first `APP1` `Exif`
+segment, the sanitized output carries exactly one freshly synthesized `APP1`
+`Exif` segment -- a minimal EXIF TIFF holding only the preserved tags -- in
+the source Exif segment's own slot. **The source Exif segment itself is
+never copied**: no GPS, thumbnail, Make/Model, Artist, or any other IFD0/
+ExifIFD tag survives. When no preserved IFD0 tag exists in the source (for
+example, a JFIF-only source with `preserveResolution: true`), no EXIF is
+created.
+
+- **D-03 (Orientation + resolution synthesis)**: the inserted TIFF equals
+  `createMinimalExif({ orientation?, resolution? })` for only the tags that
+  were both requested and present. Re-parsing the destination after write
+  (`verifyOutput`) recomputes the same expected bytes and asserts an exact
+  match, plus that `parseExif` on the destination yields exactly the
+  preserved tag set.
+- **D-04 (independent resolution sources, no unit conversion)**: with
+  `preserveResolution: true`, `APP0` `JFIF` (when kept, D-06) is byte-
+  identical and independent of any IFD0 resolution tag -- a JFIF 72 dpi plus
+  an IFD0 300 dpi source keeps both unchanged. EXIF resolution is read only
+  from the source's own IFD0 `XResolution`/`YResolution`/`ResolutionUnit`;
+  no code path derives it from JFIF, SPIFF, or Photoshop values, or maps
+  JFIF density units (0/1/2) onto EXIF resolution units (1/2/3). Raw IFD0
+  rationals (for example `600/2`) are written unreduced. With
+  `preserveResolution: false`, `JFIF` and every IFD0 resolution tag are
+  absent from the output.
+- **D-06 (APP14 Adobe + JFIF)**: when an `APP14` `Adobe` segment is present,
+  `JFIF` is always dropped (matching ExifTool), with no decline; IFD0
+  resolution still synthesizes through D-03 when present, so
+  `preserved.resolution` is `true` when IFD0 resolution survived and `false`
+  when the source's only resolution source was the dropped `JFIF` (both
+  outcomes report `removedNamespaces` including `JPEG`).
+- **JFIF thumbnail (D-01/JPG-01)**: an `APP0` `JFIF` segment whose
+  `Xthumbnail`/`Ythumbnail` are not both zero is never kept byte-identical
+  (D-01 forbids editing a kept `JFIF`, and its thumbnail bytes never survive
+  the grouped resolution copy-back). With `preserveResolution: true` and no
+  `APP14`, such a source declines resolution preservation pre-write
+  (`checkOutputPlan`, safe-to-fallback) so the ExifTool route handles it;
+  with `preserveResolution: false` the `JFIF` is removed like every other
+  `JFIF`.
+- **D-05 (EXIF-only orientation, XMP/ExtendedXMP decline)**: the written
+  Orientation comes only from EXIF IFD0 `0x0112`. With
+  `preserveOrientation: true`, a standard XMP or complete ExtendedXMP
+  `tiff:Orientation` that is present while the EXIF Orientation is missing
+  or differs, or an ExtendedXMP that cannot be reassembled, declines
+  orientation preservation pre-write (`unsupported-feature`,
+  `feature: "orientation-preservation"`, `reason: "safe-to-fallback"`); an
+  agreeing XMP value, or XMP carrying no Orientation at all, does not
+  decline. With `preserveOrientation: false` nothing declines. **Measured
+  correction (57-01/57-EVIDENCE.md):** unlike this document's earlier D-05
+  prose, ExifTool does not pick EXIF over XMP "regardless of segment
+  order" -- whichever of EXIF/XMP appears first in the file wins. The decline
+  above is kept regardless: declining always routes the file through the
+  real ExifTool fallback, which reproduces whatever ExifTool would have
+  written for the actual segment order for free, so no order-awareness is
+  needed in the native path.
+- A duplicate Exif segment (a source with more than one `APP1` `Exif`) is
+  read from the first Exif slot only, per the same rule every other JPEG
+  metadata source uses (first occurrence wins, D-15 analog).
+
+### JPEG namespace mapping and inspection vocabulary (D-15 analog)
+
+`inspectFile` and `removedNamespaces` report JPEG's removable metadata under
+the same closed namespace set every format uses, widened by exactly one
+member: `JPEG` (reporting removed `JFIF`/`JFXX`, `COM`, `APP13`, `MPF`,
+other `APPn`, and trailer data). `EXIF`, `XMP`, `ICC`, and `C2PA` keep their
+existing cross-format meanings. Entries are read from buffered payloads
+only -- no unbuffered segment payload (for example an unclassified `COM`
+among thousands) is read merely to produce an inspection entry.
+
+| Entry name(s)                                                 | Namespace | Source                                                                                                                                    |
+| ------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| (tag names from `parseExif`)                                  | `EXIF`    | The first `APP1` `Exif` segment.                                                                                                          |
+| (tag names from `parseXmp`)                                   | `XMP`     | The first standard XMP `APP1` packet.                                                                                                     |
+| (tag names from `parseIcc`)                                   | `ICC`     | The reassembled `APP2` `ICC_PROFILE` sequence, only when it is a valid profile.                                                           |
+| `JFIF:ResolutionUnit`, `JFIF:XResolution`, `JFIF:YResolution` | `JPEG`    | The buffered `APP0` `JFIF` segment's density fields, whether kept or removed.                                                             |
+| `JUMBF`                                                       | `C2PA`    | An `APP11` segment; value is the payload byte length.                                                                                     |
+| `<MARKER>` or `<MARKER>:<identifier>`                         | `JPEG`    | Every other removable segment (`COM`, `APP13:Photoshop 3.0`, `APP2:MPF`, an unknown `APPn`, and so on); value is the payload byte length. |
+| `Trailer`                                                     | `JPEG`    | Bytes after the primary `EOI`, only when the trailer is non-zero length.                                                                  |
+
+An incomplete ExtendedXMP (cannot be reassembled) adds a `metadata-invalid`
+warning rather than an entry.
+
+Every successful JPEG sanitize re-parses the staged destination, recomputes
+the expected marker sequence and every copied byte range from admission and
+the request's flags, independently re-classifies every destination segment
+under the same D-01 rule (never merely trusting the write path), and asserts
+zero trailer bytes remain. A mismatch is `verification-failed` and the
+destination is never published.
+
 ## Safety Guarantees
 
 | Guarantee                 | Consequence                                                                                                                      |
@@ -326,7 +520,7 @@ package.
 ## Explicit Non-Capabilities
 
 - No CMM, color transform, tag-content grammar validation, class-required-tag matrix, registry validation, full ICC semantic conformance, transform-quality evaluation, or color-correctness claim.
-- No JPEG, GIF, TIFF, AVIF, HEIF, PDF, audio, video, RAW, or sidecar support. No APNG (refused as an animation, FUT-03).
+- No GIF, TIFF, AVIF, HEIF, PDF, audio, video, RAW, or sidecar support. No APNG (refused as an animation, FUT-03). JPEG's own admitted surface is bounded to the frames, segments and trailer classes documented under "## JPEG" -- everything outside it refuses.
 - No in-place rewrite, no ExifTool command-line compatibility, and no exhaustive tag database.
 - No Electron routing, UI control, native-engine switch, or second native format is introduced by this policy.
 - Animation is limited to recognized `ANIM`/`ANMF` structures with validated nested `VP8`, `VP8L`, and optional `ALPH` chunks. Unknown nested chunks are refused.

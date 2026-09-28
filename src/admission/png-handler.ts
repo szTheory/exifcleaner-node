@@ -1,7 +1,7 @@
 import type { FileHandle } from "node:fs/promises";
 import { createOrientationExif, parseExif } from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
-import { parseXmp } from "../metadata/xmp.js";
+import { parseXmp, xmpOrientation } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
 import type {
@@ -45,7 +45,6 @@ import {
 import {
   RAW_PROFILE_EXIF_KEYWORDS,
   rawProfileExifOrientation,
-  xmpOrientation,
 } from "../png/orientation-sources.js";
 
 // PNG's admission surface (D-05, D-08, D-09, D-15). Mirrors webp-handler.ts's

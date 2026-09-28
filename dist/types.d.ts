@@ -5,15 +5,17 @@ export type Result<T, E = MetadataError> = {
     readonly ok: false;
     readonly error: E;
 };
-export type NativeFormat = "webp" | "png";
+export type NativeFormat = "webp" | "png" | "jpeg";
 /**
  * The closed set of metadata namespaces this package can report inspecting,
- * removing, or preserving (D-15, 56-CONTEXT.md). Deliberately not exported:
- * every exported member of this module that needs it (`MetadataEntry`,
- * `SanitizeResult`) references it directly, and other modules restate the
- * same literal union rather than importing it (see `admission/handler.ts`).
+ * removing, or preserving (D-15, 56-CONTEXT.md; widened by 57-05's own D-15
+ * analog with the `JPEG` member -- JFIF/JFXX, COM, APP13, MPF, other APPn and
+ * trailer data). Deliberately not exported: every exported member of this
+ * module that needs it (`MetadataEntry`, `SanitizeResult`) references it
+ * directly, and other modules restate the same literal union rather than
+ * importing it (see `admission/handler.ts`).
  */
-type MetadataNamespace = "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA";
+type MetadataNamespace = "EXIF" | "XMP" | "ICC" | "PNG" | "C2PA" | "JPEG";
 export type MetadataValue = string | number | boolean | null | readonly MetadataValue[] | {
     readonly [key: string]: MetadataValue;
 };
@@ -173,15 +175,68 @@ export interface PngCapabilities extends CommonFormatCapabilities {
     readonly removes: readonly ["EXIF", "XMP", "ICC", "PNG", "C2PA"];
     readonly detection: "magic";
 }
+export interface JpegCapabilities extends CommonFormatCapabilities {
+    readonly format: "jpeg";
+    readonly mimeTypes: readonly ["image/jpeg"];
+    readonly extensions: readonly [".jpg", ".jpeg"];
+    readonly inspect: true;
+    readonly sanitize: true;
+    readonly preserves: {
+        readonly orientation: true;
+        readonly colorProfile: true;
+        readonly timestamps: true;
+        readonly resolution: true;
+        readonly imagePayload: true;
+        readonly animationPayload: false;
+    };
+    readonly validation: {
+        readonly container: "full";
+        readonly codecBitstream: "not-decoded";
+    };
+    readonly colorProfile: {
+        readonly policy: "icc-structural-v0.2";
+        readonly preservation: "preserve-if-present";
+        readonly versions: readonly ["v2.0-v2.4", "v4.0-v4.4"];
+        readonly classes: readonly ["scnr", "mntr"];
+        readonly spaces: readonly ["RGB /XYZ ", "RGB /Lab "];
+        readonly maxProfileBytes: number;
+        readonly maxTagCount: number;
+    };
+    readonly limits: {
+        readonly maxFileBytes: number;
+        readonly maxSegmentCount: number;
+        readonly maxScanCount: number;
+        readonly maxTableSegmentCount: number;
+        readonly maxIccSegments: number;
+        readonly maxReassembledIccBytes: number;
+        readonly maxExtendedXmpBytes: number;
+    };
+    readonly refuses: readonly [
+        "malformed-container",
+        "truncation",
+        "undefined-table-reference",
+        "lossless-frame",
+        "hierarchical-frame",
+        "arithmetic-frame",
+        "non-t81-frame",
+        "non-8-bit-precision",
+        "unsupported-component-count",
+        "dnl-marker",
+        "resource-limits",
+        "mpf-secondary-image"
+    ];
+    readonly removes: readonly ["EXIF", "XMP", "ICC", "C2PA", "JPEG"];
+    readonly detection: "magic";
+}
 export interface Capabilities {
     readonly formats: readonly [FormatCapabilities, ...FormatCapabilities[]];
 }
 /**
  * The union of every registered format's capabilities, discriminated on `format`.
- * Phase 56 adds the PNG member; Phase 57 adds JPEG without changing this
- * contract's shape.
+ * Phase 56 added the PNG member; Phase 57 adds the JPEG member without
+ * changing this contract's shape.
  */
-export type FormatCapabilities = WebpCapabilities | PngCapabilities;
+export type FormatCapabilities = WebpCapabilities | PngCapabilities | JpegCapabilities;
 export type ColorProfileAdmissionReason = "invalid" | "unsupported" | "policy-limit";
 export type FallbackDisposition = "safe-to-fallback" | "do-not-fallback";
 export type MetadataErrorPhase = "request" | "source-open" | "admission" | "transaction";
