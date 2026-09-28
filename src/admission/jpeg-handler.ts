@@ -29,6 +29,7 @@ import {
   APP1,
   APP2,
   APP14,
+  classifyAppPayload,
   COM,
   DHT,
   DQT,
@@ -54,11 +55,7 @@ import {
   type ParsedJpeg,
 } from "../jpeg/parser.js";
 import { ICC_SEGMENT_IDENTIFIER, reassembleIccSegments } from "../jpeg/icc.js";
-import {
-  EXTENDED_XMP_IDENTIFIER,
-  STANDARD_XMP_IDENTIFIER,
-  reassembleExtendedXmp,
-} from "../jpeg/xmp.js";
+import { STANDARD_XMP_IDENTIFIER, reassembleExtendedXmp } from "../jpeg/xmp.js";
 import {
   classifyTrailerClasses,
   trailerRefusal,
@@ -136,16 +133,11 @@ const TRAILER_TAIL_BYTES = 64;
 const JPEG_SOI_BYTES = Buffer.from([0xff, SOI]);
 const JPEG_EOI_BYTES = Buffer.from([0xff, EOI]);
 
-const JFIF_PREFIX = Buffer.from("JFIF\0", "ascii");
+// Only the prefixes still needed outside classification (payload
+// stripping/rebuilding) are kept here; APPn classification itself now lives
+// in classifyAppPayload (src/jpeg/markers.ts, WR-01).
 const EXIF_PREFIX = Buffer.from("Exif\0\0", "ascii");
-const ADOBE_PREFIX = Buffer.from("Adobe", "ascii");
-const MPF_PREFIX = Buffer.from("MPF\0", "ascii");
-const ICC_PROFILE_PREFIX = Buffer.from(`${ICC_SEGMENT_IDENTIFIER}\0`, "ascii");
 const XMP_STANDARD_PREFIX = Buffer.from(STANDARD_XMP_IDENTIFIER, "ascii");
-const XMP_EXTENDED_PREFIX = Buffer.from(
-  `${EXTENDED_XMP_IDENTIFIER}\0`,
-  "ascii",
-);
 // APP11 (JUMBF/C2PA) and APP13 (Photoshop) have no admitted constants in
 // src/jpeg/markers.ts -- both are treated generically there (every APPn is
 // admitted structurally); their D-01/D-02 meaning is format-handler-only.
@@ -162,34 +154,14 @@ function startsWith(payload: Buffer, prefix: Buffer): boolean {
   );
 }
 
-type AppSegmentKind =
-  "jfif" | "exif" | "xmp" | "extended-xmp" | "icc" | "mpf" | "adobe" | "other";
-
-/**
- * Classifies an APPn segment's raw payload (as buffered by `parseJpeg`) by
- * matching its own identifying byte prefix directly -- never the 32-byte
- * NUL-truncated `JpegSegment.identifier` field, which can misclassify a
- * genuine Adobe/JFIF/MPF segment if its content bytes happen to place the
- * first NUL byte somewhere other than immediately after the identifier
- * string. `payload` is `undefined` for every segment `parseJpeg` did not
- * buffer (COM, APP13, APP11, unknown APPn, and any duplicate jfif/exif/xmp/
- * mpf beyond the first) -- all correctly fall through to "other".
- */
-function classifyAppSegment(
-  marker: number,
-  payload: Buffer | undefined,
-): AppSegmentKind {
-  if (payload === undefined) return "other";
-  if (marker === APP0 && startsWith(payload, JFIF_PREFIX)) return "jfif";
-  if (marker === APP1 && startsWith(payload, EXIF_PREFIX)) return "exif";
-  if (marker === APP1 && startsWith(payload, XMP_EXTENDED_PREFIX))
-    return "extended-xmp";
-  if (marker === APP1 && startsWith(payload, XMP_STANDARD_PREFIX)) return "xmp";
-  if (marker === APP2 && startsWith(payload, ICC_PROFILE_PREFIX)) return "icc";
-  if (marker === APP2 && startsWith(payload, MPF_PREFIX)) return "mpf";
-  if (marker === APP14 && startsWith(payload, ADOBE_PREFIX)) return "adobe";
-  return "other";
-}
+// WR-01: APPn-prefix classification ("what's removed vs. kept", D-01) lives
+// once in src/jpeg/markers.ts (classifyAppPayload / AppSegmentKind) and is
+// imported here, rather than re-implemented -- src/jpeg/parser.ts's
+// classification of "what's buffered" imports the same function, so the two
+// can never desynchronize. `payload` is `undefined` for every segment
+// `parseJpeg` did not buffer (COM, APP13, APP11, unknown APPn, and any
+// duplicate jfif/exif/xmp/mpf beyond the first); classifyAppPayload correctly
+// falls through to "other" for those.
 
 function isStructuralMarker(marker: number): boolean {
   return (
@@ -212,14 +184,14 @@ function isStructuralMarker(marker: number): boolean {
 function classifySegments(parsed: ParsedJpeg): readonly JpegSegmentClass[] {
   const adobePresent = parsed.segments.some(
     (segment, index) =>
-      classifyAppSegment(segment.marker, parsed.buffered.get(index)) ===
+      classifyAppPayload(segment.marker, parsed.buffered.get(index)) ===
       "adobe",
   );
   return parsed.segments.map((segment, index) => {
     const { marker } = segment;
     if (isStructuralMarker(marker)) return "structural";
     if (marker === COM || !isAppMarker(marker)) return "remove";
-    const kind = classifyAppSegment(marker, parsed.buffered.get(index));
+    const kind = classifyAppPayload(marker, parsed.buffered.get(index));
     if (kind === "adobe") return "keep";
     if (kind === "jfif")
       return adobePresent ? "remove" : "conditional-resolution";
@@ -371,7 +343,7 @@ function collectMetadata(
       return;
     }
     const payload = parsed.buffered.get(index);
-    const kind = classifyAppSegment(marker, payload);
+    const kind = classifyAppPayload(marker, payload);
     if (kind === "jfif") {
       // The only way a JFIF segment classifies "remove" is D-06's Adobe drop.
       namespaces.add("JPEG");

@@ -1,10 +1,8 @@
 import type { FileHandle } from "node:fs/promises";
 import {
   APP0,
-  APP1,
-  APP2,
-  APP14,
   APP15,
+  classifyAppPayload,
   classifyMarker,
   JPEG_MAX_EXTENDED_XMP_BYTES,
   JPEG_MAX_FILE_BYTES,
@@ -169,54 +167,12 @@ function readIdentifier(payload: Buffer): string | undefined {
   return window.subarray(0, nul).toString("ascii");
 }
 
-// Task 3 bounded-buffering classification (57-EVIDENCE.md buffering rule): matched
-// against the raw payload prefix, not the 32-byte-truncated `identifier` field --
-// ExtendedXMP's real identifier ("http://ns.adobe.com/xmp/extension/\0") is 36
-// bytes, past that field's own 32-byte window.
-const JFIF_ID = Buffer.from("JFIF\0", "ascii");
-const EXIF_ID = Buffer.from("Exif\0\0", "ascii");
-const XMP_STANDARD_ID = Buffer.from("http://ns.adobe.com/xap/1.0/\0", "ascii");
-const XMP_EXTENDED_ID = Buffer.from(
-  "http://ns.adobe.com/xmp/extension/\0",
-  "ascii",
-);
-const ICC_PROFILE_ID = Buffer.from("ICC_PROFILE\0", "ascii");
-const MPF_ID = Buffer.from("MPF\0", "ascii");
-const ADOBE_ID = Buffer.from("Adobe", "ascii");
-
-type AppSegmentClass =
-  | "jfif"
-  | "exif"
-  | "xmp"
-  | "extended-xmp"
-  | "icc"
-  | "mpf"
-  | "adobe"
-  | undefined;
-
-function startsWithBytes(payload: Buffer, prefix: Buffer): boolean {
-  return (
-    payload.length >= prefix.length &&
-    payload.subarray(0, prefix.length).equals(prefix)
-  );
-}
-
-function classifyAppPayload(marker: number, payload: Buffer): AppSegmentClass {
-  if (marker === APP0 && startsWithBytes(payload, JFIF_ID)) return "jfif";
-  if (marker === APP1 && startsWithBytes(payload, EXIF_ID)) return "exif";
-  if (marker === APP1 && startsWithBytes(payload, XMP_EXTENDED_ID)) {
-    return "extended-xmp";
-  }
-  if (marker === APP1 && startsWithBytes(payload, XMP_STANDARD_ID)) {
-    return "xmp";
-  }
-  if (marker === APP2 && startsWithBytes(payload, ICC_PROFILE_ID)) {
-    return "icc";
-  }
-  if (marker === APP2 && startsWithBytes(payload, MPF_ID)) return "mpf";
-  if (marker === APP14 && startsWithBytes(payload, ADOBE_ID)) return "adobe";
-  return undefined;
-}
+// WR-01: APPn-prefix classification (JFIF\0, Exif\0\0, XMP standard/extended,
+// ICC_PROFILE\0, MPF\0, Adobe) lives once in src/jpeg/markers.ts
+// (classifyAppPayload) and is imported here, rather than re-implemented --
+// this is the "what's buffered" side; src/admission/jpeg-handler.ts's
+// classification of "what's removed vs. kept" (D-01) imports the same
+// function, so the two can never desynchronize.
 
 function refuse(refusal: JpegRefusal, detail?: string): never {
   const prefix = JPEG_REFUSAL_DETAILS[refusal];
