@@ -1,9 +1,25 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import {
+  mkdir,
+  mkdtemp,
+  open,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { sanitizeFile } from "../src/index.js";
+import { webpHandler } from "../src/admission/webp-handler.js";
+import { NODE_FILE_OPS, type FileOps } from "../src/transaction/file-ops.js";
+import { snapshotSource } from "../src/transaction/identity.js";
+import { runSafeTransaction } from "../src/transaction/safe-transaction.js";
+import { metadataWebp } from "./fixtures.js";
 
 const directories: string[] = [];
 
@@ -144,3 +160,170 @@ describe("zero stage residue beside a committed output", () => {
     expect(result.value.postCommitResidue).toEqual({ state: "none" });
   });
 });
+
+async function runWebpTransaction(
+  directory: string,
+  fileOps: FileOps,
+): Promise<{
+  readonly sourcePath: string;
+  readonly destinationPath: string;
+  readonly result: Awaited<ReturnType<typeof runSafeTransaction>>;
+}> {
+  const sourcePath = join(directory, "source.webp");
+  const destinationPath = join(directory, "destination.webp");
+  await writeFile(sourcePath, metadataWebp());
+  const source = await open(sourcePath, fsConstants.O_RDONLY);
+  const stats = await source.stat();
+  const admission = await webpHandler.admit(source, stats.size);
+  const plan = webpHandler.buildOutputPlan(admission, false, false, false, undefined);
+  const result = await runSafeTransaction({
+    sourceHandle: source,
+    sourceSnapshot: snapshotSource(stats),
+    sourceMode: stats.mode,
+    handler: webpHandler,
+    admission,
+    plan,
+    orientation: undefined,
+    options: {
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: false,
+    },
+    fileOps,
+  });
+  return { sourcePath, destinationPath, result };
+}
+
+describe.runIf(process.platform !== "win32")(
+  "stage removal is identity-bound, empty-only and never revokes success",
+  () => {
+    it("reports removal residue with the rmdir cause when removeDirectory fails, and leaves the stage entry present", async () => {
+      const directory = await mkdtemp(
+        join(tmpdir(), "exifcleaner-stage-cleanup-"),
+      );
+      directories.push(directory);
+      const fileOps: FileOps = {
+        ...NODE_FILE_OPS,
+        removeDirectory: async () => {
+          throw Object.assign(new Error("Operation not permitted"), {
+            code: "EPERM",
+          });
+        },
+      };
+
+      const { destinationPath, result } = await runWebpTransaction(
+        directory,
+        fileOps,
+      );
+
+      expect(result).toMatchObject({ ok: true });
+      if (!result.ok) return;
+      expect(result.value.postCommitResidue).toEqual({
+        state: "private-empty-stage-directory-remains",
+        cause: expect.objectContaining({ code: "EPERM" }),
+      });
+      await expect(stat(destinationPath)).resolves.toBeDefined();
+
+      const listing = await readdir(directory);
+      const stageEntries = listing.filter((entry) =>
+        entry.startsWith(".exifcleaner-stage-"),
+      );
+      expect(stageEntries).toHaveLength(1);
+      expect(listing.sort()).toEqual(
+        ["destination.webp", "source.webp", stageEntries[0]!].sort(),
+      );
+    });
+
+    it("never removes a stage directory that is not empty, and the foreign file survives byte-identical", async () => {
+      const directory = await mkdtemp(
+        join(tmpdir(), "exifcleaner-stage-cleanup-"),
+      );
+      directories.push(directory);
+      const foreignBytes = Buffer.from("do not delete me");
+      const fileOps: FileOps = {
+        ...NODE_FILE_OPS,
+        removeDirectory: async (path) => {
+          await writeFile(join(path, "foreign.txt"), foreignBytes);
+          await NODE_FILE_OPS.removeDirectory(path);
+        },
+      };
+
+      const { result } = await runWebpTransaction(directory, fileOps);
+
+      expect(result).toMatchObject({ ok: true });
+      if (!result.ok) return;
+      expect(result.value.postCommitResidue).toMatchObject({
+        state: "private-empty-stage-directory-remains",
+        cause: expect.objectContaining({
+          code: expect.stringMatching(/^(ENOTEMPTY|EEXIST)$/),
+        }),
+      });
+
+      const listing = await readdir(directory);
+      const stageEntry = listing.find((entry) =>
+        entry.startsWith(".exifcleaner-stage-"),
+      );
+      expect(stageEntry).toBeDefined();
+      const foreignPath = join(directory, stageEntry!, "foreign.txt");
+      await expect(readFile(foreignPath)).resolves.toEqual(foreignBytes);
+    });
+
+    it("removes nothing when the stage identity changed by the post-commit stat, and both directories survive", async () => {
+      const directory = await mkdtemp(
+        join(tmpdir(), "exifcleaner-stage-cleanup-"),
+      );
+      directories.push(directory);
+      let removeDirectoryCalls = 0;
+      let swapped = false;
+      const fileOps: FileOps = {
+        ...NODE_FILE_OPS,
+        statPath: async (path) => {
+          if (
+            !swapped &&
+            typeof path === "string" &&
+            path.includes(".exifcleaner-stage-")
+          ) {
+            const destinationExists = await stat(
+              join(directory, "destination.webp"),
+            ).then(
+              () => true,
+              () => false,
+            );
+            if (destinationExists) {
+              swapped = true;
+              const movedStage = join(directory, "moved-stage");
+              await rename(path, movedStage);
+              await mkdir(path, { mode: 0o700 });
+            }
+          }
+          return NODE_FILE_OPS.statPath(path);
+        },
+        removeDirectory: async (path) => {
+          removeDirectoryCalls += 1;
+          await NODE_FILE_OPS.removeDirectory(path);
+        },
+      };
+
+      const { result } = await runWebpTransaction(directory, fileOps);
+
+      expect(result).toMatchObject({ ok: true });
+      if (!result.ok) return;
+      expect(result.value.postCommitResidue).toEqual({
+        state: "private-empty-stage-directory-remains",
+        cause: expect.objectContaining({ code: "stage-identity-changed" }),
+      });
+      expect(removeDirectoryCalls).toBe(0);
+      expect(swapped).toBe(true);
+
+      await expect(stat(join(directory, "moved-stage"))).resolves.toBeDefined();
+      const listing = await readdir(directory);
+      const replacementStage = listing.find((entry) =>
+        entry.startsWith(".exifcleaner-stage-"),
+      );
+      expect(replacementStage).toBeDefined();
+    });
+  },
+);
