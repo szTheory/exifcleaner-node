@@ -136,7 +136,8 @@ async function run(
 }
 
 const terminalFaults = LOGICAL_OPERATIONS.filter(
-  (operation) => operation !== "stage-disposition",
+  (operation) =>
+    operation !== "stage-disposition" && operation !== "stage-directory-remove",
 );
 
 const postPublicationCloseTargets = [
@@ -248,9 +249,7 @@ describe("deterministic transaction qualification (PNG)", () => {
         expect(result).toMatchObject({
           ok: true,
           value: {
-            postCommitResidue: {
-              state: "private-empty-stage-directory-remains",
-            },
+            postCommitResidue: { state: "none" },
           },
         });
         expect(await readFile(prepared.destinationPath)).toEqual(expected);
@@ -311,6 +310,9 @@ describe("deterministic transaction qualification (PNG)", () => {
           operation === "stage-directory-verify"
           ? 0
           : 1,
+      );
+      expect(controller.evidence().occurrences["stage-directory-remove"] ?? 0).toBe(
+        0,
       );
       expect(digest(await readFile(prepared.sourcePath))).toBe(
         digest(prepared.sourceBytes),

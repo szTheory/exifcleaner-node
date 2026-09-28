@@ -389,9 +389,9 @@ function installedReport(
           },
         ],
         removedNamespaces: ["EXIF"],
-        finalization: windows
-          ? "none"
-          : "private-empty-stage-directory-remains",
+        // 58-12: candidate now removes its own empty POSIX stage directory
+        // on success, so both platforms report zero residue.
+        finalization: "none",
       },
       {
         id: "derived-two-frame-animation",
@@ -421,9 +421,7 @@ function installedReport(
           },
         ],
         removedNamespaces: [],
-        finalization: windows
-          ? "none"
-          : "private-empty-stage-directory-remains",
+        finalization: "none",
       },
     ],
     install: {
@@ -448,9 +446,7 @@ function installedReport(
         residue: { stageDirectoryExists: true, stageFileExists: true },
         cleanup: terminalCleanupRecord(platform),
       },
-      postCommitResidue: windows
-        ? "none"
-        : "private-empty-stage-directory-remains",
+      postCommitResidue: "none",
       collisionFinalization: windows
         ? "owned-partial-removed"
         : "owned-partial-remains",
@@ -893,9 +889,10 @@ function completeBenchmarkReport(options: BenchmarkReportOptions = {}) {
           ? "owned-partial-remains"
           : "not-started"
         : fixture.expected === "success"
-          ? entry.version === "candidate"
-            ? "private-empty-stage-directory-remains"
-            : "none"
+          ? // 58-12: the candidate build now removes its own empty POSIX
+            // stage directory on success, matching the 0.1.1 baseline's
+            // "none" (which never had the private-stage-directory concept).
+            "none"
           : "not-started";
     entry.sample.finalization = finalization;
     if (entry.sample.cancellation)

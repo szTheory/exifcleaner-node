@@ -394,17 +394,31 @@ function validateCancellationEvidence(cancellation, rawSchedule, fixtureId) {
   )
     throw new Error("cancellation sample is not bound to raw evidence");
 }
-function expectedChildFinalization(record, fixture) {
+function expectedChildFinalization(record, fixture, corpusEpoch = "current") {
   if (fixture.kind === "cancellation")
     return record.version === "candidate"
       ? "owned-partial-remains"
       : "not-started";
   if (fixture.expected !== "success") return "not-started";
-  return record.version === "candidate"
-    ? "private-empty-stage-directory-remains"
-    : "none";
+  // 58-12: the candidate build now removes its own empty POSIX stage
+  // directory on a committed success (exifcleaner-node 0.3.1), so a
+  // "current"-epoch candidate reports zero residue -- matching the pinned
+  // 0.1.1 baseline, which never had the private-stage-directory concept at
+  // all. Archived "phase-46" evidence predates the fix and is never
+  // rewritten (Phase 55 D-16), so it keeps the pre-fix candidate residue.
+  if (record.version !== "candidate") return "none";
+  return corpusEpoch === "current"
+    ? "none"
+    : "private-empty-stage-directory-remains";
 }
-function validateChildSample(sample, record, fixture, report, seenRunTokens) {
+function validateChildSample(
+  sample,
+  record,
+  fixture,
+  report,
+  seenRunTokens,
+  corpusEpoch = "current",
+) {
   const cancellation = fixture.kind === "cancellation";
   exactKeys(
     sample,
@@ -438,7 +452,11 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
     record.version === "baseline"
       ? report.baselineSha256
       : report.candidateSha256;
-  const expectedFinalization = expectedChildFinalization(record, fixture);
+  const expectedFinalization = expectedChildFinalization(
+    record,
+    fixture,
+    corpusEpoch,
+  );
   if (
     sample.schemaVersion !== 2 ||
     sample.version !== record.version ||
@@ -549,7 +567,12 @@ function validateChildSample(sample, record, fixture, report, seenRunTokens) {
       throw new Error("benchmark child cancellation evidence is invalid");
   }
 }
-function validateReportAgainstExpected(report, expected, diagnosticOnly) {
+function validateReportAgainstExpected(
+  report,
+  expected,
+  diagnosticOnly,
+  corpusEpoch = "current",
+) {
   const reference = loadReference();
   const benchmark = require("./benchmark.cjs");
   exactKeys(
@@ -677,6 +700,7 @@ function validateReportAgainstExpected(report, expected, diagnosticOnly) {
       fixtures.get(expectedRecord.fixtureId),
       report,
       runTokens,
+      corpusEpoch,
     );
     if (!expectedRecord.warmup) {
       const key = `${expectedRecord.fixtureId}:${expectedRecord.version}`;
@@ -836,11 +860,12 @@ function validateReport(report) {
     false,
   );
 }
-function validatePerformanceP95DiagnosticReport(report) {
+function validatePerformanceP95DiagnosticReport(report, corpusEpoch = "current") {
   return validateReportAgainstExpected(
     report,
     expectedBenchmarkEvidence(PERFORMANCE_P95_DIAGNOSTIC_FIXTURE_IDS),
     true,
+    corpusEpoch,
   );
 }
 function classifyPerformanceP95DiagnosticFixture({
@@ -918,8 +943,8 @@ function diagnosticTail(records, peerByRound, runScale) {
       };
     });
 }
-function derivePerformanceP95DiagnosticView(input) {
-  const report = validatePerformanceP95DiagnosticReport(input);
+function derivePerformanceP95DiagnosticView(input, corpusEpoch = "current") {
+  const report = validatePerformanceP95DiagnosticReport(input, corpusEpoch);
   const nodeMajor = Number(report.environment.nodeVersion.match(/^v(\d+)/)[1]);
   if (nodeMajor !== 22 && nodeMajor !== 24)
     throw new Error("performance p95 diagnostic Node major is invalid");
@@ -1110,7 +1135,7 @@ function canonicalJsonSha(value) {
     .update(`${JSON.stringify(value, null, 2)}\n`)
     .digest("hex");
 }
-function validatePerformanceP95DiagnosticLedger(ledger) {
+function validatePerformanceP95DiagnosticLedger(ledger, corpusEpoch = "current") {
   exactKeys(
     ledger,
     [
@@ -1190,7 +1215,10 @@ function validatePerformanceP95DiagnosticLedger(ledger) {
     ["node22", 22],
     ["node24", 24],
   ]) {
-    const report = validatePerformanceP95DiagnosticReport(ledger.reports[key]);
+    const report = validatePerformanceP95DiagnosticReport(
+      ledger.reports[key],
+      corpusEpoch,
+    );
     const observedMajor = Number(
       report.environment.nodeVersion.match(/^v(\d+)/)[1],
     );
@@ -1236,7 +1264,7 @@ function validatePerformanceP95DiagnosticLedger(ledger) {
       artifact.summary.sha256,
     ])
       assertSha(value, "performance p95 diagnostic artifact");
-    const view = derivePerformanceP95DiagnosticView(report);
+    const view = derivePerformanceP95DiagnosticView(report, corpusEpoch);
     if (!sameJson(ledger.derived[key], view))
       throw new Error("performance p95 diagnostic derived view mismatch");
     reports.push(report);
@@ -1272,7 +1300,12 @@ const P95_NULL_BRANCH_SOURCE_TIP_HEAD_SHA =
 const P95_NULL_BRANCH_FORBIDDEN_CLAIM_TERMS =
   /flak|noise|environmental|transient|confirmed|proven|non-issue/iu;
 function validateP95NullBranchClosure(closure, ledger) {
-  validatePerformanceP95DiagnosticLedger(ledger);
+  // This function's own contract (schemaVersion/ledger.file checks below) is
+  // permanently bound to the one archived "46-PERFORMANCE-P95-DIAGNOSTIC.json"
+  // ledger, so its candidate residue expectation is always the pre-58-12
+  // "phase-46" epoch, never "current" (Phase 55 D-16: archived evidence is
+  // never rewritten).
+  validatePerformanceP95DiagnosticLedger(ledger, "phase-46");
   if (ledger.actionableBranch !== null)
     throw new Error(
       "p95 null-branch closure requires a null-branch diagnostic ledger",
@@ -2391,9 +2424,16 @@ function validateInstalledReport(
   corpusEpoch = "current",
 ) {
   const windows = tuple.startsWith("win32");
-  const expectedPostCommitResidue = windows
-    ? "none"
-    : "private-empty-stage-directory-remains";
+  // 58-12: exifcleaner-node 0.3.1 removes its own empty POSIX stage
+  // directory on a committed success, so a "current"-epoch candidate
+  // reports zero residue on every platform now (win32 already did via its
+  // capability disposition). Archived "phase-46" evidence predates the fix
+  // and is never rewritten (Phase 55 D-16), so it keeps the pre-fix POSIX
+  // expectation.
+  const expectedPostCommitResidue =
+    windows || corpusEpoch === "current"
+      ? "none"
+      : "private-empty-stage-directory-remains";
   const expectedCancellationFinalization = "owned-partial-remains";
   const expectedCancellationResidue = true;
   const expectedCollisionFinalization = windows
