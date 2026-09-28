@@ -118,21 +118,32 @@ function validateReleaseGraph({ jobs }) {
 const SBOM_RETENTION_MISSING_MESSAGE =
   "release.yml must retain the CycloneDX SBOM as the sbom-cyclonedx artifact";
 
+const SBOM_RETENTION_BEFORE_PUBLISH_MESSAGE =
+  'release.yml must retain the CycloneDX SBOM before the "Trusted publish to npm" step';
+
+const SBOM_RETENTION_STEP_PATTERN =
+  /\n\s+- name: Retain CycloneDX SBOM\n\s+uses: actions\/upload-artifact@[0-9a-f]{40} # v[0-9][0-9.]*\n\s+with:\n\s+name: sbom-cyclonedx\n\s+path: package\.cdx\.json\n\s+if-no-files-found: error\n/u;
+
 // T-57-46: `npm sbom` writes package.cdx.json to the runner's disk, but nothing
 // retained it as a workflow artifact until this check existed (measured on the
 // v0.2.2 release run: the SBOM was generated and never uploaded). The check
 // scans only the text AFTER the generation step's own name, so a retention step
 // authored earlier in the file (including in an unrelated job) does not satisfy
-// it -- ordering matters, not mere presence.
+// it -- ordering matters, not mere presence. WR-01/57 REVIEW.md WR-02: ordering
+// is also enforced against "Trusted publish to npm" -- without this, a future
+// edit could move the retention/upload step to after publish (still textually
+// after generation, so the first check alone would pass) and let the package
+// become public on npm before its SBOM artifact is ever retained.
 function validateSbomRetentionStep(text) {
   const generatedAt = text.indexOf("Generate checksum and CycloneDX SBOM");
   if (generatedAt < 0) throw new Error(SBOM_RETENTION_MISSING_MESSAGE);
   const afterGeneration = text.slice(generatedAt);
-  const retained =
-    /\n\s+- name: Retain CycloneDX SBOM\n\s+uses: actions\/upload-artifact@[0-9a-f]{40} # v[0-9][0-9.]*\n\s+with:\n\s+name: sbom-cyclonedx\n\s+path: package\.cdx\.json\n\s+if-no-files-found: error\n/u.test(
-      afterGeneration,
-    );
-  if (!retained) throw new Error(SBOM_RETENTION_MISSING_MESSAGE);
+  const retentionMatch = afterGeneration.match(SBOM_RETENTION_STEP_PATTERN);
+  if (retentionMatch === null) throw new Error(SBOM_RETENTION_MISSING_MESSAGE);
+  const publishAt = afterGeneration.indexOf("Trusted publish to npm");
+  if (publishAt < 0) throw new Error(SBOM_RETENTION_BEFORE_PUBLISH_MESSAGE);
+  if (retentionMatch.index >= publishAt)
+    throw new Error(SBOM_RETENTION_BEFORE_PUBLISH_MESSAGE);
 }
 
 function parseWorkflow(path) {
@@ -187,6 +198,7 @@ module.exports = {
   CANONICAL_NATIVE_TUPLES,
   REQUIRED_AUTHORITIES,
   SBOM_RETENTION_MISSING_MESSAGE,
+  SBOM_RETENTION_BEFORE_PUBLISH_MESSAGE,
   parseWorkflow,
   validateExactNativeManifestTuples,
   validateReleaseGraph,
