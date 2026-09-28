@@ -860,7 +860,10 @@ function validateReport(report) {
     false,
   );
 }
-function validatePerformanceP95DiagnosticReport(report, corpusEpoch = "current") {
+function validatePerformanceP95DiagnosticReport(
+  report,
+  corpusEpoch = "current",
+) {
   return validateReportAgainstExpected(
     report,
     expectedBenchmarkEvidence(PERFORMANCE_P95_DIAGNOSTIC_FIXTURE_IDS),
@@ -1135,7 +1138,10 @@ function canonicalJsonSha(value) {
     .update(`${JSON.stringify(value, null, 2)}\n`)
     .digest("hex");
 }
-function validatePerformanceP95DiagnosticLedger(ledger, corpusEpoch = "current") {
+function validatePerformanceP95DiagnosticLedger(
+  ledger,
+  corpusEpoch = "current",
+) {
   exactKeys(
     ledger,
     [

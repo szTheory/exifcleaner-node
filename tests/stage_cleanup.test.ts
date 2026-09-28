@@ -25,11 +25,15 @@ const directories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+    directories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
   );
 });
 
-async function workspace(prefix = "exifcleaner-stage-cleanup-"): Promise<string> {
+async function workspace(
+  prefix = "exifcleaner-stage-cleanup-",
+): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), prefix));
   directories.push(directory);
   return directory;
@@ -56,15 +60,14 @@ const FIXTURES: readonly FixtureCase[] = [
     sourceBasename: "source.jpg",
     destinationBasename: "clean.jpg",
     load: () =>
-      readFile(
-        join(CORPUS_ROOT, "upstream/libjpeg-turbo-3.2.0/testorig.jpg"),
-      ),
+      readFile(join(CORPUS_ROOT, "upstream/libjpeg-turbo-3.2.0/testorig.jpg")),
   },
   {
     label: "png",
     sourceBasename: "source.png",
     destinationBasename: "clean.png",
-    load: () => readFile(join(CORPUS_ROOT, "upstream/libpng-1.6.58/rgb-8-sRGB.png")),
+    load: () =>
+      readFile(join(CORPUS_ROOT, "upstream/libpng-1.6.58/rgb-8-sRGB.png")),
   },
 ];
 
@@ -175,7 +178,13 @@ async function runWebpTransaction(
   const source = await open(sourcePath, fsConstants.O_RDONLY);
   const stats = await source.stat();
   const admission = await webpHandler.admit(source, stats.size);
-  const plan = webpHandler.buildOutputPlan(admission, false, false, false, undefined);
+  const plan = webpHandler.buildOutputPlan(
+    admission,
+    false,
+    false,
+    false,
+    undefined,
+  );
   const result = await runSafeTransaction({
     sourceHandle: source,
     sourceSnapshot: snapshotSource(stats),

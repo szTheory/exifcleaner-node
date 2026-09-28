@@ -323,9 +323,9 @@ describe("deterministic transaction qualification", () => {
           ? 0
           : 1,
       );
-      expect(controller.evidence().occurrences["stage-directory-remove"] ?? 0).toBe(
-        0,
-      );
+      expect(
+        controller.evidence().occurrences["stage-directory-remove"] ?? 0,
+      ).toBe(0);
       expect(digest(await readFile(prepared.sourcePath))).toBe(
         digest(prepared.sourceBytes),
       );
