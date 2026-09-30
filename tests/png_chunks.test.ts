@@ -14,6 +14,7 @@ import {
   PNG_MAX_INFLATED_BYTES_TOTAL,
   PNG_MAX_INFLATED_ICC_BYTES,
   PNG_MAX_METADATA_BYTES_PER_CHUNK,
+  PNG_SIGNATURE,
   type PngStructureError,
   crc32,
   inflateBounded,
@@ -328,6 +329,39 @@ describe("parsePng structural refusals (PNG-03)", () => {
       pngChunk("IEND", Buffer.alloc(0)),
     ]);
     await expectStructureError(fixture, "malformed-file");
+  });
+});
+
+describe("APNG refusal inside the parse loop (PNG-06, D-26)", () => {
+  it("refuses a truncated fdAT as unsafe-structure, but its tEXt twin as malformed-file", async () => {
+    // Declares length 1000 but only 10 data bytes are present before EOF -- built with
+    // Buffer.concat (not pngChunk) so the declared length can lie. No CRC or IDAT/IEND
+    // follow; the file simply ends. Today (pre-fix) this is caught only by the file-bounds
+    // check in the loop after the type/length/bounds/data-read pipeline, which classifies it
+    // malformed-file -- not by the APNG-specific unsafe-structure refusal. This RED case
+    // proves the fdAT chunk is not yet refused on type alone before that pipeline runs.
+    const header = Buffer.alloc(8);
+    header.writeUInt32BE(1000, 0);
+    header.write("fdAT", 4, 4, "ascii");
+    const truncatedData = Buffer.alloc(10);
+    const fdAtFixture = Buffer.concat([
+      PNG_SIGNATURE,
+      pngChunk("IHDR", pngIhdr()),
+      header,
+      truncatedData,
+    ]);
+    await expectStructureError(fdAtFixture, "unsafe-structure");
+
+    const twinHeader = Buffer.alloc(8);
+    twinHeader.writeUInt32BE(1000, 0);
+    twinHeader.write("tEXt", 4, 4, "ascii");
+    const twinFixture = Buffer.concat([
+      PNG_SIGNATURE,
+      pngChunk("IHDR", pngIhdr()),
+      twinHeader,
+      truncatedData,
+    ]);
+    await expectStructureError(twinFixture, "malformed-file");
   });
 });
 

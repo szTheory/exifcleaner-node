@@ -599,6 +599,16 @@ export async function parsePng(
       );
     }
     const type = typeBuffer.toString("ascii");
+    // PNG-06 / D-26: refuse an animated-PNG chunk on its type alone, before any count,
+    // length, bounds, data-read or CRC work -- so a hostile APNG costs no more than decoding
+    // one 4-byte type per chunk. The validateStructure check further below remains as the
+    // backstop for any path that reaches it (e.g. if this loop check is ever bypassed).
+    if (PNG_ANIMATION_CHUNK_TYPES.has(type)) {
+      throw new PngStructureError(
+        "unsafe-structure",
+        "Animated PNG is not supported.",
+      );
+    }
     // Count ancillary chunks and refuse as soon as the limit is exceeded, before this
     // chunk's data and CRC are read and before any further chunk is read at all. Checking
     // only in validateStructure (after the whole file is parsed) would let an attacker-sized
