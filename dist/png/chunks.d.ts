@@ -34,6 +34,13 @@ export interface ParsedPng {
 }
 export declare function readExactly(handle: FileHandle, length: number, position: number): Promise<Buffer>;
 export declare function encodePngChunk(type: string, data: Buffer): Buffer;
+export declare const PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL: number;
+export declare class BufferedBudget {
+    #private;
+    constructor(total: number);
+    consumed(): number;
+    consume(n: number): void;
+}
 /**
  * Parses a PNG chunk stream from an open file handle. Checks the 8-byte signature, then
  * walks chunks: reads the 8-byte header, bounds-checks dataOffset + length + 4 <= size,
@@ -45,7 +52,7 @@ export declare function encodePngChunk(type: string, data: Buffer): Buffer;
  * Task 2 adds the full PNG-03 structural refusal set (type-byte validity, length ceiling,
  * trailing-data, critical/APNG/order/singleton/limit rules) on top of this shape.
  */
-export declare function parsePng(handle: FileHandle, size: number, signal?: AbortSignal): Promise<ParsedPng>;
+export declare function parsePng(handle: FileHandle, size: number, signal?: AbortSignal, budget?: BufferedBudget): Promise<ParsedPng>;
 export declare const PNG_MAX_INFLATED_ICC_BYTES: number;
 export declare const PNG_MAX_INFLATED_TEXT_BYTES: number;
 export declare const PNG_MAX_INFLATED_BYTES_TOTAL: number;

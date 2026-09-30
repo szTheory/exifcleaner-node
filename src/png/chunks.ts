@@ -534,6 +534,42 @@ export function encodePngChunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([header, data, trailer]);
 }
 
+// PNG-05 / D-24 (56 WR-02): the per-chunk cap (PNG_MAX_METADATA_BYTES_PER_CHUNK) and the
+// ancillary-chunk-count cap (PNG_MAX_ANCILLARY_CHUNKS) each bound one dimension, but neither
+// bounds their PRODUCT -- a file with many chunks each just under the per-chunk ceiling can
+// still buffer an unbounded total (measured: a hostile PNG reached 757 MB in an adversarial
+// pass and 498 MiB in 56 WR-02's own report). This mirrors InflateBudget below (same shape,
+// same file) but tracks buffered non-IDAT chunk BYTES rather than decompressed bytes; the
+// chunkType "*" on the thrown error is deliberate (D-25) so classifyAdmissionFailure's
+// `cause.limit?.chunkType === "iCCP"` remap (png-handler.ts) can never misreport an aggregate
+// breach as an ICC-size policy limit.
+export const PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL = 48 * 1024 * 1024;
+
+export class BufferedBudget {
+  #total: number;
+  #consumed: number;
+
+  constructor(total: number) {
+    this.#total = total;
+    this.#consumed = 0;
+  }
+
+  consumed(): number {
+    return this.#consumed;
+  }
+
+  consume(n: number): void {
+    if (this.#consumed + n > this.#total) {
+      throw new PngStructureError(
+        "unsafe-structure",
+        "Aggregate PNG buffered metadata budget exceeded.",
+        { chunkType: "*", size: this.#consumed + n, limit: this.#total },
+      );
+    }
+    this.#consumed += n;
+  }
+}
+
 /**
  * Parses a PNG chunk stream from an open file handle. Checks the 8-byte signature, then
  * walks chunks: reads the 8-byte header, bounds-checks dataOffset + length + 4 <= size,
@@ -549,6 +585,9 @@ export async function parsePng(
   handle: FileHandle,
   size: number,
   signal?: AbortSignal,
+  budget: BufferedBudget = new BufferedBudget(
+    PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL,
+  ),
 ): Promise<ParsedPng> {
   if (isAborted(signal))
     throw signal?.reason ?? new DOMException("Aborted", "AbortError");
@@ -658,6 +697,13 @@ export async function parsePng(
           limit: PNG_MAX_METADATA_BYTES_PER_CHUNK,
         },
       );
+    }
+    // PNG-05 / D-24: bound the AGGREGATE bytes buffered across every non-IDAT chunk in the
+    // file, not just each chunk individually -- checked after the existing per-chunk limit
+    // and file-bounds checks and before this chunk's data is read, so a breach costs no more
+    // read work than it takes to reach the cap.
+    if (type !== "IDAT") {
+      budget.consume(length);
     }
 
     let computedCrc: number;
