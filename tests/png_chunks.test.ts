@@ -339,7 +339,11 @@ describe("parsePng structural refusals (PNG-03)", () => {
   });
 });
 
-const APNG_MALFORMATION_LAYOUTS = ["truncated", "oversized", "bad-crc"] as const;
+const APNG_MALFORMATION_LAYOUTS = [
+  "truncated",
+  "oversized",
+  "bad-crc",
+] as const;
 type ApngMalformationLayout = (typeof APNG_MALFORMATION_LAYOUTS)[number];
 
 // Builds signature + IHDR + one hand-assembled chunk header/data for `type`, in one of three
