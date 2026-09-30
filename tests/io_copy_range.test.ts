@@ -13,7 +13,10 @@ interface WriteCall {
   readonly position: number;
 }
 
-function makeSource(data: Buffer, opts?: { readonly shortReadOnCall?: number }) {
+function makeSource(
+  data: Buffer,
+  opts?: { readonly shortReadOnCall?: number },
+) {
   const calls: ReadCall[] = [];
   let callIndex = 0;
   const handle = {

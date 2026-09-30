@@ -96,6 +96,7 @@ function describeHits(
 const NEUTRAL_TARGETS: readonly ScanTarget[] = [
   { path: "src/engine.ts" },
   { path: "src/transaction/safe-transaction.ts" },
+  { path: "src/io/copy-range.ts" },
 ];
 
 describe("format-neutral source scan (KIT-01 D-03)", () => {
