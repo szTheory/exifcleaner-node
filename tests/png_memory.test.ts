@@ -1,7 +1,9 @@
-import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, open, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { fileURLToPath } from "node:url";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { sanitizeFile } from "../dist/index.js";
 import {
   BufferedBudget,
@@ -193,6 +195,62 @@ async function parseFixturePath(
     await handle.close();
   }
 }
+
+const CHILD_PATH = fileURLToPath(
+  new URL("./png_memory_child.mjs", import.meta.url),
+);
+
+interface ChildResult {
+  outcome: "parsed" | "error";
+  kind?: string;
+  limit?: { chunkType: string; size: number; limit: number };
+  maxRssBytes: number;
+}
+
+// PNG-05 / D-28: spawns the real measurement harness (tests/png_memory_child.mjs) and
+// parses its single JSON stdout line. `fixture` is a real path or the literal `--idle`.
+function runChild(
+  fixture: string,
+  budgetMode: "default" | "infinity",
+  retainMode: "default" | "view",
+): ChildResult {
+  const result = spawnSync(
+    process.execPath,
+    [CHILD_PATH, fixture, budgetMode, retainMode],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      `png_memory_child exited ${result.status}: ${result.stderr}`,
+    );
+  }
+  const lastLine = result.stdout
+    .trim()
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .pop();
+  if (lastLine === undefined) {
+    throw new Error(`png_memory_child produced no output: ${result.stderr}`);
+  }
+  return JSON.parse(lastLine) as ChildResult;
+}
+
+// PNG-05 / D-29: chosen from local measurement (node v24.19.0, Darwin arm64; see
+// 60-EVIDENCE.md "## PNG-05 RSS measurement (local)"). The highest measured capped peak
+// (flood, default budget) was ~85.9 MiB; the lowest measured uncapped peak (flood,
+// budget infinity) was ~567.2 MiB. 256 MiB sits at >= 1.5x the capped peak (~128.8 MiB
+// floor) and <= 0.6x the uncapped peak (~340.3 MiB ceiling), satisfying D-29's
+// discrimination rule with headroom on both sides.
+export const PNG_MEMORY_RSS_CEILING_BYTES = 256 * 1024 * 1024;
+
+describe("child RSS harness unit sanity", () => {
+  it("an idle child (no fixture) reports maxRssBytes between 16 MiB and 256 MiB", () => {
+    const result = runChild("--idle", "default", "default");
+    expect(result.outcome).toBe("parsed");
+    expect(result.maxRssBytes).toBeGreaterThanOrEqual(16 * 1024 * 1024);
+    expect(result.maxRssBytes).toBeLessThanOrEqual(256 * 1024 * 1024);
+  });
+});
 
 describe("PNG aggregate buffered-metadata budget (PNG-05, D-24)", () => {
   it("declines the 512 MiB text flood as unsafe-structure through sanitizeFile, and rejects at the third tEXt through parsePng directly", async () => {
