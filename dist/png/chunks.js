@@ -415,18 +415,36 @@ export class BufferedBudget {
         this.#consumed += n;
     }
 }
+// D-23 (56 WR-02): `readWindowed` returns a `subarray` VIEW into a shared, mutable read-ahead
+// window buffer for any request no larger than the window -- correct for the CRC-only IDAT
+// path (the bytes are discarded immediately), but wrong for anything stored long-term in
+// `buffered`. Each window refill allocates a fresh ~64 KiB backing buffer, so a file whose
+// small non-IDAT chunks are spread far enough apart to force a refill before each one (e.g.
+// separated by a large chunk that bypasses the window) retains one distinct ~64 KiB buffer
+// PER small chunk, even though the chunk's own declared length might be a handful of bytes --
+// far more memory than the counted (BufferedBudget) bytes would suggest. `copyWindowedChunk`
+// is the default `retain` policy `parsePng` applies before storing a windowed view, so
+// retained memory tracks counted bytes. `retain` is overridable (never exported from
+// `src/index.ts`) purely as the D-23 negative-control seam: an identity `retain` reproduces
+// the pre-fix behaviour so its regression test can prove the default is actually copying,
+// not merely storing something the right size by coincidence.
+export function copyWindowedChunk(view) {
+    return Buffer.from(view);
+}
 /**
  * Parses a PNG chunk stream from an open file handle. Checks the 8-byte signature, then
  * walks chunks: reads the 8-byte header, bounds-checks dataOffset + length + 4 <= size,
  * verifies the CRC, and stops after IEND. IDAT data is never buffered: a chunk no larger
  * than the read window gets its CRC from that window (CR-02, 56-16); a longer one is
  * CRC-checked by streaming in bounded 64 KiB reads. Every other chunk's data is buffered for
- * the caller.
+ * the caller through `retain` (D-23: copies a windowed view by default so retained memory
+ * tracks counted bytes; the exact `readExactly` buffer for an oversized chunk is already its
+ * own allocation and is stored unchanged).
  *
  * Task 2 adds the full PNG-03 structural refusal set (type-byte validity, length ceiling,
  * trailing-data, critical/APNG/order/singleton/limit rules) on top of this shape.
  */
-export async function parsePng(handle, size, signal, budget = new BufferedBudget(PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL)) {
+export async function parsePng(handle, size, signal, budget = new BufferedBudget(PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL), retain = copyWindowedChunk) {
     if (isAborted(signal))
         throw signal?.reason ?? new DOMException("Aborted", "AbortError");
     if (!Number.isSafeInteger(size) || size < PNG_HEADER_BYTES) {
@@ -524,8 +542,13 @@ export async function parsePng(handle, size, signal, budget = new BufferedBudget
         }
         else {
             const data = await readWindowed(handle, window, length, dataOffset, size);
-            buffered.set(index, data);
-            computedCrc = crc32(typeBuffer, data);
+            // D-23: only a windowed read returns a view into the shared, reused window buffer --
+            // an oversized chunk's `readExactly` buffer (length > PNG_CHUNK_READ_WINDOW_BYTES,
+            // bypassing the window entirely) is already its own standalone allocation, so copying
+            // it again would be wasted work with no bug to fix.
+            const stored = length <= PNG_CHUNK_READ_WINDOW_BYTES ? retain(data) : data;
+            buffered.set(index, stored);
+            computedCrc = crc32(typeBuffer, stored);
         }
         const storedCrc = (await readWindowed(handle, window, CHUNK_CRC_BYTES, dataOffset + length, size)).readUInt32BE(0);
         if (computedCrc !== storedCrc) {

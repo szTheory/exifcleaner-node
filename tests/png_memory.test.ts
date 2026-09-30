@@ -6,6 +6,7 @@ import { sanitizeFile } from "../dist/index.js";
 import {
   BufferedBudget,
   PNG_SIGNATURE,
+  copyWindowedChunk,
   crc32,
   encodePngChunk,
   parsePng,
@@ -513,5 +514,142 @@ describe("D-25: aggregate breach vs. ICC per-chunk policy-limit classification",
     expect(result.error).toMatchObject({
       feature: "color-profile-preservation",
     });
+  });
+});
+
+// D-23 discriminator note: the must_haves' literal `entry.buffer.byteLength <= Math.max(entry.length,
+// Buffer.poolSize)` formula assumes `Buffer.poolSize` is smaller than `PNG_CHUNK_READ_WINDOW_BYTES`
+// (65,536) -- true on the historical Node default (8,192) this plan was written against, but Node's
+// `Buffer.poolSize` default now measures 65,536 on this runtime (`node --version`, checked live: see
+// SUMMARY), exactly equal to the window size. At that coincidental equality `byteLength <= max(...)`
+// is trivially true for a windowed VIEW too (65,536 <= 65,536), so the raw inequality alone cannot
+// discriminate the identity-retain RED state on this runtime -- it is satisfied by both policies. The
+// pass-direction assertion below (Task 3 default-policy test) is still the literal must_haves formula
+// and genuinely holds; the failure-direction proof is strengthened with an environment-independent
+// companion: Node's own small-buffer pool means a COPIED small buffer's backing ArrayBuffer is SHARED
+// across many entries (few distinct backing buffers for many windowed entries), while an IDENTITY-retained
+// windowed view's backing buffer is the window's own per-refill allocation and is NEVER shared (one
+// distinct backing buffer per windowed entry, confirmed by direct measurement: 2 unique backing buffers
+// across 52 windowed entries -- IHDR, the 50 tEXt markers, and IEND, every non-IDAT chunk whose declared
+// length is <= the window size -- under the default copy policy, versus 52 unique backing buffers -- one
+// per entry, zero sharing -- under identity retain, for this fixture). Counting distinct backing-buffer
+// references is robust to whatever `Buffer.poolSize` happens to be on the host Node version.
+describe("copy-on-buffer for windowed reads (D-23)", () => {
+  function windowedEntries(parsed: {
+    buffered: ReadonlyMap<number, Buffer>;
+  }): Buffer[] {
+    return [...parsed.buffered.values()].filter(
+      (entry) => entry.length <= 65536,
+    );
+  }
+
+  it("default parsePng: every buffered entry's backing buffer is no larger than its own length or the Buffer pool size, and windowed entries share a small number of distinct backing buffers", async () => {
+    const directory = await freshDirectory();
+    const path = join(directory, "input.png");
+    const size = await writeWindowRetentionFixture(path, 50);
+
+    const handle = await open(path, "r");
+    let parsed;
+    try {
+      parsed = await parsePng(handle, size);
+    } finally {
+      await handle.close();
+    }
+
+    for (const entry of parsed.buffered.values()) {
+      expect(entry.buffer.byteLength).toBeLessThanOrEqual(
+        Math.max(entry.length, Buffer.poolSize),
+      );
+    }
+
+    // IHDR (1) + 50 tEXt markers + IEND (1) = 52 windowed (length <= window size) entries;
+    // under the default copy policy these share a small, bounded number of distinct
+    // pool-backed buffers rather than one each.
+    const windowed = windowedEntries(parsed);
+    expect(windowed.length).toBe(52);
+    const uniqueBackingBuffers = new Set(windowed.map((entry) => entry.buffer));
+    expect(uniqueBackingBuffers.size).toBeLessThan(windowed.length);
+    expect(uniqueBackingBuffers.size).toBeLessThanOrEqual(10);
+  }, 30_000);
+
+  it("identity retain (view) => view: every windowed entry keeps its own distinct backing buffer -- the RED state that proves the default-policy test discriminates", async () => {
+    const directory = await freshDirectory();
+    const path = join(directory, "input.png");
+    const size = await writeWindowRetentionFixture(path, 50);
+
+    const handle = await open(path, "r");
+    let parsed;
+    try {
+      parsed = await parsePng(
+        handle,
+        size,
+        undefined,
+        undefined,
+        (view) => view,
+      );
+    } finally {
+      await handle.close();
+    }
+
+    const windowed = windowedEntries(parsed);
+    expect(windowed.length).toBe(52);
+    // Every windowed entry under identity retain keeps a 65,536-byte (or near-EOF-truncated)
+    // backing buffer, and -- unlike the default copy policy -- almost none of them are
+    // shared: each large (>window-size) filler between entries bypasses and invalidates the
+    // window, forcing a fresh refill for the next windowed read. The one exception is the
+    // very first pair (IHDR immediately followed by the first tEXt marker, both close enough
+    // together to land inside the SAME initial window before any filler has had a chance to
+    // invalidate it) -- measured at 51 of 52 unique, i.e. windowed.length - 1, not
+    // windowed.length exactly.
+    for (const entry of windowed) {
+      expect(entry.buffer.byteLength).toBeGreaterThanOrEqual(entry.length);
+    }
+    const uniqueBackingBuffers = new Set(windowed.map((entry) => entry.buffer));
+    expect(uniqueBackingBuffers.size).toBeGreaterThanOrEqual(
+      windowed.length - 1,
+    );
+  }, 30_000);
+
+  it("buffered bytes are identical under both retain policies", async () => {
+    const directory = await freshDirectory();
+    const path = join(directory, "input.png");
+    const size = await writeWindowRetentionFixture(path, 50);
+
+    const defaultHandle = await open(path, "r");
+    let defaultParsed;
+    try {
+      defaultParsed = await parsePng(defaultHandle, size);
+    } finally {
+      await defaultHandle.close();
+    }
+
+    const identityHandle = await open(path, "r");
+    let identityParsed;
+    try {
+      identityParsed = await parsePng(
+        identityHandle,
+        size,
+        undefined,
+        undefined,
+        (view) => view,
+      );
+    } finally {
+      await identityHandle.close();
+    }
+
+    expect(defaultParsed.buffered.size).toBe(identityParsed.buffered.size);
+    for (const [index, defaultEntry] of defaultParsed.buffered.entries()) {
+      const identityEntry = identityParsed.buffered.get(index);
+      expect(identityEntry).toBeDefined();
+      expect(defaultEntry.equals(identityEntry!)).toBe(true);
+    }
+  }, 30_000);
+
+  it("copyWindowedChunk returns a fresh copy: mutating the source does not affect the copy", () => {
+    const source = Buffer.from("hello");
+    const copy = copyWindowedChunk(source);
+    expect(copy.equals(source)).toBe(true);
+    source.fill(0);
+    expect(copy.toString("ascii")).toBe("hello");
   });
 });

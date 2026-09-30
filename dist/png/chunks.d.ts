@@ -41,18 +41,21 @@ export declare class BufferedBudget {
     consumed(): number;
     consume(n: number): void;
 }
+export declare function copyWindowedChunk(view: Buffer): Buffer;
 /**
  * Parses a PNG chunk stream from an open file handle. Checks the 8-byte signature, then
  * walks chunks: reads the 8-byte header, bounds-checks dataOffset + length + 4 <= size,
  * verifies the CRC, and stops after IEND. IDAT data is never buffered: a chunk no larger
  * than the read window gets its CRC from that window (CR-02, 56-16); a longer one is
  * CRC-checked by streaming in bounded 64 KiB reads. Every other chunk's data is buffered for
- * the caller.
+ * the caller through `retain` (D-23: copies a windowed view by default so retained memory
+ * tracks counted bytes; the exact `readExactly` buffer for an oversized chunk is already its
+ * own allocation and is stored unchanged).
  *
  * Task 2 adds the full PNG-03 structural refusal set (type-byte validity, length ceiling,
  * trailing-data, critical/APNG/order/singleton/limit rules) on top of this shape.
  */
-export declare function parsePng(handle: FileHandle, size: number, signal?: AbortSignal, budget?: BufferedBudget): Promise<ParsedPng>;
+export declare function parsePng(handle: FileHandle, size: number, signal?: AbortSignal, budget?: BufferedBudget, retain?: (view: Buffer) => Buffer): Promise<ParsedPng>;
 export declare const PNG_MAX_INFLATED_ICC_BYTES: number;
 export declare const PNG_MAX_INFLATED_TEXT_BYTES: number;
 export declare const PNG_MAX_INFLATED_BYTES_TOTAL: number;
