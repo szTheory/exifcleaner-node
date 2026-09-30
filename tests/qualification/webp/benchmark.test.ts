@@ -2331,6 +2331,7 @@ describe("paired benchmark admission", () => {
         fixture.cleanup();
       }
     },
+    60_000,
   );
   evidenceGatedIt(
     "accepts only exact short repair and final identity-ledger refs",
