@@ -126,6 +126,175 @@ No maintainer device sample is requested for any of these, now or later in this 
 
 ## Grammar
 
+**Status:** pinned for the box header, `ftyp`, `iloc`, `ipma`, `infe`, `iinf`, `iref`, and `pitm`
+(the fields this phase's resolver and fixture builder need). Source for every field width below
+is the reference decoder **libheif v1.19.7**, read fresh from
+`https://raw.githubusercontent.com/strukturag/libheif/v1.19.7/libheif/box.cc` (and `box.h`) during
+this plan's execution -- not reproduced from training memory. ISO/IEC 14496-12 clause numbers are
+given where the clause is conventionally known for a box of this name, but the **paywalled ISO
+text itself was not re-fetched or re-read this session** (consistent with this phase's own
+RESEARCH.md Open Question 2 disclosure); libheif's source is the directly-read, citable authority
+for every width and conditional below. Where libheif's actual behavior diverges from the ISO
+wording, that divergence is called out explicitly and libheif's behavior is normative (it is the
+reference decoder real files are checked against).
+
+### Box header (ISO/IEC 14496-12 §4.2, "Box" / "FullBox")
+
+Source: `box.cc` `BoxHeader::parse_header` (l.228-286), `FullBox::parse_full_box_header` (l.429-438).
+
+| Field             | Width        | Condition                                                                                     | Notes                                                                                                                                                                              |
+| ----------------- | ------------ | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `size`            | 32-bit       | always                                                                                        | if `1`, a 64-bit `largesize` follows immediately and `size` is replaced by it (l.238-253); libheif enforces `largesize <= MAX_LARGE_BOX_SIZE` (security limit, not a framing rule) |
+| `type`            | 32-bit (4CC) | always                                                                                        |                                                                                                                                                                                    |
+| `largesize`       | 64-bit       | only when the 32-bit `size` field read `1`                                                    | big-endian high32/low32 concatenation (l.246-250: `m_size = (high << 32) \| low`)                                                                                                  |
+| `usertype`        | 16 bytes     | only when `type == "uuid"`                                                                    | l.258-273                                                                                                                                                                          |
+| FullBox `version` | 8-bit        | boxes that are a `FullBox` (ftyp/pitm/iloc/infe/iinf/iref/ipma/meta when not QuickTime-style) | top byte of one 32-bit read: `version = data >> 24`                                                                                                                                |
+| FullBox `flags`   | 24-bit       | same boxes                                                                                    | low 24 bits of the same 32-bit read: `flags = data & 0x00FFFFFF`                                                                                                                   |
+
+**`size == 0`** ("box extends to the end of the file", per the ISO §4.2 convention): `BoxHeader::parse_header` stores the literal value `0` with no special-case branch anywhere in the reviewed `box.cc`/`box.h` for this tag -- end-of-file consumption, if implemented, lives outside the function cited here and was not traced further (not needed for this phase's builder, which only has to emit the literal `00000000` bytes a hostile/framing fixture requires).
+
+### `ftyp` (ISO/IEC 14496-12 §4.3 "FileTypeBox")
+
+Source: `box.cc` `Box_ftyp::parse` (l.1083-1103). Not a `FullBox` (no version/flags).
+
+| Field                 | Width             | Notes                                                                                                                         |
+| --------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `major_brand`         | 32-bit (4CC)      | l.1085                                                                                                                        |
+| `minor_version`       | 32-bit            | l.1086                                                                                                                        |
+| `compatible_brands[]` | 32-bit (4CC) each | count derived from the box's own declared size: `(box_size - header_size - 8) / 4` (l.1092-1097), not a separate length field |
+
+### `pitm` (ISO/IEC 14496-12 §8.11.4 "PrimaryItemBox")
+
+Source: `box.cc` `Box_pitm::parse` (l.1288-1305). FullBox, version ∈ {0, 1} (`> 1` is `unsupported_version_error`).
+
+| Field     | v0 width | v1 width |
+| --------- | -------- | -------- |
+| `item_ID` | 16-bit   | 32-bit   |
+
+### `iloc` (ISO/IEC 14496-12 §8.11.3 "ItemLocationBox")
+
+Source: `box.cc` `Box_iloc::parse` (l.1347-1486), `Box_iloc::read_data` (l.1563-1696). FullBox,
+version ∈ {0, 1, 2} (`> 2` is `unsupported_version_error`, l.1352-1354).
+
+| Field                            | Width / presence                                | Notes                                                                                                                                                                                                                                             |
+| -------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `offset_size`                    | 4-bit (top nibble of one 16-bit read)           | all versions; `(values4 >> 12) & 0xF`                                                                                                                                                                                                             |
+| `length_size`                    | 4-bit                                           | all versions; `(values4 >> 8) & 0xF`                                                                                                                                                                                                              |
+| `base_offset_size`               | 4-bit                                           | all versions; `(values4 >> 4) & 0xF`                                                                                                                                                                                                              |
+| `index_size` (reserved in v0)    | 4-bit                                           | **only read as `index_size` for v1/v2** (`values4 & 0xF`); in v0 this nibble is still present in the 16-bit word (the word is always read) but libheif leaves `index_size` at its default `0` and never consults the nibble's value (l.1356-1363) |
+| `item_count`                     | 16-bit (v0/v1) / 32-bit (v2)                    | l.1365-1370                                                                                                                                                                                                                                       |
+| per item: `item_ID`              | 16-bit (v0/v1) / 32-bit (v2)                    | l.1381-1386                                                                                                                                                                                                                                       |
+| per item: `construction_method`  | 16-bit field, low 4 bits used (`values4 & 0xF`) | **present only for v1/v2** (`if (version >= 1)`, l.1388-1391); absent entirely in v0                                                                                                                                                              |
+| per item: `data_reference_index` | 16-bit                                          | all versions, always read (l.1393)                                                                                                                                                                                                                |
+| per item: `base_offset`          | 0 / 32-bit / 64-bit, per `base_offset_size`     | widths outside `{0, 4, 8}` are **silently treated as `0`** -- the code only branches on `== 4` and `== 8` (l.1395-1401); no rejection of e.g. `base_offset_size == 3` is performed in this function                                               |
+| per item: `extent_count`         | 16-bit                                          | l.1407, always read regardless of version                                                                                                                                                                                                         |
+| per extent: `extent_index`       | 0 / 32-bit / 64-bit, per `index_size`           | only consulted for v1/v2 AND `index_size > 0` (l.1425-1432); same silent-zero-on-unrecognized-width behavior as `base_offset_size`                                                                                                                |
+| per extent: `extent_offset`      | 0 / 32-bit / 64-bit, per `offset_size`          | same silent-zero-on-unrecognized-width behavior (l.1443-1449)                                                                                                                                                                                     |
+| per extent: `extent_length`      | 0 / 32-bit / 64-bit, per `length_size`          | same silent-zero-on-unrecognized-width behavior (l.1451-1457)                                                                                                                                                                                     |
+
+**Field order within each item record (v1/v2):** `item_ID`, `construction_method` (v≥1 only),
+`data_reference_index`, `base_offset`, `extent_count`, then per-extent `(extent_index, extent_offset,
+extent_length)` in that order -- `extent_index` is read before `extent_offset`/`extent_length` in
+every extent, matching this phase's `must_haves` field-order requirement.
+
+**Widths outside `{0, 4, 8}` (nuance beyond the plan's stated assumption):** `Box_iloc::parse`
+does not reject a `base_offset_size`/`offset_size`/`length_size`/`index_size` nibble value outside
+`{0, 4, 8}` (e.g. `3`, `5`, `15`) -- it simply falls through both the `== 4` and `== 8` branches and
+the field is left at its initialized `0`, silently. Our classifier **still fails closed** on such a
+value (per D-18's "fail closed" discipline and this phase's own `unsafe-structure`/`malformed-file`
+decline design) rather than mirroring libheif's silent-zero behavior; this is a deliberate,
+documented divergence from the reference decoder's exact parse behavior, not a bug in our reading
+of it.
+
+**`extent_length == 0` means an empty extent (zero bytes), not "to end of resource" (D-10a):**
+`Box_iloc::read_data` (l.1563-1696) computes, for construction_method 0 (file-relative):
+
+```
+uint64_t skip_len = std::min(offset, extent.length);
+uint64_t read_len = std::min(extent.length - skip_len, size);
+...
+if (read_len == 0) { continue; }   // l.1640 region -- zero-length extent contributes zero bytes
+```
+
+No code path in this function resolves an `extent.length` of `0` against the file size or against
+`end of mdat`; it is read, compared via `std::min`, and produces `read_len == 0`, which the loop
+skips entirely. ISO/IEC 14496-12 §8.11.3's commonly cited wording for `extent_length == 0` is "the
+length of the extent is unspecified; it extends to the end of the referenced container" -- that
+wording is **not implemented by libheif v1.19.7** for this box, and this grammar note records the
+disagreement per this phase's maintainer-locked resolution (**D-10a**, 2026-10-01): the empty-extent
+reading wins everywhere in this codebase's ISOBMFF engine. The measured iPhone sample
+(`61-01-SUMMARY.md`) corroborates the empty reading in practice: after `exiftool -all=`, the Exif
+item's extent is `offset: 24943, length: 0` **in place inside `mdat`**, not at EOF -- a
+zero-length extent that removes zero bytes, exactly as libheif's `read_data` would produce.
+
+### `ipma` (ISO/IEC 14496-12 §8.11.14 "ItemPropertyAssociationBox")
+
+Source: `box.cc` `Box_ipma::parse` (l.2943-2994). FullBox, version ∈ {0, 1} (`> 1` is
+`unsupported_version_error`).
+
+| Field                             | Width / presence                                            | Notes                                                                                                          |
+| --------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `entry_count`                     | 32-bit                                                      | always (not version-gated)                                                                                     |
+| per entry: `item_ID`              | 16-bit (v0) / 32-bit (v≥1)                                  | gated on `get_version() < 1`, i.e. only v0 is 16-bit                                                           |
+| per entry: `association_count`    | 8-bit                                                       | always, regardless of flags                                                                                    |
+| per association: encoded index    | **1 byte if flags bit 0 is 0; 2 bytes if flags bit 0 is 1** | gated on `get_flags() & 1`, independent of `version` -- this is a flags-bit dimension, not a version dimension |
+| per association: `essential` bit  | top bit of the 1- or 2-byte encoded index                   | 1-byte form: `essential = !!(index & 0x80)`; 2-byte form: `essential = !!(index & 0x8000)`                     |
+| per association: `property_index` | remaining 7 bits (1-byte form) or 15 bits (2-byte form)     | 1-byte form: `index & 0x7f`; 2-byte form: `index & 0x7fff`                                                     |
+
+**Two independent dimensions, confirmed (Pitfall 7):** `item_ID` width is gated by `version`;
+association-index width (and therefore the essential-bit position and `property_index` bit width)
+is gated by `flags & 1`, not by `version`. The resolver table must keep these two axes separate.
+
+### `infe` (ISO/IEC 14496-12 §8.11.6.2 "ItemInfoEntry")
+
+Source: `box.cc` `Box_infe::parse` (l.2151-2193). FullBox, version ∈ {0..3} (`> 3` is
+`unsupported_version_error`; comment at l.2156 notes "only versions 2,3 are required by HEIF").
+
+| Field                                     | v≤1                    | v≥2                       | Notes                                                                          |
+| ----------------------------------------- | ---------------------- | ------------------------- | ------------------------------------------------------------------------------ |
+| `item_ID`                                 | 16-bit                 | 16-bit (v2) / 32-bit (v3) | v≤1 always 16-bit; v≥2 splits again on exact version                           |
+| `item_protection_index`                   | 16-bit                 | 16-bit                    | read in both branches                                                          |
+| `item_name`                               | null-terminated string | null-terminated string    | `read_string()`                                                                |
+| `content_type`                            | null-terminated string | absent (see below)        | v≤1 only                                                                       |
+| `content_encoding`                        | null-terminated string | absent (see below)        | v≤1 only                                                                       |
+| `hidden_item` flag                        | n/a                    | `flags & 1`               | v≥2 only; this is the admission-relevant "hidden" bit (grid tiles, thumbnails) |
+| `item_type_4cc`                           | n/a (implicitly 0)     | 32-bit (4CC)              | v≥2 only                                                                       |
+| `item_name` (v≥2)                         | --                     | null-terminated string    | read unconditionally after `item_type_4cc`                                     |
+| `content_type` / `content_encoding` (v≥2) | --                     | null-terminated strings   | **only when `item_type_4cc == "mime"`**                                        |
+| `item_uri_type` (v≥2)                     | --                     | null-terminated string    | **only when `item_type_4cc == "uri "`** (note the trailing space in the 4CC)   |
+
+This is the source for the XMP `mime` item's `content_type` field this phase's classifier reads
+(`application/rdf+xml`, D-07) -- it only exists on a v≥2 `infe` whose `item_type_4cc` is `mime`.
+
+### `iinf` (ISO/IEC 14496-12 §8.11.6.1 "ItemInfoBox")
+
+Source: `box.cc` `Box_iinf::parse` (l.2297-2312). FullBox.
+
+| Field         | Width                                     | Notes                                                                    |
+| ------------- | ----------------------------------------- | ------------------------------------------------------------------------ |
+| `entry_count` | 16-bit (version 0) / 32-bit (version > 0) | `nEntries_size = (version > 0) ? 4 : 2`                                  |
+| children      | `entry_count` × `infe` boxes              | if `entry_count == 0`, parsing returns immediately with no children read |
+
+### `iref` (ISO/IEC 14496-12 §8.11.12 "ItemReferenceBox")
+
+Source: `box.cc` `Box_iref::parse` (l.3462-3530). FullBox, version ∈ {0, 1} (`> 1` is
+`unsupported_version_error`).
+
+Each `iref` box contains a sequence of `SingleItemTypeReferenceBox` records read until EOF. Each
+record is itself a box (its own 4CC _is_ the reference type, e.g. `dimg`, `thmb`, `auxl`, `cdsc`):
+
+| Field                       | Width                          | Notes                                                                 |
+| --------------------------- | ------------------------------ | --------------------------------------------------------------------- |
+| reference-record box header | per Box header rules above     | the record's `type` (4CC) is the reference type, not a separate field |
+| `from_item_ID`              | 16-bit (v0) / 32-bit (v1)      | `read_len = (version == 0) ? 16 : 32`                                 |
+| `reference_count`           | 16-bit                         | **always 16-bit regardless of version** -- not gated by `read_len`    |
+| `to_item_ID[]`              | 16-bit (v0) / 32-bit (v1) each | same `read_len` as `from_item_ID`; `reference_count` entries          |
+
+`reference_count == 0` is explicitly rejected (`heif_suberror_Unspecified`, "iref box with no
+references", l.3485-3488) -- not merely unusual, a hard parse error in the reference decoder.
+
+## Fixtures
+
 Filled in by a later Phase 61 plan.
 
 ## Fixtures
