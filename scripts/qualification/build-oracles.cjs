@@ -882,14 +882,32 @@ function prepareOracleDir(dir, { build = buildOracleTools } = {}) {
       fail(`oracle directory already claimed: ${dir}`);
     throw error;
   }
+  const buildsLogPath = path.join(dir, "builds.log");
   fs.appendFileSync(
-    path.join(dir, "builds.log"),
+    buildsLogPath,
     `${new Date().toISOString()} pid ${process.pid}\n`,
   );
 
   const workspace = path.join(dir, "workspace");
-  fs.mkdirSync(workspace, { recursive: true });
-  const tools = build(workspace);
+  let tools;
+  try {
+    fs.mkdirSync(workspace, { recursive: true });
+    tools = build(workspace);
+  } catch (error) {
+    // A thrown build (e.g. a flaky toolchain crash) must not leave `dir`
+    // permanently claimed: roll back the exclusive claim and the
+    // pre-build `builds.log` line so a retry into this same directory
+    // (a self-hosted-runner retry-in-place, or a manual re-run) gets a
+    // fresh build attempt instead of a misleading "already claimed"
+    // error that masks the real failure (WR-01). This only widens the
+    // retry window after a *failed* build; a successful claim still
+    // blocks a concurrent second build into the same never-before-used
+    // directory (KIT-09 D-06).
+    fs.rmSync(claimPath, { force: true });
+    fs.rmSync(buildsLogPath, { force: true });
+    fs.rmSync(workspace, { recursive: true, force: true });
+    throw error;
+  }
 
   const executables = {};
   for (const [name, value] of Object.entries(tools)) {

@@ -189,6 +189,50 @@ describe("build-oracles.cjs negative controls and edges (KIT-09 D-07)", () => {
     }
   });
 
+  it("rolls back a thrown build so a retry into the same dir works, while an already-claimed dir still refuses (WR-01)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "exifcleaner-oracle-rollback-"));
+    try {
+      const throwingBuild = (): FakeTools => {
+        throw new Error("transient toolchain crash");
+      };
+      expect(() =>
+        buildOracles.prepareOracleDir(dir, { build: throwingBuild }),
+      ).toThrow(/transient toolchain crash/);
+
+      // The failed build must not leave a permanent claim: a retry into the
+      // same directory builds successfully rather than failing with the
+      // misleading "already claimed" error.
+      expect(existsSync(join(dir, "build.claim"))).toBe(false);
+      expect(existsSync(join(dir, "builds.log"))).toBe(false);
+      expect(existsSync(join(dir, "complete.json"))).toBe(false);
+      expect(() =>
+        buildOracles.prepareOracleDir(dir, { build: fakeBuild }),
+      ).not.toThrow();
+
+      // The concurrent-second-build detection property is still intact: a
+      // genuinely already-claimed (successfully completed) dir refuses a
+      // second prepare.
+      expect(() =>
+        buildOracles.prepareOracleDir(dir, { build: fakeBuild }),
+      ).toThrow(/already claimed/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a second prepare into a dir with an in-progress claim (no complete.json yet), independent of the rollback path (WR-01)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "exifcleaner-oracle-inprogress-"));
+    try {
+      writeFileSync(join(dir, "build.claim"), "x\n");
+      writeFileSync(join(dir, "builds.log"), "x\n");
+      expect(() =>
+        buildOracles.prepareOracleDir(dir, { build: fakeBuild }),
+      ).toThrow(/already claimed/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("createOracleToolsLoader with CI set does not throw on construction, but throws EXIFCLEANER_ORACLE_DIR is required in CI on the first tools() call", () => {
     let loader: ReturnType<typeof buildOracles.createOracleToolsLoader>;
     expect(() => {
