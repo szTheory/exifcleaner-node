@@ -7,11 +7,14 @@ import {
 } from "./caps.js";
 import {
   C2PA_UUID_USERTYPE,
+  parseBoxHeader,
   readExactly,
   readTopLevelBoxes,
   TOP_LEVEL_ALLOWLIST,
   walkContainer,
+  type BoxHeader,
 } from "./boxes.js";
+import { parseIloc, type IlocTable } from "./iloc.js";
 
 // `parseIsobmff` entry point (BMF-01/BMF-05): reads a file's top-level box list, validates the
 // D5 top-level allowlist and the `ftyp`/`meta`/`mdat` singleton rules, and walks `meta`'s
@@ -32,10 +35,52 @@ export interface IsobmffModel {
   readonly mdatRanges: readonly IsobmffRange[];
   /** Top-level boxes admitted as removable (currently: the C2PA `uuid` box, D5). */
   readonly removableTopLevel: readonly IsobmffRange[];
+  /** `meta`'s `iloc` child, resolved through the table-driven resolver (61-05, D1). */
+  readonly iloc?: IlocTable;
 }
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
+}
+
+/**
+ * List one container level's direct children from an already-buffered payload, using only
+ * `parseBoxHeader` (no budget checks -- the structural walk via `walkContainer` already enforced
+ * every cap for this same buffer). Used to locate specific item-table boxes (`iloc`, `iprp`'s
+ * `ipma`) that `walkContainer` itself does not surface outside its own recursion.
+ */
+function listSiblings(buffer: Buffer, start: number, end: number): BoxHeader[] {
+  const boxes: BoxHeader[] = [];
+  let position = start;
+  while (position < end) {
+    const header = parseBoxHeader(buffer, position, end);
+    boxes.push(header);
+    position = header.end;
+  }
+  return boxes;
+}
+
+/**
+ * Read a child box's FullBox version/flags and hand back its payload with that 4-byte header
+ * already stripped, for callers (`parseIloc`, `parseIpma`) that take version/flags separately.
+ */
+function readFullBoxChild(
+  buffer: Buffer,
+  header: BoxHeader,
+): { version: number; flags: number; payload: Buffer } {
+  const full = buffer.subarray(header.payloadStart, header.end);
+  if (full.length < 4) {
+    throw new IsobmffStructureError(
+      "box-framing",
+      `"${header.type}" payload is too short to carry a FullBox version/flags field.`,
+    );
+  }
+  const versionFlags = full.readUInt32BE(0);
+  return {
+    version: (versionFlags >>> 24) & 0xff,
+    flags: versionFlags & 0x00ffffff,
+    payload: full.subarray(4),
+  };
 }
 
 function parseFtyp(payload: Buffer): {
@@ -75,6 +120,7 @@ export async function parseIsobmff(
   const removableTopLevel: IsobmffRange[] = [];
   let sawMeta = false;
   let sawMdat = false;
+  let iloc: IlocTable | undefined;
 
   for (const header of topLevel) {
     if (isAborted(signal)) {
@@ -123,6 +169,16 @@ export async function parseIsobmff(
         );
       }
       walkContainer(payload, 4, payload.length, 1, budget);
+      const metaChildren = listSiblings(payload, 4, payload.length);
+      const ilocHeader = metaChildren.find((child) => child.type === "iloc");
+      if (ilocHeader !== undefined) {
+        const {
+          version,
+          flags,
+          payload: ilocPayload,
+        } = readFullBoxChild(payload, ilocHeader);
+        iloc = parseIloc(ilocPayload, version, flags);
+      }
       metaRange = { offset: header.start, length: header.end - header.start };
       continue;
     }
@@ -189,5 +245,6 @@ export async function parseIsobmff(
     metaRange,
     mdatRanges,
     removableTopLevel,
+    ...(iloc !== undefined ? { iloc } : {}),
   };
 }
