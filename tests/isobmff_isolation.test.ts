@@ -50,11 +50,11 @@ interface IsolationRule {
 export const ISOLATION_RULES: readonly IsolationRule[] = [
   {
     fileName: "builder.ts",
-    forbiddenSpecifierSubstrings: ["src/isobmff/", "inventory"],
+    forbiddenSpecifierSubstrings: ["src/isobmff/", "inventory", "test-handler"],
   },
   {
     fileName: "inventory.ts",
-    forbiddenSpecifierSubstrings: ["src/isobmff/", "builder"],
+    forbiddenSpecifierSubstrings: ["src/isobmff/", "builder", "test-handler"],
   },
   {
     fileName: "generator.ts",
@@ -62,8 +62,21 @@ export const ISOLATION_RULES: readonly IsolationRule[] = [
   },
   {
     fileName: "hostile.ts",
-    forbiddenSpecifierSubstrings: ["src/isobmff/", "inventory", "generator"],
+    forbiddenSpecifierSubstrings: [
+      "src/isobmff/",
+      "inventory",
+      "generator",
+      "test-handler",
+    ],
     allowedTypeOnlySpecifierSubstrings: ["src/isobmff/errors.js"],
+  },
+  // D-16/61-10: test-handler.ts is the one declared seam between the engine and test support --
+  // it is explicitly allowed to import src/isobmff/ (it wraps the real classifyIsobmffBrand and
+  // admitIsobmff), unlike every other rule-bearing file in this table, which must never import
+  // src/isobmff/ directly. It carries no forbidden substrings of its own.
+  {
+    fileName: "test-handler.ts",
+    forbiddenSpecifierSubstrings: [],
   },
 ];
 
@@ -263,6 +276,56 @@ describe("isolationViolations() negative controls (synthetic sources)", () => {
     expect(violations).toEqual([
       { path: "hostile.ts", specifier: "./inventory.js" },
     ]);
+  });
+
+  it("hostile.ts importing test-handler.ts is a violation (61-10: the engine seam is not an independent oracle)", () => {
+    const violations = isolationViolations([
+      {
+        path: "hostile.ts",
+        source:
+          'import { createIsobmffTestHandler } from "./test-handler.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "hostile.ts", specifier: "./test-handler.js" },
+    ]);
+  });
+
+  it("builder.ts importing test-handler.ts is a violation (61-10)", () => {
+    const violations = isolationViolations([
+      {
+        path: "builder.ts",
+        source:
+          'import { createIsobmffTestHandler } from "./test-handler.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "builder.ts", specifier: "./test-handler.js" },
+    ]);
+  });
+
+  it("inventory.ts importing test-handler.ts is a violation (61-10)", () => {
+    const violations = isolationViolations([
+      {
+        path: "inventory.ts",
+        source:
+          'import { createIsobmffTestHandler } from "./test-handler.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "inventory.ts", specifier: "./test-handler.js" },
+    ]);
+  });
+
+  it("test-handler.ts importing src/isobmff/ directly is allowed (61-10: the declared engine seam, D-16)", () => {
+    const violations = isolationViolations([
+      {
+        path: "test-handler.ts",
+        source:
+          'import { admitIsobmff } from "../../src/isobmff/admission.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([]);
   });
 });
 
