@@ -394,7 +394,46 @@ validity) and `src/isobmff/admission.ts` (61-08, the D3/D5 removable/surviving r
 
 ## Memory caps
 
-Filled in by a later Phase 61 plan.
+`src/isobmff/caps.ts` exports four injectable resource caps (BMF-05), each guarding a distinct
+resource so each one can be removed alone in a negative control (D-23):
+
+| Cap                                | Default value | Guards                                                                                             | Checked before                                                                        |
+| ---------------------------------- | ------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `ISOBMFF_MAX_META_BYTES`           | 16 MiB        | the single top-level `meta` box's declared payload size                                            | `meta`'s payload is read into memory (`IsobmffBudget.checkMetaSize`)                  |
+| `ISOBMFF_MAX_BOX_COUNT`            | 65,536        | the running count of every box recorded, top-level and within `meta`                               | each box header is recorded (`IsobmffBudget.countBox`)                                |
+| `ISOBMFF_MAX_BOX_DEPTH`            | 8             | container-nesting depth inside `meta` (`dinf`/`iprp`/`ipco`/`grpl`/`iinf`/`iref`)                  | descending into a nested container (`IsobmffBudget.checkDepth`)                       |
+| `ISOBMFF_MAX_BUFFERED_BYTES_TOTAL` | 32 MiB        | the aggregate bytes buffered from outside `meta` (every removable item's own Exif/XMP extent read) | each extent's `readExactly` call (`IsobmffBudget.consumeBuffered`, in `admitIsobmff`) |
+
+**`ISOBMFF_MAX_META_BYTES` vs. the measured real-device sample:** the measured iPhone 13 Pro Max
+sample's `meta` box is 3,709 bytes (see the "Measured real-device sample" table above).
+`ISOBMFF_MAX_META_BYTES` (16 MiB = 16,777,216 bytes) is approximately 4,524x that measured size
+-- comfortably over the 256x headroom floor this phase's own discretion note requires.
+
+**Combined worst case:** a single admitted file's resident working set from this engine's own
+buffering is bounded by `ISOBMFF_MAX_META_BYTES + ISOBMFF_MAX_BUFFERED_BYTES_TOTAL` = 16 MiB + 32
+MiB = 48 MiB, plus whatever headroom the box-count/depth caps leave for `BoxHeader` bookkeeping
+objects (bounded in count, not in declared byte size) -- `mdat`'s own payload is never buffered in
+full regardless of its declared size (61-04's 1 GiB sparse-read-log proof; `admitIsobmff` only
+ever reads a removable item's own small extents, each individually capped by
+`maxBufferedBytesTotal`).
+
+**Every cap is checked before the read or descent it guards, never after** (the "Checked before"
+column above; mirrors `BufferedBudget`/`InflateBudget`, `src/png/chunks.ts:548-571, 817-838`).
+
+**Caps are not advertised in `FormatCapabilities.limits` in Phase 61** -- no public type changes
+this phase (D-15; 61-CONTEXT.md "Claude's Discretion"). Phase 62 decides whether to surface them
+when `heic`/`avif` handlers are registered.
+
+**Measurement method (D-29):** `tests/isobmff_memory.test.ts` + `tests/isobmff_memory_child.mjs`
+prove each cap discriminates with a real, measured child-process peak RSS: one fixture per cap,
+each declining under the real default caps at or below `ISOBMFF_MEMORY_RSS_CEILING_BYTES`, and
+each fixture re-run with that one cap alone raised to `Number.POSITIVE_INFINITY` (every other cap
+left at its real default) measuring strictly above the ceiling -- except the box-depth negative
+control, which may instead exhaust the JS call stack (a "crash" outcome) rather than grow RSS,
+since `walkContainer` recurses once per nesting level; both outcomes prove the depth cap is
+load-bearing. No measured RSS figure is published here or in any test/CHANGELOG text (60-CONTEXT
+D-29); the recorded figures and the exact ceiling derivation live in
+`.planning/phases/61-isobmff-reader-and-admission-classifier/61-11-SUMMARY.md`.
 
 ## Admission of the measured sample
 
