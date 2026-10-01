@@ -5,6 +5,7 @@
 // every graph-validity decline. Task 3 proves `parseIsobmff` never reads `mdat`'s payload.
 import { mkdtemp, open, rm } from "node:fs/promises";
 import { readFileSync } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +13,28 @@ import { afterEach, describe, expect, it } from "vitest";
 import { parseIsobmff } from "../src/isobmff/parse.js";
 import { buildItemModel } from "../src/isobmff/items.js";
 import { inventoryIsobmff } from "./isobmff-support/inventory.js";
+import {
+  auxC,
+  box,
+  colrNclx,
+  colrProf,
+  ftypBox,
+  fullBox,
+  grplBox,
+  hdlrBox,
+  hvcC,
+  iinfBox,
+  ilocBox,
+  infeBox,
+  ipcoBox,
+  ipmaBox,
+  iprpBox,
+  irefBox,
+  ispe,
+  mdatBox,
+  metaBox,
+  pitmBox,
+} from "./isobmff-support/builder.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -173,5 +196,584 @@ describe("parseIsobmff item graph on heif-enc-grid.heic", () => {
     } finally {
       await handle.close();
     }
+  });
+});
+
+// --- Task 2: AVIF oracle, colr extraction, builder configurations, and graph-validity declines ---
+
+describe("parseIsobmff item graph on heif-enc-grid.avif", () => {
+  it("matches the independent inventory walker's items, references, properties and associations", async () => {
+    await expectModelMatchesInventory(AVIF_PATH);
+  });
+});
+
+/** A minimal, structurally-valid one-item meta: hdlr(pict), pitm, iinf[infe], iprp[ipco,ipma],
+ * iloc. Each test overrides exactly the piece under test via the optional parameters. */
+function buildMinimalFile(options: {
+  readonly itemType?: string;
+  readonly ipcoProperties?: readonly Buffer[];
+  readonly ipmaAssociations?: readonly {
+    readonly propertyIndex: number;
+    readonly essential: boolean;
+  }[];
+  readonly extraMetaChildren?: readonly Buffer[];
+  readonly hdlrType?: string;
+  readonly pitmVersion?: 0 | 1;
+  readonly pitmItemId?: number;
+  readonly infeVersion?: 0 | 1 | 2 | 3;
+  readonly iinfVersion?: 0 | 1;
+  readonly ilocVersion?: 0 | 1 | 2;
+  readonly omitHdlr?: boolean;
+  readonly omitPitm?: boolean;
+  readonly omitIinf?: boolean;
+  readonly omitIloc?: boolean;
+}): Buffer {
+  const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+  const hdlr = hdlrBox(options.hdlrType ?? "pict");
+  const pitm = pitmBox(options.pitmVersion ?? 0, options.pitmItemId ?? 1);
+  const infe = infeBox({
+    version: options.infeVersion ?? 2,
+    itemId: 1,
+    itemType: options.itemType ?? "hvc1",
+  });
+  const iinf = iinfBox(options.iinfVersion ?? 0, [infe]);
+  const ipco = ipcoBox(options.ipcoProperties ?? [ispe(32, 32), hvcC()]);
+  const ipma = ipmaBox({
+    version: 0,
+    flags: 0,
+    entries: [
+      {
+        itemId: 1,
+        associations: options.ipmaAssociations ?? [
+          { propertyIndex: 1, essential: false },
+          { propertyIndex: 2, essential: true },
+        ],
+      },
+    ],
+  });
+  const iprp = iprpBox(ipco, ipma);
+  const iloc = ilocBox({
+    version: options.ilocVersion ?? 0,
+    offsetSize: 4,
+    lengthSize: 4,
+    baseOffsetSize: 0,
+    indexSize: 0,
+    items: [
+      {
+        itemId: 1,
+        dataReferenceIndex: 0,
+        baseOffset: 0,
+        extents: [{ offset: 0, length: 4 }],
+      },
+    ],
+  });
+
+  const children: Buffer[] = [];
+  if (options.omitHdlr !== true) children.push(hdlr);
+  if (options.omitPitm !== true) children.push(pitm);
+  if (options.omitIinf !== true) children.push(iinf);
+  children.push(iprp);
+  if (options.omitIloc !== true) children.push(iloc);
+  if (options.extraMetaChildren !== undefined) {
+    children.push(...options.extraMetaChildren);
+  }
+
+  const meta = metaBox(children);
+  const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+  return Buffer.concat([ftyp, meta, mdat]);
+}
+
+async function expectDecline(
+  file: Buffer,
+  declineClass: string,
+  kind: string,
+): Promise<void> {
+  await expect(parseFixtureBytes(file)).rejects.toMatchObject({
+    declineClass,
+    kind,
+  });
+}
+
+describe("colr extraction (D-12)", () => {
+  it("colr prof on the primary item sets colorProfile to the exact ICC bytes", async () => {
+    const iccBytes = Buffer.from([0xaa, 0xbb, 0xcc, 0xdd, 0xee]);
+    const file = buildMinimalFile({
+      ipcoProperties: [ispe(32, 32), hvcC(), colrProf(iccBytes)],
+      ipmaAssociations: [
+        { propertyIndex: 1, essential: false },
+        { propertyIndex: 3, essential: false },
+      ],
+    });
+    const model = await parseFixtureBytes(file);
+    expect(model.colorProfile).toEqual(iccBytes);
+  });
+
+  it("colr nclx on the primary item leaves colorProfile undefined", async () => {
+    const file = buildMinimalFile({
+      ipcoProperties: [ispe(32, 32), hvcC(), colrNclx(1, 13, 6, true)],
+      ipmaAssociations: [
+        { propertyIndex: 1, essential: false },
+        { propertyIndex: 3, essential: false },
+      ],
+    });
+    const model = await parseFixtureBytes(file);
+    expect(model.colorProfile).toBeUndefined();
+  });
+
+  it("no colr property at all leaves colorProfile undefined", async () => {
+    const file = buildMinimalFile({});
+    const model = await parseFixtureBytes(file);
+    expect(model.colorProfile).toBeUndefined();
+  });
+});
+
+describe("auxC URN round-trip", () => {
+  it("reads back urn:com:apple:photo:2020:aux:hdrgainmap exactly", async () => {
+    const urn = "urn:com:apple:photo:2020:aux:hdrgainmap";
+    const file = buildMinimalFile({
+      ipcoProperties: [ispe(32, 32), hvcC(), auxC(urn)],
+    });
+    const model = await parseFixtureBytes(file);
+    const auxProperty = model.properties.find(
+      (property) => property.type === "auxC",
+    );
+    expect(auxProperty?.auxUrn).toBe(urn);
+  });
+});
+
+describe("grpl entity groups", () => {
+  it("an altr group's members are recorded as { type, groupId, entityIds }", async () => {
+    const file = buildMinimalFile({
+      extraMetaChildren: [
+        grplBox([{ type: "altr", groupId: 42, entityIds: [1] }]),
+      ],
+    });
+    const model = await parseFixtureBytes(file);
+    expect(model.groups).toEqual([
+      { type: "altr", groupId: 42, entityIds: [1] },
+    ]);
+  });
+});
+
+describe("item order follows iinf order (BMF-04)", () => {
+  it("model order equals iinf order even when iloc and ipma list items differently", async () => {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe1 = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const infe2 = infeBox({ version: 2, itemId: 2, itemType: "hvc1" });
+    const iinf = iinfBox(0, [infe1, infe2]); // iinf order: 1, 2
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        // ipma order: 2, 1 -- deliberately reversed from iinf order.
+        {
+          itemId: 2,
+          associations: [{ propertyIndex: 1, essential: false }],
+        },
+        {
+          itemId: 1,
+          associations: [{ propertyIndex: 2, essential: true }],
+        },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        // iloc order: 2, 1 -- also reversed from iinf order.
+        {
+          itemId: 2,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 4, length: 4 }],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]));
+    const file = Buffer.concat([ftyp, meta, mdat]);
+
+    const model = await parseFixtureBytes(file);
+    expect(model.items.map((item) => item.id)).toEqual([1, 2]);
+  });
+});
+
+describe("meta validity declines", () => {
+  it("hdlr other than pict declines meta-handler-not-pict", async () => {
+    await expectDecline(
+      buildMinimalFile({ hdlrType: "vide" }),
+      "meta-handler-not-pict",
+      "unsupported-format",
+    );
+  });
+
+  it('a meta child "abcd" declines unknown-meta-child', async () => {
+    await expectDecline(
+      buildMinimalFile({ extraMetaChildren: [box("abcd", Buffer.alloc(4))] }),
+      "unknown-meta-child",
+      "unsupported-format",
+    );
+  });
+
+  it("infe v1 declines unsupported-box-version", async () => {
+    await expectDecline(
+      buildMinimalFile({ infeVersion: 1 }),
+      "unsupported-box-version",
+      "unsupported-format",
+    );
+  });
+
+  it("iinf v2 declines unsupported-box-version", async () => {
+    // iinfBox's type signature only admits 0 | 1; build the version-2 header directly.
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const countAndChildren = Buffer.concat([Buffer.from([0, 0, 0, 1]), infe]);
+    const iinfV2 = fullBox("iinf", 2, 0, countAndChildren);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        {
+          itemId: 1,
+          associations: [{ propertyIndex: 1, essential: false }],
+        },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinfV2, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+    await expectDecline(
+      Buffer.concat([ftyp, meta, mdat]),
+      "unsupported-box-version",
+      "unsupported-format",
+    );
+  });
+
+  it("iref v2 declines unsupported-box-version", async () => {
+    // irefBox's type signature only admits 0 | 1; build the version-2 header directly.
+    const file = buildMinimalFile({
+      extraMetaChildren: [
+        fullBox(
+          "iref",
+          2,
+          0,
+          box(
+            "dimg",
+            Buffer.concat([Buffer.from([0, 1]), Buffer.from([0, 0])]),
+          ),
+        ),
+      ],
+    });
+    await expectDecline(file, "unsupported-box-version", "unsupported-format");
+  });
+
+  it("pitm v2 declines unsupported-box-version", async () => {
+    // pitmBox's type signature only admits 0 | 1; build the version-2 header directly.
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitmV2 = fullBox("pitm", 2, 0, Buffer.from([0, 1]));
+    const infe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const iinf = iinfBox(0, [infe]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        {
+          itemId: 1,
+          associations: [{ propertyIndex: 1, essential: false }],
+        },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitmV2, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+    await expectDecline(
+      Buffer.concat([ftyp, meta, mdat]),
+      "unsupported-box-version",
+      "unsupported-format",
+    );
+  });
+
+  it("an unknown ipco property type (clap) is kept as an opaque range, not declined", async () => {
+    const file = buildMinimalFile({
+      ipcoProperties: [ispe(32, 32), hvcC(), box("clap", Buffer.alloc(16))],
+      ipmaAssociations: [
+        { propertyIndex: 1, essential: false },
+        { propertyIndex: 3, essential: false },
+      ],
+    });
+    const model = await parseFixtureBytes(file);
+    const clap = model.properties.find((property) => property.type === "clap");
+    expect(clap).toBeDefined();
+    expect(clap?.auxUrn).toBeUndefined();
+    expect(clap?.colourType).toBeUndefined();
+  });
+});
+
+describe("item-graph validity declines (BMF-04)", () => {
+  it("missing hdlr declines item-graph-invalid", async () => {
+    await expectDecline(
+      buildMinimalFile({ omitHdlr: true }),
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+
+  it("missing pitm declines item-graph-invalid", async () => {
+    await expectDecline(
+      buildMinimalFile({ omitPitm: true }),
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+
+  it("missing iinf declines item-graph-invalid", async () => {
+    await expectDecline(
+      buildMinimalFile({ omitIinf: true }),
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+
+  it("missing iloc declines item-graph-invalid", async () => {
+    await expectDecline(
+      buildMinimalFile({ omitIloc: true }),
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+
+  it("a pitm naming an undeclared item declines item-graph-invalid", async () => {
+    await expectDecline(
+      buildMinimalFile({ pitmItemId: 99 }),
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+
+  it("an iloc entry for an undeclared item declines item-graph-invalid", async () => {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const iinf = iinfBox(0, [infe]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        { itemId: 1, associations: [{ propertyIndex: 1, essential: false }] },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+        {
+          itemId: 99, // undeclared in iinf
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+    await expectDecline(
+      Buffer.concat([ftyp, meta, mdat]),
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+
+  it("an iref naming an undeclared item declines item-graph-invalid", async () => {
+    const file = buildMinimalFile({
+      extraMetaChildren: [
+        irefBox(0, [{ type: "cdsc", fromItemId: 1, toItemIds: [99] }]),
+      ],
+    });
+    await expectDecline(file, "item-graph-invalid", "malformed-file");
+  });
+
+  it("a duplicate item_ID in iinf declines item-graph-invalid", async () => {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe1 = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const infe2 = infeBox({ version: 2, itemId: 1, itemType: "hvc1" }); // duplicate
+    const iinf = iinfBox(0, [infe1, infe2]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        { itemId: 1, associations: [{ propertyIndex: 1, essential: false }] },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+    await expectDecline(
+      Buffer.concat([ftyp, meta, mdat]),
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+
+  it("a duplicate item_ID in iloc declines item-graph-invalid", async () => {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const iinf = iinfBox(0, [infe]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        { itemId: 1, associations: [{ propertyIndex: 1, essential: false }] },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+        {
+          itemId: 1, // duplicate
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 4, length: 4 }],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]));
+    await expectDecline(
+      Buffer.concat([ftyp, meta, mdat]),
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+
+  it("a duplicate item_ID in ipma declines item-graph-invalid", async () => {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const iinf = iinfBox(0, [infe]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        { itemId: 1, associations: [{ propertyIndex: 1, essential: false }] },
+        { itemId: 1, associations: [{ propertyIndex: 2, essential: true }] }, // duplicate
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+    await expectDecline(
+      Buffer.concat([ftyp, meta, mdat]),
+      "item-graph-invalid",
+      "malformed-file",
+    );
   });
 });
