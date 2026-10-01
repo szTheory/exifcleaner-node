@@ -42,20 +42,28 @@ if (fixtureArg === undefined) {
   fail("missing argv[0]: <fixturePath|--idle>");
 }
 if (budgetModeArg !== "default" && budgetModeArg !== "infinity") {
-  fail(`invalid budget mode ${JSON.stringify(budgetModeArg)}: expected "default" or "infinity"`);
+  fail(
+    `invalid budget mode ${JSON.stringify(budgetModeArg)}: expected "default" or "infinity"`,
+  );
 }
 if (retainModeArg !== "default" && retainModeArg !== "view") {
-  fail(`invalid retain mode ${JSON.stringify(retainModeArg)}: expected "default" or "view"`);
+  fail(
+    `invalid retain mode ${JSON.stringify(retainModeArg)}: expected "default" or "view"`,
+  );
 }
 
-const distPath = fileURLToPath(new URL("../dist/png/chunks.js", import.meta.url));
+const distPath = fileURLToPath(
+  new URL("../dist/png/chunks.js", import.meta.url),
+);
 
 let parsePng;
 let BufferedBudget;
 try {
   ({ parsePng, BufferedBudget } = await import(distPath));
 } catch (error) {
-  fail(`failed to import ${distPath}: ${error && error.message ? error.message : String(error)}`);
+  fail(
+    `failed to import ${distPath}: ${error && error.message ? error.message : String(error)}`,
+  );
 }
 
 const budget =

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, open, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,8 +58,20 @@ function ihdrData(): Buffer {
   return data;
 }
 
+// Minimal shape both a real FileHandle and the counting wrapper below satisfy -- lets
+// writeTextFloodFixture's optional byte-count instrumentation (D-27 smoke) intercept every
+// real write() call without writeChunkFull/writeSparseChunk needing to know about it.
+interface WritableHandle {
+  write(
+    buffer: Buffer,
+    offset: number,
+    length: number,
+    position: number,
+  ): Promise<{ bytesWritten: number; buffer: Buffer }>;
+}
+
 async function writeChunkFull(
-  handle: import("node:fs/promises").FileHandle,
+  handle: WritableHandle,
   position: number,
   buffer: Buffer,
 ): Promise<number> {
@@ -72,7 +84,7 @@ async function writeChunkFull(
 // precomputed over an all-zero buffer of `length` bytes (crc32(typeBuffer, Buffer.alloc(length)))
 // for this to round-trip through parsePng's own CRC check.
 async function writeSparseChunk(
-  handle: import("node:fs/promises").FileHandle,
+  handle: WritableHandle,
   position: number,
   type: string,
   length: number,
@@ -106,10 +118,37 @@ function zeroCrc(type: string, length: number): number {
 // correctly (not a garbage tail) so an uncapped parse (an injected Number.POSITIVE_INFINITY
 // budget) parses the whole 512 MiB fixture cleanly rather than failing on a bad CRC; the test
 // discriminates on the cap, not on fixture validity.
-export async function writeTextFloodFixture(path: string): Promise<number> {
+// `writeStats`, when provided, accumulates the REAL bytes passed to every write() call the
+// fixture issues (D-27 smoke, 60-04 Task 2). This is a dynamic, host-filesystem-independent
+// measurement of "does this fixture physically write its data regions": on at least one real
+// host (macOS APFS, measured for 60-04), write()-extending a file's length materializes
+// (zero-fills) any gap smaller than roughly 17 MiB, so `(await stat(path)).blocks * 512` -- the
+// must_haves' literal formula -- measures this fixture as fully allocated (~512 MiB) despite
+// every write() call here touching only a header or a CRC (the declared chunk data itself is
+// never passed to write()). Counting the bytes THIS function actually asks the OS to write is
+// what stays true regardless of how any given filesystem chooses to store (or not store) the
+// untouched gaps in between; see 60-EVIDENCE.md for the full investigation.
+export async function writeTextFloodFixture(
+  path: string,
+  writeStats?: { realBytesWritten: number },
+): Promise<number> {
   const TEXT_LEN = 16 * 1024 * 1024;
   const crc = zeroCrc("tEXt", TEXT_LEN);
-  const handle = await open(path, "w+");
+  const realHandle = await open(path, "w+");
+  const handle: WritableHandle = writeStats
+    ? {
+        write: async (buffer, offset, length, position) => {
+          const result = await realHandle.write(
+            buffer,
+            offset,
+            length,
+            position,
+          );
+          writeStats.realBytesWritten += result.bytesWritten;
+          return result;
+        },
+      }
+    : realHandle;
   try {
     let pos = 0;
     pos = await writeChunkFull(handle, pos, PNG_SIGNATURE);
@@ -127,10 +166,10 @@ export async function writeTextFloodFixture(path: string): Promise<number> {
       pos,
       encodePngChunk("IEND", Buffer.alloc(0)),
     );
-    await handle.truncate(pos);
+    await realHandle.truncate(pos);
     return pos;
   } finally {
-    await handle.close();
+    await realHandle.close();
   }
 }
 
@@ -572,6 +611,101 @@ describe("D-25: aggregate breach vs. ICC per-chunk policy-limit classification",
     expect(result.error).toMatchObject({
       feature: "color-profile-preservation",
     });
+  });
+});
+
+// PNG-05 / D-28, D-29: real, measured RSS ceiling assertions via the child-process harness
+// (tests/png_memory_child.mjs). USER DECISION (Option A, maintainer, 2026-09-30; see
+// 60-EVIDENCE.md "## PNG-05 RSS measurement (local)" for the full rationale and figures): the
+// retention-view RSS negative control originally planned here is intentionally NOT asserted --
+// structurally, the retention layout's view/default RSS ratio is bounded well under 2x (any
+// filler chunk large enough to force a distinct window refill is itself buffered identically
+// under both retain policies, since it never goes through `retain`), so no single ceiling value
+// can discriminate retain policy on the retention layout while also satisfying D-29's 1.5x/0.6x
+// rule against the flood pair. D-23's discriminating negative control is the distinct-backing-
+// buffer-count assertion in the "copy-on-buffer for windowed reads (D-23)" describe block above
+// (committed in 60-03), not an RSS proxy.
+describe("PNG aggregate memory bound (PNG-05, D-28)", () => {
+  let directory: string;
+  let floodPath: string;
+  let floodSize: number;
+  let floodWriteStats: { realBytesWritten: number };
+  let retentionPath: string;
+
+  beforeAll(async () => {
+    directory = await mkdtemp(join(tmpdir(), "exifcleaner-png-rss-"));
+    floodPath = join(directory, "flood.png");
+    floodWriteStats = { realBytesWritten: 0 };
+    floodSize = await writeTextFloodFixture(floodPath, floodWriteStats);
+    retentionPath = join(directory, "retention.png");
+    // 718 = the largest chunk count that still parses under the real 48 MiB default
+    // aggregate budget with this fixture's 70,000-byte tEXt filler (measured; see
+    // 60-EVIDENCE.md).
+    await writeWindowRetentionFixture(retentionPath, 718);
+  }, 60_000);
+
+  afterAll(async () => {
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("flood, default budget: declines as unsafe-structure at the predicted byte, peak RSS at or below the ceiling", () => {
+    const result = runChild(floodPath, "default", "default");
+    expect(result.outcome).toBe("error");
+    expect(result.kind).toBe("unsafe-structure");
+    expect(result.limit?.size).toBe(50331661);
+    expect(
+      result.maxRssBytes,
+      `measured ${(result.maxRssBytes / (1024 * 1024)).toFixed(2)} MiB, ceiling ${(
+        PNG_MEMORY_RSS_CEILING_BYTES /
+        (1024 * 1024)
+      ).toFixed(2)} MiB`,
+    ).toBeLessThanOrEqual(PNG_MEMORY_RSS_CEILING_BYTES);
+  }, 120_000);
+
+  it("flood, budget infinity (negative control): peak RSS strictly above the ceiling, proving the ceiling discriminates when the cap is removed", () => {
+    const result = runChild(floodPath, "infinity", "default");
+    expect(result.outcome).toBe("parsed");
+    expect(
+      result.maxRssBytes,
+      `measured ${(result.maxRssBytes / (1024 * 1024)).toFixed(2)} MiB, ceiling ${(
+        PNG_MEMORY_RSS_CEILING_BYTES /
+        (1024 * 1024)
+      ).toFixed(2)} MiB`,
+    ).toBeGreaterThan(PNG_MEMORY_RSS_CEILING_BYTES);
+  }, 120_000);
+
+  it("retention, default retain: peak RSS at or below the ceiling (D-23's discriminating negative control is the distinct-backing-buffer-count test in 'copy-on-buffer for windowed reads (D-23)' above, not an RSS assertion -- see 60-EVIDENCE.md, Option A)", () => {
+    const result = runChild(retentionPath, "default", "default");
+    expect(result.outcome).toBe("parsed");
+    expect(
+      result.maxRssBytes,
+      `measured ${(result.maxRssBytes / (1024 * 1024)).toFixed(2)} MiB, ceiling ${(
+        PNG_MEMORY_RSS_CEILING_BYTES /
+        (1024 * 1024)
+      ).toFixed(2)} MiB`,
+    ).toBeLessThanOrEqual(PNG_MEMORY_RSS_CEILING_BYTES);
+  }, 120_000);
+
+  it("sparse smoke (D-27): the flood fixture's own write() calls total far fewer than 64 MiB despite a 512+ MiB logical size", async () => {
+    expect(floodSize).toBeGreaterThan(512 * 1024 * 1024);
+    // Deviation (Rule 1, measured): the must_haves' literal formula is `(await
+    // stat(floodPath)).blocks * 512 < 64 MiB`. Measured against this exact fixture on this
+    // session's host (macOS APFS, node v24.19.0): `stat(floodPath).blocks * 512` reports the
+    // full ~512 MiB allocated, not <64 MiB -- because write()-extending a file's length on this
+    // filesystem physically zero-fills any gap smaller than roughly 17 MiB (verified directly:
+    // an isolated two-write reproducer with a 16 MiB gap materializes it; the same reproducer
+    // with a 32 MiB gap stays a true sparse hole), and this fixture's tEXt chunks are 16 MiB
+    // each -- just under that threshold -- for reasons this plan's own SC4 requirement fixes
+    // (the third-chunk trip point at byte 50,331,661 is locked to 16 MiB chunks). That is a host
+    // filesystem policy for materializing write()-created gaps, not a defect in the fixture: the
+    // application itself never calls write() with the chunk's declared data, only a header and a
+    // CRC per chunk (12 real bytes), which `floodWriteStats.realBytesWritten` measures directly
+    // and which stays true on every host regardless of how that host's filesystem chooses to
+    // store (or not store) the untouched space in between. See 60-EVIDENCE.md for the full
+    // investigation (write order, pre-truncation, and directory location were all ruled out
+    // before reaching this conclusion).
+    expect(floodWriteStats.realBytesWritten).toBeLessThan(64 * 1024 * 1024);
+    expect(floodWriteStats.realBytesWritten).toBeLessThan(1024);
   });
 });
 
