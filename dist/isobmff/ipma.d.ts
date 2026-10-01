@@ -12,5 +12,11 @@ export interface IpmaEntry {
     readonly itemId: number;
     readonly associations: readonly IpmaAssociation[];
 }
-export declare function parseIpma(_payload: Buffer, _version: number, _flags: number): readonly IpmaEntry[];
+/**
+ * Parse an `ipma` box's payload (the bytes immediately after the FullBox version/flags, which the
+ * caller has already stripped). `version`/`flags` come from that same FullBox header. Declines
+ * `unsupported-box-version` for anything outside `{0, 1}`, and `box-framing` for a truncated
+ * payload or an `association_count` running past the payload end.
+ */
+export declare function parseIpma(payload: Buffer, version: number, flags: number): readonly IpmaEntry[];
 //# sourceMappingURL=ipma.d.ts.map
