@@ -232,6 +232,41 @@ describe("isolationViolations() negative controls (synthetic sources)", () => {
     ]);
   });
 
+  it("generator.ts importing src/isobmff/ directly is a violation (61-12)", () => {
+    const violations = isolationViolations([
+      {
+        path: "generator.ts",
+        source:
+          'import { admitIsobmff } from "../../src/isobmff/admission.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "generator.ts", specifier: "../../src/isobmff/admission.js" },
+    ]);
+  });
+
+  it("generator.ts importing inventory.ts is a violation (61-12: not the independent oracle)", () => {
+    const violations = isolationViolations([
+      {
+        path: "generator.ts",
+        source: 'import { walk } from "./inventory.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "generator.ts", specifier: "./inventory.js" },
+    ]);
+  });
+
+  it("generator.ts importing the builder is allowed (61-12: the shared encoding core, D-19)", () => {
+    const violations = isolationViolations([
+      {
+        path: "generator.ts",
+        source: 'import { ftypBox } from "./builder.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([]);
+  });
+
   it("hostile.ts's type-only IsobmffDeclineClass import is allowed (D-14 exception)", () => {
     const violations = isolationViolations([
       {
