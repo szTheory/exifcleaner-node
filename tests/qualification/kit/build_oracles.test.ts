@@ -85,6 +85,8 @@ export function fakeBuild(workspace: string): FakeTools {
   return tools as FakeTools;
 }
 
+// A prepareOracleDir call measured ~2s on hosted runners; a test that
+// prepares twice sat at the 5s default and timed out in CI (PR #30).
 describe("build-oracles.cjs prepare/cache/assert (KIT-09)", () => {
   it("prepares into a directory, loads it read-only through a cache loader, and asserts one build (tracer)", () => {
     const dir = mkdtempSync(join(tmpdir(), "exifcleaner-oracle-dir-"));
@@ -108,7 +110,7 @@ describe("build-oracles.cjs prepare/cache/assert (KIT-09)", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
-});
+}, 30_000);
 
 describe("build-oracles.cjs negative controls and edges (KIT-09 D-07)", () => {
   it("rejects a second prepare into the same directory (already claimed) while a second directory is independent", () => {
@@ -385,4 +387,4 @@ describe("build-oracles.cjs negative controls and edges (KIT-09 D-07)", () => {
       expect(text.includes("loadOrPrepareOracleTools()")).toBe(true);
     }
   });
-});
+}, 30_000);
