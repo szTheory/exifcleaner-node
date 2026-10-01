@@ -557,6 +557,105 @@ describe("meta validity declines", () => {
   });
 });
 
+// --- D-14 regression (61-09, orchestrator-added): 61-08 fixed parseInfe's mime branch to treat
+// content_encoding as OPTIONAL (ISO/IEC 23008-12 9.2), matching the real iPhone 13 Pro Max
+// sample's XMP item (item 52), whose infe payload ends exactly at content_type's own terminator.
+// No prior committed test covered the absent case: every heif-enc/builder fixture wrote an
+// explicit empty content_encoding (one NUL byte). `omitContentEncoding` (tests/isobmff-support/
+// builder.ts) writes nothing at all after content_type, proving the absent shape independently of
+// the explicit-empty shape.
+describe("D-14 regression: mime infe with absent content_encoding (61-09, orchestrator-added)", () => {
+  function buildFileWithMimeItem(options: {
+    readonly omitContentEncoding?: boolean;
+    readonly contentEncoding?: string;
+  }): Buffer {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const primaryPayload = Buffer.from([1, 2, 3, 4]);
+    const xmpPayload = Buffer.from(
+      `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">` +
+        `<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>t</dc:title></rdf:Description>` +
+        `</rdf:RDF></x:xmpmeta>`,
+      "utf8",
+    );
+    const infePrimary = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const infeMime = infeBox({
+      version: 2,
+      itemId: 2,
+      itemType: "mime",
+      contentType: "application/rdf+xml",
+      hidden: true,
+      ...(options.omitContentEncoding === true
+        ? { omitContentEncoding: true }
+        : {}),
+      ...(options.contentEncoding !== undefined
+        ? { contentEncoding: options.contentEncoding }
+        : {}),
+    });
+    const iinf = iinfBox(0, [infePrimary, infeMime]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        {
+          itemId: 1,
+          associations: [
+            { propertyIndex: 1, essential: false },
+            { propertyIndex: 2, essential: true },
+          ],
+        },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: primaryPayload.length }],
+        },
+        {
+          itemId: 2,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [
+            { offset: primaryPayload.length, length: xmpPayload.length },
+          ],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.concat([primaryPayload, xmpPayload]));
+    return Buffer.concat([ftyp, meta, mdat]);
+  }
+
+  it("parses with contentEncoding undefined when content_encoding is entirely absent", async () => {
+    const file = buildFileWithMimeItem({ omitContentEncoding: true });
+    const model = await parseFixtureBytes(file);
+    const mimeItem = model.items.find((item) => item.id === 2);
+    expect(mimeItem).toBeDefined();
+    expect(mimeItem?.contentType).toBe("application/rdf+xml");
+    expect(mimeItem?.contentEncoding).toBeUndefined();
+  });
+
+  it("parses the explicit-empty-string shape identically for comparison (contentEncoding '')", async () => {
+    const file = buildFileWithMimeItem({ contentEncoding: "" });
+    const model = await parseFixtureBytes(file);
+    const mimeItem = model.items.find((item) => item.id === 2);
+    expect(mimeItem).toBeDefined();
+    expect(mimeItem?.contentType).toBe("application/rdf+xml");
+    expect(mimeItem?.contentEncoding).toBe("");
+  });
+});
+
 describe("item-graph validity declines (BMF-04)", () => {
   it("missing hdlr declines item-graph-invalid", async () => {
     await expectDecline(

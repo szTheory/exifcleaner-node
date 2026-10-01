@@ -115,6 +115,10 @@ interface ItemSpec {
   readonly hidden?: boolean;
   readonly contentType?: string;
   readonly contentEncoding?: string;
+  /** D-14 regression (61-09): when `true`, writes no content_encoding bytes at all after
+   * content_type (ISO/IEC 23008-12 9.2's OPTIONAL field, absent on the real iPhone 13 Pro Max
+   * sample's XMP item). */
+  readonly omitContentEncoding?: boolean;
   readonly constructionMethod?: number;
   readonly dataReferenceIndex?: number;
   /** cm=0: relative to the mdat payload's own start, resolved to an absolute `baseOffset` by the
@@ -169,6 +173,9 @@ function buildFile(spec: FileSpec): Buffer {
           : {}),
         ...(item.contentEncoding !== undefined
           ? { contentEncoding: item.contentEncoding }
+          : {}),
+        ...(item.omitContentEncoding === true
+          ? { omitContentEncoding: true }
           : {}),
       }),
     );
@@ -393,6 +400,44 @@ describe("the measured iPhone shape (builder, D-08/D-09)", () => {
     expect(admission.classification.removableItemIds).toEqual([5, 6]);
     expect(admission.classification.emptiedItemIds).toEqual([]);
     expect(admission.namespaces).toContain("EXIF");
+    expect(admission.namespaces).toContain("XMP");
+  });
+});
+
+describe("D-14 regression: mime infe with absent content_encoding (61-09, orchestrator-added)", () => {
+  it("admits the XMP item (removable, non-emptied) exactly like the explicit-empty-string shape", async () => {
+    const primaryPayload = Buffer.from([1, 2, 3, 4]);
+    const xmpPayload = minimalXmp("absent-content-encoding");
+    const spec: FileSpec = {
+      primaryItemId: 1,
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: primaryPayload.length }],
+        },
+        {
+          itemId: 2,
+          itemType: "mime",
+          hidden: true,
+          contentType: "application/rdf+xml",
+          omitContentEncoding: true,
+          extents: [
+            { relOffset: primaryPayload.length, length: xmpPayload.length },
+          ],
+        },
+      ],
+      mdatPayload: Buffer.concat([primaryPayload, xmpPayload]),
+    };
+    const bytes = buildFile(spec);
+    const { path, size } = await writeFixture(bytes);
+    const admission = await withHandle(path, (handle) =>
+      admitIsobmff(handle, size),
+    );
+
+    expect(admission.classification.survivingItemIds).toEqual([1]);
+    expect(admission.classification.removableItemIds).toEqual([2]);
+    expect(admission.classification.emptiedItemIds).toEqual([]);
     expect(admission.namespaces).toContain("XMP");
   });
 });

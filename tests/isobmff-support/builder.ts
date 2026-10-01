@@ -158,6 +158,14 @@ export interface InfeConfig {
   readonly name?: string;
   readonly contentType?: string;
   readonly contentEncoding?: string;
+  /**
+   * When `true` (v2/v3 `mime` items only), writes nothing at all after `content_type`'s own NUL
+   * terminator -- proving ISO/IEC 23008-12 9.2's OPTIONAL `content_encoding` field can be
+   * entirely absent, not merely an explicit empty string (D-14 regression, 61-09). Default
+   * (`false`/omitted) keeps every existing caller byte-identical: an explicit NUL is still
+   * written for `contentEncoding ?? ""`.
+   */
+  readonly omitContentEncoding?: boolean;
   readonly uriType?: string;
 }
 
@@ -181,7 +189,9 @@ export function infeBox(config: InfeConfig): Buffer {
     parts.push(nullTerminatedString(config.name ?? ""));
     if (itemType === "mime") {
       parts.push(nullTerminatedString(config.contentType ?? ""));
-      parts.push(nullTerminatedString(config.contentEncoding ?? ""));
+      if (config.omitContentEncoding !== true) {
+        parts.push(nullTerminatedString(config.contentEncoding ?? ""));
+      }
     } else if (itemType === "uri ") {
       parts.push(nullTerminatedString(config.uriType ?? ""));
     }
