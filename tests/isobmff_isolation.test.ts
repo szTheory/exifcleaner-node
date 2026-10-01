@@ -31,6 +31,14 @@ interface IsolationRule {
   readonly fileName: string;
   /** Substrings of an import specifier that are forbidden for this file. */
   readonly forbiddenSpecifierSubstrings: readonly string[];
+  /**
+   * D-14/61-09: specifier substrings a *type-only* (`import type ... from "..."`) occurrence is
+   * allowed to match even though it would otherwise trip `forbiddenSpecifierSubstrings` --
+   * `hostile.ts`'s one narrow exception (`import type { IsobmffDeclineClass } from
+   * ".../errors.js"`). This is an occurrence-level exception, never a blanket allowance: the same
+   * specifier imported as a *value* is still forbidden (see the negative control below).
+   */
+  readonly allowedTypeOnlySpecifierSubstrings?: readonly string[];
 }
 
 /**
@@ -52,27 +60,59 @@ export const ISOLATION_RULES: readonly IsolationRule[] = [
     fileName: "generator.ts",
     forbiddenSpecifierSubstrings: ["src/isobmff/", "inventory"],
   },
+  {
+    fileName: "hostile.ts",
+    forbiddenSpecifierSubstrings: ["src/isobmff/", "inventory", "generator"],
+    allowedTypeOnlySpecifierSubstrings: ["src/isobmff/errors.js"],
+  },
 ];
 
-// Mirrors `scripts/runtime_surface_gate.mjs`'s `importSpecifiers` static/dynamic import regexes.
+/**
+ * Mirrors `scripts/runtime_surface_gate.mjs`'s `importSpecifiers` static/dynamic import regexes,
+ * widened with a `typeOnly` flag per occurrence (D-14/61-09): `hostile.ts` is the first
+ * isolation-ruled module allowed one narrow, value-free exception, so the scanner must
+ * distinguish a type-only import from a value import at each occurrence, not merely by specifier
+ * text (the same specifier text could appear as a type import in one place and a value import in
+ * another).
+ */
+export interface ImportOccurrence {
+  readonly specifier: string;
+  readonly typeOnly: boolean;
+}
+
 const STATIC_IMPORT =
-  /\b(?:import|export)\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/gu;
+  /\b(?:import|export)\s+(type\s+)?(?:[^"']*?\s+from\s+)?["']([^"']+)["']/gu;
 const DYNAMIC_IMPORT = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/gu;
 
-export function importSpecifiers(source: string): string[] {
-  const specifiers: string[] = [];
-  for (const pattern of [STATIC_IMPORT, DYNAMIC_IMPORT]) {
-    pattern.lastIndex = 0;
-    for (const match of source.matchAll(pattern)) {
-      const specifier = match[1];
-      if (specifier !== undefined) specifiers.push(specifier);
+export function importSpecifiers(source: string): ImportOccurrence[] {
+  const occurrences: ImportOccurrence[] = [];
+  STATIC_IMPORT.lastIndex = 0;
+  for (const match of source.matchAll(STATIC_IMPORT)) {
+    const specifier = match[2];
+    if (specifier !== undefined) {
+      occurrences.push({ specifier, typeOnly: match[1] !== undefined });
     }
   }
-  return specifiers;
+  DYNAMIC_IMPORT.lastIndex = 0;
+  for (const match of source.matchAll(DYNAMIC_IMPORT)) {
+    const specifier = match[1];
+    if (specifier !== undefined) {
+      occurrences.push({ specifier, typeOnly: false });
+    }
+  }
+  return occurrences;
 }
 
 function isForbidden(specifier: string, forbidden: readonly string[]): boolean {
   return forbidden.some((substring) => specifier.includes(substring));
+}
+
+function isAllowedTypeOnly(
+  specifier: string,
+  allowed: readonly string[] | undefined,
+): boolean {
+  if (allowed === undefined) return false;
+  return allowed.some((substring) => specifier.includes(substring));
 }
 
 /**
@@ -86,10 +126,22 @@ export function isolationViolations(
   for (const file of files) {
     const rule = ISOLATION_RULES.find((r) => r.fileName === file.path);
     if (rule === undefined) continue;
-    for (const specifier of importSpecifiers(file.source)) {
-      if (isForbidden(specifier, rule.forbiddenSpecifierSubstrings)) {
-        violations.push({ path: file.path, specifier });
+    for (const occurrence of importSpecifiers(file.source)) {
+      if (
+        !isForbidden(occurrence.specifier, rule.forbiddenSpecifierSubstrings)
+      ) {
+        continue;
       }
+      if (
+        occurrence.typeOnly &&
+        isAllowedTypeOnly(
+          occurrence.specifier,
+          rule.allowedTypeOnlySpecifierSubstrings,
+        )
+      ) {
+        continue;
+      }
+      violations.push({ path: file.path, specifier: occurrence.specifier });
     }
   }
   return violations;
@@ -164,6 +216,52 @@ describe("isolationViolations() negative controls (synthetic sources)", () => {
     ]);
     expect(violations).toEqual([
       { path: "inventory.ts", specifier: "../../src/isobmff/boxes.js" },
+    ]);
+  });
+
+  it("hostile.ts's type-only IsobmffDeclineClass import is allowed (D-14 exception)", () => {
+    const violations = isolationViolations([
+      {
+        path: "hostile.ts",
+        source:
+          'import type { IsobmffDeclineClass } from "../../src/isobmff/errors.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([]);
+  });
+
+  it("hostile.ts importing src/isobmff/errors.js as a VALUE import is still a violation (negative control: the allowance is type-only, never blanket)", () => {
+    const violations = isolationViolations([
+      {
+        path: "hostile.ts",
+        source:
+          'import { ISOBMFF_DECLINE_CLASSES } from "../../src/isobmff/errors.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "hostile.ts", specifier: "../../src/isobmff/errors.js" },
+    ]);
+  });
+
+  it("hostile.ts importing any other src/isobmff/ module (even type-only) is a violation", () => {
+    const violations = isolationViolations([
+      {
+        path: "hostile.ts",
+        source:
+          'import type { IsobmffModel } from "../../src/isobmff/parse.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "hostile.ts", specifier: "../../src/isobmff/parse.js" },
+    ]);
+  });
+
+  it("hostile.ts importing inventory.ts or generator.ts is a violation (independent-oracle rule)", () => {
+    const violations = isolationViolations([
+      { path: "hostile.ts", source: 'import { x } from "./inventory.js";\n' },
+    ]);
+    expect(violations).toEqual([
+      { path: "hostile.ts", specifier: "./inventory.js" },
     ]);
   });
 });
