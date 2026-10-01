@@ -9,7 +9,22 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { inventoryIsobmff } from "./isobmff-support/inventory.js";
+import {
+  ftypBox,
+  hdlrBox,
+  idatBox,
+  iinfBox,
+  ilocBox,
+  infeBox,
+  irefBox,
+  mdatBox,
+  metaBox,
+  pitmBox,
+} from "./isobmff-support/builder.js";
+import {
+  inventoryIsobmff,
+  readItemExtentBytes,
+} from "./isobmff-support/inventory.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -266,5 +281,349 @@ describe("inventoryIsobmff() on heif-enc-grid.avif", () => {
       "pixi",
       "ispe",
     ]);
+  });
+});
+
+// Builder-configuration cross-checks (D-20/D-21): the inventory reads back exactly the bytes and
+// field widths the builder was configured to produce. Each file below is hand-assembled from the
+// builder's low-level box primitives (never `heifFile()`, which only covers the single-item shape
+// 61-02 needed) -- the test is the meeting point where builder and inventory may both be imported;
+// `inventory.ts` and `builder.ts` themselves must never import each other (isobmff_isolation.test.ts).
+
+/** Build a minimal single-item structural file: ftyp/hdlr/pitm/iinf/iloc(+idat) + mdat. */
+function buildSingleItemFile(opts: {
+  readonly ilocVersion: 0 | 1 | 2;
+  readonly offsetSize: 0 | 4 | 8;
+  readonly lengthSize: 0 | 4 | 8;
+  readonly baseOffsetSize: 0 | 4 | 8;
+  readonly indexSize: 0 | 4 | 8;
+  readonly constructionMethod?: number;
+  /** Payload chunks placed sequentially in `mdat` (cm 0) or `idat` (cm 1). */
+  readonly extentPayloads: readonly Buffer[];
+  /** Extra bytes placed before the item's extents, to exercise a non-zero base_offset (Config C). */
+  readonly leadingPadding?: Buffer;
+}): { readonly bytes: Buffer; readonly idatPayload?: Buffer } {
+  const hdlr = hdlrBox("pict");
+  const pitm = pitmBox(0, 1);
+  const infe = infeBox({ version: 2, itemId: 1, itemType: "test" });
+  const iinf = iinfBox(0, [infe]);
+  const ftyp = ftypBox("heic", 0, ["mif1"]);
+  const constructionMethod = opts.constructionMethod ?? 0;
+
+  if (constructionMethod === 1) {
+    const idatPayload = Buffer.concat(opts.extentPayloads);
+    const idat = idatBox(idatPayload);
+    let runningOffset = 0;
+    const extents = opts.extentPayloads.map((payload) => {
+      const extent = {
+        index: 0,
+        offset: runningOffset,
+        length: payload.length,
+      };
+      runningOffset += payload.length;
+      return extent;
+    });
+    const iloc = ilocBox({
+      version: opts.ilocVersion,
+      offsetSize: opts.offsetSize,
+      lengthSize: opts.lengthSize,
+      baseOffsetSize: opts.baseOffsetSize,
+      indexSize: opts.indexSize,
+      items: [
+        {
+          itemId: 1,
+          constructionMethod: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents,
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, idat, iinf, iloc]);
+    const mdat = mdatBox(Buffer.alloc(0));
+    return { bytes: Buffer.concat([ftyp, meta, mdat]), idatPayload };
+  }
+
+  // construction_method 0 (file-relative): a two-pass layout, since `iloc`'s encoded byte length
+  // depends only on the declared widths, not the offset values (mirrors `builder.ts`'s `heifFile`).
+  const leadingPadding = opts.leadingPadding ?? Buffer.alloc(0);
+  const buildIloc = (baseOffset: number, extentOffsets: readonly number[]) =>
+    ilocBox({
+      version: opts.ilocVersion,
+      offsetSize: opts.offsetSize,
+      lengthSize: opts.lengthSize,
+      baseOffsetSize: opts.baseOffsetSize,
+      indexSize: opts.indexSize,
+      items: [
+        {
+          itemId: 1,
+          constructionMethod: 0,
+          dataReferenceIndex: 0,
+          baseOffset,
+          extents: opts.extentPayloads.map((payload, i) => ({
+            index: 0,
+            offset: extentOffsets[i] ?? 0,
+            length: payload.length,
+          })),
+        },
+      ],
+    });
+
+  const placeholderIloc = buildIloc(
+    0,
+    opts.extentPayloads.map(() => 0),
+  );
+  const metaPlaceholder = metaBox([hdlr, pitm, iinf, placeholderIloc]);
+  const mdatHeaderSize = 8;
+  const mdatFileOffset = ftyp.length + metaPlaceholder.length + mdatHeaderSize;
+
+  // When `baseOffsetSize` is 0, the item's `base_offset` field is encoded as zero width (the
+  // builder writes no bytes for it, per `writeWidth`), so the absolute file offset MUST be carried
+  // entirely in each extent's own `offset` field. When `baseOffsetSize` > 0, the file offset is
+  // carried in `base_offset` instead, and each extent's `offset` is relative to it (exercising the
+  // base_offset field itself, per Config C).
+  const baseOffset = opts.baseOffsetSize === 0 ? 0 : mdatFileOffset;
+  const extentOffsetBase =
+    opts.baseOffsetSize === 0
+      ? mdatFileOffset + leadingPadding.length
+      : leadingPadding.length;
+
+  const extentOffsets: number[] = [];
+  let runningOffset = extentOffsetBase;
+  for (const payload of opts.extentPayloads) {
+    extentOffsets.push(runningOffset);
+    runningOffset += payload.length;
+  }
+
+  const finalIloc = buildIloc(baseOffset, extentOffsets);
+  const finalMeta = metaBox([hdlr, pitm, iinf, finalIloc]);
+  if (finalMeta.length !== metaPlaceholder.length) {
+    throw new Error(
+      "buildSingleItemFile: iloc byte length changed between placeholder and final passes",
+    );
+  }
+  const mdatPayload = Buffer.concat([leadingPadding, ...opts.extentPayloads]);
+  const mdat = mdatBox(mdatPayload);
+  return { bytes: Buffer.concat([ftyp, finalMeta, mdat]) };
+}
+
+describe("inventory cross-checks against builder configurations (D-20/D-21)", () => {
+  it("Config A: iloc v0 widths (4,4,0) -- cm=0 extent reads back the configured payload", () => {
+    const payload = Buffer.from("CONFIG-A-PAYLOAD-BYTES!", "ascii");
+    const { bytes } = buildSingleItemFile({
+      ilocVersion: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      extentPayloads: [payload],
+    });
+    const inventory = inventoryIsobmff(bytes);
+    expect(inventory.iloc).toEqual({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+    });
+    const item = inventory.items.find((i) => i.id === 1);
+    expect(item?.constructionMethod).toBe(0);
+    expect(readItemExtentBytes(bytes, inventory, item!)).toEqual(payload);
+  });
+
+  it("Config B: iloc v1 widths (4,4,0,0) with an idat item -- cm=1 extent reads back the idat bytes", () => {
+    const payload = Buffer.from("IDAT-CM1-PAYLOAD-CHUNK", "ascii");
+    const { bytes, idatPayload } = buildSingleItemFile({
+      ilocVersion: 1,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      constructionMethod: 1,
+      extentPayloads: [payload],
+    });
+    const inventory = inventoryIsobmff(bytes);
+    expect(inventory.iloc?.version).toBe(1);
+    expect(inventory.idat).toEqual({
+      offset: expect.any(Number),
+      length: idatPayload!.length,
+    });
+    const item = inventory.items.find((i) => i.id === 1);
+    expect(item?.constructionMethod).toBe(1);
+    expect(readItemExtentBytes(bytes, inventory, item!)).toEqual(payload);
+  });
+
+  it("Config C: iloc v1 widths (8,8,4,4) with a non-zero base_offset -- cm=0 extent reads back the payload", () => {
+    const padding = Buffer.from("PAD--", "ascii");
+    const payload = Buffer.from("CONFIG-C-BASE-OFFSET-PAYLOAD", "ascii");
+    const { bytes } = buildSingleItemFile({
+      ilocVersion: 1,
+      offsetSize: 8,
+      lengthSize: 8,
+      baseOffsetSize: 4,
+      indexSize: 4,
+      extentPayloads: [payload],
+      leadingPadding: padding,
+    });
+    const inventory = inventoryIsobmff(bytes);
+    expect(inventory.iloc).toEqual({
+      version: 1,
+      offsetSize: 8,
+      lengthSize: 8,
+      baseOffsetSize: 4,
+      indexSize: 4,
+    });
+    const item = inventory.items.find((i) => i.id === 1);
+    expect(item?.baseOffset).toBeGreaterThan(0);
+    expect(item?.extents).toEqual([
+      { index: 0, offset: padding.length, length: payload.length },
+    ]);
+    expect(readItemExtentBytes(bytes, inventory, item!)).toEqual(payload);
+  });
+
+  it("Config D: iloc v2 widths (4,8,8,0) with a two-extent item -- extents concatenate in order, skipping a gap", () => {
+    const chunk1 = Buffer.from("FIRST-CHUNK-", "ascii");
+    const gap = Buffer.from("XXXX", "ascii");
+    const chunk2 = Buffer.from("SECOND-CHUNK", "ascii");
+
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe = infeBox({ version: 2, itemId: 1, itemType: "test" });
+    const iinf = iinfBox(0, [infe]);
+    const ftyp = ftypBox("heic", 0, ["mif1"]);
+
+    const buildIloc = (offsets: readonly [number, number]) =>
+      ilocBox({
+        version: 2,
+        offsetSize: 4,
+        lengthSize: 8,
+        baseOffsetSize: 8,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 1,
+            constructionMethod: 0,
+            dataReferenceIndex: 0,
+            baseOffset: 0,
+            extents: [
+              { index: 0, offset: offsets[0], length: chunk1.length },
+              { index: 0, offset: offsets[1], length: chunk2.length },
+            ],
+          },
+        ],
+      });
+
+    const placeholderIloc = buildIloc([0, 0]);
+    const metaPlaceholder = metaBox([hdlr, pitm, iinf, placeholderIloc]);
+    const mdatOffset = ftyp.length + metaPlaceholder.length + 8;
+    const chunk1Offset = mdatOffset;
+    const chunk2Offset = mdatOffset + chunk1.length + gap.length;
+    const finalIloc = buildIloc([chunk1Offset, chunk2Offset]);
+    const finalMeta = metaBox([hdlr, pitm, iinf, finalIloc]);
+    const mdat = mdatBox(Buffer.concat([chunk1, gap, chunk2]));
+    const bytes = Buffer.concat([ftyp, finalMeta, mdat]);
+
+    const inventory = inventoryIsobmff(bytes);
+    const item = inventory.items.find((i) => i.id === 1);
+    expect(inventory.iloc).toEqual({
+      version: 2,
+      offsetSize: 4,
+      lengthSize: 8,
+      baseOffsetSize: 8,
+      indexSize: 0,
+    });
+    expect(item?.extents).toHaveLength(2);
+    expect(readItemExtentBytes(bytes, inventory, item!)).toEqual(
+      Buffer.concat([chunk1, chunk2]),
+    );
+  });
+
+  it("Config E: largesize mdat framing -- cm=0 extent inside a largesize-framed mdat reads back correctly", () => {
+    const payload = Buffer.from("LARGESIZE-MDAT-PAYLOAD-CONFIG-E", "ascii");
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe = infeBox({ version: 2, itemId: 1, itemType: "test" });
+    const iinf = iinfBox(0, [infe]);
+    const ftyp = ftypBox("heic", 0, ["mif1"]);
+
+    const buildIloc = (offset: number) =>
+      ilocBox({
+        version: 0,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 0,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 1,
+            dataReferenceIndex: 0,
+            baseOffset: 0,
+            extents: [{ index: 0, offset, length: payload.length }],
+          },
+        ],
+      });
+
+    const placeholderIloc = buildIloc(0);
+    const metaPlaceholder = metaBox([hdlr, pitm, iinf, placeholderIloc]);
+    const largesizeMdatHeaderLength = 16; // size(4)=1 + type(4) + largesize(8)
+    const mdatOffset =
+      ftyp.length + metaPlaceholder.length + largesizeMdatHeaderLength;
+    const finalIloc = buildIloc(mdatOffset);
+    const finalMeta = metaBox([hdlr, pitm, iinf, finalIloc]);
+    const mdat = mdatBox(payload, { size: "largesize" });
+    const bytes = Buffer.concat([ftyp, finalMeta, mdat]);
+
+    const inventory = inventoryIsobmff(bytes);
+    const mdatBoxEntry = inventory.topLevel.find((b) => b.type === "mdat");
+    expect(mdatBoxEntry?.size).toBe(largesizeMdatHeaderLength + payload.length);
+    const item = inventory.items.find((i) => i.id === 1);
+    expect(readItemExtentBytes(bytes, inventory, item!)).toEqual(payload);
+  });
+});
+
+describe("inventory iref direction cross-check (D-08)", () => {
+  it("reports a cdsc reference from the Exif item to the primary exactly as configured", () => {
+    const ftyp = ftypBox("heic", 0, ["mif1"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const primaryInfe = infeBox({ version: 2, itemId: 1, itemType: "test" });
+    const exifInfe = infeBox({ version: 2, itemId: 2, itemType: "Exif" });
+    const iinf = iinfBox(0, [primaryInfe, exifInfe]);
+    const iref = irefBox(0, [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }]);
+
+    const buildIloc = (offsets: readonly [number, number]) =>
+      ilocBox({
+        version: 0,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 0,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 1,
+            dataReferenceIndex: 0,
+            baseOffset: 0,
+            extents: [{ index: 0, offset: offsets[0], length: 4 }],
+          },
+          {
+            itemId: 2,
+            dataReferenceIndex: 0,
+            baseOffset: 0,
+            extents: [{ index: 0, offset: offsets[1], length: 4 }],
+          },
+        ],
+      });
+
+    const placeholderIloc = buildIloc([0, 0]);
+    const metaPlaceholder = metaBox([hdlr, pitm, iinf, placeholderIloc, iref]);
+    const mdatOffset = ftyp.length + metaPlaceholder.length + 8;
+    const finalIloc = buildIloc([mdatOffset, mdatOffset + 4]);
+    const finalMeta = metaBox([hdlr, pitm, iinf, finalIloc, iref]);
+    const mdat = mdatBox(Buffer.from("ABCDEFGH", "ascii"));
+    const bytes = Buffer.concat([ftyp, finalMeta, mdat]);
+
+    const inventory = inventoryIsobmff(bytes);
+    const cdsc = inventory.references.find((r) => r.type === "cdsc");
+    expect(cdsc).toEqual({ type: "cdsc", from: 2, to: [1] });
   });
 });

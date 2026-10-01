@@ -154,6 +154,18 @@ describe("isolationViolations() negative controls (synthetic sources)", () => {
       { path: "inventory.ts", specifier: "./builder.js" },
     ]);
   });
+
+  it("inventory.ts importing src/isobmff/ is a violation (second-oracle independence)", () => {
+    const violations = isolationViolations([
+      {
+        path: "inventory.ts",
+        source: 'import { parseBox } from "../../src/isobmff/boxes.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "inventory.ts", specifier: "../../src/isobmff/boxes.js" },
+    ]);
+  });
 });
 
 describe("isolationViolations() against the real tests/isobmff-support/ files", () => {
