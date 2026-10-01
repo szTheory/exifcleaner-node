@@ -50,14 +50,17 @@ const FILTERED_EVENTS = Object.freeze(["pull_request", "push"]);
  */
 const LINUX_SAFE_PATH_RULES = Object.freeze(
   [
-    { id: "src-format-code", pattern: /^src\/(?:webp|metadata|png|jpeg)\/.+/u },
+    {
+      id: "src-format-code",
+      pattern: /^src\/(?:webp|metadata|png|jpeg|isobmff)\/.+/u,
+    },
     {
       id: "src-format-handler",
       pattern: /^src\/admission\/[a-z0-9-]+-handler\.ts$/u,
     },
     {
       id: "dist-format-code",
-      pattern: /^dist\/(?:webp|metadata|png|jpeg)\/.+/u,
+      pattern: /^dist\/(?:webp|metadata|png|jpeg|isobmff)\/.+/u,
     },
     {
       id: "dist-format-handler",
@@ -67,12 +70,20 @@ const LINUX_SAFE_PATH_RULES = Object.freeze(
     {
       id: "format-unit-tests",
       pattern:
-        /^tests\/(?:riff|icc_admission|(?:webp|png|jpeg|metadata|exif|xmp|icc)[a-z0-9_-]*)\.test\.ts$/u,
+        /^tests\/(?:riff|icc_admission|(?:webp|png|jpeg|metadata|exif|xmp|icc|isobmff)[a-z0-9_-]*)\.test\.ts$/u,
     },
     {
       id: "format-qualification-tests",
       pattern:
         /^tests\/qualification\/(?:webp|png|jpeg)\/[a-z0-9_-]+\.test\.ts$/u,
+    },
+    {
+      // D-24: the ISOBMFF test-support directory (builder/generator/hostile/inventory .ts,
+      // RECIPE.md, and the two heif-enc .heic/.avif fixture images) -- no production format rule
+      // exists for isobmff yet (FORMAT_PATH_RULES stays untouched, fail-closed).
+      id: "isobmff-test-support",
+      pattern:
+        /^tests\/isobmff-support\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.(?:ts|md|heic|avif)$/u,
     },
     { id: "docs", pattern: /^docs\/.+/u },
     { id: "root-markdown", pattern: /^[^/]+\.md$/u },
