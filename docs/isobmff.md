@@ -295,11 +295,58 @@ references", l.3485-3488) -- not merely unusual, a hard parse error in the refer
 
 ## Fixtures
 
-Filled in by a later Phase 61 plan.
+Two real `heif-enc -T` fixtures are committed under `tests/isobmff-support/fixtures/` (D-22): a
+2x2 grid of 64x64 tiles with a 32x32 thumbnail, Exif and XMP metadata, encoded once with x265
+(HEIC) and once with aom (AVIF). The full generation recipe -- tool versions, every command line,
+and every measured structural fact -- lives in `tests/isobmff-support/fixtures/RECIPE.md`; this
+section is a summary for readers who only need the shape, not the transcript.
 
-## Fixtures
+| Fixture              | Size       | Encoder                     | SHA-256                                                            |
+| -------------------- | ---------- | --------------------------- | ------------------------------------------------------------------ |
+| `heif-enc-grid.heic` | 4243 bytes | x265 4.1 (libheif 1.19.7)   | `ae40a80f0a85cd984b9d8b1a2e811e138ac2c8c26f14b77360d62e1e4867bad6` |
+| `heif-enc-grid.avif` | 3997 bytes | aom 3.12.0 (libheif 1.19.7) | `682a1e626c4d8db4f7ccf4a2d5058d0104394f7a08d0a70fad3950bed4b0a85e` |
 
-Filled in by a later Phase 61 plan.
+Both fixtures share the same structure: item 1 is the `grid` primary (constructionMethod 1, its 8-
+byte descriptor stored in `idat`), items 2-5 are hidden tile items (`hvc1` for HEIC, `av01` for
+AVIF), item 6 is a hidden `Exif` item (178 bytes), item 7 is a hidden `mime` item carrying XMP
+(2876 bytes), and item 8 is a visible thumbnail referenced by a `thmb` reference. `iref` also
+carries a `dimg` reference from the grid to its four tiles and two `cdsc` references (Exif and XMP
+both describe the primary -- the D-08 "removable item as the _from_ side of `cdsc`" shape).
+
+**Measured XMP content type (D-07):** both fixtures' `mime` item reports content_type
+`application/rdf+xml`, matching the iPhone sample measured in 61-01. Neither fixture emits
+`application/xmp+xml`; that content type is still not admitted anywhere in this engine, per D-07's
+"only once measured" rule.
+
+**ExifTool 13.59 baseline (both fixtures):** `Make=ExifCleanerFixture`, `Model=GridTile`,
+`Orientation=Horizontal (normal)` (raw value 1), `XResolution=72`, `YResolution=72`,
+`ColorSpace=sRGB`, `ExifImageWidth=64`, `ExifImageHeight=64` (the tile's own embedded Exif, since
+`heif-enc` propagates the first tile's Exif/XMP onto the composite output rather than re-deriving
+primary-image-sized Exif), `XMPToolkit=Image::ExifTool 13.59`, `Title=ExifCleaner Fixture Tile`.
+Identical tag set and values on both the HEIC and AVIF fixture, since both were encoded from the
+same tiles.
+
+**`exiftool -all=` structural effect (both fixtures):** items 1-5 are unchanged; the Exif item (6)
+and the XMP item (7) are both emptied to a zero-length extent at the _same_ `base_offset` (the
+point in `mdat` where the removed bytes used to begin); the thumbnail item (8) is shifted left to
+close the resulting gap. `mdat` shrinks by exactly the removed Exif+XMP byte count (3054 bytes: 178
+
+- 2876. in both files. This is a second, independently measured shape for the D-10a empty-extent
+        rule, distinct from 61-01's iPhone measurement (there, the emptied extent stayed at its original
+        offset with no other item shifted). Both measured shapes land the emptied extent's offset _within_
+        the (possibly shrunk) `mdat` payload bounds -- neither produces the ISO/IEC 14496-12 "to end of
+        resource" shape that D-10a's citation says the reference decoder (libheif v1.19.7) does not
+        implement. Full before/after offset tables are in RECIPE.md.
+
+**Checkpoint note:** an earlier attempt at generating these fixtures crashed `heif-enc -T` with a
+SIGBUS inside libheif's `extend_to_size_with_zero`, on this same pinned libheif/x265/aom build.
+Root cause (confirmed before this fixture set was generated): the crashing attempt's tiles were not
+actually 64x64 -- a `sips` center-crop step produced oversized tiles (128x128, and separately
+512x512 in a 256-px variant), and an oversized tile crashes the tiled encoder instead of producing
+a clean error. The recipe used here avoids cropping entirely (each tile is rendered directly at
+64x64) and asserts every tile's dimensions with `sips -g pixelWidth -g pixelHeight` immediately
+before encoding. This is not a libheif defect and does not change anything about the pinned
+toolchain versions.
 
 ## Decline classes
 

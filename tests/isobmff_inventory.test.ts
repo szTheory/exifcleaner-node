@@ -21,6 +21,10 @@ const HEIC_PATH = join(FIXTURES_DIR, "heif-enc-grid.heic");
 const HEIC_SHA256 =
   "ae40a80f0a85cd984b9d8b1a2e811e138ac2c8c26f14b77360d62e1e4867bad6";
 
+const AVIF_PATH = join(FIXTURES_DIR, "heif-enc-grid.avif");
+const AVIF_SHA256 =
+  "682a1e626c4d8db4f7ccf4a2d5058d0104394f7a08d0a70fad3950bed4b0a85e";
+
 describe("heif-enc-grid.heic fixture identity", () => {
   it("matches the pinned sha256 and stays under the 10240-byte bound", () => {
     const bytes = readFileSync(HEIC_PATH);
@@ -159,6 +163,108 @@ describe("inventoryIsobmff() on heif-enc-grid.heic", () => {
       "pixi",
       "hvcC",
       "clap",
+    ]);
+  });
+});
+
+describe("heif-enc-grid.avif fixture identity", () => {
+  it("matches the pinned sha256 and stays under the 10240-byte bound", () => {
+    const bytes = readFileSync(AVIF_PATH);
+    expect(bytes.length).toBeLessThan(10240);
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(AVIF_SHA256);
+  });
+});
+
+describe("inventoryIsobmff() on heif-enc-grid.avif", () => {
+  const bytes = readFileSync(AVIF_PATH);
+  const inventory = inventoryIsobmff(bytes);
+
+  it("reports the top-level boxes measured in RECIPE.md", () => {
+    expect(inventory.topLevel.map((b) => b.type)).toEqual([
+      "ftyp",
+      "meta",
+      "mdat",
+    ]);
+    const mdat = inventory.topLevel.find((b) => b.type === "mdat");
+    expect(mdat?.offset).toBe(735);
+    expect(mdat?.size).toBe(3262);
+  });
+
+  it("reports primaryItemId 1 (the grid item) and iloc widths (4,4,4,0)", () => {
+    expect(inventory.primaryItemId).toBe(1);
+    expect(inventory.iloc).toEqual({
+      version: 1,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 4,
+      indexSize: 0,
+    });
+  });
+
+  it("reports item 1 as a visible grid item with constructionMethod 1", () => {
+    const item1 = inventory.items.find((i) => i.id === 1);
+    expect(item1).toMatchObject({
+      id: 1,
+      type: "grid",
+      hidden: false,
+      constructionMethod: 1,
+    });
+  });
+
+  it("reports an av01 tile item type (hidden, constructionMethod 0)", () => {
+    const av01Tiles = inventory.items.filter(
+      (i) => i.type === "av01" && i.hidden,
+    );
+    expect(av01Tiles.length).toBeGreaterThanOrEqual(2);
+    for (const tile of av01Tiles) {
+      expect(tile.constructionMethod).toBe(0);
+    }
+  });
+
+  it("reports item 6 as a hidden Exif item and item 7 as mime/application-rdf+xml", () => {
+    const exifItem = inventory.items.find((i) => i.id === 6);
+    expect(exifItem).toMatchObject({
+      id: 6,
+      type: "Exif",
+      hidden: true,
+      constructionMethod: 0,
+      baseOffset: 0x390,
+    });
+    expect(exifItem?.extents).toEqual([{ index: 0, offset: 0, length: 178 }]);
+
+    const mimeItem = inventory.items.find((i) => i.id === 7);
+    expect(mimeItem).toMatchObject({
+      id: 7,
+      type: "mime",
+      hidden: true,
+      contentType: "application/rdf+xml",
+      constructionMethod: 0,
+      baseOffset: 0x442,
+    });
+    expect(mimeItem?.extents).toEqual([{ index: 0, offset: 0, length: 2876 }]);
+  });
+
+  it("reports item 8 as a visible av01 thumbnail, referenced by a thmb reference", () => {
+    const thumbnail = inventory.items.find((i) => i.id === 8);
+    expect(thumbnail).toMatchObject({
+      id: 8,
+      type: "av01",
+      hidden: false,
+      constructionMethod: 0,
+      baseOffset: 0xf7e,
+    });
+    const thmbRef = inventory.references.find((r) => r.type === "thmb");
+    expect(thmbRef).toEqual({ type: "thmb", from: 8, to: [1] });
+  });
+
+  it("reports the measured ipco property list (av1C present, not hvcC)", () => {
+    expect(inventory.properties.map((p) => p.type)).toEqual([
+      "ispe",
+      "av1C",
+      "colr",
+      "ispe",
+      "pixi",
+      "ispe",
     ]);
   });
 });
