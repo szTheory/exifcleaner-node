@@ -263,12 +263,10 @@ export function assertCorpusRecord(
   // rather than passing an SPDX-shape regex. LicenseRef-default-copyright is
   // admitted only on a download-only record, since those bytes are never
   // vendored into the repository or the npm package.
-  if (
-    !(
-      APPROVED_CORPUS_LICENSES.has(license) ||
-      (isDownloadOnly && DOWNLOAD_ONLY_LICENSES.has(license))
-    )
-  )
+  if (!(
+    APPROVED_CORPUS_LICENSES.has(license) ||
+    (isDownloadOnly && DOWNLOAD_ONLY_LICENSES.has(license))
+  ))
     invalid("license");
   const revision = stringField(provenance.revision, "revision");
   if (!/^[a-f0-9]{40}$/.test(revision)) invalid("provenance");

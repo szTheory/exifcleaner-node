@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { getCapabilities } from "../../../dist/index.js";
 import {
   assertCorpusRecord,
   assertNoticeAttribution,
@@ -18,6 +19,14 @@ const MANIFEST_PATH = fileURLToPath(
 const PROJECT_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const REVISION = "b".repeat(40);
 const CC_BY_SA_LICENSE_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
+/**
+ * Any currently registered format works for these shape-only tests -- never
+ * a literal format name, so this file stays format-neutral as the registry
+ * grows (KIT-01 D-03).
+ */
+const SOME_REGISTERED_FORMAT = getCapabilities().formats[0]?.format;
+if (SOME_REGISTERED_FORMAT === undefined)
+  throw new Error("No registered format available for corpus.test.ts");
 
 /**
  * A minimal, otherwise-valid vendored corpus record -- a plain object (not
@@ -27,9 +36,9 @@ const CC_BY_SA_LICENSE_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
 function validRecord(): Record<string, unknown> {
   return {
     id: "test-fixture",
-    format: "webp",
+    format: SOME_REGISTERED_FORMAT,
     roles: ["differential"],
-    localPath: "sample.webp",
+    localPath: "test-fixture.bin",
     provenance: {
       revision: "a".repeat(40),
       url: "https://example.com/fixture",
@@ -45,7 +54,9 @@ function validRecord(): Record<string, unknown> {
   };
 }
 
-function provenanceOf(record: Record<string, unknown>): Record<string, unknown> {
+function provenanceOf(
+  record: Record<string, unknown>,
+): Record<string, unknown> {
   return record.provenance as Record<string, unknown>;
 }
 
@@ -109,7 +120,7 @@ describe("assertCorpusRecord provenance (KIT-10)", () => {
 function validDownloadOnlyRecord(bytes: Buffer): Record<string, unknown> {
   return {
     id: "test-download-fixture",
-    format: "webp",
+    format: SOME_REGISTERED_FORMAT,
     roles: ["differential"],
     provenance: {
       revision: REVISION,
@@ -138,7 +149,7 @@ describe("download-only provenance shape (KIT-10/D-14)", () => {
 
   it("rejects a download-only record carrying localPath", () => {
     const record = validDownloadOnlyRecord(fixtureBytes);
-    record.localPath = "sample.webp";
+    record.localPath = "test-fixture.bin";
     expect(() => assertCorpusRecord(record)).toThrow(
       /download-only materializer/,
     );
@@ -197,7 +208,9 @@ describe("materializeRecord download-only cache (KIT-10/D-14)", () => {
 
   afterEach(async () => {
     await Promise.all(
-      cacheDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
+      cacheDirs
+        .splice(0)
+        .map((dir) => rm(dir, { recursive: true, force: true })),
     );
   });
 
@@ -209,9 +222,7 @@ describe("materializeRecord download-only cache (KIT-10/D-14)", () => {
 
   it("throws when EXIFCLEANER_CORPUS_CACHE_DIR is unset", async () => {
     const bytes = Buffer.from("cache-dir-unset");
-    const record = validDownloadOnlyRecord(
-      bytes,
-    ) as unknown as CorpusRecord;
+    const record = validDownloadOnlyRecord(bytes) as unknown as CorpusRecord;
     await expect(materializeRecord(record, {})).rejects.toThrow(
       /download cache is not configured/,
     );
@@ -219,9 +230,7 @@ describe("materializeRecord download-only cache (KIT-10/D-14)", () => {
 
   it("throws for a relative cache dir", async () => {
     const bytes = Buffer.from("cache-dir-relative");
-    const record = validDownloadOnlyRecord(
-      bytes,
-    ) as unknown as CorpusRecord;
+    const record = validDownloadOnlyRecord(bytes) as unknown as CorpusRecord;
     await expect(
       materializeRecord(record, {
         EXIFCLEANER_CORPUS_CACHE_DIR: "relative/cache",
@@ -231,9 +240,7 @@ describe("materializeRecord download-only cache (KIT-10/D-14)", () => {
 
   it("throws for a cache dir inside the repository", async () => {
     const bytes = Buffer.from("cache-dir-inside-repo");
-    const record = validDownloadOnlyRecord(
-      bytes,
-    ) as unknown as CorpusRecord;
+    const record = validDownloadOnlyRecord(bytes) as unknown as CorpusRecord;
     await expect(
       materializeRecord(record, {
         EXIFCLEANER_CORPUS_CACHE_DIR: join(PROJECT_ROOT, "tests"),
@@ -243,9 +250,7 @@ describe("materializeRecord download-only cache (KIT-10/D-14)", () => {
 
   it("throws 'Corpus download cache miss' for a missing cache file", async () => {
     const bytes = Buffer.from("cache-dir-missing-file");
-    const record = validDownloadOnlyRecord(
-      bytes,
-    ) as unknown as CorpusRecord;
+    const record = validDownloadOnlyRecord(bytes) as unknown as CorpusRecord;
     const dir = await freshCacheDir();
     await expect(
       materializeRecord(record, { EXIFCLEANER_CORPUS_CACHE_DIR: dir }),
@@ -254,37 +259,30 @@ describe("materializeRecord download-only cache (KIT-10/D-14)", () => {
 
   it("throws 'Corpus integrity check failed' for wrong bytes", async () => {
     const bytes = Buffer.from("expected-bytes-here");
-    const record = validDownloadOnlyRecord(
-      bytes,
-    ) as unknown as CorpusRecord;
+    const record = validDownloadOnlyRecord(bytes) as unknown as CorpusRecord;
     const dir = await freshCacheDir();
-    await writeFile(join(dir, record.sha256), Buffer.from("wrong-bytes-here!!!!"));
+    await writeFile(
+      join(dir, record.sha256),
+      Buffer.from("wrong-bytes-here!!!!"),
+    );
     await expect(
       materializeRecord(record, { EXIFCLEANER_CORPUS_CACHE_DIR: dir }),
-    ).rejects.toThrow(
-      /Corpus integrity check failed: test-download-fixture/,
-    );
+    ).rejects.toThrow(/Corpus integrity check failed: test-download-fixture/);
   });
 
   it("throws 'Corpus integrity check failed' for a truncated cache file", async () => {
     const bytes = Buffer.from("a complete set of expected bytes");
-    const record = validDownloadOnlyRecord(
-      bytes,
-    ) as unknown as CorpusRecord;
+    const record = validDownloadOnlyRecord(bytes) as unknown as CorpusRecord;
     const dir = await freshCacheDir();
     await writeFile(join(dir, record.sha256), bytes.subarray(0, 5));
     await expect(
       materializeRecord(record, { EXIFCLEANER_CORPUS_CACHE_DIR: dir }),
-    ).rejects.toThrow(
-      /Corpus integrity check failed: test-download-fixture/,
-    );
+    ).rejects.toThrow(/Corpus integrity check failed: test-download-fixture/);
   });
 
   it("returns the correct bytes for a correctly cached file", async () => {
     const bytes = Buffer.from("the correct cached bytes");
-    const record = validDownloadOnlyRecord(
-      bytes,
-    ) as unknown as CorpusRecord;
+    const record = validDownloadOnlyRecord(bytes) as unknown as CorpusRecord;
     const dir = await freshCacheDir();
     await writeFile(join(dir, record.sha256), bytes);
     const data = await materializeRecord(record, {
@@ -295,9 +293,7 @@ describe("materializeRecord download-only cache (KIT-10/D-14)", () => {
 
   it("never creates, writes, or deletes anything in the cache directory", async () => {
     const bytes = Buffer.from("materializer-is-read-only");
-    const record = validDownloadOnlyRecord(
-      bytes,
-    ) as unknown as CorpusRecord;
+    const record = validDownloadOnlyRecord(bytes) as unknown as CorpusRecord;
     const dir = await freshCacheDir();
     await writeFile(join(dir, record.sha256), bytes);
     const before = await readdir(dir);
@@ -322,7 +318,7 @@ function fullNoticeStanza(id: string, url: string): string {
     "Author: Example Author",
     `Source: ${url}`,
     `License: ${CC_BY_SA_LICENSE_URL}`,
-    "Modified: Converted to PNG and cropped",
+    "Modified: Converted and cropped to a smaller resolution",
     "",
   ].join("\n");
 }
