@@ -1,8 +1,7 @@
 import { IsobmffStructureError } from "./errors.js";
 import { DEFAULT_ISOBMFF_CAPS, IsobmffBudget, } from "./caps.js";
 import { C2PA_UUID_USERTYPE, parseBoxHeader, readExactly, readTopLevelBoxes, TOP_LEVEL_ALLOWLIST, walkContainer, } from "./boxes.js";
-import { parseIloc } from "./iloc.js";
-import { parseIpma } from "./ipma.js";
+import { buildItemModel, } from "./items.js";
 function isAborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -21,22 +20,6 @@ function listSiblings(buffer, start, end) {
         position = header.end;
     }
     return boxes;
-}
-/**
- * Read a child box's FullBox version/flags and hand back its payload with that 4-byte header
- * already stripped, for callers (`parseIloc`, `parseIpma`) that take version/flags separately.
- */
-function readFullBoxChild(buffer, header) {
-    const full = buffer.subarray(header.payloadStart, header.end);
-    if (full.length < 4) {
-        throw new IsobmffStructureError("box-framing", `"${header.type}" payload is too short to carry a FullBox version/flags field.`);
-    }
-    const versionFlags = full.readUInt32BE(0);
-    return {
-        version: (versionFlags >>> 24) & 0xff,
-        flags: versionFlags & 0x00ffffff,
-        payload: full.subarray(4),
-    };
 }
 function parseFtyp(payload) {
     if (payload.length < 8) {
@@ -63,6 +46,7 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
     let sawMdat = false;
     let iloc;
     let ipma;
+    let itemModel;
     for (const header of topLevel) {
         if (isAborted(signal)) {
             throw new IsobmffStructureError("box-framing", "Parsing aborted.");
@@ -92,22 +76,9 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
             }
             walkContainer(payload, 4, payload.length, 1, budget);
             const metaChildren = listSiblings(payload, 4, payload.length);
-            const ilocHeader = metaChildren.find((child) => child.type === "iloc");
-            if (ilocHeader !== undefined) {
-                const { version, flags, payload: ilocPayload, } = readFullBoxChild(payload, ilocHeader);
-                iloc = parseIloc(ilocPayload, version, flags);
-            }
-            const iprpHeader = metaChildren.find((child) => child.type === "iprp");
-            if (iprpHeader !== undefined) {
-                // `iprp` is a plain box (not a FullBox): its children (`ipco`, `ipma`) start at byte 0
-                // of its own payload.
-                const iprpChildren = listSiblings(payload, iprpHeader.payloadStart, iprpHeader.end);
-                const ipmaHeader = iprpChildren.find((child) => child.type === "ipma");
-                if (ipmaHeader !== undefined) {
-                    const { version, flags, payload: ipmaPayload, } = readFullBoxChild(payload, ipmaHeader);
-                    ipma = parseIpma(ipmaPayload, version, flags);
-                }
-            }
+            itemModel = buildItemModel(payload, metaChildren, budget);
+            iloc = itemModel.ilocTable;
+            ipma = itemModel.ipmaEntries;
             metaRange = { offset: header.start, length: header.end - header.start };
             continue;
         }
@@ -141,7 +112,7 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
     if (majorBrand === undefined) {
         throw new IsobmffStructureError("box-framing", 'No top-level "ftyp" box was found.');
     }
-    if (metaRange === undefined) {
+    if (metaRange === undefined || itemModel === undefined) {
         throw new IsobmffStructureError("box-framing", 'No top-level "meta" box was found.');
     }
     return {
@@ -154,6 +125,19 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
         removableTopLevel,
         ...(iloc !== undefined ? { iloc } : {}),
         ...(ipma !== undefined ? { ipma } : {}),
+        items: itemModel.items,
+        itemsById: itemModel.itemsById,
+        primaryItemId: itemModel.primaryItemId,
+        references: itemModel.references,
+        properties: itemModel.properties,
+        groups: itemModel.groups,
+        ...(itemModel.idatRange !== undefined
+            ? { idatRange: itemModel.idatRange }
+            : {}),
+        handlerType: itemModel.handlerType,
+        ...(itemModel.colorProfile !== undefined
+            ? { colorProfile: itemModel.colorProfile }
+            : {}),
     };
 }
 //# sourceMappingURL=parse.js.map

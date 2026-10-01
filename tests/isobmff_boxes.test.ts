@@ -218,7 +218,7 @@ function minimalFtyp(): Buffer {
  * meta -- this plan's walker never resolves `iloc`'s item table semantically (that's 61-05+), so a
  * placeholder extent offset of 0 is fine for every test that reuses this helper.
  */
-function minimalMeta(): Buffer {
+function minimalMeta(extraChildren: readonly Buffer[] = []): Buffer {
   const hdlr = hdlrBox("pict");
   const pitm = pitmBox(0, 1);
   const infe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
@@ -254,8 +254,10 @@ function minimalMeta(): Buffer {
       },
     ],
   });
-  const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
-  expect(meta.length).toBe(META_SIZE);
+  const meta = metaBox([hdlr, pitm, iinf, iprp, iloc, ...extraChildren]);
+  if (extraChildren.length === 0) {
+    expect(meta.length).toBe(META_SIZE);
+  }
   return meta;
 }
 
@@ -645,7 +647,7 @@ describe("Task 3: caps checked before reads (BMF-05)", () => {
     const dinf1 = box("dinf", dinf2);
     const file = Buffer.concat([
       minimalFtyp(),
-      metaBox([dinf1]),
+      minimalMeta([dinf1]),
       mdatBox(Buffer.from([1, 2, 3, 4])),
     ]);
     const { path, size } = await writeFixture(file);

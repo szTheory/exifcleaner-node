@@ -14,8 +14,16 @@ import {
   walkContainer,
   type BoxHeader,
 } from "./boxes.js";
-import { parseIloc, type IlocTable } from "./iloc.js";
-import { parseIpma, type IpmaEntry } from "./ipma.js";
+import type { IlocTable } from "./iloc.js";
+import type { IpmaEntry } from "./ipma.js";
+import {
+  buildItemModel,
+  type IsobmffByteRange,
+  type IsobmffEntityGroup,
+  type IsobmffItem,
+  type IsobmffProperty,
+  type IsobmffReference,
+} from "./items.js";
 
 // `parseIsobmff` entry point (BMF-01/BMF-05): reads a file's top-level box list, validates the
 // D5 top-level allowlist and the `ftyp`/`meta`/`mdat` singleton rules, and walks `meta`'s
@@ -40,6 +48,19 @@ export interface IsobmffModel {
   readonly iloc?: IlocTable;
   /** `meta/iprp`'s `ipma` child, resolved through the table-driven resolver (61-05, D1). */
   readonly ipma?: readonly IpmaEntry[];
+  /** The validated item graph (61-07, D1): `iinf`/`infe` joined with `iloc`, `iref`, `ipco`/
+   * `ipma`, `idat` and `grpl`, in `iinf` order. */
+  readonly items: readonly IsobmffItem[];
+  readonly itemsById: ReadonlyMap<number, IsobmffItem>;
+  readonly primaryItemId: number;
+  readonly references: readonly IsobmffReference[];
+  readonly properties: readonly IsobmffProperty[];
+  readonly groups: readonly IsobmffEntityGroup[];
+  readonly idatRange?: IsobmffByteRange;
+  readonly handlerType: string;
+  /** The primary item's `colr` ICC payload (colour_type `prof`/`rICC` only); `nclx` or absent
+   * yields `undefined` (D-12). */
+  readonly colorProfile?: Buffer;
 }
 
 function isAborted(signal: AbortSignal | undefined): boolean {
@@ -61,29 +82,6 @@ function listSiblings(buffer: Buffer, start: number, end: number): BoxHeader[] {
     position = header.end;
   }
   return boxes;
-}
-
-/**
- * Read a child box's FullBox version/flags and hand back its payload with that 4-byte header
- * already stripped, for callers (`parseIloc`, `parseIpma`) that take version/flags separately.
- */
-function readFullBoxChild(
-  buffer: Buffer,
-  header: BoxHeader,
-): { version: number; flags: number; payload: Buffer } {
-  const full = buffer.subarray(header.payloadStart, header.end);
-  if (full.length < 4) {
-    throw new IsobmffStructureError(
-      "box-framing",
-      `"${header.type}" payload is too short to carry a FullBox version/flags field.`,
-    );
-  }
-  const versionFlags = full.readUInt32BE(0);
-  return {
-    version: (versionFlags >>> 24) & 0xff,
-    flags: versionFlags & 0x00ffffff,
-    payload: full.subarray(4),
-  };
 }
 
 function parseFtyp(payload: Buffer): {
@@ -125,6 +123,7 @@ export async function parseIsobmff(
   let sawMdat = false;
   let iloc: IlocTable | undefined;
   let ipma: readonly IpmaEntry[] | undefined;
+  let itemModel: ReturnType<typeof buildItemModel> | undefined;
 
   for (const header of topLevel) {
     if (isAborted(signal)) {
@@ -174,34 +173,9 @@ export async function parseIsobmff(
       }
       walkContainer(payload, 4, payload.length, 1, budget);
       const metaChildren = listSiblings(payload, 4, payload.length);
-      const ilocHeader = metaChildren.find((child) => child.type === "iloc");
-      if (ilocHeader !== undefined) {
-        const {
-          version,
-          flags,
-          payload: ilocPayload,
-        } = readFullBoxChild(payload, ilocHeader);
-        iloc = parseIloc(ilocPayload, version, flags);
-      }
-      const iprpHeader = metaChildren.find((child) => child.type === "iprp");
-      if (iprpHeader !== undefined) {
-        // `iprp` is a plain box (not a FullBox): its children (`ipco`, `ipma`) start at byte 0
-        // of its own payload.
-        const iprpChildren = listSiblings(
-          payload,
-          iprpHeader.payloadStart,
-          iprpHeader.end,
-        );
-        const ipmaHeader = iprpChildren.find((child) => child.type === "ipma");
-        if (ipmaHeader !== undefined) {
-          const {
-            version,
-            flags,
-            payload: ipmaPayload,
-          } = readFullBoxChild(payload, ipmaHeader);
-          ipma = parseIpma(ipmaPayload, version, flags);
-        }
-      }
+      itemModel = buildItemModel(payload, metaChildren, budget);
+      iloc = itemModel.ilocTable;
+      ipma = itemModel.ipmaEntries;
       metaRange = { offset: header.start, length: header.end - header.start };
       continue;
     }
@@ -253,7 +227,7 @@ export async function parseIsobmff(
       'No top-level "ftyp" box was found.',
     );
   }
-  if (metaRange === undefined) {
+  if (metaRange === undefined || itemModel === undefined) {
     throw new IsobmffStructureError(
       "box-framing",
       'No top-level "meta" box was found.',
@@ -270,5 +244,18 @@ export async function parseIsobmff(
     removableTopLevel,
     ...(iloc !== undefined ? { iloc } : {}),
     ...(ipma !== undefined ? { ipma } : {}),
+    items: itemModel.items,
+    itemsById: itemModel.itemsById,
+    primaryItemId: itemModel.primaryItemId,
+    references: itemModel.references,
+    properties: itemModel.properties,
+    groups: itemModel.groups,
+    ...(itemModel.idatRange !== undefined
+      ? { idatRange: itemModel.idatRange }
+      : {}),
+    handlerType: itemModel.handlerType,
+    ...(itemModel.colorProfile !== undefined
+      ? { colorProfile: itemModel.colorProfile }
+      : {}),
   };
 }
