@@ -30,7 +30,7 @@ interface PreparedOracleTools {
 }
 
 interface AuthorityBuilder {
-  readonly prepareOracleTools: () => PreparedOracleTools;
+  readonly loadOrPrepareOracleTools: () => PreparedOracleTools;
 }
 
 export type MetadataEntry = Readonly<Record<string, unknown>>;
@@ -142,7 +142,7 @@ export interface ExiftoolDifferentialOptions {
 let preparedTools: PreparedOracleTools | undefined;
 
 function tools(): PreparedOracleTools {
-  preparedTools ??= authorityBuilder.prepareOracleTools();
+  preparedTools ??= authorityBuilder.loadOrPrepareOracleTools();
   return preparedTools;
 }
 

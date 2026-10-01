@@ -75,7 +75,7 @@ jobs:
     env:
       FC_SEED: "460046"
       FC_RUNS: "200"
-      QUAL_KIT: "tests/qualification/kit/corpus.test.ts tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts"
+      QUAL_KIT: "tests/qualification/kit/build_oracles.test.ts tests/qualification/kit/corpus.test.ts tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts"
       QUAL_WEBP: "tests/qualification/webp/tracer.test.ts tests/qualification/webp/parser.test.ts tests/qualification/webp/property.test.ts tests/qualification/webp/transaction.test.ts tests/qualification/webp/oracles.test.ts tests/qualification/webp/golden.test.ts"
       QUAL_PNG: "tests/qualification/png/oracles.test.ts tests/qualification/png/tracer.test.ts tests/qualification/png/property.test.ts tests/qualification/png/parser.test.ts tests/qualification/png/transaction.test.ts tests/qualification/png/golden.test.ts"
       # 57-07: the JPEG qualification suite's first file (tracer.test.ts)

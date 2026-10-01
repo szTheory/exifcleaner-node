@@ -495,315 +495,361 @@ function assertLibjpegTurboFeatures({
     if (!ok) throw new Error(`libjpeg-turbo feature drift: ${feature}`);
 }
 
-function prepareOracleTools() {
+/**
+ * Builds every oracle into an already-existing `workspace` directory and
+ * returns the tools record (authority summary plus each built executable's
+ * `{ path, sha256 }`), WITHOUT a `dispose()` -- disposal is the caller's
+ * concern (KIT-09 D-02/D-04). Refuses a non-linux/x64 host; a caller using an
+ * injected `build` function (for example a test's `fakeBuild`) never reaches
+ * this check because it supplies its own function in place of this one.
+ */
+function buildOracleTools(workspace) {
   const { manifest, validated } = validateAllAuthority();
   if (process.platform !== "linux" || process.arch !== "x64")
     fail("oracle execution requires the admitted linux/x64 host");
 
+  for (const authority of manifest.authorities) {
+    runTool(
+      "tar",
+      ["-xzf", validated.get(authority.id).archivePath, "-C", workspace],
+      {},
+      `${authority.id} extraction failed`,
+    );
+  }
+
+  const libwebp = manifest.authorities[0];
+  const libwebpRoot = path.join(workspace, libwebp.archive.root);
+  runTool(
+    path.join(libwebpRoot, "configure"),
+    ["--disable-shared", "--enable-static", "--disable-dependency-tracking"],
+    { cwd: libwebpRoot },
+    "libwebp configure failed",
+  );
+  runTool("make", ["-j2"], { cwd: libwebpRoot }, "libwebp build failed");
+
+  const dwebpPath = path.join(libwebpRoot, "examples/dwebp");
+  const webpinfoPath = path.join(libwebpRoot, "examples/webpinfo");
+  const exiftoolAuthority = manifest.authorities[1];
+  const exiftoolPath = path.join(
+    workspace,
+    exiftoolAuthority.archive.root,
+    "exiftool",
+  );
+  fs.chmodSync(exiftoolPath, 0o755);
+
+  const animationSourcePath = path.join(
+    projectRoot,
+    "scripts/qualification/anim_oracle.c",
+  );
+  if (!fs.existsSync(animationSourcePath))
+    fail("animation oracle source is missing");
+  const animationPath = path.join(workspace, "anim-oracle");
+  runTool(
+    "cc",
+    [
+      "-std=c11",
+      "-O2",
+      animationSourcePath,
+      "-I",
+      path.join(libwebpRoot, "src"),
+      "-L",
+      path.join(libwebpRoot, "src/demux/.libs"),
+      "-L",
+      path.join(libwebpRoot, "src/.libs"),
+      "-lwebpdemux",
+      "-lwebp",
+      "-lm",
+      "-o",
+      animationPath,
+    ],
+    {},
+    "animation oracle build failed",
+  );
+
+  const libpng = manifest.authorities[2];
+  const libpngRoot = path.join(workspace, libpng.archive.root);
+  runTool(
+    path.join(libpngRoot, "configure"),
+    ["--disable-shared", "--enable-static", "--disable-dependency-tracking"],
+    { cwd: libpngRoot },
+    "libpng configure failed",
+  );
+  runTool("make", ["-j2"], { cwd: libpngRoot }, "libpng build failed");
+
+  const pngDecodeSourcePath = path.join(
+    projectRoot,
+    "scripts/qualification/png_decode_oracle.c",
+  );
+  if (!fs.existsSync(pngDecodeSourcePath))
+    fail("png decode oracle source is missing");
+  const pngDecodePath = path.join(workspace, "png-decode-oracle");
+  runTool(
+    "cc",
+    [
+      "-std=c11",
+      "-O2",
+      pngDecodeSourcePath,
+      "-I",
+      libpngRoot,
+      "-L",
+      path.join(libpngRoot, ".libs"),
+      "-lpng16",
+      "-lz",
+      "-lm",
+      "-o",
+      pngDecodePath,
+    ],
+    {},
+    "png decode oracle build failed",
+  );
+
+  const pngcheck = manifest.authorities[3];
+  const pngcheckRoot = path.join(workspace, pngcheck.archive.root);
+  const pngcheckPath = path.join(workspace, "pngcheck");
+  runTool(
+    "cc",
+    [
+      "-std=c11",
+      "-O2",
+      path.join(pngcheckRoot, "pngcheck.c"),
+      "-lz",
+      "-o",
+      pngcheckPath,
+    ],
+    {},
+    "pngcheck build failed",
+  );
+
+  const libjpegTurbo = manifest.authorities[4];
+  const libjpegTurboRoot = path.join(workspace, libjpegTurbo.archive.root);
+  const libjpegTurboBuild = path.join(workspace, "libjpeg-turbo-build");
+  const configure = runTool(
+    "cmake",
+    [
+      "-S",
+      libjpegTurboRoot,
+      "-B",
+      libjpegTurboBuild,
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DENABLE_SHARED=0",
+      "-DENABLE_STATIC=1",
+      "-DWITH_SIMD=0",
+      "-DWITH_ARITH_DEC=1",
+      "-DWITH_ARITH_ENC=0",
+      "-DWITH_TURBOJPEG=0",
+      "-DWITH_TESTS=0",
+    ],
+    {},
+    "libjpeg-turbo configure failed",
+  );
+  const configureLog = `${configure.stdout ?? ""}\n${configure.stderr ?? ""}`;
+  runTool(
+    "cmake",
+    [
+      "--build",
+      libjpegTurboBuild,
+      "--target",
+      "djpeg-static",
+      "jpegtran-static",
+      "rdjpgcom",
+      "jpeg-static",
+      "--parallel",
+      "2",
+    ],
+    {},
+    "libjpeg-turbo build failed",
+  );
+
+  const djpegPath = path.join(libjpegTurboBuild, "djpeg-static");
+  const jpegtranPath = path.join(libjpegTurboBuild, "jpegtran-static");
+  const rdjpgcomPath = path.join(libjpegTurboBuild, "rdjpgcom");
+  const libjpegStaticPath = path.join(libjpegTurboBuild, "libjpeg.a");
+  const libjpegTurboIncludeDir = libjpegTurboBuild; // jconfig.h/jconfigint.h land here
+
+  const djpegVersion = spawnSync(djpegPath, ["-version"], {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  if (djpegVersion.error !== undefined)
+    fail(`djpeg version check failed: ${djpegVersion.error.message}`);
+  const djpegVersionText = djpegVersion.stderr ?? "";
+
+  const arithmeticSourcePath = path.join(
+    libjpegTurboRoot,
+    "testimages/testimgari.jpg",
+  );
+  const arithmeticDecode = spawnSync(
+    djpegPath,
+    ["-outfile", path.join(workspace, "testimgari.ppm"), arithmeticSourcePath],
+    { encoding: "utf8", timeout: 20_000 },
+  );
+  if (arithmeticDecode.error !== undefined)
+    fail(
+      `libjpeg-turbo arithmetic decode smoke failed: ${arithmeticDecode.error.message}`,
+    );
+  const arithmeticDecodeExitCode = arithmeticDecode.status ?? 1;
+
+  assertLibjpegTurboFeatures({
+    configureLog,
+    djpegVersionText,
+    arithmeticDecodeExitCode,
+  });
+
+  const jpegDecodeSourcePath = path.join(
+    projectRoot,
+    "scripts/qualification/jpeg_decode_oracle.c",
+  );
+  if (!fs.existsSync(jpegDecodeSourcePath))
+    fail("jpeg decode oracle source is missing");
+  const jpegDecodePath = path.join(workspace, "jpeg-decode-oracle");
+  runTool(
+    "cc",
+    [
+      "-std=c11",
+      "-O2",
+      jpegDecodeSourcePath,
+      "-I",
+      libjpegTurboIncludeDir,
+      "-I",
+      path.join(libjpegTurboRoot, "src"),
+      "-L",
+      libjpegTurboBuild,
+      "-ljpeg",
+      "-o",
+      jpegDecodePath,
+    ],
+    {},
+    "jpeg decode oracle build failed",
+  );
+
+  const executable = (filePath) => ({
+    path: filePath,
+    sha256: digest(fs.readFileSync(filePath)),
+  });
+  const tools = {
+    authority: authoritySummary(manifest),
+    dwebp: executable(dwebpPath),
+    webpinfo: executable(webpinfoPath),
+    animation: executable(animationPath),
+    exiftool: executable(exiftoolPath),
+    pngDecode: executable(pngDecodePath),
+    pngcheck: executable(pngcheckPath),
+    djpeg: executable(djpegPath),
+    jpegtran: executable(jpegtranPath),
+    rdjpgcom: executable(rdjpgcomPath),
+    jpegStatic: executable(libjpegStaticPath),
+    jpegDecode: executable(jpegDecodePath),
+  };
+  probeOracleVersions(tools, manifest);
+  return tools;
+}
+
+/**
+ * The cheap, post-build version probes that do NOT need the configure log or
+ * the extracted source tree (KIT-09 D-02/D-05) -- re-runnable against a
+ * cache-loaded tools record, where neither is available. `assertLibjpegTurboFeatures`
+ * (configure-log-dependent) is deliberately NOT included here; it stays inline
+ * in `buildOracleTools`, where the configure log and the extracted
+ * `testimages/testimgari.jpg` fixture both still exist.
+ */
+function probeOracleVersions(tools, manifest) {
+  const libwebp = manifest.authorities[0];
+  const exiftoolAuthority = manifest.authorities[1];
+  const libpng = manifest.authorities[2];
+  const pngcheck = manifest.authorities[3];
+  const libjpegTurbo = manifest.authorities[4];
+
+  const dwebpVersion = runTool(
+    tools.dwebp.path,
+    ["-version"],
+    {},
+    "dwebp version check failed",
+  ).stdout.trim();
+  const webpinfoVersion = runTool(
+    tools.webpinfo.path,
+    ["-version"],
+    {},
+    "webpinfo version check failed",
+  ).stdout.trim();
+  const exiftoolVersion = runTool(
+    tools.exiftool.path,
+    ["-ver"],
+    {},
+    "ExifTool version check failed",
+  ).stdout.trim();
+  if (
+    dwebpVersion !== libwebp.version ||
+    webpinfoVersion !== `WebP Decoder version: ${libwebp.version}` ||
+    exiftoolVersion !== exiftoolAuthority.version
+  )
+    fail("built oracle version drift");
+
+  // The decode oracle has no `-version` flag (it takes exactly one input
+  // path per its I/O contract); it prints the libpng it was linked
+  // against to stderr unconditionally, even on a bare usage error, so
+  // this can confirm the built binary is actually wired to the pinned
+  // libpng without a separate flag.
+  const pngDecodeUsage = spawnSync(tools.pngDecode.path, [], {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  if (pngDecodeUsage.error !== undefined)
+    fail(
+      `png decode oracle version check failed: ${pngDecodeUsage.error.message}`,
+    );
+  if (!(pngDecodeUsage.stderr ?? "").includes(`libpng ${libpng.version}`))
+    fail("built oracle version drift");
+
+  const pngcheckVersion = runTool(
+    tools.pngcheck.path,
+    ["-h"],
+    {},
+    "pngcheck version check failed",
+  ).stdout.trim();
+  if (!pngcheckVersion.includes(pngcheck.version))
+    fail("built oracle version drift");
+
+  const jpegDecodeUsage = spawnSync(tools.jpegDecode.path, [], {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  if (jpegDecodeUsage.error !== undefined)
+    fail(
+      `jpeg decode oracle version check failed: ${jpegDecodeUsage.error.message}`,
+    );
+  if (
+    !(jpegDecodeUsage.stderr ?? "").includes(
+      `libjpeg-turbo ${libjpegTurbo.version}`,
+    )
+  )
+    fail("built oracle version drift");
+}
+
+/**
+ * Builds once per process, in an ephemeral `mkdtemp` workspace it owns and
+ * disposes (KIT-09 D-02). `build` is injectable so a test can swap in a
+ * `fakeBuild` that writes small placeholder executables instead of running a
+ * real linux/x64 build. When `EXIFCLEANER_ORACLE_DIR` is set, appends one
+ * line to `<that dir>/builds.log` so a stray per-process build is visible to
+ * `assertBuiltOnce` (D-06) even though this function never writes
+ * `complete.json` itself.
+ */
+function prepareOracleTools({ build = buildOracleTools } = {}) {
   const workspace = fs.mkdtempSync(
     path.join(os.tmpdir(), "exifcleaner-oracles-linux-x64-"),
   );
   let complete = false;
   try {
-    for (const authority of manifest.authorities) {
-      runTool(
-        "tar",
-        ["-xzf", validated.get(authority.id).archivePath, "-C", workspace],
-        {},
-        `${authority.id} extraction failed`,
-      );
-    }
-
-    const libwebp = manifest.authorities[0];
-    const libwebpRoot = path.join(workspace, libwebp.archive.root);
-    runTool(
-      path.join(libwebpRoot, "configure"),
-      ["--disable-shared", "--enable-static", "--disable-dependency-tracking"],
-      { cwd: libwebpRoot },
-      "libwebp configure failed",
-    );
-    runTool("make", ["-j2"], { cwd: libwebpRoot }, "libwebp build failed");
-
-    const dwebpPath = path.join(libwebpRoot, "examples/dwebp");
-    const webpinfoPath = path.join(libwebpRoot, "examples/webpinfo");
-    const exiftoolAuthority = manifest.authorities[1];
-    const exiftoolPath = path.join(
-      workspace,
-      exiftoolAuthority.archive.root,
-      "exiftool",
-    );
-    fs.chmodSync(exiftoolPath, 0o755);
-    const dwebpVersion = runTool(
-      dwebpPath,
-      ["-version"],
-      {},
-      "dwebp version check failed",
-    ).stdout.trim();
-    const webpinfoVersion = runTool(
-      webpinfoPath,
-      ["-version"],
-      {},
-      "webpinfo version check failed",
-    ).stdout.trim();
-    const exiftoolVersion = runTool(
-      exiftoolPath,
-      ["-ver"],
-      {},
-      "ExifTool version check failed",
-    ).stdout.trim();
-    if (
-      dwebpVersion !== libwebp.version ||
-      webpinfoVersion !== `WebP Decoder version: ${libwebp.version}` ||
-      exiftoolVersion !== exiftoolAuthority.version
-    )
-      fail("built oracle version drift");
-
-    const animationSourcePath = path.join(
-      projectRoot,
-      "scripts/qualification/anim_oracle.c",
-    );
-    if (!fs.existsSync(animationSourcePath))
-      fail("animation oracle source is missing");
-    const animationPath = path.join(workspace, "anim-oracle");
-    runTool(
-      "cc",
-      [
-        "-std=c11",
-        "-O2",
-        animationSourcePath,
-        "-I",
-        path.join(libwebpRoot, "src"),
-        "-L",
-        path.join(libwebpRoot, "src/demux/.libs"),
-        "-L",
-        path.join(libwebpRoot, "src/.libs"),
-        "-lwebpdemux",
-        "-lwebp",
-        "-lm",
-        "-o",
-        animationPath,
-      ],
-      {},
-      "animation oracle build failed",
-    );
-
-    const libpng = manifest.authorities[2];
-    const libpngRoot = path.join(workspace, libpng.archive.root);
-    runTool(
-      path.join(libpngRoot, "configure"),
-      ["--disable-shared", "--enable-static", "--disable-dependency-tracking"],
-      { cwd: libpngRoot },
-      "libpng configure failed",
-    );
-    runTool("make", ["-j2"], { cwd: libpngRoot }, "libpng build failed");
-
-    const pngDecodeSourcePath = path.join(
-      projectRoot,
-      "scripts/qualification/png_decode_oracle.c",
-    );
-    if (!fs.existsSync(pngDecodeSourcePath))
-      fail("png decode oracle source is missing");
-    const pngDecodePath = path.join(workspace, "png-decode-oracle");
-    runTool(
-      "cc",
-      [
-        "-std=c11",
-        "-O2",
-        pngDecodeSourcePath,
-        "-I",
-        libpngRoot,
-        "-L",
-        path.join(libpngRoot, ".libs"),
-        "-lpng16",
-        "-lz",
-        "-lm",
-        "-o",
-        pngDecodePath,
-      ],
-      {},
-      "png decode oracle build failed",
-    );
-
-    const pngcheck = manifest.authorities[3];
-    const pngcheckRoot = path.join(workspace, pngcheck.archive.root);
-    const pngcheckPath = path.join(workspace, "pngcheck");
-    runTool(
-      "cc",
-      [
-        "-std=c11",
-        "-O2",
-        path.join(pngcheckRoot, "pngcheck.c"),
-        "-lz",
-        "-o",
-        pngcheckPath,
-      ],
-      {},
-      "pngcheck build failed",
-    );
-
-    // The decode oracle has no `-version` flag (it takes exactly one input
-    // path per its I/O contract); it prints the libpng it was linked
-    // against to stderr unconditionally, even on a bare usage error, so
-    // the builder can confirm the built binary is actually wired to the
-    // pinned libpng without a separate flag.
-    const pngDecodeUsage = spawnSync(pngDecodePath, [], {
-      encoding: "utf8",
-      timeout: 5_000,
-    });
-    if (pngDecodeUsage.error !== undefined)
-      fail(
-        `png decode oracle version check failed: ${pngDecodeUsage.error.message}`,
-      );
-    if (!(pngDecodeUsage.stderr ?? "").includes(`libpng ${libpng.version}`))
-      fail("built oracle version drift");
-
-    const pngcheckVersion = runTool(
-      pngcheckPath,
-      ["-h"],
-      {},
-      "pngcheck version check failed",
-    ).stdout.trim();
-    if (!pngcheckVersion.includes(pngcheck.version))
-      fail("built oracle version drift");
-
-    const libjpegTurbo = manifest.authorities[4];
-    const libjpegTurboRoot = path.join(workspace, libjpegTurbo.archive.root);
-    const libjpegTurboBuild = path.join(workspace, "libjpeg-turbo-build");
-    const configure = runTool(
-      "cmake",
-      [
-        "-S",
-        libjpegTurboRoot,
-        "-B",
-        libjpegTurboBuild,
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DENABLE_SHARED=0",
-        "-DENABLE_STATIC=1",
-        "-DWITH_SIMD=0",
-        "-DWITH_ARITH_DEC=1",
-        "-DWITH_ARITH_ENC=0",
-        "-DWITH_TURBOJPEG=0",
-        "-DWITH_TESTS=0",
-      ],
-      {},
-      "libjpeg-turbo configure failed",
-    );
-    const configureLog = `${configure.stdout ?? ""}\n${configure.stderr ?? ""}`;
-    runTool(
-      "cmake",
-      [
-        "--build",
-        libjpegTurboBuild,
-        "--target",
-        "djpeg-static",
-        "jpegtran-static",
-        "rdjpgcom",
-        "jpeg-static",
-        "--parallel",
-        "2",
-      ],
-      {},
-      "libjpeg-turbo build failed",
-    );
-
-    const djpegPath = path.join(libjpegTurboBuild, "djpeg-static");
-    const jpegtranPath = path.join(libjpegTurboBuild, "jpegtran-static");
-    const rdjpgcomPath = path.join(libjpegTurboBuild, "rdjpgcom");
-    const libjpegStaticPath = path.join(libjpegTurboBuild, "libjpeg.a");
-    const libjpegTurboIncludeDir = libjpegTurboBuild; // jconfig.h/jconfigint.h land here
-
-    const djpegVersion = spawnSync(djpegPath, ["-version"], {
-      encoding: "utf8",
-      timeout: 5_000,
-    });
-    if (djpegVersion.error !== undefined)
-      fail(`djpeg version check failed: ${djpegVersion.error.message}`);
-    const djpegVersionText = djpegVersion.stderr ?? "";
-
-    const arithmeticSourcePath = path.join(
-      libjpegTurboRoot,
-      "testimages/testimgari.jpg",
-    );
-    const arithmeticDecode = spawnSync(
-      djpegPath,
-      [
-        "-outfile",
-        path.join(workspace, "testimgari.ppm"),
-        arithmeticSourcePath,
-      ],
-      { encoding: "utf8", timeout: 20_000 },
-    );
-    if (arithmeticDecode.error !== undefined)
-      fail(
-        `libjpeg-turbo arithmetic decode smoke failed: ${arithmeticDecode.error.message}`,
-      );
-    const arithmeticDecodeExitCode = arithmeticDecode.status ?? 1;
-
-    assertLibjpegTurboFeatures({
-      configureLog,
-      djpegVersionText,
-      arithmeticDecodeExitCode,
-    });
-
-    const jpegDecodeSourcePath = path.join(
-      projectRoot,
-      "scripts/qualification/jpeg_decode_oracle.c",
-    );
-    if (!fs.existsSync(jpegDecodeSourcePath))
-      fail("jpeg decode oracle source is missing");
-    const jpegDecodePath = path.join(workspace, "jpeg-decode-oracle");
-    runTool(
-      "cc",
-      [
-        "-std=c11",
-        "-O2",
-        jpegDecodeSourcePath,
-        "-I",
-        libjpegTurboIncludeDir,
-        "-I",
-        path.join(libjpegTurboRoot, "src"),
-        "-L",
-        libjpegTurboBuild,
-        "-ljpeg",
-        "-o",
-        jpegDecodePath,
-      ],
-      {},
-      "jpeg decode oracle build failed",
-    );
-    const jpegDecodeUsage = spawnSync(jpegDecodePath, [], {
-      encoding: "utf8",
-      timeout: 5_000,
-    });
-    if (jpegDecodeUsage.error !== undefined)
-      fail(
-        `jpeg decode oracle version check failed: ${jpegDecodeUsage.error.message}`,
-      );
-    if (
-      !(jpegDecodeUsage.stderr ?? "").includes(
-        `libjpeg-turbo ${libjpegTurbo.version}`,
-      )
-    )
-      fail("built oracle version drift");
-
-    const executable = (filePath) => ({
-      path: filePath,
-      sha256: digest(fs.readFileSync(filePath)),
-    });
+    const tools = build(workspace);
     complete = true;
+    const dir = process.env.EXIFCLEANER_ORACLE_DIR;
+    if (typeof dir === "string" && dir.length > 0)
+      fs.appendFileSync(
+        path.join(dir, "builds.log"),
+        `${new Date().toISOString()} pid ${process.pid}\n`,
+      );
     return {
-      authority: authoritySummary(manifest),
-      dwebp: executable(dwebpPath),
-      webpinfo: executable(webpinfoPath),
-      animation: executable(animationPath),
-      exiftool: executable(exiftoolPath),
-      pngDecode: executable(pngDecodePath),
-      pngcheck: executable(pngcheckPath),
-      djpeg: executable(djpegPath),
-      jpegtran: executable(jpegtranPath),
-      rdjpgcom: executable(rdjpgcomPath),
-      jpegStatic: executable(libjpegStaticPath),
-      jpegDecode: executable(jpegDecodePath),
+      ...tools,
       dispose() {
         fs.rmSync(workspace, { recursive: true, force: true });
       },
@@ -813,27 +859,195 @@ function prepareOracleTools() {
   }
 }
 
+/**
+ * `--prepare <dir>` (KIT-09 D-02): claims `dir` exclusively (`build.claim`,
+ * `wx` -- a second claim on the same directory throws), appends to
+ * `builds.log`, builds into `<dir>/workspace`, and writes `complete.json`
+ * last via a temp file + `renameSync` so a reader never observes a partial
+ * completion record. Returns the built tools record (without `dispose` --
+ * `prepareOracleDir` itself owns no ephemeral resource; the job directory is
+ * the caller's to keep or discard).
+ */
+function prepareOracleDir(dir, { build = buildOracleTools } = {}) {
+  fs.mkdirSync(dir, { recursive: true });
+  const claimPath = path.join(dir, "build.claim");
+  try {
+    fs.writeFileSync(
+      claimPath,
+      `${new Date().toISOString()} pid ${process.pid}\n`,
+      { flag: "wx" },
+    );
+  } catch (error) {
+    if (error && error.code === "EEXIST")
+      fail(`oracle directory already claimed: ${dir}`);
+    throw error;
+  }
+  fs.appendFileSync(
+    path.join(dir, "builds.log"),
+    `${new Date().toISOString()} pid ${process.pid}\n`,
+  );
+
+  const workspace = path.join(dir, "workspace");
+  fs.mkdirSync(workspace, { recursive: true });
+  const tools = build(workspace);
+
+  const executables = {};
+  for (const [name, value] of Object.entries(tools)) {
+    if (
+      name !== "authority" &&
+      isObject(value) &&
+      typeof value.path === "string" &&
+      typeof value.sha256 === "string"
+    )
+      executables[name] = { path: value.path, sha256: value.sha256 };
+  }
+  const complete = {
+    version: 1,
+    authority: tools.authority,
+    executables,
+    toolchain: { node: process.version },
+  };
+  const tmpPath = path.join(dir, "complete.json.tmp");
+  const completePath = path.join(dir, "complete.json");
+  fs.writeFileSync(tmpPath, JSON.stringify(complete, null, 2));
+  fs.renameSync(tmpPath, completePath);
+  return tools;
+}
+
+/**
+ * Reads a directory `prepareOracleDir` already built, never writing to it
+ * (KIT-09 D-05): verifies `complete.json` exists and its `authority` still
+ * matches the committed authority manifest's own summary, re-hashes every
+ * recorded executable (refusing on any mismatch -- a tampered binary never
+ * loads), re-runs the cheap version probes, and returns the tools with
+ * `source: "cache"` and a no-op `dispose()`.
+ */
+function loadPreparedOracleTools(dir, { probe = probeOracleVersions } = {}) {
+  const completePath = path.join(dir, "complete.json");
+  if (!fs.existsSync(completePath))
+    fail(`oracle directory is not complete: ${dir}`);
+  const complete = readJson(completePath, "complete.json");
+  const manifest = validateManifestShape(
+    readJson(authorityManifestPath, "authority manifest"),
+  );
+  const expectedAuthority = authoritySummary(manifest);
+  if (JSON.stringify(complete.authority) !== JSON.stringify(expectedAuthority))
+    fail(`cached oracle authority drift: ${dir}`);
+
+  const tools = { authority: complete.authority };
+  for (const [name, record] of Object.entries(complete.executables ?? {})) {
+    const bytes = fs.readFileSync(record.path);
+    if (digest(bytes) !== record.sha256)
+      fail(`cached oracle sha256 mismatch: ${name}`);
+    tools[name] = { path: record.path, sha256: record.sha256 };
+  }
+  probe(tools, manifest);
+  process.stderr.write(`oracle cache hit ${dir}\n`);
+  return {
+    ...tools,
+    source: "cache",
+    dispose() {},
+  };
+}
+
+/**
+ * `--assert-built-once <dir>` (KIT-09 D-06): exits 0 only when `builds.log`
+ * holds exactly one non-empty line and `complete.json` is present -- a
+ * missing/empty log, a two-line log, or a missing `complete.json` all fail.
+ */
+function assertBuiltOnce(dir) {
+  const logPath = path.join(dir, "builds.log");
+  if (!fs.existsSync(logPath))
+    fail(`oracle directory has no build log: ${dir}`);
+  const lines = fs
+    .readFileSync(logPath, "utf8")
+    .split("\n")
+    .filter((line) => line.trim().length > 0);
+  if (lines.length !== 1)
+    fail(
+      `oracle directory was built ${lines.length} times, expected exactly once: ${dir}`,
+    );
+  if (!fs.existsSync(path.join(dir, "complete.json")))
+    fail(`oracle directory is not complete: ${dir}`);
+}
+
+/**
+ * The single read-only loader every `oracles.ts` consumer delegates to
+ * (KIT-09 D-04): with `EXIFCLEANER_ORACLE_DIR` set, loads (never builds) from
+ * that directory; unset and `env.CI === "true"` throws on the first `tools()`
+ * call (never at construction, so a loader can be created speculatively);
+ * otherwise builds once per process via `prepareOracleTools`. Its own memo
+ * means each `createOracleToolsLoader()` instance builds/loads at most once.
+ */
+function createOracleToolsLoader({
+  env = process.env,
+  build = buildOracleTools,
+  probe = probeOracleVersions,
+} = {}) {
+  let memo;
+  return {
+    tools() {
+      if (memo !== undefined) return memo;
+      const dir = env.EXIFCLEANER_ORACLE_DIR;
+      if (typeof dir === "string" && dir.length > 0) {
+        memo = loadPreparedOracleTools(dir, { probe });
+        return memo;
+      }
+      if (env.CI === "true") fail("EXIFCLEANER_ORACLE_DIR is required in CI");
+      const tools = prepareOracleTools({ build });
+      memo = { ...tools, source: "build" };
+      return memo;
+    },
+  };
+}
+
+const defaultLoader = createOracleToolsLoader();
+const loadOrPrepareOracleTools = () => defaultLoader.tools();
+
 module.exports = {
   loadAndValidateAuthority,
   prepareOracleTools,
+  buildOracleTools,
+  probeOracleVersions,
+  prepareOracleDir,
+  loadPreparedOracleTools,
+  assertBuiltOnce,
+  createOracleToolsLoader,
+  loadOrPrepareOracleTools,
   readTarMembers,
   assertLibjpegTurboFeatures,
 };
 
 if (require.main === module) {
-  if (process.argv.length !== 3 || process.argv[2] !== "--verify-authority") {
-    process.stderr.write(
-      "Usage: node scripts/qualification/build-oracles.cjs --verify-authority\n",
-    );
-    process.exitCode = 2;
-  } else {
+  const args = process.argv.slice(2);
+  const usage =
+    "Usage: node scripts/qualification/build-oracles.cjs --verify-authority | --prepare <dir> | --assert-built-once <dir>\n";
+  const runCli = (action) => {
     try {
-      process.stdout.write(`${JSON.stringify(loadAndValidateAuthority())}\n`);
+      action();
     } catch (error) {
       process.stderr.write(
         `${error instanceof Error ? error.message : String(error)}\n`,
       );
       process.exitCode = 1;
     }
+  };
+  if (args.length === 1 && args[0] === "--verify-authority") {
+    runCli(() => {
+      process.stdout.write(`${JSON.stringify(loadAndValidateAuthority())}\n`);
+    });
+  } else if (args.length === 2 && args[0] === "--prepare") {
+    runCli(() => {
+      prepareOracleDir(args[1]);
+      process.stdout.write(`oracle authorities prepared: ${args[1]}\n`);
+    });
+  } else if (args.length === 2 && args[0] === "--assert-built-once") {
+    runCli(() => {
+      assertBuiltOnce(args[1]);
+      process.stdout.write(`oracle directory built exactly once: ${args[1]}\n`);
+    });
+  } else {
+    process.stderr.write(usage);
+    process.exitCode = 2;
   }
 }
