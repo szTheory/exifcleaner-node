@@ -150,6 +150,53 @@ phase.
 The hosted `qualification-linux` job-minute figure with JPEG's suites (`formats=png,webp,jpeg`)
 included is recorded in Plan 57-15, once this phase's own PR has a real hosted run to measure.
 
+## Oracle authorities are built once per job (Phase 60, KIT-09)
+
+Before Phase 60, `prepareOracleTools()` was memoized only in-process (`preparedTools ??=`), one
+memo slot per `oracles.ts` module (`kit`, `png`, `jpeg`, `webp`). Each format's oracle test file
+cold-built all five pinned authorities (libwebp, ExifTool, libpng, pngcheck, libjpeg-turbo)
+independently, and `png/oracles.test.ts` built twice within the same file (two top-level describe
+blocks each reaching `tools()` first) -- five cold builds in one `qualification-linux` job where
+one would do (see "KIT-09 root cause (D-01)" in the workspace's
+`.planning/phases/60-kit-readiness-and-png-aggregate-cap/60-EVIDENCE.md` for the corrected cause).
+
+`scripts/qualification/build-oracles.cjs` now builds each authority exactly once per job:
+
+- `node scripts/qualification/build-oracles.cjs --prepare "$EXIFCLEANER_ORACLE_DIR"` runs once,
+  before `npm test`, in **both** the `quality` and `qualification-linux` jobs -- a
+  `qualification-linux`-only fix would leave the repeated-build cost on `quality`, which every
+  other job `needs:`. It claims the job-scoped directory exclusively (`build.claim`, an exclusive
+  `wx` create), runs the full build plus every existing validation and feature assertion
+  (including `assertLibjpegTurboFeatures`), and writes `complete.json` last, atomically (temp file
+  - rename), holding each executable's `{ path, sha256 }`, the authority summary, and toolchain
+    versions.
+- Every `oracles.ts` consumer (`kit`, `png`, `jpeg`, `webp`) delegates to the single
+  `loadOrPrepareOracleTools()` loader in `build-oracles.cjs`. With `EXIFCLEANER_ORACLE_DIR` set,
+  the loader only reads: it re-verifies every executable's sha256 against `complete.json`,
+  re-runs the cheap `-version` probes, logs `oracle cache hit <dir>` to stderr, and returns
+  `source: "cache"` with a no-op `dispose()` -- no consumer ever triggers a second build.
+- `node scripts/qualification/build-oracles.cjs --assert-built-once "$EXIFCLEANER_ORACLE_DIR"` runs
+  once, after `npm test`, in both jobs -- a structural proof that `builds.log` holds exactly one
+  build line and `complete.json` is present, independent of (and not racing) the parallel Vitest
+  workers.
+- CI fails closed: with `CI === "true"` and `EXIFCLEANER_ORACLE_DIR` unset or pointing at an
+  incomplete directory, the loader throws on the first `tools()` call (never at import time, so a
+  loader can be constructed speculatively). Outside CI with no variable set, a per-process build
+  via `prepareOracleTools()` is still allowed, unchanged from before this phase.
+- Local runs (no `EXIFCLEANER_ORACLE_DIR`, no `CI=true`) build once per process exactly as before
+  -- this change only removes the _extra_ per-module cold builds inside a single CI job.
+- No `actions/cache` or any other cross-run persistence of oracle binaries is used (D-09) -- this
+  phase's fix is entirely intra-job. If a future phase ever introduces cross-run reuse, the cache
+  key must hash all three in-repo oracle C sources (`anim_oracle.c`, `png_decode_oracle.c`,
+  `jpeg_decode_oracle.c`), since none of them are covered by the pinned-archive sha256s the
+  authority manifest already checks.
+
+Measured against run `36733106449` (the correct baseline per D-10 -- see
+`.planning/phases/60-kit-readiness-and-png-aggregate-cap/60-EVIDENCE.md`'s `## KIT-09 root cause
+(D-01)`): `qualification-linux` was 4.32 job-min and `quality` was 4.52 job-min before this fix.
+The hosted post-fix figures for both jobs are recorded in 60-08/60-09's own evidence once this
+phase's PR has a real hosted run to measure.
+
 ## How to add a new format directory
 
 Add a `LINUX_SAFE_PATH_RULES` entry (and, if the format also needs full-scope carve-outs, a
