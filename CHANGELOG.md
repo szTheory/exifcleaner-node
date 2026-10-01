@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Fixed (PNG)
+
+PNG metadata parsing no longer allows an unbounded amount of non-`IDAT` chunk data to be
+buffered in memory during a single parse: aggregate buffered non-`IDAT` data is now capped at
+48 MiB, with a typed `unsafe-structure` refusal when the cap is exceeded. A separate memory
+retention issue is also fixed -- small chunks read through PNG's shared 64 KiB read-ahead window
+are now copied before being stored, instead of retaining a reference to the window's own backing
+buffer for the lifetime of the parse. An animation chunk (`acTL`, `fcTL`, `fdAT`) is now refused
+inside the parse loop before its data is read, rather than after.
+
+### Added
+
+`getCapabilities()` now reports the new PNG aggregate buffered-metadata limit via
+`limits.maxBufferedMetadataBytesTotal`.
+
 ## 0.3.1
 
 ### Fixed
