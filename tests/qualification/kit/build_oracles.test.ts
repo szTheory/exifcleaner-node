@@ -259,6 +259,36 @@ describe("build-oracles.cjs negative controls and edges (KIT-09 D-07)", () => {
     }
   });
 
+  it("refuses a complete.json tampered to point record.path outside dir, even with a matching sha256 (WR-02)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "exifcleaner-oracle-escape-"));
+    const outsideDir = mkdtempSync(
+      join(tmpdir(), "exifcleaner-oracle-outside-"),
+    );
+    try {
+      buildOracles.prepareOracleDir(dir, { build: fakeBuild });
+
+      // Plant a file outside `dir` with the same bytes (and therefore the
+      // same sha256) as the real toolA, then repoint complete.json's
+      // record.path at it.
+      const realToolAPath = join(dir, "workspace", "toolA");
+      const bytes = readFileSync(realToolAPath);
+      const outsideToolAPath = join(outsideDir, "toolA");
+      writeFileSync(outsideToolAPath, bytes);
+
+      const completePath = join(dir, "complete.json");
+      const complete = JSON.parse(readFileSync(completePath, "utf8"));
+      complete.executables.toolA.path = outsideToolAPath;
+      writeFileSync(completePath, JSON.stringify(complete, null, 2));
+
+      expect(() => buildOracles.loadPreparedOracleTools(dir)).toThrow(
+        /resolves outside/,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(outsideDir, { recursive: true, force: true });
+    }
+  });
+
   it("a cache-backed tools().dispose() leaves the directory listing unchanged", () => {
     const dir = mkdtempSync(join(tmpdir(), "exifcleaner-oracle-dispose-"));
     try {

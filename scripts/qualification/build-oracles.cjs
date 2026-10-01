@@ -63,6 +63,22 @@ function tarMemberName(value, root, label) {
   return member;
 }
 
+/**
+ * Resolves `candidatePath` against `dir` and refuses it (WR-02) unless the
+ * result stays inside `dir` -- whether `candidatePath` is itself absolute
+ * (escapes `dir` outright) or a relative `../` climb. Mirrors the
+ * containment checks `repositoryPath`/`tarMemberName` already apply to other
+ * trusted-looking-but-untrusted paths in this file.
+ */
+function assertPathWithinDir(dir, candidatePath, label) {
+  const value = requiredString(candidatePath, label);
+  const resolved = path.resolve(dir, value);
+  const fromDir = path.relative(dir, resolved);
+  if (fromDir.startsWith("..") || path.isAbsolute(fromDir))
+    fail(`${label} resolves outside ${dir}`);
+  return resolved;
+}
+
 function sha(value, label) {
   if (!SHA256.test(requiredString(value, label)))
     fail(`${label} is not SHA-256`);
@@ -954,10 +970,15 @@ function loadPreparedOracleTools(dir, { probe = probeOracleVersions } = {}) {
 
   const tools = { authority: complete.authority };
   for (const [name, record] of Object.entries(complete.executables ?? {})) {
-    const bytes = fs.readFileSync(record.path);
+    const recordPath = assertPathWithinDir(
+      dir,
+      record.path,
+      `cached oracle path for ${name}`,
+    );
+    const bytes = fs.readFileSync(recordPath);
     if (digest(bytes) !== record.sha256)
       fail(`cached oracle sha256 mismatch: ${name}`);
-    tools[name] = { path: record.path, sha256: record.sha256 };
+    tools[name] = { path: recordPath, sha256: record.sha256 };
   }
   probe(tools, manifest);
   process.stderr.write(`oracle cache hit ${dir}\n`);
