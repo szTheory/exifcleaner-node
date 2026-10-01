@@ -777,3 +777,170 @@ describe("item-graph validity declines (BMF-04)", () => {
     );
   });
 });
+
+// --- Task 3: mdat is never read during parsing (read-log proof) ---
+
+interface ReadLogEntry {
+  readonly position: number;
+  readonly length: number;
+}
+
+function loggingHandle(real: FileHandle): {
+  handle: FileHandle;
+  log: ReadLogEntry[];
+} {
+  const log: ReadLogEntry[] = [];
+  const handle = {
+    read: async (
+      buffer: Buffer,
+      offset: number,
+      length: number,
+      position: number,
+    ) => {
+      log.push({ position, length });
+      return real.read(buffer, offset, length, position);
+    },
+    close: () => real.close(),
+  } as unknown as FileHandle;
+  return { handle, log };
+}
+
+describe("parseIsobmff never reads the mdat payload (BMF-05)", () => {
+  it("a 1 GiB sparse mdat with Exif/XMP items at its start and the primary item at its end parses, reading only ftyp/meta/headers", async () => {
+    const exifPayload = Buffer.alloc(32, 1);
+    const xmpPayload = Buffer.alloc(32, 2);
+    const primaryPayload = Buffer.alloc(16, 3);
+
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infePrimary = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const infeExif = infeBox({ version: 2, itemId: 2, itemType: "Exif" });
+    const infeXmp = infeBox({
+      version: 2,
+      itemId: 3,
+      itemType: "mime",
+      contentType: "application/rdf+xml",
+    });
+    const iinf = iinfBox(0, [infePrimary, infeExif, infeXmp]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        {
+          itemId: 1,
+          associations: [
+            { propertyIndex: 1, essential: false },
+            { propertyIndex: 2, essential: true },
+          ],
+        },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+
+    // Pass 1: placeholder offsets (0) to learn iloc's encoded byte length.
+    function buildIlocAt(
+      exifOffset: number,
+      xmpOffset: number,
+      primaryOffset: number,
+    ) {
+      return ilocBox({
+        version: 1,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 0,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 1,
+            constructionMethod: 0,
+            dataReferenceIndex: 0,
+            baseOffset: 0,
+            extents: [{ offset: primaryOffset, length: primaryPayload.length }],
+          },
+          {
+            itemId: 2,
+            constructionMethod: 0,
+            dataReferenceIndex: 0,
+            baseOffset: 0,
+            extents: [{ offset: exifOffset, length: exifPayload.length }],
+          },
+          {
+            itemId: 3,
+            constructionMethod: 0,
+            dataReferenceIndex: 0,
+            baseOffset: 0,
+            extents: [{ offset: xmpOffset, length: xmpPayload.length }],
+          },
+        ],
+      });
+    }
+    const placeholderIloc = buildIlocAt(0, 0, 0);
+    const placeholderMeta = metaBox([hdlr, pitm, iinf, iprp, placeholderIloc]);
+
+    const mdatHeaderSize = 8;
+    const mdatPayloadStart =
+      ftyp.length + placeholderMeta.length + mdatHeaderSize;
+    const exifOffset = mdatPayloadStart; // Exif/XMP items "at its start"
+    const xmpOffset = exifOffset + exifPayload.length;
+    const mdatPayloadSize = 1024 * 1024 * 1024; // 1 GiB
+    const primaryOffset = mdatPayloadSize - primaryPayload.length; // primary item "at its end"
+
+    const finalIloc = buildIlocAt(exifOffset, xmpOffset, primaryOffset);
+    const finalMeta = metaBox([hdlr, pitm, iinf, iprp, finalIloc]);
+    expect(finalMeta.length).toBe(placeholderMeta.length);
+
+    const totalSize =
+      ftyp.length + finalMeta.length + mdatHeaderSize + mdatPayloadSize;
+
+    const directory = await freshDirectory();
+    const path = join(directory, "sparse.heic");
+    const writeHandle = await open(path, "w+");
+    try {
+      await writeHandle.write(ftyp, 0, ftyp.length, 0);
+      await writeHandle.write(finalMeta, 0, finalMeta.length, ftyp.length);
+      const mdatHeader = Buffer.alloc(8);
+      mdatHeader.writeUInt32BE(8 + mdatPayloadSize, 0);
+      mdatHeader.write("mdat", 4, 4, "ascii");
+      await writeHandle.write(mdatHeader, 0, 8, ftyp.length + finalMeta.length);
+      // Write the Exif/XMP payloads near the start of mdat and the primary payload at its end,
+      // then truncate to the full 1 GiB so the rest stays a sparse hole.
+      await writeHandle.write(exifPayload, 0, exifPayload.length, exifOffset);
+      await writeHandle.write(xmpPayload, 0, xmpPayload.length, xmpOffset);
+      await writeHandle.write(
+        primaryPayload,
+        0,
+        primaryPayload.length,
+        mdatPayloadStart + primaryOffset,
+      );
+      await writeHandle.truncate(totalSize);
+    } finally {
+      await writeHandle.close();
+    }
+
+    const metaSizeBound = ftyp.length + finalMeta.length + 4096;
+
+    const real = await open(path, "r");
+    const { handle, log } = loggingHandle(real);
+    try {
+      const model = await parseIsobmff(handle, totalSize);
+      expect(model.items.length).toBe(3);
+      expect(model.mdatRanges).toEqual([
+        { offset: mdatPayloadStart, length: mdatPayloadSize },
+      ]);
+
+      let totalBytesRead = 0;
+      for (const entry of log) {
+        totalBytesRead += entry.length;
+        const inFtypOrMeta =
+          entry.position + entry.length <= ftyp.length + finalMeta.length;
+        const inTopLevelHeaderWindow = entry.length <= 16;
+        expect(inFtypOrMeta || inTopLevelHeaderWindow).toBe(true);
+      }
+      expect(totalBytesRead).toBeLessThan(metaSizeBound);
+    } finally {
+      await handle.close();
+    }
+  });
+});
