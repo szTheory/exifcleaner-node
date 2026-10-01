@@ -527,3 +527,147 @@ export function metaBox(
 export function mdatBox(payload: Buffer, opts: BoxSizeOverride = {}): Buffer {
   return box("mdat", payload, opts);
 }
+
+/** `idat` -- ItemDataBox; NOT a FullBox (`Box_idat::parse`, box.cc:3736-3743: the
+ * `parse_full_box_header` call is commented out). Raw bytes referenced by cm=1 extents. */
+export function idatBox(payload: Buffer): Buffer {
+  return box("idat", payload);
+}
+
+/** One `SingleItemTypeReferenceBox` entry in `iref`: its own box type IS the reference type. */
+export interface IrefRef {
+  /** 4-character reference type, e.g. "dimg", "thmb", "auxl", "cdsc". */
+  readonly type: string;
+  readonly fromItemId: number;
+  readonly toItemIds: readonly number[];
+}
+
+/**
+ * `iref` (ItemReferenceBox) -- FullBox version 0/1. See Grammar -> "iref" (`Box_iref::parse`).
+ * `from_item_ID`/`to_item_ID` are 16-bit (v0) or 32-bit (v1); `reference_count` is always 16-bit
+ * regardless of version.
+ */
+export function irefBox(version: 0 | 1, refs: readonly IrefRef[]): Buffer {
+  const writeId = (id: number) => (version === 0 ? uint16(id) : uint32(id));
+  const children = refs.map((ref) =>
+    box(
+      ref.type,
+      Buffer.concat([
+        writeId(ref.fromItemId),
+        uint16(ref.toItemIds.length),
+        ...ref.toItemIds.map(writeId),
+      ]),
+    ),
+  );
+  return fullBox("iref", version, 0, Buffer.concat(children));
+}
+
+/** One `EntityToGroupBox` entry inside a `grpl` (GroupListBox). */
+export interface GrplGroup {
+  /** 4-character group_type, e.g. "altr". */
+  readonly type: string;
+  readonly groupId: number;
+  readonly entityIds: readonly number[];
+}
+
+/**
+ * `grpl` (GroupListBox) -- a plain box (no FullBox header of its own) whose children are
+ * `EntityToGroupBox` entries, each a FullBox version 0: group_id(32) num_entities_in_group(32)
+ * entity_id[32-bit each].
+ */
+export function grplBox(groups: readonly GrplGroup[]): Buffer {
+  const children = groups.map((group) =>
+    fullBox(
+      group.type,
+      0,
+      0,
+      Buffer.concat([
+        uint32(group.groupId),
+        uint32(group.entityIds.length),
+        ...group.entityIds.map(uint32),
+      ]),
+    ),
+  );
+  return box("grpl", Buffer.concat(children));
+}
+
+/**
+ * Any box with `type == "uuid"`: `size(32) "uuid"(32) usertype(16 bytes) payload`. See Grammar ->
+ * "Box header" (`BoxHeader::parse_header`, box.cc:264-277).
+ */
+export function uuidBox(usertypeHex: string, payload: Buffer): Buffer {
+  const usertype = Buffer.from(usertypeHex, "hex");
+  if (usertype.length !== 16) {
+    throw new Error("uuidBox: usertypeHex must encode exactly 16 bytes");
+  }
+  return box("uuid", Buffer.concat([usertype, payload]));
+}
+
+/**
+ * `colr` with `colour_type == "nclx"` -- not a FullBox; colour_primaries(16) transfer_
+ * characteristics(16) matrix_coefficients(16) full_range_flag(1 bit)+reserved(7 bits, 1 byte).
+ */
+export function colrNclx(
+  colourPrimaries: number,
+  transferCharacteristics: number,
+  matrixCoefficients: number,
+  fullRange: boolean,
+): Buffer {
+  const payload = Buffer.concat([
+    fourCc("nclx"),
+    uint16(colourPrimaries),
+    uint16(transferCharacteristics),
+    uint16(matrixCoefficients),
+    Buffer.from([fullRange ? 0x80 : 0x00]),
+  ]);
+  return box("colr", payload);
+}
+
+/** `colr` with `colour_type == "prof"` (restricted ICC profile), raw ICC bytes follow verbatim. */
+export function colrProf(iccBytes: Buffer): Buffer {
+  return box("colr", Buffer.concat([fourCc("prof"), iccBytes]));
+}
+
+/**
+ * `irot` (ImageRotation transform property) -- a plain `ItemProperty`, not a FullBox: one byte,
+ * low 2 bits hold the counter-clockwise rotation angle in units of 90 degrees.
+ */
+export function irot(angle: 0 | 1 | 2 | 3): Buffer {
+  return box("irot", Buffer.from([angle & 0x3]));
+}
+
+/** `imir` (ImageMirror transform property) -- a plain box; one byte, low bit is the mirror axis. */
+export function imir(axis: 0 | 1): Buffer {
+  return box("imir", Buffer.from([axis & 0x1]));
+}
+
+/**
+ * `pixi` (PixelInformationProperty) -- FullBox version 0: num_channels(8) then
+ * bits_per_channel(8) per channel.
+ */
+export function pixi(bitsPerChannel: readonly number[]): Buffer {
+  const payload = Buffer.concat([
+    uint8(bitsPerChannel.length),
+    Buffer.from(bitsPerChannel.map((value) => value & 0xff)),
+  ]);
+  return fullBox("pixi", 0, 0, payload);
+}
+
+/**
+ * `auxC` (AuxiliaryTypeProperty) -- FullBox version 0: aux_type (null-terminated string) then
+ * aux_subtype raw bytes to the end of the box. See `urn:com:apple:photo:2020:aux:hdrgainmap`
+ * measured on the real iPhone sample (61-01-SUMMARY.md).
+ */
+export function auxC(urn: string, subtype: Buffer = Buffer.alloc(0)): Buffer {
+  return fullBox(
+    "auxC",
+    0,
+    0,
+    Buffer.concat([nullTerminatedString(urn), subtype]),
+  );
+}
+
+/** `av1C` (AV1CodecConfigurationBox) -- not a FullBox; wraps an AV1CodecConfigurationRecord. */
+export function av1C(raw: Buffer): Buffer {
+  return box("av1C", raw);
+}
