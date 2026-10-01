@@ -360,9 +360,10 @@ Three classes close structural gaps D-12's own mapping table does not name
 (`meta-handler-not-pict`, `unsupported-box-version`, `item-graph-invalid`) -- planner discretion
 recorded in 61-CONTEXT.md's "Flagged assumptions"; they add no public type.
 
-Only the framing/top-level/cap classes are triggered by this phase's box walker
-(`src/isobmff/boxes.ts`/`parse.ts`); the remaining D3/D5 item-level classes are wired by
-61-05 through 61-08 as `iloc`/`ipma`/item-graph resolution lands.
+Every class is now wired: the framing/top-level/cap classes by `src/isobmff/boxes.ts`/`parse.ts`
+(61-04), and the remaining D3/D5 item-level classes by `src/isobmff/items.ts` (61-07, item-graph
+validity) and `src/isobmff/admission.ts` (61-08, the D3/D5 removable/surviving rules;
+`DECLINE_RULE_ORDER`).
 
 | Class                          | Public code          | Rule source                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------------ | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -384,7 +385,7 @@ Only the framing/top-level/cap classes are triggered by this phase's box walker
 | `cap-meta-bytes`               | `unsafe-structure`   | BMF-05 (PNG D-25 precedent): the declared `meta` payload size exceeds `IsobmffCaps.maxMetaBytes`. Triggered in `IsobmffBudget.checkMetaSize`, checked before the `meta` payload is read.                                                                                                                                                                              |
 | `cap-box-count`                | `unsafe-structure`   | BMF-05: the running box count exceeds `IsobmffCaps.maxBoxCount`. Triggered in `IsobmffBudget.countBox`, checked before each box is recorded.                                                                                                                                                                                                                          |
 | `cap-box-depth`                | `unsafe-structure`   | BMF-05: a container descent's depth exceeds `IsobmffCaps.maxBoxDepth`. Triggered in `IsobmffBudget.checkDepth`, checked before descending.                                                                                                                                                                                                                            |
-| `cap-buffered-bytes`           | `unsafe-structure`   | BMF-05: the aggregate bytes buffered from outside `meta` (Exif/XMP item payload reads) exceeds `IsobmffCaps.maxBufferedBytesTotal`. Wired by 61-08 (`IsobmffBudget.consumeBuffered` exists now; no call site yet).                                                                                                                                                    |
+| `cap-buffered-bytes`           | `unsafe-structure`   | BMF-05: the aggregate bytes buffered from outside `meta` (Exif/XMP item payload reads) exceeds `IsobmffCaps.maxBufferedBytesTotal`. Triggered in `admitIsobmff` (61-08): `IsobmffBudget.consumeBuffered(extent.length)` runs immediately before each extent's `readExactly` call.                                                                                     |
 | `extent-outside-mdat`          | `malformed-file`     | D-10a: an extent's offset is outside the single `mdat` payload (or, for a removable item's emptied extent, outside the file).                                                                                                                                                                                                                                         |
 | `meta-not-fullbox`             | `malformed-file`     | D-11: `meta` is not a version-0 `FullBox` -- a QuickTime-style `meta` (no version/flags) or an unsupported `meta` version. Triggered in `parse.ts` via the first-4-payload-bytes-nonzero check.                                                                                                                                                                       |
 | `duplicate-meta`               | `malformed-file`     | D5: a second top-level `meta` box. Triggered in `parse.ts`.                                                                                                                                                                                                                                                                                                           |
@@ -394,3 +395,47 @@ Only the framing/top-level/cap classes are triggered by this phase's box walker
 ## Memory caps
 
 Filled in by a later Phase 61 plan.
+
+## Admission of the measured sample
+
+`src/isobmff/admission.ts` implements the D3/D5 admission classifier (`classifyIsobmffModel`,
+`admitIsobmff`) over the item graph (61-07). Proof against both real `heif-enc -T` fixtures
+(`tests/isobmff-support/fixtures/`) and a hand-built, measured-iPhone-shaped file
+(grid-in-`idat` primary, hidden tiles via `dimg`, an `hvc1` thumbnail via `thmb`, an `auxl`
+`hdrgainmap` target, and `cdsc`-from-item Exif/XMP) lives in `tests/isobmff_admission.test.ts`.
+
+**BMF-06 goal check (fresh, agent-executed, 2026-10-01):** the public iPhone 13 Pro Max sample
+(`ianare/exif-samples` @ `f0462fcc42f7bad484fe637389b734612d97041f`,
+sha256 `e760c80eed310e4f27c092d5487693ca8e104e7cc01d25ba4828deb28f679676`, 2,182,707 bytes --
+re-verified identical to the D-01 pin) is **admitted** by `admitIsobmff` from the built `dist/`
+output, with `removableItemIds` exactly `[52, 53]` -- item 52 is the `mime`/`application/rdf+xml`
+XMP item, item 53 is `Exif` (matching the item ids the independent inventory walker recorded in
+61-03). No bytes of the sample are committed; only its sha is quoted (D-02).
+
+ExifTool 13.59's `-all=` output of the same sample (regenerated fresh in scratch, not reused from a
+prior session) is **also admitted**, with `removableItemIds` unchanged (`[52, 53]`) but
+`emptiedItemIds` equal to `[53]` only. A direct `exiftool -XMP:all` comparison before/after `-all=`
+shows the XMP tags (`XMPToolkit`, `HDRGainMapVersion`) are byte-identical -- **on this real sample,
+ExifTool 13.59's `-all=` empties the Exif item in place but does not touch the XMP `mime` item at
+all**, leaving its full, non-empty extent exactly as in the source. This is a new measured fact,
+distinct from the `heif-enc` synthetic fixtures (61-03), where `-all=` emptied _both_ Exif and XMP
+to the same `base_offset`. Both are legitimate, independently measured ExifTool shapes under
+D-10a's single rule (a removable item's extents are either admitted whole or admitted emptied); the
+amended admission classifier handles both without special-casing either.
+
+Both admitted runs report namespace `ICC` (the primary item's `colr` is colour_type `prof`, a real
+embedded ICC profile, not `nclx`) -- consistent with F-HEIC-ICC (`.planning/STATE.md`): ExifTool's
+"ICC_Profile deleted" warning on `-all=` never actually removes the `colr` box's structural bytes,
+so the cleaned output still carries it.
+
+**Bug found and fixed by this execution-time check (Rule 1):** running the real sample through the
+actual engine for the first time (prior plans proved `buildItemModel` only against `heif-enc`
+fixtures and the independent inventory walker, never against this file through `src/isobmff/`
+itself) surfaced a parser defect: `src/isobmff/items.ts`'s `parseInfe` treated a `mime` item's
+`content_encoding` field as mandatory, but ISO/IEC 23008-12 9.2 declares it OPTIONAL -- the real
+sample's XMP `infe` box (item 52) ends exactly at `content_type`'s own NUL terminator, with zero
+bytes remaining for `content_encoding`. Fixed by only attempting to read `content_encoding` when
+bytes remain after `content_type`; an absent field now reads as `undefined`, the same
+"no encoding declared" meaning `admission.ts`'s XMP-removable check already gives an explicit empty
+string. Every `heif-enc`/builder fixture happened to write an explicit empty `content_encoding`
+(one NUL byte), which is why this was never caught before the real-sample proof ran.
