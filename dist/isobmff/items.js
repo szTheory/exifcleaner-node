@@ -114,9 +114,18 @@ function parseInfe(buffer, header) {
         const ct = readCString(payload, position, "infe content_type");
         contentType = ct.value;
         position = ct.next;
-        const ce = readCString(payload, position, "infe content_encoding");
-        contentEncoding = ce.value;
-        position = ce.next;
+        // ISO/IEC 23008-12 9.2's content_encoding field is OPTIONAL: a conformant encoder may omit
+        // it entirely rather than writing an explicit empty string (one NUL byte). Measured on the
+        // real iPhone 13 Pro Max sample's XMP `mime` item (item 52): its infe payload ends exactly at
+        // content_type's own terminator, with zero bytes remaining for content_encoding. Only attempt
+        // to read it when bytes actually remain; an absent field is `undefined` here, the same
+        // "no encoding declared" meaning as an explicit empty string (src/isobmff/admission.ts's
+        // XMP-removable check already treats both identically).
+        if (position < payload.length) {
+            const ce = readCString(payload, position, "infe content_encoding");
+            contentEncoding = ce.value;
+            position = ce.next;
+        }
     }
     else if (itemType === "uri ") {
         const u = readCString(payload, position, "infe item_uri_type");
