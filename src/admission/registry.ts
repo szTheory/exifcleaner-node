@@ -50,7 +50,7 @@ export function getFormatCapabilities(): readonly [
 export async function selectHandler(
   handle: FileHandle,
 ): Promise<RegisteredHandler | undefined> {
-  const magic = Buffer.alloc(12);
+  const magic = Buffer.alloc(256);
   const { bytesRead } = await handle.read(magic, 0, magic.length, 0);
   const observed = magic.subarray(0, bytesRead);
   return activeHandlers.find((handler) => handler.matches(observed));
