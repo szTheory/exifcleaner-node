@@ -34,9 +34,21 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
  * mechanism, not a JPEG-only concept) -- excluded from this token set
  * entirely, per the same reasoning that keeps "resolution"/"orientation" out
  * of it.
+ *
+ * 60-06 measured one incidental hit for the unbounded `png` token: the SPDX
+ * license identifier `libpng-2.0`, newly introduced into
+ * `tests/qualification/kit/corpus.ts`'s closed `APPROVED_CORPUS_LICENSES`
+ * list (KIT-10). The identifier names a license, not a PNG parsing concept --
+ * the same "illustrative/unrelated literal" category as `app14`/`adobe`
+ * above -- and unlike those two, the literal cannot be renamed (it must match
+ * the manifest's real `provenance.license` values byte-for-byte). Fixed the
+ * same way word-boundary bounding was applied there: `png` gained `\b` on
+ * both sides, which excludes `libpng-2.0` (no boundary between `b` and `p`)
+ * while still matching every standalone `png` token this gate exists to
+ * catch.
  */
 export const FORMAT_SPECIFIC_TOKEN =
-  /webp|riff|vp8|fourcc|iccp|png|jpeg|jpg|jfif|jfxx|mpf|sof|sos|soi|eoi|dqt|dht|\bapp14\b|\badobe\b|\bihdr\b|\bidat\b|\biend\b|\bphys\b|\bidot\b|\bitxt\b|\bztxt\b/giu;
+  /webp|riff|vp8|fourcc|iccp|\bpng\b|jpeg|jpg|jfif|jfxx|mpf|sof|sos|soi|eoi|dqt|dht|\bapp14\b|\badobe\b|\bihdr\b|\bidat\b|\biend\b|\bphys\b|\bidot\b|\bitxt\b|\bztxt\b/giu;
 
 export interface FormatSpecificHit {
   readonly line: number;
@@ -96,6 +108,7 @@ function describeHits(
 const NEUTRAL_TARGETS: readonly ScanTarget[] = [
   { path: "src/engine.ts" },
   { path: "src/transaction/safe-transaction.ts" },
+  { path: "src/io/copy-range.ts" },
 ];
 
 describe("format-neutral source scan (KIT-01 D-03)", () => {

@@ -236,14 +236,15 @@ keep or strip it.
 
 ### PNG limits
 
-| Member                            | Value      | Meaning                                                                       |
-| --------------------------------- | ---------- | ----------------------------------------------------------------------------- |
-| `limits.maxMetadataBytesPerChunk` | `16777216` | Maximum on-disk size of any single non-`IDAT` chunk's data (16 MiB).          |
-| `limits.maxAncillaryChunkCount`   | `10000`    | Maximum number of non-`IDAT` chunks accepted during one parse.                |
-| `limits.maxIdatChunkCount`        | `65536`    | Maximum number of `IDAT` chunks accepted during one parse (CR-02).            |
-| `limits.maxInflatedIccBytes`      | `16777216` | Maximum inflated size of an `iCCP` profile (16 MiB, the ICC policy cap).      |
-| `limits.maxInflatedTextBytes`     | `16777216` | Maximum inflated size of a `zTXt` or compressed `iTXt` field (16 MiB).        |
-| `limits.maxInflatedBytesTotal`    | `50331648` | Aggregate inflated-bytes budget shared across all compressed fields (48 MiB). |
+| Member                                 | Value      | Meaning                                                                       |
+| -------------------------------------- | ---------- | ----------------------------------------------------------------------------- |
+| `limits.maxMetadataBytesPerChunk`      | `16777216` | Maximum on-disk size of any single non-`IDAT` chunk's data (16 MiB).          |
+| `limits.maxAncillaryChunkCount`        | `10000`    | Maximum number of non-`IDAT` chunks accepted during one parse.                |
+| `limits.maxIdatChunkCount`             | `65536`    | Maximum number of `IDAT` chunks accepted during one parse (CR-02).            |
+| `limits.maxInflatedIccBytes`           | `16777216` | Maximum inflated size of an `iCCP` profile (16 MiB, the ICC policy cap).      |
+| `limits.maxInflatedTextBytes`          | `16777216` | Maximum inflated size of a `zTXt` or compressed `iTXt` field (16 MiB).        |
+| `limits.maxInflatedBytesTotal`         | `50331648` | Aggregate inflated-bytes budget shared across all compressed fields (48 MiB). |
+| `limits.maxBufferedMetadataBytesTotal` | `50331648` | Aggregate raw data of all non-IDAT chunks buffered in one parse (48 MiB).     |
 
 `maxIdatChunkCount` is derived from a census of 19,979 real PNGs (the largest
 measured 1,786 `IDAT` chunks): 65,536 is 36x that headroom and still admits
@@ -380,9 +381,18 @@ chunk's data with only a per-chunk/aggregate-count bound, not an aggregate-bytes
 `parseJpeg` (`src/jpeg/parser.ts`) was written from the start with a bounded 64 KiB read-ahead
 window shared across every segment-header, small-segment-data, and marker read in its main loop --
 the same fix PNG needed only after the fact (56-12's post-plan `PNG_CHUNK_READ_WINDOW_BYTES` gap
-fix) is present in JPEG by construction (57-03), so WR-02 does not recur for JPEG. PNG's own WR-02
-(the aggregate-buffered-bytes cap) stays deferred: this phase did not touch PNG's ancillary-chunk
-buffering path.
+fix) is present in JPEG by construction (57-03), so WR-02 does not recur for JPEG. **PNG's own
+WR-02 is now closed (Phase 60, PNG-05):** `parsePng` caps aggregate buffered non-IDAT data at
+48 MiB (`BufferedBudget`, `limits.maxBufferedMetadataBytesTotal` above) with a typed
+`unsafe-structure` refusal (`chunkType: "*"`, so the iCCP per-chunk remap can never misreport an
+aggregate breach), and `copyWindowedChunk` copies every windowed chunk read before it is stored, so
+a small chunk no longer retains a reference to a shared 64 KiB read window for the lifetime of the
+parse. `tests/png_memory.test.ts` measures real peak RSS (via a child-process harness) against a
+test ceiling, with both a cap-removed and a copy-removed negative control.
+
+Within the parse loop, an animation chunk (`acTL`, `fcTL`, `fdAT`) is refused before its data is
+ever read (PNG-06), so a malicious or malformed animation chunk cannot reach the buffering path at
+all.
 
 ### JPEG trailer truncation (D-11) and MPF/motion-photo classification (D-12, D-13)
 

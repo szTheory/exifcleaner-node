@@ -1,4 +1,5 @@
 import type { FileHandle } from "node:fs/promises";
+import { COPY_BLOCK_BYTES, copyRange } from "../io/copy-range.js";
 import { createOrientationExif, parseExif } from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
 import { parseXmp, xmpOrientation } from "../metadata/xmp.js";
@@ -26,6 +27,7 @@ import {
   parsePng,
   PNG_CRITICAL_CHUNK_TYPES,
   PNG_MAX_ANCILLARY_CHUNKS,
+  PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL,
   PNG_MAX_IDAT_CHUNKS,
   PNG_MAX_INFLATED_BYTES_TOTAL,
   PNG_MAX_INFLATED_ICC_BYTES,
@@ -111,7 +113,6 @@ export const PNG_CONDITIONAL_CHUNK_TYPES: ReadonlyMap<
   ["pHYs", "resolution"],
 ]);
 
-const COPY_BLOCK_BYTES = 64 * 1024;
 const CHUNK_FIXED_OVERHEAD_BYTES = 12; // 4-byte length + 4-byte type + 4-byte CRC
 
 export interface PngAdmission extends FormatAdmission {
@@ -696,42 +697,6 @@ async function writeAll(
   return position + written;
 }
 
-async function copyRange(
-  source: FileHandle,
-  destination: FileHandle,
-  sourceOffset: number,
-  length: number,
-  position: number,
-  signal?: AbortSignal,
-): Promise<number> {
-  const buffer = Buffer.allocUnsafe(
-    Math.min(COPY_BLOCK_BYTES, Math.max(length, 1)),
-  );
-  let copied = 0;
-  while (copied < length) {
-    if (isAborted(signal))
-      throw signal?.reason ?? new DOMException("Aborted", "AbortError");
-    const take = Math.min(buffer.length, length - copied);
-    const read = await source.read(buffer, 0, take, sourceOffset + copied);
-    if (read.bytesRead !== take)
-      throw new Error("Source changed or became truncated while copying.");
-    let written = 0;
-    while (written < take) {
-      const result = await destination.write(
-        buffer,
-        written,
-        take - written,
-        position + copied + written,
-      );
-      if (result.bytesWritten === 0)
-        throw new Error("A file write made no progress.");
-      written += result.bytesWritten;
-    }
-    copied += take;
-  }
-  return position + copied;
-}
-
 async function chunksEqual(
   sourceHandle: FileHandle,
   source: PngChunk,
@@ -972,6 +937,7 @@ const capability: PngCapabilities = Object.freeze({
     maxInflatedIccBytes: PNG_MAX_INFLATED_ICC_BYTES,
     maxInflatedTextBytes: PNG_MAX_INFLATED_TEXT_BYTES,
     maxInflatedBytesTotal: PNG_MAX_INFLATED_BYTES_TOTAL,
+    maxBufferedMetadataBytesTotal: PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL,
   }),
   refuses: Object.freeze([
     "unknown-critical-chunks",

@@ -1,4 +1,11 @@
-import { access, mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdtemp,
+  open,
+  rm,
+  writeFile,
+  type FileHandle,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as zlib from "node:zlib";
@@ -14,6 +21,7 @@ import {
   PNG_MAX_INFLATED_BYTES_TOTAL,
   PNG_MAX_INFLATED_ICC_BYTES,
   PNG_MAX_METADATA_BYTES_PER_CHUNK,
+  PNG_SIGNATURE,
   type PngStructureError,
   crc32,
   inflateBounded,
@@ -328,6 +336,129 @@ describe("parsePng structural refusals (PNG-03)", () => {
       pngChunk("IEND", Buffer.alloc(0)),
     ]);
     await expectStructureError(fixture, "malformed-file");
+  });
+});
+
+const APNG_MALFORMATION_LAYOUTS = [
+  "truncated",
+  "oversized",
+  "bad-crc",
+] as const;
+type ApngMalformationLayout = (typeof APNG_MALFORMATION_LAYOUTS)[number];
+
+// Builds signature + IHDR + one hand-assembled chunk header/data for `type`, in one of three
+// malformed layouts. Built with Buffer.concat (not pngChunk/encodePngChunk), so the declared
+// length can lie about the bytes actually present. Each layout is malformed for a DIFFERENT
+// reason than the APNG type itself -- the tEXt twin (same layout, type swapped) proves that:
+// it still rejects, just with malformed-file instead of unsafe-structure, since the loop's
+// animation-type check fires only for acTL/fcTL/fdAT.
+//
+//   truncated: declares length 1000 but only 10 data bytes are present before EOF -- would
+//     trip the file-bounds check ("chunk exceeds file bounds").
+//   oversized: declares length 0x80000000 (> MAX_CHUNK_LENGTH, the 2^31-1 ceiling) -- would
+//     trip the length-ceiling check ("chunk length exceeds the 2^31-1 limit").
+//   bad-crc: a complete, in-bounds, correctly-sized chunk (plus IDAT/IEND so the file is
+//     otherwise well-formed) with its last CRC byte flipped -- would trip the CRC check
+//     ("chunk CRC does not match its data").
+function malformedChunkLayout(
+  type: string,
+  layout: ApngMalformationLayout,
+): Buffer {
+  const ihdr = pngChunk("IHDR", pngIhdr());
+  switch (layout) {
+    case "truncated": {
+      const header = Buffer.alloc(8);
+      header.writeUInt32BE(1000, 0);
+      header.write(type, 4, 4, "ascii");
+      const truncatedData = Buffer.alloc(10);
+      return Buffer.concat([PNG_SIGNATURE, ihdr, header, truncatedData]);
+    }
+    case "oversized": {
+      const header = Buffer.alloc(8);
+      header.writeUInt32BE(0x80000000, 0);
+      header.write(type, 4, 4, "ascii");
+      return Buffer.concat([PNG_SIGNATURE, ihdr, header]);
+    }
+    case "bad-crc": {
+      const chunk = corruptCrc(pngChunk(type, Buffer.alloc(4)));
+      return Buffer.concat([
+        PNG_SIGNATURE,
+        ihdr,
+        chunk,
+        pngChunk("IDAT", pngIdat()),
+        pngChunk("IEND", Buffer.alloc(0)),
+      ]);
+    }
+  }
+}
+
+describe("APNG refusal inside the parse loop (PNG-06, D-26)", () => {
+  it.each(
+    (["acTL", "fcTL", "fdAT"] as const).flatMap((type) =>
+      APNG_MALFORMATION_LAYOUTS.map((layout) => [type, layout] as const),
+    ),
+  )(
+    "refuses %s (%s) as unsafe-structure, but its tEXt twin as malformed-file",
+    async (type, layout) => {
+      const fixture = malformedChunkLayout(type, layout);
+      await expect(parseFixture(fixture)).rejects.toMatchObject({
+        kind: "unsafe-structure",
+        message: "Animated PNG is not supported.",
+      });
+
+      const twin = malformedChunkLayout("tEXt", layout);
+      await expectStructureError(twin, "malformed-file");
+    },
+  );
+
+  it("does not read the full 262144-byte fdAT payload before refusing it", async () => {
+    // In-bounds fdAT with a correct CRC over 262144 zero bytes, so nothing but the
+    // in-loop type check can be what stops the read -- a fixture that failed its own
+    // length/bounds/CRC checks would refuse for an unrelated reason and prove nothing
+    // about read cost.
+    const data = Buffer.alloc(262144);
+    const fixture = png([
+      pngChunk("IHDR", pngIhdr()),
+      pngChunk("fdAT", data),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]);
+
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-png-"));
+    const path = join(directory, "input.png");
+    try {
+      await writeFile(path, fixture);
+      const realHandle = await open(path, "r");
+      const reads: { length: number; position: number }[] = [];
+      try {
+        const recordingHandle = {
+          read: (
+            buffer: Uint8Array,
+            offset: number,
+            length: number,
+            position: number,
+          ) => {
+            reads.push({ length, position });
+            return realHandle.read(buffer, offset, length, position);
+          },
+        } as unknown as FileHandle;
+
+        await expect(
+          parsePng(recordingHandle, fixture.length),
+        ).rejects.toMatchObject({
+          kind: "unsafe-structure",
+          message: "Animated PNG is not supported.",
+        });
+      } finally {
+        await realHandle.close();
+      }
+      expect(reads.every((entry) => entry.length < 262144)).toBe(true);
+      expect(
+        reads.reduce((total, entry) => total + entry.length, 0),
+      ).toBeLessThan(262144);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });
 

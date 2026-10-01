@@ -1,3 +1,4 @@
+import { COPY_BLOCK_BYTES, copyRange } from "../io/copy-range.js";
 import { createMinimalExif, parseExif, readIfd0Resolution, } from "../metadata/exif.js";
 import { parseXmp, xmpOrientation } from "../metadata/xmp.js";
 import { parseIcc } from "../metadata/icc.js";
@@ -9,7 +10,6 @@ import { ICC_SEGMENT_IDENTIFIER, reassembleIccSegments } from "../jpeg/icc.js";
 import { STANDARD_XMP_IDENTIFIER, reassembleExtendedXmp } from "../jpeg/xmp.js";
 import { classifyTrailerClasses, trailerRefusal, } from "../jpeg/trailer.js";
 import { ICC_PRESERVATION_POLICY_ID, MAX_PROFILE_BYTES, } from "../metadata/icc_admission.js";
-const COPY_BLOCK_BYTES = 64 * 1024;
 const TRAILER_TAIL_BYTES = 64;
 const JPEG_SOI_BYTES = Buffer.from([0xff, SOI]);
 const JPEG_EOI_BYTES = Buffer.from([0xff, EOI]);
@@ -494,27 +494,6 @@ async function writeAll(handle, data, position) {
         written += next.bytesWritten;
     }
     return position + written;
-}
-async function copyRange(source, destination, sourceOffset, length, position, signal) {
-    const buffer = Buffer.allocUnsafe(Math.min(COPY_BLOCK_BYTES, Math.max(length, 1)));
-    let copied = 0;
-    while (copied < length) {
-        if (isAborted(signal))
-            throw signal?.reason ?? new DOMException("Aborted", "AbortError");
-        const take = Math.min(buffer.length, length - copied);
-        const read = await source.read(buffer, 0, take, sourceOffset + copied);
-        if (read.bytesRead !== take)
-            throw new Error("Source changed or became truncated while copying.");
-        let written = 0;
-        while (written < take) {
-            const result = await destination.write(buffer, written, take - written, position + copied + written);
-            if (result.bytesWritten === 0)
-                throw new Error("A file write made no progress.");
-            written += result.bytesWritten;
-        }
-        copied += take;
-    }
-    return position + copied;
 }
 async function readTail(handle, length, position) {
     const result = Buffer.alloc(length);

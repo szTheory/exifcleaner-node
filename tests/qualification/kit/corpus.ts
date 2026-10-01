@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   getCapabilities,
@@ -12,7 +12,57 @@ import type { MetadataEntry, NativeFormat } from "../../../src/types.js";
 
 const CORPUS_ROOT = fileURLToPath(new URL("../../corpus/", import.meta.url));
 const MANIFEST_PATH = join(CORPUS_ROOT, "manifest.json");
+const NOTICE_PATH = join(CORPUS_ROOT, "NOTICE");
+/**
+ * The `exifcleaner-node` repository root -- a download-only cache directory
+ * (D-14) must resolve outside this, so downloaded bytes can never be vendored
+ * into the repository or the published npm package by accident.
+ */
+const PROJECT_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
+const RAW_GITHUBUSERCONTENT_HOST = "raw.githubusercontent.com";
+const CC_BY_SA_4_0_LICENSE_URL =
+  "https://creativecommons.org/licenses/by-sa/4.0/";
 const SHA256 = /^[a-f0-9]{64}$/;
+
+/**
+ * The exact, closed set of provenance keys this kit admits (KIT-10/D-12).
+ * Any other key -- a typo, a future field added without updating this file,
+ * a stray mirror/source annotation -- is rejected rather than silently
+ * ignored, so the manifest schema can never drift unnoticed.
+ */
+const PROVENANCE_KEYS = new Set([
+  "revision",
+  "url",
+  "license",
+  "licenseStatus",
+  "kind",
+  "noticeId",
+]);
+
+/**
+ * The closed list of licenses this corpus admits for a vendored (bytes
+ * committed to the repository) record. Unknown classes fail closed
+ * (KIT-10/D-13) -- a new license requires an explicit addition here, never
+ * an SPDX-shape regex that admits anything syntactically plausible.
+ */
+export const APPROVED_CORPUS_LICENSES: ReadonlySet<string> = new Set([
+  "MIT",
+  "libpng-2.0",
+  "IJG",
+  "Artistic-1.0-Perl OR GPL-1.0-or-later",
+  "BSD-3-Clause",
+  "CC-BY-SA-4.0",
+]);
+
+/**
+ * Licenses valid ONLY on a `kind: "download-only"` record -- bytes that are
+ * never vendored into the repository or the npm package, so a license that
+ * does not itself grant redistribution rights is acceptable precisely
+ * because this corpus never redistributes those bytes (KIT-10/D-13).
+ */
+const DOWNLOAD_ONLY_LICENSES: ReadonlySet<string> = new Set([
+  "LicenseRef-default-copyright",
+]);
 const ROLES = new Set([
   "decode",
   "differential",
@@ -75,6 +125,8 @@ interface Provenance {
   readonly url: string;
   readonly license: string;
   readonly licenseStatus: "approved";
+  readonly kind?: "vendored" | "download-only";
+  readonly noticeId?: string;
 }
 
 interface SuccessOutcome {
@@ -195,9 +247,63 @@ export function assertCorpusRecord(
     new Set(roles).size !== roles.length
   )
     invalid("roles");
+  if (!isObject(value.provenance)) invalid("provenance");
+  const provenance = value.provenance;
+  for (const key of Object.keys(provenance))
+    if (!PROVENANCE_KEYS.has(key)) invalid("provenance keys");
+  if (
+    provenance.kind !== undefined &&
+    provenance.kind !== "vendored" &&
+    provenance.kind !== "download-only"
+  )
+    invalid("provenance kind");
+  const isDownloadOnly = provenance.kind === "download-only";
+  const license = stringField(provenance.license, "license");
+  // The license list is closed (KIT-10/D-13): unknown classes fail closed
+  // rather than passing an SPDX-shape regex. LicenseRef-default-copyright is
+  // admitted only on a download-only record, since those bytes are never
+  // vendored into the repository or the npm package.
+  if (!(
+    APPROVED_CORPUS_LICENSES.has(license) ||
+    (isDownloadOnly && DOWNLOAD_ONLY_LICENSES.has(license))
+  ))
+    invalid("license");
+  const revision = stringField(provenance.revision, "revision");
+  if (!/^[a-f0-9]{40}$/.test(revision)) invalid("provenance");
+  const url = stringField(provenance.url, "url");
+  if (!url.startsWith("https://")) invalid("provenance");
+  if (provenance.licenseStatus !== "approved") invalid("provenance");
+  if (provenance.noticeId !== undefined) {
+    const noticeId = stringField(provenance.noticeId, "noticeId");
+    if (!/^[a-z0-9][a-z0-9.-]*$/.test(noticeId)) invalid("noticeId");
+  }
+  // CC BY-SA 4.0 requires attribution (section 3(a)); a record under that
+  // license must name a NOTICE stanza to carry it (KIT-10/D-15).
+  if (license === "CC-BY-SA-4.0" && provenance.noticeId === undefined)
+    invalid("noticeId required for CC-BY-SA-4.0");
   const hasLocalPath = typeof value.localPath === "string";
   const hasGenerator = isObject(value.generator);
-  if (hasLocalPath === hasGenerator) invalid("exactly one materializer");
+  if (isDownloadOnly) {
+    // A download-only record is never vendored and never generated -- its
+    // bytes exist only in the local download cache (KIT-10/D-14).
+    if (hasLocalPath || hasGenerator) invalid("download-only materializer");
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      invalid("download-only url");
+    }
+    if (
+      parsedUrl.protocol !== "https:" ||
+      parsedUrl.hostname !== RAW_GITHUBUSERCONTENT_HOST ||
+      parsedUrl.username !== "" ||
+      parsedUrl.password !== "" ||
+      !parsedUrl.pathname.includes(revision)
+    )
+      invalid("download-only url");
+  } else if (hasLocalPath === hasGenerator) {
+    invalid("exactly one materializer");
+  }
   if (hasLocalPath) {
     const localPath = stringField(value.localPath, "localPath");
     const resolvedPath = resolve(CORPUS_ROOT, localPath);
@@ -220,22 +326,6 @@ export function assertCorpusRecord(
     )
       invalid("generator");
   }
-  if (!isObject(value.provenance)) invalid("provenance");
-  const provenance = value.provenance;
-  if (
-    !/^[a-f0-9]{40}$/.test(stringField(provenance.revision, "revision")) ||
-    !stringField(provenance.url, "url").startsWith("https://") ||
-    // A well-formed SPDX-style identifier, optionally an "OR" disjunction of
-    // two (matches every license this corpus has ever recorded). The exact
-    // approved-license enum this shape admits lives with each fixture's own
-    // authority (tools-manifest fixture validation ties a record's license
-    // to its pinned archive's own license field), never restated here.
-    !/^[A-Za-z0-9][A-Za-z0-9.-]*(?: OR [A-Za-z0-9][A-Za-z0-9.-]*)?$/.test(
-      stringField(provenance.license, "license"),
-    ) ||
-    provenance.licenseStatus !== "approved"
-  )
-    invalid("provenance");
   if (!SHA256.test(stringField(value.sha256, "sha256"))) invalid("sha256");
   if (
     typeof value.bytes !== "number" ||
@@ -293,9 +383,67 @@ function assertManifest(value: unknown): asserts value is CorpusManifest {
   }
 }
 
+/**
+ * Verifies CC BY-SA 4.0 attribution (section 3(a)) for a single record
+ * against a NOTICE file's full text (KIT-10/D-15). Pure: no I/O, so it can be
+ * tested entirely with in-memory strings. The stanza for `record.provenance
+ * .noticeId` is the span starting at the line `[<noticeId>]` and ending
+ * before the next line that starts with `[`, or end of text.
+ */
+export function assertNoticeAttribution(
+  record: CorpusRecord,
+  noticeText: string,
+): void {
+  const noticeId = record.provenance.noticeId;
+  if (noticeId === undefined)
+    throw new Error(`Record has no noticeId: ${record.id}`);
+  const lines = noticeText.split(/\r?\n/);
+  const header = `[${noticeId}]`;
+  const startIndex = lines.findIndex((line) => line.trim() === header);
+  if (startIndex === -1)
+    throw new Error(`No NOTICE stanza for ${noticeId} (${record.id})`);
+  let endIndex = lines.length;
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    if (lines[i]?.trim().startsWith("[")) {
+      endIndex = i;
+      break;
+    }
+  }
+  const stanza = lines.slice(startIndex + 1, endIndex);
+  const valueOf = (prefix: string): string | undefined => {
+    const line = stanza.find((entry) => entry.startsWith(prefix));
+    return line === undefined ? undefined : line.slice(prefix.length).trim();
+  };
+  const title = valueOf("Title:");
+  const author = valueOf("Author:");
+  const source = valueOf("Source:");
+  const license = valueOf("License:");
+  const modified = valueOf("Modified:");
+  if (title === undefined || title.length === 0)
+    throw new Error(`NOTICE stanza for ${noticeId} is missing Title`);
+  if (author === undefined || author.length === 0)
+    throw new Error(`NOTICE stanza for ${noticeId} is missing Author`);
+  if (source !== record.provenance.url)
+    throw new Error(`NOTICE stanza for ${noticeId} is missing Source`);
+  if (license !== CC_BY_SA_4_0_LICENSE_URL)
+    throw new Error(`NOTICE stanza for ${noticeId} is missing License`);
+  if (modified === undefined || modified.length === 0)
+    throw new Error(`NOTICE stanza for ${noticeId} is missing Modified`);
+}
+
 async function readManifest(): Promise<CorpusManifest> {
   const parsed: unknown = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
   assertManifest(parsed);
+  // tests/corpus/NOTICE is read only when a CC-BY-SA-4.0 record exists --
+  // today none do, so this never reaches the filesystem (D-16).
+  const ccBySaRecords = parsed.records.filter(
+    (record) => record.provenance.license === "CC-BY-SA-4.0",
+  );
+  if (ccBySaRecords.length > 0) {
+    const noticeText = await readFile(NOTICE_PATH, "utf8");
+    for (const record of ccBySaRecords)
+      assertNoticeAttribution(record, noticeText);
+  }
   return parsed;
 }
 
@@ -315,8 +463,21 @@ function assertMaterialized(record: CorpusRecord, data: Buffer): void {
     throw new Error(`Corpus integrity check failed: ${record.id}`);
 }
 
-export async function materializeCorpusRecord(caseId: string): Promise<Buffer> {
-  const record = await loadCorpusRecord(caseId);
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
+
+/**
+ * Materializes a record's bytes: from the repository (`localPath`), by
+ * mutating another materialized record (`generator`), or -- never vendored,
+ * never generated -- from the local download cache (`provenance.kind ===
+ * "download-only"`, KIT-10/D-14). `env` is injectable so tests can point the
+ * download-only branch at a temp directory without touching `process.env`.
+ */
+export async function materializeRecord(
+  record: CorpusRecord,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<Buffer> {
   if (record.localPath !== undefined) {
     const path = resolve(CORPUS_ROOT, record.localPath);
     if (relative(CORPUS_ROOT, path).startsWith(".."))
@@ -325,12 +486,42 @@ export async function materializeCorpusRecord(caseId: string): Promise<Buffer> {
     assertMaterialized(record, data);
     return data;
   }
-  const generator = record.generator;
-  if (generator === undefined) invalid("materializer");
-  const data = Buffer.from(await materializeCorpusRecord(generator.sourceCase));
-  data.writeUInt32LE(data.readUInt32LE(4) + 1, 4);
+  if (record.generator !== undefined) {
+    const sourceRecord = await loadCorpusRecord(record.generator.sourceCase);
+    const data = Buffer.from(await materializeRecord(sourceRecord, env));
+    data.writeUInt32LE(data.readUInt32LE(4) + 1, 4);
+    assertMaterialized(record, data);
+    return data;
+  }
+  // download-only: bytes exist only in the local download cache, which must
+  // be absolute and outside the repository (KIT-10/D-14) so a downloaded
+  // file can never be vendored into the repository or the npm package.
+  const dir = env.EXIFCLEANER_CORPUS_CACHE_DIR;
+  if (dir === undefined || dir.length === 0)
+    throw new Error("Corpus download cache is not configured");
+  if (!isAbsolute(dir))
+    throw new Error("Corpus download cache directory must be absolute");
+  const resolvedDir = resolve(dir);
+  if (!relative(PROJECT_ROOT, resolvedDir).startsWith(".."))
+    throw new Error(
+      "Corpus download cache directory must be outside the repository",
+    );
+  const cachePath = join(resolvedDir, record.sha256);
+  let data: Buffer;
+  try {
+    data = await readFile(cachePath);
+  } catch (error) {
+    if (isErrnoException(error) && error.code === "ENOENT")
+      throw new Error(`Corpus download cache miss: ${record.id}`);
+    throw error;
+  }
   assertMaterialized(record, data);
   return data;
+}
+
+export async function materializeCorpusRecord(caseId: string): Promise<Buffer> {
+  const record = await loadCorpusRecord(caseId);
+  return materializeRecord(record);
 }
 
 function extensionFor(format: NativeFormat): string {

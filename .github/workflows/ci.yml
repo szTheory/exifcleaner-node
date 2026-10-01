@@ -59,7 +59,14 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Prepare pinned oracle authorities once for this job (KIT-09)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"
+          node scripts/qualification/build-oracles.cjs --prepare "$RUNNER_TEMP/exifcleaner-oracles"
       - run: npm run lint && npm run typecheck && npm run check:cycles && npm run build && npm run build:native && npm test && npm run check:runtime && npm run check:release
+      - name: Assert the oracle authorities were built exactly once (KIT-09)
+        run: node scripts/qualification/build-oracles.cjs --assert-built-once "$EXIFCLEANER_ORACLE_DIR"
 
   qualification-linux:
     # D-17 (56-12): the sole always-run job allowed to depend on `classify`,
@@ -75,7 +82,7 @@ jobs:
     env:
       FC_SEED: "460046"
       FC_RUNS: "200"
-      QUAL_KIT: "tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts"
+      QUAL_KIT: "tests/qualification/kit/build_oracles.test.ts tests/qualification/kit/corpus.test.ts tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts"
       QUAL_WEBP: "tests/qualification/webp/tracer.test.ts tests/qualification/webp/parser.test.ts tests/qualification/webp/property.test.ts tests/qualification/webp/transaction.test.ts tests/qualification/webp/oracles.test.ts tests/qualification/webp/golden.test.ts"
       QUAL_PNG: "tests/qualification/png/oracles.test.ts tests/qualification/png/tracer.test.ts tests/qualification/png/property.test.ts tests/qualification/png/parser.test.ts tests/qualification/png/transaction.test.ts tests/qualification/png/golden.test.ts"
       # 57-07: the JPEG qualification suite's first file (tracer.test.ts)
@@ -96,6 +103,11 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq zlib1g-dev cmake
       - name: Admit committed offline oracle authority
         run: node scripts/qualification/build-oracles.cjs --verify-authority > oracle-authority.json
+      - name: Prepare pinned oracle authorities once for this job (KIT-09)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"
+          node scripts/qualification/build-oracles.cjs --prepare "$RUNNER_TEMP/exifcleaner-oracles"
       - name: Select and run qualification suites for touched formats (D-17)
         env:
           FORMATS: ${{ needs.classify.outputs.formats }}
@@ -122,6 +134,8 @@ jobs:
             esac
           done
           npm test -- $files
+      - name: Assert the oracle authorities were built exactly once (KIT-09)
+        run: node scripts/qualification/build-oracles.cjs --assert-built-once "$EXIFCLEANER_ORACLE_DIR"
       - name: Record focused qualification conclusion
         if: always()
         shell: bash

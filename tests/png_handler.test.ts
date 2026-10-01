@@ -7,7 +7,10 @@ import {
   getCapabilities,
   sanitizeFile,
 } from "../dist/index.js";
-import { PNG_MAX_IDAT_CHUNKS } from "../src/png/chunks.js";
+import {
+  PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL,
+  PNG_MAX_IDAT_CHUNKS,
+} from "../src/png/chunks.js";
 import type { PngCapabilities } from "../src/types.js";
 import {
   metadataPng,
@@ -249,5 +252,16 @@ describe("PNG capabilities (CR-02, 56-16)", () => {
     ) as PngCapabilities | undefined;
     expect(png).toBeDefined();
     expect(png?.limits.maxIdatChunkCount).toBe(PNG_MAX_IDAT_CHUNKS);
+  });
+
+  it("reports maxBufferedMetadataBytesTotal equal to PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL (PNG-05, D-30)", () => {
+    const png = getCapabilities().formats.find(
+      (format) => format.format === "png",
+    ) as PngCapabilities | undefined;
+    expect(png).toBeDefined();
+    expect(png?.limits.maxBufferedMetadataBytesTotal).toBe(
+      PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL,
+    );
+    expect(png?.limits.maxBufferedMetadataBytesTotal).toBe(50331648);
   });
 });

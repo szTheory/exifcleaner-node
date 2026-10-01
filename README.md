@@ -141,7 +141,7 @@ The engine fails closed on malformed or truncated containers, unknown chunks, tr
 Pre-publication cleanup never relies on pathname identity comparison: an observed
 stage replacement is retained untouched rather than removed.
 
-`getCapabilities()` reports the enforced limits: 16 MiB per metadata chunk, 10,000 aggregate RIFF chunks including nested animation chunks, and WebP's 4 GiB-minus-2-byte size ceiling. It also states that compressed codec validation is header-only: the engine preserves VP8/VP8L bytes but is not an image decoder. Animation support means structurally validated `ANIM`/`ANMF` containers whose nested image payloads can be preserved byte-for-byte; it is not an unlimited frame-count claim.
+`getCapabilities()` reports the enforced limits: 16 MiB per metadata chunk, 10,000 aggregate RIFF chunks including nested animation chunks, and WebP's 4 GiB-minus-2-byte size ceiling. It also states that compressed codec validation is header-only: the engine preserves VP8/VP8L bytes but is not an image decoder. Animation support means structurally validated `ANIM`/`ANMF` containers whose nested image payloads can be preserved byte-for-byte; it is not an unlimited frame-count claim. PNG buffers at most 48 MiB of raw non-IDAT metadata plus at most 48 MiB inflated per parse, and `getCapabilities()` reports both limits.
 
 See the [ICC structural policy and complete capability contract](docs/capabilities.md)
 for the detailed rule table, [fixture provenance](docs/fixture-provenance.md)

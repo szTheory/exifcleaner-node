@@ -43,13 +43,13 @@ interface PreparedOracleTools {
 }
 
 interface AuthorityBuilder {
-  readonly prepareOracleTools: () => PreparedOracleTools;
+  readonly loadOrPrepareOracleTools: () => PreparedOracleTools;
 }
 
 let preparedTools: PreparedOracleTools | undefined;
 
 function tools(): PreparedOracleTools {
-  preparedTools ??= authorityBuilder.prepareOracleTools();
+  preparedTools ??= authorityBuilder.loadOrPrepareOracleTools();
   return preparedTools;
 }
 

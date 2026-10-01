@@ -1010,6 +1010,8 @@ describe("installed package smoke", () => {
     expect(workflow).toContain('FC_RUNS: "200"');
     expect(workflow).toContain("QUALIFICATION_PROPERTY_RUNS=25");
     expect(workflow).toContain("build-oracles.cjs --verify-authority");
+    expect(workflow).toContain("build-oracles.cjs --prepare");
+    expect(workflow).toContain("build-oracles.cjs --assert-built-once");
     expect(workflow).toContain("tests/qualification/webp/oracles.test.ts");
     expect(workflow).toContain("benchmark-linux-node22/benchmark-node22.json");
     expect(workflow).toContain("benchmark-linux-node24/benchmark-node24.json");

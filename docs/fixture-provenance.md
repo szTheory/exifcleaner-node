@@ -198,6 +198,81 @@ Repository-generated fixtures are not upstream ExifCleaner evidence. Their prove
 
 At minimum, the local matrix needs still lossy/lossless, alpha, ICC, EXIF, XMP, combined metadata, animation, odd-sized payload padding, duplicate metadata, flag inconsistency, malformed size, truncation, trailer, unknown FourCC, abort, destination collision, and payload-mutation negative controls.
 
+## Download-only and CC-BY-SA provenance (Phase 60, KIT-10)
+
+The corpus license list is **closed**: `tests/qualification/kit/corpus.ts` validates
+`provenance.license` against a fixed set (`APPROVED_CORPUS_LICENSES`) rather than an
+SPDX-style regex. An unrecognized license -- a typo, a plausible-looking identifier that was
+never reviewed, an unapproved OR-disjunction -- fails closed instead of silently passing.
+Adding a license to the corpus requires an explicit addition to that set, which is itself a
+reviewed decision, not a shape match.
+
+Two new `provenance` keys support this, alongside the existing `revision`, `url`, `license`,
+and `licenseStatus`:
+
+- `kind` (optional): `"vendored"` (the default, implicit when absent) or `"download-only"`.
+- `noticeId` (optional, required when `license` is `CC-BY-SA-4.0`): the stanza identifier in
+  `tests/corpus/NOTICE` carrying that record's attribution.
+
+Any other key in `provenance` is rejected -- the key set is exact, not merely a superset check.
+
+### Download-only records
+
+Nokia's HEIC samples and similar upstream fixtures carry no reusable license at all; their
+bytes cannot be vendored into this repository or published inside the npm package. A
+`kind: "download-only"` record describes such a fixture without ever committing its bytes:
+
+- it has **neither** `localPath` nor `generator` -- there is nothing in the repository to
+  point at;
+- `provenance.url` must be an `https://` URL whose host is **exactly**
+  `raw.githubusercontent.com` (no look-alike suffix, no userinfo) and whose path contains the
+  40-hex `revision`;
+- its `license` may additionally be `LicenseRef-default-copyright` -- a license class admitted
+  **only** for download-only records, since a record that is never redistributed does not
+  itself need a redistribution-granting license;
+- at qualification time its bytes are read **only** from
+  `<EXIFCLEANER_CORPUS_CACHE_DIR>/<sha256>` via `materializeRecord()`. That environment
+  variable must name an absolute directory **outside** this repository -- a relative path or a
+  path inside the repository throws before any read is attempted. A missing cache file throws
+  `Corpus download cache miss: <id>`; an unset cache variable throws rather than skipping the
+  record. Bytes are verified against both `bytes` (exact length) and `sha256` before being
+  returned -- a truncated or substituted cache file fails the same
+  `Corpus integrity check failed: <id>` check a vendored record's mismatch would.
+- the materializer never writes to, nor deletes from, the cache directory -- it is read-only
+  with respect to that directory.
+
+Nothing in this phase vendors, downloads, or fetches a real download-only file, and
+`tests/corpus/manifest.json` is unchanged. The fetch tool that populates the cache directory
+and the first real download-only records both arrive with the Phase 61/62 HEIC and AVIF
+sources.
+
+### CC-BY-SA-4.0 attribution
+
+link-u's AVIF samples are CC-BY-SA-4.0, which requires attribution (section 3(a)): title,
+author, a link to the source, a link to the license, and a statement of whether the material
+was modified. A record under that license must carry a `noticeId`, and
+`tests/corpus/NOTICE` must contain a matching stanza. `readManifest()` reads that file **only**
+when at least one manifest record declares `CC-BY-SA-4.0` -- today none do, so the file is
+never read and does not exist.
+
+A stanza is the lines following a header of the form `[<noticeId>]`, up to the next `[`-headed
+line or end of file. `assertNoticeAttribution(record, noticeText)` requires five fields, each on
+its own line, and rejects naming whichever is missing or wrong:
+
+```text
+[example-notice-id]
+Title: Example AVIF Sample
+Author: link-u
+Source: https://raw.githubusercontent.com/link-u/avif-sample-images/<revision>/example.avif
+License: https://creativecommons.org/licenses/by-sa/4.0/
+Modified: Converted to AVIF and cropped to a smaller resolution
+```
+
+`Source` must equal the record's `provenance.url` exactly; `License` must be the literal
+CC BY-SA 4.0 URL above; `Title`, `Author`, and `Modified` must each be non-empty. The real
+`tests/corpus/NOTICE` file is created, like the fetch tool above, when the first CC-BY-SA-4.0
+record is added in Phase 61/62 -- this phase documents the format without creating it.
+
 ## Manifest and Promotion Workflow
 
 Release-admission inputs are offline and immutable. CI does not fetch a mutable

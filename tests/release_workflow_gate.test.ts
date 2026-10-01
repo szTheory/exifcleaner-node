@@ -1784,3 +1784,120 @@ describe("focused qualification conclusion producer authority gate (46-42)", () 
     expect(survivors).toStrictEqual([]);
   }, 60_000);
 });
+
+const oracleGithubEnvExport =
+  'echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"';
+const oraclePrepareLine = '--prepare "$RUNNER_TEMP/exifcleaner-oracles"';
+const oracleAssertLine = '--assert-built-once "$EXIFCLEANER_ORACLE_DIR"';
+const oraclePrepareStepBlock =
+  "      - name: Prepare pinned oracle authorities once for this job (KIT-09)\n" +
+  "        shell: bash\n" +
+  "        run: |\n" +
+  '          echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"\n' +
+  '          node scripts/qualification/build-oracles.cjs --prepare "$RUNNER_TEMP/exifcleaner-oracles"\n';
+const oracleAssertStepBlock =
+  "      - name: Assert the oracle authorities were built exactly once (KIT-09)\n" +
+  '        run: node scripts/qualification/build-oracles.cjs --assert-built-once "$EXIFCLEANER_ORACLE_DIR"\n';
+
+// KIT-09 / D-03, D-06: proves the ordered shape `prepare < npm test < assert-built-once` in a
+// given job, and that the workflow as a whole never restores actions/cache (D-09). `job`/
+// `nextJob` are the same (jobName, nextJobName) pair accepted by `workflowJob` above.
+function assertOracleBuildOnce(
+  workflow: string,
+  job: string,
+  nextJob: string,
+): void {
+  const body = workflowJob(workflow, job, nextJob);
+  const envIndex = body.indexOf(oracleGithubEnvExport);
+  if (envIndex < 0)
+    throw new Error(
+      `${job} is missing the EXIFCLEANER_ORACLE_DIR GITHUB_ENV export`,
+    );
+  const prepareIndex = body.indexOf(oraclePrepareLine);
+  if (prepareIndex < 0)
+    throw new Error(`${job} is missing the oracle --prepare step`);
+  const testIndex = body.indexOf("npm test", prepareIndex);
+  if (testIndex < 0)
+    throw new Error(
+      `${job} has no npm test step after the oracle --prepare step`,
+    );
+  const assertIndex = body.indexOf(oracleAssertLine, testIndex);
+  if (assertIndex < 0)
+    throw new Error(
+      `${job} is missing the oracle --assert-built-once step after npm test`,
+    );
+  if (workflow.includes("actions/cache"))
+    throw new Error("workflow must not use actions/cache (D-09)");
+}
+
+function withMutatedJob(
+  workflow: string,
+  job: string,
+  nextJob: string,
+  mutate: (body: string) => string,
+): string {
+  const body = workflowJob(workflow, job, nextJob);
+  const mutated = mutate(body);
+  if (mutated === body) throw new Error("mutation was a no-op");
+  const index = workflow.indexOf(body);
+  if (index < 0) throw new Error("job body not found verbatim in workflow");
+  return (
+    workflow.slice(0, index) + mutated + workflow.slice(index + body.length)
+  );
+}
+
+function moveStepAfterNpmTest(body: string, block: string): string {
+  const withoutBlock = body.replace(block, "");
+  if (withoutBlock === body) throw new Error("fixture missing the step block");
+  const testIndex = withoutBlock.indexOf("npm test");
+  if (testIndex < 0) throw new Error("fixture missing npm test");
+  const insertAt = withoutBlock.indexOf("\n", testIndex) + 1;
+  return withoutBlock.slice(0, insertAt) + block + withoutBlock.slice(insertAt);
+}
+
+describe("oracle build-once-per-job gate (KIT-09)", () => {
+  const workflow = readFileSync(
+    join(packageRoot, ".github", "workflows", "ci.yml"),
+    "utf8",
+  );
+  const jobPairs: ReadonlyArray<readonly [string, string]> = [
+    ["quality", "qualification-linux"],
+    ["qualification-linux", "identity-prebuild"],
+  ];
+
+  it.each(jobPairs)("passes the real workflow for %s", (job, nextJob) => {
+    expect(() => assertOracleBuildOnce(workflow, job, nextJob)).not.toThrow();
+  });
+
+  it("rejects a workflow that restores actions/cache", () => {
+    const mutated = `${workflow}\n      - uses: actions/cache@v4\n`;
+    expect(mutated).not.toBe(workflow);
+    expect(() =>
+      assertOracleBuildOnce(mutated, "quality", "qualification-linux"),
+    ).toThrow();
+  });
+
+  it.each(jobPairs)(
+    "rejects %s with its assert-built-once step deleted",
+    (job, nextJob) => {
+      const deleted = withMutatedJob(workflow, job, nextJob, (body) =>
+        body.replace(oracleAssertStepBlock, ""),
+      );
+      expect(() => assertOracleBuildOnce(deleted, job, nextJob)).toThrow();
+    },
+  );
+
+  it.each(jobPairs)(
+    "rejects %s with its prepare step moved after npm test",
+    (job, nextJob) => {
+      const reordered = withMutatedJob(workflow, job, nextJob, (body) =>
+        moveStepAfterNpmTest(body, oraclePrepareStepBlock),
+      );
+      expect(() => assertOracleBuildOnce(reordered, job, nextJob)).toThrow();
+    },
+  );
+
+  it("keeps qualification-linux holding exactly one Node heredoc (regression)", () => {
+    expect(() => qualificationConclusionProducer(workflow)).not.toThrow();
+  });
+});

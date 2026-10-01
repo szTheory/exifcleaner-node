@@ -467,13 +467,13 @@ interface PreparedJpegOracleTools {
 }
 
 interface AuthorityBuilder {
-  readonly prepareOracleTools: () => PreparedJpegOracleTools;
+  readonly loadOrPrepareOracleTools: () => PreparedJpegOracleTools;
 }
 
 let preparedTools: PreparedJpegOracleTools | undefined;
 
 function tools(): PreparedJpegOracleTools {
-  preparedTools ??= authorityBuilder.prepareOracleTools();
+  preparedTools ??= authorityBuilder.loadOrPrepareOracleTools();
   return preparedTools;
 }
 

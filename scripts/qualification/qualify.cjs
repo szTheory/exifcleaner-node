@@ -254,6 +254,8 @@ function execute(options) {
   return npm([
     "test",
     "--",
+    "tests/qualification/kit/build_oracles.test.ts",
+    "tests/qualification/kit/corpus.test.ts",
     "tests/qualification/kit/floors.test.ts",
     "tests/qualification/kit/oracles.test.ts",
     "tests/qualification/kit/rollback.test.ts",

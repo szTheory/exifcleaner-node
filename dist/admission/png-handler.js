@@ -1,9 +1,10 @@
+import { COPY_BLOCK_BYTES, copyRange } from "../io/copy-range.js";
 import { createOrientationExif, parseExif } from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
 import { parseXmp, xmpOrientation } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
-import { encodePngChunk, inflateBounded, InflateBudget, isPngSignature, parsePng, PNG_CRITICAL_CHUNK_TYPES, PNG_MAX_ANCILLARY_CHUNKS, PNG_MAX_IDAT_CHUNKS, PNG_MAX_INFLATED_BYTES_TOTAL, PNG_MAX_INFLATED_ICC_BYTES, PNG_MAX_INFLATED_TEXT_BYTES, PNG_MAX_METADATA_BYTES_PER_CHUNK, PNG_REGISTERED_CHUNK_TYPES, PNG_SIGNATURE, PngStructureError, readExactly, } from "../png/chunks.js";
+import { encodePngChunk, inflateBounded, InflateBudget, isPngSignature, parsePng, PNG_CRITICAL_CHUNK_TYPES, PNG_MAX_ANCILLARY_CHUNKS, PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL, PNG_MAX_IDAT_CHUNKS, PNG_MAX_INFLATED_BYTES_TOTAL, PNG_MAX_INFLATED_ICC_BYTES, PNG_MAX_INFLATED_TEXT_BYTES, PNG_MAX_METADATA_BYTES_PER_CHUNK, PNG_REGISTERED_CHUNK_TYPES, PNG_SIGNATURE, PngStructureError, readExactly, } from "../png/chunks.js";
 import { ICC_PRESERVATION_POLICY_ID, MAX_PROFILE_BYTES, } from "../metadata/icc_admission.js";
 import { RAW_PROFILE_EXIF_KEYWORDS, rawProfileExifOrientation, } from "../png/orientation-sources.js";
 // D-05 closed lists. Measured ExifTool 13.59 behaviour (56-CONTEXT.md,
@@ -52,7 +53,6 @@ export const PNG_CONDITIONAL_CHUNK_TYPES = new Map([
     ["iCCP", "colorProfile"],
     ["pHYs", "resolution"],
 ]);
-const COPY_BLOCK_BYTES = 64 * 1024;
 const CHUNK_FIXED_OVERHEAD_BYTES = 12; // 4-byte length + 4-byte type + 4-byte CRC
 function isAborted(signal) {
     return signal?.aborted ?? false;
@@ -476,27 +476,6 @@ async function writeAll(handle, data, position) {
     }
     return position + written;
 }
-async function copyRange(source, destination, sourceOffset, length, position, signal) {
-    const buffer = Buffer.allocUnsafe(Math.min(COPY_BLOCK_BYTES, Math.max(length, 1)));
-    let copied = 0;
-    while (copied < length) {
-        if (isAborted(signal))
-            throw signal?.reason ?? new DOMException("Aborted", "AbortError");
-        const take = Math.min(buffer.length, length - copied);
-        const read = await source.read(buffer, 0, take, sourceOffset + copied);
-        if (read.bytesRead !== take)
-            throw new Error("Source changed or became truncated while copying.");
-        let written = 0;
-        while (written < take) {
-            const result = await destination.write(buffer, written, take - written, position + copied + written);
-            if (result.bytesWritten === 0)
-                throw new Error("A file write made no progress.");
-            written += result.bytesWritten;
-        }
-        copied += take;
-    }
-    return position + copied;
-}
 async function chunksEqual(sourceHandle, source, destinationHandle, destination, signal) {
     const sourceSpan = chunkSpan(source);
     const destinationSpan = chunkSpan(destination);
@@ -629,6 +608,7 @@ const capability = Object.freeze({
         maxInflatedIccBytes: PNG_MAX_INFLATED_ICC_BYTES,
         maxInflatedTextBytes: PNG_MAX_INFLATED_TEXT_BYTES,
         maxInflatedBytesTotal: PNG_MAX_INFLATED_BYTES_TOTAL,
+        maxBufferedMetadataBytesTotal: PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL,
     }),
     refuses: Object.freeze([
         "unknown-critical-chunks",
