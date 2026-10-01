@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import {
   appendFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -12,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it, vi } from "vitest";
 
@@ -292,11 +293,19 @@ describe("build-oracles.cjs negative controls and edges (KIT-09 D-07)", () => {
     }
   });
 
-  it("source scan: none of the four oracles.ts modules call prepareOracleTools() directly, and all call loadOrPrepareOracleTools()", () => {
-    const files = ["kit", "png", "jpeg", "webp"].map((name) =>
-      fileURLToPath(new URL(`../${name}/oracles.ts`, import.meta.url)),
-    );
-    for (const file of files) {
+  it("source scan: every oracles.ts module under tests/qualification/*/ calls loadOrPrepareOracleTools(), and none calls prepareOracleTools() directly", () => {
+    // Discovers sibling qualification subdirectories on disk rather than naming
+    // any of them literally, so this stays reusable by a future format's own
+    // oracles.ts without this kit file ever carrying its name as a token.
+    const qualificationRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+    const oraclesFiles = readdirSync(qualificationRoot, {
+      withFileTypes: true,
+    })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => join(qualificationRoot, entry.name, "oracles.ts"))
+      .filter((filePath) => existsSync(filePath));
+    expect(oraclesFiles.length).toBeGreaterThanOrEqual(4);
+    for (const file of oraclesFiles) {
       const text = readFileSync(file, "utf8");
       expect(text.includes("prepareOracleTools()")).toBe(false);
       expect(text.includes("loadOrPrepareOracleTools()")).toBe(true);
