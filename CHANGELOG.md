@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Internal
+
+`selectHandler` now reads up to 256 bytes (previously 12) to see the whole `ftyp` box before
+format selection, and an unregistered, read-only ISOBMFF (HEIC/AVIF) reader and admission
+classifier was added under `src/isobmff/`. This phase makes no user-visible routing changes and
+adds no new public API: no production HEIC/AVIF handler is registered, `NativeFormat` and
+`FormatCapabilities` are unchanged, and the widened registry read is a strict superset that
+leaves WebP/PNG/JPEG selection behavior unchanged (re-verified by their own full suites and
+golden hashes).
+
 ### Fixed (PNG)
 
 PNG metadata parsing no longer allows an unbounded amount of non-`IDAT` chunk data to be

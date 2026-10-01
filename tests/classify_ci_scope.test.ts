@@ -82,6 +82,18 @@ const PER_FORMAT_QUALIFICATION_LINUX_FIXTURES = [
   "tests/qualification/png/parser.test.ts",
 ];
 
+// D-24: isobmff engine/test-support paths are linux-safe (no production handler is registered
+// yet, so FORMAT_PATH_RULES stays untouched -- these are LINUX_SAFE_PATH_RULES-only fixtures).
+const ISOBMFF_LINUX_FIXTURES = [
+  "src/isobmff/admission.ts",
+  "dist/isobmff/admission.js",
+  "tests/isobmff_brand.test.ts",
+  "tests/isobmff-support/builder.ts",
+  "tests/isobmff-support/fixtures/heif-enc-grid.heic",
+  "tests/isobmff-support/fixtures/heif-enc-grid.avif",
+  "tests/isobmff-support/fixtures/RECIPE.md",
+];
+
 const DOCS_ONLY_LINUX_FIXTURES = [
   "docs/ci-budget.md",
   "README.md",
@@ -169,12 +181,42 @@ describe("linux scope", () => {
       ),
     ).toMatchObject({ scope: "linux" });
   });
+
+  it.each(ISOBMFF_LINUX_FIXTURES)(
+    "returns linux for isobmff engine/test-support path %s alone (D-24)",
+    (path) => {
+      expect(
+        classify.classifyCiScope(baseInput({ changedPaths: [path] })),
+      ).toMatchObject({ scope: "linux" });
+    },
+  );
 });
 
 describe("full scope", () => {
   it.each(FULL_ALONE_FIXTURES)("returns full for %s alone", (path) => {
     expect(
       classify.classifyCiScope(baseInput({ changedPaths: [path] })),
+    ).toMatchObject({ scope: "full" });
+  });
+
+  it("returns full for src/isobmff/admission.ts plus src/admission/registry.ts (D-24: registry.ts stays a full-scope override)", () => {
+    expect(
+      classify.classifyCiScope(
+        baseInput({
+          changedPaths: [
+            "src/isobmff/admission.ts",
+            "src/admission/registry.ts",
+          ],
+        }),
+      ),
+    ).toMatchObject({ scope: "full" });
+  });
+
+  it("returns full for src/io/copy-range.ts alone (Claude's discretion, 60-CONTEXT D-22 deferral: copy-range performs destination writes the native matrix covers, so it is NOT added to LINUX_SAFE_PATH_RULES)", () => {
+    expect(
+      classify.classifyCiScope(
+        baseInput({ changedPaths: ["src/io/copy-range.ts"] }),
+      ),
     ).toMatchObject({ scope: "full" });
   });
 
@@ -251,6 +293,7 @@ describe("dead-rule coverage (no rule is unreachable)", () => {
     ...HANDLER_LINUX_FIXTURES,
     ...PER_FORMAT_QUALIFICATION_LINUX_FIXTURES,
     ...DOCS_ONLY_LINUX_FIXTURES,
+    ...ISOBMFF_LINUX_FIXTURES,
   ];
 
   it("every LINUX_SAFE_PATH_RULES entry is matched by at least one linux fixture", () => {
@@ -363,6 +406,14 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
     expect(
       classify.classifyQualificationFormats(
         formatsInput({ changedPaths: ["src/metadata/exif.ts"] }),
+      ),
+    ).toEqual(["jpeg", "png", "webp"]);
+  });
+
+  it("selects every qualified format for a src/isobmff/ path (D-24: no isobmff key in FORMAT_PATH_RULES yet, fail-closed)", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ changedPaths: ["src/isobmff/admission.ts"] }),
       ),
     ).toEqual(["jpeg", "png", "webp"]);
   });
