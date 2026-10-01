@@ -159,6 +159,7 @@ export interface PngCapabilities extends CommonFormatCapabilities {
         readonly maxInflatedIccBytes: number;
         readonly maxInflatedTextBytes: number;
         readonly maxInflatedBytesTotal: number;
+        readonly maxBufferedMetadataBytesTotal: number;
     };
     readonly refuses: readonly [
         "unknown-critical-chunks",

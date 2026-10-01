@@ -383,6 +383,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
       > = true;
       const pngResolutionPreservesPin: Equals<PngCapabilities["preserves"]["resolution"], true> = true;
       const jpegResolutionPreservesPin: Equals<JpegCapabilities["preserves"]["resolution"], true> = true;
+      const pngMaxBufferedMetadataBytesTotalPin: Equals<PngCapabilities["limits"]["maxBufferedMetadataBytesTotal"], number> = true;
       void [
         nativeFormatPin,
         formatCapabilitiesPin,
@@ -390,6 +391,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
         webpPreservesPin,
         pngResolutionPreservesPin,
         jpegResolutionPreservesPin,
+        pngMaxBufferedMetadataBytesTotalPin,
       ];
     `);
   });
