@@ -1,6 +1,7 @@
 import type { FileHandle } from "node:fs/promises";
 import { type IsobmffCaps } from "./caps.js";
 import { type IlocTable } from "./iloc.js";
+import { type IpmaEntry } from "./ipma.js";
 export interface IsobmffRange {
     readonly offset: number;
     readonly length: number;
@@ -18,6 +19,8 @@ export interface IsobmffModel {
     readonly removableTopLevel: readonly IsobmffRange[];
     /** `meta`'s `iloc` child, resolved through the table-driven resolver (61-05, D1). */
     readonly iloc?: IlocTable;
+    /** `meta/iprp`'s `ipma` child, resolved through the table-driven resolver (61-05, D1). */
+    readonly ipma?: readonly IpmaEntry[];
 }
 export declare function parseIsobmff(handle: FileHandle, size: number, caps?: IsobmffCaps, signal?: AbortSignal): Promise<IsobmffModel>;
 //# sourceMappingURL=parse.d.ts.map

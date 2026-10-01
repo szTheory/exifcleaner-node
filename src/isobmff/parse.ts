@@ -15,6 +15,7 @@ import {
   type BoxHeader,
 } from "./boxes.js";
 import { parseIloc, type IlocTable } from "./iloc.js";
+import { parseIpma, type IpmaEntry } from "./ipma.js";
 
 // `parseIsobmff` entry point (BMF-01/BMF-05): reads a file's top-level box list, validates the
 // D5 top-level allowlist and the `ftyp`/`meta`/`mdat` singleton rules, and walks `meta`'s
@@ -37,6 +38,8 @@ export interface IsobmffModel {
   readonly removableTopLevel: readonly IsobmffRange[];
   /** `meta`'s `iloc` child, resolved through the table-driven resolver (61-05, D1). */
   readonly iloc?: IlocTable;
+  /** `meta/iprp`'s `ipma` child, resolved through the table-driven resolver (61-05, D1). */
+  readonly ipma?: readonly IpmaEntry[];
 }
 
 function isAborted(signal: AbortSignal | undefined): boolean {
@@ -121,6 +124,7 @@ export async function parseIsobmff(
   let sawMeta = false;
   let sawMdat = false;
   let iloc: IlocTable | undefined;
+  let ipma: readonly IpmaEntry[] | undefined;
 
   for (const header of topLevel) {
     if (isAborted(signal)) {
@@ -178,6 +182,25 @@ export async function parseIsobmff(
           payload: ilocPayload,
         } = readFullBoxChild(payload, ilocHeader);
         iloc = parseIloc(ilocPayload, version, flags);
+      }
+      const iprpHeader = metaChildren.find((child) => child.type === "iprp");
+      if (iprpHeader !== undefined) {
+        // `iprp` is a plain box (not a FullBox): its children (`ipco`, `ipma`) start at byte 0
+        // of its own payload.
+        const iprpChildren = listSiblings(
+          payload,
+          iprpHeader.payloadStart,
+          iprpHeader.end,
+        );
+        const ipmaHeader = iprpChildren.find((child) => child.type === "ipma");
+        if (ipmaHeader !== undefined) {
+          const {
+            version,
+            flags,
+            payload: ipmaPayload,
+          } = readFullBoxChild(payload, ipmaHeader);
+          ipma = parseIpma(ipmaPayload, version, flags);
+        }
       }
       metaRange = { offset: header.start, length: header.end - header.start };
       continue;
@@ -246,5 +269,6 @@ export async function parseIsobmff(
     mdatRanges,
     removableTopLevel,
     ...(iloc !== undefined ? { iloc } : {}),
+    ...(ipma !== undefined ? { ipma } : {}),
   };
 }

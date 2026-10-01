@@ -2,6 +2,7 @@ import { IsobmffStructureError } from "./errors.js";
 import { DEFAULT_ISOBMFF_CAPS, IsobmffBudget, } from "./caps.js";
 import { C2PA_UUID_USERTYPE, parseBoxHeader, readExactly, readTopLevelBoxes, TOP_LEVEL_ALLOWLIST, walkContainer, } from "./boxes.js";
 import { parseIloc } from "./iloc.js";
+import { parseIpma } from "./ipma.js";
 function isAborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -61,6 +62,7 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
     let sawMeta = false;
     let sawMdat = false;
     let iloc;
+    let ipma;
     for (const header of topLevel) {
         if (isAborted(signal)) {
             throw new IsobmffStructureError("box-framing", "Parsing aborted.");
@@ -94,6 +96,17 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
             if (ilocHeader !== undefined) {
                 const { version, flags, payload: ilocPayload, } = readFullBoxChild(payload, ilocHeader);
                 iloc = parseIloc(ilocPayload, version, flags);
+            }
+            const iprpHeader = metaChildren.find((child) => child.type === "iprp");
+            if (iprpHeader !== undefined) {
+                // `iprp` is a plain box (not a FullBox): its children (`ipco`, `ipma`) start at byte 0
+                // of its own payload.
+                const iprpChildren = listSiblings(payload, iprpHeader.payloadStart, iprpHeader.end);
+                const ipmaHeader = iprpChildren.find((child) => child.type === "ipma");
+                if (ipmaHeader !== undefined) {
+                    const { version, flags, payload: ipmaPayload, } = readFullBoxChild(payload, ipmaHeader);
+                    ipma = parseIpma(ipmaPayload, version, flags);
+                }
             }
             metaRange = { offset: header.start, length: header.end - header.start };
             continue;
@@ -140,6 +153,7 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
         mdatRanges,
         removableTopLevel,
         ...(iloc !== undefined ? { iloc } : {}),
+        ...(ipma !== undefined ? { ipma } : {}),
     };
 }
 //# sourceMappingURL=parse.js.map
