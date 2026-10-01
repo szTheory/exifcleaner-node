@@ -62,6 +62,10 @@ export const ISOBMFF_DECLINE_CLASSES: readonly IsobmffDeclineClass[] =
     "item-graph-invalid",
   ]);
 
+/** The three public codes this engine can report (a subset of `MetadataErrorDetails["code"]`). */
+export type IsobmffPublicKind =
+  "unsupported-format" | "unsafe-structure" | "malformed-file";
+
 /**
  * Class -> public-code mapping (D-12). Every `unsupported-format` entry is a D3 "not admitted"
  * shape; every `unsafe-structure` entry is a D5 safety violation or a cap breach (PNG D-25
@@ -94,10 +98,7 @@ export const DECLINE_CLASS_TO_KIND = {
   "duplicate-meta": "malformed-file",
   "box-framing": "malformed-file",
   "item-graph-invalid": "malformed-file",
-} satisfies Record<
-  IsobmffDeclineClass,
-  "unsupported-format" | "unsafe-structure" | "malformed-file"
->;
+} satisfies Record<IsobmffDeclineClass, IsobmffPublicKind>;
 
 export interface IsobmffLimitContext {
   readonly cap: string;
