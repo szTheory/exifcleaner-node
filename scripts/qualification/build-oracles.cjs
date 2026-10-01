@@ -63,6 +63,22 @@ function tarMemberName(value, root, label) {
   return member;
 }
 
+/**
+ * Resolves `candidatePath` against `dir` and refuses it (WR-02) unless the
+ * result stays inside `dir` -- whether `candidatePath` is itself absolute
+ * (escapes `dir` outright) or a relative `../` climb. Mirrors the
+ * containment checks `repositoryPath`/`tarMemberName` already apply to other
+ * trusted-looking-but-untrusted paths in this file.
+ */
+function assertPathWithinDir(dir, candidatePath, label) {
+  const value = requiredString(candidatePath, label);
+  const resolved = path.resolve(dir, value);
+  const fromDir = path.relative(dir, resolved);
+  if (fromDir.startsWith("..") || path.isAbsolute(fromDir))
+    fail(`${label} resolves outside ${dir}`);
+  return resolved;
+}
+
 function sha(value, label) {
   if (!SHA256.test(requiredString(value, label)))
     fail(`${label} is not SHA-256`);
@@ -882,14 +898,32 @@ function prepareOracleDir(dir, { build = buildOracleTools } = {}) {
       fail(`oracle directory already claimed: ${dir}`);
     throw error;
   }
+  const buildsLogPath = path.join(dir, "builds.log");
   fs.appendFileSync(
-    path.join(dir, "builds.log"),
+    buildsLogPath,
     `${new Date().toISOString()} pid ${process.pid}\n`,
   );
 
   const workspace = path.join(dir, "workspace");
-  fs.mkdirSync(workspace, { recursive: true });
-  const tools = build(workspace);
+  let tools;
+  try {
+    fs.mkdirSync(workspace, { recursive: true });
+    tools = build(workspace);
+  } catch (error) {
+    // A thrown build (e.g. a flaky toolchain crash) must not leave `dir`
+    // permanently claimed: roll back the exclusive claim and the
+    // pre-build `builds.log` line so a retry into this same directory
+    // (a self-hosted-runner retry-in-place, or a manual re-run) gets a
+    // fresh build attempt instead of a misleading "already claimed"
+    // error that masks the real failure (WR-01). This only widens the
+    // retry window after a *failed* build; a successful claim still
+    // blocks a concurrent second build into the same never-before-used
+    // directory (KIT-09 D-06).
+    fs.rmSync(claimPath, { force: true });
+    fs.rmSync(buildsLogPath, { force: true });
+    fs.rmSync(workspace, { recursive: true, force: true });
+    throw error;
+  }
 
   const executables = {};
   for (const [name, value] of Object.entries(tools)) {
@@ -936,10 +970,15 @@ function loadPreparedOracleTools(dir, { probe = probeOracleVersions } = {}) {
 
   const tools = { authority: complete.authority };
   for (const [name, record] of Object.entries(complete.executables ?? {})) {
-    const bytes = fs.readFileSync(record.path);
+    const recordPath = assertPathWithinDir(
+      dir,
+      record.path,
+      `cached oracle path for ${name}`,
+    );
+    const bytes = fs.readFileSync(recordPath);
     if (digest(bytes) !== record.sha256)
       fail(`cached oracle sha256 mismatch: ${name}`);
-    tools[name] = { path: record.path, sha256: record.sha256 };
+    tools[name] = { path: recordPath, sha256: record.sha256 };
   }
   probe(tools, manifest);
   process.stderr.write(`oracle cache hit ${dir}\n`);
