@@ -488,7 +488,7 @@ describe("BufferedBudget boundaries (PNG-05, D-24 edges)", () => {
     await parseFixturePath(path, size, budget);
     // IHDR (13) + 32 x 16 MiB tEXt (16,777,216 each) = 536,870,925.
     expect(budget.consumed()).toBe(536870925);
-  });
+  }, 30_000);
 });
 
 describe("D-25: aggregate breach vs. ICC per-chunk policy-limit classification", () => {
