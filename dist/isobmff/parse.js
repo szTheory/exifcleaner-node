@@ -113,7 +113,10 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
         throw new IsobmffStructureError("box-framing", 'No top-level "ftyp" box was found.');
     }
     if (metaRange === undefined || itemModel === undefined) {
-        throw new IsobmffStructureError("box-framing", 'No top-level "meta" box was found.');
+        // A missing top-level `meta` is a missing required item-graph component, the same family as
+        // a missing `hdlr`/`pitm`/`iinf`/`iloc` inside an existing `meta` (items.ts's buildItemModel,
+        // all `item-graph-invalid`) -- not a byte-framing defect (61-09, D-14 BMF-03 empty-input edge).
+        throw new IsobmffStructureError("item-graph-invalid", 'No top-level "meta" box was found.');
     }
     return {
         majorBrand,

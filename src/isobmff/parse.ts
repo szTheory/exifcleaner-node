@@ -228,8 +228,11 @@ export async function parseIsobmff(
     );
   }
   if (metaRange === undefined || itemModel === undefined) {
+    // A missing top-level `meta` is a missing required item-graph component, the same family as
+    // a missing `hdlr`/`pitm`/`iinf`/`iloc` inside an existing `meta` (items.ts's buildItemModel,
+    // all `item-graph-invalid`) -- not a byte-framing defect (61-09, D-14 BMF-03 empty-input edge).
     throw new IsobmffStructureError(
-      "box-framing",
+      "item-graph-invalid",
       'No top-level "meta" box was found.',
     );
   }
