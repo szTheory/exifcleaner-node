@@ -13,6 +13,46 @@ import type { MetadataEntry, NativeFormat } from "../../../src/types.js";
 const CORPUS_ROOT = fileURLToPath(new URL("../../corpus/", import.meta.url));
 const MANIFEST_PATH = join(CORPUS_ROOT, "manifest.json");
 const SHA256 = /^[a-f0-9]{64}$/;
+
+/**
+ * The exact, closed set of provenance keys this kit admits (KIT-10/D-12).
+ * Any other key -- a typo, a future field added without updating this file,
+ * a stray mirror/source annotation -- is rejected rather than silently
+ * ignored, so the manifest schema can never drift unnoticed.
+ */
+const PROVENANCE_KEYS = new Set([
+  "revision",
+  "url",
+  "license",
+  "licenseStatus",
+  "kind",
+  "noticeId",
+]);
+
+/**
+ * The closed list of licenses this corpus admits for a vendored (bytes
+ * committed to the repository) record. Unknown classes fail closed
+ * (KIT-10/D-13) -- a new license requires an explicit addition here, never
+ * an SPDX-shape regex that admits anything syntactically plausible.
+ */
+export const APPROVED_CORPUS_LICENSES: ReadonlySet<string> = new Set([
+  "MIT",
+  "libpng-2.0",
+  "IJG",
+  "Artistic-1.0-Perl OR GPL-1.0-or-later",
+  "BSD-3-Clause",
+  "CC-BY-SA-4.0",
+]);
+
+/**
+ * Licenses valid ONLY on a `kind: "download-only"` record -- bytes that are
+ * never vendored into the repository or the npm package, so a license that
+ * does not itself grant redistribution rights is acceptable precisely
+ * because this corpus never redistributes those bytes (KIT-10/D-13).
+ */
+const DOWNLOAD_ONLY_LICENSES: ReadonlySet<string> = new Set([
+  "LicenseRef-default-copyright",
+]);
 const ROLES = new Set([
   "decode",
   "differential",
@@ -75,6 +115,8 @@ interface Provenance {
   readonly url: string;
   readonly license: string;
   readonly licenseStatus: "approved";
+  readonly kind?: "vendored" | "download-only";
+  readonly noticeId?: string;
 }
 
 interface SuccessOutcome {
@@ -222,20 +264,35 @@ export function assertCorpusRecord(
   }
   if (!isObject(value.provenance)) invalid("provenance");
   const provenance = value.provenance;
+  for (const key of Object.keys(provenance))
+    if (!PROVENANCE_KEYS.has(key)) invalid("provenance keys");
+  if (
+    provenance.kind !== undefined &&
+    provenance.kind !== "vendored" &&
+    provenance.kind !== "download-only"
+  )
+    invalid("provenance kind");
+  const isDownloadOnly = provenance.kind === "download-only";
+  const license = stringField(provenance.license, "license");
+  // The license list is closed (KIT-10/D-13): unknown classes fail closed
+  // rather than passing an SPDX-shape regex. LicenseRef-default-copyright is
+  // admitted only on a download-only record, since those bytes are never
+  // vendored into the repository or the npm package.
+  if (
+    !(
+      APPROVED_CORPUS_LICENSES.has(license) ||
+      (isDownloadOnly && DOWNLOAD_ONLY_LICENSES.has(license))
+    )
+  )
+    invalid("license");
   if (
     !/^[a-f0-9]{40}$/.test(stringField(provenance.revision, "revision")) ||
     !stringField(provenance.url, "url").startsWith("https://") ||
-    // A well-formed SPDX-style identifier, optionally an "OR" disjunction of
-    // two (matches every license this corpus has ever recorded). The exact
-    // approved-license enum this shape admits lives with each fixture's own
-    // authority (tools-manifest fixture validation ties a record's license
-    // to its pinned archive's own license field), never restated here.
-    !/^[A-Za-z0-9][A-Za-z0-9.-]*(?: OR [A-Za-z0-9][A-Za-z0-9.-]*)?$/.test(
-      stringField(provenance.license, "license"),
-    ) ||
     provenance.licenseStatus !== "approved"
   )
     invalid("provenance");
+  if (provenance.noticeId !== undefined)
+    stringField(provenance.noticeId, "noticeId");
   if (!SHA256.test(stringField(value.sha256, "sha256"))) invalid("sha256");
   if (
     typeof value.bytes !== "number" ||
