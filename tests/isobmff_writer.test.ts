@@ -10,6 +10,7 @@ import {
   readFile,
   readdir,
   rm,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
@@ -45,9 +46,11 @@ import {
   mdatBox,
   metaBox,
   pitmBox,
+  type BoxSizeOverride,
   type IlocItem,
   type IpmaEntry,
 } from "./isobmff-support/builder.js";
+import { assembleHeif, HOSTILE_FIXTURES } from "./isobmff-support/hostile.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -534,5 +537,422 @@ describe("D-11 iloc layout matrix (62-05)", () => {
     expect(LAYOUT_MATRIX.length).toBeGreaterThanOrEqual(18);
     expect(LAYOUT_MATRIX.some((c) => c.baseOffsetSize === 0)).toBe(true);
     expect(LAYOUT_MATRIX.some((c) => c.baseOffsetSize === 8)).toBe(true);
+  });
+});
+
+// --- Task 3 (62-05): D-15 mdat union, gaps, header forms and adjacency ---
+
+async function runThroughWriter(
+  bytes: Buffer,
+): Promise<{
+  readonly sourcePath: string;
+  readonly destinationBytes: Buffer;
+  readonly sourceInventory: IsobmffInventory;
+  readonly destinationInventory: IsobmffInventory;
+}> {
+  const directory = await freshDirectory();
+  const sourcePath = join(directory, "source.heic");
+  const destinationPath = join(directory, "destination.heic");
+  await writeFile(sourcePath, bytes);
+
+  const restore = setRegisteredHandlersForTests([
+    createIsobmffWriterHandlerForTests("heic"),
+  ]);
+  try {
+    const sanitized = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: false,
+    });
+    if (!sanitized.ok) {
+      throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+    }
+    expect(sanitized.ok).toBe(true);
+    const destinationBytes = await readFile(destinationPath);
+    return {
+      sourcePath,
+      destinationBytes,
+      sourceInventory: inventoryIsobmff(bytes),
+      destinationInventory: inventoryIsobmff(destinationBytes),
+    };
+  } finally {
+    restore();
+  }
+}
+
+/** A bespoke single-item fixture (not `assembleHeif`, which never exposes an `mdat` size
+ * override) isolating the `mdat` header form: one surviving `hvc1` item occupies the whole
+ * payload, cm=0, widths 4/4/4/0. */
+function buildMdatFormFixture(
+  mdatSizeOverride: BoxSizeOverride["size"],
+  payload: Buffer,
+): Buffer {
+  const headerSize = mdatSizeOverride === "largesize" ? 16 : 8;
+  const itemId = 1;
+
+  const build = (mdatPayloadStart: number): Buffer => {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, itemId);
+    const infe = infeBox({ version: 2, itemId, itemType: "hvc1" });
+    const iinf = iinfBox(0, [infe]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        { itemId, associations: [{ propertyIndex: 1, essential: false }] },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 1,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 4,
+      indexSize: 0,
+      items: [
+        {
+          itemId,
+          constructionMethod: 0,
+          dataReferenceIndex: 0,
+          baseOffset: mdatPayloadStart,
+          extents: [{ offset: 0, length: payload.length, index: 0 }],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iloc, iinf, iprp]);
+    const header = Buffer.concat([ftyp, meta]);
+    const mdat = mdatBox(
+      payload,
+      mdatSizeOverride !== undefined ? { size: mdatSizeOverride } : {},
+    );
+    return Buffer.concat([header, mdat]);
+  };
+
+  const pass1 = build(0);
+  const mdatTotal = headerSize + payload.length;
+  const headerLength = pass1.length - mdatTotal;
+  const final = build(headerLength + headerSize);
+  if (final.length !== pass1.length) {
+    throw new Error(
+      "buildMdatFormFixture: header length changed between placeholder and final passes",
+    );
+  }
+  return final;
+}
+
+describe("D-15 mdat union (62-05)", () => {
+  it("a canary planted in an unclaimed mdat gap is absent from the output", async () => {
+    const CANARY = Buffer.from("CANARY-GAP-BYTES", "ascii"); // 17 bytes, well over 16
+    const primaryPayload = Buffer.from([0xaa, 0xbb, 0xcc, 0xdd]);
+    const mdatPayload = Buffer.concat([primaryPayload, CANARY]);
+
+    const bytes = assembleHeif({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: primaryPayload.length }],
+          propertyIndices: [1, 2],
+        },
+      ],
+      mdatPayload,
+      twoPass: true,
+    });
+
+    const { destinationBytes } = await runThroughWriter(bytes);
+    expect(destinationBytes.indexOf(CANARY)).toBe(-1);
+  });
+
+  it("two touching surviving extents merge into one union range; both payloads stay identical; mdat length equals the union size", async () => {
+    const first = Buffer.from([1, 1, 1, 1]);
+    const second = Buffer.from([2, 2, 2, 2]);
+    const mdatPayload = Buffer.concat([first, second]); // [0,4) and [4,8), touching at 4
+
+    const bytes = assembleHeif({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: first.length }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "av01",
+          extents: [{ relOffset: first.length, length: second.length }],
+        },
+      ],
+      mdatPayload,
+      twoPass: true,
+    });
+
+    const { destinationBytes, sourceInventory, destinationInventory } =
+      await runThroughWriter(bytes);
+    const mdatTopLevel = destinationInventory.topLevel.find(
+      (b) => b.type === "mdat",
+    );
+    expect(mdatTopLevel).toBeDefined();
+    expect(mdatTopLevel!.size - 8).toBe(mdatPayload.length); // the full union, not duplicated
+
+    for (const id of [1, 2]) {
+      const sourceItem = findItem(sourceInventory, id)!;
+      const destinationItem = findItem(destinationInventory, id)!;
+      const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+      const destinationPayload = readItemExtentBytes(
+        destinationBytes,
+        destinationInventory,
+        destinationItem,
+      );
+      expect(destinationPayload.equals(sourcePayload)).toBe(true);
+    }
+  });
+
+  it("two overlapping surviving extents (shared bytes) merge into one union range; both payloads stay identical", async () => {
+    const mdatPayload = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9]); // 9 bytes total
+    // item1: [0,6); item2: [3,9) -- bytes [3,6) shared by both.
+    const bytes = assembleHeif({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 6 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "av01",
+          extents: [{ relOffset: 3, length: 6 }],
+        },
+      ],
+      mdatPayload,
+      twoPass: true,
+    });
+
+    const { destinationBytes, sourceInventory, destinationInventory } =
+      await runThroughWriter(bytes);
+    const mdatTopLevel = destinationInventory.topLevel.find(
+      (b) => b.type === "mdat",
+    );
+    expect(mdatTopLevel).toBeDefined();
+    expect(mdatTopLevel!.size - 8).toBe(mdatPayload.length); // 9, never 6+6=12
+
+    for (const id of [1, 2]) {
+      const sourceItem = findItem(sourceInventory, id)!;
+      const destinationItem = findItem(destinationInventory, id)!;
+      const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+      const destinationPayload = readItemExtentBytes(
+        destinationBytes,
+        destinationInventory,
+        destinationItem,
+      );
+      expect(destinationPayload.equals(sourcePayload)).toBe(true);
+    }
+  });
+
+  it("a removed extent touching a surviving extent on each side is excised exactly at the boundary", async () => {
+    const CANARY = Buffer.from("REMOVED-CANARY!", "ascii"); // 16 bytes
+    const left = Buffer.from([1, 1, 1, 1]);
+    const right = Buffer.from([2, 2, 2, 2]);
+    const mdatPayload = Buffer.concat([left, CANARY, right]);
+    // left: [0,4); removable Exif: [4,20) (touches left's end and right's start); right: [20,24).
+
+    const bytes = assembleHeif({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: left.length }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "Exif",
+          hidden: true,
+          extents: [{ relOffset: left.length, length: CANARY.length }],
+        },
+        {
+          itemId: 3,
+          itemType: "av01",
+          extents: [{ relOffset: left.length + CANARY.length, length: right.length }],
+        },
+      ],
+      mdatPayload,
+      twoPass: true,
+    });
+
+    const { destinationBytes, sourceInventory, destinationInventory } =
+      await runThroughWriter(bytes);
+    expect(destinationBytes.indexOf(CANARY)).toBe(-1);
+
+    for (const id of [1, 3]) {
+      const sourceItem = findItem(sourceInventory, id)!;
+      const destinationItem = findItem(destinationInventory, id)!;
+      expect(destinationItem).toBeDefined();
+      const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+      const destinationPayload = readItemExtentBytes(
+        destinationBytes,
+        destinationInventory,
+        destinationItem!,
+      );
+      expect(destinationPayload.equals(sourcePayload)).toBe(true);
+    }
+  });
+
+  it("surviving extents listed out of source order in iloc keep their iloc order in the output while the mdat union is still ascending", async () => {
+    const extentAt0 = Buffer.from([9, 9, 9, 9]);
+    const extentAt20 = Buffer.from([8, 8, 8, 8]);
+    const mdatPayload = Buffer.alloc(24);
+    extentAt0.copy(mdatPayload, 0);
+    extentAt20.copy(mdatPayload, 20);
+
+    // This item's own extents are declared out of ascending-source-offset order (extent 0 at
+    // abs offset +20, extent 1 at abs offset +0), with base_offset_size 0 so no base rewrite can
+    // go negative -- this fixture admits AND writes successfully (the Task 1 fixture used
+    // base_offset_size > 0 specifically so this same out-of-order shape would decline instead).
+    // `assembleHeif`'s `relOffset` is always added to its own internally-computed baseOffset
+    // (meaningless once base_offset_size is 0, since that field then writes 0 bytes), so this
+    // needs the same bespoke cm0IlocFields-based builder the layout matrix above uses, where
+    // base_offset_size 0 correctly makes each extent's own field the full absolute position.
+    const itemId = 1;
+    const build = (mdatPayloadStart: number): Buffer => {
+      const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+      const hdlr = hdlrBox("pict");
+      const pitm = pitmBox(0, itemId);
+      const infe = infeBox({ version: 2, itemId, itemType: "hvc1" });
+      const iinf = iinfBox(0, [infe]);
+      const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+      const ipma = ipmaBox({
+        version: 0,
+        flags: 0,
+        entries: [
+          { itemId, associations: [{ propertyIndex: 1, essential: false }] },
+        ],
+      });
+      const iprp = iprpBox(ipco, ipma);
+      const fields = cm0IlocFields(
+        [
+          { abs: mdatPayloadStart + 20, length: extentAt20.length, index: 0 },
+          { abs: mdatPayloadStart + 0, length: extentAt0.length, index: 0 },
+        ],
+        0,
+      );
+      const iloc = ilocBox({
+        version: 1,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 0,
+        indexSize: 0,
+        items: [
+          {
+            itemId,
+            constructionMethod: 0,
+            dataReferenceIndex: 0,
+            baseOffset: fields.baseOffset,
+            extents: fields.extents,
+          },
+        ],
+      });
+      const meta = metaBox([hdlr, pitm, iloc, iinf, iprp]);
+      const header = Buffer.concat([ftyp, meta]);
+      return Buffer.concat([header, mdatBox(mdatPayload)]);
+    };
+    const pass1 = build(0);
+    const headerLength = pass1.length - (8 + mdatPayload.length);
+    const bytes = build(headerLength + 8);
+    if (bytes.length !== pass1.length) {
+      throw new Error("header length changed between placeholder and final passes");
+    }
+
+    const { destinationBytes, sourceInventory, destinationInventory } =
+      await runThroughWriter(bytes);
+    const sourceItem = findItem(sourceInventory, 1)!;
+    const destinationItem = findItem(destinationInventory, 1)!;
+
+    // iloc order kept: extent 0 is still the one that was declared first (originally at
+    // relOffset 20), extent 1 is still the one declared second (originally at relOffset 0).
+    expect(destinationItem.extents.length).toBe(2);
+    expect(destinationItem.extents[0]!.offset).toBeGreaterThan(
+      destinationItem.extents[1]!.offset,
+    );
+    // mdat union still ascending: the two 4-byte ranges are adjacent (no gap -- both are
+    // claimed), so the whole payload is exactly 8 bytes, not the source's original 24.
+    const mdatTopLevel = destinationInventory.topLevel.find(
+      (b) => b.type === "mdat",
+    );
+    expect(mdatTopLevel!.size - 8).toBe(8);
+
+    const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+    const destinationPayload = readItemExtentBytes(
+      destinationBytes,
+      destinationInventory,
+      destinationItem,
+    );
+    expect(destinationPayload.equals(sourcePayload)).toBe(true);
+  });
+
+  it("a largesize source mdat stays largesize in the output", async () => {
+    const payload = Buffer.from([1, 2, 3, 4]);
+    const bytes = buildMdatFormFixture("largesize", payload);
+    const sourceMdat = inventoryIsobmff(bytes).topLevel.find(
+      (b) => b.type === "mdat",
+    )!;
+    // Sanity: the fixture itself really is largesize-encoded (16-byte header).
+    expect(bytes.readUInt32BE(sourceMdat.offset)).toBe(1);
+
+    const { destinationBytes, destinationInventory } = await runThroughWriter(bytes);
+    const mdatTopLevel = destinationInventory.topLevel.find(
+      (b) => b.type === "mdat",
+    )!;
+    // The output chose the largesize encoding (declared size field reads literal 1), not a
+    // plain 32-bit size -- and the total box size is exactly header(16) + payload.
+    expect(destinationBytes.readUInt32BE(mdatTopLevel.offset)).toBe(1);
+    expect(mdatTopLevel.size).toBe(16 + payload.length);
+  });
+
+  it("a normal 32-bit source mdat stays a normal 32-bit header in the output", async () => {
+    const payload = Buffer.from([1, 2, 3, 4]);
+    const bytes = buildMdatFormFixture(undefined, payload);
+    const { destinationInventory } = await runThroughWriter(bytes);
+    const mdatTopLevel = destinationInventory.topLevel.find(
+      (b) => b.type === "mdat",
+    )!;
+    expect(mdatTopLevel.size).toBe(8 + payload.length);
+  });
+
+  it("a size-0 source mdat becomes an explicit 32-bit size in the output", async () => {
+    const payload = Buffer.from([1, 2, 3, 4]);
+    const bytes = buildMdatFormFixture("zero", payload);
+    const { destinationInventory } = await runThroughWriter(bytes);
+    const mdatTopLevel = destinationInventory.topLevel.find(
+      (b) => b.type === "mdat",
+    )!;
+    expect(mdatTopLevel.size).toBe(8 + payload.length);
+  });
+
+  it("the Phase 61 surviving-offset-width-zero and multiple-mdat declines are unchanged (D-31)", async () => {
+    for (const declineClass of [
+      "surviving-offset-width-zero",
+      "multiple-mdat",
+    ] as const) {
+      const fixture = HOSTILE_FIXTURES[declineClass];
+      const directory = await freshDirectory();
+      const sourcePath = join(directory, "source.heic");
+      await fixture.write(sourcePath);
+      const { size } = await stat(sourcePath);
+      const handle = await open(sourcePath, "r");
+      try {
+        await expect(admitIsobmff(handle, size)).rejects.toMatchObject({
+          declineClass,
+          kind: fixture.expectedCode,
+        });
+      } finally {
+        await handle.close();
+      }
+    }
   });
 });
