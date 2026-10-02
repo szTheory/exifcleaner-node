@@ -148,14 +148,14 @@ describe("tracer: heif-enc-grid.heic rebuild (62-02)", () => {
       });
       expect(sanitized.ok).toBe(true);
       if (!sanitized.ok) {
-        throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+        throw new Error(
+          `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+        );
       }
 
       // Blast radius: the test directory lists exactly the source and the destination.
       const listing = await readdir(directory);
-      expect(new Set(listing)).toEqual(
-        new Set([sourceName, destinationName]),
-      );
+      expect(new Set(listing)).toEqual(new Set([sourceName, destinationName]));
 
       // The source is untouched.
       const sourceBytesAfter = await readFile(sourcePath);
@@ -184,7 +184,8 @@ describe("tracer: heif-enc-grid.heic rebuild (62-02)", () => {
       }
       for (const reference of destinationInventory.references) {
         expect(removedIds.has(reference.from)).toBe(false);
-        for (const toId of reference.to) expect(removedIds.has(toId)).toBe(false);
+        for (const toId of reference.to)
+          expect(removedIds.has(toId)).toBe(false);
       }
 
       // ISO-03: every surviving item (the grid, its four tiles, and the thumbnail) has an output
@@ -192,7 +193,9 @@ describe("tracer: heif-enc-grid.heic rebuild (62-02)", () => {
       const sourceSurviving = sourceInventory.items.filter((item) =>
         SURVIVING_IMAGE_TYPES.has(item.type),
       );
-      expect(sourceSurviving.map((item) => item.id)).toEqual([1, 2, 3, 4, 5, 8]);
+      expect(sourceSurviving.map((item) => item.id)).toEqual([
+        1, 2, 3, 4, 5, 8,
+      ]);
       const destinationSurviving = destinationInventory.items.filter((item) =>
         SURVIVING_IMAGE_TYPES.has(item.type),
       );
@@ -247,11 +250,9 @@ describe("tracer: heif-enc-grid.heic rebuild (62-02)", () => {
 
 describe("Task 2: the writer handler stays unreachable and unregistered (62-02)", () => {
   it("registeredHandlersForTests() still returns exactly the webp, png and jpeg handlers", () => {
-    expect(registeredHandlersForTests().map((h) => h.capability.format)).toEqual([
-      "webp",
-      "png",
-      "jpeg",
-    ]);
+    expect(
+      registeredHandlersForTests().map((h) => h.capability.format),
+    ).toEqual(["webp", "png", "jpeg"]);
   });
 
   it("the AVIF fixture does not match the heic writer handler and the HEIC fixture does not match the avif writer handler", async () => {
@@ -293,7 +294,11 @@ interface LayoutMatrixCase {
 /** D-11: the base/offset encoding for one cm=0 item's extents, given where they land absolutely
  * in the source file and the declared `baseOffsetSize`. */
 function cm0IlocFields(
-  absExtents: readonly { readonly abs: number; readonly length: number; readonly index: number }[],
+  absExtents: readonly {
+    readonly abs: number;
+    readonly length: number;
+    readonly index: number;
+  }[],
   baseOffsetSize: 0 | 4 | 8,
 ): { readonly baseOffset: number; readonly extents: IlocItem["extents"] } {
   if (baseOffsetSize > 0) {
@@ -317,9 +322,7 @@ function cm0IlocFields(
   };
 }
 
-function buildLayoutMatrixFixture(
-  c: LayoutMatrixCase,
-): {
+function buildLayoutMatrixFixture(c: LayoutMatrixCase): {
   readonly bytes: Buffer;
   readonly removedItemId: number;
   readonly survivingPrimaryId: number;
@@ -342,7 +345,12 @@ function buildLayoutMatrixFixture(
     const pitm = pitmBox(0, MATRIX_PRIMARY_ID);
 
     const infeEntries = [
-      infeBox({ version: 2, itemId: MATRIX_EXIF_ID, itemType: "Exif", hidden: true }),
+      infeBox({
+        version: 2,
+        itemId: MATRIX_EXIF_ID,
+        itemType: "Exif",
+        hidden: true,
+      }),
       infeBox({ version: 2, itemId: MATRIX_PRIMARY_ID, itemType: "hvc1" }),
     ];
     if (hasCm) {
@@ -451,16 +459,52 @@ const LAYOUT_MATRIX: readonly LayoutMatrixCase[] = (() => {
   const cases: LayoutMatrixCase[] = [];
   const baseOffsetSizes: readonly (0 | 4 | 8)[] = [0, 4, 8];
   for (const baseOffsetSize of baseOffsetSizes) {
-    cases.push({ version: 0, offsetSize: 4, lengthSize: 4, baseOffsetSize, indexSize: 0 });
-    cases.push({ version: 0, offsetSize: 8, lengthSize: 4, baseOffsetSize, indexSize: 0 });
+    cases.push({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize,
+      indexSize: 0,
+    });
+    cases.push({
+      version: 0,
+      offsetSize: 8,
+      lengthSize: 4,
+      baseOffsetSize,
+      indexSize: 0,
+    });
     for (const indexSize of [0, 4, 8] as const) {
-      cases.push({ version: 1, offsetSize: 4, lengthSize: 4, baseOffsetSize, indexSize });
-      cases.push({ version: 2, offsetSize: 4, lengthSize: 4, baseOffsetSize, indexSize });
+      cases.push({
+        version: 1,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize,
+        indexSize,
+      });
+      cases.push({
+        version: 2,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize,
+        indexSize,
+      });
     }
   }
   // A couple of explicit lengthSize/offsetSize=8 combinations, so those widths are exercised too.
-  cases.push({ version: 1, offsetSize: 4, lengthSize: 8, baseOffsetSize: 4, indexSize: 4 });
-  cases.push({ version: 2, offsetSize: 8, lengthSize: 8, baseOffsetSize: 8, indexSize: 8 });
+  cases.push({
+    version: 1,
+    offsetSize: 4,
+    lengthSize: 8,
+    baseOffsetSize: 4,
+    indexSize: 4,
+  });
+  cases.push({
+    version: 2,
+    offsetSize: 8,
+    lengthSize: 8,
+    baseOffsetSize: 8,
+    indexSize: 8,
+  });
   return cases;
 })();
 
@@ -496,7 +540,9 @@ describe("D-11 iloc layout matrix (62-05)", () => {
         });
         expect(sanitized.ok).toBe(true);
         if (!sanitized.ok) {
-          throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+          throw new Error(
+            `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+          );
         }
 
         const destinationBytes = await readFile(destinationPath);
@@ -547,7 +593,10 @@ describe("D-11 iloc layout matrix (62-05)", () => {
         // unclaimed gap between the primary's two extents (D-15) is dropped from the new mdat
         // payload, so the two extents land only 4 bytes apart in the output -- never the
         // source's own 10-byte separation.
-        const destinationPrimary = findItem(destinationInventory, survivingPrimaryId)!;
+        const destinationPrimary = findItem(
+          destinationInventory,
+          survivingPrimaryId,
+        )!;
         if (c.baseOffsetSize > 0) {
           expect(destinationPrimary.extents[0]!.offset).toBe(0);
           expect(destinationPrimary.extents[1]!.offset).toBe(4);
@@ -572,9 +621,7 @@ describe("D-11 iloc layout matrix (62-05)", () => {
 
 // --- Task 3 (62-05): D-15 mdat union, gaps, header forms and adjacency ---
 
-async function runThroughWriter(
-  bytes: Buffer,
-): Promise<{
+async function runThroughWriter(bytes: Buffer): Promise<{
   readonly sourcePath: string;
   readonly destinationBytes: Buffer;
   readonly sourceInventory: IsobmffInventory;
@@ -598,7 +645,9 @@ async function runThroughWriter(
       preserveResolution: false,
     });
     if (!sanitized.ok) {
-      throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+      throw new Error(
+        `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+      );
     }
     expect(sanitized.ok).toBe(true);
     const destinationBytes = await readFile(destinationPath);
@@ -732,7 +781,11 @@ describe("D-15 mdat union (62-05)", () => {
     for (const id of [1, 2]) {
       const sourceItem = findItem(sourceInventory, id)!;
       const destinationItem = findItem(destinationInventory, id)!;
-      const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+      const sourcePayload = readItemExtentBytes(
+        bytes,
+        sourceInventory,
+        sourceItem,
+      );
       const destinationPayload = readItemExtentBytes(
         destinationBytes,
         destinationInventory,
@@ -774,7 +827,11 @@ describe("D-15 mdat union (62-05)", () => {
     for (const id of [1, 2]) {
       const sourceItem = findItem(sourceInventory, id)!;
       const destinationItem = findItem(destinationInventory, id)!;
-      const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+      const sourcePayload = readItemExtentBytes(
+        bytes,
+        sourceInventory,
+        sourceItem,
+      );
       const destinationPayload = readItemExtentBytes(
         destinationBytes,
         destinationInventory,
@@ -808,7 +865,9 @@ describe("D-15 mdat union (62-05)", () => {
         {
           itemId: 3,
           itemType: "av01",
-          extents: [{ relOffset: left.length + CANARY.length, length: right.length }],
+          extents: [
+            { relOffset: left.length + CANARY.length, length: right.length },
+          ],
         },
       ],
       mdatPayload,
@@ -823,7 +882,11 @@ describe("D-15 mdat union (62-05)", () => {
       const sourceItem = findItem(sourceInventory, id)!;
       const destinationItem = findItem(destinationInventory, id)!;
       expect(destinationItem).toBeDefined();
-      const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+      const sourcePayload = readItemExtentBytes(
+        bytes,
+        sourceInventory,
+        sourceItem,
+      );
       const destinationPayload = readItemExtentBytes(
         destinationBytes,
         destinationInventory,
@@ -895,7 +958,9 @@ describe("D-15 mdat union (62-05)", () => {
     const headerLength = pass1.length - (8 + mdatPayload.length);
     const bytes = build(headerLength + 8);
     if (bytes.length !== pass1.length) {
-      throw new Error("header length changed between placeholder and final passes");
+      throw new Error(
+        "header length changed between placeholder and final passes",
+      );
     }
 
     const { destinationBytes, sourceInventory, destinationInventory } =
@@ -916,7 +981,11 @@ describe("D-15 mdat union (62-05)", () => {
     );
     expect(mdatTopLevel!.size - 8).toBe(8);
 
-    const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+    const sourcePayload = readItemExtentBytes(
+      bytes,
+      sourceInventory,
+      sourceItem,
+    );
     const destinationPayload = readItemExtentBytes(
       destinationBytes,
       destinationInventory,
@@ -934,7 +1003,8 @@ describe("D-15 mdat union (62-05)", () => {
     // Sanity: the fixture itself really is largesize-encoded (16-byte header).
     expect(bytes.readUInt32BE(sourceMdat.offset)).toBe(1);
 
-    const { destinationBytes, destinationInventory } = await runThroughWriter(bytes);
+    const { destinationBytes, destinationInventory } =
+      await runThroughWriter(bytes);
     const mdatTopLevel = destinationInventory.topLevel.find(
       (b) => b.type === "mdat",
     )!;
@@ -1068,7 +1138,11 @@ function buildAvifAuxHiddenC2paFixture(): {
         ],
       },
     ],
-    properties: [ispe(32, 32), av1C(Buffer.from([0x81, 0x08, 0x0c, 0x00])), auxC(ALPHA_URN)],
+    properties: [
+      ispe(32, 32),
+      av1C(Buffer.from([0x81, 0x08, 0x0c, 0x00])),
+      auxC(ALPHA_URN),
+    ],
     refs,
     mdatPayload: Buffer.concat([
       primaryPayload,
@@ -1094,9 +1168,9 @@ describe("ISO-01/ISO-02 removal on builder fixtures (62-06)", () => {
     await writeFile(sourcePath, bytes);
 
     const sourceInventory = inventoryIsobmff(bytes);
-    expect(
-      sourceInventory.topLevel.some((box) => box.type === "uuid"),
-    ).toBe(true);
+    expect(sourceInventory.topLevel.some((box) => box.type === "uuid")).toBe(
+      true,
+    );
 
     const restore = setRegisteredHandlersForTests([
       createIsobmffWriterHandlerForTests("avif"),
@@ -1112,7 +1186,9 @@ describe("ISO-01/ISO-02 removal on builder fixtures (62-06)", () => {
       });
       expect(sanitized.ok).toBe(true);
       if (!sanitized.ok) {
-        throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+        throw new Error(
+          `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+        );
       }
 
       const destinationBytes = await readFile(destinationPath);
@@ -1146,15 +1222,23 @@ describe("ISO-01/ISO-02 removal on builder fixtures (62-06)", () => {
       expect(destinationBytes.indexOf(c2paCanary)).toBe(-1);
 
       // ftyp bytes identical, and the kept top-level type list is the source's minus the C2PA uuid.
-      const sourceFtyp = sourceInventory.topLevel.find((b) => b.type === "ftyp")!;
+      const sourceFtyp = sourceInventory.topLevel.find(
+        (b) => b.type === "ftyp",
+      )!;
       const destinationFtyp = destinationInventory.topLevel.find(
         (b) => b.type === "ftyp",
       )!;
       expect(
         destinationBytes
-          .subarray(destinationFtyp.offset, destinationFtyp.offset + destinationFtyp.size)
+          .subarray(
+            destinationFtyp.offset,
+            destinationFtyp.offset + destinationFtyp.size,
+          )
           .equals(
-            bytes.subarray(sourceFtyp.offset, sourceFtyp.offset + sourceFtyp.size),
+            bytes.subarray(
+              sourceFtyp.offset,
+              sourceFtyp.offset + sourceFtyp.size,
+            ),
           ),
       ).toBe(true);
       expect(destinationInventory.topLevel.map((b) => b.type)).toEqual(
@@ -1168,7 +1252,11 @@ describe("ISO-01/ISO-02 removal on builder fixtures (62-06)", () => {
         const sourceItem = findItem(sourceInventory, id)!;
         const destinationItem = findItem(destinationInventory, id)!;
         expect(destinationItem).toBeDefined();
-        const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+        const sourcePayload = readItemExtentBytes(
+          bytes,
+          sourceInventory,
+          sourceItem,
+        );
         const destinationPayload = readItemExtentBytes(
           destinationBytes,
           destinationInventory,
@@ -1180,7 +1268,10 @@ describe("ISO-01/ISO-02 removal on builder fixtures (62-06)", () => {
       // Re-admits, with no removed namespace surviving.
       const destinationHandle: FileHandle = await open(destinationPath, "r");
       try {
-        const reAdmitted = await admitIsobmff(destinationHandle, destinationBytes.length);
+        const reAdmitted = await admitIsobmff(
+          destinationHandle,
+          destinationBytes.length,
+        );
         expect(reAdmitted.namespaces).not.toContain("EXIF");
         expect(reAdmitted.namespaces).not.toContain("XMP");
         expect(reAdmitted.namespaces).not.toContain("C2PA");
@@ -1217,7 +1308,9 @@ function buildD14OrderFixture(iinfVersion: 0 | 1): {
 } {
   const primaryPayload = Buffer.from([0x01, 0x02, 0x03, 0x04]);
   const thumbPayload = Buffer.from([0x11, 0x12]);
-  const exifPayload = Buffer.from([0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28]);
+  const exifPayload = Buffer.from([
+    0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+  ]);
   const auxPayload = Buffer.from([0x31, 0x32, 0x33]);
   const mdatPayload = Buffer.concat([
     primaryPayload,
@@ -1293,7 +1386,9 @@ function buildD14OrderFixture(iinfVersion: 0 | 1): {
         constructionMethod: 0,
         dataReferenceIndex: 0,
         baseOffset: mdatPayloadStart,
-        extents: [{ offset: primaryPayload.length, length: thumbPayload.length }],
+        extents: [
+          { offset: primaryPayload.length, length: thumbPayload.length },
+        ],
       },
       {
         itemId: D14_GRID_ID,
@@ -1321,7 +1416,8 @@ function buildD14OrderFixture(iinfVersion: 0 | 1): {
         baseOffset: mdatPayloadStart,
         extents: [
           {
-            offset: primaryPayload.length + thumbPayload.length + exifPayload.length,
+            offset:
+              primaryPayload.length + thumbPayload.length + exifPayload.length,
             length: auxPayload.length,
           },
         ],
@@ -1431,7 +1527,11 @@ describe("D-14 order, verbatim children, empty iref, top-level positions, empty 
       ]) {
         const sourceItem = findItem(sourceInventory, id)!;
         const destinationItem = findItem(destinationInventory, id)!;
-        const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+        const sourcePayload = readItemExtentBytes(
+          bytes,
+          sourceInventory,
+          sourceItem,
+        );
         const destinationPayload = readItemExtentBytes(
           destinationBytes,
           destinationInventory,
@@ -1495,8 +1595,16 @@ describe("D-14 order, verbatim children, empty iref, top-level positions, empty 
     expect(destinationMeta.size).toBe(sourceMeta.size);
     expect(
       destinationBytes
-        .subarray(destinationMeta.offset, destinationMeta.offset + destinationMeta.size)
-        .equals(bytes.subarray(sourceMeta.offset, sourceMeta.offset + sourceMeta.size)),
+        .subarray(
+          destinationMeta.offset,
+          destinationMeta.offset + destinationMeta.size,
+        )
+        .equals(
+          bytes.subarray(
+            sourceMeta.offset,
+            sourceMeta.offset + sourceMeta.size,
+          ),
+        ),
     ).toBe(true);
   });
 
@@ -1522,8 +1630,11 @@ describe("D-14 order, verbatim children, empty iref, top-level positions, empty 
       twoPass: true,
     });
 
-    const { destinationBytes, destinationInventory } = await runThroughWriter(bytes);
-    expect(destinationInventory.items.some((item) => item.id === 2)).toBe(false);
+    const { destinationBytes, destinationInventory } =
+      await runThroughWriter(bytes);
+    expect(destinationInventory.items.some((item) => item.id === 2)).toBe(
+      false,
+    );
     expect(destinationInventory.associations.some((a) => a.itemId === 2)).toBe(
       false,
     );
@@ -1542,19 +1653,26 @@ describe("D-14 order, verbatim children, empty iref, top-level positions, empty 
   }
 
   function topLevelBoxAt(type: "free" | "skip" | "uuid"): Buffer {
-    if (type === "uuid") return uuidBox(C2PA_UUID_USERTYPE, Buffer.alloc(16, 0x99));
+    if (type === "uuid")
+      return uuidBox(C2PA_UUID_USERTYPE, Buffer.alloc(16, 0x99));
     return box(type, Buffer.alloc(4));
   }
 
   const TOP_LEVEL_POSITION_CASES: readonly TopLevelPositionCase[] = (
     ["uuid", "free", "skip"] as const
   ).flatMap((type) => [
-    { title: `${type} right after ftyp`, spec: { topLevelExtraAfterFtyp: [topLevelBoxAt(type)] } },
+    {
+      title: `${type} right after ftyp`,
+      spec: { topLevelExtraAfterFtyp: [topLevelBoxAt(type)] },
+    },
     {
       title: `${type} between meta and mdat`,
       spec: { topLevelExtraBeforeMdat: [topLevelBoxAt(type)] },
     },
-    { title: `${type} after mdat`, spec: { topLevelExtraAfterMdat: [topLevelBoxAt(type)] } },
+    {
+      title: `${type} after mdat`,
+      spec: { topLevelExtraAfterMdat: [topLevelBoxAt(type)] },
+    },
   ]);
 
   it.each(TOP_LEVEL_POSITION_CASES.map((c) => [c.title, c.spec] as const))(
@@ -1574,7 +1692,8 @@ describe("D-14 order, verbatim children, empty iref, top-level positions, empty 
         ...spec,
       });
 
-      const { destinationInventory, sourceInventory } = await runThroughWriter(bytes);
+      const { destinationInventory, sourceInventory } =
+        await runThroughWriter(bytes);
       expect(
         destinationInventory.topLevel.some(
           (b) => b.type === "uuid" || b.type === "free" || b.type === "skip",
@@ -1599,8 +1718,12 @@ describe("D-14 order, verbatim children, empty iref, top-level positions, empty 
         },
       ],
       mdatPayload: Buffer.from([1, 2, 3, 4]),
-      topLevelExtraAfterFtyp: [uuidBox(C2PA_UUID_USERTYPE, Buffer.alloc(16, 0x11))],
-      topLevelExtraAfterMdat: [uuidBox(C2PA_UUID_USERTYPE, Buffer.alloc(16, 0x22))],
+      topLevelExtraAfterFtyp: [
+        uuidBox(C2PA_UUID_USERTYPE, Buffer.alloc(16, 0x11)),
+      ],
+      topLevelExtraAfterMdat: [
+        uuidBox(C2PA_UUID_USERTYPE, Buffer.alloc(16, 0x22)),
+      ],
       twoPass: true,
     });
 
@@ -1746,9 +1869,21 @@ function buildHeicAuxHiddenC2paFixture(): {
   ]);
 
   const refs: IrefRef[] = [
-    { type: "auxl", fromItemId: HEIC_AUX_AUX_ID, toItemIds: [HEIC_AUX_PRIMARY_ID] },
-    { type: "cdsc", fromItemId: HEIC_AUX_EXIF_ID, toItemIds: [HEIC_AUX_AUX_ID] },
-    { type: "cdsc", fromItemId: HEIC_AUX_XMP_ID, toItemIds: [HEIC_AUX_PRIMARY_ID] },
+    {
+      type: "auxl",
+      fromItemId: HEIC_AUX_AUX_ID,
+      toItemIds: [HEIC_AUX_PRIMARY_ID],
+    },
+    {
+      type: "cdsc",
+      fromItemId: HEIC_AUX_EXIF_ID,
+      toItemIds: [HEIC_AUX_AUX_ID],
+    },
+    {
+      type: "cdsc",
+      fromItemId: HEIC_AUX_XMP_ID,
+      toItemIds: [HEIC_AUX_PRIMARY_ID],
+    },
   ];
 
   const spec: AssembleHeifSpec = {
@@ -1836,7 +1971,9 @@ describe("ISO-01/ISO-02 removal on builder fixtures, HEIC parity (62-06)", () =>
       });
       expect(sanitized.ok).toBe(true);
       if (!sanitized.ok) {
-        throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+        throw new Error(
+          `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+        );
       }
 
       const destinationBytes = await readFile(destinationPath);
@@ -1858,7 +1995,11 @@ describe("ISO-01/ISO-02 removal on builder fixtures, HEIC parity (62-06)", () =>
         const sourceItem = findItem(sourceInventory, id)!;
         const destinationItem = findItem(destinationInventory, id)!;
         expect(destinationItem).toBeDefined();
-        const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+        const sourcePayload = readItemExtentBytes(
+          bytes,
+          sourceInventory,
+          sourceItem,
+        );
         const destinationPayload = readItemExtentBytes(
           destinationBytes,
           destinationInventory,
@@ -1869,7 +2010,10 @@ describe("ISO-01/ISO-02 removal on builder fixtures, HEIC parity (62-06)", () =>
 
       const destinationHandle: FileHandle = await open(destinationPath, "r");
       try {
-        const reAdmitted = await admitIsobmff(destinationHandle, destinationBytes.length);
+        const reAdmitted = await admitIsobmff(
+          destinationHandle,
+          destinationBytes.length,
+        );
         expect(reAdmitted.namespaces).not.toContain("EXIF");
         expect(reAdmitted.namespaces).not.toContain("XMP");
         expect(reAdmitted.namespaces).not.toContain("C2PA");
@@ -1905,7 +2049,8 @@ const CR01_K_ID = 2;
  * "write rule"), so the writer's iref rewrite for k is actually exercised. */
 function buildKWithSecondIrefRecordFixture(brand: "heic" | "avif"): Buffer {
   const majorBrand = brand;
-  const compatibleBrands = brand === "heic" ? ["mif1", "heic"] : ["mif1", "avif"];
+  const compatibleBrands =
+    brand === "heic" ? ["mif1", "heic"] : ["mif1", "avif"];
   const itemType = brand === "heic" ? "hvc1" : "av01";
   const primaryPayload = Buffer.from("cr01-primary", "ascii");
   const otherPayload = Buffer.from("cr01-other", "ascii");
@@ -1926,7 +2071,9 @@ function buildKWithSecondIrefRecordFixture(brand: "heic" | "avif"): Buffer {
       {
         itemId: CR01_OTHER_SURVIVING_ID,
         itemType,
-        extents: [{ relOffset: primaryPayload.length, length: otherPayload.length }],
+        extents: [
+          { relOffset: primaryPayload.length, length: otherPayload.length },
+        ],
       },
       {
         itemId: CR01_K_ID,
@@ -1945,7 +2092,11 @@ function buildKWithSecondIrefRecordFixture(brand: "heic" | "avif"): Buffer {
     // qualifies on the first record alone, and the second record must survive untouched.
     refs: [
       { type: "cdsc", fromItemId: CR01_K_ID, toItemIds: [CR01_PRIMARY_ID] },
-      { type: "cdsc", fromItemId: CR01_K_ID, toItemIds: [CR01_OTHER_SURVIVING_ID] },
+      {
+        type: "cdsc",
+        fromItemId: CR01_K_ID,
+        toItemIds: [CR01_OTHER_SURVIVING_ID],
+      },
     ],
     mdatPayload: Buffer.concat([primaryPayload, otherPayload, exifPayload]),
     ilocWidths: { offsetSize: 4, lengthSize: 4, baseOffsetSize: 4 },
@@ -1977,7 +2128,9 @@ describe("CR-01 code review fix pass (62-13): k's iref rewrite matches the quali
         });
         expect(sanitized.ok).toBe(true);
         if (!sanitized.ok) {
-          throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+          throw new Error(
+            `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+          );
         }
 
         const destinationBytes = await readFile(destinationPath);
@@ -2023,7 +2176,10 @@ describe("CR-01 code review fix pass (62-13): k's iref rewrite matches the quali
     await writeFile(sourcePath, bytes);
 
     const inner = createIsobmffWriterHandlerForTests("heic");
-    const mutant = createPlanMutantHandler(inner, mutateIrefSquashSecondRecordFromK);
+    const mutant = createPlanMutantHandler(
+      inner,
+      mutateIrefSquashSecondRecordFromK,
+    );
     const restore = setRegisteredHandlersForTests([mutant]);
     try {
       const sanitized = await sanitizeFile({
@@ -2073,7 +2229,13 @@ function buildOrphanIpcoPropertyFixture(): Buffer {
     ],
     properties: [
       ispe(32, 32),
-      box("colr", Buffer.concat([Buffer.from("prof", "ascii"), Buffer.from([0xaa, 0xbb])])),
+      box(
+        "colr",
+        Buffer.concat([
+          Buffer.from("prof", "ascii"),
+          Buffer.from([0xaa, 0xbb]),
+        ]),
+      ),
       box(WR01_ORPHAN_TYPE, orphanPayload),
     ],
     mdatPayload: primaryPayload,

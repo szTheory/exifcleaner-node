@@ -60,7 +60,10 @@ export function rebuildIinf(metaPayload, version, survivingItemIds, infeRanges, 
     else
         entryCount.writeUInt32BE(survivingItemIds.length, 0);
     const payload = Buffer.concat([entryCount, ...infeBuffers]);
-    return Buffer.concat([fullBoxHeader("iinf", version, 0, payload.length), payload]);
+    return Buffer.concat([
+        fullBoxHeader("iinf", version, 0, payload.length),
+        payload,
+    ]);
 }
 /**
  * Rebuild `iloc`: source version and the four field widths are written unchanged (D-11). Surviving
@@ -113,7 +116,10 @@ export function rebuildIloc(version, offsetSize, lengthSize, baseOffsetSize, ind
         });
     }
     const payload = Buffer.concat(parts);
-    return Buffer.concat([fullBoxHeader("iloc", version, 0, payload.length), payload]);
+    return Buffer.concat([
+        fullBoxHeader("iloc", version, 0, payload.length),
+        payload,
+    ]);
 }
 /** Rebuild `iref`: source version, every record whose from-item survives is re-emitted verbatim. */
 export function rebuildIref(version, references) {
@@ -137,13 +143,20 @@ export function rebuildIref(version, references) {
                 buffer.writeUInt32BE(id, 0);
             return buffer;
         });
-        const recordPayload = Buffer.concat([fromBuffer, countBuffer, ...toBuffers]);
+        const recordPayload = Buffer.concat([
+            fromBuffer,
+            countBuffer,
+            ...toBuffers,
+        ]);
         const recordSize = Buffer.alloc(4);
         recordSize.writeUInt32BE(8 + recordPayload.length, 0);
         parts.push(recordSize, typeBuffer, recordPayload);
     }
     const payload = Buffer.concat(parts);
-    return Buffer.concat([fullBoxHeader("iref", version, 0, payload.length), payload]);
+    return Buffer.concat([
+        fullBoxHeader("iref", version, 0, payload.length),
+        payload,
+    ]);
 }
 /** Rebuild `ipma`: source version/flags, surviving entries only, associations copied unchanged. */
 export function rebuildIpma(version, flags, entries) {
@@ -166,18 +179,23 @@ export function rebuildIpma(version, flags, entries) {
         for (const association of entry.associations) {
             if (wide) {
                 const buffer = Buffer.alloc(2);
-                buffer.writeUInt16BE((association.essential ? 0x8000 : 0) | (association.propertyIndex & 0x7fff), 0);
+                buffer.writeUInt16BE((association.essential ? 0x8000 : 0) |
+                    (association.propertyIndex & 0x7fff), 0);
                 parts.push(buffer);
             }
             else {
                 const buffer = Buffer.alloc(1);
-                buffer.writeUInt8((association.essential ? 0x80 : 0) | (association.propertyIndex & 0x7f), 0);
+                buffer.writeUInt8((association.essential ? 0x80 : 0) |
+                    (association.propertyIndex & 0x7f), 0);
                 parts.push(buffer);
             }
         }
     }
     const payload = Buffer.concat(parts);
-    return Buffer.concat([fullBoxHeader("ipma", version, flags, payload.length), payload]);
+    return Buffer.concat([
+        fullBoxHeader("ipma", version, flags, payload.length),
+        payload,
+    ]);
 }
 /**
  * D-13: build the minimal Exif item k's rewritten `infe` -- same `version` (2 or 3) and `hidden`

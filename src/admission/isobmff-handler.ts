@@ -12,10 +12,7 @@ import {
 } from "../isobmff/plan.js";
 import { verifyIsobmffOutput } from "../isobmff/verify.js";
 import { writeIsobmffOutput } from "../isobmff/writer.js";
-import type {
-  AdmissionDeclineDetail,
-  FormatHandler,
-} from "./handler.js";
+import type { AdmissionDeclineDetail, FormatHandler } from "./handler.js";
 import type { FormatCapabilities, Inspection, Result } from "../types.js";
 
 // Engine-bound ISOBMFF handler factory (Phase 62, D-02 shape (c), settled 62-SPLIT open issue 1).
@@ -105,7 +102,9 @@ export function createIsobmffHandler(
       return checkIsobmffOutputPlan(plan);
     },
 
-    classifyAdmissionFailure(cause: unknown): AdmissionDeclineDetail | undefined {
+    classifyAdmissionFailure(
+      cause: unknown,
+    ): AdmissionDeclineDetail | undefined {
       return classifyIsobmffAdmissionFailure(cause);
     },
 

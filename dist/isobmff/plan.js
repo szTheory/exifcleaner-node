@@ -328,7 +328,9 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
     // D-13: k stays declared at its own id, in its original iinf/iloc slot, alongside every normal
     // surviving item -- never among `survivingItems` (its old payload must never reach the output;
     // it keeps living in `removedIds` for every other purpose, e.g. ipma exclusion below).
-    const kSourceItem = keepExifItemId !== undefined ? model.itemsById.get(keepExifItemId) : undefined;
+    const kSourceItem = keepExifItemId !== undefined
+        ? model.itemsById.get(keepExifItemId)
+        : undefined;
     const kItem = kSourceItem !== undefined && minimalExifPayload !== undefined
         ? {
             ...kSourceItem,
@@ -386,7 +388,8 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
         ? new Set()
         : new Set(model.properties
             .filter((property) => property.type === "colr" &&
-            (property.colourType === "prof" || property.colourType === "rICC"))
+            (property.colourType === "prof" ||
+                property.colourType === "rICC"))
             .map((property) => property.index));
     /** D-16: `new = old - countRemovedBelow(old)`, over a property index that itself survives. */
     function remapSurvivingPropertyIndex(oldIndex) {
@@ -476,7 +479,11 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
     const parts = [];
     for (const box of keptTopLevelBoxes) {
         if (box.type === "ftyp") {
-            parts.push({ kind: "copy", sourceOffset: box.start, length: box.end - box.start });
+            parts.push({
+                kind: "copy",
+                sourceOffset: box.start,
+                length: box.end - box.start,
+            });
         }
         else if (box.type === "meta") {
             parts.push({ kind: "bytes", data: metaBytes });

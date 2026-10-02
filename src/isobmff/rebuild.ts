@@ -71,10 +71,14 @@ export function rebuildIinf(
     return metaPayload.subarray(range.start, range.end);
   });
   const entryCount = Buffer.alloc(entryCountBytes);
-  if (entryCountBytes === 2) entryCount.writeUInt16BE(survivingItemIds.length, 0);
+  if (entryCountBytes === 2)
+    entryCount.writeUInt16BE(survivingItemIds.length, 0);
   else entryCount.writeUInt32BE(survivingItemIds.length, 0);
   const payload = Buffer.concat([entryCount, ...infeBuffers]);
-  return Buffer.concat([fullBoxHeader("iinf", version, 0, payload.length), payload]);
+  return Buffer.concat([
+    fullBoxHeader("iinf", version, 0, payload.length),
+    payload,
+  ]);
 }
 
 export interface IlocRewrite {
@@ -129,7 +133,8 @@ export function rebuildIloc(
     parts.push(dataRef);
 
     const rewrite = rewrites.get(item.id);
-    const baseOffset = rewrite !== undefined ? rewrite.newBaseOffset : item.baseOffset;
+    const baseOffset =
+      rewrite !== undefined ? rewrite.newBaseOffset : item.baseOffset;
     parts.push(writeSizedUint(baseOffset, baseOffsetSize));
 
     const extentCount = Buffer.alloc(2);
@@ -146,7 +151,10 @@ export function rebuildIloc(
   }
 
   const payload = Buffer.concat(parts);
-  return Buffer.concat([fullBoxHeader("iloc", version, 0, payload.length), payload]);
+  return Buffer.concat([
+    fullBoxHeader("iloc", version, 0, payload.length),
+    payload,
+  ]);
 }
 
 /** Rebuild `iref`: source version, every record whose from-item survives is re-emitted verbatim. */
@@ -170,13 +178,20 @@ export function rebuildIref(
       else buffer.writeUInt32BE(id, 0);
       return buffer;
     });
-    const recordPayload = Buffer.concat([fromBuffer, countBuffer, ...toBuffers]);
+    const recordPayload = Buffer.concat([
+      fromBuffer,
+      countBuffer,
+      ...toBuffers,
+    ]);
     const recordSize = Buffer.alloc(4);
     recordSize.writeUInt32BE(8 + recordPayload.length, 0);
     parts.push(recordSize, typeBuffer, recordPayload);
   }
   const payload = Buffer.concat(parts);
-  return Buffer.concat([fullBoxHeader("iref", version, 0, payload.length), payload]);
+  return Buffer.concat([
+    fullBoxHeader("iref", version, 0, payload.length),
+    payload,
+  ]);
 }
 
 export interface IpmaRebuildEntry {
@@ -213,14 +228,16 @@ export function rebuildIpma(
       if (wide) {
         const buffer = Buffer.alloc(2);
         buffer.writeUInt16BE(
-          (association.essential ? 0x8000 : 0) | (association.propertyIndex & 0x7fff),
+          (association.essential ? 0x8000 : 0) |
+            (association.propertyIndex & 0x7fff),
           0,
         );
         parts.push(buffer);
       } else {
         const buffer = Buffer.alloc(1);
         buffer.writeUInt8(
-          (association.essential ? 0x80 : 0) | (association.propertyIndex & 0x7f),
+          (association.essential ? 0x80 : 0) |
+            (association.propertyIndex & 0x7f),
           0,
         );
         parts.push(buffer);
@@ -228,7 +245,10 @@ export function rebuildIpma(
     }
   }
   const payload = Buffer.concat(parts);
-  return Buffer.concat([fullBoxHeader("ipma", version, flags, payload.length), payload]);
+  return Buffer.concat([
+    fullBoxHeader("ipma", version, flags, payload.length),
+    payload,
+  ]);
 }
 
 /**

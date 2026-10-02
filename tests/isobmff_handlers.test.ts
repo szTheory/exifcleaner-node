@@ -47,7 +47,9 @@ afterEach(async () => {
 });
 
 async function freshDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-isobmff-handlers-"));
+  const directory = await mkdtemp(
+    join(tmpdir(), "exifcleaner-isobmff-handlers-"),
+  );
   directories.push(directory);
   return directory;
 }
@@ -61,8 +63,10 @@ describe("HEIC/AVIF handler modules, unregistered (62-12)", () => {
   });
 
   it("D-10: createHeicHandler/createAvifHandler produce the expected brand and staging name", () => {
-    const { handler: heic } = createIsobmffWriterCountingHandlerForTests("heic");
-    const { handler: avif } = createIsobmffWriterCountingHandlerForTests("avif");
+    const { handler: heic } =
+      createIsobmffWriterCountingHandlerForTests("heic");
+    const { handler: avif } =
+      createIsobmffWriterCountingHandlerForTests("avif");
     expect(heic.stagingFileName).toBe("output.heic");
     expect(avif.stagingFileName).toBe("output.avif");
   });
@@ -164,15 +168,20 @@ const CLASSIFIER_TABLE_ROWS: ReadonlyMap<string, Buffer> = new Map([
   [
     "ftyp-larger-than-256-bytes",
     // 65 compatible brands: 16 + 65*4 = 276 > 256, the registry's own magic-buffer cap.
-    ftyp("heic", Array.from({ length: 65 }, () => "heic")),
+    ftyp(
+      "heic",
+      Array.from({ length: 65 }, () => "heic"),
+    ),
   ],
   ["non-isobmff", Buffer.from("RIFF0000WEBPVP8 ", "ascii")],
 ]);
 
 describe("D-09 exact classifier matching (62-12, Task 2)", () => {
   it("both real handlers' matches equal classifyIsobmffBrand(row) === their own brand, on every row", () => {
-    const { handler: heic } = createIsobmffWriterCountingHandlerForTests("heic");
-    const { handler: avif } = createIsobmffWriterCountingHandlerForTests("avif");
+    const { handler: heic } =
+      createIsobmffWriterCountingHandlerForTests("heic");
+    const { handler: avif } =
+      createIsobmffWriterCountingHandlerForTests("avif");
     expectClassifierExactMatch(heic, "heic", CLASSIFIER_TABLE_ROWS);
     expectClassifierExactMatch(avif, "avif", CLASSIFIER_TABLE_ROWS);
   });
@@ -234,13 +243,17 @@ describe("D-09(a) oversized ftyp is rejected at selection (62-12, Task 2)", () =
 
 describe("D-09(b) brand-mismatch decline at handler admit (62-12, Task 2)", () => {
   it("the heic handler's admit on heif-enc-grid.avif rejects brand-mismatch/unsupported-format; buildOutputPlan never called", async () => {
-    const { handler, counters } = createIsobmffWriterCountingHandlerForTests("heic");
+    const { handler, counters } =
+      createIsobmffWriterCountingHandlerForTests("heic");
     const avifBytes = await readFile(AVIF_PATH);
     const handle = await open(AVIF_PATH, "r");
     try {
-      await expect(handler.admit(handle, avifBytes.length)).rejects.toMatchObject(
-        { declineClass: "brand-mismatch", kind: "unsupported-format" },
-      );
+      await expect(
+        handler.admit(handle, avifBytes.length),
+      ).rejects.toMatchObject({
+        declineClass: "brand-mismatch",
+        kind: "unsupported-format",
+      });
       expect(counters.buildOutputPlan).toBe(0);
       expect(counters.checkOutputPlan).toBe(0);
       expect(counters.writeOutput).toBe(0);
@@ -259,7 +272,8 @@ describe("D-09(b) brand-mismatch decline at handler admit (62-12, Task 2)", () =
     const path = join(directory, "brand-mismatch.bin");
     await fixture.write(path);
     const bytes = await readFile(path);
-    const { handler, counters } = createIsobmffWriterCountingHandlerForTests("heic");
+    const { handler, counters } =
+      createIsobmffWriterCountingHandlerForTests("heic");
     const handle = await open(path, "r");
     try {
       await expect(handler.admit(handle, bytes.length)).rejects.toMatchObject({

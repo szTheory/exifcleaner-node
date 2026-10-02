@@ -32,7 +32,11 @@ import { admitIsobmff } from "../../src/isobmff/admission.js";
 import { classifyIsobmffBrand } from "../../src/isobmff/brand.js";
 import { classifyIsobmffAdmissionFailure } from "../../src/isobmff/errors.js";
 import { parseBoxHeader, type BoxHeader } from "../../src/isobmff/boxes.js";
-import { parseIloc, type IlocItem, type IlocTable } from "../../src/isobmff/iloc.js";
+import {
+  parseIloc,
+  type IlocItem,
+  type IlocTable,
+} from "../../src/isobmff/iloc.js";
 import { parseIpma, type IpmaEntry } from "../../src/isobmff/ipma.js";
 import {
   fullBoxHeader,
@@ -357,13 +361,16 @@ function metaBytesPart(plan: IsobmffOutputPlan): Buffer {
   const part = plan.parts[1];
   if (part === undefined || part.kind !== "bytes") {
     throw new Error(
-      "test-handler mutant: plan.parts[1] is not the expected meta \"bytes\" part.",
+      'test-handler mutant: plan.parts[1] is not the expected meta "bytes" part.',
     );
   }
   return part.data;
 }
 
-function withMetaBytes(plan: IsobmffOutputPlan, newMetaBytes: Buffer): IsobmffOutputPlan {
+function withMetaBytes(
+  plan: IsobmffOutputPlan,
+  newMetaBytes: Buffer,
+): IsobmffOutputPlan {
   return {
     ...plan,
     parts: plan.parts.map((part, index) =>
@@ -419,7 +426,15 @@ function withMutatedIloc(
   );
   // D-14/D-11: meta itself is always version 0, flags 0 (plan.ts's buildMetaBytes); never read
   // back from the bytes being spliced, since the splice target here is the iloc CHILD, not meta.
-  const newMetaBytes = replaceChildBytes(metaBytes, "meta", true, 0, 0, ilocBox, newIlocBytes);
+  const newMetaBytes = replaceChildBytes(
+    metaBytes,
+    "meta",
+    true,
+    0,
+    0,
+    ilocBox,
+    newIlocBytes,
+  );
   return withMetaBytes(plan, newMetaBytes);
 }
 
@@ -449,8 +464,24 @@ function withMutatedIpma(
       })),
     })),
   );
-  const newIprpBytes = replaceChildBytes(iprpBytes, "iprp", false, 0, 0, ipmaBox, newIpmaBytes);
-  const newMetaBytes = replaceChildBytes(metaBytes, "meta", true, 0, 0, iprpBox, newIprpBytes);
+  const newIprpBytes = replaceChildBytes(
+    iprpBytes,
+    "iprp",
+    false,
+    0,
+    0,
+    ipmaBox,
+    newIpmaBytes,
+  );
+  const newMetaBytes = replaceChildBytes(
+    metaBytes,
+    "meta",
+    true,
+    0,
+    0,
+    iprpBox,
+    newIprpBytes,
+  );
   return withMetaBytes(plan, newMetaBytes);
 }
 
@@ -460,7 +491,9 @@ function withMutatedIpma(
  * absolute file position. `newMdatPayloadStart` is recomputed independently from the plan's own
  * `ftyp` copy length plus its `meta`/`mdat`-header "bytes" part lengths (`parts[0..2]`), never
  * trusted from any other source. */
-export function mutateIlocOffsetShiftSkipped(plan: IsobmffOutputPlan): IsobmffOutputPlan {
+export function mutateIlocOffsetShiftSkipped(
+  plan: IsobmffOutputPlan,
+): IsobmffOutputPlan {
   const ftypPart = plan.parts[0];
   const mdatHeaderPart = plan.parts[2];
   if (ftypPart === undefined || ftypPart.kind !== "copy") {
@@ -502,7 +535,9 @@ export function mutateIlocOffsetShiftSkipped(plan: IsobmffOutputPlan): IsobmffOu
  * remapped, per D-16) `propertyIndex` is written one too high. Needs a fixture carrying at least
  * one removed ICC property (so the correct remap is non-trivial) sanitized with
  * `preserveColorProfile: false`. */
-export function mutateIpmaRemapOffByOne(plan: IsobmffOutputPlan): IsobmffOutputPlan {
+export function mutateIpmaRemapOffByOne(
+  plan: IsobmffOutputPlan,
+): IsobmffOutputPlan {
   return withMutatedIpma(plan, (entries) =>
     entries.map((entry) => ({
       itemId: entry.itemId,
@@ -514,7 +549,10 @@ export function mutateIpmaRemapOffByOne(plan: IsobmffOutputPlan): IsobmffOutputP
   );
 }
 
-function addToMdatHeaderPayloadLength(headerBytes: Buffer, delta: number): Buffer {
+function addToMdatHeaderPayloadLength(
+  headerBytes: Buffer,
+  delta: number,
+): Buffer {
   const header = Buffer.from(headerBytes);
   const declared = header.readUInt32BE(0);
   if (declared === 1) {
@@ -533,7 +571,9 @@ function addToMdatHeaderPayloadLength(headerBytes: Buffer, delta: number): Buffe
  * header's own declared size grown by the same amount so the box itself still parses cleanly.
  * This makes the written `mdat` payload longer than the union of surviving
  * construction_method-0 extents, which D-18's coverage check (`verify.ts`) catches directly. */
-export function mutateMdatKeepRemovedRange(plan: IsobmffOutputPlan): IsobmffOutputPlan {
+export function mutateMdatKeepRemovedRange(
+  plan: IsobmffOutputPlan,
+): IsobmffOutputPlan {
   const mdatHeaderPart = plan.parts[2];
   if (mdatHeaderPart === undefined || mdatHeaderPart.kind !== "bytes") {
     throw new Error(
@@ -556,7 +596,10 @@ export function mutateMdatKeepRemovedRange(plan: IsobmffOutputPlan): IsobmffOutp
     sourceOffset: first.part.sourceOffset,
     length: extraLength,
   };
-  const newMdatHeaderBytes = addToMdatHeaderPayloadLength(mdatHeaderPart.data, extraLength);
+  const newMdatHeaderBytes = addToMdatHeaderPayloadLength(
+    mdatHeaderPart.data,
+    extraLength,
+  );
 
   const newParts: IsobmffOutputPlanPart[] = [];
   plan.parts.forEach((part, index) => {
@@ -576,7 +619,9 @@ export function mutateMdatKeepRemovedRange(plan: IsobmffOutputPlan): IsobmffOutp
  * (just encoded wider). D-18's explicit width-equality check (`verify.ts`, run before any byte
  * comparison) catches this directly, regardless of whether the wider encoding still resolves to
  * the right absolute position. */
-export function mutateIlocWidthsNormalizedToEight(plan: IsobmffOutputPlan): IsobmffOutputPlan {
+export function mutateIlocWidthsNormalizedToEight(
+  plan: IsobmffOutputPlan,
+): IsobmffOutputPlan {
   return withMutatedIloc(plan, (table) => ({
     offsetSize: 8,
     lengthSize: 8,
@@ -638,8 +683,16 @@ export function mutateMinimalExifConstructionMethodOne(
 function withMutatedIref(
   plan: IsobmffOutputPlan,
   mutateRefs: (
-    refs: readonly { type: string; fromItemId: number; toItemIds: readonly number[] }[],
-  ) => readonly { type: string; fromItemId: number; toItemIds: readonly number[] }[],
+    refs: readonly {
+      type: string;
+      fromItemId: number;
+      toItemIds: readonly number[];
+    }[],
+  ) => readonly {
+    type: string;
+    fromItemId: number;
+    toItemIds: readonly number[];
+  }[],
 ): IsobmffOutputPlan {
   const metaBytes = metaBytesPart(plan);
   const irefBox = findChildInContainer(metaBytes, true, "iref");
@@ -657,7 +710,9 @@ function withMutatedIref(
     const toItemIds: number[] = [];
     for (let i = 0; i < toCount; i++) {
       toItemIds.push(
-        idBytes === 2 ? body.readUInt16BE(position) : body.readUInt32BE(position),
+        idBytes === 2
+          ? body.readUInt16BE(position)
+          : body.readUInt32BE(position),
       );
       position += idBytes;
     }
@@ -672,7 +727,15 @@ function withMutatedIref(
       toItemIds: reference.toItemIds,
     })),
   );
-  const newMetaBytes = replaceChildBytes(metaBytes, "meta", true, 0, 0, irefBox, newIrefBytes);
+  const newMetaBytes = replaceChildBytes(
+    metaBytes,
+    "meta",
+    true,
+    0,
+    0,
+    irefBox,
+    newIrefBytes,
+  );
   return withMetaBytes(plan, newMetaBytes);
 }
 
@@ -690,7 +753,10 @@ export function mutateIrefSquashSecondRecordFromK(
   return withMutatedIref(plan, (refs) => {
     const counts = new Map<number, number>();
     for (const reference of refs) {
-      counts.set(reference.fromItemId, (counts.get(reference.fromItemId) ?? 0) + 1);
+      counts.set(
+        reference.fromItemId,
+        (counts.get(reference.fromItemId) ?? 0) + 1,
+      );
     }
     const kId = [...counts.entries()].find(([, count]) => count > 1)?.[0];
     if (kId === undefined) {
@@ -746,7 +812,8 @@ export function mutateIpcoCorruptOrphanProperty(
       );
     }
     const mutatedIpco = Buffer.from(ipcoBytes);
-    mutatedIpco[target.payloadStart] = (mutatedIpco[target.payloadStart]! ^ 0xff) & 0xff;
+    mutatedIpco[target.payloadStart] =
+      (mutatedIpco[target.payloadStart]! ^ 0xff) & 0xff;
 
     const newIprpBytes = Buffer.concat([
       iprpBytes.subarray(0, ipcoBox.start),

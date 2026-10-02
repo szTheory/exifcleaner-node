@@ -131,7 +131,14 @@ async function runWithMutant(
       ...DEFAULT_PRESERVATION,
       ...overrides,
     });
-    return { sanitized, directory, sourceName, destinationName, sourcePath, sourceSnapshot };
+    return {
+      sanitized,
+      directory,
+      sourceName,
+      destinationName,
+      sourcePath,
+      sourceSnapshot,
+    };
   } finally {
     restore();
   }
@@ -166,8 +173,14 @@ async function expectNothingPublished(
 async function expectRed(
   result: Awaited<ReturnType<typeof runWithMutant>>,
 ): Promise<void> {
-  const { sanitized, directory, sourceName, destinationName, sourcePath, sourceSnapshot } =
-    result;
+  const {
+    sanitized,
+    directory,
+    sourceName,
+    destinationName,
+    sourcePath,
+    sourceSnapshot,
+  } = result;
   expect(sanitized.ok).toBe(false);
   if (sanitized.ok) throw new Error("unreachable");
   expect(sanitized.error.code).toBe("verification-failed");
@@ -179,57 +192,52 @@ async function expectRed(
 }
 
 describe("D-19 flip-one-byte (62-10)", () => {
-  it.each([
-    ["first" as const],
-    ["last" as const],
-    ["none" as const],
-  ])("heif-enc-grid.heic, flip position %s", async (position) => {
-    const directory = await freshDirectory();
-    const sourceName = "source.heic";
-    const sourcePath = join(directory, sourceName);
-    await writeFile(sourcePath, await readFile(HEIC_FIXTURE));
-    const sourceSnapshot = await readFile(sourcePath);
-    const destinationPath = join(directory, "destination.heic");
+  it.each([["first" as const], ["last" as const], ["none" as const]])(
+    "heif-enc-grid.heic, flip position %s",
+    async (position) => {
+      const directory = await freshDirectory();
+      const sourceName = "source.heic";
+      const sourcePath = join(directory, sourceName);
+      await writeFile(sourcePath, await readFile(HEIC_FIXTURE));
+      const sourceSnapshot = await readFile(sourcePath);
+      const destinationPath = join(directory, "destination.heic");
 
-    const inner = createIsobmffWriterHandlerForTests("heic");
-    const restore = setRegisteredHandlersForTests([
-      createFlipOneByteHandler(inner, { position }),
-    ]);
-    try {
-      const sanitized = await sanitizeFile({
-        sourcePath,
-        destinationPath,
-        ...DEFAULT_PRESERVATION,
-      });
+      const inner = createIsobmffWriterHandlerForTests("heic");
+      const restore = setRegisteredHandlersForTests([
+        createFlipOneByteHandler(inner, { position }),
+      ]);
+      try {
+        const sanitized = await sanitizeFile({
+          sourcePath,
+          destinationPath,
+          ...DEFAULT_PRESERVATION,
+        });
 
-      if (position === "none") {
-        expect(sanitized.ok).toBe(true);
-        const listing = await readdir(directory);
-        expect(listing.sort()).toEqual(["destination.heic", "source.heic"]);
-        return;
+        if (position === "none") {
+          expect(sanitized.ok).toBe(true);
+          const listing = await readdir(directory);
+          expect(listing.sort()).toEqual(["destination.heic", "source.heic"]);
+          return;
+        }
+
+        expect(sanitized.ok).toBe(false);
+        if (sanitized.ok) throw new Error("unreachable");
+        expect(sanitized.error.code).toBe("verification-failed");
+
+        await expectNothingPublished(directory, sourceName, "destination.heic");
+
+        const sourceAfter = await readFile(sourcePath);
+        expect(sourceAfter.equals(sourceSnapshot)).toBe(true);
+      } finally {
+        restore();
       }
-
-      expect(sanitized.ok).toBe(false);
-      if (sanitized.ok) throw new Error("unreachable");
-      expect(sanitized.error.code).toBe("verification-failed");
-
-      await expectNothingPublished(directory, sourceName, "destination.heic");
-
-      const sourceAfter = await readFile(sourcePath);
-      expect(sourceAfter.equals(sourceSnapshot)).toBe(true);
-    } finally {
-      restore();
-    }
-  });
+    },
+  );
 });
 
 describe("D-19 writer mutants (62-10)", () => {
   const HEIF_ENC_CASES = [
-    [
-      "offset shift skipped",
-      mutateIlocOffsetShiftSkipped,
-      false,
-    ] as const,
+    ["offset shift skipped", mutateIlocOffsetShiftSkipped, false] as const,
     [
       "one removed range kept in the mdat copy ranges",
       mutateMdatKeepRemovedRange,
@@ -268,12 +276,17 @@ describe("D-19 writer mutants (62-10)", () => {
 
   it("ipma remap off by one (ICC fixture, preserveColorProfile false)", async () => {
     const sourceBytes = buildIccRemapFixture();
-    const result = await runWithMutant(sourceBytes, "heic", mutateIpmaRemapOffByOne, {
-      preserveOrientation: false,
-      preserveColorProfile: false,
-      preserveTimestamps: false,
-      preserveResolution: false,
-    });
+    const result = await runWithMutant(
+      sourceBytes,
+      "heic",
+      mutateIpmaRemapOffByOne,
+      {
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: false,
+      },
+    );
 
     await expectRed(result);
   });
@@ -328,7 +341,9 @@ describe("D-19 writer mutants (62-10)", () => {
       try {
         const { size: mutantSize } = await stat(mutantOutputPath);
         await admitIsobmff(mutantHandle, mutantSize);
-        throw new Error("admitIsobmff unexpectedly admitted the mutant output.");
+        throw new Error(
+          "admitIsobmff unexpectedly admitted the mutant output.",
+        );
       } catch (cause) {
         if (cause instanceof IsobmffStructureError) {
           declineClass = cause.declineClass;

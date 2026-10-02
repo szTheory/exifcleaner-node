@@ -8,7 +8,10 @@ import { mkdtemp, open, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { admitIsobmff, type IsobmffAdmission } from "../src/isobmff/admission.js";
+import {
+  admitIsobmff,
+  type IsobmffAdmission,
+} from "../src/isobmff/admission.js";
 import { classifyIsobmffBrand } from "../src/isobmff/brand.js";
 import { sanitizeFile } from "../src/engine.js";
 import {
@@ -546,7 +549,11 @@ describe("D-17 graph-integrity declines (62-04)", () => {
         ],
       });
       await writeFile(path, bytes);
-      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+      await expectAdmissionDecline(
+        path,
+        "item-graph-invalid",
+        "malformed-file",
+      );
     });
 
     it("property index equal to the ipco count (2) admits", async () => {
@@ -583,7 +590,11 @@ describe("D-17 graph-integrity declines (62-04)", () => {
         ],
       });
       await writeFile(path, bytes);
-      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+      await expectAdmissionDecline(
+        path,
+        "item-graph-invalid",
+        "malformed-file",
+      );
     });
   });
 
@@ -733,7 +744,11 @@ describe("D-17 graph-integrity declines (62-04)", () => {
       const path = await freshPath();
       const bytes = buildWithExtraIprpChild(ipcoBox([ispe(10, 10)]));
       await writeFile(path, bytes);
-      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+      await expectAdmissionDecline(
+        path,
+        "item-graph-invalid",
+        "malformed-file",
+      );
     });
 
     it("a second ipma inside iprp declines item-graph-invalid", async () => {
@@ -742,12 +757,19 @@ describe("D-17 graph-integrity declines (62-04)", () => {
         ipmaBox({ version: 0, flags: 0, entries: [] }),
       );
       await writeFile(path, bytes);
-      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+      await expectAdmissionDecline(
+        path,
+        "item-graph-invalid",
+        "malformed-file",
+      );
     });
   });
 
   describe("dinf/dref self-contained rule (D-17, inferred)", () => {
-    function urlEntry(flags: number, trailing: Buffer = Buffer.alloc(0)): Buffer {
+    function urlEntry(
+      flags: number,
+      trailing: Buffer = Buffer.alloc(0),
+    ): Buffer {
       return fullBox("url ", 0, flags, trailing);
     }
     function urnEntry(flags: number): Buffer {
@@ -772,7 +794,11 @@ describe("D-17 graph-integrity declines (62-04)", () => {
         extraMetaChildren: [dinfWith(drefWith([urnEntry(1)]))],
       });
       await writeFile(path, bytes);
-      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+      await expectAdmissionDecline(
+        path,
+        "item-graph-invalid",
+        "malformed-file",
+      );
     });
 
     it("a url entry with flags 0 (not self-contained) declines item-graph-invalid", async () => {
@@ -781,7 +807,11 @@ describe("D-17 graph-integrity declines (62-04)", () => {
         extraMetaChildren: [dinfWith(drefWith([urlEntry(0)]))],
       });
       await writeFile(path, bytes);
-      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+      await expectAdmissionDecline(
+        path,
+        "item-graph-invalid",
+        "malformed-file",
+      );
     });
 
     it("a url entry with flags 1 plus trailing location bytes declines item-graph-invalid", async () => {
@@ -792,7 +822,11 @@ describe("D-17 graph-integrity declines (62-04)", () => {
         ],
       });
       await writeFile(path, bytes);
-      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+      await expectAdmissionDecline(
+        path,
+        "item-graph-invalid",
+        "malformed-file",
+      );
     });
 
     it("no dinf at all admits", async () => {
@@ -1011,9 +1045,17 @@ describe("D-12 minimal Exif location (62-07)", () => {
 
     const declinedPlan = buildIsobmffOutputPlan(starved, true, true, true, 6);
     expect(declinedPlan.declineReason).toContain("offset-rewrite-overflow");
-    expect(checkIsobmffOutputPlan(declinedPlan)).toBe(declinedPlan.declineReason);
+    expect(checkIsobmffOutputPlan(declinedPlan)).toBe(
+      declinedPlan.declineReason,
+    );
 
-    const okPlan = buildIsobmffOutputPlan(starved, false, true, false, undefined);
+    const okPlan = buildIsobmffOutputPlan(
+      starved,
+      false,
+      true,
+      false,
+      undefined,
+    );
     expect(okPlan.declineReason).toBeUndefined();
     expect(checkIsobmffOutputPlan(okPlan)).toBeUndefined();
   });

@@ -1,6 +1,10 @@
 import type { IsobmffAdmission } from "./admission.js";
 import type { BoxHeader } from "./boxes.js";
-import type { IsobmffItem, IsobmffItemLayout, IsobmffProperty } from "./items.js";
+import type {
+  IsobmffItem,
+  IsobmffItemLayout,
+  IsobmffProperty,
+} from "./items.js";
 import {
   buildMinimalExifInfe,
   fullBoxHeader,
@@ -39,7 +43,11 @@ import { createMinimalExif, type MinimalExifTags } from "../metadata/exif.js";
 // order and comes out byte-identical to the source.
 
 export type IsobmffOutputPlanPart =
-  | { readonly kind: "copy"; readonly sourceOffset: number; readonly length: number }
+  | {
+      readonly kind: "copy";
+      readonly sourceOffset: number;
+      readonly length: number;
+    }
   | { readonly kind: "bytes"; readonly data: Buffer };
 
 export interface IsobmffOutputPlan {
@@ -63,7 +71,10 @@ interface MergedMdatRange {
   readonly newStart: number;
 }
 
-function declined(removedItemIds: readonly number[], reason: string): IsobmffOutputPlan {
+function declined(
+  removedItemIds: readonly number[],
+  reason: string,
+): IsobmffOutputPlan {
   return { parts: [], removedItemIds, declineReason: reason };
 }
 
@@ -130,7 +141,10 @@ function totalMergedLength(merged: readonly MergedMdatRange[]): number {
 }
 
 /** Map one absolute source `mdat` offset to its new position in the output payload (D-15). */
-function mapAbsoluteOffset(merged: readonly MergedMdatRange[], abs: number): number {
+function mapAbsoluteOffset(
+  merged: readonly MergedMdatRange[],
+  abs: number,
+): number {
   for (const range of merged) {
     if (abs >= range.start && abs <= range.end) {
       return range.newStart + (abs - range.start);
@@ -271,8 +285,8 @@ function computeIlocRewrites(
   const rewrites = new Map<number, IlocRewrite>();
   for (const item of survivingItems) {
     if (item.constructionMethod !== 0) continue;
-    const relatives = item.extents.map(
-      (_extent, index) => relativeOffsets.get(`${item.id}:${index}`)!,
+    const relatives = item.extents.map((_extent, index) =>
+      relativeOffsets.get(`${item.id}:${index}`)!,
     );
     if (baseOffsetSize > 0) {
       const base = relatives[0]!;
@@ -283,7 +297,9 @@ function computeIlocRewrites(
     } else {
       rewrites.set(item.id, {
         newBaseOffset: 0,
-        extentOffsets: relatives.map((relative) => newMdatPayloadStart + relative),
+        extentOffsets: relatives.map(
+          (relative) => newMdatPayloadStart + relative,
+        ),
       });
     }
   }
@@ -508,7 +524,9 @@ export function buildIsobmffOutputPlan(
   // surviving item -- never among `survivingItems` (its old payload must never reach the output;
   // it keeps living in `removedIds` for every other purpose, e.g. ipma exclusion below).
   const kSourceItem =
-    keepExifItemId !== undefined ? model.itemsById.get(keepExifItemId) : undefined;
+    keepExifItemId !== undefined
+      ? model.itemsById.get(keepExifItemId)
+      : undefined;
   const kItem: IsobmffItem | undefined =
     kSourceItem !== undefined && minimalExifPayload !== undefined
       ? {
@@ -532,7 +550,11 @@ export function buildIsobmffOutputPlan(
           [
             kItem.id,
             buildMinimalExifInfe(
-              readInfeVersion(layout.metaPayload, layout.item.infeRanges, kItem.id),
+              readInfeVersion(
+                layout.metaPayload,
+                layout.item.infeRanges,
+                kItem.id,
+              ),
               kItem.hidden,
               kItem.id,
             ),
@@ -594,7 +616,8 @@ export function buildIsobmffOutputPlan(
           .filter(
             (property): boolean =>
               property.type === "colr" &&
-              (property.colourType === "prof" || property.colourType === "rICC"),
+              (property.colourType === "prof" ||
+                property.colourType === "rICC"),
           )
           .map((property) => property.index),
       );
@@ -639,10 +662,13 @@ export function buildIsobmffOutputPlan(
           itemId: entry.itemId,
           associations: entry.associations
             .filter(
-              (association) => !removedPropertyIndices.has(association.propertyIndex),
+              (association) =>
+                !removedPropertyIndices.has(association.propertyIndex),
             )
             .map((association) => ({
-              propertyIndex: remapSurvivingPropertyIndex(association.propertyIndex),
+              propertyIndex: remapSurvivingPropertyIndex(
+                association.propertyIndex,
+              ),
               essential: association.essential,
             })),
         })),
@@ -650,7 +676,9 @@ export function buildIsobmffOutputPlan(
     }
     const order = iprpChildren
       .map((child) => child.type)
-      .filter((type): type is "ipco" | "ipma" => type === "ipco" || type === "ipma");
+      .filter(
+        (type): type is "ipco" | "ipma" => type === "ipco" || type === "ipma",
+      );
     iprpBytes = rebuildIprp(order, ipcoBytes, ipmaBytes);
   }
 
@@ -660,7 +688,12 @@ export function buildIsobmffOutputPlan(
   // when there is no base field) is computed separately and merged in -- its placement is always
   // the surviving union's own end (`survivingUnionLength`), never a per-item merged-range lookup.
   const probeRewrites = mergeMinimalExifRewrite(
-    computeIlocRewrites(survivingItems, relativeOffsets, layout.item.ilocBaseOffsetSize, 0),
+    computeIlocRewrites(
+      survivingItems,
+      relativeOffsets,
+      layout.item.ilocBaseOffsetSize,
+      0,
+    ),
     kItem,
     layout.item.ilocBaseOffsetSize,
     0,
@@ -724,7 +757,10 @@ export function buildIsobmffOutputPlan(
     return declined(classification.removableItemIds, finalFitError);
   }
 
-  const mdatSizeFitError = checkMdatSizeFit(mdatBox.sizeForm, newMdatPayloadLength);
+  const mdatSizeFitError = checkMdatSizeFit(
+    mdatBox.sizeForm,
+    newMdatPayloadLength,
+  );
   if (mdatSizeFitError !== undefined) {
     return declined(classification.removableItemIds, mdatSizeFitError);
   }
@@ -745,14 +781,21 @@ export function buildIsobmffOutputPlan(
     );
   }
 
-  const mdatHeaderBytes = buildMdatHeader(mdatBox.sizeForm, newMdatPayloadLength);
+  const mdatHeaderBytes = buildMdatHeader(
+    mdatBox.sizeForm,
+    newMdatPayloadLength,
+  );
 
   // D-14: emit parts in the exact kept order (never reordered); free/skip/C2PA uuid simply have
   // no part at all, wherever they sat in the source.
   const parts: IsobmffOutputPlanPart[] = [];
   for (const box of keptTopLevelBoxes) {
     if (box.type === "ftyp") {
-      parts.push({ kind: "copy", sourceOffset: box.start, length: box.end - box.start });
+      parts.push({
+        kind: "copy",
+        sourceOffset: box.start,
+        length: box.end - box.start,
+      });
     } else if (box.type === "meta") {
       parts.push({ kind: "bytes", data: metaBytes });
     } else {
@@ -776,6 +819,8 @@ export function buildIsobmffOutputPlan(
   return { parts, removedItemIds: classification.removableItemIds };
 }
 
-export function checkIsobmffOutputPlan(plan: IsobmffOutputPlan): string | undefined {
+export function checkIsobmffOutputPlan(
+  plan: IsobmffOutputPlan,
+): string | undefined {
   return plan.declineReason;
 }

@@ -594,23 +594,34 @@ describe("D-13 minimal Exif writer (62-07)", () => {
         });
         expect(sanitized.ok).toBe(true);
         if (!sanitized.ok) {
-          throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+          throw new Error(
+            `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+          );
         }
 
         const destinationBytes = await readFile(destinationPath);
         const inventory = inventoryIsobmff(destinationBytes);
 
-        const exifItems = inventory.items.filter((item) => item.type === "Exif");
+        const exifItems = inventory.items.filter(
+          (item) => item.type === "Exif",
+        );
         expect(exifItems.map((item) => item.id)).toEqual([6]);
         const exifItem = exifItems[0]!;
         expect(exifItem.constructionMethod).toBe(0);
         expect(exifItem.extents.length).toBe(1);
 
-        const payload = readItemExtentBytes(destinationBytes, inventory, exifItem);
+        const payload = readItemExtentBytes(
+          destinationBytes,
+          inventory,
+          exifItem,
+        );
         expect(payload.readUInt32BE(0)).toBe(0);
         const expectedPayload = Buffer.concat([
           Buffer.alloc(4),
-          createMinimalExif({ orientation: 1, resolution: resolutionOf(72, 72) }),
+          createMinimalExif({
+            orientation: 1,
+            resolution: resolutionOf(72, 72),
+          }),
         ]);
         expect(payload.equals(expectedPayload)).toBe(true);
 
@@ -628,12 +639,18 @@ describe("D-13 minimal Exif writer (62-07)", () => {
         // Re-admits, and the destination's own admission agrees with the fixture's own source
         // values (never a leaked or re-derived value).
         const { size: destinationSize } = await stat(destinationPath);
-        const destinationAdmission = await withHandle(destinationPath, (handle) =>
-          admitIsobmff(handle, destinationSize),
+        const destinationAdmission = await withHandle(
+          destinationPath,
+          (handle) => admitIsobmff(handle, destinationSize),
         );
         expect(destinationAdmission.exifSourceItemId).toBe(6);
-        expect(destinationAdmission.orientation).toEqual({ status: "valid", value: 1 });
-        expect(destinationAdmission.sourceResolution).toEqual(resolutionOf(72, 72));
+        expect(destinationAdmission.orientation).toEqual({
+          status: "valid",
+          value: 1,
+        });
+        expect(destinationAdmission.sourceResolution).toEqual(
+          resolutionOf(72, 72),
+        );
       } finally {
         restore();
       }
@@ -690,7 +707,10 @@ describe("D-13 minimal Exif writer item shape and placement variants (62-07)", (
   async function sanitize(
     bytes: Buffer,
     overrides: Partial<Parameters<typeof sanitizeFile>[0]> = {},
-  ): Promise<{ readonly destinationPath: string; readonly destinationBytes: Buffer }> {
+  ): Promise<{
+    readonly destinationPath: string;
+    readonly destinationBytes: Buffer;
+  }> {
     const { path: sourcePath } = await writeFixture(bytes);
     const directory = dirname(sourcePath);
     const destinationPath = join(directory, "destination.heic");
@@ -709,7 +729,9 @@ describe("D-13 minimal Exif writer item shape and placement variants (62-07)", (
       });
       expect(sanitized.ok).toBe(true);
       if (!sanitized.ok) {
-        throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+        throw new Error(
+          `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+        );
       }
       const destinationBytes = await readFile(destinationPath);
       return { destinationPath, destinationBytes };
@@ -718,10 +740,7 @@ describe("D-13 minimal Exif writer item shape and placement variants (62-07)", (
     }
   }
 
-  it.each([
-    [2, false] as const,
-    [3, true] as const,
-  ])(
+  it.each([[2, false] as const, [3, true] as const])(
     "infe version %i, hidden %s: the output infe keeps that version and flag, with an empty name and item_protection_index 0",
     async (version, hidden) => {
       const bytes = buildSingleExifFixture({
@@ -811,7 +830,9 @@ describe("D-13 minimal Exif writer item shape and placement variants (62-07)", (
           },
         ],
       });
-      const iref = irefBox(0, [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }]);
+      const iref = irefBox(0, [
+        { type: "cdsc", fromItemId: 2, toItemIds: [1] },
+      ]);
       const meta = metaBox([hdlr, pitm, iinf, iloc, iprp, iref]);
       const header = Buffer.concat([ftyp, meta]);
       const mdat = mdatBox(mdatPayload);
@@ -862,7 +883,9 @@ describe("D-13 minimal Exif writer item shape and placement variants (62-07)", (
     "adjacency: the minimal Exif payload starts exactly where the surviving union ends, and the " +
       "mdat payload length equals the union plus the payload length",
     async () => {
-      const bytes = buildSingleExifFixture({ exifTiff: createOrientationExif(6) });
+      const bytes = buildSingleExifFixture({
+        exifTiff: createOrientationExif(6),
+      });
       const { destinationBytes } = await sanitize(bytes);
       const inventory = inventoryIsobmff(destinationBytes);
       const exifItem = inventory.items.find((item) => item.id === 2)!;
@@ -872,9 +895,14 @@ describe("D-13 minimal Exif writer item shape and placement variants (62-07)", (
         createOrientationExif(6),
       ]);
 
-      const exifAbsoluteStart = exifItem.baseOffset + exifItem.extents[0]!.offset;
-      expect(exifAbsoluteStart).toBe(mdatBox.offset + 8 + PRIMARY_PAYLOAD.length);
-      expect(mdatBox.size).toBe(8 + PRIMARY_PAYLOAD.length + expectedPayload.length);
+      const exifAbsoluteStart =
+        exifItem.baseOffset + exifItem.extents[0]!.offset;
+      expect(exifAbsoluteStart).toBe(
+        mdatBox.offset + 8 + PRIMARY_PAYLOAD.length,
+      );
+      expect(mdatBox.size).toBe(
+        8 + PRIMARY_PAYLOAD.length + expectedPayload.length,
+      );
     },
   );
 
@@ -918,7 +946,9 @@ describe("D-13 minimal Exif writer item shape and placement variants (62-07)", (
     });
     const { destinationBytes } = await sanitize(bytes);
     const inventory = inventoryIsobmff(destinationBytes);
-    const cdscRecords = inventory.references.filter((ref) => ref.type === "cdsc");
+    const cdscRecords = inventory.references.filter(
+      (ref) => ref.type === "cdsc",
+    );
     expect(cdscRecords).toEqual([{ type: "cdsc", from: 2, to: [1] }]);
     // Same slot: the record order matches the source's (thmb from item 3, then cdsc from k) --
     // only the cdsc record's to-list is reduced, its position in iref is untouched.
@@ -974,7 +1004,9 @@ describe("D-13 minimal Exif writer item shape and placement variants (62-07)", (
   });
 
   it("preserve flags false: no Exif item in the output", async () => {
-    const bytes = buildSingleExifFixture({ exifTiff: createOrientationExif(6) });
+    const bytes = buildSingleExifFixture({
+      exifTiff: createOrientationExif(6),
+    });
     const { destinationBytes } = await sanitize(bytes, {
       preserveOrientation: false,
       preserveResolution: false,

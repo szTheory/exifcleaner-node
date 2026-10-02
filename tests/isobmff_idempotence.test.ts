@@ -8,12 +8,7 @@
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import {
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,7 +30,10 @@ import {
   ispe,
   pixi,
 } from "./isobmff-support/builder.js";
-import { assembleHeif, type AssembleHeifSpec } from "./isobmff-support/hostile.js";
+import {
+  assembleHeif,
+  type AssembleHeifSpec,
+} from "./isobmff-support/hostile.js";
 import { createOrientationExif } from "../src/metadata/exif.js";
 import { iccProfileV4 } from "./fixtures.js";
 import {
@@ -67,7 +65,9 @@ afterEach(async () => {
 });
 
 async function freshDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-isobmff-idempotence-"));
+  const directory = await mkdtemp(
+    join(tmpdir(), "exifcleaner-isobmff-idempotence-"),
+  );
   directories.push(directory);
   return directory;
 }
@@ -87,9 +87,15 @@ async function clean(
     createIsobmffWriterHandlerForTests(brand),
   ]);
   try {
-    const sanitized = await sanitizeFile({ sourcePath, destinationPath, ...options });
+    const sanitized = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      ...options,
+    });
     if (!sanitized.ok) {
-      throw new Error(`sanitizeFile declined: ${JSON.stringify(sanitized.error)}`);
+      throw new Error(
+        `sanitizeFile declined: ${JSON.stringify(sanitized.error)}`,
+      );
     }
     return await readFile(destinationPath);
   } finally {
@@ -177,7 +183,10 @@ describe("ISO-06 clean(clean(x)) (62-11)", () => {
       Buffer.alloc(4),
       createOrientationExif(1),
     ]);
-    const xmpPayload = Buffer.from("<x:xmpmeta>idempotence-62-11</x:xmpmeta>", "ascii");
+    const xmpPayload = Buffer.from(
+      "<x:xmpmeta>idempotence-62-11</x:xmpmeta>",
+      "ascii",
+    );
     const itemType = brand === "heic" ? "hvc1" : "av01";
 
     const spec: AssembleHeifSpec = {
@@ -236,10 +245,15 @@ describe("ISO-06 clean(clean(x)) (62-11)", () => {
         exifPayload,
         xmpPayload,
       ]),
-      topLevelExtraAfterFtyp: [box("uuid", Buffer.concat([
-        Buffer.from(C2PA_UUID_USERTYPE, "hex"),
-        Buffer.alloc(16, 0x11),
-      ]))],
+      topLevelExtraAfterFtyp: [
+        box(
+          "uuid",
+          Buffer.concat([
+            Buffer.from(C2PA_UUID_USERTYPE, "hex"),
+            Buffer.alloc(16, 0x11),
+          ]),
+        ),
+      ],
       twoPass: true,
     };
     return assembleHeif(spec);
@@ -322,7 +336,10 @@ describe("ISO-06 clean(clean(x)) (62-11)", () => {
     const { majorBrand, compatibleBrands } = brandSpec(brand);
     const itemType = brand === "heic" ? "hvc1" : "av01";
     const primaryPayload = Buffer.from("primary-bytes", "ascii");
-    const exifPayload = Buffer.concat([Buffer.alloc(4), createOrientationExif(1)]);
+    const exifPayload = Buffer.concat([
+      Buffer.alloc(4),
+      createOrientationExif(1),
+    ]);
     return assembleHeif({
       majorBrand,
       compatibleBrands,
@@ -374,9 +391,10 @@ describe("ISO-06 clean(clean(x)) (62-11)", () => {
 
     it("heic: ICC fixture (62-08), preserveColorProfile false: clean(clean(x)) is byte-equal to clean(x)", async () => {
       const bytes = buildIccFixture("heic");
-      const options = OPTION_SETS[
-        "preserveColorProfile false with orientation and resolution true"
-      ]!;
+      const options =
+        OPTION_SETS[
+          "preserveColorProfile false with orientation and resolution true"
+        ]!;
       const once = await clean(bytes, "heic", options);
       const twice = await clean(once, "heic", options);
       expect(twice.equals(once)).toBe(true);
@@ -440,7 +458,11 @@ describe("ISO-06 clean(clean(x)) (62-11)", () => {
             const brand = detectBrand(armSample.sample.bytes);
             let once: Buffer;
             try {
-              once = await clean(armSample.sample.bytes, brand, GENERATOR_OPTIONS);
+              once = await clean(
+                armSample.sample.bytes,
+                brand,
+                GENERATOR_OPTIONS,
+              );
             } catch {
               declined += 1;
               return;
@@ -493,8 +515,7 @@ interface ResolvedExiftool {
 }
 
 type ExiftoolResolution =
-  | { readonly exiftool: ResolvedExiftool }
-  | { readonly skipReason: string };
+  { readonly exiftool: ResolvedExiftool } | { readonly skipReason: string };
 
 /** Resolves a real ExifTool 13.59: on linux/x64, the pinned KIT-09 authority (read-only
  * `loadOrPrepareOracleTools`, disposed on process exit); elsewhere, the electron repo's vendored
@@ -505,9 +526,8 @@ function resolveExiftool(): ExiftoolResolution {
   if (process.platform === "linux" && process.arch === "x64") {
     try {
       const require = createRequire(import.meta.url);
-      const authorityBuilder = require(
-        "../scripts/qualification/build-oracles.cjs",
-      ) as AuthorityBuilder;
+      const authorityBuilder =
+        require("../scripts/qualification/build-oracles.cjs") as AuthorityBuilder;
       const tools = authorityBuilder.loadOrPrepareOracleTools();
       process.once("exit", () => tools.dispose());
       return {
@@ -544,8 +564,7 @@ function resolveExiftool(): ExiftoolResolution {
   );
   if (!existsSync(electronExiftoolPath)) {
     return {
-      skipReason:
-        `not on linux/x64 and no ExifTool found at ${electronExiftoolPath}`,
+      skipReason: `not on linux/x64 and no ExifTool found at ${electronExiftoolPath}`,
     };
   }
   const versionResult = spawnSync("perl", [electronExiftoolPath, "-ver"], {
@@ -607,7 +626,9 @@ const ARG_FORMS: Readonly<Record<string, readonly string[]>> = {
 };
 
 async function freshDirectoryForExiftool(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-isobmff-exiftool-"));
+  const directory = await mkdtemp(
+    join(tmpdir(), "exifcleaner-isobmff-exiftool-"),
+  );
   return directory;
 }
 
@@ -661,7 +682,12 @@ describe("ISO-06 clean(exiftool(x)) (62-11)", () => {
         const sourceBytes = await readFile(fixturePath);
         const extension = brand === "heic" ? ".heic" : ".avif";
 
-        const e = await runExiftool(exiftool, sourceBytes, extension, tagsFromFileArgs);
+        const e = await runExiftool(
+          exiftool,
+          sourceBytes,
+          extension,
+          tagsFromFileArgs,
+        );
         const defaultSettings = OPTION_SETS["default settings"]!;
         const cleanedOnce = await clean(e, brand, defaultSettings);
         const cleanedTwice = await clean(cleanedOnce, brand, defaultSettings);
@@ -692,7 +718,9 @@ describe("ISO-06 clean(exiftool(x)) (62-11)", () => {
             outputExifItem!,
           );
           expect(outputPayload.length).toBeGreaterThanOrEqual(4);
-          expect(outputPayload.subarray(0, 4).equals(Buffer.alloc(4))).toBe(true);
+          expect(outputPayload.subarray(0, 4).equals(Buffer.alloc(4))).toBe(
+            true,
+          );
         }
       },
     );

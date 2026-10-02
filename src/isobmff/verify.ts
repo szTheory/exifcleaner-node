@@ -26,7 +26,10 @@ function isAborted(signal: AbortSignal | undefined): boolean {
 }
 
 function verificationError(detail: string, path: string): MetadataError {
-  return executionError({ code: "verification-failed", detail, path }, "started");
+  return executionError(
+    { code: "verification-failed", detail, path },
+    "started",
+  );
 }
 
 function verificationAborted(path: string): MetadataError {
@@ -75,7 +78,7 @@ async function rangesEqual(
   const bufferSize = Math.min(COPY_BLOCK_BYTES, Math.max(length, 1));
   const sourceBuffer = Buffer.allocUnsafe(bufferSize);
   const destinationBuffer = Buffer.allocUnsafe(bufferSize);
-  for (let offset = 0; offset < length; ) {
+  for (let offset = 0; offset < length;) {
     if (isAborted(signal))
       throw signal?.reason ?? new DOMException("Aborted", "AbortError");
     const take = Math.min(COPY_BLOCK_BYTES, length - offset);
@@ -97,7 +100,9 @@ async function rangesEqual(
       );
     }
     if (
-      !sourceBuffer.subarray(0, take).equals(destinationBuffer.subarray(0, take))
+      !sourceBuffer
+        .subarray(0, take)
+        .equals(destinationBuffer.subarray(0, take))
     )
       return false;
     offset += take;
@@ -121,7 +126,10 @@ async function readWholeFile(
 
 /** D-16: "colr" is a plain box (not a FullBox): size(4) type(4) colour_type(4) [ICC bytes]. The
  * ICC payload starts right after the 8-byte plain box header plus the 4-byte colour_type field. */
-function colrIccPayloadBytes(model: IsobmffModel, property: IsobmffProperty): Buffer {
+function colrIccPayloadBytes(
+  model: IsobmffModel,
+  property: IsobmffProperty,
+): Buffer {
   return model.layout.metaPayload.subarray(property.start + 12, property.end);
 }
 
@@ -224,10 +232,7 @@ export async function verifyIsobmffOutput(
     // referenced rule already refuses a removable item named by pitm at admission).
     if (admission.model.primaryItemId !== destinationModel.primaryItemId) {
       return err(
-        verificationError(
-          "pitm (primary item id) changed.",
-          destinationPath,
-        ),
+        verificationError("pitm (primary item id) changed.", destinationPath),
       );
     }
 
@@ -235,9 +240,7 @@ export async function verifyIsobmffOutput(
     const sourceIloc = admission.model.iloc;
     const destinationIloc = destinationModel.iloc;
     if (sourceIloc === undefined || destinationIloc === undefined) {
-      return err(
-        verificationError("Missing iloc table.", destinationPath),
-      );
+      return err(verificationError("Missing iloc table.", destinationPath));
     }
     if (
       sourceIloc.version !== destinationIloc.version ||
@@ -298,9 +301,7 @@ export async function verifyIsobmffOutput(
       signal,
     );
     if (!ftypEqual) {
-      return err(
-        verificationError("ftyp bytes changed.", destinationPath),
-      );
+      return err(verificationError("ftyp bytes changed.", destinationPath));
     }
 
     // D-13: k's own id stays in the expected surviving set (in its original source-order slot)
@@ -329,7 +330,10 @@ export async function verifyIsobmffOutput(
     for (const item of destinationModel.items) {
       if (item.type === "mime") {
         return err(
-          verificationError("mime item remained after sanitization.", destinationPath),
+          verificationError(
+            "mime item remained after sanitization.",
+            destinationPath,
+          ),
         );
       }
       if (item.type === "Exif") {
@@ -346,7 +350,10 @@ export async function verifyIsobmffOutput(
     }
     if (exifItemCount > 1) {
       return err(
-        verificationError("More than one Exif item remained after sanitization.", destinationPath),
+        verificationError(
+          "More than one Exif item remained after sanitization.",
+          destinationPath,
+        ),
       );
     }
     if (keepExifItemId !== undefined && exifItemCount === 0) {
@@ -614,7 +621,9 @@ export async function verifyIsobmffOutput(
         expected.type !== actual.type ||
         expected.fromItemId !== actual.fromItemId ||
         expected.toItemIds.length !== actual.toItemIds.length ||
-        expected.toItemIds.some((id, toIndex) => id !== actual.toItemIds[toIndex])
+        expected.toItemIds.some(
+          (id, toIndex) => id !== actual.toItemIds[toIndex],
+        )
       ) {
         return err(
           verificationError(
@@ -636,12 +645,18 @@ export async function verifyIsobmffOutput(
     const sourceNclxBytes = sourceColrProperties
       .filter((property) => property.colourType === "nclx")
       .map((property) =>
-        admission.model.layout.metaPayload.subarray(property.start, property.end),
+        admission.model.layout.metaPayload.subarray(
+          property.start,
+          property.end,
+        ),
       );
     const destinationNclxBytes = destinationColrProperties
       .filter((property) => property.colourType === "nclx")
       .map((property) =>
-        destinationModel.layout.metaPayload.subarray(property.start, property.end),
+        destinationModel.layout.metaPayload.subarray(
+          property.start,
+          property.end,
+        ),
       );
     if (
       sourceNclxBytes.length !== destinationNclxBytes.length ||
@@ -665,9 +680,7 @@ export async function verifyIsobmffOutput(
       const destinationIpco = destinationModel.layout.item.iprpChildren.find(
         (child) => child.type === "ipco",
       );
-      if (
-        (sourceIpco === undefined) !== (destinationIpco === undefined)
-      ) {
+      if ((sourceIpco === undefined) !== (destinationIpco === undefined)) {
         return err(
           verificationError(
             "ipco presence changed although preserveColorProfile is true.",
@@ -680,10 +693,11 @@ export async function verifyIsobmffOutput(
           sourceIpco.start,
           sourceIpco.end,
         );
-        const destinationIpcoBytes = destinationModel.layout.metaPayload.subarray(
-          destinationIpco.start,
-          destinationIpco.end,
-        );
+        const destinationIpcoBytes =
+          destinationModel.layout.metaPayload.subarray(
+            destinationIpco.start,
+            destinationIpco.end,
+          );
         if (!sourceIpcoBytes.equals(destinationIpcoBytes)) {
           return err(
             verificationError(
@@ -731,12 +745,16 @@ export async function verifyIsobmffOutput(
         admission.model.properties
           .filter((property) => !removedPropertyIndices.has(property.index))
           .map((property) =>
-            admission.model.layout.metaPayload.subarray(property.start, property.end),
+            admission.model.layout.metaPayload.subarray(
+              property.start,
+              property.end,
+            ),
           ),
       );
-      const destinationIpcoForOrphanCheck = destinationModel.layout.item.iprpChildren.find(
-        (child) => child.type === "ipco",
-      );
+      const destinationIpcoForOrphanCheck =
+        destinationModel.layout.item.iprpChildren.find(
+          (child) => child.type === "ipco",
+        );
       const actualIpcoChildrenBytes =
         destinationIpcoForOrphanCheck === undefined
           ? Buffer.alloc(0)
@@ -800,12 +818,16 @@ export async function verifyIsobmffOutput(
     let previousEnd: number | undefined;
     for (const range of cm0Ranges) {
       const effectiveStart =
-        previousEnd !== undefined ? Math.max(range.start, previousEnd) : range.start;
+        previousEnd !== undefined
+          ? Math.max(range.start, previousEnd)
+          : range.start;
       if (range.end > effectiveStart) {
         coveredLength += range.end - effectiveStart;
       }
       previousEnd =
-        previousEnd !== undefined ? Math.max(previousEnd, range.end) : range.end;
+        previousEnd !== undefined
+          ? Math.max(previousEnd, range.end)
+          : range.end;
     }
     if (coveredLength !== destinationMdat.length) {
       return err(
@@ -824,15 +846,11 @@ export async function verifyIsobmffOutput(
     const sourceIdat = admission.model.idatRange;
     const destinationIdat = destinationModel.idatRange;
     if ((sourceIdat === undefined) !== (destinationIdat === undefined)) {
-      return err(
-        verificationError("idat presence changed.", destinationPath),
-      );
+      return err(verificationError("idat presence changed.", destinationPath));
     }
     if (sourceIdat !== undefined && destinationIdat !== undefined) {
       if (sourceIdat.length !== destinationIdat.length) {
-        return err(
-          verificationError("idat length changed.", destinationPath),
-        );
+        return err(verificationError("idat length changed.", destinationPath));
       }
       const sourceAbsolute =
         admission.model.layout.metaOffset +
@@ -851,9 +869,7 @@ export async function verifyIsobmffOutput(
         signal,
       );
       if (!idatEqual) {
-        return err(
-          verificationError("idat bytes changed.", destinationPath),
-        );
+        return err(verificationError("idat bytes changed.", destinationPath));
       }
     }
 

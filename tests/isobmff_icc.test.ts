@@ -319,7 +319,9 @@ async function sanitizeThroughRealWriter(
     });
     expect(sanitized.ok).toBe(true);
     if (!sanitized.ok) {
-      throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+      throw new Error(
+        `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+      );
     }
   } finally {
     restore();
@@ -332,10 +334,10 @@ describe("D-16 ICC removal and ipma remap (62-08)", () => {
       "recorded RED (disposable git worktree checked out at commit 0957773 -- the pre-62-08 tip " +
         "-- plus a scratch probe assembling this plan's exact IsobmffOutputPlan.parts into real " +
         "output bytes): full sanitizeFile in that worktree hit an unrelated native-publication " +
-        "environment failure (code write-failed, \"Native no-replace publication could not " +
-        "complete\" -- the compiled native binding does not resolve correctly from a /tmp " +
+        'environment failure (code write-failed, "Native no-replace publication could not ' +
+        'complete" -- the compiled native binding does not resolve correctly from a /tmp ' +
         "worktree copy, nothing to do with D-16), so the probe called buildIsobmffOutputPlan " +
-        "directly on this fixture's admission and scanned the assembled bytes for every \"colr\" " +
+        'directly on this fixture\'s admission and scanned the assembled bytes for every "colr" ' +
         "occurrence. Old code (0957773): colr colour_types in the output were " +
         "['prof','nclx','rICC'] -- all three unchanged, proving D-16 did not exist yet. Same " +
         "probe against this plan's code: ['nclx'] only. The full end-to-end assertions below " +
@@ -389,9 +391,7 @@ describe("D-16 ICC removal and ipma remap (62-08)", () => {
         const sourceNclx = readIpcoIpma(bytes).properties.find(
           (p) => p.colourType === "nclx",
         );
-        const destinationNclx = properties.find(
-          (p) => p.colourType === "nclx",
-        );
+        const destinationNclx = properties.find((p) => p.colourType === "nclx");
         expect(destinationNclx?.bytes.equals(sourceNclx!.bytes)).toBe(true);
 
         // Re-admits.
@@ -456,9 +456,9 @@ describe("D-16 ICC removal and ipma remap (62-08)", () => {
         // The primary's ICC (the "prof" property, which it associates with) is identical too.
         const { properties } = readIpcoIpma(destinationBytes);
         const destinationProf = properties.find((p) => p.colourType === "prof");
-        expect(
-          destinationProf?.bytes.subarray(12).equals(ICC_BYTES_PROF),
-        ).toBe(true);
+        expect(destinationProf?.bytes.subarray(12).equals(ICC_BYTES_PROF)).toBe(
+          true,
+        );
       });
 
       /**
@@ -548,7 +548,12 @@ describe("D-16 ICC removal and ipma remap (62-08)", () => {
       }
 
       it.each([
-        { version: 0 as const, flags: 0, fillerCount: 2, label: "version 0 / flags 0 (7-bit)" },
+        {
+          version: 0 as const,
+          flags: 0,
+          fillerCount: 2,
+          label: "version 0 / flags 0 (7-bit)",
+        },
         {
           version: 1 as const,
           flags: 1,

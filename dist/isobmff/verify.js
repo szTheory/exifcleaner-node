@@ -57,7 +57,9 @@ async function rangesEqual(sourceHandle, sourceOffset, destinationHandle, destin
         if (left.bytesRead !== take || right.bytesRead !== take) {
             throw new Error("Source or output changed or became truncated during verification.");
         }
-        if (!sourceBuffer.subarray(0, take).equals(destinationBuffer.subarray(0, take)))
+        if (!sourceBuffer
+            .subarray(0, take)
+            .equals(destinationBuffer.subarray(0, take)))
             return false;
         offset += take;
     }
@@ -420,12 +422,16 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
         let coveredLength = 0;
         let previousEnd;
         for (const range of cm0Ranges) {
-            const effectiveStart = previousEnd !== undefined ? Math.max(range.start, previousEnd) : range.start;
+            const effectiveStart = previousEnd !== undefined
+                ? Math.max(range.start, previousEnd)
+                : range.start;
             if (range.end > effectiveStart) {
                 coveredLength += range.end - effectiveStart;
             }
             previousEnd =
-                previousEnd !== undefined ? Math.max(previousEnd, range.end) : range.end;
+                previousEnd !== undefined
+                    ? Math.max(previousEnd, range.end)
+                    : range.end;
         }
         if (coveredLength !== destinationMdat.length) {
             return err(verificationError("Output mdat payload length did not equal the union of surviving extents " +
