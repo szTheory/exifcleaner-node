@@ -478,3 +478,156 @@ bytes remain after `content_type`; an absent field now reads as `undefined`, the
 "no encoding declared" meaning `admission.ts`'s XMP-removable check already gives an explicit empty
 string. Every `heif-enc`/builder fixture happened to write an explicit empty `content_encoding`
 (one NUL byte), which is why this was never caught before the real-sample proof ran.
+
+## Writer baseline (Phase 62 measurements)
+
+Everything in this section was produced by this plan's own executed commands, in scratch, against
+the branch `gsd/phase-62-isobmff-writer` cut from `main` at `cb10772`. No value here is cited from
+`62-RESEARCH.md` or an earlier scratch session; each subsection names the command that produced it.
+A dependency-free scratch box walker (`walk62.mjs`, outside every repository) parsed top-level
+boxes, `meta` children, `iloc`, `iinf`/`infe`, `iref`, `idat`, and `dinf`/`dref` directly from the
+raw bytes to produce the figures below.
+
+### heif-enc fixture layout
+
+Measured on both committed fixtures (`tests/isobmff-support/fixtures/heif-enc-grid.heic` and
+`.avif`) with the scratch walker, reading `iloc`'s FullBox version and its four packed-nibble
+widths directly:
+
+| Fixture            | `iloc` version | `offset_size` | `length_size` | `base_offset_size` | `index_size` |
+| ------------------ | -------------- | ------------- | ------------- | ------------------ | ------------ |
+| heif-enc-grid.heic | 1              | 4             | 4             | 4                  | 0            |
+| heif-enc-grid.avif | 1              | 4             | 4             | 4                  | 0            |
+
+**This supersedes 62-CONTEXT's "heif-enc iloc v0" phrasing.** The fresh measurement reads
+`iloc` version **1** on both fixtures, not version 0. (Version 1 is what makes
+`construction_method` meaningful per item; a version-0 box would have no per-item construction
+method field at all, and item 1 here is a `cm=1` grid item, so version 1 is structurally
+necessary and consistent with the byte-level read.)
+
+Exif item (item_ID 6, `infe` type `Exif`, hidden) position relative to its own fixture's `mdat`
+payload, computed as `base_offset + extent_offset` minus the `mdat` payload bounds:
+
+| Fixture | Exif item abs offset | extent length | bytes from `mdat` payload start | bytes from `mdat` payload end |
+| ------- | -------------------- | ------------- | ------------------------------- | ----------------------------- |
+| heic    | 1155                 | 178           | 171                             | 2910                          |
+| avif    | 912                  | 178           | 169                             | 2907                          |
+
+The Exif item is not at the tail of `mdat` in either source fixture -- a hidden thumbnail
+(`hvc1`, item 8) and a zero-length `mime`/XMP item (item 7) both follow it in `iloc` order, and
+item 8's extent is the one that actually reaches the `mdat` payload end (0 bytes remaining).
+
+### ExifTool 13.59 minimal-Exif placement
+
+Produced with `perl exiftool -all= -TagsFromFile @ -Orientation <RESOLUTION_PRESERVE_ARGS> -o
+q1.<ext> src.<ext>` (the app's full preserving argument shape,
+`exifcleaner-electron/src/infrastructure/exiftool/exiftool_adapter.ts:289-318`, against
+`RESOLUTION_PRESERVE_ARGS` from `src/domain/exif/exif.ts:69-78`), then walked with the same
+scratch walker:
+
+| Fixture | output item ID | source item ID | ID reused | bytes from `mdat` payload end | first 10 payload bytes (hex) |
+| ------- | -------------- | -------------- | --------- | ----------------------------- | ---------------------------- |
+| heic    | 6              | 6              | yes       | 34                            | `000000004d4d002a0000`       |
+| avif    | 6              | 6              | yes       | 31                            | `000000004d4d002a0000`       |
+
+The Exif item ID is reused in place on both formats, matching 62-CONTEXT D-13's claim. Placement
+is **not** at the `mdat` tail on either format -- the (unchanged, still-hidden) thumbnail item
+that heif-enc wrote after it in `iloc` order still follows it and is the item whose extent
+actually reaches the `mdat` payload end.
+
+**This measurement contradicts 62-CONTEXT's "ExifTool writes prefix `00000006` \"Exif\\0\\0\""
+claim.** The first 4 bytes of the payload (the `exif_tiff_header_offset` field) read
+`00000000` on both fixtures, immediately followed by the TIFF header `4d4d002a0000...` (`MM`,
+big-endian, magic `0x002a`) -- there is no `"Exif\0\0"` prefix and no offset-6 indirection in
+this measurement. The TIFF header's IFD0 holds exactly 4 entries: `Orientation` (tag `0x0112`,
+value 1), `XResolution`/`YResolution` (tags `0x011A`/`0x011B`, both rational `72/1` at the
+trailing offsets `0x3e`/`0x46`), and `ResolutionUnit` (tag `0x0213`, value 1) -- i.e. exactly the
+tags the app's preserving argument shape requests, nothing else.
+
+### ExifTool re-run stability
+
+Produced by running the plain-removal form (`-all= -o p1.<ext>`) and the preserving form
+(`-all= -TagsFromFile @ -Orientation <RESOLUTION_PRESERVE_ARGS> -o q1.<ext>`) over each fixture,
+then re-running the identical command over each result (`p1`→`p2`, `q1`→`q2`) and comparing with
+`cmp`:
+
+| Comparison        | Result    |
+| ----------------- | --------- |
+| heic `p1` vs `p2` | identical |
+| heic `q1` vs `q2` | identical |
+| avif `p1` vs `p2` | identical |
+| avif `q1` vs `q2` | identical |
+
+All four cmp results are byte-identical, confirming ExifTool 13.59's re-run stability on both
+HEIC and AVIF under both argument forms used by the app.
+
+### ExifTool and top-level free/skip
+
+Produced by appending a synthetic 16-byte top-level `free` box (payload `0xAB` repeated) and,
+separately, a synthetic 16-byte top-level `skip` box (payload `0xCD` repeated) after `mdat` on
+copies of both fixtures, then running `perl exiftool -all= -o out.<ext> synth.<ext>` and walking
+the result:
+
+| Fixture | Box    | Kept | Payload bytes       | Position relative to `mdat`                            |
+| ------- | ------ | ---- | ------------------- | ------------------------------------------------------ |
+| heic    | `free` | yes  | `ab` x16, unchanged | moved to **before** `mdat` (between `meta` and `mdat`) |
+| heic    | `skip` | yes  | `cd` x16, unchanged | moved to **before** `mdat` (between `meta` and `mdat`) |
+| avif    | `free` | yes  | `ab` x16, unchanged | moved to **before** `mdat` (between `meta` and `mdat`) |
+| avif    | `skip` | yes  | `cd` x16, unchanged | moved to **before** `mdat` (between `meta` and `mdat`) |
+
+ExifTool 13.59 keeps both top-level `free` and `skip` boxes with their payload bytes untouched,
+on both formats. It does **not** preserve their top-level position relative to `mdat`: the
+synthetic boxes were appended after `mdat` in the input, and ExifTool's `-all= -o` output
+relocates them to immediately before `mdat` (right after `meta`) on every one of the four runs.
+This is recorded as input to D-27; it does not by itself decide whether entry (e) (top-level
+`free`/`skip` dropped) stays in the permitted-difference list, since ExifTool keeps the boxes --
+it only changes their position, which D-27's later plan must account for separately if it adopts
+entry (e) at all.
+
+### iPhone idat coverage and dref entries
+
+Produced by fetching the pinned iPhone 13 Pro Max sample to scratch (never committed to any
+repository), verifying its hash and size, and walking it with the scratch walker:
+
+```
+$ shasum -a 256 iphone.heic
+e760c80eed310e4f27c092d5487693ca8e104e7cc01d25ba4828deb28f679676  iphone.heic
+$ wc -c iphone.heic
+ 2182707 iphone.heic
+```
+
+Both the sha256 and the byte count match the pinned values exactly.
+
+`idat` payload length: **8 bytes**. Exactly one item uses `construction_method` 1 (idat-relative
+addressing): item 49 (`infe` type `grid`, the primary image, not hidden), with one extent at
+`idat`-relative offset 0, length 8. That single extent's range `[0, 8)` is the entire `idat`
+payload, so:
+
+| Metric                                                   | Value |
+| -------------------------------------------------------- | ----- |
+| `idat` payload length                                    | 8     |
+| bytes claimed by `construction_method 1` extents (union) | 8     |
+| unclaimed bytes                                          | 0     |
+
+On this real sample, the `idat` box carries no unclaimed/residue bytes -- every byte is claimed
+by the one `cm=1` item's extent. This measurement does not generalize to every possible writer
+output; it is recorded here as the measured fact for this one pinned sample, per 62-CONTEXT's
+Deferred Ideas item on unclaimed `idat` bytes.
+
+`dinf`/`dref` entries (walked from `meta/dinf/dref`): exactly one entry, type `url `, version 0,
+flags `1` (bit 0 set -- self-contained, no location string), with **0 bytes** remaining after
+the entry's own FullBox header (`bytesAfterFullBox: 0`). This is consistent with 62-CONTEXT
+D-17's inferred dref admission rule (admit only `url ` with `flags & 1` and no location string)
+on the one real-world sample measured here.
+
+### Baseline test run
+
+Before any edit on `gsd/phase-62-isobmff-writer` (cut from `main` at `cb10772`), `npm run build &&
+npm run build:native` succeeded, and a full `npx vitest run --reporter=json` reported:
+
+| Metric            | Value |
+| ----------------- | ----- |
+| `numTotalTests`   | 1967  |
+| `numPassedTests`  | 1826  |
+| `numPendingTests` | 141   |
+| `numFailedTests`  | 0     |
