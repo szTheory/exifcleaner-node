@@ -80,6 +80,10 @@ const ISOBMFF_DIST_MODULES = [
   "items",
   "parse",
   "admission",
+  "plan",
+  "rebuild",
+  "writer",
+  "verify",
 ] as const;
 
 describe("dist/isobmff is committed (BMF-02..BMF-06)", () => {
@@ -98,6 +102,19 @@ describe("dist/isobmff is unreachable from the public surface (D-15)", () => {
       path.replaceAll("\\", "/").includes("/dist/isobmff/"),
     );
     expect(isobmffPaths).toEqual([]);
+  });
+});
+
+describe("dist/admission/isobmff-handler.js is unreachable from the public surface (62-02, D-02 shape (c))", () => {
+  it("the transitive import closure of dist/index.js contains no path under dist/admission/isobmff-handler.js", async () => {
+    const closure = await transitiveImportClosure(DIST_INDEX);
+    expect(closure.length).toBeGreaterThan(0);
+    const isobmffHandlerPaths = closure.filter((path) =>
+      path
+        .replaceAll("\\", "/")
+        .includes("/dist/admission/isobmff-handler.js"),
+    );
+    expect(isobmffHandlerPaths).toEqual([]);
   });
 });
 
