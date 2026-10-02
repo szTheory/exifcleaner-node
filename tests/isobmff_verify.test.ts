@@ -11,6 +11,7 @@ import { mkdtemp, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import { admitIsobmff } from "../src/isobmff/admission.js";
@@ -950,5 +951,242 @@ describe("D-18 identity proof (62-09)", () => {
 
       expect(result.ok).toBe(true);
     });
+  });
+
+  // --- Task 3: streamed COPY_BLOCK_BYTES windows and the generator's transform arms ---
+
+  describe("Task 3: streamed windows and generator transform arms", () => {
+    const ONE_MIB = 1024 * 1024;
+
+    function buildOneMibFixture(): Buffer {
+      const payload = Buffer.alloc(ONE_MIB);
+      for (let i = 0; i < payload.length; i += 1) payload[i] = i & 0xff;
+      const spec: AssembleHeifSpec = {
+        primaryItemId: 1,
+        items: [{ itemId: 1, itemType: "hvc1", extents: [{ relOffset: 0, length: payload.length }] }],
+        properties: [ispeProp(), hvcCProp()],
+        extraIpmaEntries: [
+          { itemId: 1, associations: [{ propertyIndex: 1, essential: false }, { propertyIndex: 2, essential: false }] },
+        ],
+        mdatPayload: payload,
+        twoPass: true,
+      };
+      return assembleHeif(spec);
+    }
+
+    async function sanitizeOneMibFixture(): Promise<{
+      readonly sourcePath: string;
+      readonly goodBytes: Buffer;
+      readonly admission: Awaited<ReturnType<typeof admitIsobmff>>;
+    }> {
+      const bytes = buildOneMibFixture();
+      const { path: sourcePath } = await writeFixture(bytes, "source.heic");
+      const directory = dirname(sourcePath);
+      const goodDestinationPath = join(directory, "destination-good.heic");
+      const sanitized = await sanitizeThroughRealWriter(sourcePath, goodDestinationPath);
+      expect(sanitized.ok).toBe(true);
+      if (!sanitized.ok) {
+        throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+      }
+      const goodBytes = await readFile(goodDestinationPath);
+      const admission = await withHandle(sourcePath, (handle) => admitIsobmff(handle, bytes.length));
+      return { sourcePath, goodBytes, admission };
+    }
+
+    async function verifyAgainst(
+      sourcePath: string,
+      admission: Awaited<ReturnType<typeof admitIsobmff>>,
+      candidateBytes: Buffer,
+      candidatePath: string,
+    ): ReturnType<typeof verifyIsobmffOutput> {
+      await writeFile(candidatePath, candidateBytes);
+      return withHandle(sourcePath, (sourceHandle) =>
+        withHandle(candidatePath, (candidateHandle) =>
+          verifyIsobmffOutput(
+            sourceHandle,
+            admission,
+            candidateHandle,
+            candidateBytes.length,
+            candidatePath,
+            false,
+            true,
+            false,
+            undefined,
+          ),
+        ),
+      );
+    }
+
+    it(
+      "a 1 MiB surviving item: identical is ok, last byte flipped is verification-failed",
+      async () => {
+        const { sourcePath, goodBytes, admission } = await sanitizeOneMibFixture();
+        const directory = dirname(sourcePath);
+
+        const identicalResult = await verifyAgainst(
+          sourcePath,
+          admission,
+          goodBytes,
+          join(directory, "identical.heic"),
+        );
+        expect(identicalResult.ok).toBe(true);
+
+        const lastByteFlipped = Buffer.from(goodBytes);
+        lastByteFlipped[lastByteFlipped.length - 1] =
+          (lastByteFlipped[lastByteFlipped.length - 1]! + 1) & 0xff;
+        const lastByteResult = await verifyAgainst(
+          sourcePath,
+          admission,
+          lastByteFlipped,
+          join(directory, "last-byte-flipped.heic"),
+        );
+        expect(lastByteResult.ok).toBe(false);
+        if (!lastByteResult.ok) {
+          expect(lastByteResult.error.code).toBe("verification-failed");
+        }
+      },
+      30_000,
+    );
+
+    it(
+      "a 1 MiB surviving item: first byte flipped is verification-failed",
+      async () => {
+        const { sourcePath, goodBytes, admission } = await sanitizeOneMibFixture();
+        const directory = dirname(sourcePath);
+        const inventory = inventoryIsobmff(goodBytes);
+        const item = findItem(inventory, 1)!;
+        const absolute = item.baseOffset + item.extents[0]!.offset;
+
+        const firstByteFlipped = Buffer.from(goodBytes);
+        firstByteFlipped[absolute] = (firstByteFlipped[absolute]! + 1) & 0xff;
+        const result = await verifyAgainst(
+          sourcePath,
+          admission,
+          firstByteFlipped,
+          join(directory, "first-byte-flipped.heic"),
+        );
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error.code).toBe("verification-failed");
+        }
+      },
+      30_000,
+    );
+
+    it("verify.ts never allocates a whole-item comparison buffer (COPY_BLOCK_BYTES-bounded windows)", async () => {
+      const source = await readFile(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "isobmff", "verify.ts"));
+      expect(source.toString("utf8")).toContain("COPY_BLOCK_BYTES");
+    });
+
+    // --- Generator transform arms: irot/imir, essential and non-essential ---
+
+    function rawIpcoBytes(bytes: Buffer): readonly Buffer[] {
+      const layout = parseTamperLayout(bytes);
+      if (layout.iprp === undefined) return [];
+      const iprpChildren = siblingsOf(bytes, layout.iprp.payloadStart, layout.iprp.end);
+      const ipco = iprpChildren.find((b) => b.type === "ipco");
+      if (ipco === undefined) return [];
+      return siblingsOf(bytes, ipco.payloadStart, ipco.end).map((b) =>
+        bytes.subarray(b.start, b.end),
+      );
+    }
+
+    const TARGET_ARMS: ReadonlySet<IsobmffArm> = new Set([
+      "irot-essential",
+      "irot-non-essential",
+      "imir-essential",
+      "imir-non-essential",
+    ]);
+
+    it(
+      "generator arms irot-essential, irot-non-essential, imir-essential, imir-non-essential " +
+        "(seed 62, numRuns <= 20): sanitize ok, each surviving item's ordered (bytes, essential) " +
+        "list equals the source's",
+      async () => {
+        // D-19 generator caveat (62-09 repo rules): `isobmffArmSampleArbitrary(brand)` only
+        // steers the HAZARD arm's own brand -- every non-hazard sample (every arm this test
+        // targets) picks its own brand internally, independent of the `brand` argument below.
+        // Both writer handlers must be registered so sanitizeFile's own brand-based selection
+        // routes either one correctly.
+        const restore = setRegisteredHandlersForTests([
+          createIsobmffWriterHandlerForTests("heic"),
+          createIsobmffWriterHandlerForTests("avif"),
+        ]);
+        try {
+          await fc.assert(
+            fc.asyncProperty(isobmffArmSampleArbitrary("heic"), async (armSample) => {
+              fc.pre(!armSample.arms.includes("hazard"));
+              fc.pre(armSample.arms.some((arm) => TARGET_ARMS.has(arm)));
+
+              const sourceBytes = armSample.sample.bytes;
+              const { path: sourcePath } = await writeFixture(sourceBytes, "source.heic");
+              const directory = dirname(sourcePath);
+              const destinationPath = join(directory, "destination.heic");
+
+              // preserveColorProfile false: this generator's colr-prof/colr-ricc arms carry a
+              // 4-byte fake ICC payload too short to validate, which the engine's own ICC-
+              // preservation gate (src/engine.ts) refuses to admit when preserveColorProfile is
+              // true (unrelated to this test's irot/imir target) -- false sidesteps that gate and
+              // may legitimately remove a colr prof/rICC property (62-08's own D-16 concern, not
+              // this plan's), so the comparison below excludes any such removed association from
+              // the SOURCE side before matching position-by-position.
+              const sanitized = await sanitizeFile({
+                sourcePath,
+                destinationPath,
+                preserveOrientation: false,
+                preserveColorProfile: false,
+                preserveTimestamps: false,
+                preserveResolution: false,
+              });
+              expect(sanitized.ok).toBe(true);
+              if (!sanitized.ok) return;
+
+              const destinationBytes = await readFile(destinationPath);
+              const sourceInventory = inventoryIsobmff(sourceBytes);
+              const destinationInventory = inventoryIsobmff(destinationBytes);
+              const sourceProperties = rawIpcoBytes(sourceBytes);
+              const destinationProperties = rawIpcoBytes(destinationBytes);
+
+              for (const sourceItem of sourceInventory.items) {
+                const destinationItem = findItem(destinationInventory, sourceItem.id);
+                if (destinationItem === undefined) continue; // Exif/mime, removed by sanitize.
+                const sourceAssocRaw =
+                  sourceInventory.associations.find((a) => a.itemId === sourceItem.id)
+                    ?.associations ?? [];
+                const sourceAssoc = sourceAssocRaw.filter((association) => {
+                  const propertyBytes = sourceProperties[association.propertyIndex - 1];
+                  if (propertyBytes === undefined || propertyBytes.toString("ascii", 4, 8) !== "colr") {
+                    return true;
+                  }
+                  const colourType = propertyBytes.toString("ascii", 8, 12);
+                  return colourType !== "prof" && colourType !== "rICC";
+                });
+                const destinationAssoc =
+                  destinationInventory.associations.find((a) => a.itemId === destinationItem.id)
+                    ?.associations ?? [];
+                expect(destinationAssoc.length).toBe(sourceAssoc.length);
+                for (let index = 0; index < sourceAssoc.length; index += 1) {
+                  const sourceA = sourceAssoc[index]!;
+                  const destinationA = destinationAssoc[index]!;
+                  expect(destinationA.essential).toBe(sourceA.essential);
+                  const sourceBytesForProp = sourceProperties[sourceA.propertyIndex - 1];
+                  const destinationBytesForProp =
+                    destinationProperties[destinationA.propertyIndex - 1];
+                  expect(
+                    destinationBytesForProp !== undefined &&
+                      sourceBytesForProp !== undefined &&
+                      destinationBytesForProp.equals(sourceBytesForProp),
+                  ).toBe(true);
+                }
+              }
+            }),
+            { seed: 62, numRuns: 20 },
+          );
+        } finally {
+          restore();
+        }
+      },
+      30_000,
+    );
   });
 });
