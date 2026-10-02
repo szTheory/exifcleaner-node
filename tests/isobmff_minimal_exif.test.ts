@@ -6,7 +6,7 @@
 // ordering, thumbnail-only, emptied, and resolution scope. The two committed `heif-enc` fixtures
 // are also re-checked so the narrowing leaves their measured k (item 6, RECIPE.md) and entry count
 // unchanged.
-import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -25,7 +25,10 @@ import {
   type AssembleHeifSpec,
 } from "./isobmff-support/hostile.js";
 import { auxC } from "./isobmff-support/builder.js";
-import { inventoryIsobmff } from "./isobmff-support/inventory.js";
+import {
+  inventoryIsobmff,
+  readItemExtentBytes,
+} from "./isobmff-support/inventory.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -190,10 +193,10 @@ describe("D-13 source item k (62-03)", () => {
     );
 
     it(
-      "sanitizeFile (writer handler, preserveOrientation true) writes no Orientation tag in any " +
-        "output Exif payload -- the writer does not yet synthesize minimal Exif at all (D-13's " +
-        "writer half is deferred past this plan), so the real invariant proven here is that the " +
-        "output carries no Exif item whatsoever, and therefore no leaked Orientation value",
+      "sanitizeFile (writer handler, preserveOrientation true) writes no leaked Orientation tag " +
+        "in the output's one minimal Exif item (62-07: the writer now synthesizes minimal Exif at " +
+        "k, item 3) -- the aux item's Orientation 6 never reaches k's payload, but k's own " +
+        "resolution (72x72) does",
       async () => {
         const bytes = buildAuxExifFixture();
         const { path: sourcePath, size } = await writeFixture(
@@ -224,9 +227,23 @@ describe("D-13 source item k (62-03)", () => {
 
           const destinationBytes = await readFile(destinationPath);
           const destinationInventory = inventoryIsobmff(destinationBytes);
-          for (const item of destinationInventory.items) {
-            expect(item.type).not.toBe("Exif");
-          }
+          const exifItems = destinationInventory.items.filter(
+            (item) => item.type === "Exif",
+          );
+          expect(exifItems.map((item) => item.id)).toEqual([3]);
+
+          const { size: destinationSize } = await stat(destinationPath);
+          const destinationAdmission = await withHandle(
+            destinationPath,
+            (handle) => admitIsobmff(handle, destinationSize),
+          );
+          expect(destinationAdmission.exifSourceItemId).toBe(3);
+          expect(destinationAdmission.orientation).toEqual({
+            status: "absent",
+          });
+          expect(destinationAdmission.sourceResolution).toEqual(
+            resolutionOf(72, 72),
+          );
 
           const sourceAdmission = await withHandle(sourcePath, (handle) =>
             admitIsobmff(handle, size),
@@ -525,4 +542,84 @@ describe("D-13 source item k (62-03)", () => {
       );
     });
   });
+});
+
+// 62-07, Task 1 tracer: the writer half of D-13. `createMinimalExif`/`computeIsobmffMinimalExifTags`
+// now actually synthesize and write the minimal Exif item, at k's own id, at the mdat tail -- the
+// admission-side k selection above (62-03) only ever read values; nothing was written until now.
+describe("D-13 minimal Exif writer (62-07)", () => {
+  it.each([
+    ["heic", HEIC_FIXTURE],
+    ["avif", AVIF_FIXTURE],
+  ] as const)(
+    "%s: default settings (preserveOrientation/preserveResolution true) write exactly one " +
+      "minimal Exif item at k's own id (6), carrying the source's own Orientation (1) and " +
+      "resolution (72x72), with the source's Make/Model canaries absent from the whole output, " +
+      "the payload's first four bytes zero, and the item's single extent ending at the mdat " +
+      "payload end",
+    async (brand, fixturePath) => {
+      const directory = await freshDirectory();
+      const sourcePath = join(directory, `source.${brand}`);
+      await writeFile(sourcePath, await readFile(fixturePath));
+      const destinationPath = join(directory, `destination.${brand}`);
+
+      const restore = setRegisteredHandlersForTests([
+        createIsobmffWriterHandlerForTests(brand),
+      ]);
+      try {
+        const sanitized = await sanitizeFile({
+          sourcePath,
+          destinationPath,
+          preserveOrientation: true,
+          preserveColorProfile: true,
+          preserveTimestamps: true,
+          preserveResolution: true,
+        });
+        expect(sanitized.ok).toBe(true);
+        if (!sanitized.ok) {
+          throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+        }
+
+        const destinationBytes = await readFile(destinationPath);
+        const inventory = inventoryIsobmff(destinationBytes);
+
+        const exifItems = inventory.items.filter((item) => item.type === "Exif");
+        expect(exifItems.map((item) => item.id)).toEqual([6]);
+        const exifItem = exifItems[0]!;
+        expect(exifItem.constructionMethod).toBe(0);
+        expect(exifItem.extents.length).toBe(1);
+
+        const payload = readItemExtentBytes(destinationBytes, inventory, exifItem);
+        expect(payload.readUInt32BE(0)).toBe(0);
+        const expectedPayload = Buffer.concat([
+          Buffer.alloc(4),
+          createMinimalExif({ orientation: 1, resolution: resolutionOf(72, 72) }),
+        ]);
+        expect(payload.equals(expectedPayload)).toBe(true);
+
+        // The item's single extent ends exactly at the mdat payload end.
+        const mdatBox = inventory.topLevel.find((box) => box.type === "mdat");
+        expect(mdatBox).toBeDefined();
+        const extent = exifItem.extents[0]!;
+        const extentEnd = exifItem.baseOffset + extent.offset + extent.length;
+        expect(extentEnd).toBe(mdatBox!.offset + mdatBox!.size);
+
+        // No canary string anywhere in the output.
+        expect(destinationBytes.includes("ExifCleanerFixture")).toBe(false);
+        expect(destinationBytes.includes("GridTile")).toBe(false);
+
+        // Re-admits, and the destination's own admission agrees with the fixture's own source
+        // values (never a leaked or re-derived value).
+        const { size: destinationSize } = await stat(destinationPath);
+        const destinationAdmission = await withHandle(destinationPath, (handle) =>
+          admitIsobmff(handle, destinationSize),
+        );
+        expect(destinationAdmission.exifSourceItemId).toBe(6);
+        expect(destinationAdmission.orientation).toEqual({ status: "valid", value: 1 });
+        expect(destinationAdmission.sourceResolution).toEqual(resolutionOf(72, 72));
+      } finally {
+        restore();
+      }
+    },
+  );
 });

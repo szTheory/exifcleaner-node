@@ -1,10 +1,12 @@
 import type { FileHandle } from "node:fs/promises";
 import { COPY_BLOCK_BYTES } from "../io/copy-range.js";
 import { executionError } from "../errors.js";
+import { createMinimalExif } from "../metadata/exif.js";
 import { err, ok } from "../result.js";
 import type { MetadataError, Result } from "../types.js";
 import { classifyIsobmffModel, type IsobmffAdmission } from "./admission.js";
 import { IsobmffStructureError } from "./errors.js";
+import { computeIsobmffMinimalExifTags } from "./plan.js";
 import { parseIsobmff, type IsobmffModel } from "./parse.js";
 
 // ISOBMFF output verifier (Phase 62, D-18 subset): re-parses the destination through the real
@@ -105,12 +107,27 @@ export async function verifyIsobmffOutput(
   destinationHandle: FileHandle,
   destinationSize: number,
   destinationPath: string,
-  _preserveOrientation: boolean,
+  preserveOrientation: boolean,
   _preserveColorProfile: boolean,
-  _preserveResolution: boolean,
-  _expectedOrientation: number | undefined,
+  preserveResolution: boolean,
+  expectedOrientation: number | undefined,
   signal?: AbortSignal,
 ): Promise<Result<void>> {
+  // D-13/D-18: recompute the minimal Exif item's expected shape from the source admission and
+  // the request flags -- never from the plan -- so a planner bug cannot also fool the verifier.
+  const tags = computeIsobmffMinimalExifTags(
+    admission,
+    preserveOrientation,
+    preserveResolution,
+    expectedOrientation,
+  );
+  const keepExifItemId =
+    tags !== undefined ? admission.exifSourceItemId : undefined;
+  const expectedMinimalExifPayload =
+    keepExifItemId !== undefined
+      ? Buffer.concat([Buffer.alloc(4), createMinimalExif(tags!)])
+      : undefined;
+
   let destinationModel: IsobmffModel;
   try {
     destinationModel = await parseIsobmff(
@@ -183,9 +200,12 @@ export async function verifyIsobmffOutput(
       );
     }
 
+    // D-13: k's own id stays in the expected surviving set (in its original source-order slot)
+    // exactly when a minimal Exif item is required -- its old payload is gone, but its id is
+    // reused in place, never a new allocation.
     const removedIds = new Set(admission.classification.removableItemIds);
     const expectedSurvivingIds = admission.model.items
-      .filter((item) => !removedIds.has(item.id))
+      .filter((item) => !removedIds.has(item.id) || item.id === keepExifItemId)
       .map((item) => item.id);
     const actualSurvivingIds = destinationModel.items.map((item) => item.id);
     if (
@@ -200,19 +220,119 @@ export async function verifyIsobmffOutput(
       );
     }
 
+    // D-13/D-18: 0 or 1 Exif items. If 1, it must be k, reused at its own id -- never a new one,
+    // never more than one. No `mime` (XMP) item ever survives.
+    let exifItemCount = 0;
     for (const item of destinationModel.items) {
-      if (item.type === "Exif" || item.type === "mime") {
+      if (item.type === "mime") {
         return err(
-          verificationError(
-            `${item.type} item remained after sanitization.`,
-            destinationPath,
-          ),
+          verificationError("mime item remained after sanitization.", destinationPath),
         );
       }
+      if (item.type === "Exif") {
+        exifItemCount += 1;
+        if (item.id !== keepExifItemId) {
+          return err(
+            verificationError(
+              `Unexpected Exif item ${item.id} remained after sanitization.`,
+              destinationPath,
+            ),
+          );
+        }
+      }
+    }
+    if (exifItemCount > 1) {
+      return err(
+        verificationError("More than one Exif item remained after sanitization.", destinationPath),
+      );
+    }
+    if (keepExifItemId !== undefined && exifItemCount === 0) {
+      return err(
+        verificationError(
+          `Expected minimal Exif item ${keepExifItemId} is missing from the destination.`,
+          destinationPath,
+        ),
+      );
     }
 
     const sourceItemsById = admission.model.itemsById;
     for (const destinationItem of destinationModel.items) {
+      if (destinationItem.id === keepExifItemId) {
+        // D-13: k's payload is new, synthesized bytes -- compare against the recomputed
+        // expected payload, never against the source's own (removed) Exif bytes.
+        if (destinationItem.constructionMethod !== 0) {
+          return err(
+            verificationError(
+              `Minimal Exif item ${destinationItem.id} is not construction_method 0.`,
+              destinationPath,
+            ),
+          );
+        }
+        if (destinationItem.extents.length !== 1) {
+          return err(
+            verificationError(
+              `Minimal Exif item ${destinationItem.id} does not have exactly one extent.`,
+              destinationPath,
+            ),
+          );
+        }
+        const extent = destinationItem.extents[0]!;
+        if (
+          expectedMinimalExifPayload === undefined ||
+          extent.length !== expectedMinimalExifPayload.length
+        ) {
+          return err(
+            verificationError(
+              `Minimal Exif item ${destinationItem.id} payload length did not match the ` +
+                "expected minimal Exif payload.",
+              destinationPath,
+            ),
+          );
+        }
+        const absoluteOffset = resolveAbsoluteOffset(
+          destinationModel,
+          destinationItem,
+          extent,
+        );
+        const actualPayload = Buffer.allocUnsafe(extent.length);
+        const read = await destinationHandle.read(
+          actualPayload,
+          0,
+          extent.length,
+          absoluteOffset,
+        );
+        if (
+          read.bytesRead !== extent.length ||
+          !actualPayload.equals(expectedMinimalExifPayload)
+        ) {
+          return err(
+            verificationError(
+              `Minimal Exif item ${destinationItem.id} payload bytes did not match the ` +
+                "expected minimal Exif payload.",
+              destinationPath,
+            ),
+          );
+        }
+        const cdscRecord = destinationModel.references.find(
+          (reference) =>
+            reference.type === "cdsc" && reference.fromItemId === destinationItem.id,
+        );
+        if (
+          cdscRecord === undefined ||
+          cdscRecord.toItemIds.length !== 1 ||
+          cdscRecord.toItemIds[0] !== destinationModel.primaryItemId
+        ) {
+          return err(
+            verificationError(
+              `Minimal Exif item ${destinationItem.id} cdsc reference did not reduce to ` +
+                "[pitm].",
+              destinationPath,
+            ),
+          );
+        }
+        continue;
+      }
+
       const sourceItem = sourceItemsById.get(destinationItem.id);
       if (sourceItem === undefined) {
         return err(

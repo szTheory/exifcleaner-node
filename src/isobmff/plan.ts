@@ -1,6 +1,8 @@
 import type { IsobmffAdmission } from "./admission.js";
+import type { BoxHeader } from "./boxes.js";
 import type { IsobmffItem, IsobmffItemLayout } from "./items.js";
 import {
+  buildMinimalExifInfe,
   fullBoxHeader,
   plainBoxHeader,
   rebuildIinf,
@@ -10,6 +12,7 @@ import {
   rebuildIref,
   type IlocRewrite,
 } from "./rebuild.js";
+import { createMinimalExif, type MinimalExifTags } from "../metadata/exif.js";
 
 // ISOBMFF output plan (Phase 62, D-11/D-12/D-14/D-15 subset): `buildIsobmffOutputPlan` is a pure
 // transform over an already-admitted `IsobmffAdmission` -- it never reads a byte itself, only the
@@ -17,11 +20,13 @@ import {
 // resulting `IsobmffOutputPlan` is frozen plain data: `writeIsobmffOutput` (writer.ts) derives
 // every byte it writes from (source, plan) only, never from the admission.
 //
-// Scope note: D-13 (minimal Exif synthesis) and D-16 (ICC removal) are deferred to a later plan --
-// this plan's tracer exercises only `preserveOrientation`/`preserveColorProfile`/
-// `preserveResolution` combinations where neither applies to the one committed fixture (no colr
-// prof/rICC is present; only nclx). The three preservation parameters are accepted (to match the
-// `FormatHandler` contract) but not yet acted on.
+// Scope note: D-16 (ICC removal) is deferred to a later plan. D-13 (minimal Exif synthesis) is
+// implemented here (62-07): `computeIsobmffMinimalExifTags` mirrors the JPEG handler's
+// `computeMinimalExifTags` rule, and `buildIsobmffOutputPlan` keeps source item k (the Exif item
+// `admitIsobmff` resolved as the one describing the primary, D-13) in place under its own id when
+// a tag applies, rewriting its `infe` (empty name, item_protection_index 0), its `iloc` entry (new
+// payload at the `mdat` tail, construction_method 0), and its `iref` `cdsc` record (to-list
+// reduced to `[pitm]`) -- every other removable item is still dropped exactly as before.
 
 export type IsobmffOutputPlanPart =
   | { readonly kind: "copy"; readonly sourceOffset: number; readonly length: number }
@@ -275,10 +280,88 @@ function computeIlocRewrites(
   return rewrites;
 }
 
+/**
+ * D-13: the minimal IFD0 tag set the writer may synthesize into item k -- orientation only when
+ * `preserveOrientation` requested a valid one, resolution only from k's own IFD0 (`admission.
+ * sourceResolution`, already scoped to k by `findExifSourceItemId`, admission.ts) when
+ * `preserveResolution` requested it. `undefined` when neither tag applies (nothing to write).
+ * Mirrors `src/admission/jpeg-handler.ts`'s `computeMinimalExifTags` exactly.
+ */
+export function computeIsobmffMinimalExifTags(
+  admission: IsobmffAdmission,
+  preserveOrientation: boolean,
+  preserveResolution: boolean,
+  orientation: number | undefined,
+): MinimalExifTags | undefined {
+  const tags: MinimalExifTags = {
+    ...(preserveOrientation && orientation !== undefined
+      ? { orientation }
+      : {}),
+    ...(preserveResolution && admission.sourceResolution !== undefined
+      ? { resolution: admission.sourceResolution }
+      : {}),
+  };
+  return tags.orientation === undefined && tags.resolution === undefined
+    ? undefined
+    : tags;
+}
+
+/** D-13: k's own `infe` FullBox version (2 or 3), read directly from `metaPayload` at its
+ * already-located range -- the item model does not carry infe version per item (only the
+ * `hidden` flag, which it does carry), so this is the one extra read `buildIsobmffOutputPlan`
+ * needs to rewrite k's `infe` with the right version. */
+function readInfeVersion(
+  metaPayload: Buffer,
+  infeRanges: ReadonlyMap<number, BoxHeader>,
+  itemId: number,
+): number {
+  const range = infeRanges.get(itemId);
+  if (range === undefined) {
+    throw new Error(`readInfeVersion: no infe range for item ${itemId}`);
+  }
+  return metaPayload.readUInt8(range.payloadStart);
+}
+
+/** D-11: the minimal Exif item's `iloc` rewrite, given the new absolute tail position its single
+ * extent lands at. `baseOffsetSize > 0`: base = the tail position, extent offset = 0 (the
+ * heif-enc shape, measured). `baseOffsetSize == 0`: extent offset = the tail position, no base. */
+function computeMinimalExifIlocRewrite(
+  baseOffsetSize: number,
+  tailAbsolutePosition: number,
+): IlocRewrite {
+  if (baseOffsetSize > 0) {
+    return { newBaseOffset: tailAbsolutePosition, extentOffsets: [0] };
+  }
+  return { newBaseOffset: 0, extentOffsets: [tailAbsolutePosition] };
+}
+
+/** Merges k's own `iloc` rewrite (if any) into the rewrites map the normal surviving-item pass
+ * already produced -- k's placement is always the surviving union's own end
+ * (`survivingUnionLength`), never resolved through `mapAbsoluteOffset`/the merged-range table
+ * (its payload is new bytes, not a source range). */
+function mergeMinimalExifRewrite(
+  rewrites: ReadonlyMap<number, IlocRewrite>,
+  kItem: IsobmffItem | undefined,
+  baseOffsetSize: number,
+  newMdatPayloadStart: number,
+  survivingUnionLength: number,
+): ReadonlyMap<number, IlocRewrite> {
+  if (kItem === undefined) return rewrites;
+  const map = new Map(rewrites);
+  map.set(
+    kItem.id,
+    computeMinimalExifIlocRewrite(
+      baseOffsetSize,
+      newMdatPayloadStart + survivingUnionLength,
+    ),
+  );
+  return map;
+}
+
 function buildMetaBytes(
   layoutItem: IsobmffItemLayout,
   metaPayload: Buffer,
-  survivingItems: readonly IsobmffItem[],
+  itemsForMeta: readonly IsobmffItem[],
   iinfBytes: Buffer,
   irefBytes: Buffer | undefined,
   iprpBytes: Buffer | undefined,
@@ -290,7 +373,7 @@ function buildMetaBytes(
     layoutItem.ilocLengthSize,
     layoutItem.ilocBaseOffsetSize,
     layoutItem.ilocIndexSize,
-    survivingItems,
+    itemsForMeta,
     ilocRewrites,
   );
   const parts: Buffer[] = [];
@@ -334,16 +417,34 @@ function isDroppedTopLevelBox(box: { readonly type: string }): boolean {
 
 export function buildIsobmffOutputPlan(
   admission: IsobmffAdmission,
-  _preserveOrientation: boolean,
+  preserveOrientation: boolean,
   _preserveColorProfile: boolean,
-  _preserveResolution: boolean,
-  _orientation: number | undefined,
+  preserveResolution: boolean,
+  orientation: number | undefined,
 ): IsobmffOutputPlan {
   const { model, classification } = admission;
   const { layout } = model;
   const removedIds = new Set(classification.removableItemIds);
   const survivingItems = model.items.filter((item) => !removedIds.has(item.id));
   const survivingItemIds = survivingItems.map((item) => item.id);
+
+  // D-13: the minimal Exif item. `tags` is undefined when neither preservation flag applies (or
+  // k's own payload held neither a valid Orientation nor a resolution); `keepExifItemId` is
+  // additionally undefined when there is no k at all (no Exif item describes the primary, or the
+  // only such item is emptied, admission.ts's `findExifSourceItemId`) -- in either case no new
+  // item id is ever allocated and no Exif item is written (ISO-04 empty edge).
+  const tags = computeIsobmffMinimalExifTags(
+    admission,
+    preserveOrientation,
+    preserveResolution,
+    orientation,
+  );
+  const keepExifItemId =
+    tags !== undefined ? admission.exifSourceItemId : undefined;
+  const minimalExifPayload =
+    keepExifItemId !== undefined
+      ? Buffer.concat([Buffer.alloc(4), createMinimalExif(tags!)])
+      : undefined;
 
   // D-14: walk every top-level box in its own source order, dropping free/skip/C2PA uuid
   // wherever they sit (right after ftyp, between meta and mdat, after mdat, or more than once) --
@@ -367,25 +468,91 @@ export function buildIsobmffOutputPlan(
       "Source is missing a top-level ftyp, meta or mdat box.",
     );
   }
+
+  // D-12 (62-07): decline before any write when a minimal Exif item is required but the source's
+  // iloc widths cannot express its tail location (offset_size and base_offset_size both 0 -- no
+  // field can carry an absolute position at all) or its length (length_size 0).
+  if (keepExifItemId !== undefined) {
+    const { ilocOffsetSize, ilocBaseOffsetSize, ilocLengthSize } = layout.item;
+    if (
+      (ilocOffsetSize === 0 && ilocBaseOffsetSize === 0) ||
+      ilocLengthSize === 0
+    ) {
+      return declined(
+        classification.removableItemIds,
+        "offset-rewrite-overflow: a minimal Exif item is required but the source iloc cannot " +
+          `express its location (offset_size ${ilocOffsetSize}, base_offset_size ` +
+          `${ilocBaseOffsetSize}, length_size ${ilocLengthSize}).`,
+      );
+    }
+  }
+
   const sourceExtents = collectSourceExtents(survivingItems);
   const mergedRanges = buildMergedMdatRanges(sourceExtents);
   const relativeOffsets = newRelativeOffsets(sourceExtents, mergedRanges);
-  const newMdatPayloadLength = totalMergedLength(mergedRanges);
+  const survivingUnionLength = totalMergedLength(mergedRanges);
+  const newMdatPayloadLength =
+    survivingUnionLength + (minimalExifPayload?.length ?? 0);
 
-  // iinf: always rebuilt (entry_count shrinks, surviving infe boxes copied verbatim).
+  // D-13: k stays declared at its own id, in its original iinf/iloc slot, alongside every normal
+  // surviving item -- never among `survivingItems` (its old payload must never reach the output;
+  // it keeps living in `removedIds` for every other purpose, e.g. ipma exclusion below).
+  const kSourceItem =
+    keepExifItemId !== undefined ? model.itemsById.get(keepExifItemId) : undefined;
+  const kItem: IsobmffItem | undefined =
+    kSourceItem !== undefined && minimalExifPayload !== undefined
+      ? {
+          ...kSourceItem,
+          extents: [{ index: 0, offset: 0, length: minimalExifPayload.length }],
+        }
+      : undefined;
+  const itemsForMeta: readonly IsobmffItem[] =
+    kItem === undefined
+      ? survivingItems
+      : model.items
+          .filter((item) => !removedIds.has(item.id) || item.id === kItem.id)
+          .map((item) => (item.id === kItem.id ? kItem : item));
+  const itemsForMetaIds = itemsForMeta.map((item) => item.id);
+
+  // iinf: always rebuilt (entry_count shrinks, surviving infe boxes copied verbatim; k's infe is
+  // rewritten, never copied verbatim, D-13).
+  const infeOverrides =
+    kItem !== undefined
+      ? new Map([
+          [
+            kItem.id,
+            buildMinimalExifInfe(
+              readInfeVersion(layout.metaPayload, layout.item.infeRanges, kItem.id),
+              kItem.hidden,
+              kItem.id,
+            ),
+          ],
+        ])
+      : undefined;
   const iinfBytes = rebuildIinf(
     layout.metaPayload,
     layout.item.iinfVersion,
-    survivingItemIds,
+    itemsForMetaIds,
     layout.item.infeRanges,
+    infeOverrides,
   );
 
-  // iref: rebuilt from records whose from-item survives; dropped entirely if that leaves none.
+  // iref: rebuilt from records whose from-item survives; k's own cdsc record (the one that made
+  // it k) stays in its slot with its to-list reduced to `[pitm]` only (D-13); dropped entirely if
+  // that leaves none.
   let irefBytes: Buffer | undefined;
   if (layout.item.irefVersion !== undefined) {
-    const survivingReferences = model.references.filter(
-      (reference) => !removedIds.has(reference.fromItemId),
-    );
+    const survivingReferences = model.references
+      .filter(
+        (reference) =>
+          !removedIds.has(reference.fromItemId) ||
+          reference.fromItemId === kItem?.id,
+      )
+      .map((reference) =>
+        reference.fromItemId === kItem?.id
+          ? { ...reference, toItemIds: [model.primaryItemId] }
+          : reference,
+      );
     if (survivingReferences.length > 0) {
       irefBytes = rebuildIref(layout.item.irefVersion, survivingReferences);
     }
@@ -426,19 +593,22 @@ export function buildIsobmffOutputPlan(
 
   // D-11: widths never change, so the rebuilt meta's length is independent of the actual offset
   // *values* -- probe with offset 0 to learn the new mdat payload's start, then rebuild once more
-  // with the real values.
-  const probeRewrites = computeIlocRewrites(
-    survivingItems,
-    relativeOffsets,
+  // with the real values. k's own rewrite (D-11/D-13: base = tail, offset 0, or offset = tail
+  // when there is no base field) is computed separately and merged in -- its placement is always
+  // the surviving union's own end (`survivingUnionLength`), never a per-item merged-range lookup.
+  const probeRewrites = mergeMinimalExifRewrite(
+    computeIlocRewrites(survivingItems, relativeOffsets, layout.item.ilocBaseOffsetSize, 0),
+    kItem,
     layout.item.ilocBaseOffsetSize,
     0,
+    survivingUnionLength,
   );
   // D-12: the probe pass already carries the real relative deltas (only the absolute
   // `newMdatPayloadStart` term is a placeholder) -- a negative extent offset is just as real
   // here as in the final pass, and `rebuildIloc`'s `writeSizedUint` has no bounds check of its
   // own, so this must be caught before `buildMetaBytes` ever serializes it.
   const probeFitError = checkIlocRewriteFit(
-    survivingItems,
+    itemsForMeta,
     probeRewrites,
     layout.item.ilocBaseOffsetSize,
     layout.item.ilocOffsetSize,
@@ -449,7 +619,7 @@ export function buildIsobmffOutputPlan(
   const probeMetaBytes = buildMetaBytes(
     layout.item,
     layout.metaPayload,
-    survivingItems,
+    itemsForMeta,
     iinfBytes,
     irefBytes,
     iprpBytes,
@@ -469,14 +639,20 @@ export function buildIsobmffOutputPlan(
   }
   const newMdatPayloadStart = runningOffsetBeforeMdat + mdatBox.headerSize;
 
-  const finalRewrites = computeIlocRewrites(
-    survivingItems,
-    relativeOffsets,
+  const finalRewrites = mergeMinimalExifRewrite(
+    computeIlocRewrites(
+      survivingItems,
+      relativeOffsets,
+      layout.item.ilocBaseOffsetSize,
+      newMdatPayloadStart,
+    ),
+    kItem,
     layout.item.ilocBaseOffsetSize,
     newMdatPayloadStart,
+    survivingUnionLength,
   );
   const finalFitError = checkIlocRewriteFit(
-    survivingItems,
+    itemsForMeta,
     finalRewrites,
     layout.item.ilocBaseOffsetSize,
     layout.item.ilocOffsetSize,
@@ -493,7 +669,7 @@ export function buildIsobmffOutputPlan(
   const metaBytes = buildMetaBytes(
     layout.item,
     layout.metaPayload,
-    survivingItems,
+    itemsForMeta,
     iinfBytes,
     irefBytes,
     iprpBytes,
@@ -525,6 +701,11 @@ export function buildIsobmffOutputPlan(
           sourceOffset: range.start,
           length: range.end - range.start,
         });
+      }
+      // D-13: the minimal Exif item's payload, appended as one construction-method-0 extent
+      // right where the surviving union ends (no gap) -- never in idat.
+      if (minimalExifPayload !== undefined) {
+        parts.push({ kind: "bytes", data: minimalExifPayload });
       }
     }
   }
