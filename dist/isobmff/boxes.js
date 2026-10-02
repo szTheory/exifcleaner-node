@@ -38,6 +38,9 @@ function containerChildOffset(type, buffer, payloadStart) {
     if (type === "meta" || type === "iref")
         return 4;
     if (type === "iinf") {
+        if (payloadStart >= buffer.length) {
+            throw boxFramingError(`iinf payload is too short to carry its version byte at offset ${payloadStart}.`);
+        }
         const version = buffer.readUInt8(payloadStart);
         return version === 0 ? 4 + 2 : 4 + 4;
     }

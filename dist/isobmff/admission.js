@@ -35,6 +35,20 @@ export const DECLINE_RULE_ORDER = Object.freeze([
     "extent-outside-mdat",
     "removable-extent-overlap",
 ]);
+/**
+ * Add two independently-`MAX_SAFE_INTEGER`-bounded offsets, declining `extent-outside-mdat`
+ * rather than silently losing precision if their sum would exceed `Number.isSafeInteger` (WR-01,
+ * code review 2026-10-01). `item.baseOffset` and `extent.offset`/`extent.length` are each
+ * validated individually by `readSizedUint` (iloc.ts), but their sum is not -- this is the single
+ * choke point every such sum in this module must route through.
+ */
+function addSafeOffsets(a, b, context) {
+    const sum = a + b;
+    if (!Number.isSafeInteger(sum)) {
+        throw new IsobmffStructureError("extent-outside-mdat", `${context}: offset arithmetic (${a} + ${b}) exceeds safe integer precision.`);
+    }
+    return sum;
+}
 function mdatBounds(model) {
     const range = model.mdatRanges[0];
     return range === undefined
@@ -149,14 +163,14 @@ export function classifyIsobmffModel(model, fileSize) {
                 if (idat === undefined) {
                     throw new IsobmffStructureError("extent-outside-mdat", `Item ${item.id} is construction_method 1 but meta has no idat.`);
                 }
-                const start = item.baseOffset + extent.offset;
-                const end = start + extent.length;
+                const start = addSafeOffsets(item.baseOffset, extent.offset, `Item ${item.id}'s idat extent start`);
+                const end = addSafeOffsets(start, extent.length, `Item ${item.id}'s idat extent end`);
                 if (start < 0 || end > idat.length) {
                     throw new IsobmffStructureError("extent-outside-mdat", `Item ${item.id}'s idat extent [${start}, ${end}) is outside idat (length ${idat.length}).`);
                 }
                 continue;
             }
-            const start = item.baseOffset + extent.offset;
+            const start = addSafeOffsets(item.baseOffset, extent.offset, `Item ${item.id}'s extent start`);
             if (extent.length === 0) {
                 const insideMdat = mdat !== undefined && start >= mdat.start && start <= mdat.end;
                 const atFileEnd = start === fileSize;
@@ -165,7 +179,7 @@ export function classifyIsobmffModel(model, fileSize) {
                 }
                 continue;
             }
-            const end = start + extent.length;
+            const end = addSafeOffsets(start, extent.length, `Item ${item.id}'s extent end`);
             if (mdat === undefined || start < mdat.start || end > mdat.end) {
                 throw new IsobmffStructureError("extent-outside-mdat", `Item ${item.id}'s extent [${start}, ${end}) is outside the single mdat payload.`);
             }
@@ -179,10 +193,10 @@ export function classifyIsobmffModel(model, fileSize) {
         for (const extent of item.extents) {
             if (extent.length === 0)
                 continue;
-            const start = item.baseOffset + extent.offset;
+            const start = addSafeOffsets(item.baseOffset, extent.offset, `Item ${item.id}'s surviving extent start`);
             survivingRanges.push({
                 start,
-                end: start + extent.length,
+                end: addSafeOffsets(start, extent.length, `Item ${item.id}'s surviving extent end`),
                 itemId: item.id,
             });
         }
@@ -193,8 +207,8 @@ export function classifyIsobmffModel(model, fileSize) {
         for (const extent of item.extents) {
             if (extent.length === 0)
                 continue;
-            const start = item.baseOffset + extent.offset;
-            const end = start + extent.length;
+            const start = addSafeOffsets(item.baseOffset, extent.offset, `Item ${item.id}'s removable extent start`);
+            const end = addSafeOffsets(start, extent.length, `Item ${item.id}'s removable extent end`);
             for (const surviving of survivingRanges) {
                 if (start < surviving.end && surviving.start < end) {
                     throw new IsobmffStructureError("removable-extent-overlap", `Removable item ${item.id}'s extent [${start}, ${end}) overlaps surviving item ` +
@@ -264,7 +278,7 @@ export async function admitIsobmff(handle, size, signal, caps = DEFAULT_ISOBMFF_
             continue; // unreachable: classification is derived from model.items
         const parts = [];
         for (const extent of item.extents) {
-            const absoluteOffset = item.baseOffset + extent.offset;
+            const absoluteOffset = addSafeOffsets(item.baseOffset, extent.offset, `Item ${item.id}'s read extent start`);
             budget.consumeBuffered(extent.length);
             parts.push(await readExactly(handle, extent.length, absoluteOffset));
         }

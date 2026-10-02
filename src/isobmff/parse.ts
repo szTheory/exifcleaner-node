@@ -119,6 +119,7 @@ export async function parseIsobmff(
   let metaRange: IsobmffRange | undefined;
   const mdatRanges: IsobmffRange[] = [];
   const removableTopLevel: IsobmffRange[] = [];
+  let sawFtyp = false;
   let sawMeta = false;
   let sawMdat = false;
   let iloc: IlocTable | undefined;
@@ -131,6 +132,13 @@ export async function parseIsobmff(
     }
 
     if (header.type === "ftyp") {
+      if (sawFtyp) {
+        throw new IsobmffStructureError(
+          "box-framing",
+          'A second top-level "ftyp" box is not permitted.',
+        );
+      }
+      sawFtyp = true;
       const payload = await readExactly(
         handle,
         header.end - header.payloadStart,

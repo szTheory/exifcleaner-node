@@ -742,6 +742,105 @@ describe("item-graph validity declines (BMF-04)", () => {
     );
   });
 
+  // WR-02 (code review 2026-10-01): the reverse direction of the check above -- an item declared
+  // in iinf with NO corresponding iloc entry at all (distinct from an iloc entry with
+  // extent_count 0, D-10a's legitimate "admitted, emptied" shape) must decline item-graph-invalid,
+  // not silently default to `extents: []` and resolve to "admitted, pre-emptied" with no error.
+  it("an iinf item with no corresponding iloc entry at all declines item-graph-invalid", async () => {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe1 = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const infe2 = infeBox({
+      version: 2,
+      itemId: 2,
+      itemType: "Exif",
+      hidden: true,
+    });
+    const iinf = iinfBox(0, [infe1, infe2]); // item 2 declared, no matching iloc entry below
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        { itemId: 1, associations: [{ propertyIndex: 1, essential: false }] },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+        // item 2 (Exif) is intentionally absent here.
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+    await expectDecline(
+      Buffer.concat([ftyp, meta, mdat]),
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+
+  it("an iinf item with an iloc entry whose extent_count is 0 still admits as emptied (D-10a, not WR-02)", async () => {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe1 = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const infe2 = infeBox({
+      version: 2,
+      itemId: 2,
+      itemType: "Exif",
+      hidden: true,
+    });
+    const iinf = iinfBox(0, [infe1, infe2]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        { itemId: 1, associations: [{ propertyIndex: 1, essential: false }] },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+        {
+          itemId: 2,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [], // a *present* iloc entry, extent_count 0 -- not WR-02's missing-entry shape
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+    const model = await parseFixtureBytes(Buffer.concat([ftyp, meta, mdat]));
+    const exifItem = model.itemsById.get(2);
+    expect(exifItem?.extents).toEqual([]);
+  });
+
   it("an iref naming an undeclared item declines item-graph-invalid", async () => {
     const file = buildMinimalFile({
       extraMetaChildren: [

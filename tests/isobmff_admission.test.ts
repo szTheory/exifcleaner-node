@@ -1000,3 +1000,103 @@ describe("classifyIsobmffModel direct unit coverage (BMF-03 ordering)", () => {
     }
   });
 });
+
+// WR-01 (code review 2026-10-01): `item.baseOffset` and `extent.offset` are each independently
+// validated by `readSizedUint` (iloc.ts) to be at most `Number.MAX_SAFE_INTEGER`, but their *sum*
+// was not checked -- a lossy `Number` cast risk this module's own precision discipline forbids
+// (iloc.ts's own 8-byte `readSizedUint` branch declines rather than casting lossily). This
+// bespoke builder (not `buildFile`, which hardcodes 4-byte iloc widths) constructs a minimal,
+// otherwise-valid single-item file with 8-byte `iloc` offset/base_offset widths so `baseOffset`
+// can be set to exactly `Number.MAX_SAFE_INTEGER` -- individually safe, per readSizedUint -- while
+// `extent.offset` is a small, also individually-safe value whose *sum* exceeds safe-integer
+// precision.
+describe("WR-01: offset-sum precision guard in admission.ts", () => {
+  function buildWideOffsetFile(
+    baseOffset: number,
+    extentOffset: number,
+  ): Buffer {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const iinf = iinfBox(0, [infe]);
+    const iloc = ilocBox({
+      version: 1,
+      offsetSize: 8,
+      lengthSize: 4,
+      baseOffsetSize: 8,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          constructionMethod: 0,
+          dataReferenceIndex: 0,
+          baseOffset,
+          extents: [{ offset: extentOffset, length: 4 }],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iloc]);
+    return Buffer.concat([ftyp, meta]);
+  }
+
+  it("declines extent-outside-mdat when baseOffset + extent.offset exceeds Number.MAX_SAFE_INTEGER, though each is individually safe", async () => {
+    const baseOffset = Number.MAX_SAFE_INTEGER;
+    const extentOffset = 10;
+    expect(Number.isSafeInteger(baseOffset)).toBe(true);
+    expect(Number.isSafeInteger(extentOffset)).toBe(true);
+    expect(Number.isSafeInteger(baseOffset + extentOffset)).toBe(false);
+
+    const bytes = buildWideOffsetFile(baseOffset, extentOffset);
+    const { path, size } = await writeFixture(bytes);
+    await expect(
+      withHandle(path, (handle) => admitIsobmff(handle, size)),
+    ).rejects.toMatchObject({
+      declineClass: "extent-outside-mdat",
+      kind: "malformed-file",
+      message: expect.stringContaining("exceeds safe integer precision"),
+    });
+  });
+
+  it("admits the same shape when baseOffset + extent.offset stays within safe-integer precision (negative control)", async () => {
+    // Same 8-byte iloc widths, but an mdat payload actually backing the (safe-sum) extent --
+    // proves the precision guard itself, not merely "any 8-byte-width file declines".
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const infe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const iinf = iinfBox(0, [infe]);
+    const buildHeader = (mdatPayloadStart: number): Buffer => {
+      const iloc = ilocBox({
+        version: 1,
+        offsetSize: 8,
+        lengthSize: 4,
+        baseOffsetSize: 8,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 1,
+            constructionMethod: 0,
+            dataReferenceIndex: 0,
+            baseOffset: mdatPayloadStart,
+            extents: [{ offset: 0, length: 4 }],
+          },
+        ],
+      });
+      const meta = metaBox([hdlr, pitm, iinf, iloc]);
+      return Buffer.concat([ftyp, meta]);
+    };
+    const headerOnly = buildHeader(0);
+    const mdatPayloadStart = headerOnly.length + 8;
+    const header = buildHeader(mdatPayloadStart);
+    expect(header.length).toBe(headerOnly.length);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+    const bytes = Buffer.concat([header, mdat]);
+
+    const { path, size } = await writeFixture(bytes);
+    const admission = await withHandle(path, (handle) =>
+      admitIsobmff(handle, size),
+    );
+    expect(admission.classification.survivingItemIds).toEqual([1]);
+  });
+});

@@ -42,6 +42,7 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
     let metaRange;
     const mdatRanges = [];
     const removableTopLevel = [];
+    let sawFtyp = false;
     let sawMeta = false;
     let sawMdat = false;
     let iloc;
@@ -52,6 +53,10 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
             throw new IsobmffStructureError("box-framing", "Parsing aborted.");
         }
         if (header.type === "ftyp") {
+            if (sawFtyp) {
+                throw new IsobmffStructureError("box-framing", 'A second top-level "ftyp" box is not permitted.');
+            }
+            sawFtyp = true;
             const payload = await readExactly(handle, header.end - header.payloadStart, header.payloadStart);
             const parsed = parseFtyp(payload);
             majorBrand = parsed.majorBrand;

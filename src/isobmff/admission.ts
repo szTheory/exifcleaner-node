@@ -78,6 +78,24 @@ export interface IsobmffAdmission extends FormatAdmission {
   readonly classification: IsobmffDisposition;
 }
 
+/**
+ * Add two independently-`MAX_SAFE_INTEGER`-bounded offsets, declining `extent-outside-mdat`
+ * rather than silently losing precision if their sum would exceed `Number.isSafeInteger` (WR-01,
+ * code review 2026-10-01). `item.baseOffset` and `extent.offset`/`extent.length` are each
+ * validated individually by `readSizedUint` (iloc.ts), but their sum is not -- this is the single
+ * choke point every such sum in this module must route through.
+ */
+function addSafeOffsets(a: number, b: number, context: string): number {
+  const sum = a + b;
+  if (!Number.isSafeInteger(sum)) {
+    throw new IsobmffStructureError(
+      "extent-outside-mdat",
+      `${context}: offset arithmetic (${a} + ${b}) exceeds safe integer precision.`,
+    );
+  }
+  return sum;
+}
+
 function mdatBounds(
   model: IsobmffModel,
 ): { readonly start: number; readonly end: number } | undefined {
@@ -241,8 +259,16 @@ export function classifyIsobmffModel(
             `Item ${item.id} is construction_method 1 but meta has no idat.`,
           );
         }
-        const start = item.baseOffset + extent.offset;
-        const end = start + extent.length;
+        const start = addSafeOffsets(
+          item.baseOffset,
+          extent.offset,
+          `Item ${item.id}'s idat extent start`,
+        );
+        const end = addSafeOffsets(
+          start,
+          extent.length,
+          `Item ${item.id}'s idat extent end`,
+        );
         if (start < 0 || end > idat.length) {
           throw new IsobmffStructureError(
             "extent-outside-mdat",
@@ -252,7 +278,11 @@ export function classifyIsobmffModel(
         continue;
       }
 
-      const start = item.baseOffset + extent.offset;
+      const start = addSafeOffsets(
+        item.baseOffset,
+        extent.offset,
+        `Item ${item.id}'s extent start`,
+      );
       if (extent.length === 0) {
         const insideMdat =
           mdat !== undefined && start >= mdat.start && start <= mdat.end;
@@ -266,7 +296,11 @@ export function classifyIsobmffModel(
         continue;
       }
 
-      const end = start + extent.length;
+      const end = addSafeOffsets(
+        start,
+        extent.length,
+        `Item ${item.id}'s extent end`,
+      );
       if (mdat === undefined || start < mdat.start || end > mdat.end) {
         throw new IsobmffStructureError(
           "extent-outside-mdat",
@@ -290,10 +324,18 @@ export function classifyIsobmffModel(
     }
     for (const extent of item.extents) {
       if (extent.length === 0) continue;
-      const start = item.baseOffset + extent.offset;
+      const start = addSafeOffsets(
+        item.baseOffset,
+        extent.offset,
+        `Item ${item.id}'s surviving extent start`,
+      );
       survivingRanges.push({
         start,
-        end: start + extent.length,
+        end: addSafeOffsets(
+          start,
+          extent.length,
+          `Item ${item.id}'s surviving extent end`,
+        ),
         itemId: item.id,
       });
     }
@@ -302,8 +344,16 @@ export function classifyIsobmffModel(
     if (kinds.get(item.id) !== "removable") continue;
     for (const extent of item.extents) {
       if (extent.length === 0) continue;
-      const start = item.baseOffset + extent.offset;
-      const end = start + extent.length;
+      const start = addSafeOffsets(
+        item.baseOffset,
+        extent.offset,
+        `Item ${item.id}'s removable extent start`,
+      );
+      const end = addSafeOffsets(
+        start,
+        extent.length,
+        `Item ${item.id}'s removable extent end`,
+      );
       for (const surviving of survivingRanges) {
         if (start < surviving.end && surviving.start < end) {
           throw new IsobmffStructureError(
@@ -390,7 +440,11 @@ export async function admitIsobmff(
 
     const parts: Buffer[] = [];
     for (const extent of item.extents) {
-      const absoluteOffset = item.baseOffset + extent.offset;
+      const absoluteOffset = addSafeOffsets(
+        item.baseOffset,
+        extent.offset,
+        `Item ${item.id}'s read extent start`,
+      );
       budget.consumeBuffered(extent.length);
       parts.push(await readExactly(handle, extent.length, absoluteOffset));
     }

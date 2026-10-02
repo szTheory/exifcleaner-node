@@ -12,6 +12,16 @@ adds no new public API: no production HEIC/AVIF handler is registered, `NativeFo
 leaves WebP/PNG/JPEG selection behavior unchanged (re-verified by their own full suites and
 golden hashes).
 
+A code review pass hardened the still-unregistered `src/isobmff/` engine before it is ever
+wired to a public handler: an unguarded single-byte read while locating an `iinf` box's children
+now bounds-checks first, declining `box-framing` instead of throwing a native `RangeError`; an
+offset-arithmetic helper now declines `extent-outside-mdat` if `baseOffset + extent.offset` (or
+`+ extent.length`) would exceed `Number.MAX_SAFE_INTEGER`, even when each operand is individually
+safe; an item declared in `iinf` with no corresponding `iloc` entry at all now declines
+`item-graph-invalid` instead of silently resolving to "admitted, pre-emptied"; and a second
+top-level `ftyp` box now declines `box-framing` instead of silently overwriting the first ftyp's
+brand values. No public API change; this engine is still unreachable from any registered format.
+
 ### Fixed (PNG)
 
 PNG metadata parsing no longer allows an unbounded amount of non-`IDAT` chunk data to be
