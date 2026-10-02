@@ -4,12 +4,17 @@
 // the empty-input edges (zero items, no meta). `tests/isobmff-support/hostile.ts` is the one
 // support module allowed a type-only import of `IsobmffDeclineClass` from `src/isobmff/errors.js`
 // (see tests/isobmff_isolation.test.ts); this test file itself imports `src/isobmff/` freely.
-import { mkdtemp, open, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, open, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { admitIsobmff } from "../src/isobmff/admission.js";
 import { classifyIsobmffBrand } from "../src/isobmff/brand.js";
+import { sanitizeFile } from "../src/engine.js";
+import {
+  registeredHandlersForTests,
+  setRegisteredHandlersForTests,
+} from "../src/admission/registry.js";
 import {
   DECLINE_CLASS_TO_KIND,
   ISOBMFF_DECLINE_CLASSES,
@@ -18,10 +23,12 @@ import {
 import {
   assembleHeif,
   box,
+  fullBox,
   HOSTILE_FIXTURES,
   NON_C2PA_UUID_USERTYPE,
   uuidBox,
 } from "./isobmff-support/hostile.js";
+import { createIsobmffTestHandler } from "./isobmff-support/test-handler.js";
 
 const cleanupDirectories: string[] = [];
 
@@ -62,6 +69,62 @@ async function expectAdmissionDecline(
     kind: expectedCode,
   });
   expect(DECLINE_CLASS_TO_KIND[declineClass]).toBe(expectedCode);
+}
+
+/**
+ * D-17 (62-04): proves a hostile fixture declines through the REAL engine before any write --
+ * `admitIsobmff` directly, then `sanitizeFile` with the 61 counting test handler (D-16 pattern):
+ * `admit` called exactly once, every write-side counter stays 0, the directory holds only the
+ * untouched source, and the source bytes are byte-identical to before the run.
+ */
+async function expectFullyDeclinedBeforeWrite(
+  path: string,
+  declineClass: IsobmffDeclineClass,
+  expectedCode: "unsupported-format" | "unsafe-structure" | "malformed-file",
+): Promise<void> {
+  await expectAdmissionDecline(path, declineClass, expectedCode);
+
+  const directory = dirname(path);
+  const sourceName = basename(path);
+  const sourceBytes = await readFile(path);
+  const destinationPath = join(directory, "destination.bin");
+
+  const { handler, counters } = createIsobmffTestHandler();
+  const restore = setRegisteredHandlersForTests([
+    ...registeredHandlersForTests(),
+    handler,
+  ]);
+  try {
+    const sanitized = await sanitizeFile({
+      sourcePath: path,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: false,
+    });
+    expect(sanitized.ok).toBe(false);
+    if (sanitized.ok) throw new Error("unreachable");
+    expect(sanitized.error).toMatchObject({
+      code: expectedCode,
+      phase: "admission",
+      nativeWrite: "not-started",
+    });
+
+    expect(counters.admit).toBe(1);
+    expect(counters.buildOutputPlan).toBe(0);
+    expect(counters.checkOutputPlan).toBe(0);
+    expect(counters.writeOutput).toBe(0);
+    expect(counters.verifyOutput).toBe(0);
+
+    const listing = await readdir(directory);
+    expect(listing).toEqual([sourceName]);
+
+    const sourceAfter = await readFile(path);
+    expect(sourceAfter.equals(sourceBytes)).toBe(true);
+  } finally {
+    restore();
+  }
 }
 
 describe("HOSTILE_FIXTURES catalog shape (D-14)", () => {
@@ -308,6 +371,28 @@ async function writeFile(path: string, bytes: Buffer): Promise<void> {
     await handle.close();
   }
 }
+
+describe("D-17 graph-integrity declines (62-04)", () => {
+  it("an ipma entry for an undeclared item (item_ID 99) declines item-graph-invalid end to end, zero writes", async () => {
+    const path = await freshPath();
+    const bytes = assembleHeif({
+      // twoPass: a realistic (non-placeholder) baseOffset so the only deviation from a
+      // structurally valid file is the dangling ipma item_ID -- without this, the single-pass
+      // default's placeholder baseOffset 0 would make item 1's own extent look like it falls
+      // outside mdat, declining for an unrelated reason before the ipma check is ever reached.
+      twoPass: true,
+      extraIpmaEntries: [
+        { itemId: 99, associations: [{ propertyIndex: 1, essential: false }] },
+      ],
+    });
+    await writeFile(path, bytes);
+    await expectFullyDeclinedBeforeWrite(
+      path,
+      "item-graph-invalid",
+      "malformed-file",
+    );
+  });
+});
 
 describe("decline ordering and empty input (BMF-03 edges)", () => {
   it("unknown-item-type and a removable/surviving overlap: unknown-item-type wins on five consecutive runs (rule 2 before rule 10)", async () => {

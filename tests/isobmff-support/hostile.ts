@@ -30,6 +30,7 @@ import {
   box,
   type FieldWidth,
   type GrplGroup,
+  type IpmaEntry,
   type IrefRef,
 } from "./builder.js";
 
@@ -128,6 +129,13 @@ export interface AssembleHeifSpec {
   readonly quickTimeMeta?: boolean;
   /** See the module banner: only `removable-extent-overlap` needs this. */
   readonly twoPass?: boolean;
+  /**
+   * D-17 (62-04): extra `ipma` entries appended verbatim after the ones the assembler derives
+   * from `items`' own `propertyIndices` -- the only way to produce an `ipma` entry whose
+   * `item_ID` is not declared in `iinf` at all (every other field on this spec that mentions an
+   * item ID requires that ID to already exist in `items`).
+   */
+  readonly extraIpmaEntries?: readonly IpmaEntry[];
 }
 
 const DEFAULT_ITEMS: readonly HostileItemSpec[] = [
@@ -178,15 +186,18 @@ export function assembleHeif(spec: AssembleHeifSpec = {}): Buffer {
     );
     const iinf = iinfBox(0, infeEntries);
     const ipco = ipcoBox(spec.properties ?? [ispe(32, 32), hvcC()]);
-    const ipmaEntries = items
-      .filter((item) => (item.propertyIndices?.length ?? 0) > 0)
-      .map((item) => ({
-        itemId: item.itemId,
-        associations: (item.propertyIndices ?? []).map((index) => ({
-          propertyIndex: index,
-          essential: false,
+    const ipmaEntries = [
+      ...items
+        .filter((item) => (item.propertyIndices?.length ?? 0) > 0)
+        .map((item) => ({
+          itemId: item.itemId,
+          associations: (item.propertyIndices ?? []).map((index) => ({
+            propertyIndex: index,
+            essential: false,
+          })),
         })),
-      }));
+      ...(spec.extraIpmaEntries ?? []),
+    ];
     const ipma = ipmaBox({ version: 0, flags: 0, entries: ipmaEntries });
     const iprp = iprpBox(ipco, ipma);
     const idat =

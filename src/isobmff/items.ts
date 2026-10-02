@@ -608,6 +608,17 @@ export function buildItemModel(
         ipmaEntries.map((entry) => entry.itemId),
         "ipma",
       );
+      // D-17 (closes 61-SECURITY Phase 62 input 2): an ipma entry for an item iinf never declared
+      // must decline before any write -- the writer rebuilds ipma from this same model, and a
+      // dangling association would carry an undeclared item's shape into the output.
+      for (const entry of ipmaEntries) {
+        if (!itemIds.has(entry.itemId)) {
+          throw new IsobmffStructureError(
+            "item-graph-invalid",
+            `ipma names undeclared item ${entry.itemId}.`,
+          );
+        }
+      }
     }
   }
   const ipmaByItemId = new Map(
