@@ -436,6 +436,38 @@ describe("Task 2: box framing (BMF-01/BMF-05)", () => {
       kind: "malformed-file",
     });
   });
+
+  // CR-01 (code review 2026-10-01): a zero-payload iinf box positioned at the exact end of
+  // meta's own payload drove `containerChildOffset`'s unguarded `buffer.readUInt8(payloadStart)`
+  // past the buffer end, throwing a native Node RangeError instead of IsobmffStructureError --
+  // escaping the fail-closed decline surface. This exact shape (meta payload: 4 zero bytes,
+  // version/flags, followed immediately by an 8-byte "iinf" box with zero bytes of payload) is
+  // the BLOCKER's concrete repro from 61-REVIEW.md: no hdlr/pitm/iloc/mdat is needed at all, since
+  // the crash was in the structural walk (walkContainer -> containerChildOffset), which runs
+  // before buildItemModel is ever called.
+  it("an iinf box too short for its version byte declines box-framing (not a native RangeError)", async () => {
+    const zeroPayloadIinf = box("iinf", Buffer.alloc(0));
+    expect(zeroPayloadIinf.length).toBe(8);
+    const metaPayload = Buffer.concat([Buffer.alloc(4), zeroPayloadIinf]);
+    const hostileMeta = box(
+      "meta",
+      metaPayload,
+    ); /* fullBox-shaped: the leading 4 zero bytes above are its version/flags field. */
+    const file = Buffer.concat([minimalFtyp(), hostileMeta]);
+    const { path, size } = await writeFixture(file);
+
+    await expect(parseFixture(path, size)).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+    // A plain `.rejects.toThrow(RangeError)` would also pass if the bug regressed (RangeError
+    // extends Error, and `rejects.toMatchObject` on a RangeError would simply fail the match
+    // above with no declineClass) -- assert the *shape* explicitly as well, so a regression to a
+    // native RangeError is unambiguous in the failure message rather than just "object mismatch".
+    await expect(parseFixture(path, size)).rejects.not.toBeInstanceOf(
+      RangeError,
+    );
+  });
 });
 
 describe("Task 2: meta and top-level allowlist rules (BMF-01)", () => {
@@ -457,6 +489,21 @@ describe("Task 2: meta and top-level allowlist rules (BMF-01)", () => {
 
     await expect(parseFixture(path, size)).rejects.toMatchObject({
       declineClass: "duplicate-meta",
+      kind: "malformed-file",
+    });
+  });
+
+  // WR-03 (code review 2026-10-01): ftyp had no singleton guard, unlike the explicit, dedicated
+  // sawMeta/sawMdat checks for the other two D5-admitted top-level boxes -- a second top-level
+  // ftyp silently overwrote the first ftyp's parsed majorBrand/minorVersion/compatibleBrands with
+  // no error at all.
+  it("a second top-level ftyp declines box-framing", async () => {
+    const ftyp = minimalFtyp();
+    const file = Buffer.concat([ftyp, ftyp, minimalMeta()]);
+    const { path, size } = await writeFixture(file);
+
+    await expect(parseFixture(path, size)).rejects.toMatchObject({
+      declineClass: "box-framing",
       kind: "malformed-file",
     });
   });
