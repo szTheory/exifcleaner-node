@@ -24,7 +24,12 @@ import {
   setRegisteredHandlersForTests,
 } from "../src/admission/registry.js";
 import { admitIsobmff } from "../src/isobmff/admission.js";
-import { createIsobmffWriterHandlerForTests } from "./isobmff-support/test-handler.js";
+import {
+  createIsobmffWriterHandlerForTests,
+  createPlanMutantHandler,
+  mutateIrefSquashSecondRecordFromK,
+  mutateIpcoCorruptOrphanProperty,
+} from "./isobmff-support/test-handler.js";
 import {
   inventoryIsobmff,
   readItemExtentBytes,
@@ -1871,6 +1876,235 @@ describe("ISO-01/ISO-02 removal on builder fixtures, HEIC parity (62-06)", () =>
       } finally {
         await destinationHandle.close();
       }
+    } finally {
+      restore();
+    }
+  });
+});
+
+// --- CR-01 code review fix pass (62-13): k's iref rewrite must match the qualifying `cdsc`
+// record, not every record whose from-item is k --------------------------------------------------
+//
+// 62-REVIEW.md CR-01: `plan.ts`/`verify.ts` rewrote EVERY iref record whose `fromItemId` is k to
+// `toItemIds: [primaryItemId]`, not only the single qualifying `cdsc` record (the one whose
+// to-list contains the primary -- the record that made k a candidate at all, D-13). A second,
+// unrelated record from k (here: a second `cdsc` to a different surviving item) had its real
+// target silently replaced with the primary. Admission's Rule 6 (`removable-item-referenced`)
+// guarantees every iref to-target is a surviving item, so no removed-target handling is ever
+// needed for a non-qualifying record from k -- it is always copied verbatim once the qualifying
+// record is identified correctly.
+
+const CR01_PRIMARY_ID = 1;
+const CR01_OTHER_SURVIVING_ID = 3;
+const CR01_K_ID = 2;
+
+/** Primary (1) + a second surviving item (3, unrelated to k) + k (2, a non-emptied Exif item
+ * whose FIRST `cdsc` record points at the primary, D-13) carrying a SECOND iref record (another
+ * `cdsc`, to item 3, which does not describe the primary at all). `preserveOrientation: true`
+ * with a requested Orientation tag present makes k survive as the minimal Exif item (D-13's
+ * "write rule"), so the writer's iref rewrite for k is actually exercised. */
+function buildKWithSecondIrefRecordFixture(brand: "heic" | "avif"): Buffer {
+  const majorBrand = brand;
+  const compatibleBrands = brand === "heic" ? ["mif1", "heic"] : ["mif1", "avif"];
+  const itemType = brand === "heic" ? "hvc1" : "av01";
+  const primaryPayload = Buffer.from("cr01-primary", "ascii");
+  const otherPayload = Buffer.from("cr01-other", "ascii");
+  const exifPayload = Buffer.concat([
+    Buffer.alloc(4),
+    createMinimalExif({ orientation: 1 }),
+  ]);
+  return assembleHeif({
+    majorBrand,
+    compatibleBrands,
+    primaryItemId: CR01_PRIMARY_ID,
+    items: [
+      {
+        itemId: CR01_PRIMARY_ID,
+        itemType,
+        extents: [{ relOffset: 0, length: primaryPayload.length }],
+      },
+      {
+        itemId: CR01_OTHER_SURVIVING_ID,
+        itemType,
+        extents: [{ relOffset: primaryPayload.length, length: otherPayload.length }],
+      },
+      {
+        itemId: CR01_K_ID,
+        itemType: "Exif",
+        hidden: true,
+        extents: [
+          {
+            relOffset: primaryPayload.length + otherPayload.length,
+            length: exifPayload.length,
+          },
+        ],
+      },
+    ],
+    // The FIRST record (cdsc, k -> primary) is the qualifying record (D-13). The SECOND record
+    // (cdsc, k -> the other surviving item) is unrelated -- it never describes the primary, so k
+    // qualifies on the first record alone, and the second record must survive untouched.
+    refs: [
+      { type: "cdsc", fromItemId: CR01_K_ID, toItemIds: [CR01_PRIMARY_ID] },
+      { type: "cdsc", fromItemId: CR01_K_ID, toItemIds: [CR01_OTHER_SURVIVING_ID] },
+    ],
+    mdatPayload: Buffer.concat([primaryPayload, otherPayload, exifPayload]),
+    ilocWidths: { offsetSize: 4, lengthSize: 4, baseOffsetSize: 4 },
+    twoPass: true,
+  });
+}
+
+describe("CR-01 code review fix pass (62-13): k's iref rewrite matches the qualifying cdsc record only", () => {
+  it.each(["heic", "avif"] as const)(
+    "%s: k's own unrelated second iref record (not the qualifying cdsc) survives with its real target, only the qualifying cdsc record is reduced to [pitm]",
+    async (brand) => {
+      const bytes = buildKWithSecondIrefRecordFixture(brand);
+      const directory = await freshDirectory();
+      const sourcePath = join(directory, `source.${brand}`);
+      const destinationPath = join(directory, `destination.${brand}`);
+      await writeFile(sourcePath, bytes);
+
+      const restore = setRegisteredHandlersForTests([
+        createIsobmffWriterHandlerForTests(brand),
+      ]);
+      try {
+        const sanitized = await sanitizeFile({
+          sourcePath,
+          destinationPath,
+          preserveOrientation: true,
+          preserveColorProfile: false,
+          preserveTimestamps: false,
+          preserveResolution: false,
+        });
+        expect(sanitized.ok).toBe(true);
+        if (!sanitized.ok) {
+          throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+        }
+
+        const destinationBytes = await readFile(destinationPath);
+        const destinationInventory = inventoryIsobmff(destinationBytes);
+
+        const qualifyingRecord = destinationInventory.references.find(
+          (reference) =>
+            reference.type === "cdsc" &&
+            reference.from === CR01_K_ID &&
+            reference.to.length === 1 &&
+            reference.to[0] === CR01_PRIMARY_ID,
+        );
+        expect(qualifyingRecord).toBeDefined();
+
+        // CR-01: the second record from k must still name its real target (the other surviving
+        // item), not the primary. Before the fix, the blanket rewrite replaced its to-list with
+        // [primary] too, silently losing the real reference.
+        const secondRecord = destinationInventory.references.find(
+          (reference) =>
+            reference.type === "cdsc" &&
+            reference.from === CR01_K_ID &&
+            reference.to.length === 1 &&
+            reference.to[0] === CR01_OTHER_SURVIVING_ID,
+        );
+        expect(secondRecord).toBeDefined();
+
+        // Exactly two records from k survive (never collapsed into one).
+        const recordsFromK = destinationInventory.references.filter(
+          (reference) => reference.from === CR01_K_ID,
+        );
+        expect(recordsFromK.length).toBe(2);
+      } finally {
+        restore();
+      }
+    },
+  );
+
+  it("heic: tampering k's second iref record to the blanket-rewrite shape (the pre-fix bug, replayed as a mutant) is caught by verify", async () => {
+    const bytes = buildKWithSecondIrefRecordFixture("heic");
+    const directory = await freshDirectory();
+    const sourcePath = join(directory, "source.heic");
+    const destinationPath = join(directory, "destination.heic");
+    await writeFile(sourcePath, bytes);
+
+    const inner = createIsobmffWriterHandlerForTests("heic");
+    const mutant = createPlanMutantHandler(inner, mutateIrefSquashSecondRecordFromK);
+    const restore = setRegisteredHandlersForTests([mutant]);
+    try {
+      const sanitized = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: true,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: false,
+      });
+      expect(sanitized.ok).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+});
+
+// --- WR-01 code review fix pass (62-13): verify must recompute the WHOLE surviving `ipco`
+// payload independently, not only each surviving item's own associated properties -------------
+//
+// 62-REVIEW.md WR-01: with `preserveColorProfile: false`, verify checked each surviving item's
+// associated property bytes and the absence of removed ICC bytes, but never recomputed "source
+// properties in order minus the removed indices" and compared the WHOLE ipco payload. A property
+// referenced by no `ipma` entry at all (D-34's orphan shape, e.g. `udes`) survives ICC removal
+// unaffected -- its bytes were never checked by anything.
+
+const WR01_PRIMARY_ID = 1;
+const WR01_ORPHAN_TYPE = "udes";
+
+/** One surviving primary associated with `ispe` + a `colr prof` (removed under
+ * `preserveColorProfile: false`), plus a THIRD ipco property (`udes`) that no item's `ipma`
+ * entry references at all -- the orphan this fixture exists to protect. */
+function buildOrphanIpcoPropertyFixture(): Buffer {
+  const primaryPayload = Buffer.from("wr01-primary", "ascii");
+  const orphanPayload = Buffer.from("WR01-ORPHAN-UDES-PAYLOAD", "ascii");
+  return assembleHeif({
+    majorBrand: "heic",
+    compatibleBrands: ["mif1", "heic"],
+    primaryItemId: WR01_PRIMARY_ID,
+    items: [
+      {
+        itemId: WR01_PRIMARY_ID,
+        itemType: "hvc1",
+        extents: [{ relOffset: 0, length: primaryPayload.length }],
+        propertyIndices: [1, 2],
+      },
+    ],
+    properties: [
+      ispe(32, 32),
+      box("colr", Buffer.concat([Buffer.from("prof", "ascii"), Buffer.from([0xaa, 0xbb])])),
+      box(WR01_ORPHAN_TYPE, orphanPayload),
+    ],
+    mdatPayload: primaryPayload,
+    twoPass: true,
+  });
+}
+
+describe("WR-01 code review fix pass (62-13): verify recomputes the whole surviving ipco payload", () => {
+  it("heic: corrupting an orphan ipco property no ipma entry references is caught by verify", async () => {
+    const bytes = buildOrphanIpcoPropertyFixture();
+    const directory = await freshDirectory();
+    const sourcePath = join(directory, "source.heic");
+    const destinationPath = join(directory, "destination.heic");
+    await writeFile(sourcePath, bytes);
+
+    const inner = createIsobmffWriterHandlerForTests("heic");
+    const mutant = createPlanMutantHandler(
+      inner,
+      mutateIpcoCorruptOrphanProperty(WR01_ORPHAN_TYPE),
+    );
+    const restore = setRegisteredHandlersForTests([mutant]);
+    try {
+      const sanitized = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: false,
+      });
+      expect(sanitized.ok).toBe(false);
     } finally {
       restore();
     }

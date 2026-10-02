@@ -39,6 +39,7 @@ import {
   plainBoxHeader,
   rebuildIloc,
   rebuildIpma,
+  rebuildIref,
 } from "../../src/isobmff/rebuild.js";
 import type { IsobmffItem } from "../../src/isobmff/items.js";
 import type {
@@ -628,6 +629,137 @@ export function mutateMinimalExifConstructionMethodOne(
       return item;
     }),
   }));
+}
+
+/** Reparse the plan's `meta` bytes part's own `iref` child into plain `{type, fromItemId,
+ * toItemIds}` records, hand them to `mutateRefs`, and splice the rebuilt (mutated) `iref` back in
+ * through `rebuildIref` -- the CR-01 fix-pass counterpart of `withMutatedIloc`/`withMutatedIpma`
+ * above (62-13 code review fix pass). */
+function withMutatedIref(
+  plan: IsobmffOutputPlan,
+  mutateRefs: (
+    refs: readonly { type: string; fromItemId: number; toItemIds: readonly number[] }[],
+  ) => readonly { type: string; fromItemId: number; toItemIds: readonly number[] }[],
+): IsobmffOutputPlan {
+  const metaBytes = metaBytesPart(plan);
+  const irefBox = findChildInContainer(metaBytes, true, "iref");
+  const { version } = readBoxVersionFlags(metaBytes, irefBox);
+  const idBytes = version === 0 ? 2 : 4;
+  const childrenStart = irefBox.payloadStart + 4;
+  const children = listChildren(metaBytes, childrenStart, irefBox.end);
+  const refs = children.map((child) => {
+    const body = metaBytes.subarray(child.payloadStart, child.end);
+    const fromItemId =
+      idBytes === 2 ? body.readUInt16BE(0) : body.readUInt32BE(0);
+    let position = idBytes;
+    const toCount = body.readUInt16BE(position);
+    position += 2;
+    const toItemIds: number[] = [];
+    for (let i = 0; i < toCount; i++) {
+      toItemIds.push(
+        idBytes === 2 ? body.readUInt16BE(position) : body.readUInt32BE(position),
+      );
+      position += idBytes;
+    }
+    return { type: child.type, fromItemId, toItemIds };
+  });
+  const mutated = mutateRefs(refs);
+  const newIrefBytes = rebuildIref(
+    version,
+    mutated.map((reference) => ({
+      type: reference.type,
+      fromItemId: reference.fromItemId,
+      toItemIds: reference.toItemIds,
+    })),
+  );
+  const newMetaBytes = replaceChildBytes(metaBytes, "meta", true, 0, 0, irefBox, newIrefBytes);
+  return withMetaBytes(plan, newMetaBytes);
+}
+
+/** CR-01 fix-pass regression mutant (62-13): replays the EXACT pre-fix bug shape -- every iref
+ * record sharing the from-item that has more than one record (k) gets its to-list forcibly
+ * squashed to the qualifying record's own (already-correct, single-target) to-list, exactly as
+ * the blanket `fromItemId === kItem?.id` rewrite in `plan.ts`/`verify.ts` used to do before the
+ * fix. Applied to the plan the REAL (fixed) writer already produced correctly, so this proves the
+ * fixed `verifyOutput` independently recomputes and disagrees -- not merely that the writer itself
+ * got it right. Requires a fixture where exactly one from-item carries more than one iref record,
+ * one of which is a single-target `cdsc` record (the qualifying shape); throws otherwise. */
+export function mutateIrefSquashSecondRecordFromK(
+  plan: IsobmffOutputPlan,
+): IsobmffOutputPlan {
+  return withMutatedIref(plan, (refs) => {
+    const counts = new Map<number, number>();
+    for (const reference of refs) {
+      counts.set(reference.fromItemId, (counts.get(reference.fromItemId) ?? 0) + 1);
+    }
+    const kId = [...counts.entries()].find(([, count]) => count > 1)?.[0];
+    if (kId === undefined) {
+      throw new Error(
+        "mutateIrefSquashSecondRecordFromK: no from-item has more than one iref record to squash.",
+      );
+    }
+    const qualifying = refs.find(
+      (reference) =>
+        reference.fromItemId === kId &&
+        reference.type === "cdsc" &&
+        reference.toItemIds.length === 1,
+    );
+    if (qualifying === undefined) {
+      throw new Error(
+        "mutateIrefSquashSecondRecordFromK: no qualifying single-target cdsc record found for " +
+          "the squash target.",
+      );
+    }
+    return refs.map((reference) =>
+      reference.fromItemId === kId
+        ? { ...reference, toItemIds: [...qualifying.toItemIds] }
+        : reference,
+    );
+  });
+}
+
+/** WR-01 fix-pass regression mutant (62-13): corrupts one byte inside an `ipco` property's own
+ * payload, in place (the mutated property's total byte length is preserved, so no box header
+ * anywhere needs recomputing). Targets a property by type -- the fixture using this mutant must
+ * carry exactly one surviving property of that type with at least one payload byte. This is the
+ * WR-01 shape: an `ipco` property no `ipma` entry references at all (an orphan, D-34), which the
+ * pre-fix `verifyOutput` never read back at all. */
+export function mutateIpcoCorruptOrphanProperty(
+  orphanType: string,
+): (plan: IsobmffOutputPlan) => IsobmffOutputPlan {
+  return (plan) => {
+    const metaBytes = metaBytesPart(plan);
+    const iprpBox = findChildInContainer(metaBytes, true, "iprp");
+    const iprpBytes = metaBytes.subarray(iprpBox.start, iprpBox.end);
+    const ipcoBox = findChildInContainer(iprpBytes, false, "ipco");
+    const ipcoBytes = iprpBytes.subarray(ipcoBox.start, ipcoBox.end);
+    const children = listChildren(ipcoBytes, 8, ipcoBytes.length);
+    const target = children.find((child) => child.type === orphanType);
+    if (target === undefined) {
+      throw new Error(
+        `mutateIpcoCorruptOrphanProperty: no "${orphanType}" property found in ipco.`,
+      );
+    }
+    if (target.payloadStart >= target.end) {
+      throw new Error(
+        `mutateIpcoCorruptOrphanProperty: "${orphanType}" property has no payload byte to corrupt.`,
+      );
+    }
+    const mutatedIpco = Buffer.from(ipcoBytes);
+    mutatedIpco[target.payloadStart] = (mutatedIpco[target.payloadStart]! ^ 0xff) & 0xff;
+
+    const newIprpBytes = Buffer.concat([
+      iprpBytes.subarray(0, ipcoBox.start),
+      mutatedIpco,
+      iprpBytes.subarray(ipcoBox.end),
+    ]);
+    const newMetaBytes = Buffer.concat([
+      metaBytes.subarray(0, iprpBox.start),
+      newIprpBytes,
+      metaBytes.subarray(iprpBox.end),
+    ]);
+    return withMetaBytes(plan, newMetaBytes);
+  };
 }
 
 /**

@@ -547,19 +547,35 @@ export function buildIsobmffOutputPlan(
     infeOverrides,
   );
 
-  // iref: rebuilt from records whose from-item survives; k's own cdsc record (the one that made
-  // it k) stays in its slot with its to-list reduced to `[pitm]` only (D-13); dropped entirely if
-  // that leaves none.
+  // iref: rebuilt from records whose from-item survives. k's own QUALIFYING cdsc record -- the
+  // first, in iref order, of type "cdsc" from k whose to-list contains the primary (the one that
+  // made it k, D-13/admission.ts's `findExifSourceItemId`) -- stays in its slot with its to-list
+  // reduced to `[pitm]` only. Every OTHER record from k is copied verbatim (code review 2026-10-02
+  // CR-01: a blanket `fromItemId === kItem.id` rewrite previously squashed every record from k,
+  // not only the qualifying one, silently replacing an unrelated record's real target with the
+  // primary). Admission's Rule 6 (`removable-item-referenced`) guarantees every iref to-target is
+  // always a surviving item, so a non-qualifying record from k never needs removed-target
+  // handling -- it is always safe to copy as-is. Dropped entirely if nothing survives.
+  const qualifyingKReferenceIndex =
+    kItem === undefined
+      ? -1
+      : model.references.findIndex(
+          (reference) =>
+            reference.fromItemId === kItem.id &&
+            reference.type === "cdsc" &&
+            reference.toItemIds.includes(model.primaryItemId),
+        );
   let irefBytes: Buffer | undefined;
   if (layout.item.irefVersion !== undefined) {
     const survivingReferences = model.references
+      .map((reference, index) => ({ reference, index }))
       .filter(
-        (reference) =>
+        ({ reference }) =>
           !removedIds.has(reference.fromItemId) ||
           reference.fromItemId === kItem?.id,
       )
-      .map((reference) =>
-        reference.fromItemId === kItem?.id
+      .map(({ reference, index }) =>
+        index === qualifyingKReferenceIndex
           ? { ...reference, toItemIds: [model.primaryItemId] }
           : reference,
       );

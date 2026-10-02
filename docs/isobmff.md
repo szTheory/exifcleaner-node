@@ -726,9 +726,17 @@ declared **at its own item ID** (never allocating a new one): its `infe` is rebu
 forcing `item_protection_index` to 0 and `item_name` to empty; its `iloc` entry becomes one new
 `construction_method 0` extent at the tail of `mdat` (never `idat` -- D3 declines a removable item
 with `construction_method != 0`, so placing k's payload in `idat` would make the writer's own
-output decline on re-clean); its `cdsc` `iref` record stays in its original slot with its to-list
-reduced to `[pitm]`. The payload is four zero bytes (`exif_tiff_header_offset = 0`, matching the
-measured ExifTool 13.59 shape -- see "ExifTool 13.59 minimal-Exif placement" above) followed by
+output decline on re-clean). Exactly one `iref` record from k is rewritten: its **qualifying**
+`cdsc` record -- the first, in `iref` order, whose to-list contains the primary (the one that made
+it k, per `findExifSourceItemId` above) -- stays in its original slot with its to-list reduced to
+`[pitm]`. k may legitimately carry other `iref` records too (another `cdsc` to a different item,
+a `thmb`, and so on); every one of those survives **verbatim**, copied byte-for-byte, never
+touched by the qualifying-record rewrite (code review 2026-10-02, CR-01: an earlier blanket
+`fromItemId === k` rewrite squashed every record from k to `[pitm]`, silently destroying any
+unrelated record's real target; admission's Rule 6, `removable-item-referenced`, guarantees every
+`iref` to-target is always a surviving item, so a non-qualifying record from k never needs
+removed-target handling). The payload is four zero bytes (`exif_tiff_header_offset = 0`, matching
+the measured ExifTool 13.59 shape -- see "ExifTool 13.59 minimal-Exif placement" above) followed by
 `createMinimalExif(computeIsobmffMinimalExifTags(...))`. Every other removable item loses its
 `infe`, `iloc` entry, outgoing `iref` entries and `ipma` entry, exactly as D-14 describes.
 
@@ -737,7 +745,10 @@ variants (`infe` version/hidden flag, `base_offset_size` 0 vs. 4, `cdsc` to-list
 orientation-only/resolution-only requests, and the empty edges) by
 `tests/isobmff_minimal_exif.test.ts`'s "D-13 minimal Exif writer (62-07)" and "D-13 source item k
 (62-03)" describe blocks; the k-selection edge cases (ordering, thumbnail-only, emptied,
-resolution scope) are proven in the same file's 62-03 describe block.
+resolution scope) are proven in the same file's 62-03 describe block. The qualifying-record-only
+rewrite (an unrelated second `iref` record from k survives untouched, and a tamper replaying the
+pre-fix blanket-rewrite shape is caught by `verifyOutput`) is proven in
+`tests/isobmff_writer.test.ts`'s "CR-01 code review fix pass (62-13)" describe block.
 
 ### D-14: order
 
@@ -826,7 +837,10 @@ compared in `COPY_BLOCK_BYTES`-bounded streamed windows through each file's own 
 never a whole-item buffer; there are 0 or 1 Exif items (and if 1, it is k, `construction_method 0`,
 the expected payload, `cdsc -> [pitm]`); there are 0 `mime` items; the D-16 ICC rule holds (no
 `prof`/`rICC` property anywhere in the output, with a whole-file byte scan for the removed
-payload, when `preserveColorProfile` is false; the whole `ipco` box byte-identical when true);
+payload, **and** the whole surviving `ipco` payload -- source properties in order minus the
+independently recomputed removed indices -- compared byte for byte against the destination, so a
+property no `ipma` entry references at all (an orphan, D-34) is still checked, when
+`preserveColorProfile` is false; the whole `ipco` box byte-identical when true);
 the destination's own `mdat` payload length equals the union of its own surviving extents
 (coverage, recomputed from the destination, never trusted from the plan); and `idat` is
 byte-identical.
@@ -835,7 +849,9 @@ Proven on a preservation fixture (`irot`/`imir` essential, `clap`, a thumbnail, 
 and its auxiliary input, a depth auxiliary item, an Exif item removed) cross-checked against the
 independent inventory walker, and shown red on 11 hand-tampered destinations -- one per assertion
 plus the association-ordering edge -- by `tests/isobmff_verify.test.ts`'s "D-18 identity proof
-(62-09)" describe block.
+(62-09)" describe block. The whole-`ipco`-payload recompute (an orphan property no `ipma` entry
+references is corrupted by a plan mutant and caught) is proven by `tests/isobmff_writer.test.ts`'s
+"WR-01 code review fix pass (62-13)" describe block.
 
 ### D-19: negative controls
 

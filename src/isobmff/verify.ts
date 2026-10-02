@@ -422,19 +422,25 @@ export async function verifyIsobmffOutput(
             ),
           );
         }
-        const cdscRecord = destinationModel.references.find(
+        // CR-01 (code review 2026-10-02): assert the CARDINALITY of k's qualifying cdsc record
+        // -- exactly one cdsc record from k reduces to [pitm] -- not just that `.find()` happens
+        // to turn up a match. k may legitimately carry OTHER iref records of any type, including
+        // other cdsc records to other items (D-13: only the qualifying record is rewritten; every
+        // other record from k survives verbatim), so this does not assert k carries only one cdsc
+        // record total, only that exactly one reduces to [pitm].
+        const qualifyingCdscRecordsFromK = destinationModel.references.filter(
           (reference) =>
-            reference.type === "cdsc" && reference.fromItemId === destinationItem.id,
+            reference.type === "cdsc" &&
+            reference.fromItemId === destinationItem.id &&
+            reference.toItemIds.length === 1 &&
+            reference.toItemIds[0] === destinationModel.primaryItemId,
         );
-        if (
-          cdscRecord === undefined ||
-          cdscRecord.toItemIds.length !== 1 ||
-          cdscRecord.toItemIds[0] !== destinationModel.primaryItemId
-        ) {
+        if (qualifyingCdscRecordsFromK.length !== 1) {
           return err(
             verificationError(
-              `Minimal Exif item ${destinationItem.id} cdsc reference did not reduce to ` +
-                "[pitm].",
+              `Minimal Exif item ${destinationItem.id} has ` +
+                `${qualifyingCdscRecordsFromK.length} cdsc records reduced to [pitm]; expected ` +
+                "exactly 1.",
               destinationPath,
             ),
           );
@@ -565,16 +571,30 @@ export async function verifyIsobmffOutput(
       }
     }
 
-    // D-18: iref equals the source's minus removed entries, with k's own to-list reduced to
-    // [pitm] (D-13) -- recomputed independently of plan.ts, from the source admission only.
+    // D-18: iref equals the source's minus removed entries, with k's own QUALIFYING cdsc record
+    // (the first, in iref order, of type "cdsc" from k whose to-list contains the primary) -- and
+    // ONLY that record -- reduced to [pitm] (D-13). Recomputed independently of plan.ts, from the
+    // source admission only, and independently of plan.ts's own index computation (code review
+    // 2026-10-02 CR-01: a blanket `fromItemId === keepExifItemId` rewrite previously squashed
+    // every record from k, not only the qualifying one).
+    const qualifyingKReferenceIndex =
+      keepExifItemId === undefined
+        ? -1
+        : admission.model.references.findIndex(
+            (reference) =>
+              reference.fromItemId === keepExifItemId &&
+              reference.type === "cdsc" &&
+              reference.toItemIds.includes(admission.model.primaryItemId),
+          );
     const expectedReferences = admission.model.references
+      .map((reference, index) => ({ reference, index }))
       .filter(
-        (reference) =>
+        ({ reference }) =>
           !removedIds.has(reference.fromItemId) ||
           reference.fromItemId === keepExifItemId,
       )
-      .map((reference) =>
-        reference.fromItemId === keepExifItemId
+      .map(({ reference, index }) =>
+        index === qualifyingKReferenceIndex
           ? { ...reference, toItemIds: [admission.model.primaryItemId] }
           : reference,
       );
@@ -691,6 +711,49 @@ export async function verifyIsobmffOutput(
         (property) =>
           property.colourType === "prof" || property.colourType === "rICC",
       );
+      // WR-01 (code review 2026-10-02): recompute the WHOLE expected surviving ipco payload
+      // independently -- source properties, in source order, minus the independently
+      // recomputed removed indices -- and compare it byte for byte against the destination's
+      // actual ipco children bytes. The per-item association check elsewhere in this function
+      // only reads back properties an `ipma` entry actually associates with a surviving item; a
+      // property no `ipma` entry references at all (an orphan, D-34, e.g. a `udes` box) was never
+      // read back by anything before this check existed, so a corrupting or dropping defect in
+      // `rebuildIpco`/the removal filter would go uncaught.
+      const removedPropertyIndices = new Set(
+        sourceColrProperties
+          .filter(
+            (property) =>
+              property.colourType === "prof" || property.colourType === "rICC",
+          )
+          .map((property) => property.index),
+      );
+      const expectedIpcoChildrenBytes = Buffer.concat(
+        admission.model.properties
+          .filter((property) => !removedPropertyIndices.has(property.index))
+          .map((property) =>
+            admission.model.layout.metaPayload.subarray(property.start, property.end),
+          ),
+      );
+      const destinationIpcoForOrphanCheck = destinationModel.layout.item.iprpChildren.find(
+        (child) => child.type === "ipco",
+      );
+      const actualIpcoChildrenBytes =
+        destinationIpcoForOrphanCheck === undefined
+          ? Buffer.alloc(0)
+          : destinationModel.layout.metaPayload.subarray(
+              destinationIpcoForOrphanCheck.payloadStart,
+              destinationIpcoForOrphanCheck.end,
+            );
+      if (!expectedIpcoChildrenBytes.equals(actualIpcoChildrenBytes)) {
+        return err(
+          verificationError(
+            "The surviving ipco payload (source properties minus the removed ICC " +
+              "properties) did not match the destination byte for byte.",
+            destinationPath,
+          ),
+        );
+      }
+
       if (removedIccProperties.length > 0) {
         const destinationWhole = await readWholeFile(
           destinationHandle,
