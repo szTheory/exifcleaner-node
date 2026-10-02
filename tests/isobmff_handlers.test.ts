@@ -4,7 +4,7 @@
 // handlers installed at once via `setRegisteredHandlersForTests`, never through the admission-only
 // counting stub -- while remaining unreachable from the real registry (D-02/D-03: `HANDLERS` stays
 // `[webp, png, jpeg]` until 62.1-07).
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +14,10 @@ import {
   registeredHandlersForTests,
   setRegisteredHandlersForTests,
 } from "../src/admission/registry.js";
+import { classifyIsobmffBrand } from "../src/isobmff/brand.js";
 import { createIsobmffWriterCountingHandlerForTests } from "./isobmff-support/test-handler.js";
+import { assembleHeif, HOSTILE_FIXTURES } from "./isobmff-support/hostile.js";
+import { ftypBox } from "./isobmff-support/builder.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -101,6 +104,162 @@ describe("HEIC/AVIF handler modules, unregistered (62-12)", () => {
       expect(avif.handler.matches(heicBytes.subarray(0, 256))).toBe(false);
     } finally {
       restore();
+    }
+  });
+});
+
+// --- D-09 exact matching, oversized ftyp, and the brand-mismatch class (62-12, Task 2) ---------
+
+/** Builds a minimal, synthetic `ftyp` box buffer for the classifier table below -- real bytes,
+ * never a stub, through the same `ftypBox` encoder `tests/isobmff-support/hostile.ts` uses. */
+function ftyp(majorBrand: string, compatibleBrands: readonly string[]): Buffer {
+  return ftypBox(majorBrand, 0, compatibleBrands);
+}
+
+/** D-09's negative control: bypasses the classifier entirely and reads `major_brand` only
+ * (bytes 8..12), never consulting compatible brands or any decline rule -- this is exactly the
+ * kind of `matches` shortcut D-09 forbids ("no other logic"). */
+const BYPASS_HEIC_MATCHER = {
+  matches(magic: Buffer): boolean {
+    return magic.length >= 12 && magic.toString("ascii", 8, 12) === "heic";
+  },
+};
+
+/**
+ * D-09 table helper: for every row, a handler's `matches` must equal
+ * `classifyIsobmffBrand(row) === brand` exactly. Used both to prove the two real handlers hold
+ * this property on every row (tautologically true by construction, but proven against the real
+ * object, never assumed) and to prove a bypassing stand-in FAILS it on at least one row.
+ */
+function expectClassifierExactMatch(
+  handler: { matches(magic: Buffer): boolean },
+  brand: "heic" | "avif",
+  rows: ReadonlyMap<string, Buffer>,
+): void {
+  for (const [, row] of rows) {
+    const expected = classifyIsobmffBrand(row) === brand;
+    expect(handler.matches(row)).toBe(expected);
+  }
+}
+
+const CLASSIFIER_TABLE_ROWS: ReadonlyMap<string, Buffer> = new Map([
+  ["heic", ftyp("heic", ["mif1", "heic"])],
+  ["avif", ftyp("avif", ["mif1", "avif"])],
+  ["mif1-only", ftyp("mif1", ["mif1"])],
+  ["both-brands", ftyp("heic", ["mif1", "heic", "avif"])],
+  ["mif1-major-heic-compatible", ftyp("mif1", ["mif1", "heic"])],
+  ["msf1", ftyp("msf1", ["msf1"])],
+  ["avis", ftyp("avis", ["avis"])],
+  ["mif2-only", ftyp("mif2", ["mif2"])],
+  ["truncated-ftyp", Buffer.from("ftyp", "ascii")], // < 16 bytes
+  [
+    "ftyp-larger-than-256-bytes",
+    // 65 compatible brands: 16 + 65*4 = 276 > 256, the registry's own magic-buffer cap.
+    ftyp("heic", Array.from({ length: 65 }, () => "heic")),
+  ],
+  ["non-isobmff", Buffer.from("RIFF0000WEBPVP8 ", "ascii")],
+]);
+
+describe("D-09 exact classifier matching (62-12, Task 2)", () => {
+  it("both real handlers' matches equal classifyIsobmffBrand(row) === their own brand, on every row", () => {
+    const { handler: heic } = createIsobmffWriterCountingHandlerForTests("heic");
+    const { handler: avif } = createIsobmffWriterCountingHandlerForTests("avif");
+    expectClassifierExactMatch(heic, "heic", CLASSIFIER_TABLE_ROWS);
+    expectClassifierExactMatch(avif, "avif", CLASSIFIER_TABLE_ROWS);
+  });
+
+  it("a bypassing matcher (major_brand === 'heic' only) fails the table helper on at least one row", () => {
+    expect(() =>
+      expectClassifierExactMatch(
+        BYPASS_HEIC_MATCHER,
+        "heic",
+        CLASSIFIER_TABLE_ROWS,
+      ),
+    ).toThrow();
+  });
+});
+
+describe("D-09(a) oversized ftyp is rejected at selection (62-12, Task 2)", () => {
+  it("a 300+-byte ftyp source with both handlers installed declines unsupported-format; neither handler's admit runs", async () => {
+    const heic = createIsobmffWriterCountingHandlerForTests("heic");
+    const avif = createIsobmffWriterCountingHandlerForTests("avif");
+    const restore = setRegisteredHandlersForTests([heic.handler, avif.handler]);
+    try {
+      const directory = await freshDirectory();
+      const sourcePath = join(directory, "oversized-ftyp.heic");
+      const destinationPath = join(directory, "destination.bin");
+
+      // 65 compatible brands: ftyp declared size 16 + 65*4 = 276 bytes, past the registry's own
+      // 256-byte magic-buffer read (src/admission/registry.ts) -- classifyIsobmffBrand declines
+      // because declaredSize > bytes.length, before either handler's matches ever sees enough of
+      // the real brand set to decide. A structurally complete HEIF body follows the ftyp so the
+      // fixture is realistic, not merely a truncated stub.
+      const bytes = assembleHeif({
+        compatibleBrands: Array.from({ length: 65 }, () => "heic"),
+      });
+      const handle = await open(sourcePath, "w");
+      try {
+        await handle.write(bytes, 0, bytes.length, 0);
+      } finally {
+        await handle.close();
+      }
+
+      const sanitized = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: false,
+      });
+      expect(sanitized.ok).toBe(false);
+      if (sanitized.ok) throw new Error("unreachable");
+      expect(sanitized.error).toMatchObject({ code: "unsupported-format" });
+      expect(heic.counters.admit).toBe(0);
+      expect(avif.counters.admit).toBe(0);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("D-09(b) brand-mismatch decline at handler admit (62-12, Task 2)", () => {
+  it("the heic handler's admit on heif-enc-grid.avif rejects brand-mismatch/unsupported-format; buildOutputPlan never called", async () => {
+    const { handler, counters } = createIsobmffWriterCountingHandlerForTests("heic");
+    const avifBytes = await readFile(AVIF_PATH);
+    const handle = await open(AVIF_PATH, "r");
+    try {
+      await expect(handler.admit(handle, avifBytes.length)).rejects.toMatchObject(
+        { declineClass: "brand-mismatch", kind: "unsupported-format" },
+      );
+      expect(counters.buildOutputPlan).toBe(0);
+      expect(counters.checkOutputPlan).toBe(0);
+      expect(counters.writeOutput).toBe(0);
+      expect(counters.verifyOutput).toBe(0);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("HOSTILE_FIXTURES['brand-mismatch'] carries stage 'handler', expectedCode unsupported-format, and the heic handler declines it the same way", async () => {
+    const fixture = HOSTILE_FIXTURES["brand-mismatch"];
+    expect(fixture.stage).toBe("handler");
+    expect(fixture.expectedCode).toBe("unsupported-format");
+
+    const directory = await freshDirectory();
+    const path = join(directory, "brand-mismatch.bin");
+    await fixture.write(path);
+    const bytes = await readFile(path);
+    const { handler, counters } = createIsobmffWriterCountingHandlerForTests("heic");
+    const handle = await open(path, "r");
+    try {
+      await expect(handler.admit(handle, bytes.length)).rejects.toMatchObject({
+        declineClass: "brand-mismatch",
+        kind: "unsupported-format",
+      });
+      expect(counters.buildOutputPlan).toBe(0);
+    } finally {
+      await handle.close();
     }
   });
 });

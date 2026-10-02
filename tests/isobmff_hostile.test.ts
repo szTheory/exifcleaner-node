@@ -211,6 +211,39 @@ async function expectFullyDeclinedAtPlanStage(
   }
 }
 
+/**
+ * D-09(b) (62-12): proves a `"handler"`-stage hostile fixture (currently `brand-mismatch` only)
+ * -- a structurally valid, fully admittable file of the OTHER brand -- is accepted by `matches`
+ * only for its own (correct) brand's handler, and declines with `brand-mismatch` when the
+ * MISMATCHED handler's `admit` is called directly on it (never through `sanitizeFile`/
+ * `selectHandler`, since `matches` on the mismatched handler already returns false for it; this
+ * simulates a file swapped between selection and admission). `buildOutputPlan`/`checkOutputPlan`/
+ * `writeOutput`/`verifyOutput` are never reached.
+ */
+async function expectDeclinedAtHandlerAdmit(
+  path: string,
+  declineClass: IsobmffDeclineClass,
+  expectedCode: "unsupported-format" | "unsafe-structure" | "malformed-file",
+): Promise<void> {
+  const { size } = await stat(path);
+  const handle = await open(path, "r");
+  try {
+    const { handler, counters } =
+      createIsobmffWriterCountingHandlerForTests("heic");
+    await expect(handler.admit(handle, size)).rejects.toMatchObject({
+      declineClass,
+      kind: expectedCode,
+    });
+    expect(counters.admit).toBe(1);
+    expect(counters.buildOutputPlan).toBe(0);
+    expect(counters.checkOutputPlan).toBe(0);
+    expect(counters.writeOutput).toBe(0);
+    expect(counters.verifyOutput).toBe(0);
+  } finally {
+    await handle.close();
+  }
+}
+
 describe("HOSTILE_FIXTURES catalog shape (D-14)", () => {
   it("has exactly one fixture per IsobmffDeclineClass (key set matches ISOBMFF_DECLINE_CLASSES)", () => {
     const catalogKeys = Object.keys(HOSTILE_FIXTURES).sort();
@@ -235,6 +268,19 @@ describe.each(ISOBMFF_DECLINE_CLASSES)(
 
       if (fixture.stage === "plan") {
         await expectFullyDeclinedAtPlanStage(
+          path,
+          declineClass,
+          fixture.expectedCode,
+        );
+        return;
+      }
+
+      if (fixture.stage === "handler") {
+        // D-09(b): the fixture itself is a valid, fully admittable file of the OTHER brand --
+        // admitIsobmff directly on it must resolve, never reject.
+        const admitted = await admitAtPath(path);
+        expect(admitted.namespaces).toBeDefined();
+        await expectDeclinedAtHandlerAdmit(
           path,
           declineClass,
           fixture.expectedCode,

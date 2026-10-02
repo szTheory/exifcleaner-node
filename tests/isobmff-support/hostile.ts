@@ -62,8 +62,14 @@ export interface HostileFixture {
    * `"plan"` (`offset-rewrite-overflow` only, 62-05 D-12): `admitIsobmff` on the written fixture
    * *resolves* (it is a structurally valid, fully admitted file) -- the decline happens one stage
    * later, in `checkIsobmffOutputPlan`, strictly before `writeOutput` ever runs.
+   * `"handler"` (`brand-mismatch` only, 62-12 D-09b): the written fixture is a structurally valid,
+   * fully admittable file of the OTHER brand (AVIF) -- `admitIsobmff` on it directly resolves
+   * normally, and `matches` on the mismatched handler returns false (so a normal
+   * `sanitizeFile`/`selectHandler` run never even reaches this handler's `admit`). The decline is
+   * observed only by calling the mismatched handler's own `admit` directly on the file, simulating
+   * a file swapped between selection and admission.
    */
-  readonly stage: "selection" | "admission" | "plan";
+  readonly stage: "selection" | "admission" | "plan" | "handler";
 }
 
 async function writeBytes(path: string, bytes: Buffer): Promise<void> {
@@ -763,6 +769,20 @@ export const HOSTILE_FIXTURES: Record<IsobmffDeclineClass, HostileFixture> = {
             },
           ],
           mdatPayload: Buffer.alloc(200, 0xab),
+          twoPass: true,
+        }),
+      ),
+  },
+
+  "brand-mismatch": {
+    expectedCode: "unsupported-format",
+    stage: "handler",
+    write: (path) =>
+      writeBytes(
+        path,
+        assembleHeif({
+          majorBrand: "avif",
+          compatibleBrands: ["mif1", "avif"],
           twoPass: true,
         }),
       ),

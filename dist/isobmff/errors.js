@@ -24,6 +24,7 @@ export const ISOBMFF_DECLINE_CLASSES = Object.freeze([
     "box-framing",
     "item-graph-invalid",
     "offset-rewrite-overflow",
+    "brand-mismatch",
 ]);
 /**
  * Class -> public-code mapping (D-12). Every `unsupported-format` entry is a D3 "not admitted"
@@ -58,6 +59,7 @@ export const DECLINE_CLASS_TO_KIND = {
     "box-framing": "malformed-file",
     "item-graph-invalid": "malformed-file",
     "offset-rewrite-overflow": "unsafe-structure",
+    "brand-mismatch": "unsupported-format",
 };
 export class IsobmffStructureError extends Error {
     kind;

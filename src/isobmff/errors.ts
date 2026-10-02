@@ -33,7 +33,8 @@ export type IsobmffDeclineClass =
   | "duplicate-meta"
   | "box-framing"
   | "item-graph-invalid"
-  | "offset-rewrite-overflow";
+  | "offset-rewrite-overflow"
+  | "brand-mismatch";
 
 export const ISOBMFF_DECLINE_CLASSES: readonly IsobmffDeclineClass[] =
   Object.freeze([
@@ -62,6 +63,7 @@ export const ISOBMFF_DECLINE_CLASSES: readonly IsobmffDeclineClass[] =
     "box-framing",
     "item-graph-invalid",
     "offset-rewrite-overflow",
+    "brand-mismatch",
   ]);
 
 /** The three public codes this engine can report (a subset of `MetadataErrorDetails["code"]`). */
@@ -101,6 +103,7 @@ export const DECLINE_CLASS_TO_KIND = {
   "box-framing": "malformed-file",
   "item-graph-invalid": "malformed-file",
   "offset-rewrite-overflow": "unsafe-structure",
+  "brand-mismatch": "unsupported-format",
 } satisfies Record<IsobmffDeclineClass, IsobmffPublicKind>;
 
 export interface IsobmffLimitContext {

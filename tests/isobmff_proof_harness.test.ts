@@ -214,6 +214,40 @@ describe("Task 2: every ISOBMFF decline class declines once before any write (BM
         return;
       }
 
+      if (fixture.stage === "handler") {
+        // D-09(b) (62-12): a "handler"-stage fixture (currently `brand-mismatch` only) is a
+        // structurally valid, fully admittable file of the OTHER brand -- `matches` on the
+        // mismatched handler already returns false for it, so a normal `sanitizeFile`/
+        // `selectHandler` run never reaches this handler's `admit` at all. The decline is observed
+        // only by calling the mismatched (heic) handler's own `admit` directly, simulating a file
+        // swapped between selection and admission; `buildOutputPlan`/`checkOutputPlan`/
+        // `writeOutput`/`verifyOutput` are never reached.
+        const { handler, counters } =
+          createIsobmffWriterCountingHandlerForTests("heic");
+        const handle = await open(sourcePath, "r");
+        try {
+          await expect(
+            handler.admit(handle, sourceBytes.length),
+          ).rejects.toMatchObject({
+            declineClass,
+            kind: fixture.expectedCode,
+          });
+          expect(counters.admit).toBe(1);
+          expect(counters.buildOutputPlan).toBe(0);
+          expect(counters.checkOutputPlan).toBe(0);
+          expect(counters.writeOutput).toBe(0);
+          expect(counters.verifyOutput).toBe(0);
+        } finally {
+          await handle.close();
+        }
+
+        const listing = await readdir(directory);
+        expect(listing).toEqual([sourceName]);
+        const sourceAfter = await readFile(sourcePath);
+        expect(sourceAfter.equals(sourceBytes)).toBe(true);
+        return;
+      }
+
       const { counters, restore } = installTestHandlerAdditively();
       try {
         const sanitized = await sanitizeFile({
