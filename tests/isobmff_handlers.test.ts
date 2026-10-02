@@ -15,6 +15,15 @@ import {
   setRegisteredHandlersForTests,
 } from "../src/admission/registry.js";
 import { classifyIsobmffBrand } from "../src/isobmff/brand.js";
+import {
+  ISOBMFF_DECLINE_CLASSES,
+  type IsobmffDeclineClass,
+} from "../src/isobmff/errors.js";
+import {
+  HEIF_REFUSAL_BY_DECLINE_CLASS,
+  HEIF_REFUSALS,
+  type HeifRefusal,
+} from "../src/isobmff/refusals.js";
 import { createIsobmffWriterCountingHandlerForTests } from "./isobmff-support/test-handler.js";
 import { assembleHeif, HOSTILE_FIXTURES } from "./isobmff-support/hostile.js";
 import { ftypBox } from "./isobmff-support/builder.js";
@@ -261,5 +270,70 @@ describe("D-09(b) brand-mismatch decline at handler admit (62-12, Task 2)", () =
     } finally {
       await handle.close();
     }
+  });
+});
+
+// --- Coarse refusal table (D-06, 62-12 Task 3) --------------------------------------------------
+
+/** D-06's explicit mapping table (`.planning/phases/.../62-CONTEXT.md`), restated here as the
+ * one pin every row is checked against -- a change to `HEIF_REFUSAL_BY_DECLINE_CLASS` that
+ * doesn't match this table must fail this test, not just typecheck. */
+const EXPECTED_HEIF_REFUSAL_TABLE: Record<IsobmffDeclineClass, HeifRefusal> = {
+  "box-framing": "malformed-container",
+  "meta-not-fullbox": "malformed-container",
+  "duplicate-meta": "malformed-container",
+  "extent-outside-mdat": "malformed-container",
+  "item-graph-invalid": "malformed-container",
+
+  "cap-meta-bytes": "resource-limits",
+  "cap-box-count": "resource-limits",
+  "cap-box-depth": "resource-limits",
+  "cap-buffered-bytes": "resource-limits",
+
+  "sequence-box": "image-sequence",
+  "sequence-brand": "image-sequence",
+
+  "top-level-box-not-allowed": "unknown-boxes",
+  "unknown-meta-child": "unknown-boxes",
+
+  "unknown-item-type": "unknown-item-types",
+
+  "removable-item-in-idat": "unsupported-features",
+  "construction-method-2": "unsupported-features",
+  "external-data-reference": "unsupported-features",
+  "multiple-mdat": "unsupported-features",
+  "meta-handler-not-pict": "unsupported-features",
+  "unsupported-box-version": "unsupported-features",
+  "brand-mismatch": "unsupported-features",
+
+  "removable-extent-overlap": "unsafe-item-layout",
+  "removable-item-referenced": "unsafe-item-layout",
+  "surviving-zero-length-extent": "unsafe-item-layout",
+  "surviving-offset-width-zero": "unsafe-item-layout",
+  "offset-rewrite-overflow": "unsafe-item-layout",
+};
+
+describe("D-06 coarse refusal table (62-12, Task 3)", () => {
+  it("every IsobmffDeclineClass maps to its expected HeifRefusal, pinned row by row", () => {
+    for (const declineClass of ISOBMFF_DECLINE_CLASSES) {
+      expect(HEIF_REFUSAL_BY_DECLINE_CLASS[declineClass]).toBe(
+        EXPECTED_HEIF_REFUSAL_TABLE[declineClass],
+      );
+    }
+  });
+
+  it("the table covers exactly ISOBMFF_DECLINE_CLASSES, with no extra or missing keys", () => {
+    const tableKeys = Object.keys(HEIF_REFUSAL_BY_DECLINE_CLASS).sort();
+    const declineClasses = [...ISOBMFF_DECLINE_CLASSES].sort();
+    expect(tableKeys).toEqual(declineClasses);
+  });
+
+  it("the value set equals exactly the seven HeifRefusal literals", () => {
+    const observedValues = new Set(
+      Object.values(HEIF_REFUSAL_BY_DECLINE_CLASS),
+    );
+    expect(observedValues).toEqual(new Set(HEIF_REFUSALS));
+    expect(HEIF_REFUSALS.length).toBe(7);
+    expect(new Set(HEIF_REFUSALS).size).toBe(7);
   });
 });
