@@ -24,11 +24,28 @@ import {
   assembleHeif,
   type AssembleHeifSpec,
 } from "./isobmff-support/hostile.js";
-import { auxC } from "./isobmff-support/builder.js";
+import {
+  auxC,
+  ftypBox,
+  hdlrBox,
+  hvcC,
+  iinfBox,
+  ilocBox,
+  infeBox,
+  ipcoBox,
+  ipmaBox,
+  iprpBox,
+  irefBox,
+  ispe,
+  mdatBox,
+  metaBox,
+  pitmBox,
+} from "./isobmff-support/builder.js";
 import {
   inventoryIsobmff,
   readItemExtentBytes,
 } from "./isobmff-support/inventory.js";
+import { buildMinimalExifInfe } from "../src/isobmff/rebuild.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -622,4 +639,407 @@ describe("D-13 minimal Exif writer (62-07)", () => {
       }
     },
   );
+});
+
+// 62-07, Task 2: item shape, placement variants, empty cases. All builder fixtures, isolated from
+// the committed heif-enc fixtures Task 1 already proved end to end.
+describe("D-13 minimal Exif writer item shape and placement variants (62-07)", () => {
+  const PRIMARY_PAYLOAD = Buffer.from("primary-bytes", "ascii");
+
+  /** A single surviving primary (`hvc1`, item 1) plus one Exif item (item 2, k, `cdsc` -> the
+   * primary and optionally extra targets) carrying `exifTiff`. `twoPass` resolves real absolute
+   * offsets, needed because the writer's own D-11 placement math depends on them. */
+  function buildSingleExifFixture(options: {
+    readonly exifTiff: Buffer;
+    readonly infeVersion?: 0 | 1 | 2 | 3;
+    readonly hidden?: boolean;
+    readonly baseOffsetSize?: 0 | 4 | 8;
+  }): Buffer {
+    const exifPayload = Buffer.concat([Buffer.alloc(4), options.exifTiff]);
+    return assembleHeif({
+      primaryItemId: 1,
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: PRIMARY_PAYLOAD.length }],
+        },
+        {
+          itemId: 2,
+          itemType: "Exif",
+          hidden: options.hidden ?? true,
+          ...(options.infeVersion !== undefined
+            ? { infeVersion: options.infeVersion }
+            : {}),
+          extents: [
+            { relOffset: PRIMARY_PAYLOAD.length, length: exifPayload.length },
+          ],
+        },
+      ],
+      refs: [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }],
+      mdatPayload: Buffer.concat([PRIMARY_PAYLOAD, exifPayload]),
+      ilocWidths: {
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: options.baseOffsetSize ?? 4,
+      },
+      twoPass: true,
+    });
+  }
+
+  async function sanitize(
+    bytes: Buffer,
+    overrides: Partial<Parameters<typeof sanitizeFile>[0]> = {},
+  ): Promise<{ readonly destinationPath: string; readonly destinationBytes: Buffer }> {
+    const { path: sourcePath } = await writeFixture(bytes);
+    const directory = dirname(sourcePath);
+    const destinationPath = join(directory, "destination.heic");
+    const restore = setRegisteredHandlersForTests([
+      createIsobmffWriterHandlerForTests("heic"),
+    ]);
+    try {
+      const sanitized = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: true,
+        preserveColorProfile: true,
+        preserveTimestamps: false,
+        preserveResolution: true,
+        ...overrides,
+      });
+      expect(sanitized.ok).toBe(true);
+      if (!sanitized.ok) {
+        throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+      }
+      const destinationBytes = await readFile(destinationPath);
+      return { destinationPath, destinationBytes };
+    } finally {
+      restore();
+    }
+  }
+
+  it.each([
+    [2, false] as const,
+    [3, true] as const,
+  ])(
+    "infe version %i, hidden %s: the output infe keeps that version and flag, with an empty name and item_protection_index 0",
+    async (version, hidden) => {
+      const bytes = buildSingleExifFixture({
+        exifTiff: createOrientationExif(6),
+        infeVersion: version,
+        hidden,
+      });
+      const { destinationBytes } = await sanitize(bytes);
+
+      const expectedInfe = buildMinimalExifInfe(version, hidden, 2);
+      expect(destinationBytes.includes(expectedInfe)).toBe(true);
+
+      const inventory = inventoryIsobmff(destinationBytes);
+      const exifItem = inventory.items.find((item) => item.id === 2);
+      expect(exifItem).toBeDefined();
+      expect(exifItem!.hidden).toBe(hidden);
+    },
+  );
+
+  /**
+   * `assembleHeif`'s generic `twoPass` helper always writes a cm=0 item's absolute position as
+   * `baseOffset (= mdatPayloadStart) + relOffset` -- correct only when `baseOffsetSize > 0` (the
+   * base field actually carries `mdatPayloadStart`). With `baseOffsetSize === 0` the base field
+   * is never written at all (0 implied), so the raw `extent.offset` itself must already BE the
+   * absolute position -- a shape the generic helper cannot produce (it has no way to learn
+   * `mdatPayloadStart` before computing `relOffset`). This bespoke two-pass builder (same pattern
+   * as `isobmff_hostile.test.ts`'s `buildWithExtraIprpChild`) sets the real absolute offset
+   * directly, mirroring a real `base_offset_size 0` writer (e.g. old cavif/libavif, D-31).
+   */
+  function buildBaseOffsetZeroFixture(exifTiff: Buffer): Buffer {
+    const exifPayload = Buffer.concat([Buffer.alloc(4), exifTiff]);
+    const mdatPayload = Buffer.concat([PRIMARY_PAYLOAD, exifPayload]);
+    const build = (mdatPayloadStart: number): Buffer => {
+      const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+      const hdlr = hdlrBox("pict");
+      const pitm = pitmBox(0, 1);
+      const infe1 = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+      const infe2 = infeBox({
+        version: 2,
+        itemId: 2,
+        itemType: "Exif",
+        hidden: true,
+      });
+      const iinf = iinfBox(0, [infe1, infe2]);
+      const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+      const ipma = ipmaBox({
+        version: 0,
+        flags: 0,
+        entries: [
+          {
+            itemId: 1,
+            associations: [
+              { propertyIndex: 1, essential: false },
+              { propertyIndex: 2, essential: true },
+            ],
+          },
+        ],
+      });
+      const iprp = iprpBox(ipco, ipma);
+      const iloc = ilocBox({
+        version: 1,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 0,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 1,
+            constructionMethod: 0,
+            dataReferenceIndex: 0,
+            baseOffset: 0,
+            extents: [
+              { offset: mdatPayloadStart, length: PRIMARY_PAYLOAD.length },
+            ],
+          },
+          {
+            itemId: 2,
+            constructionMethod: 0,
+            dataReferenceIndex: 0,
+            baseOffset: 0,
+            extents: [
+              {
+                offset: mdatPayloadStart + PRIMARY_PAYLOAD.length,
+                length: exifPayload.length,
+              },
+            ],
+          },
+        ],
+      });
+      const iref = irefBox(0, [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }]);
+      const meta = metaBox([hdlr, pitm, iinf, iloc, iprp, iref]);
+      const header = Buffer.concat([ftyp, meta]);
+      const mdat = mdatBox(mdatPayload);
+      return Buffer.concat([header, mdat]);
+    };
+    const pass1 = build(0);
+    const mdatBoxTotal = 8 + mdatPayload.length;
+    const headerLength = pass1.length - mdatBoxTotal;
+    const final = build(headerLength + 8);
+    if (final.length !== pass1.length) {
+      throw new Error(
+        "buildBaseOffsetZeroFixture: header length changed between placeholder and final passes",
+      );
+    }
+    return final;
+  }
+
+  it("base_offset_size 0: the extent offset carries the tail position, with no base field", async () => {
+    const bytes = buildBaseOffsetZeroFixture(createOrientationExif(6));
+    const { destinationBytes } = await sanitize(bytes);
+    const inventory = inventoryIsobmff(destinationBytes);
+    const exifItem = inventory.items.find((item) => item.id === 2)!;
+    const mdatBox = inventory.topLevel.find((box) => box.type === "mdat")!;
+    const expectedTail = mdatBox.offset + 8 + PRIMARY_PAYLOAD.length;
+
+    expect(exifItem.baseOffset).toBe(0);
+    expect(exifItem.extents).toHaveLength(1);
+    expect(exifItem.extents[0]!.offset).toBe(expectedTail);
+  });
+
+  it("base_offset_size 4: the base carries the tail position, with extent offset 0", async () => {
+    const bytes = buildSingleExifFixture({
+      exifTiff: createOrientationExif(6),
+      baseOffsetSize: 4,
+    });
+    const { destinationBytes } = await sanitize(bytes);
+    const inventory = inventoryIsobmff(destinationBytes);
+    const exifItem = inventory.items.find((item) => item.id === 2)!;
+    const mdatBox = inventory.topLevel.find((box) => box.type === "mdat")!;
+    const expectedTail = mdatBox.offset + 8 + PRIMARY_PAYLOAD.length;
+
+    expect(exifItem.baseOffset).toBe(expectedTail);
+    expect(exifItem.extents).toHaveLength(1);
+    expect(exifItem.extents[0]!.offset).toBe(0);
+  });
+
+  it(
+    "adjacency: the minimal Exif payload starts exactly where the surviving union ends, and the " +
+      "mdat payload length equals the union plus the payload length",
+    async () => {
+      const bytes = buildSingleExifFixture({ exifTiff: createOrientationExif(6) });
+      const { destinationBytes } = await sanitize(bytes);
+      const inventory = inventoryIsobmff(destinationBytes);
+      const exifItem = inventory.items.find((item) => item.id === 2)!;
+      const mdatBox = inventory.topLevel.find((box) => box.type === "mdat")!;
+      const expectedPayload = Buffer.concat([
+        Buffer.alloc(4),
+        createOrientationExif(6),
+      ]);
+
+      const exifAbsoluteStart = exifItem.baseOffset + exifItem.extents[0]!.offset;
+      expect(exifAbsoluteStart).toBe(mdatBox.offset + 8 + PRIMARY_PAYLOAD.length);
+      expect(mdatBox.size).toBe(8 + PRIMARY_PAYLOAD.length + expectedPayload.length);
+    },
+  );
+
+  it("k's cdsc to-list [pitm, thumbnail] in the source reduces to [pitm] in the output, same slot", async () => {
+    const thumbPayload = Buffer.from("thumb-bytes", "ascii");
+    const exifTiff = createOrientationExif(6);
+    const exifPayload = Buffer.concat([Buffer.alloc(4), exifTiff]);
+    const bytes = assembleHeif({
+      primaryItemId: 1,
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: PRIMARY_PAYLOAD.length }],
+        },
+        {
+          itemId: 3,
+          itemType: "hvc1",
+          extents: [
+            { relOffset: PRIMARY_PAYLOAD.length, length: thumbPayload.length },
+          ],
+        },
+        {
+          itemId: 2,
+          itemType: "Exif",
+          hidden: true,
+          extents: [
+            {
+              relOffset: PRIMARY_PAYLOAD.length + thumbPayload.length,
+              length: exifPayload.length,
+            },
+          ],
+        },
+      ],
+      refs: [
+        { type: "thmb", fromItemId: 3, toItemIds: [1] },
+        { type: "cdsc", fromItemId: 2, toItemIds: [1, 3] },
+      ],
+      mdatPayload: Buffer.concat([PRIMARY_PAYLOAD, thumbPayload, exifPayload]),
+      twoPass: true,
+    });
+    const { destinationBytes } = await sanitize(bytes);
+    const inventory = inventoryIsobmff(destinationBytes);
+    const cdscRecords = inventory.references.filter((ref) => ref.type === "cdsc");
+    expect(cdscRecords).toEqual([{ type: "cdsc", from: 2, to: [1] }]);
+    // Same slot: the record order matches the source's (thmb from item 3, then cdsc from k) --
+    // only the cdsc record's to-list is reduced, its position in iref is untouched.
+    expect(inventory.references).toEqual([
+      { type: "thmb", from: 3, to: [1] },
+      { type: "cdsc", from: 2, to: [1] },
+    ]);
+  });
+
+  it("orientation only (resolution flag false) writes a payload with only the Orientation tag", async () => {
+    const bytes = buildSingleExifFixture({
+      exifTiff: createMinimalExif({
+        orientation: 3,
+        resolution: resolutionOf(200, 100),
+      }),
+    });
+    const { destinationBytes } = await sanitize(bytes, {
+      preserveOrientation: true,
+      preserveResolution: false,
+    });
+    const inventory = inventoryIsobmff(destinationBytes);
+    const exifItem = inventory.items.find((item) => item.id === 2)!;
+    const payload = readItemExtentBytes(destinationBytes, inventory, exifItem);
+    expect(
+      payload.equals(
+        Buffer.concat([Buffer.alloc(4), createMinimalExif({ orientation: 3 })]),
+      ),
+    ).toBe(true);
+  });
+
+  it("resolution only (orientation flag false) writes a payload with only the resolution tags", async () => {
+    const bytes = buildSingleExifFixture({
+      exifTiff: createMinimalExif({
+        orientation: 3,
+        resolution: resolutionOf(200, 100),
+      }),
+    });
+    const { destinationBytes } = await sanitize(bytes, {
+      preserveOrientation: false,
+      preserveResolution: true,
+    });
+    const inventory = inventoryIsobmff(destinationBytes);
+    const exifItem = inventory.items.find((item) => item.id === 2)!;
+    const payload = readItemExtentBytes(destinationBytes, inventory, exifItem);
+    expect(
+      payload.equals(
+        Buffer.concat([
+          Buffer.alloc(4),
+          createMinimalExif({ resolution: resolutionOf(200, 100) }),
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it("preserve flags false: no Exif item in the output", async () => {
+    const bytes = buildSingleExifFixture({ exifTiff: createOrientationExif(6) });
+    const { destinationBytes } = await sanitize(bytes, {
+      preserveOrientation: false,
+      preserveResolution: false,
+    });
+    const inventory = inventoryIsobmff(destinationBytes);
+    expect(inventory.items.some((item) => item.type === "Exif")).toBe(false);
+  });
+
+  it("k absent (thumbnail-only Exif): no Exif item in the output", async () => {
+    const thumbPayload = Buffer.from("thumb-bytes", "ascii");
+    const exifTiff = createOrientationExif(6);
+    const exifPayload = Buffer.concat([Buffer.alloc(4), exifTiff]);
+    const bytes = assembleHeif({
+      primaryItemId: 1,
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: PRIMARY_PAYLOAD.length }],
+        },
+        {
+          itemId: 3,
+          itemType: "hvc1",
+          extents: [
+            { relOffset: PRIMARY_PAYLOAD.length, length: thumbPayload.length },
+          ],
+        },
+        {
+          itemId: 2,
+          itemType: "Exif",
+          hidden: true,
+          extents: [
+            {
+              relOffset: PRIMARY_PAYLOAD.length + thumbPayload.length,
+              length: exifPayload.length,
+            },
+          ],
+        },
+      ],
+      refs: [
+        { type: "thmb", fromItemId: 3, toItemIds: [1] },
+        { type: "cdsc", fromItemId: 2, toItemIds: [3] },
+      ],
+      mdatPayload: Buffer.concat([PRIMARY_PAYLOAD, thumbPayload, exifPayload]),
+      twoPass: true,
+    });
+    const { destinationBytes } = await sanitize(bytes);
+    const inventory = inventoryIsobmff(destinationBytes);
+    expect(inventory.items.some((item) => item.type === "Exif")).toBe(false);
+  });
+
+  it("k with neither tag (empty IFD0): no Exif item in the output", async () => {
+    const emptyIfd0 = Buffer.alloc(14);
+    emptyIfd0.write("II", 0, "ascii");
+    emptyIfd0.writeUInt16LE(42, 2);
+    emptyIfd0.writeUInt32LE(8, 4);
+    emptyIfd0.writeUInt16LE(0, 8);
+    emptyIfd0.writeUInt32LE(0, 10);
+
+    const bytes = buildSingleExifFixture({ exifTiff: emptyIfd0 });
+    const { destinationBytes } = await sanitize(bytes);
+    const inventory = inventoryIsobmff(destinationBytes);
+    expect(inventory.items.some((item) => item.type === "Exif")).toBe(false);
+  });
+
+  // The "heif-enc-grid.avif default settings" bullet is already proven by the Task 1 "D-13
+  // minimal Exif writer (62-07)" describe block's `it.each` avif case above -- not duplicated here.
 });
