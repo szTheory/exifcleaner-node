@@ -34,7 +34,9 @@ import {
 import {
   auxC,
   av1C,
+  box,
   ftypBox,
+  grplBox,
   hdlrBox,
   hvcC,
   idatBox,
@@ -44,6 +46,7 @@ import {
   ipcoBox,
   ipmaBox,
   iprpBox,
+  irefBox,
   ispe,
   mdatBox,
   metaBox,
@@ -1177,5 +1180,431 @@ describe("ISO-01/ISO-02 removal on builder fixtures (62-06)", () => {
     } finally {
       restore();
     }
+  });
+});
+
+// --- Task 2 (62-06): D-14 order, verbatim children, empty iref, top-level positions, empty and
+// emptied sources ---
+
+const D14_PRIMARY_ID = 1;
+const D14_THUMB_ID = 2;
+const D14_GRID_ID = 3;
+const D14_EXIF_ID = 4;
+const D14_AUX_ID = 5;
+
+/**
+ * A bespoke byte-level fixture (not `assembleHeif`, which hardcodes the canonical
+ * hdlr/pitm/idat/iloc/iinf/iprp/iref/grpl meta-child order): declares `meta`'s children in a
+ * non-default order (`pitm, iinf, iloc, dinf, hdlr, idat, iref, iprp, grpl` -- iinf before iloc,
+ * iref before iprp), with an empty `dinf` (no `dref` child, trivially admits per D-17) and one
+ * `grpl` group over two surviving items, a cm=1 `grid` item referencing `idat`, and an `iref` with
+ * one dropped record (`cdsc` from the removable Exif item) interleaved between two surviving
+ * records (`thmb`, `auxl`), so the output must keep the two surviving records in their original
+ * relative order while dropping the one in between.
+ */
+function buildD14OrderFixture(iinfVersion: 0 | 1): {
+  readonly bytes: Buffer;
+} {
+  const primaryPayload = Buffer.from([0x01, 0x02, 0x03, 0x04]);
+  const thumbPayload = Buffer.from([0x11, 0x12]);
+  const exifPayload = Buffer.from([0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28]);
+  const auxPayload = Buffer.from([0x31, 0x32, 0x33]);
+  const mdatPayload = Buffer.concat([
+    primaryPayload,
+    thumbPayload,
+    exifPayload,
+    auxPayload,
+  ]);
+  const idatPayload = Buffer.from([0x41, 0x42, 0x43, 0x44, 0x45]);
+
+  const build = (mdatPayloadStart: number): Buffer => {
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, D14_PRIMARY_ID);
+    const infeEntries = [
+      infeBox({ version: 2, itemId: D14_PRIMARY_ID, itemType: "hvc1" }),
+      infeBox({
+        version: 2,
+        itemId: D14_THUMB_ID,
+        itemType: "hvc1",
+        hidden: true,
+      }),
+      infeBox({ version: 2, itemId: D14_GRID_ID, itemType: "grid" }),
+      infeBox({
+        version: 2,
+        itemId: D14_EXIF_ID,
+        itemType: "Exif",
+        hidden: true,
+      }),
+      infeBox({
+        version: 2,
+        itemId: D14_AUX_ID,
+        itemType: "hvc1",
+        hidden: true,
+      }),
+    ];
+    const iinf = iinfBox(iinfVersion, infeEntries);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        {
+          itemId: D14_PRIMARY_ID,
+          associations: [
+            { propertyIndex: 1, essential: false },
+            { propertyIndex: 2, essential: false },
+          ],
+        },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const idat = idatBox(idatPayload);
+    const dinf = box("dinf", Buffer.alloc(0));
+    const grpl = grplBox([
+      { type: "altr", groupId: 100, entityIds: [D14_PRIMARY_ID, D14_THUMB_ID] },
+    ]);
+    const iref = irefBox(0, [
+      { type: "cdsc", fromItemId: D14_EXIF_ID, toItemIds: [D14_PRIMARY_ID] },
+      { type: "thmb", fromItemId: D14_THUMB_ID, toItemIds: [D14_PRIMARY_ID] },
+      { type: "auxl", fromItemId: D14_AUX_ID, toItemIds: [D14_PRIMARY_ID] },
+    ]);
+
+    const ilocItems: IlocItem[] = [
+      {
+        itemId: D14_PRIMARY_ID,
+        constructionMethod: 0,
+        dataReferenceIndex: 0,
+        baseOffset: mdatPayloadStart,
+        extents: [{ offset: 0, length: primaryPayload.length }],
+      },
+      {
+        itemId: D14_THUMB_ID,
+        constructionMethod: 0,
+        dataReferenceIndex: 0,
+        baseOffset: mdatPayloadStart,
+        extents: [{ offset: primaryPayload.length, length: thumbPayload.length }],
+      },
+      {
+        itemId: D14_GRID_ID,
+        constructionMethod: 1,
+        dataReferenceIndex: 0,
+        baseOffset: 0,
+        extents: [{ offset: 0, length: idatPayload.length }],
+      },
+      {
+        itemId: D14_EXIF_ID,
+        constructionMethod: 0,
+        dataReferenceIndex: 0,
+        baseOffset: mdatPayloadStart,
+        extents: [
+          {
+            offset: primaryPayload.length + thumbPayload.length,
+            length: exifPayload.length,
+          },
+        ],
+      },
+      {
+        itemId: D14_AUX_ID,
+        constructionMethod: 0,
+        dataReferenceIndex: 0,
+        baseOffset: mdatPayloadStart,
+        extents: [
+          {
+            offset: primaryPayload.length + thumbPayload.length + exifPayload.length,
+            length: auxPayload.length,
+          },
+        ],
+      },
+    ];
+    const iloc = ilocBox({
+      version: 1,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 4,
+      indexSize: 0,
+      items: ilocItems,
+    });
+
+    const metaChildren = [pitm, iinf, iloc, dinf, hdlr, idat, iref, iprp, grpl];
+    const meta = metaBox(metaChildren);
+    const header = Buffer.concat([ftyp, meta]);
+    return Buffer.concat([header, mdatBox(mdatPayload)]);
+  };
+
+  const pass1 = build(0);
+  const headerLength = pass1.length - (8 + mdatPayload.length);
+  const bytes = build(headerLength + 8);
+  if (bytes.length !== pass1.length) {
+    throw new Error(
+      "buildD14OrderFixture: header length changed between placeholder and final passes",
+    );
+  }
+  return { bytes };
+}
+
+describe("D-14 order, verbatim children, empty iref, top-level positions, empty and emptied sources (62-06)", () => {
+  it.each([0, 1] as const)(
+    "meta children in a non-default source order (iinf before iloc, iref before iprp, dinf and grpl present) keep that order; hdlr/dinf/pitm/idat/grpl bytes are identical; iinf version %i keeps its version and recomputed count; surviving iinf/iloc/ipma/iref entries keep source relative order",
+    async (iinfVersion) => {
+      const { bytes } = buildD14OrderFixture(iinfVersion);
+      const { destinationBytes, sourceInventory, destinationInventory } =
+        await runThroughWriter(bytes);
+
+      // meta child order unchanged.
+      expect(destinationInventory.metaChildren).toEqual(
+        sourceInventory.metaChildren,
+      );
+      expect(sourceInventory.metaChildren).toEqual([
+        "pitm",
+        "iinf",
+        "iloc",
+        "dinf",
+        "hdlr",
+        "idat",
+        "iref",
+        "iprp",
+        "grpl",
+      ]);
+
+      // hdlr/dinf/pitm/idat/grpl bytes copied verbatim: find each child's byte range inside meta
+      // via the independent inventory's own box walk (topLevel only lists top-level boxes, so
+      // compare the whole meta payload windows that don't change -- idat's own bytes, read
+      // through each file's own idat range, must be byte-identical).
+      expect(destinationInventory.idat).toBeDefined();
+      expect(sourceInventory.idat).toBeDefined();
+      const sourceIdatBytes = bytes.subarray(
+        sourceInventory.idat!.offset,
+        sourceInventory.idat!.offset + sourceInventory.idat!.length,
+      );
+      const destinationIdatBytes = destinationBytes.subarray(
+        destinationInventory.idat!.offset,
+        destinationInventory.idat!.offset + destinationInventory.idat!.length,
+      );
+      expect(destinationIdatBytes.equals(sourceIdatBytes)).toBe(true);
+
+      // The removed Exif item is gone entirely; the two surviving references (thmb, auxl) remain
+      // in their original relative order, with the dropped cdsc record excised.
+      expect(
+        destinationInventory.items.some((item) => item.id === D14_EXIF_ID),
+      ).toBe(false);
+      expect(destinationInventory.references.map((r) => r.type)).toEqual([
+        "thmb",
+        "auxl",
+      ]);
+      expect(destinationInventory.references).toEqual([
+        { type: "thmb", from: D14_THUMB_ID, to: [D14_PRIMARY_ID] },
+        { type: "auxl", from: D14_AUX_ID, to: [D14_PRIMARY_ID] },
+      ]);
+
+      // grpl survives verbatim (both its members are surviving items).
+      expect(sourceInventory.metaChildren).toContain("grpl");
+
+      // Surviving items keep source relative order and iloc/ipma shape.
+      expect(destinationInventory.items.map((item) => item.id)).toEqual([
+        D14_PRIMARY_ID,
+        D14_THUMB_ID,
+        D14_GRID_ID,
+        D14_AUX_ID,
+      ]);
+      expect(destinationInventory.iloc).toEqual(sourceInventory.iloc);
+      expect(destinationInventory.associations).toEqual(
+        sourceInventory.associations,
+      );
+
+      // Every surviving item's payload byte-identical.
+      for (const id of [
+        D14_PRIMARY_ID,
+        D14_THUMB_ID,
+        D14_GRID_ID,
+        D14_AUX_ID,
+      ]) {
+        const sourceItem = findItem(sourceInventory, id)!;
+        const destinationItem = findItem(destinationInventory, id)!;
+        const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+        const destinationPayload = readItemExtentBytes(
+          destinationBytes,
+          destinationInventory,
+          destinationItem,
+        );
+        expect(destinationPayload.equals(sourcePayload)).toBe(true);
+      }
+    },
+  );
+
+  it("every iref record from a removed item leaves no iref box in the output", async () => {
+    const primaryPayload = Buffer.from([0xaa, 0xbb, 0xcc, 0xdd]);
+    const exifPayload = Buffer.from([0x01, 0x02, 0x03, 0x04]);
+    const bytes = assembleHeif({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: primaryPayload.length }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "Exif",
+          hidden: true,
+          extents: [
+            { relOffset: primaryPayload.length, length: exifPayload.length },
+          ],
+        },
+      ],
+      refs: [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }],
+      mdatPayload: Buffer.concat([primaryPayload, exifPayload]),
+      twoPass: true,
+    });
+
+    const { destinationInventory } = await runThroughWriter(bytes);
+    expect(destinationInventory.metaChildren).not.toContain("iref");
+    expect(destinationInventory.references).toEqual([]);
+  });
+
+  it("a source with no removable item and no removable top-level box produces an output whose meta box bytes equal the source meta box bytes", async () => {
+    const bytes = assembleHeif({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 4 }],
+          propertyIndices: [1, 2],
+        },
+      ],
+      mdatPayload: Buffer.from([1, 2, 3, 4]),
+      twoPass: true,
+    });
+
+    const { destinationBytes, sourceInventory, destinationInventory } =
+      await runThroughWriter(bytes);
+    const sourceMeta = sourceInventory.topLevel.find((b) => b.type === "meta")!;
+    const destinationMeta = destinationInventory.topLevel.find(
+      (b) => b.type === "meta",
+    )!;
+    expect(destinationMeta.size).toBe(sourceMeta.size);
+    expect(
+      destinationBytes
+        .subarray(destinationMeta.offset, destinationMeta.offset + destinationMeta.size)
+        .equals(bytes.subarray(sourceMeta.offset, sourceMeta.offset + sourceMeta.size)),
+    ).toBe(true);
+  });
+
+  it("an emptied removable item (zero-length extent) loses its entries and contributes zero mdat bytes", async () => {
+    const primaryPayload = Buffer.from([1, 2, 3, 4]);
+    const bytes = assembleHeif({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: primaryPayload.length }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "Exif",
+          hidden: true,
+          // Zero-length extent at mdat's own end (D-10a: admitted as "emptied", never rebased).
+          extents: [{ relOffset: primaryPayload.length, length: 0 }],
+        },
+      ],
+      mdatPayload: primaryPayload,
+      twoPass: true,
+    });
+
+    const { destinationBytes, destinationInventory } = await runThroughWriter(bytes);
+    expect(destinationInventory.items.some((item) => item.id === 2)).toBe(false);
+    expect(destinationInventory.associations.some((a) => a.itemId === 2)).toBe(
+      false,
+    );
+    const mdatTopLevel = destinationInventory.topLevel.find(
+      (b) => b.type === "mdat",
+    )!;
+    expect(mdatTopLevel.size - 8).toBe(primaryPayload.length);
+    expect(destinationBytes.length).toBeGreaterThan(0);
+  });
+
+  // --- Top-level position matrix: C2PA uuid / free / skip at every position, alone or doubled ---
+
+  interface TopLevelPositionCase {
+    readonly title: string;
+    readonly spec: Partial<AssembleHeifSpec>;
+  }
+
+  function topLevelBoxAt(type: "free" | "skip" | "uuid"): Buffer {
+    if (type === "uuid") return uuidBox(C2PA_UUID_USERTYPE, Buffer.alloc(16, 0x99));
+    return box(type, Buffer.alloc(4));
+  }
+
+  const TOP_LEVEL_POSITION_CASES: readonly TopLevelPositionCase[] = (
+    ["uuid", "free", "skip"] as const
+  ).flatMap((type) => [
+    { title: `${type} right after ftyp`, spec: { topLevelExtraAfterFtyp: [topLevelBoxAt(type)] } },
+    {
+      title: `${type} between meta and mdat`,
+      spec: { topLevelExtraBeforeMdat: [topLevelBoxAt(type)] },
+    },
+    { title: `${type} after mdat`, spec: { topLevelExtraAfterMdat: [topLevelBoxAt(type)] } },
+  ]);
+
+  it.each(TOP_LEVEL_POSITION_CASES.map((c) => [c.title, c.spec] as const))(
+    "%s is absent from the output; remaining top-level order equals the source order",
+    async (_title, spec) => {
+      const bytes = assembleHeif({
+        items: [
+          {
+            itemId: 1,
+            itemType: "hvc1",
+            extents: [{ relOffset: 0, length: 4 }],
+            propertyIndices: [1, 2],
+          },
+        ],
+        mdatPayload: Buffer.from([1, 2, 3, 4]),
+        twoPass: true,
+        ...spec,
+      });
+
+      const { destinationInventory, sourceInventory } = await runThroughWriter(bytes);
+      expect(
+        destinationInventory.topLevel.some(
+          (b) => b.type === "uuid" || b.type === "free" || b.type === "skip",
+        ),
+      ).toBe(false);
+      expect(destinationInventory.topLevel.map((b) => b.type)).toEqual(
+        sourceInventory.topLevel
+          .map((b) => b.type)
+          .filter((t) => t !== "uuid" && t !== "free" && t !== "skip"),
+      );
+    },
+  );
+
+  it("two C2PA boxes (one after ftyp, one after mdat) are both absent", async () => {
+    const bytes = assembleHeif({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 4 }],
+          propertyIndices: [1, 2],
+        },
+      ],
+      mdatPayload: Buffer.from([1, 2, 3, 4]),
+      topLevelExtraAfterFtyp: [uuidBox(C2PA_UUID_USERTYPE, Buffer.alloc(16, 0x11))],
+      topLevelExtraAfterMdat: [uuidBox(C2PA_UUID_USERTYPE, Buffer.alloc(16, 0x22))],
+      twoPass: true,
+    });
+
+    const sourceInventory = inventoryIsobmff(bytes);
+    expect(
+      sourceInventory.topLevel.filter((b) => b.type === "uuid").length,
+    ).toBe(2);
+
+    const { destinationInventory } = await runThroughWriter(bytes);
+    expect(destinationInventory.topLevel.some((b) => b.type === "uuid")).toBe(
+      false,
+    );
+    expect(destinationInventory.topLevel.map((b) => b.type)).toEqual(
+      sourceInventory.topLevel.map((b) => b.type).filter((t) => t !== "uuid"),
+    );
   });
 });
