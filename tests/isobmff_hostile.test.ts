@@ -8,9 +8,14 @@ import { mkdtemp, open, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { admitIsobmff } from "../src/isobmff/admission.js";
+import { admitIsobmff, type IsobmffAdmission } from "../src/isobmff/admission.js";
 import { classifyIsobmffBrand } from "../src/isobmff/brand.js";
 import { sanitizeFile } from "../src/engine.js";
+import {
+  buildIsobmffOutputPlan,
+  checkIsobmffOutputPlan,
+} from "../src/isobmff/plan.js";
+import { createOrientationExif } from "../src/metadata/exif.js";
 import {
   registeredHandlersForTests,
   setRegisteredHandlersForTests,
@@ -878,3 +883,105 @@ describe("decline ordering and empty input (BMF-03 edges)", () => {
 function ftypLength(bytes: Buffer): number {
   return bytes.readUInt32BE(0);
 }
+
+// 62-07, Task 3: D-12's width-zero decline for a required minimal Exif item.
+//
+// Finding (documented here, and in the SUMMARY, rather than silently worked around): a real file
+// admitted through `admitIsobmff` can never actually reach this decline. `offsetSize === 0` always
+// declines earlier via the existing `surviving-offset-width-zero` rule (the primary item is always
+// `kind === "surviving"` and construction_method 0, per `removable-item-referenced`/D3) --
+// confirmed by the catalog's own `HOSTILE_FIXTURES["surviving-offset-width-zero"]` entry.
+// `lengthSize === 0` was measured here (scratch run, same `assembleHeif` shape as below) to decline
+// earlier too, via `surviving-zero-length-extent`: `readSizedUint(width=0)` returns a literal 0 for
+// every item unconditionally (`src/isobmff/iloc.ts`), so a global `length_size` of 0 makes the
+// primary's own (surviving) extent read as zero-length, which rule 8 already declines before rule
+// 9/10 or any plan-stage code ever runs. There is no admittable shape where only the *rewrite*
+// (not the source's own surviving-item reads) is width-starved.
+//
+// So these two tests call `buildIsobmffOutputPlan`/`checkIsobmffOutputPlan` directly against a
+// real `admitIsobmff` result (on a fixture with ordinary, non-zero widths) whose `layout.item`
+// width fields are overridden afterward -- the same `IsobmffAdmission` shape the engine always
+// hands the planner, just assembled to reach a state no real file's own admission can produce.
+// This still proves the exact code path `checkOutputPlan` (called from `src/engine.ts` strictly
+// before `writeOutput`) exercises.
+describe("D-12 minimal Exif location (62-07)", () => {
+  const PRIMARY_PAYLOAD = Buffer.from("primary-bytes", "ascii");
+
+  async function admittedSingleExifFixture(): Promise<IsobmffAdmission> {
+    const exifTiff = createOrientationExif(6);
+    const exifPayload = Buffer.concat([Buffer.alloc(4), exifTiff]);
+    const bytes = assembleHeif({
+      primaryItemId: 1,
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: PRIMARY_PAYLOAD.length }],
+        },
+        {
+          itemId: 2,
+          itemType: "Exif",
+          hidden: true,
+          extents: [
+            { relOffset: PRIMARY_PAYLOAD.length, length: exifPayload.length },
+          ],
+        },
+      ],
+      refs: [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }],
+      mdatPayload: Buffer.concat([PRIMARY_PAYLOAD, exifPayload]),
+      twoPass: true,
+    });
+    const path = await freshPath();
+    await writeFile(path, bytes);
+    const admission = await admitAtPath(path);
+    expect(admission.exifSourceItemId).toBe(2);
+    expect(admission.orientation).toEqual({ status: "valid", value: 6 });
+    return admission;
+  }
+
+  function withIlocWidths(
+    admission: IsobmffAdmission,
+    widths: {
+      readonly ilocOffsetSize?: number;
+      readonly ilocBaseOffsetSize?: number;
+      readonly ilocLengthSize?: number;
+    },
+  ): IsobmffAdmission {
+    return {
+      ...admission,
+      model: {
+        ...admission.model,
+        layout: {
+          ...admission.model.layout,
+          item: { ...admission.model.layout.item, ...widths },
+        },
+      },
+    };
+  }
+
+  it("length_size 0, default settings: declines offset-rewrite-overflow before any write; the same source with preserve flags false plans ok", async () => {
+    const admission = await admittedSingleExifFixture();
+    const starved = withIlocWidths(admission, { ilocLengthSize: 0 });
+
+    const declinedPlan = buildIsobmffOutputPlan(starved, true, true, true, 6);
+    expect(declinedPlan.declineReason).toContain("offset-rewrite-overflow");
+    expect(checkIsobmffOutputPlan(declinedPlan)).toBe(declinedPlan.declineReason);
+
+    const okPlan = buildIsobmffOutputPlan(starved, false, true, false, undefined);
+    expect(okPlan.declineReason).toBeUndefined();
+    expect(checkIsobmffOutputPlan(okPlan)).toBeUndefined();
+  });
+
+  // The plan's "offset_size 0 and base_offset_size 0" bullet is intentionally not pinned as its
+  // own test, per the plan's own fallback ("keep only the length_size 0 case" when the classifier
+  // already declines every such source): measured here (not merely inferred), setting both widths
+  // to 0 on `admittedSingleExifFixture()`'s admission and calling `buildIsobmffOutputPlan` directly
+  // declines with `offset-rewrite-overflow` under BOTH preserve-true and preserve-false -- but the
+  // preserve-false decline is for the *primary* item's own ordinary rewrite (it is `surviving`,
+  // construction_method 0, and needs a real nonzero absolute position regardless of any Exif
+  // item), not for the minimal Exif item specifically. `offsetSize === 0` is incompatible with
+  // rewriting any cm=0 item's position at all, Exif or not, so there is no source shape (real or
+  // hand-assembled) where this width combination clears the "ordinary" rewrite but fails only the
+  // minimal-Exif-specific one. The `length_size 0` test above is the one case where the two are
+  // actually distinguishable (length has no bearing on the ordinary position rewrite at all).
+});
