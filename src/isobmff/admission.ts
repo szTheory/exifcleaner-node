@@ -8,7 +8,11 @@ import {
 } from "./caps.js";
 import { IsobmffStructureError, type IsobmffDeclineClass } from "./errors.js";
 import { parseIsobmff, type IsobmffModel, type IsobmffRange } from "./parse.js";
-import { parseExif, readIfd0Resolution } from "../metadata/exif.js";
+import {
+  parseExif,
+  readIfd0Resolution,
+  type MinimalExifResolution,
+} from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
 import { parseXmp } from "../metadata/xmp.js";
 import type {
@@ -76,6 +80,45 @@ export interface IsobmffDisposition {
 export interface IsobmffAdmission extends FormatAdmission {
   readonly model: IsobmffModel;
   readonly classification: IsobmffDisposition;
+  /**
+   * D-13 source item k: the first Exif item, in `iinf` order, that is not emptied and has a
+   * `cdsc` reference whose to-list contains `model.primaryItemId`. `undefined` when no item
+   * qualifies (no Exif item describes the primary, or the only such item is emptied).
+   */
+  readonly exifSourceItemId: number | undefined;
+  /** The IFD0 resolution read from k's own Exif payload only, or `undefined`. */
+  readonly sourceResolution: MinimalExifResolution | undefined;
+}
+
+/**
+ * D-13 source item k: walk `model.items` in `iinf` declaration order and return the id of the
+ * first item that is `type === "Exif"`, not emptied (`classification.emptiedItemIds`), and is the
+ * from-item of a `cdsc` reference in `model.references` whose `toItemIds` include
+ * `model.primaryItemId`. Orientation and resolution must be read only from this item -- an Exif
+ * item that describes an auxiliary or thumbnail image (a `cdsc` to-list that never contains
+ * `pitm`) must never contribute either value (Phase 61 defect, fixed here).
+ */
+function findExifSourceItemId(
+  model: IsobmffModel,
+  classification: IsobmffDisposition,
+): number | undefined {
+  const emptied = new Set(classification.emptiedItemIds);
+  const describesPrimary = new Set(
+    model.references
+      .filter(
+        (reference) =>
+          reference.type === "cdsc" &&
+          reference.toItemIds.includes(model.primaryItemId),
+      )
+      .map((reference) => reference.fromItemId),
+  );
+  for (const item of model.items) {
+    if (item.type !== "Exif") continue;
+    if (emptied.has(item.id)) continue;
+    if (!describesPrimary.has(item.id)) continue;
+    return item.id;
+  }
+  return undefined;
 }
 
 /**
@@ -413,6 +456,8 @@ export async function admitIsobmff(
   let colorProfile: Buffer | undefined;
   const namespaces = new Set<IsobmffMetadataNamespace>();
   let resolutionNamespace: IsobmffMetadataNamespace | undefined;
+  let sourceResolution: MinimalExifResolution | undefined;
+  const exifSourceItemId = findExifSourceItemId(model, classification);
 
   if (model.colorProfile !== undefined) {
     colorProfile = model.colorProfile;
@@ -460,8 +505,18 @@ export async function admitIsobmff(
       const found = parseExif(tiff);
       entries.push(...found.entries);
       warnings.push(...found.warnings);
-      if (orientation.status === "absent") orientation = found.orientation;
-      if (readIfd0Resolution(tiff) !== undefined) resolutionNamespace = "EXIF";
+      if (item.id === exifSourceItemId) {
+        // D-13: orientation and resolution come only from source item k. An Exif item on an
+        // auxiliary or thumbnail image (not k) still contributes its entries/warnings above (the
+        // inspector keeps listing every removable item's metadata), but never its orientation or
+        // resolution.
+        orientation = found.orientation;
+        const resolution = readIfd0Resolution(tiff);
+        if (resolution !== undefined) {
+          resolutionNamespace = "EXIF";
+          sourceResolution = resolution;
+        }
+      }
       continue;
     }
 
@@ -483,5 +538,7 @@ export async function admitIsobmff(
     resolutionNamespace,
     model,
     classification,
+    exifSourceItemId,
+    sourceResolution,
   };
 }

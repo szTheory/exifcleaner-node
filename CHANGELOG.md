@@ -22,6 +22,22 @@ safe; an item declared in `iinf` with no corresponding `iloc` entry at all now d
 top-level `ftyp` box now declines `box-framing` instead of silently overwriting the first ftyp's
 brand values. No public API change; this engine is still unreachable from any registered format.
 
+An unregistered ISOBMFF (HEIC/AVIF) rebuild writer, its per-item identity proof, and the
+`heicHandler`/`avifHandler` modules were added under `src/isobmff/` and `src/admission/`. The
+writer rebuilds `iloc`/`iinf`/`iref`/`iprp`/`mdat` in the source's own order and encoding,
+synthesizes a minimal Exif item (orientation and resolution only) when requested, and removes
+ICC `colr` profile properties with an exact `ipma` association remap when `preserveColorProfile`
+is false. Admission now reads orientation and resolution only from the primary image's own Exif
+item, never from an auxiliary image's or thumbnail's Exif item (a real Phase 61 defect, fixed).
+Three new pre-write declines exist: `item-graph-invalid` now also catches a broader set of
+item-graph inconsistencies (a dangling `ipma`/`grpl` reference, a duplicated `meta`/`iprp` child
+box type, or a non-self-contained `dinf`/`dref` entry); `offset-rewrite-overflow` catches a
+writer rewrite that cannot be expressed without going negative or widening a field; and
+`brand-mismatch` catches a file whose brand changes between format selection and admission. None
+of this is reachable yet: no production module registers `heicHandler`/`avifHandler`,
+`NativeFormat` and `FormatCapabilities` are unchanged, and there is no public API or routing
+change.
+
 ### Fixed (PNG)
 
 PNG metadata parsing no longer allows an unbounded amount of non-`IDAT` chunk data to be

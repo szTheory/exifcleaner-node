@@ -30,6 +30,7 @@ import {
   box,
   type FieldWidth,
   type GrplGroup,
+  type IpmaEntry,
   type IrefRef,
 } from "./builder.js";
 
@@ -54,12 +55,21 @@ export interface HostileFixture {
   readonly expectedCode:
     "unsupported-format" | "unsafe-structure" | "malformed-file";
   /**
-   * `"admission"` (23 of 24 classes): `admitIsobmff` on the written fixture rejects with this
+   * `"admission"` (23 of 25 classes): `admitIsobmff` on the written fixture rejects with this
    * class. `"selection"` (`sequence-brand` only, D-12): the fixture already declines at handler
    * *selection* time (`classifyIsobmffBrand` on its first 256 bytes), before any full parse --
    * `admitIsobmff` called directly on it still declines the same class, as defense in depth.
+   * `"plan"` (`offset-rewrite-overflow` only, 62-05 D-12): `admitIsobmff` on the written fixture
+   * *resolves* (it is a structurally valid, fully admitted file) -- the decline happens one stage
+   * later, in `checkIsobmffOutputPlan`, strictly before `writeOutput` ever runs.
+   * `"handler"` (`brand-mismatch` only, 62-12 D-09b): the written fixture is a structurally valid,
+   * fully admittable file of the OTHER brand (AVIF) -- `admitIsobmff` on it directly resolves
+   * normally, and `matches` on the mismatched handler returns false (so a normal
+   * `sanitizeFile`/`selectHandler` run never even reaches this handler's `admit`). The decline is
+   * observed only by calling the mismatched handler's own `admit` directly on the file, simulating
+   * a file swapped between selection and admission.
    */
-  readonly stage: "selection" | "admission";
+  readonly stage: "selection" | "admission" | "plan" | "handler";
 }
 
 async function writeBytes(path: string, bytes: Buffer): Promise<void> {
@@ -123,11 +133,23 @@ export interface AssembleHeifSpec {
   };
   /** Appended between `meta` and `mdat` (sequence-box/top-level-box-not-allowed fixtures). */
   readonly topLevelExtraBeforeMdat?: readonly Buffer[];
+  /** Appended right after `ftyp`, before `meta` (62-06 D-14 position matrix: a free/skip/C2PA
+   * uuid box at the very start of the top-level list). */
+  readonly topLevelExtraAfterFtyp?: readonly Buffer[];
+  /** Appended after every `mdat` box, at the very end of the file (62-06 D-14 position matrix). */
+  readonly topLevelExtraAfterMdat?: readonly Buffer[];
   readonly secondMdat?: boolean;
   readonly secondMeta?: boolean;
   readonly quickTimeMeta?: boolean;
   /** See the module banner: only `removable-extent-overlap` needs this. */
   readonly twoPass?: boolean;
+  /**
+   * D-17 (62-04): extra `ipma` entries appended verbatim after the ones the assembler derives
+   * from `items`' own `propertyIndices` -- the only way to produce an `ipma` entry whose
+   * `item_ID` is not declared in `iinf` at all (every other field on this spec that mentions an
+   * item ID requires that ID to already exist in `items`).
+   */
+  readonly extraIpmaEntries?: readonly IpmaEntry[];
 }
 
 const DEFAULT_ITEMS: readonly HostileItemSpec[] = [
@@ -178,15 +200,18 @@ export function assembleHeif(spec: AssembleHeifSpec = {}): Buffer {
     );
     const iinf = iinfBox(0, infeEntries);
     const ipco = ipcoBox(spec.properties ?? [ispe(32, 32), hvcC()]);
-    const ipmaEntries = items
-      .filter((item) => (item.propertyIndices?.length ?? 0) > 0)
-      .map((item) => ({
-        itemId: item.itemId,
-        associations: (item.propertyIndices ?? []).map((index) => ({
-          propertyIndex: index,
-          essential: false,
+    const ipmaEntries = [
+      ...items
+        .filter((item) => (item.propertyIndices?.length ?? 0) > 0)
+        .map((item) => ({
+          itemId: item.itemId,
+          associations: (item.propertyIndices ?? []).map((index) => ({
+            propertyIndex: index,
+            essential: false,
+          })),
         })),
-      }));
+      ...(spec.extraIpmaEntries ?? []),
+    ];
     const ipma = ipmaBox({ version: 0, flags: 0, entries: ipmaEntries });
     const iprp = iprpBox(ipco, ipma);
     const idat =
@@ -236,12 +261,17 @@ export function assembleHeif(spec: AssembleHeifSpec = {}): Buffer {
     const metaBoxes = spec.secondMeta === true ? [meta, meta] : [meta];
     const header = Buffer.concat([
       ftyp,
+      ...(spec.topLevelExtraAfterFtyp ?? []),
       ...metaBoxes,
       ...(spec.topLevelExtraBeforeMdat ?? []),
     ]);
     const mdat = mdatBox(mdatPayload);
     const mdatBoxes = spec.secondMdat === true ? [mdat, mdat] : [mdat];
-    return Buffer.concat([header, ...mdatBoxes]);
+    return Buffer.concat([
+      header,
+      ...mdatBoxes,
+      ...(spec.topLevelExtraAfterMdat ?? []),
+    ]);
   };
 
   if (spec.twoPass !== true) return build(0);
@@ -249,11 +279,19 @@ export function assembleHeif(spec: AssembleHeifSpec = {}): Buffer {
   // Two-pass (removable-extent-overlap only): iloc's encoded byte length depends only on the
   // declared widths, never the numeric offset values stored, so a placeholder pass (baseOffset 0)
   // yields the real header length, used to compute the real (shared) baseOffset for the final
-  // pass -- mirrors tests/isobmff_admission.test.ts's own `buildFile`.
+  // pass -- mirrors tests/isobmff_admission.test.ts's own `buildFile`. `topLevelExtraAfterFtyp`
+  // (inside `header`) and `topLevelExtraAfterMdat` (trailing) are both fixed-length buffers that
+  // never depend on the numeric offset values either, so the header length derivation below only
+  // needs to subtract the trailing extra's own length in addition to the mdat box(es).
   const pass1 = build(0);
   const mdatBoxTotal = 8 + mdatPayload.length;
   const mdatBoxesCount = spec.secondMdat === true ? 2 : 1;
-  const headerLength = pass1.length - mdatBoxTotal * mdatBoxesCount;
+  const trailingExtraLength = (spec.topLevelExtraAfterMdat ?? []).reduce(
+    (sum, box) => sum + box.length,
+    0,
+  );
+  const headerLength =
+    pass1.length - mdatBoxTotal * mdatBoxesCount - trailingExtraLength;
   const final = build(headerLength + 8);
   if (final.length !== pass1.length) {
     throw new Error(
@@ -703,6 +741,51 @@ export const HOSTILE_FIXTURES: Record<IsobmffDeclineClass, HostileFixture> = {
     expectedCode: "malformed-file",
     stage: "admission",
     write: (path) => writeBytes(path, assembleHeif({ omitPitm: true })),
+  },
+
+  "offset-rewrite-overflow": {
+    expectedCode: "unsafe-structure",
+    stage: "plan",
+    write: (path) =>
+      writeBytes(
+        path,
+        assembleHeif({
+          items: [
+            {
+              itemId: 1,
+              itemType: "hvc1",
+              // D-12: this item's own two extents are declared out of ascending-source-offset
+              // order (the second extent's absolute position precedes the first's). Nothing in
+              // Phase 61's classifier orders a single item's own extents, so this admits
+              // cleanly -- but the writer's global mdat union (D-15) places the second extent
+              // *before* the first in the new payload, which (with base_offset_size > 0)
+              // rewrites the first extent's own offset to a negative value relative to the new
+              // base. `checkIsobmffOutputPlan` must decline this before any byte is written.
+              extents: [
+                { relOffset: 100, length: 4 },
+                { relOffset: 0, length: 4 },
+              ],
+              propertyIndices: [1, 2],
+            },
+          ],
+          mdatPayload: Buffer.alloc(200, 0xab),
+          twoPass: true,
+        }),
+      ),
+  },
+
+  "brand-mismatch": {
+    expectedCode: "unsupported-format",
+    stage: "handler",
+    write: (path) =>
+      writeBytes(
+        path,
+        assembleHeif({
+          majorBrand: "avif",
+          compatibleBrands: ["mif1", "avif"],
+          twoPass: true,
+        }),
+      ),
   },
 };
 

@@ -142,10 +142,6 @@ function parseInfe(buffer, header) {
         ...(uri !== undefined ? { uri } : {}),
     };
 }
-/** `iinf` -- FullBox; `entry_count` is 16-bit (v0) or 32-bit (v1), gating where its `infe`
- * children start. The declared `entry_count` value itself is not used to bound iteration: the
- * real sibling boxes are walked instead (naturally bounded by `metaPayload`, already under
- * `budget.checkMetaSize`), so a mismatched declared count cannot drive an over-large loop. */
 function parseIinfEntries(buffer, header) {
     const { version, payload } = readFullBoxChild(buffer, header);
     if (version !== 0 && version !== 1) {
@@ -156,12 +152,15 @@ function parseIinfEntries(buffer, header) {
     const childrenStart = header.payloadStart + 4 + entryCountBytes;
     const children = listSiblings(buffer, childrenStart, header.end);
     const entries = [];
+    const ranges = new Map();
     for (const child of children) {
         if (child.type !== "infe")
             continue;
-        entries.push(parseInfe(buffer, child));
+        const entry = parseInfe(buffer, child);
+        entries.push(entry);
+        ranges.set(entry.itemId, child);
     }
-    return entries;
+    return { version, entries, ranges };
 }
 /** `iref` -- FullBox; each child's own box type is the reference type. `from_item_ID`/
  * `to_item_ID` are 16-bit (v0) or 32-bit (v1); `reference_count` is always 16-bit. */
@@ -192,7 +191,7 @@ function parseIref(buffer, header) {
         }
         references.push({ type: child.type, fromItemId, toItemIds });
     }
-    return references;
+    return { version, references };
 }
 /** `ipco` -- a plain box (not a FullBox); children are the raw property boxes in 1-based
  * declaration order. `auxC` and `colr` are the only property types this engine interprets;
@@ -251,6 +250,30 @@ function parseGrpl(buffer, header) {
     }
     return groups;
 }
+/** `dinf`/`dref` (D-17, inferred not measured): admit only a `dref` whose every entry is a
+ * self-contained `url ` box (`flags & 1`) with no bytes after its own FullBox header. No `dref`
+ * child at all, or a `dref` with zero entries, admits trivially (nothing to validate). Matches
+ * the measured iPhone sample's own single entry exactly (docs/isobmff.md "iPhone idat coverage
+ * and dref entries"). */
+function validateDataReferences(buffer, dinfHeader) {
+    const dinfChildren = listSiblings(buffer, dinfHeader.payloadStart, dinfHeader.end);
+    const drefHeader = dinfChildren.find((c) => c.type === "dref");
+    if (drefHeader === undefined)
+        return;
+    const { payload } = readFullBoxChild(buffer, drefHeader);
+    ensureBytes(payload, 0, 4, "dref entry_count");
+    const entries = listSiblings(buffer, drefHeader.payloadStart + 8, // 4 bytes version/flags + 4 bytes entry_count
+    drefHeader.end);
+    for (const entry of entries) {
+        if (entry.type !== "url ") {
+            throw new IsobmffStructureError("item-graph-invalid", `dref entry "${entry.type}" is not a self-contained "url " entry.`);
+        }
+        const { flags, payload: entryPayload } = readFullBoxChild(buffer, entry);
+        if ((flags & 1) !== 1 || entryPayload.length !== 0) {
+            throw new IsobmffStructureError("item-graph-invalid", `dref "url " entry is not self-contained (flags ${flags}, ${entryPayload.length} trailing bytes).`);
+        }
+    }
+}
 /**
  * Build the validated item graph from `meta`'s already-walked children (`parseIsobmff` passes
  * `metaChildren` = `listSiblings(metaPayload, 4, metaPayload.length)`, the same buffer and list
@@ -266,6 +289,18 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
             throw new IsobmffStructureError("unknown-meta-child", `meta child "${child.type}" is not in the admitted set.`);
         }
     }
+    // D-17: a duplicated meta child type (second iinf/iloc/iref/pitm/hdlr/idat/grpl/dinf/iprp)
+    // must decline -- every `.find()` lookup below silently trusts the first match, so a second
+    // box of the same type would otherwise be dropped on the floor with no error at all.
+    const metaChildTypeCounts = new Map();
+    for (const child of metaChildren) {
+        metaChildTypeCounts.set(child.type, (metaChildTypeCounts.get(child.type) ?? 0) + 1);
+    }
+    for (const [type, count] of metaChildTypeCounts) {
+        if (count > 1) {
+            throw new IsobmffStructureError("item-graph-invalid", `meta has ${count} "${type}" children; only one is allowed.`);
+        }
+    }
     const hdlrHeader = metaChildren.find((c) => c.type === "hdlr");
     if (hdlrHeader === undefined) {
         throw new IsobmffStructureError("item-graph-invalid", "meta is missing its required hdlr child.");
@@ -278,7 +313,7 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
     if (iinfHeader === undefined) {
         throw new IsobmffStructureError("item-graph-invalid", "meta is missing its required iinf child.");
     }
-    const rawEntries = parseIinfEntries(metaPayload, iinfHeader);
+    const { version: iinfVersion, entries: rawEntries, ranges: infeRanges, } = parseIinfEntries(metaPayload, iinfHeader);
     assertNoDuplicateIds(rawEntries.map((entry) => entry.itemId), "iinf");
     const itemIds = new Set(rawEntries.map((entry) => entry.itemId));
     const pitmHeader = metaChildren.find((c) => c.type === "pitm");
@@ -317,9 +352,12 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
         }
     }
     let references = [];
+    let irefVersion;
     const irefHeader = metaChildren.find((c) => c.type === "iref");
     if (irefHeader !== undefined) {
-        references = parseIref(metaPayload, irefHeader);
+        const irefResult = parseIref(metaPayload, irefHeader);
+        irefVersion = irefResult.version;
+        references = irefResult.references;
         for (const reference of references) {
             if (!itemIds.has(reference.fromItemId)) {
                 throw new IsobmffStructureError("item-graph-invalid", `iref "${reference.type}" names undeclared from-item ${reference.fromItemId}.`);
@@ -333,9 +371,25 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
     }
     let rawProperties = [];
     let ipmaEntries = [];
+    let iprpChildrenCaptured = [];
+    let ipmaVersion;
+    let ipmaFlags;
     const iprpHeader = metaChildren.find((c) => c.type === "iprp");
     if (iprpHeader !== undefined) {
         const iprpChildren = listSiblings(metaPayload, iprpHeader.payloadStart, iprpHeader.end);
+        iprpChildrenCaptured = iprpChildren;
+        // D-17: a second ipco or ipma inside iprp must decline for the same reason as a duplicated
+        // meta child -- the `.find()` calls below would otherwise silently use only the first one.
+        const iprpChildTypeCounts = new Map();
+        for (const child of iprpChildren) {
+            iprpChildTypeCounts.set(child.type, (iprpChildTypeCounts.get(child.type) ?? 0) + 1);
+        }
+        for (const type of ["ipco", "ipma"]) {
+            const count = iprpChildTypeCounts.get(type) ?? 0;
+            if (count > 1) {
+                throw new IsobmffStructureError("item-graph-invalid", `iprp has ${count} "${type}" children; only one is allowed.`);
+            }
+        }
         const ipcoHeader = iprpChildren.find((c) => c.type === "ipco");
         if (ipcoHeader !== undefined) {
             rawProperties = parseIpco(metaPayload, ipcoHeader);
@@ -343,8 +397,27 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
         const ipmaHeader = iprpChildren.find((c) => c.type === "ipma");
         if (ipmaHeader !== undefined) {
             const { version, flags, payload } = readFullBoxChild(metaPayload, ipmaHeader);
+            ipmaVersion = version;
+            ipmaFlags = flags;
             ipmaEntries = parseIpma(payload, version, flags);
             assertNoDuplicateIds(ipmaEntries.map((entry) => entry.itemId), "ipma");
+            // D-17 (closes 61-SECURITY Phase 62 input 2): an ipma entry for an item iinf never declared
+            // must decline before any write -- the writer rebuilds ipma from this same model, and a
+            // dangling association would carry an undeclared item's shape into the output.
+            for (const entry of ipmaEntries) {
+                if (!itemIds.has(entry.itemId)) {
+                    throw new IsobmffStructureError("item-graph-invalid", `ipma names undeclared item ${entry.itemId}.`);
+                }
+                // D-17: an association's property index is 1-based into ipco; 0 or anything beyond the
+                // parsed property count is out of range and must decline before the writer ever
+                // resolves it against rawProperties.
+                for (const association of entry.associations) {
+                    if (association.propertyIndex < 1 ||
+                        association.propertyIndex > rawProperties.length) {
+                        throw new IsobmffStructureError("item-graph-invalid", `ipma item ${entry.itemId} references out-of-range property index ${association.propertyIndex} (ipco has ${rawProperties.length} properties).`);
+                    }
+                }
+            }
         }
     }
     const ipmaByItemId = new Map(ipmaEntries.map((entry) => [entry.itemId, entry]));
@@ -360,6 +433,25 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
     const grplHeader = metaChildren.find((c) => c.type === "grpl");
     if (grplHeader !== undefined) {
         groups = parseGrpl(metaPayload, grplHeader);
+        // D-17: a grpl entity_id naming an item iinf never declared must decline -- the writer
+        // copies grpl verbatim (D-14) and relies on every entity_id already resolving.
+        for (const group of groups) {
+            for (const entityId of group.entityIds) {
+                if (!itemIds.has(entityId)) {
+                    throw new IsobmffStructureError("item-graph-invalid", `grpl "${group.type}" entity_id ${entityId} is not a declared item.`);
+                }
+            }
+        }
+    }
+    // D-17 (inferred, not measured -- see docs/isobmff.md): admit a dinf/dref entry only when it
+    // is a self-contained "url " box (flags & 1) with no bytes after its own FullBox header. A
+    // location string would carry a path outside this file, and this engine never follows
+    // external data references (D3's existing external-data-reference/construction-method-2
+    // rules already refuse per-item external addressing; this closes the same door at the
+    // dinf/dref level).
+    const dinfHeader = metaChildren.find((c) => c.type === "dinf");
+    if (dinfHeader !== undefined) {
+        validateDataReferences(metaPayload, dinfHeader);
     }
     let colorProfile;
     const primaryAssociations = ipmaByItemId.get(primaryItemId);
@@ -399,6 +491,20 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
         };
     });
     const itemsById = new Map(items.map((item) => [item.id, item]));
+    const layout = {
+        metaChildren,
+        iinfVersion,
+        infeRanges,
+        ilocVersion: ilocTable.version,
+        ilocOffsetSize: ilocTable.offsetSize,
+        ilocLengthSize: ilocTable.lengthSize,
+        ilocBaseOffsetSize: ilocTable.baseOffsetSize,
+        ilocIndexSize: ilocTable.indexSize,
+        ...(irefVersion !== undefined ? { irefVersion } : {}),
+        iprpChildren: iprpChildrenCaptured,
+        ...(ipmaVersion !== undefined ? { ipmaVersion } : {}),
+        ...(ipmaFlags !== undefined ? { ipmaFlags } : {}),
+    };
     return {
         items,
         itemsById,
@@ -411,6 +517,7 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
         ...(colorProfile !== undefined ? { colorProfile } : {}),
         ilocTable,
         ipmaEntries,
+        layout,
     };
 }
 //# sourceMappingURL=items.js.map

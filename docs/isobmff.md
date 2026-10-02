@@ -350,11 +350,19 @@ toolchain versions.
 
 ## Decline classes
 
-`src/isobmff/errors.ts` defines the closed internal union `IsobmffDeclineClass` (24 members) and
+`src/isobmff/errors.ts` defines the closed internal union `IsobmffDeclineClass` (26 members) and
 `DECLINE_CLASS_TO_KIND`, a `satisfies Record<IsobmffDeclineClass, ...>` table mapping each class to
 one of the three public `MetadataErrorDetails["code"]` values this engine can report
 (`unsupported-format` | `unsafe-structure` | `malformed-file`, D-11/D-12). A new class added
 without a kind mapping fails typecheck.
+
+**D-06 (62-12): a second, coarser public mapping.** `src/isobmff/refusals.ts` defines the seven-
+member `HeifRefusal` union (`malformed-container`, `resource-limits`, `image-sequence`,
+`unknown-boxes`, `unknown-item-types`, `unsupported-features`, `unsafe-item-layout`) and
+`HEIF_REFUSAL_BY_DECLINE_CLASS`, a `satisfies Record<IsobmffDeclineClass, HeifRefusal>` table
+mapping every internal class to one of those seven -- this is the literal set the eventual
+`HeicCapabilities["refuses"]`/`AvifCapabilities["refuses"]` arrays advertise (62.1-07 wires the
+real capability literal). The "Public refusal" column below pins every row.
 
 Three classes close structural gaps D-12's own mapping table does not name
 (`meta-handler-not-pict`, `unsupported-box-version`, `item-graph-invalid`) -- planner discretion
@@ -365,32 +373,53 @@ Every class is now wired: the framing/top-level/cap classes by `src/isobmff/boxe
 validity) and `src/isobmff/admission.ts` (61-08, the D3/D5 removable/surviving rules;
 `DECLINE_RULE_ORDER`).
 
-| Class                          | Public code          | Rule source                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `removable-item-in-idat`       | `unsupported-format` | D3: a removable item whose extent lives in `idat` (construction_method 1) is not admitted -- only a _surviving_ grid/`idat` shape is (D-09/D3).                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `construction-method-2`        | `unsupported-format` | D3: any item with `construction_method == 2` (data-reference-indexed) is not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `external-data-reference`      | `unsupported-format` | D3: an item with `data_reference_index != 0` (an external file reference) is not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `multiple-mdat`                | `unsupported-format` | D3/D5: more than one top-level `mdat` is not admitted. Triggered in `parse.ts` on a second `mdat`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `unknown-item-type`            | `unsupported-format` | D3: an item type outside the closed admitted set (D-07's XMP `mime` rule, etc.) is not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `sequence-box`                 | `unsupported-format` | D3/D5: a top-level `moov` box indicates a sequence/fragmented file. Triggered in `parse.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `sequence-brand`               | `unsupported-format` | D-06/D-18: the `msf1`/`avis` sequence brands are never admitted (brand classification, 61-05+).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `unknown-meta-child`           | `unsupported-format` | D5: a `meta` child box outside the closed set this engine understands.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `top-level-box-not-allowed`    | `unsupported-format` | D5: any top-level box outside `{ftyp, meta, mdat, free, skip}` and the C2PA `uuid`. Triggered in `parse.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `meta-handler-not-pict`        | `unsupported-format` | Planner-added closure: `meta`'s `hdlr` box must declare handler_type `pict`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `unsupported-box-version`      | `unsupported-format` | Planner-added closure: an `iloc` version > 2, `ipma` version > 1, `infe` version < 2, or `iref`/`pitm` version > 1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `removable-extent-overlap`     | `unsafe-structure`   | D5: a removable item's extent overlaps a surviving item's extent.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `removable-item-referenced`    | `unsafe-structure`   | D5: a removable item is an `iref` to-target, `pitm`, or `grpl` member (D-08's `cdsc`-from exception does not apply to to-targets).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `surviving-zero-length-extent` | `unsafe-structure`   | D-10a: a zero-length extent on a _surviving_ item (the D-10a empty-extent rule only admits this shape for removable items).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `surviving-offset-width-zero`  | `unsafe-structure`   | D5: a surviving (construction_method 0) item whose `iloc` offset field width is 0.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `cap-meta-bytes`               | `unsafe-structure`   | BMF-05 (PNG D-25 precedent): the declared `meta` payload size exceeds `IsobmffCaps.maxMetaBytes`. Triggered in `IsobmffBudget.checkMetaSize`, checked before the `meta` payload is read.                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `cap-box-count`                | `unsafe-structure`   | BMF-05: the running box count exceeds `IsobmffCaps.maxBoxCount`. Triggered in `IsobmffBudget.countBox`, checked before each box is recorded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `cap-box-depth`                | `unsafe-structure`   | BMF-05: a container descent's depth exceeds `IsobmffCaps.maxBoxDepth`. Triggered in `IsobmffBudget.checkDepth`, checked before descending.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `cap-buffered-bytes`           | `unsafe-structure`   | BMF-05: the aggregate bytes buffered from outside `meta` (Exif/XMP item payload reads) exceeds `IsobmffCaps.maxBufferedBytesTotal`. Triggered in `admitIsobmff` (61-08): `IsobmffBudget.consumeBuffered(extent.length)` runs immediately before each extent's `readExactly` call.                                                                                                                                                                                                                                                                                                                                   |
-| `extent-outside-mdat`          | `malformed-file`     | D-10a: an extent's offset is outside the single `mdat` payload (or, for a removable item's emptied extent, outside the file); also thrown by `admission.ts`'s `addSafeOffsets` when `item.baseOffset + extent.offset` (or `+ extent.length`) exceeds `Number.MAX_SAFE_INTEGER`, even though each operand is individually safe (WR-01, code review 2026-10-01).                                                                                                                                                                                                                                                      |
-| `meta-not-fullbox`             | `malformed-file`     | D-11: `meta` is not a version-0 `FullBox` -- a QuickTime-style `meta` (no version/flags) or an unsupported `meta` version. Triggered in `parse.ts` via the first-4-payload-bytes-nonzero check.                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `duplicate-meta`               | `malformed-file`     | D5: a second top-level `meta` box. Triggered in `parse.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `box-framing`                  | `malformed-file`     | ISO/IEC 14496-12 S4.2: a short read, a declared size of 2..7, a `size==1` largesize below 16 bytes or above `Number.MAX_SAFE_INTEGER`, a box extending past its parent or the file, a `size==0` box that is not the top-level `mdat`, a `size==0` box inside any container, a first top-level box that is not `ftyp`, a second top-level `ftyp` box (WR-03, code review 2026-10-01), or an `iinf` child box too short to carry the single version byte `containerChildOffset` reads to locate its children (CR-01, code review 2026-10-01). Triggered throughout `src/isobmff/boxes.ts` and `src/isobmff/parse.ts`. |
-| `item-graph-invalid`           | `malformed-file`     | Planner-added closure: a missing or duplicate required item table (`iloc`/`iinf`/`pitm`), a dangling `iref`/`pitm`/`grpl` item reference, an `iinf` item with no corresponding `iloc` entry at all (WR-02, code review 2026-10-01 -- distinct from a _present_ `iloc` entry with `extent_count 0`, D-10a's legitimate "admitted, emptied" shape), or another item-graph inconsistency (61-07).                                                                                                                                                                                                                      |
+| Class                          | Public code          | Rule source                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------ | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `removable-item-in-idat`       | `unsupported-format` | D3: a removable item whose extent lives in `idat` (construction_method 1) is not admitted -- only a _surviving_ grid/`idat` shape is (D-09/D3).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `construction-method-2`        | `unsupported-format` | D3: any item with `construction_method == 2` (data-reference-indexed) is not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `external-data-reference`      | `unsupported-format` | D3: an item with `data_reference_index != 0` (an external file reference) is not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `multiple-mdat`                | `unsupported-format` | D3/D5: more than one top-level `mdat` is not admitted. Triggered in `parse.ts` on a second `mdat`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `unknown-item-type`            | `unsupported-format` | D3: an item type outside the closed admitted set (D-07's XMP `mime` rule, etc.) is not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `sequence-box`                 | `unsupported-format` | D3/D5: a top-level `moov` box indicates a sequence/fragmented file. Triggered in `parse.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `sequence-brand`               | `unsupported-format` | D-06/D-18: the `msf1`/`avis` sequence brands are never admitted (brand classification, 61-05+).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `unknown-meta-child`           | `unsupported-format` | D5: a `meta` child box outside the closed set this engine understands.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `top-level-box-not-allowed`    | `unsupported-format` | D5: any top-level box outside `{ftyp, meta, mdat, free, skip}` and the C2PA `uuid`. Triggered in `parse.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `meta-handler-not-pict`        | `unsupported-format` | Planner-added closure: `meta`'s `hdlr` box must declare handler_type `pict`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `unsupported-box-version`      | `unsupported-format` | Planner-added closure: an `iloc` version > 2, `ipma` version > 1, `infe` version < 2, or `iref`/`pitm` version > 1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `brand-mismatch`               | `unsupported-format` | **D-09(b) (62-12)**: a handler's own `admit` re-classifies the parsed `ftyp` brand set (`classifyIsobmffBrand` over `admitIsobmff`'s already-parsed `majorBrand`/`compatibleBrands`, never a fresh byte read) and declines when it differs from the handler's own brand -- catches a file swapped between selection (`matches`) and admission, strictly before any write.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `removable-extent-overlap`     | `unsafe-structure`   | D5: a removable item's extent overlaps a surviving item's extent.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `removable-item-referenced`    | `unsafe-structure`   | D5: a removable item is an `iref` to-target, `pitm`, or `grpl` member (D-08's `cdsc`-from exception does not apply to to-targets).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `surviving-zero-length-extent` | `unsafe-structure`   | D-10a: a zero-length extent on a _surviving_ item (the D-10a empty-extent rule only admits this shape for removable items).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `surviving-offset-width-zero`  | `unsafe-structure`   | D5: a surviving (construction_method 0) item whose `iloc` offset field width is 0.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `cap-meta-bytes`               | `unsafe-structure`   | BMF-05 (PNG D-25 precedent): the declared `meta` payload size exceeds `IsobmffCaps.maxMetaBytes`. Triggered in `IsobmffBudget.checkMetaSize`, checked before the `meta` payload is read.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `cap-box-count`                | `unsafe-structure`   | BMF-05: the running box count exceeds `IsobmffCaps.maxBoxCount`. Triggered in `IsobmffBudget.countBox`, checked before each box is recorded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `cap-box-depth`                | `unsafe-structure`   | BMF-05: a container descent's depth exceeds `IsobmffCaps.maxBoxDepth`. Triggered in `IsobmffBudget.checkDepth`, checked before descending.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `cap-buffered-bytes`           | `unsafe-structure`   | BMF-05: the aggregate bytes buffered from outside `meta` (Exif/XMP item payload reads) exceeds `IsobmffCaps.maxBufferedBytesTotal`. Triggered in `admitIsobmff` (61-08): `IsobmffBudget.consumeBuffered(extent.length)` runs immediately before each extent's `readExactly` call.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `extent-outside-mdat`          | `malformed-file`     | D-10a: an extent's offset is outside the single `mdat` payload (or, for a removable item's emptied extent, outside the file); also thrown by `admission.ts`'s `addSafeOffsets` when `item.baseOffset + extent.offset` (or `+ extent.length`) exceeds `Number.MAX_SAFE_INTEGER`, even though each operand is individually safe (WR-01, code review 2026-10-01).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `meta-not-fullbox`             | `malformed-file`     | D-11: `meta` is not a version-0 `FullBox` -- a QuickTime-style `meta` (no version/flags) or an unsupported `meta` version. Triggered in `parse.ts` via the first-4-payload-bytes-nonzero check.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `duplicate-meta`               | `malformed-file`     | D5: a second top-level `meta` box. Triggered in `parse.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `box-framing`                  | `malformed-file`     | ISO/IEC 14496-12 S4.2: a short read, a declared size of 2..7, a `size==1` largesize below 16 bytes or above `Number.MAX_SAFE_INTEGER`, a box extending past its parent or the file, a `size==0` box that is not the top-level `mdat`, a `size==0` box inside any container, a first top-level box that is not `ftyp`, a second top-level `ftyp` box (WR-03, code review 2026-10-01), or an `iinf` child box too short to carry the single version byte `containerChildOffset` reads to locate its children (CR-01, code review 2026-10-01). Triggered throughout `src/isobmff/boxes.ts` and `src/isobmff/parse.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `item-graph-invalid`           | `malformed-file`     | Planner-added closure: a missing or duplicate required item table (`iloc`/`iinf`/`pitm`), a dangling `iref`/`pitm`/`grpl` item reference, an `iinf` item with no corresponding `iloc` entry at all (WR-02, code review 2026-10-01 -- distinct from a _present_ `iloc` entry with `extent_count 0`, D-10a's legitimate "admitted, emptied" shape), or another item-graph inconsistency (61-07). **D-17 (62-04, closes 61-SECURITY Phase 62 input 2)** extends this class with five further conditions, each checked in `buildItemModel` before any write: (1) an `ipma` entry whose `item_ID` is not declared in `iinf`; (2) an `ipma` association whose property index is 0 or greater than the `ipco` property count; (3) a `grpl` entity_id that is not a declared item; (4) any `meta` child type that appears twice, or a second `ipco`/`ipma` inside `iprp` (closes the `.find()`-silently-uses-the-first-match gap in every meta/iprp lookup); (5) a `dinf`/`dref` entry other than a self-contained `url ` box (`flags & 1`, zero bytes after its own FullBox header) -- **this dref rule is inferred from the 62-01 measurement of the one real iPhone sample's single `url `/flags-1/0-trailing-bytes entry (see "iPhone idat coverage and dref entries" below), not from a corpus.** |
+| `offset-rewrite-overflow`      | `unsafe-structure`   | **D-12 (62-05)**: raised from `buildIsobmffOutputPlan`/`checkIsobmffOutputPlan`, strictly before any byte is written, when a rewritten `iloc` base_offset or extent offset would be negative (an item's own extents are declared out of ascending-source-offset order, so its first extent is not actually the smallest once the D-15 mdat union reorders survivors) or does not fit its declared field width, or when the rewritten `mdat` payload length would not fit the source's own header form (a normal/size-zero source must still fit an explicit 32-bit size; widths/header forms are never widened to make a value fit -- D-12). The admitted-but-undeclinable shape this guards against previously surfaced as an uncaught `Buffer.writeUInt32BE` `RangeError`, not a clean decline.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+
+### Public refusal mapping (D-06, 62-12)
+
+`src/isobmff/refusals.ts`'s `HEIF_REFUSAL_BY_DECLINE_CLASS` (`satisfies Record<IsobmffDeclineClass,
+HeifRefusal>`) maps every one of the 26 internal classes above to one of the seven coarse public
+`HeifRefusal` literals -- the set the eventual `HeicCapabilities`/`AvifCapabilities["refuses"]`
+arrays advertise (62.1-07). A class added without a row here fails typecheck, and
+`tests/isobmff_handlers.test.ts` pins every row and that the value set equals exactly these seven
+literals.
+
+| Public refusal         | Internal classes                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `malformed-container`  | `box-framing`, `meta-not-fullbox`, `duplicate-meta`, `extent-outside-mdat`, `item-graph-invalid`                                                                    |
+| `resource-limits`      | `cap-meta-bytes`, `cap-box-count`, `cap-box-depth`, `cap-buffered-bytes`                                                                                            |
+| `image-sequence`       | `sequence-box`, `sequence-brand`                                                                                                                                    |
+| `unknown-boxes`        | `top-level-box-not-allowed`, `unknown-meta-child`                                                                                                                   |
+| `unknown-item-types`   | `unknown-item-type`                                                                                                                                                 |
+| `unsupported-features` | `removable-item-in-idat`, `construction-method-2`, `external-data-reference`, `multiple-mdat`, `meta-handler-not-pict`, `unsupported-box-version`, `brand-mismatch` |
+| `unsafe-item-layout`   | `removable-extent-overlap`, `removable-item-referenced`, `surviving-zero-length-extent`, `surviving-offset-width-zero`, `offset-rewrite-overflow`                   |
 
 ## Memory caps
 
@@ -478,3 +507,388 @@ bytes remain after `content_type`; an absent field now reads as `undefined`, the
 "no encoding declared" meaning `admission.ts`'s XMP-removable check already gives an explicit empty
 string. Every `heif-enc`/builder fixture happened to write an explicit empty `content_encoding`
 (one NUL byte), which is why this was never caught before the real-sample proof ran.
+
+## Writer baseline (Phase 62 measurements)
+
+Everything in this section was produced by this plan's own executed commands, in scratch, against
+the branch `gsd/phase-62-isobmff-writer` cut from `main` at `cb10772`. No value here is cited from
+`62-RESEARCH.md` or an earlier scratch session; each subsection names the command that produced it.
+A dependency-free scratch box walker (`walk62.mjs`, outside every repository) parsed top-level
+boxes, `meta` children, `iloc`, `iinf`/`infe`, `iref`, `idat`, and `dinf`/`dref` directly from the
+raw bytes to produce the figures below.
+
+### heif-enc fixture layout
+
+Measured on both committed fixtures (`tests/isobmff-support/fixtures/heif-enc-grid.heic` and
+`.avif`) with the scratch walker, reading `iloc`'s FullBox version and its four packed-nibble
+widths directly:
+
+| Fixture            | `iloc` version | `offset_size` | `length_size` | `base_offset_size` | `index_size` |
+| ------------------ | -------------- | ------------- | ------------- | ------------------ | ------------ |
+| heif-enc-grid.heic | 1              | 4             | 4             | 4                  | 0            |
+| heif-enc-grid.avif | 1              | 4             | 4             | 4                  | 0            |
+
+**This supersedes 62-CONTEXT's "heif-enc iloc v0" phrasing.** The fresh measurement reads
+`iloc` version **1** on both fixtures, not version 0. (Version 1 is what makes
+`construction_method` meaningful per item; a version-0 box would have no per-item construction
+method field at all, and item 1 here is a `cm=1` grid item, so version 1 is structurally
+necessary and consistent with the byte-level read.)
+
+Exif item (item_ID 6, `infe` type `Exif`, hidden) position relative to its own fixture's `mdat`
+payload, computed as `base_offset + extent_offset` minus the `mdat` payload bounds:
+
+| Fixture | Exif item abs offset | extent length | bytes from `mdat` payload start | bytes from `mdat` payload end |
+| ------- | -------------------- | ------------- | ------------------------------- | ----------------------------- |
+| heic    | 1155                 | 178           | 171                             | 2910                          |
+| avif    | 912                  | 178           | 169                             | 2907                          |
+
+The Exif item is not at the tail of `mdat` in either source fixture -- a hidden thumbnail
+(`hvc1`, item 8) and a zero-length `mime`/XMP item (item 7) both follow it in `iloc` order, and
+item 8's extent is the one that actually reaches the `mdat` payload end (0 bytes remaining).
+
+### ExifTool 13.59 minimal-Exif placement
+
+Produced with `perl exiftool -all= -TagsFromFile @ -Orientation <RESOLUTION_PRESERVE_ARGS> -o
+q1.<ext> src.<ext>` (the app's full preserving argument shape,
+`exifcleaner-electron/src/infrastructure/exiftool/exiftool_adapter.ts:289-318`, against
+`RESOLUTION_PRESERVE_ARGS` from `src/domain/exif/exif.ts:69-78`), then walked with the same
+scratch walker:
+
+| Fixture | output item ID | source item ID | ID reused | bytes from `mdat` payload end | first 10 payload bytes (hex) |
+| ------- | -------------- | -------------- | --------- | ----------------------------- | ---------------------------- |
+| heic    | 6              | 6              | yes       | 34                            | `000000004d4d002a0000`       |
+| avif    | 6              | 6              | yes       | 31                            | `000000004d4d002a0000`       |
+
+The Exif item ID is reused in place on both formats, matching 62-CONTEXT D-13's claim. Placement
+is **not** at the `mdat` tail on either format -- the (unchanged, still-hidden) thumbnail item
+that heif-enc wrote after it in `iloc` order still follows it and is the item whose extent
+actually reaches the `mdat` payload end.
+
+**This measurement contradicts 62-CONTEXT's "ExifTool writes prefix `00000006` \"Exif\\0\\0\""
+claim.** The first 4 bytes of the payload (the `exif_tiff_header_offset` field) read
+`00000000` on both fixtures, immediately followed by the TIFF header `4d4d002a0000...` (`MM`,
+big-endian, magic `0x002a`) -- there is no `"Exif\0\0"` prefix and no offset-6 indirection in
+this measurement. The TIFF header's IFD0 holds exactly 4 entries: `Orientation` (tag `0x0112`,
+value 1), `XResolution`/`YResolution` (tags `0x011A`/`0x011B`, both rational `72/1` at the
+trailing offsets `0x3e`/`0x46`), and `ResolutionUnit` (tag `0x0213`, value 1) -- i.e. exactly the
+tags the app's preserving argument shape requests, nothing else.
+
+### ExifTool re-run stability
+
+Produced by running the plain-removal form (`-all= -o p1.<ext>`) and the preserving form
+(`-all= -TagsFromFile @ -Orientation <RESOLUTION_PRESERVE_ARGS> -o q1.<ext>`) over each fixture,
+then re-running the identical command over each result (`p1`→`p2`, `q1`→`q2`) and comparing with
+`cmp`:
+
+| Comparison        | Result    |
+| ----------------- | --------- |
+| heic `p1` vs `p2` | identical |
+| heic `q1` vs `q2` | identical |
+| avif `p1` vs `p2` | identical |
+| avif `q1` vs `q2` | identical |
+
+All four cmp results are byte-identical, confirming ExifTool 13.59's re-run stability on both
+HEIC and AVIF under both argument forms used by the app.
+
+### ExifTool and top-level free/skip
+
+Produced by appending a synthetic 16-byte top-level `free` box (payload `0xAB` repeated) and,
+separately, a synthetic 16-byte top-level `skip` box (payload `0xCD` repeated) after `mdat` on
+copies of both fixtures, then running `perl exiftool -all= -o out.<ext> synth.<ext>` and walking
+the result:
+
+| Fixture | Box    | Kept | Payload bytes       | Position relative to `mdat`                            |
+| ------- | ------ | ---- | ------------------- | ------------------------------------------------------ |
+| heic    | `free` | yes  | `ab` x16, unchanged | moved to **before** `mdat` (between `meta` and `mdat`) |
+| heic    | `skip` | yes  | `cd` x16, unchanged | moved to **before** `mdat` (between `meta` and `mdat`) |
+| avif    | `free` | yes  | `ab` x16, unchanged | moved to **before** `mdat` (between `meta` and `mdat`) |
+| avif    | `skip` | yes  | `cd` x16, unchanged | moved to **before** `mdat` (between `meta` and `mdat`) |
+
+ExifTool 13.59 keeps both top-level `free` and `skip` boxes with their payload bytes untouched,
+on both formats. It does **not** preserve their top-level position relative to `mdat`: the
+synthetic boxes were appended after `mdat` in the input, and ExifTool's `-all= -o` output
+relocates them to immediately before `mdat` (right after `meta`) on every one of the four runs.
+This is recorded as input to D-27; it does not by itself decide whether entry (e) (top-level
+`free`/`skip` dropped) stays in the permitted-difference list, since ExifTool keeps the boxes --
+it only changes their position, which D-27's later plan must account for separately if it adopts
+entry (e) at all.
+
+### iPhone idat coverage and dref entries
+
+Produced by fetching the pinned iPhone 13 Pro Max sample to scratch (never committed to any
+repository), verifying its hash and size, and walking it with the scratch walker:
+
+```
+$ shasum -a 256 iphone.heic
+e760c80eed310e4f27c092d5487693ca8e104e7cc01d25ba4828deb28f679676  iphone.heic
+$ wc -c iphone.heic
+ 2182707 iphone.heic
+```
+
+Both the sha256 and the byte count match the pinned values exactly.
+
+`idat` payload length: **8 bytes**. Exactly one item uses `construction_method` 1 (idat-relative
+addressing): item 49 (`infe` type `grid`, the primary image, not hidden), with one extent at
+`idat`-relative offset 0, length 8. That single extent's range `[0, 8)` is the entire `idat`
+payload, so:
+
+| Metric                                                   | Value |
+| -------------------------------------------------------- | ----- |
+| `idat` payload length                                    | 8     |
+| bytes claimed by `construction_method 1` extents (union) | 8     |
+| unclaimed bytes                                          | 0     |
+
+On this real sample, the `idat` box carries no unclaimed/residue bytes -- every byte is claimed
+by the one `cm=1` item's extent. This measurement does not generalize to every possible writer
+output; it is recorded here as the measured fact for this one pinned sample, per 62-CONTEXT's
+Deferred Ideas item on unclaimed `idat` bytes.
+
+`dinf`/`dref` entries (walked from `meta/dinf/dref`): exactly one entry, type `url `, version 0,
+flags `1` (bit 0 set -- self-contained, no location string), with **0 bytes** remaining after
+the entry's own FullBox header (`bytesAfterFullBox: 0`). This is consistent with 62-CONTEXT
+D-17's inferred dref admission rule (admit only `url ` with `flags & 1` and no location string)
+on the one real-world sample measured here.
+
+### Baseline test run
+
+Before any edit on `gsd/phase-62-isobmff-writer` (cut from `main` at `cb10772`), `npm run build &&
+npm run build:native` succeeded, and a full `npx vitest run --reporter=json` reported:
+
+| Metric            | Value |
+| ----------------- | ----- |
+| `numTotalTests`   | 1967  |
+| `numPassedTests`  | 1826  |
+| `numPendingTests` | 141   |
+| `numFailedTests`  | 0     |
+
+## Writer (Phase 62)
+
+`src/isobmff/{plan,rebuild,writer,verify}.ts` implement a full rebuild writer: every admitted
+HEIC/AVIF source is parsed once, a complete `IsobmffOutputPlan` is computed and checked before any
+byte is written, then the plan's parts are streamed to the destination and the destination is
+re-parsed and checked against the source before the engine ever commits it. The engine behind
+this section is unreachable from any registered format (`src/admission/{heic,avif}-handler.ts`
+exist but are not in `HANDLERS`; see the Decline classes section and `tests/isobmff_handlers.test.ts`)
+-- this section documents the writer contract 62.1 and later formats build on, not a shipped
+public behavior.
+
+The governing principle, measured against ExifTool 13.59's own re-run stability (see "ExifTool
+re-run stability" above): **copy the source's own encoding and change values only.** This is what
+makes `clean(clean(x)) == clean(x)` hold by construction (D-19, ISO-06).
+
+### D-11: `iloc` rewrite
+
+The rewritten `iloc` box keeps the source's own `version`, `offset_size`, `length_size`,
+`base_offset_size` and `index_size` unchanged -- widths are never widened or narrowed to make a
+value fit (see D-12). For a surviving `construction_method 0` item, every extent's new absolute
+position is `newAbs = map(oldAbs)`, where `map` resolves a source byte offset through the D-15
+merged `mdat` union. If `base_offset_size > 0`, the item's new `base_offset` is
+`map(first extent's old absolute offset)` and each extent's own offset field becomes
+`map(abs_i) - newBase`; if `base_offset_size == 0`, each extent's offset field is `map(abs_i)`
+directly, with no base. `extent_index` and `construction_method` are always copied verbatim, and
+a `construction_method 1` (`idat`-relative) record's `iloc` entry is copied byte-for-byte, never
+recomputed. The minimal Exif item (D-13) follows the same base/offset split: when
+`base_offset_size > 0`, its base is the `mdat` tail position and its one extent offset is 0;
+otherwise its one extent offset is the tail position itself, with length equal to its payload
+length.
+
+Proven across every admitted `(version, offset_size, length_size, base_offset_size, index_size)`
+combination by `tests/isobmff_writer.test.ts`'s "D-11 iloc layout matrix (62-05)" (26 cases).
+
+### D-12: `offset-rewrite-overflow`
+
+A new internal decline class, raised in `buildIsobmffOutputPlan`/`checkIsobmffOutputPlan` strictly
+before any byte is written, when: a rewritten base, offset or length does not fit its declared
+field width; a relative offset computed under D-11 would go negative (an item's own extents were
+declared out of ascending-source-offset order, so the D-15 union reorders them); the rewritten
+`mdat` payload length would not fit the source's own header form; or the minimal Exif item needs a
+location but the source's `iloc` cannot express one (`offset_size == 0 && base_offset_size == 0`,
+or `length_size == 0`). Widths and header forms are never widened to make a value fit -- the file
+declines instead. Before this check existed, the admitted-but-undeclinable shape surfaced as an
+uncaught `Buffer.writeUInt32BE` `RangeError`, not a clean decline (see "Decline classes" below for
+the `offset-rewrite-overflow` row).
+
+Proven end to end (admits, then declines one stage later, zero writes) by
+`tests/isobmff_hostile.test.ts`'s `offset-rewrite-overflow` fixture (62-05) and its "D-12 minimal
+Exif location (62-07)" describe block, and cross-checked by `tests/isobmff_proof_harness.test.ts`'s
+per-class decline loop.
+
+### D-13: minimal Exif item
+
+Source item **k** is the first item, in `iinf` declaration order, that is a non-emptied `Exif`
+item whose `cdsc` reference's to-list contains the primary item (`findExifSourceItemId`,
+`src/isobmff/admission.ts`). Orientation and resolution are read only from k -- this closes a real
+Phase 61 defect where an Exif item on an auxiliary image or thumbnail could stamp its own
+Orientation onto the primary (`admission.ts`'s pre-62-03 `found.orientation` fallback, which took
+the first Exif item of _any_ item). When a requested preservation tag applies, the writer keeps k
+declared **at its own item ID** (never allocating a new one): its `infe` is rebuilt from scratch
+(`buildMinimalExifInfe`, `src/isobmff/rebuild.ts`) keeping the source's version and hidden flag but
+forcing `item_protection_index` to 0 and `item_name` to empty; its `iloc` entry becomes one new
+`construction_method 0` extent at the tail of `mdat` (never `idat` -- D3 declines a removable item
+with `construction_method != 0`, so placing k's payload in `idat` would make the writer's own
+output decline on re-clean). Exactly one `iref` record from k is rewritten: its **qualifying**
+`cdsc` record -- the first, in `iref` order, whose to-list contains the primary (the one that made
+it k, per `findExifSourceItemId` above) -- stays in its original slot with its to-list reduced to
+`[pitm]`. k may legitimately carry other `iref` records too (another `cdsc` to a different item,
+a `thmb`, and so on); every one of those survives **verbatim**, copied byte-for-byte, never
+touched by the qualifying-record rewrite (code review 2026-10-02, CR-01: an earlier blanket
+`fromItemId === k` rewrite squashed every record from k to `[pitm]`, silently destroying any
+unrelated record's real target; admission's Rule 6, `removable-item-referenced`, guarantees every
+`iref` to-target is always a surviving item, so a non-qualifying record from k never needs
+removed-target handling). The payload is four zero bytes (`exif_tiff_header_offset = 0`, matching
+the measured ExifTool 13.59 shape -- see "ExifTool 13.59 minimal-Exif placement" above) followed by
+`createMinimalExif(computeIsobmffMinimalExifTags(...))`. Every other removable item loses its
+`infe`, `iloc` entry, outgoing `iref` entries and `ipma` entry, exactly as D-14 describes.
+
+Proven on both committed heif-enc fixtures at default settings, and on item-shape/placement
+variants (`infe` version/hidden flag, `base_offset_size` 0 vs. 4, `cdsc` to-list reduction,
+orientation-only/resolution-only requests, and the empty edges) by
+`tests/isobmff_minimal_exif.test.ts`'s "D-13 minimal Exif writer (62-07)" and "D-13 source item k
+(62-03)" describe blocks; the k-selection edge cases (ordering, thumbnail-only, emptied,
+resolution scope) are proven in the same file's 62-03 describe block. The qualifying-record-only
+rewrite (an unrelated second `iref` record from k survives untouched, and a tamper replaying the
+pre-fix blanket-rewrite shape is caught by `verifyOutput`) is proven in
+`tests/isobmff_writer.test.ts`'s "CR-01 code review fix pass (62-13)" describe block.
+
+### D-14: order
+
+`meta`'s children are emitted in the source's own order; `iinf`, `iloc`, `iref` and `iprp` are
+rebuilt in their original slots with entries removed in place (never reordered to a canonical
+layout); `hdlr`, `dinf`, `pitm`, `idat` and `grpl` are copied byte-verbatim; box versions are
+preserved and entry counts are recomputed (they only shrink); `ftyp` is copied byte-verbatim.
+Top-level boxes are never reordered, and `free`/`skip`/the C2PA `uuid` are dropped wherever they
+sit -- right after `ftyp`, between `meta` and `mdat`, after `mdat`, or more than once in the same
+file.
+
+Proven on a non-default meta-child order (`iinf` before `iloc`, `iref` before `iprp`), verbatim
+child bytes, an `iref` box with a dropped record interleaved among surviving ones, every top-level
+position for `free`/`skip`/`uuid` (including two at once), an empty-edge source (nothing
+removable) and an emptied-item source, by `tests/isobmff_writer.test.ts`'s "D-14 order, verbatim
+children, empty iref, top-level positions, empty and emptied sources (62-06)" describe block (16
+tests), plus hidden-auxiliary-item removal on both brands in the same file's "ISO-01/ISO-02
+removal on builder fixtures (62-06)" describe blocks.
+
+### D-15: `mdat`
+
+The output keeps the source's own `mdat` header form: `largesize` iff the source used one, a
+32-bit size iff the source used a normal 32-bit size, and a size-0 source becomes an explicit
+32-bit size. The output payload is the union of every surviving `construction_method 0` extent's
+byte range, merged in ascending source offset (`buildMergedMdatRanges`/`mapAbsoluteOffset`,
+`src/isobmff/plan.ts`) -- touching or overlapping ranges merge into one, written exactly once --
+followed by the minimal Exif payload (D-13), if any. Unclaimed source gaps (dead ranges under D3,
+and possible hiding places for stale bytes) are dropped, never copied forward. A 32-bit size that
+would overflow, or a 16-byte `largesize` header the source did not use, declines under
+`offset-rewrite-overflow` (D-12) rather than ever being widened.
+
+Proven by `tests/isobmff_writer.test.ts`'s "D-15 mdat union (62-05)" describe block (9 tests):
+canary absence from unclaimed gaps, touching/overlapping-extent merge, removed-extent excision at
+a shared boundary, out-of-order extents, and header-form preservation across `largesize`/normal/
+size-zero sources.
+
+### D-16: ICC and `ipma` remap
+
+With `preserveColorProfile: false`, every `ipco` property whose type is `colr` and whose
+`colour_type` is `prof` or `rICC` is removed -- not only the primary item's own ICC property, but
+every such property in the box, regardless of which item associates with it. `ipco` is rebuilt by
+concatenating each surviving property's own verbatim byte range in source order
+(`rebuildIpco`, `src/isobmff/rebuild.ts`); this degenerates to an exact byte-identical copy when
+nothing is removed, so `preserveColorProfile: true` needs no special-cased branch at all. `ipma`
+is rebuilt with every association naming a removed property deleted, and every surviving
+association's `propertyIndex` remapped `new = old - countRemovedBelow(old)` -- `ipma`'s own
+version, flags, essential bits, and any entry that ends up with zero associations are left
+untouched. `nclx` `colr` properties are always preserved regardless of the flag.
+
+Proven end to end (full `ipco`/`ipma` rebuild with a primary and a hidden thumbnail both
+associating with the removed property) by `tests/isobmff_icc.test.ts`'s "D-16 ICC removal and
+ipma remap (62-08)" describe block, including `preserveColorProfile: true` identity, `ipma`
+version-0/7-bit and version-1/15-bit (index above 127) width preservation, a zero-association
+surviving entry, the highest-index-removed boundary, and the four generator `colr` arms.
+
+### D-17: graph-integrity declines
+
+`buildItemModel` (`src/isobmff/items.ts`) declines `item-graph-invalid` at parse time, strictly
+before `classifyIsobmffModel` or any write ever runs, for: an `ipma` entry whose `item_ID` was
+never declared in `iinf`; an `ipma` association whose property index is 0 or greater than the
+`ipco` property count; a `grpl` entity_id that is not a declared item; any `meta` child type that
+appears twice, or a second `ipco`/`ipma` inside `iprp` (closing a `.find()`-silently-uses-the-
+first-match gap that ran through every one of these lookups); and a `dinf`/`dref` entry other
+than a self-contained `url ` box (`flags & 1`, zero bytes after its own FullBox header) -- this
+`dref` rule is inferred from the one real iPhone sample's own single, self-contained `dref` entry
+(see "iPhone idat coverage and dref entries" above), not measured from a corpus.
+
+Proven, each condition with its own hostile fixture and the full "declines once, zero writes"
+pattern (admit, then decline before `writeOutput` ever runs), by `tests/isobmff_hostile.test.ts`'s
+"D-17 graph-integrity declines (62-04)" describe block (22 tests); the real, sha-verified iPhone
+sample and both committed heif-enc fixtures continue to admit unaffected.
+
+### D-18: `verifyOutput` assertions
+
+Before any sanitize call commits its result, `verifyIsobmffOutput` re-parses the destination with
+`parseIsobmff` and runs `classifyIsobmffModel` -- the output must admit. It then recomputes every
+expectation independently from the **source** admission and the request flags, never from the
+plan's own output bytes (the same discipline the D-13/D-16 checks already establish), and asserts:
+the top-level type list equals the source's minus `free`/`skip`/the C2PA `uuid`, with `ftyp` bytes
+byte-identical; the surviving item set, `pitm`, and each surviving item's `infe` fields are equal;
+`iloc`'s version and all four declared field widths equal the source's; `iref` equals the source's
+minus removed entries, with k's to-list reduced to `[pitm]`; each surviving item's property
+associations are resolved to `(property bytes, essential bit)` and compared as an **ordered
+list**, never by raw index and never as a set; each surviving item's payload is byte-identical,
+compared in `COPY_BLOCK_BYTES`-bounded streamed windows through each file's own `iloc`/`idat` --
+never a whole-item buffer; there are 0 or 1 Exif items (and if 1, it is k, `construction_method 0`,
+the expected payload, `cdsc -> [pitm]`); there are 0 `mime` items; the D-16 ICC rule holds (no
+`prof`/`rICC` property anywhere in the output, with a whole-file byte scan for the removed
+payload, **and** the whole surviving `ipco` payload -- source properties in order minus the
+independently recomputed removed indices -- compared byte for byte against the destination, so a
+property no `ipma` entry references at all (an orphan, D-34) is still checked, when
+`preserveColorProfile` is false; the whole `ipco` box byte-identical when true);
+the destination's own `mdat` payload length equals the union of its own surviving extents
+(coverage, recomputed from the destination, never trusted from the plan); and `idat` is
+byte-identical.
+
+Proven on a preservation fixture (`irot`/`imir` essential, `clap`, a thumbnail, a gain-map item
+and its auxiliary input, a depth auxiliary item, an Exif item removed) cross-checked against the
+independent inventory walker, and shown red on 11 hand-tampered destinations -- one per assertion
+plus the association-ordering edge -- by `tests/isobmff_verify.test.ts`'s "D-18 identity proof
+(62-09)" describe block. The whole-`ipco`-payload recompute (an orphan property no `ipma` entry
+references is corrupted by a plan mutant and caught) is proven by `tests/isobmff_writer.test.ts`'s
+"WR-01 code review fix pass (62-13)" describe block.
+
+### D-19: negative controls
+
+Two test-only wrapper factories (`tests/isobmff-support/test-handler.ts`) prove the identity proof
+has teeth, through the real engine end to end, never by editing `src/`:
+`createFlipOneByteHandler` runs the real `writeOutput` and then flips one byte in a surviving
+tile's extent, which `verifyIsobmffOutput` catches before publication; `createPlanMutantHandler`
+corrupts the real, already-correct `IsobmffOutputPlan` with one of five named mutants -- the D-11
+offset shift skipped, the D-16 `ipma` remap off by one, one D-15 removed range kept in `mdat`, the
+D-11 field widths normalized to 8 bytes, and the D-13 minimal Exif item moved to
+`construction_method 1`/`idat` -- each shown red, with an identity-mutant control proving the
+wrappers are otherwise inert. The `construction_method 1` mutant is additionally shown to decline
+on re-clean (`clean(clean(x))` cannot equal `clean(x)` for that defect), the ISO-06 idempotence
+claim's negative mirror.
+
+**ISO-06 idempotence evidence:** `clean(clean(x))` is byte-equal to `clean(x)` for both committed
+heif-enc fixtures under three option sets, one builder fixture per named writer class (hidden
+auxiliary metadata plus top-level C2PA, `free`/`skip`, ICC removal, the minimal Exif writer), and
+a fixed-seed admitted sample from every one of the 13 non-hazard generator arms; and
+`clean(exiftool(x))` is byte-equal to `clean(clean(exiftool(x)))` against a real ExifTool 13.59
+run locally, under both measured argument forms (plain `-all=`; the app's preserving
+`-all= -TagsFromFile @ -Orientation <RESOLUTION_PRESERVE_ARGS>` form), including the Exif item
+identity/prefix check (same item ID, four-zero-byte payload prefix) when ExifTool's own output
+carries a non-emptied Exif item.
+
+Proven by `tests/isobmff_negative_controls.test.ts`'s "D-19 flip-one-byte (62-10)" and "D-19
+writer mutants (62-10)" describe blocks, and by `tests/isobmff_idempotence.test.ts`'s "ISO-06
+clean(clean(x)) (62-11)" and "ISO-06 clean(exiftool(x)) (62-11)" describe blocks.
+
+### D-34: orphaned properties (deferred, recorded only)
+
+`rebuildIpco`'s removal set (D-16) is scoped exactly to ICC `colr` `prof`/`rICC` properties; it
+does not prune any other `ipco` property whose associations have all been removed by some other
+rule. A property referenced only by a removed item -- for example a `udes` (user description)
+property that only a stripped auxiliary item associated with -- therefore survives in `ipco` as
+an **orphan**: still present in the box, byte-identical, with zero surviving associations. This is
+a named residual, not an oversight: pruning orphaned properties is out of scope for this phase
+(62-CONTEXT's Deferred Ideas), and no later plan in this phase reads or removes them. A future
+requirement would need to define whether orphan pruning is itself safe (an orphan could in
+principle be re-associated by a future edit tool reading the same file) before implementing it.

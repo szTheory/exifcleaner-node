@@ -31,6 +31,15 @@ export interface BoxHeader {
   readonly size: number;
   readonly payloadStart: number;
   readonly end: number;
+  /**
+   * How the declared 32-bit size field actually read (Phase 62 D-15): `"normal"` is an ordinary
+   * non-zero declared size (`headerSize` 8); `"largesize"` is the `size == 1` + 64-bit largesize
+   * form (`headerSize` 16); `"size-zero"` is the literal declared-0 "extends to end" form
+   * (`headerSize` 8, same as `"normal"` -- this field is the only way to tell them apart). The
+   * ISOBMFF writer (`src/isobmff/plan.ts`) uses this to keep `mdat`'s own header in the source's
+   * form rather than widening/narrowing it.
+   */
+  readonly sizeForm: "normal" | "largesize" | "size-zero";
   /** Only present when `type === "uuid"`; lower-case hex, 32 characters (16 bytes). */
   readonly usertype?: string;
 }
@@ -126,12 +135,14 @@ export function parseBoxHeader(
 
   let headerSize = BASE_HEADER_BYTES;
   let totalSize: number;
+  let sizeForm: "normal" | "largesize" | "size-zero" = "normal";
 
   if (declaredSize === 0) {
     throw boxFramingError(
       `Box "${type}" at offset ${offset} declares size 0, which is only permitted for the top-level mdat box.`,
     );
   } else if (declaredSize === 1) {
+    sizeForm = "largesize";
     if (offset + BASE_HEADER_BYTES + LARGESIZE_BYTES > end) {
       throw boxFramingError(
         `Box "${type}" at offset ${offset} is missing its largesize field.`,
@@ -192,6 +203,7 @@ export function parseBoxHeader(
     start: offset,
     headerSize,
     size: totalSize,
+    sizeForm,
     payloadStart,
     end: boxEnd,
     ...(usertype !== undefined ? { usertype } : {}),
@@ -213,6 +225,7 @@ async function readTopLevelBoxHeaderAt(
 
   let headerSize = BASE_HEADER_BYTES;
   let totalSize: number;
+  let sizeForm: "normal" | "largesize" | "size-zero" = "normal";
 
   if (declaredSize === 0) {
     if (type !== "mdat") {
@@ -220,8 +233,10 @@ async function readTopLevelBoxHeaderAt(
         `Box "${type}" at offset ${position} declares size 0, which is only permitted for the top-level mdat box.`,
       );
     }
+    sizeForm = "size-zero";
     totalSize = fileSize - position;
   } else if (declaredSize === 1) {
+    sizeForm = "largesize";
     if (position + BASE_HEADER_BYTES + LARGESIZE_BYTES > fileSize) {
       throw boxFramingError(
         `Box "${type}" at offset ${position} is missing its largesize field.`,
@@ -288,6 +303,7 @@ async function readTopLevelBoxHeaderAt(
     start: position,
     headerSize,
     size: totalSize,
+    sizeForm,
     payloadStart,
     end,
     ...(usertype !== undefined ? { usertype } : {}),

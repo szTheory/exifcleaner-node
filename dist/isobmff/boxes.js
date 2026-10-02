@@ -81,10 +81,12 @@ export function parseBoxHeader(buffer, offset, end) {
     const type = buffer.toString("ascii", offset + 4, offset + 8);
     let headerSize = BASE_HEADER_BYTES;
     let totalSize;
+    let sizeForm = "normal";
     if (declaredSize === 0) {
         throw boxFramingError(`Box "${type}" at offset ${offset} declares size 0, which is only permitted for the top-level mdat box.`);
     }
     else if (declaredSize === 1) {
+        sizeForm = "largesize";
         if (offset + BASE_HEADER_BYTES + LARGESIZE_BYTES > end) {
             throw boxFramingError(`Box "${type}" at offset ${offset} is missing its largesize field.`);
         }
@@ -126,6 +128,7 @@ export function parseBoxHeader(buffer, offset, end) {
         start: offset,
         headerSize,
         size: totalSize,
+        sizeForm,
         payloadStart,
         end: boxEnd,
         ...(usertype !== undefined ? { usertype } : {}),
@@ -140,13 +143,16 @@ async function readTopLevelBoxHeaderAt(handle, position, fileSize) {
     const type = header.toString("ascii", 4, 8);
     let headerSize = BASE_HEADER_BYTES;
     let totalSize;
+    let sizeForm = "normal";
     if (declaredSize === 0) {
         if (type !== "mdat") {
             throw boxFramingError(`Box "${type}" at offset ${position} declares size 0, which is only permitted for the top-level mdat box.`);
         }
+        sizeForm = "size-zero";
         totalSize = fileSize - position;
     }
     else if (declaredSize === 1) {
+        sizeForm = "largesize";
         if (position + BASE_HEADER_BYTES + LARGESIZE_BYTES > fileSize) {
             throw boxFramingError(`Box "${type}" at offset ${position} is missing its largesize field.`);
         }
@@ -190,6 +196,7 @@ async function readTopLevelBoxHeaderAt(handle, position, fileSize) {
         start: position,
         headerSize,
         size: totalSize,
+        sizeForm,
         payloadStart,
         end,
         ...(usertype !== undefined ? { usertype } : {}),

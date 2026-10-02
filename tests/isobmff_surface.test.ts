@@ -80,6 +80,24 @@ const ISOBMFF_DIST_MODULES = [
   "items",
   "parse",
   "admission",
+  "plan",
+  "rebuild",
+  "writer",
+  "verify",
+  "refusals",
+] as const;
+
+/**
+ * 62-12: the three handler modules (`isobmff-handler.ts`, the shared engine-bound factory, and
+ * `heic-handler.ts`/`avif-handler.ts`, the two unregistered per-brand modules built on it) must
+ * stay committed under `dist/admission/` (`check:dist` already gates that) AND unreachable from
+ * the public surface, exactly like `dist/isobmff/` above -- they are never imported by
+ * `src/admission/registry.ts` in this plan (D-02/D-03).
+ */
+const ISOBMFF_HANDLER_DIST_MODULES = [
+  "isobmff-handler",
+  "heic-handler",
+  "avif-handler",
 ] as const;
 
 describe("dist/isobmff is committed (BMF-02..BMF-06)", () => {
@@ -100,6 +118,20 @@ describe("dist/isobmff is unreachable from the public surface (D-15)", () => {
     expect(isobmffPaths).toEqual([]);
   });
 });
+
+describe.each(ISOBMFF_HANDLER_DIST_MODULES)(
+  "dist/admission/%s.js is unreachable from the public surface (62-02/62-12, D-02 shape (c))",
+  (module) => {
+    it(`the transitive import closure of dist/index.js contains no path under dist/admission/${module}.js`, async () => {
+      const closure = await transitiveImportClosure(DIST_INDEX);
+      expect(closure.length).toBeGreaterThan(0);
+      const handlerPaths = closure.filter((path) =>
+        path.replaceAll("\\", "/").includes(`/dist/admission/${module}.js`),
+      );
+      expect(handlerPaths).toEqual([]);
+    });
+  },
+);
 
 describe("transitiveImportClosure negative controls (D-15: the walker actually detects a reachable isobmff path)", () => {
   const directories: string[] = [];

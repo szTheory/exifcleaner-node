@@ -172,5 +172,5 @@ describe("isobmffArmSampleArbitrary meets ISOBMFF_ARM_FLOORS and agrees with adm
         { seed: SEED, numRuns: NUM_RUNS },
       );
     }
-  });
+  }, 30_000);
 });

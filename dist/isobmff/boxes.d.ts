@@ -8,6 +8,15 @@ export interface BoxHeader {
     readonly size: number;
     readonly payloadStart: number;
     readonly end: number;
+    /**
+     * How the declared 32-bit size field actually read (Phase 62 D-15): `"normal"` is an ordinary
+     * non-zero declared size (`headerSize` 8); `"largesize"` is the `size == 1` + 64-bit largesize
+     * form (`headerSize` 16); `"size-zero"` is the literal declared-0 "extends to end" form
+     * (`headerSize` 8, same as `"normal"` -- this field is the only way to tell them apart). The
+     * ISOBMFF writer (`src/isobmff/plan.ts`) uses this to keep `mdat`'s own header in the source's
+     * form rather than widening/narrowing it.
+     */
+    readonly sizeForm: "normal" | "largesize" | "size-zero";
     /** Only present when `type === "uuid"`; lower-case hex, 32 characters (16 bytes). */
     readonly usertype?: string;
 }

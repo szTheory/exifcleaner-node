@@ -48,10 +48,15 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
     let iloc;
     let ipma;
     let itemModel;
+    const topLevelBoxes = [];
+    let metaOffset;
+    let metaHeaderSize;
+    let metaPayloadBuf;
     for (const header of topLevel) {
         if (isAborted(signal)) {
             throw new IsobmffStructureError("box-framing", "Parsing aborted.");
         }
+        topLevelBoxes.push(header);
         if (header.type === "ftyp") {
             if (sawFtyp) {
                 throw new IsobmffStructureError("box-framing", 'A second top-level "ftyp" box is not permitted.');
@@ -85,6 +90,9 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
             iloc = itemModel.ilocTable;
             ipma = itemModel.ipmaEntries;
             metaRange = { offset: header.start, length: header.end - header.start };
+            metaOffset = header.start;
+            metaHeaderSize = header.payloadStart - header.start;
+            metaPayloadBuf = payload;
             continue;
         }
         if (header.type === "mdat") {
@@ -123,6 +131,15 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
         // all `item-graph-invalid`) -- not a byte-framing defect (61-09, D-14 BMF-03 empty-input edge).
         throw new IsobmffStructureError("item-graph-invalid", 'No top-level "meta" box was found.');
     }
+    // metaOffset/metaHeaderSize/metaPayloadBuf are always set together with itemModel (both only
+    // assigned inside the "meta" branch above), so this cast is safe once itemModel is defined.
+    const layout = {
+        topLevelBoxes,
+        metaOffset: metaOffset,
+        metaHeaderSize: metaHeaderSize,
+        metaPayload: metaPayloadBuf,
+        item: itemModel.layout,
+    };
     return {
         majorBrand,
         minorVersion,
@@ -146,6 +163,7 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
         ...(itemModel.colorProfile !== undefined
             ? { colorProfile: itemModel.colorProfile }
             : {}),
+        layout,
     };
 }
 //# sourceMappingURL=parse.js.map

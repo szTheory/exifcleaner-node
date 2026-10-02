@@ -3,7 +3,7 @@ import { SEQUENCE_BRANDS } from "./brand.js";
 import { DEFAULT_ISOBMFF_CAPS, IsobmffBudget, } from "./caps.js";
 import { IsobmffStructureError } from "./errors.js";
 import { parseIsobmff } from "./parse.js";
-import { parseExif, readIfd0Resolution } from "../metadata/exif.js";
+import { parseExif, readIfd0Resolution, } from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
 import { parseXmp } from "../metadata/xmp.js";
 /** D3/D7: image item types this engine preserves verbatim, never decodes. */
@@ -35,6 +35,31 @@ export const DECLINE_RULE_ORDER = Object.freeze([
     "extent-outside-mdat",
     "removable-extent-overlap",
 ]);
+/**
+ * D-13 source item k: walk `model.items` in `iinf` declaration order and return the id of the
+ * first item that is `type === "Exif"`, not emptied (`classification.emptiedItemIds`), and is the
+ * from-item of a `cdsc` reference in `model.references` whose `toItemIds` include
+ * `model.primaryItemId`. Orientation and resolution must be read only from this item -- an Exif
+ * item that describes an auxiliary or thumbnail image (a `cdsc` to-list that never contains
+ * `pitm`) must never contribute either value (Phase 61 defect, fixed here).
+ */
+function findExifSourceItemId(model, classification) {
+    const emptied = new Set(classification.emptiedItemIds);
+    const describesPrimary = new Set(model.references
+        .filter((reference) => reference.type === "cdsc" &&
+        reference.toItemIds.includes(model.primaryItemId))
+        .map((reference) => reference.fromItemId));
+    for (const item of model.items) {
+        if (item.type !== "Exif")
+            continue;
+        if (emptied.has(item.id))
+            continue;
+        if (!describesPrimary.has(item.id))
+            continue;
+        return item.id;
+    }
+    return undefined;
+}
 /**
  * Add two independently-`MAX_SAFE_INTEGER`-bounded offsets, declining `extent-outside-mdat`
  * rather than silently losing precision if their sum would exceed `Number.isSafeInteger` (WR-01,
@@ -255,6 +280,8 @@ export async function admitIsobmff(handle, size, signal, caps = DEFAULT_ISOBMFF_
     let colorProfile;
     const namespaces = new Set();
     let resolutionNamespace;
+    let sourceResolution;
+    const exifSourceItemId = findExifSourceItemId(model, classification);
     if (model.colorProfile !== undefined) {
         colorProfile = model.colorProfile;
         namespaces.add("ICC");
@@ -294,10 +321,18 @@ export async function admitIsobmff(handle, size, signal, caps = DEFAULT_ISOBMFF_
             const found = parseExif(tiff);
             entries.push(...found.entries);
             warnings.push(...found.warnings);
-            if (orientation.status === "absent")
+            if (item.id === exifSourceItemId) {
+                // D-13: orientation and resolution come only from source item k. An Exif item on an
+                // auxiliary or thumbnail image (not k) still contributes its entries/warnings above (the
+                // inspector keeps listing every removable item's metadata), but never its orientation or
+                // resolution.
                 orientation = found.orientation;
-            if (readIfd0Resolution(tiff) !== undefined)
-                resolutionNamespace = "EXIF";
+                const resolution = readIfd0Resolution(tiff);
+                if (resolution !== undefined) {
+                    resolutionNamespace = "EXIF";
+                    sourceResolution = resolution;
+                }
+            }
             continue;
         }
         if (item.type === "mime") {
@@ -317,6 +352,8 @@ export async function admitIsobmff(handle, size, signal, caps = DEFAULT_ISOBMFF_
         resolutionNamespace,
         model,
         classification,
+        exifSourceItemId,
+        sourceResolution,
     };
 }
 //# sourceMappingURL=admission.js.map

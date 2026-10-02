@@ -21,6 +21,7 @@ import {
   type IsobmffByteRange,
   type IsobmffEntityGroup,
   type IsobmffItem,
+  type IsobmffItemLayout,
   type IsobmffProperty,
   type IsobmffReference,
 } from "./items.js";
@@ -61,6 +62,25 @@ export interface IsobmffModel {
   /** The primary item's `colr` ICC payload (colour_type `prof`/`rICC` only); `nclx` or absent
    * yields `undefined` (D-12). */
   readonly colorProfile?: Buffer;
+  /** Phase 62 writer layout (D-11..D-14): top-level box ranges plus `meta`'s own buffered payload
+   * and item-graph layout, everything the rebuild encoders need, all already read once by this
+   * same `parseIsobmff` call -- no new file reads. */
+  readonly layout: IsobmffLayout;
+}
+
+export interface IsobmffLayout {
+  /** Every top-level box, in source order (header ranges are file-absolute). */
+  readonly topLevelBoxes: readonly BoxHeader[];
+  /** File offset of `meta`'s own box start. */
+  readonly metaOffset: number;
+  /** Bytes of `meta`'s own box header (size+type, plus largesize/usertype if present) --
+   * excludes the 4-byte FullBox version/flags field, which is the first 4 bytes of
+   * `metaPayload` below. */
+  readonly metaHeaderSize: number;
+  /** `meta`'s already-buffered, cap-bounded FullBox payload (version/flags + children), the
+   * exact buffer `parseIsobmff` read once under `budget.checkMetaSize`. */
+  readonly metaPayload: Buffer;
+  readonly item: IsobmffItemLayout;
 }
 
 function isAborted(signal: AbortSignal | undefined): boolean {
@@ -125,11 +145,16 @@ export async function parseIsobmff(
   let iloc: IlocTable | undefined;
   let ipma: readonly IpmaEntry[] | undefined;
   let itemModel: ReturnType<typeof buildItemModel> | undefined;
+  const topLevelBoxes: BoxHeader[] = [];
+  let metaOffset: number | undefined;
+  let metaHeaderSize: number | undefined;
+  let metaPayloadBuf: Buffer | undefined;
 
   for (const header of topLevel) {
     if (isAborted(signal)) {
       throw new IsobmffStructureError("box-framing", "Parsing aborted.");
     }
+    topLevelBoxes.push(header);
 
     if (header.type === "ftyp") {
       if (sawFtyp) {
@@ -185,6 +210,9 @@ export async function parseIsobmff(
       iloc = itemModel.ilocTable;
       ipma = itemModel.ipmaEntries;
       metaRange = { offset: header.start, length: header.end - header.start };
+      metaOffset = header.start;
+      metaHeaderSize = header.payloadStart - header.start;
+      metaPayloadBuf = payload;
       continue;
     }
 
@@ -245,6 +273,16 @@ export async function parseIsobmff(
     );
   }
 
+  // metaOffset/metaHeaderSize/metaPayloadBuf are always set together with itemModel (both only
+  // assigned inside the "meta" branch above), so this cast is safe once itemModel is defined.
+  const layout: IsobmffLayout = {
+    topLevelBoxes,
+    metaOffset: metaOffset as number,
+    metaHeaderSize: metaHeaderSize as number,
+    metaPayload: metaPayloadBuf as Buffer,
+    item: itemModel.layout,
+  };
+
   return {
     majorBrand,
     minorVersion,
@@ -268,5 +306,6 @@ export async function parseIsobmff(
     ...(itemModel.colorProfile !== undefined
       ? { colorProfile: itemModel.colorProfile }
       : {}),
+    layout,
   };
 }
