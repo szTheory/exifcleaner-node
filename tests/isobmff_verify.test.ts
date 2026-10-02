@@ -14,6 +14,7 @@ import { dirname, join } from "node:path";
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import { admitIsobmff } from "../src/isobmff/admission.js";
+import { verifyIsobmffOutput } from "../src/isobmff/verify.js";
 import { sanitizeFile } from "../src/engine.js";
 import { setRegisteredHandlersForTests } from "../src/admission/registry.js";
 import { createIsobmffWriterHandlerForTests } from "./isobmff-support/test-handler.js";
@@ -37,10 +38,20 @@ import {
   box,
   colrNclx,
   hvcC,
+  idatBox,
+  iinfBox,
+  ilocBox,
   imir,
+  infeBox,
+  ipmaBox,
+  irefBox,
   irot,
   ispe,
   pixi,
+  type IlocExtent,
+  type IlocItem,
+  type IpmaEntry,
+  type IrefRef,
 } from "./isobmff-support/builder.js";
 
 const directories: string[] = [];
@@ -394,5 +405,550 @@ describe("D-18 identity proof (62-09)", () => {
         expect(reAdmitted.namespaces).not.toContain("EXIF");
       },
     );
+  });
+
+  // --- Task 2: one red case per D-18 assertion ---
+  //
+  // Each tamper below starts from a REAL sanitized output (produced through the real writer
+  // handler and `sanitizeFile`), then hand-edits the destination copy -- either a direct byte
+  // flip/append (no box-size change needed), or a whole-child substitution rebuilt from the
+  // destination's own independent inventory (`inventoryIsobmff`) through the SAME structural
+  // `builder.ts` encoders the fixtures use, with its containing box(es)' declared size bumped by
+  // the exact byte delta (D-19's established "mutant" pattern). `verifyOutput` is called
+  // directly, bypassing `sanitizeFile`, with the admission from the handler's own `admit`.
+
+  const PRIMARY2_PAYLOAD = Buffer.from("TAMPER-PRIMARY-PAYLOAD-BYTES", "ascii");
+  const TILE_PAYLOAD = Buffer.from("TAMPER-TILE-PAYLOAD-BYTES-XY", "ascii");
+  const IDAT_AUX_PAYLOAD = Buffer.from("TAMPER-IDAT-AUX-PAYLOAD-BYTES", "ascii");
+
+  function buildTamperFixture(): Buffer {
+    const exifPayload = Buffer.concat([Buffer.alloc(4), createOrientationExif(1)]);
+    let running = 0;
+    const at = (length: number): number => {
+      const offset = running;
+      running += length;
+      return offset;
+    };
+    const primaryOffset = at(PRIMARY2_PAYLOAD.length);
+    const tileOffset = at(TILE_PAYLOAD.length);
+    const exifOffset = at(exifPayload.length);
+
+    const spec: AssembleHeifSpec = {
+      primaryItemId: 1,
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: primaryOffset, length: PRIMARY2_PAYLOAD.length }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "hvc1",
+          extents: [{ relOffset: tileOffset, length: TILE_PAYLOAD.length }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 3,
+          itemType: "Exif",
+          extents: [{ relOffset: exifOffset, length: exifPayload.length }],
+        },
+        {
+          itemId: 4,
+          itemType: "hvc1",
+          hidden: true,
+          constructionMethod: 1,
+          extents: [{ relOffset: 0, length: IDAT_AUX_PAYLOAD.length }],
+          propertyIndices: [1, 2],
+        },
+      ],
+      properties: [ispeProp(), hvcCProp()],
+      refs: [
+        { type: "cdsc", fromItemId: 3, toItemIds: [1] },
+        { type: "dimg", fromItemId: 2, toItemIds: [1] },
+      ],
+      idatPayload: IDAT_AUX_PAYLOAD,
+      mdatPayload: Buffer.concat([PRIMARY2_PAYLOAD, TILE_PAYLOAD, exifPayload]),
+      twoPass: true,
+    };
+    return assembleHeif(spec);
+  }
+
+  // --- Minimal, local, independent box-level surgery (test-only) ---
+
+  interface BoxLoc {
+    readonly start: number;
+    readonly end: number;
+    readonly payloadStart: number;
+    readonly size: number;
+    readonly type: string;
+  }
+
+  function readBoxAt(buffer: Buffer, offset: number): BoxLoc {
+    const size = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    return { start: offset, end: offset + size, payloadStart: offset + 8, size, type };
+  }
+
+  function siblingsOf(buffer: Buffer, start: number, end: number): BoxLoc[] {
+    const boxes: BoxLoc[] = [];
+    let offset = start;
+    while (offset < end) {
+      const box = readBoxAt(buffer, offset);
+      boxes.push(box);
+      offset = box.end;
+    }
+    return boxes;
+  }
+
+  interface TamperLayout {
+    readonly ftyp: BoxLoc;
+    readonly meta: BoxLoc;
+    readonly mdat: BoxLoc;
+    readonly iloc?: BoxLoc;
+    readonly iinf?: BoxLoc;
+    readonly iref?: BoxLoc;
+    readonly iprp?: BoxLoc;
+    readonly ipma?: BoxLoc;
+    readonly idat?: BoxLoc;
+  }
+
+  function parseTamperLayout(bytes: Buffer): TamperLayout {
+    const top = siblingsOf(bytes, 0, bytes.length);
+    const ftyp = top.find((b) => b.type === "ftyp")!;
+    const meta = top.find((b) => b.type === "meta")!;
+    const mdat = top.find((b) => b.type === "mdat")!;
+    const metaChildren = siblingsOf(bytes, meta.payloadStart + 4, meta.end);
+    const iprp = metaChildren.find((b) => b.type === "iprp");
+    const ipma =
+      iprp !== undefined
+        ? siblingsOf(bytes, iprp.payloadStart, iprp.end).find((b) => b.type === "ipma")
+        : undefined;
+    const iloc = metaChildren.find((b) => b.type === "iloc");
+    const iinf = metaChildren.find((b) => b.type === "iinf");
+    const iref = metaChildren.find((b) => b.type === "iref");
+    const idat = metaChildren.find((b) => b.type === "idat");
+    return {
+      ftyp,
+      meta,
+      mdat,
+      ...(iloc !== undefined ? { iloc } : {}),
+      ...(iinf !== undefined ? { iinf } : {}),
+      ...(iref !== undefined ? { iref } : {}),
+      ...(idat !== undefined ? { idat } : {}),
+      ...(iprp !== undefined ? { iprp } : {}),
+      ...(ipma !== undefined ? { ipma } : {}),
+    };
+  }
+
+  /** Replace `[start,end)` with `replacement`, then bump every listed ancestor's own declared
+   * size field (at `ancestor.start`, read from the ORIGINAL bytes) by the exact byte delta --
+   * every ancestor must strictly contain `[start,end)`, so its own start offset is never disturbed
+   * by this (or any other, equally-contained) edit. */
+  function substituteChild(
+    bytes: Buffer,
+    start: number,
+    end: number,
+    replacement: Buffer,
+    ancestors: readonly BoxLoc[],
+  ): Buffer {
+    const delta = replacement.length - (end - start);
+    const result = Buffer.concat([
+      bytes.subarray(0, start),
+      replacement,
+      bytes.subarray(end),
+    ]);
+    for (const ancestor of ancestors) {
+      const oldSize = bytes.readUInt32BE(ancestor.start);
+      result.writeUInt32BE(oldSize + delta, ancestor.start);
+    }
+    return result;
+  }
+
+  interface IlocWidths {
+    readonly offsetSize: 0 | 4 | 8;
+    readonly lengthSize: 0 | 4 | 8;
+    readonly baseOffsetSize: 0 | 4 | 8;
+    readonly indexSize: 0 | 4 | 8;
+  }
+
+  function rebuildIinfBytes(
+    items: readonly InventoryItem[],
+    nameOverrides: ReadonlyMap<number, string>,
+  ): Buffer {
+    const infeEntries = items.map((item) => {
+      const nameOverride = nameOverrides.get(item.id);
+      return infeBox({
+        version: 2,
+        itemId: item.id,
+        itemType: item.type,
+        hidden: item.hidden,
+        ...(item.contentType !== undefined ? { contentType: item.contentType } : {}),
+        ...(item.contentEncoding !== undefined
+          ? { contentEncoding: item.contentEncoding }
+          : {}),
+        ...(nameOverride !== undefined ? { name: nameOverride } : {}),
+      });
+    });
+    return iinfBox(0, infeEntries);
+  }
+
+  /** `shift` is added to every construction_method-0 item's `baseOffset` only -- cm=1 (idat-
+   * relative) items never move when `meta`'s total size changes, since `idat` precedes `iloc`/
+   * `iinf` in every fixture this file builds and so never shifts position itself. */
+  function rebuildIlocBytes(
+    items: readonly InventoryItem[],
+    widths: IlocWidths,
+    version: 0 | 1 | 2,
+    shift: number,
+  ): Buffer {
+    const ilocItems: IlocItem[] = items.map((item) => ({
+      itemId: item.id,
+      constructionMethod: item.constructionMethod,
+      dataReferenceIndex: item.dataReferenceIndex,
+      baseOffset: item.constructionMethod === 0 ? item.baseOffset + shift : item.baseOffset,
+      extents: item.extents.map(
+        (extent): IlocExtent => ({
+          index: extent.index,
+          offset: extent.offset,
+          length: extent.length,
+        }),
+      ),
+    }));
+    return ilocBox({ version, ...widths, items: ilocItems });
+  }
+
+  /**
+   * Applies zero or more direct (non-`iloc`) edits inside `meta` -- e.g. `iinf`/`iref` -- plus an
+   * `iloc` rebuild for `ilocItems`/`ilocWidths`, computing exactly the `baseOffset` shift every
+   * construction_method-0 item needs so its ABSOLUTE file position still lands inside the real
+   * (possibly relocated) `mdat`: `meta` precedes `mdat` at the top level, so growing or shrinking
+   * ANY of its children by `delta` bytes moves `mdat`'s own absolute start by that same `delta` --
+   * every cm=0 `baseOffset` (itself an absolute file position, D-11) goes stale unless shifted by
+   * the SAME net `delta` this edit set produces. `iloc`'s own byte length depends only on
+   * declared widths/item/extent counts, never on the numeric values written, so its delta can be
+   * measured with a zero-shift probe before computing the real shift to apply.
+   */
+  interface MetaEdit {
+    readonly box: BoxLoc;
+    readonly replacement: Buffer;
+    /** Every ancestor box whose own declared size must also grow/shrink by this edit's delta
+     * (e.g. `[iprp, meta]` for an edit inside `ipma`; `[meta]` for a direct child of `meta`). */
+    readonly ancestors: readonly BoxLoc[];
+  }
+
+  function applyMetaEditsWithIlocShift(
+    good: Buffer,
+    layout: TamperLayout,
+    otherEdits: readonly MetaEdit[],
+    ilocItems: readonly InventoryItem[],
+    ilocWidths: IlocWidths,
+    ilocVersion: 0 | 1 | 2,
+  ): Buffer {
+    if (layout.iloc === undefined) {
+      throw new Error("applyMetaEditsWithIlocShift: fixture has no iloc.");
+    }
+    const otherDelta = otherEdits.reduce(
+      (sum, edit) => sum + (edit.replacement.length - (edit.box.end - edit.box.start)),
+      0,
+    );
+    const probeIloc = rebuildIlocBytes(ilocItems, ilocWidths, ilocVersion, 0);
+    const ilocDelta = probeIloc.length - (layout.iloc.end - layout.iloc.start);
+    const totalShift = otherDelta + ilocDelta;
+    const finalIloc = rebuildIlocBytes(ilocItems, ilocWidths, ilocVersion, totalShift);
+
+    const allEdits: readonly MetaEdit[] = [
+      ...otherEdits,
+      { box: layout.iloc, replacement: finalIloc, ancestors: [layout.meta] },
+    ];
+    const sorted = [...allEdits].sort((a, b) => b.box.start - a.box.start);
+    let result = good;
+    for (const edit of sorted) {
+      result = substituteChild(result, edit.box.start, edit.box.end, edit.replacement, edit.ancestors);
+    }
+    return result;
+  }
+
+  function ilocWidthsOf(inventory: IsobmffInventory): IlocWidths {
+    const iloc = inventory.iloc;
+    if (iloc === undefined) throw new Error("ilocWidthsOf: no source iloc.");
+    return {
+      offsetSize: iloc.offsetSize as 0 | 4 | 8,
+      lengthSize: iloc.lengthSize as 0 | 4 | 8,
+      baseOffsetSize: iloc.baseOffsetSize as 0 | 4 | 8,
+      indexSize: iloc.indexSize as 0 | 4 | 8,
+    };
+  }
+
+  interface TamperCase {
+    readonly name: string;
+    readonly tamper: (good: Buffer, inventory: IsobmffInventory) => Buffer;
+  }
+
+  const TAMPER_CASES: readonly TamperCase[] = [
+    {
+      name: "ftyp byte changed",
+      tamper: (good, _inv) => {
+        const layout = parseTamperLayout(good);
+        const result = Buffer.from(good);
+        // Flip one byte inside a compatible_brands entry (after major_brand/minor_version).
+        result[layout.ftyp.payloadStart + 8] =
+          (result[layout.ftyp.payloadStart + 8]! + 1) & 0xff;
+        return result;
+      },
+    },
+    {
+      name: "a top-level free box added",
+      tamper: (good, _inv) => Buffer.concat([good, box("free", Buffer.alloc(4))]),
+    },
+    {
+      name: "a surviving item dropped",
+      tamper: (good, inv) => {
+        const layout = parseTamperLayout(good);
+        const survivors = inv.items.filter((item) => item.type !== "mime" && item.type !== "Exif");
+        // Drop the tile (item 2), never the primary (pitm still names it -- dropping the primary
+        // would decline at parse time with a dangling pitm, before the targeted item-set check
+        // this case means to exercise is ever reached). Item 2 is also the sole from-item of the
+        // "dimg" iref record and has its own ipma entry, so both must go with it or the item
+        // graph dangles at parse time instead of reaching the targeted item-set check.
+        const kept = survivors.filter((item) => item.id !== 2);
+        const iinf = rebuildIinfBytes(kept, new Map());
+        const remainingAssociations: IpmaEntry[] = inv.associations
+          .filter((entry) => entry.itemId !== 2)
+          .map((entry) => ({ itemId: entry.itemId, associations: entry.associations }));
+        const ipma = ipmaBox({ version: 0, flags: 0, entries: remainingAssociations });
+        return applyMetaEditsWithIlocShift(
+          good,
+          layout,
+          [
+            { box: layout.iinf!, replacement: iinf, ancestors: [layout.meta] },
+            { box: layout.iref!, replacement: Buffer.alloc(0), ancestors: [layout.meta] },
+            {
+              box: layout.ipma!,
+              replacement: ipma,
+              ancestors: [layout.iprp!, layout.meta],
+            },
+          ],
+          kept,
+          ilocWidthsOf(inv),
+          inv.iloc!.version as 0 | 1 | 2,
+        );
+      },
+    },
+    {
+      name: "an infe name changed",
+      tamper: (good, inv) => {
+        const layout = parseTamperLayout(good);
+        const survivors = inv.items.filter((item) => item.type !== "mime" && item.type !== "Exif");
+        const target = survivors[0]!;
+        const iinf = rebuildIinfBytes(survivors, new Map([[target.id, "tampered-name"]]));
+        return applyMetaEditsWithIlocShift(
+          good,
+          layout,
+          [{ box: layout.iinf!, replacement: iinf, ancestors: [layout.meta] }],
+          survivors,
+          ilocWidthsOf(inv),
+          inv.iloc!.version as 0 | 1 | 2,
+        );
+      },
+    },
+    {
+      name: "an iref record dropped",
+      tamper: (good, inv) => {
+        const layout = parseTamperLayout(good);
+        if (layout.iref === undefined) {
+          throw new Error("tamper fixture has no surviving iref record to drop.");
+        }
+        const survivors = inv.items.filter((item) => item.type !== "mime" && item.type !== "Exif");
+        return applyMetaEditsWithIlocShift(
+          good,
+          layout,
+          [{ box: layout.iref, replacement: Buffer.alloc(0), ancestors: [layout.meta] }],
+          survivors,
+          ilocWidthsOf(inv),
+          inv.iloc!.version as 0 | 1 | 2,
+        );
+      },
+    },
+    {
+      name: "two associations of one item swapped",
+      tamper: (good, inv) => {
+        const layout = parseTamperLayout(good);
+        const target = inv.associations.find((entry) => entry.associations.length >= 2);
+        if (target === undefined) {
+          throw new Error("tamper fixture has no item with 2+ associations.");
+        }
+        const entries: IpmaEntry[] = inv.associations.map((entry) =>
+          entry.itemId === target.itemId
+            ? { itemId: entry.itemId, associations: [...entry.associations].reverse() }
+            : { itemId: entry.itemId, associations: entry.associations },
+        );
+        const ipma = ipmaBox({ version: 0, flags: 0, entries });
+        return substituteChild(good, layout.ipma!.start, layout.ipma!.end, ipma, [
+          layout.iprp!,
+          layout.meta,
+        ]);
+      },
+    },
+    {
+      name: "one tile byte changed",
+      tamper: (good, inv) => {
+        const tile = inv.items.find((item) => item.type === "hvc1" && item.id === 2);
+        if (tile === undefined) throw new Error("tamper fixture has no tile item 2.");
+        const extent = tile.extents[0]!;
+        const absolute = tile.baseOffset + extent.offset;
+        const result = Buffer.from(good);
+        result[absolute] = (result[absolute]! + 1) & 0xff;
+        return result;
+      },
+    },
+    {
+      name: "a mime item present",
+      tamper: (good, inv) => {
+        const layout = parseTamperLayout(good);
+        const survivors = inv.items.filter((item) => item.type !== "mime" && item.type !== "Exif");
+        // Retype the tile (item 2, unchanged id/extent/iloc entry) to a well-formed XMP "mime"
+        // item -- the surviving item SET and count stay identical to the real good destination,
+        // so this isolates the "0 mime items" check specifically rather than tripping the
+        // (equally valid, but different) surviving-item-set-count check first.
+        const items: InventoryItem[] = survivors.map((item) =>
+          item.id === 2
+            ? { ...item, type: "mime", contentType: "application/rdf+xml" }
+            : item,
+        );
+        const iinf = rebuildIinfBytes(items, new Map());
+        return applyMetaEditsWithIlocShift(
+          good,
+          layout,
+          [{ box: layout.iinf!, replacement: iinf, ancestors: [layout.meta] }],
+          items,
+          ilocWidthsOf(inv),
+          inv.iloc!.version as 0 | 1 | 2,
+        );
+      },
+    },
+    {
+      name: "trailing unclaimed mdat bytes appended",
+      tamper: (good, _inv) => {
+        const layout = parseTamperLayout(good);
+        const extra = Buffer.from([0xee, 0xee, 0xee, 0xee]);
+        const result = Buffer.concat([good, extra]);
+        const oldSize = good.readUInt32BE(layout.mdat.start);
+        result.writeUInt32BE(oldSize + extra.length, layout.mdat.start);
+        return result;
+      },
+    },
+    {
+      name: "an idat byte changed",
+      tamper: (good, inv) => {
+        const layout = parseTamperLayout(good);
+        if (layout.idat === undefined) throw new Error("tamper fixture has no idat box.");
+        const absolute = layout.idat.payloadStart;
+        const result = Buffer.from(good);
+        result[absolute] = (result[absolute]! + 1) & 0xff;
+        return result;
+      },
+    },
+    {
+      name: "an iloc width changed",
+      tamper: (good, inv) => {
+        const layout = parseTamperLayout(good);
+        const widths = ilocWidthsOf(inv);
+        const newWidths: IlocWidths = {
+          ...widths,
+          offsetSize: widths.offsetSize === 8 ? 4 : 8,
+        };
+        return applyMetaEditsWithIlocShift(
+          good,
+          layout,
+          [],
+          inv.items,
+          newWidths,
+          inv.iloc!.version as 0 | 1 | 2,
+        );
+      },
+    },
+  ];
+
+  describe("Task 2: one red case per D-18 assertion", () => {
+    async function sanitizeTamperFixture(): Promise<{
+      readonly sourcePath: string;
+      readonly goodDestinationPath: string;
+      readonly goodBytes: Buffer;
+      readonly admission: Awaited<ReturnType<typeof admitIsobmff>>;
+    }> {
+      const bytes = buildTamperFixture();
+      const { path: sourcePath } = await writeFixture(bytes, "source.heic");
+      const directory = dirname(sourcePath);
+      const goodDestinationPath = join(directory, "destination-good.heic");
+      const sanitized = await sanitizeThroughRealWriter(sourcePath, goodDestinationPath);
+      expect(sanitized.ok).toBe(true);
+      if (!sanitized.ok) {
+        throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+      }
+      const goodBytes = await readFile(goodDestinationPath);
+      const admission = await withHandle(sourcePath, (handle) =>
+        admitIsobmff(handle, bytes.length),
+      );
+      return { sourcePath, goodDestinationPath, goodBytes, admission };
+    }
+
+    it.each(TAMPER_CASES.map((tamperCase) => [tamperCase.name, tamperCase] as const))(
+      "%s -> verifyOutput returns err with code verification-failed",
+      async (_name, tamperCase) => {
+        const { sourcePath, goodBytes, admission } = await sanitizeTamperFixture();
+        const goodInventory = inventoryIsobmff(goodBytes);
+        const tamperedBytes = tamperCase.tamper(goodBytes, goodInventory);
+        const directory = dirname(sourcePath);
+        const tamperedPath = join(directory, "destination-tampered.heic");
+        await writeFile(tamperedPath, tamperedBytes);
+
+        const result = await withHandle(sourcePath, (sourceHandle) =>
+          withHandle(tamperedPath, (tamperedHandle) =>
+            verifyIsobmffOutput(
+              sourceHandle,
+              admission,
+              tamperedHandle,
+              tamperedBytes.length,
+              tamperedPath,
+              false,
+              true,
+              false,
+              undefined,
+            ),
+          ),
+        );
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error.code).toBe("verification-failed");
+        }
+      },
+    );
+
+    it("the untampered copy verifies ok (control)", async () => {
+      const { sourcePath, goodBytes, admission } = await sanitizeTamperFixture();
+      const directory = dirname(sourcePath);
+      const controlPath = join(directory, "destination-control.heic");
+      await writeFile(controlPath, goodBytes);
+
+      const result = await withHandle(sourcePath, (sourceHandle) =>
+        withHandle(controlPath, (tamperedHandle) =>
+          verifyIsobmffOutput(
+            sourceHandle,
+            admission,
+            tamperedHandle,
+            goodBytes.length,
+            controlPath,
+            false,
+            true,
+            false,
+            undefined,
+          ),
+        ),
+      );
+
+      expect(result.ok).toBe(true);
+    });
   });
 });
