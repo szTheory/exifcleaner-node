@@ -160,3 +160,97 @@ export function createIsobmffWriterHandlerForTests(
     capability: pngHandler.capability,
   }) as RegisteredHandler;
 }
+
+/**
+ * 62-05 (D-12): a counting wrapper around the REAL writer handler (never the admission-only
+ * `createIsobmffTestHandler` stub, whose write-side methods all throw `notReached`). A `"plan"`
+ * stage hostile fixture (currently: `offset-rewrite-overflow` only) admits cleanly through
+ * `admitIsobmff` and must be declined one stage later, inside `checkOutputPlan` -- so
+ * `buildOutputPlan`/`checkOutputPlan` must actually run their real logic, not a stub that assumes
+ * every decline happens at admission. `writeOutput`/`verifyOutput` stay counted too, so a test can
+ * still assert they are never reached.
+ */
+export function createIsobmffWriterCountingHandlerForTests(
+  brand: "heic" | "avif",
+): IsobmffTestHandler {
+  const real = createIsobmffWriterHandlerForTests(brand);
+  const counters: IsobmffTestHandlerCounters = {
+    admit: 0,
+    inspect: 0,
+    buildOutputPlan: 0,
+    checkOutputPlan: 0,
+    writeOutput: 0,
+    verifyOutput: 0,
+  };
+
+  const handler: RegisteredHandler = Object.freeze({
+    capability: real.capability,
+    stagingFileName: real.stagingFileName,
+
+    matches(magic: Buffer): boolean {
+      return real.matches(magic);
+    },
+
+    async admit(
+      handle: FileHandle,
+      size: number,
+      signal?: AbortSignal,
+    ): Promise<FormatAdmission> {
+      counters.admit += 1;
+      return real.admit(handle, size, signal);
+    },
+
+    inspect(admission: FormatAdmission): Inspection {
+      counters.inspect += 1;
+      return real.inspect(admission);
+    },
+
+    buildOutputPlan(
+      admission: FormatAdmission,
+      preserveOrientation: boolean,
+      preserveColorProfile: boolean,
+      preserveResolution: boolean,
+      orientation: number | undefined,
+    ): unknown {
+      counters.buildOutputPlan += 1;
+      return real.buildOutputPlan(
+        admission,
+        preserveOrientation,
+        preserveColorProfile,
+        preserveResolution,
+        orientation,
+      );
+    },
+
+    checkOutputPlan(plan: unknown): string | undefined {
+      counters.checkOutputPlan += 1;
+      return real.checkOutputPlan(plan as never);
+    },
+
+    async writeOutput(
+      source: FileHandle,
+      destination: FileHandle,
+      plan: unknown,
+      signal?: AbortSignal,
+    ): Promise<void> {
+      counters.writeOutput += 1;
+      return real.writeOutput(source, destination, plan as never, signal);
+    },
+
+    async verifyOutput(
+      ...args: Parameters<RegisteredHandler["verifyOutput"]>
+    ): Promise<Result<void>> {
+      counters.verifyOutput += 1;
+      return real.verifyOutput(...args);
+    },
+
+    classifyAdmissionFailure(
+      cause: unknown,
+      preserveColorProfile: boolean,
+    ): AdmissionDeclineDetail | undefined {
+      return real.classifyAdmissionFailure(cause, preserveColorProfile);
+    },
+  }) as RegisteredHandler;
+
+  return { handler, counters };
+}

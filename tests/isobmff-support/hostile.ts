@@ -55,12 +55,15 @@ export interface HostileFixture {
   readonly expectedCode:
     "unsupported-format" | "unsafe-structure" | "malformed-file";
   /**
-   * `"admission"` (23 of 24 classes): `admitIsobmff` on the written fixture rejects with this
+   * `"admission"` (23 of 25 classes): `admitIsobmff` on the written fixture rejects with this
    * class. `"selection"` (`sequence-brand` only, D-12): the fixture already declines at handler
    * *selection* time (`classifyIsobmffBrand` on its first 256 bytes), before any full parse --
    * `admitIsobmff` called directly on it still declines the same class, as defense in depth.
+   * `"plan"` (`offset-rewrite-overflow` only, 62-05 D-12): `admitIsobmff` on the written fixture
+   * *resolves* (it is a structurally valid, fully admitted file) -- the decline happens one stage
+   * later, in `checkIsobmffOutputPlan`, strictly before `writeOutput` ever runs.
    */
-  readonly stage: "selection" | "admission";
+  readonly stage: "selection" | "admission" | "plan";
 }
 
 async function writeBytes(path: string, bytes: Buffer): Promise<void> {
@@ -714,6 +717,37 @@ export const HOSTILE_FIXTURES: Record<IsobmffDeclineClass, HostileFixture> = {
     expectedCode: "malformed-file",
     stage: "admission",
     write: (path) => writeBytes(path, assembleHeif({ omitPitm: true })),
+  },
+
+  "offset-rewrite-overflow": {
+    expectedCode: "unsafe-structure",
+    stage: "plan",
+    write: (path) =>
+      writeBytes(
+        path,
+        assembleHeif({
+          items: [
+            {
+              itemId: 1,
+              itemType: "hvc1",
+              // D-12: this item's own two extents are declared out of ascending-source-offset
+              // order (the second extent's absolute position precedes the first's). Nothing in
+              // Phase 61's classifier orders a single item's own extents, so this admits
+              // cleanly -- but the writer's global mdat union (D-15) places the second extent
+              // *before* the first in the new payload, which (with base_offset_size > 0)
+              // rewrites the first extent's own offset to a negative value relative to the new
+              // base. `checkIsobmffOutputPlan` must decline this before any byte is written.
+              extents: [
+                { relOffset: 100, length: 4 },
+                { relOffset: 0, length: 4 },
+              ],
+              propertyIndices: [1, 2],
+            },
+          ],
+          mdatPayload: Buffer.alloc(200, 0xab),
+          twoPass: true,
+        }),
+      ),
   },
 };
 

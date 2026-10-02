@@ -3,9 +3,10 @@ function declined(removedItemIds, reason) {
     return { parts: [], removedItemIds, declineReason: reason };
 }
 /**
- * D-15: the union of surviving construction_method-0 extents, merged in ascending source offset.
- * Items with no construction_method-0 extents (e.g. a cm=1 grid descriptor, which lives in
- * `idat` and is copied verbatim as part of `meta`) contribute nothing here.
+ * D-15: every surviving construction_method-0 extent, as a raw (possibly overlapping or
+ * touching) absolute source range. Items with no construction_method-0 extents (e.g. a cm=1 grid
+ * descriptor, which lives in `idat` and is copied verbatim as part of `meta`) contribute nothing
+ * here. Not yet deduplicated -- `buildMergedMdatRanges` does that.
  */
 function collectSourceExtents(survivingItems) {
     const entries = [];
@@ -21,17 +22,139 @@ function collectSourceExtents(survivingItems) {
             });
         });
     }
-    return [...entries].sort((a, b) => a.absStart - b.absStart);
+    return entries;
 }
-/** Each surviving extent's new offset relative to the new mdat payload's own start (0-based). */
-function newRelativeOffsets(sourceExtents) {
-    const map = new Map();
+/**
+ * D-15: merge `sourceExtents` into the ascending, non-overlapping union of byte ranges that must
+ * survive into the new `mdat` payload -- two surviving extents that touch (one's end equals the
+ * other's start) or overlap collapse into a single merged range, written to the output exactly
+ * once. Each merged range also carries where its first byte lands in the new payload
+ * (`newStart`), so the total is the sum of merged lengths, never the sum of (possibly
+ * duplicate-counting) raw extent lengths. Zero-length extents (never present for a surviving
+ * item, D3 rule 8) would sort arbitrarily against equal-start ranges; this function assumes none
+ * exist, matching every caller's already-admitted input.
+ */
+function buildMergedMdatRanges(sourceExtents) {
+    const sorted = [...sourceExtents].sort((a, b) => a.absStart - b.absStart);
+    const raw = [];
+    for (const entry of sorted) {
+        const start = entry.absStart;
+        const end = entry.absStart + entry.length;
+        const last = raw[raw.length - 1];
+        if (last !== undefined && start <= last.end) {
+            last.end = Math.max(last.end, end);
+        }
+        else {
+            raw.push({ start, end });
+        }
+    }
+    const merged = [];
     let running = 0;
+    for (const range of raw) {
+        merged.push({ ...range, newStart: running });
+        running += range.end - range.start;
+    }
+    return merged;
+}
+function totalMergedLength(merged) {
+    return merged.reduce((total, range) => total + (range.end - range.start), 0);
+}
+/** Map one absolute source `mdat` offset to its new position in the output payload (D-15). */
+function mapAbsoluteOffset(merged, abs) {
+    for (const range of merged) {
+        if (abs >= range.start && abs <= range.end) {
+            return range.newStart + (abs - range.start);
+        }
+    }
+    throw new Error(`mapAbsoluteOffset: source offset ${abs} falls outside every merged surviving range.`);
+}
+/** Each surviving extent's new offset relative to the new mdat payload's own start (0-based),
+ * resolved through the deduplicated merged-range union (D-15), never a flat running sum. */
+function newRelativeOffsets(sourceExtents, merged) {
+    const map = new Map();
     for (const entry of sourceExtents) {
-        map.set(`${entry.itemId}:${entry.extentIndex}`, running);
-        running += entry.length;
+        map.set(`${entry.itemId}:${entry.extentIndex}`, mapAbsoluteOffset(merged, entry.absStart));
     }
     return map;
+}
+const MAX_UINT32 = 0xffffffff;
+/** The largest value a rewritten field of `width` bytes can carry (D-12); widths are never
+ * widened to make a value fit. Width 0 never carries a rewritten value. */
+function maxValueForWidth(width) {
+    if (width === 4)
+        return MAX_UINT32;
+    if (width === 8)
+        return Number.MAX_SAFE_INTEGER;
+    return 0;
+}
+/**
+ * D-12: decline `offset-rewrite-overflow` before any byte is written when a rewritten `iloc`
+ * base or extent offset would be negative (the item's own first extent is not actually the
+ * smallest -- e.g. its extents are declared out of ascending-source-offset order) or does not
+ * fit its declared field width. Lengths are never rewritten (copied verbatim from the source),
+ * so they need no check here.
+ */
+function checkIlocRewriteFit(survivingItems, rewrites, baseOffsetSize, offsetSize) {
+    for (const item of survivingItems) {
+        if (item.constructionMethod !== 0)
+            continue;
+        const rewrite = rewrites.get(item.id);
+        if (rewrite === undefined)
+            continue;
+        if (baseOffsetSize > 0) {
+            const max = maxValueForWidth(baseOffsetSize);
+            if (rewrite.newBaseOffset < 0 || rewrite.newBaseOffset > max) {
+                return (`offset-rewrite-overflow: item ${item.id}'s rewritten base_offset ` +
+                    `${rewrite.newBaseOffset} does not fit its declared width (${baseOffsetSize} bytes).`);
+            }
+        }
+        const max = maxValueForWidth(offsetSize);
+        for (let index = 0; index < rewrite.extentOffsets.length; index += 1) {
+            const offset = rewrite.extentOffsets[index];
+            if (offset < 0) {
+                return (`offset-rewrite-overflow: item ${item.id}'s rewritten extent ${index} offset ` +
+                    `${offset} would be negative.`);
+            }
+            if (offset > max) {
+                return (`offset-rewrite-overflow: item ${item.id}'s rewritten extent ${index} offset ` +
+                    `${offset} does not fit its declared width (${offsetSize} bytes).`);
+            }
+        }
+    }
+    return undefined;
+}
+/**
+ * D-12/D-15: decline `offset-rewrite-overflow` before any byte is written when the rewritten
+ * `mdat` payload length would not fit the source's own header form -- a `largesize` source stays
+ * `largesize` (effectively unbounded here, gated only by `Number.isSafeInteger`); a `normal` or
+ * `size-zero` source must still fit an explicit 32-bit size (never promoted to `largesize`).
+ */
+function checkMdatSizeFit(sizeForm, payloadLength) {
+    if (sizeForm === "largesize") {
+        const total = 16 + payloadLength;
+        if (!Number.isSafeInteger(total)) {
+            return `offset-rewrite-overflow: rewritten mdat largesize ${total} exceeds safe integer precision.`;
+        }
+        return undefined;
+    }
+    const total = 8 + payloadLength;
+    if (total > MAX_UINT32) {
+        return (`offset-rewrite-overflow: rewritten mdat size ${total} does not fit a 32-bit header ` +
+            `(the source used a normal/size-zero header, never widened to largesize).`);
+    }
+    return undefined;
+}
+/** `mdat`'s own header, in the source's header form (D-15): `largesize` stays `largesize`;
+ * `normal`/`size-zero` both become an explicit 32-bit size (never widened). */
+function buildMdatHeader(sizeForm, payloadLength) {
+    if (sizeForm === "largesize") {
+        const header = Buffer.alloc(16);
+        header.writeUInt32BE(1, 0);
+        header.write("mdat", 4, "ascii");
+        header.writeBigUInt64BE(BigInt(16 + payloadLength), 8);
+        return header;
+    }
+    return plainBoxHeader("mdat", payloadLength);
 }
 /**
  * D-11: surviving construction_method-0 items' `iloc` rewrites, given where the new mdat payload
@@ -103,12 +226,10 @@ export function buildIsobmffOutputPlan(admission, _preserveOrientation, _preserv
     if (ftypBox === undefined || mdatBox === undefined) {
         return declined(classification.removableItemIds, "Source is missing a top-level ftyp or mdat box.");
     }
-    if (mdatBox.headerSize !== 8) {
-        return declined(classification.removableItemIds, "Unsupported mdat box header form (largesize) for this build.");
-    }
     const sourceExtents = collectSourceExtents(survivingItems);
-    const relativeOffsets = newRelativeOffsets(sourceExtents);
-    const newMdatPayloadLength = sourceExtents.reduce((total, entry) => total + entry.length, 0);
+    const mergedRanges = buildMergedMdatRanges(sourceExtents);
+    const relativeOffsets = newRelativeOffsets(sourceExtents, mergedRanges);
+    const newMdatPayloadLength = totalMergedLength(mergedRanges);
     // iinf: always rebuilt (entry_count shrinks, surviving infe boxes copied verbatim).
     const iinfBytes = rebuildIinf(layout.metaPayload, layout.item.iinfVersion, survivingItemIds, layout.item.infeRanges);
     // iref: rebuilt from records whose from-item survives; dropped entirely if that leaves none.
@@ -148,24 +269,40 @@ export function buildIsobmffOutputPlan(admission, _preserveOrientation, _preserv
     // *values* -- probe with offset 0 to learn the new mdat payload's start, then rebuild once more
     // with the real values.
     const probeRewrites = computeIlocRewrites(survivingItems, relativeOffsets, layout.item.ilocBaseOffsetSize, 0);
+    // D-12: the probe pass already carries the real relative deltas (only the absolute
+    // `newMdatPayloadStart` term is a placeholder) -- a negative extent offset is just as real
+    // here as in the final pass, and `rebuildIloc`'s `writeSizedUint` has no bounds check of its
+    // own, so this must be caught before `buildMetaBytes` ever serializes it.
+    const probeFitError = checkIlocRewriteFit(survivingItems, probeRewrites, layout.item.ilocBaseOffsetSize, layout.item.ilocOffsetSize);
+    if (probeFitError !== undefined) {
+        return declined(classification.removableItemIds, probeFitError);
+    }
     const probeMetaBytes = buildMetaBytes(layout.item, layout.metaPayload, survivingItems, iinfBytes, irefBytes, iprpBytes, probeRewrites);
     const ftypTotalSize = ftypBox.end - ftypBox.start;
     const newMetaTotalSize = probeMetaBytes.length;
     const newMdatPayloadStart = ftypTotalSize + newMetaTotalSize + mdatBox.headerSize;
     const finalRewrites = computeIlocRewrites(survivingItems, relativeOffsets, layout.item.ilocBaseOffsetSize, newMdatPayloadStart);
+    const finalFitError = checkIlocRewriteFit(survivingItems, finalRewrites, layout.item.ilocBaseOffsetSize, layout.item.ilocOffsetSize);
+    if (finalFitError !== undefined) {
+        return declined(classification.removableItemIds, finalFitError);
+    }
+    const mdatSizeFitError = checkMdatSizeFit(mdatBox.sizeForm, newMdatPayloadLength);
+    if (mdatSizeFitError !== undefined) {
+        return declined(classification.removableItemIds, mdatSizeFitError);
+    }
     const metaBytes = buildMetaBytes(layout.item, layout.metaPayload, survivingItems, iinfBytes, irefBytes, iprpBytes, finalRewrites);
     if (metaBytes.length !== probeMetaBytes.length) {
         return declined(classification.removableItemIds, "Rebuilt meta length changed between the probe and final passes.");
     }
-    const mdatHeaderBytes = plainBoxHeader("mdat", newMdatPayloadLength);
+    const mdatHeaderBytes = buildMdatHeader(mdatBox.sizeForm, newMdatPayloadLength);
     const parts = [
         { kind: "copy", sourceOffset: ftypBox.start, length: ftypTotalSize },
         { kind: "bytes", data: metaBytes },
         { kind: "bytes", data: mdatHeaderBytes },
-        ...sourceExtents.map((entry) => ({
+        ...mergedRanges.map((range) => ({
             kind: "copy",
-            sourceOffset: entry.absStart,
-            length: entry.length,
+            sourceOffset: range.start,
+            length: range.end - range.start,
         })),
     ];
     return { parts, removedItemIds: classification.removableItemIds };

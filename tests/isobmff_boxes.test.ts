@@ -760,9 +760,9 @@ describe("Task 3: caps checked before reads (BMF-05)", () => {
 });
 
 describe("IsobmffDeclineClass <-> kind (D-11)", () => {
-  it("ISOBMFF_DECLINE_CLASSES has exactly 24 members", () => {
-    expect(ISOBMFF_DECLINE_CLASSES.length).toBe(24);
-    expect(new Set(ISOBMFF_DECLINE_CLASSES).size).toBe(24);
+  it("ISOBMFF_DECLINE_CLASSES has exactly 25 members", () => {
+    expect(ISOBMFF_DECLINE_CLASSES.length).toBe(25);
+    expect(new Set(ISOBMFF_DECLINE_CLASSES).size).toBe(25);
   });
 
   it("every IsobmffDeclineClass member's kind matches DECLINE_CLASS_TO_KIND", () => {

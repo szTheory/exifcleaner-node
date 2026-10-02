@@ -28,7 +28,10 @@ import {
   NON_C2PA_UUID_USERTYPE,
   uuidBox,
 } from "./isobmff-support/hostile.js";
-import { createIsobmffTestHandler } from "./isobmff-support/test-handler.js";
+import {
+  createIsobmffTestHandler,
+  createIsobmffWriterCountingHandlerForTests,
+} from "./isobmff-support/test-handler.js";
 import {
   ftypBox,
   grplBox,
@@ -144,6 +147,65 @@ async function expectFullyDeclinedBeforeWrite(
   }
 }
 
+/**
+ * 62-05 (D-12): proves a `"plan"`-stage hostile fixture (currently `offset-rewrite-overflow`
+ * only) admits cleanly through `admitIsobmff`, then declines one stage later -- inside
+ * `checkOutputPlan`, through the REAL writer handler (a plan-stage decline can only be observed
+ * by actually running the real planning logic, never the admission-only counting stub) --
+ * strictly before any byte is written.
+ */
+async function expectFullyDeclinedAtPlanStage(
+  path: string,
+  declineClass: IsobmffDeclineClass,
+  expectedCode: "unsupported-format" | "unsafe-structure" | "malformed-file",
+): Promise<void> {
+  const admitted = await admitAtPath(path);
+  expect(admitted.namespaces).toBeDefined();
+
+  const directory = dirname(path);
+  const sourceName = basename(path);
+  const sourceBytes = await readFile(path);
+  const destinationPath = join(directory, "destination.bin");
+
+  const { handler, counters } =
+    createIsobmffWriterCountingHandlerForTests("heic");
+  const restore = setRegisteredHandlersForTests([handler]);
+  try {
+    const sanitized = await sanitizeFile({
+      sourcePath: path,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: false,
+    });
+    expect(sanitized.ok).toBe(false);
+    if (sanitized.ok) throw new Error("unreachable");
+    expect(sanitized.error).toMatchObject({
+      code: expectedCode,
+      phase: "admission",
+      nativeWrite: "not-started",
+    });
+    expect((sanitized.error as { detail: string }).detail).toContain(
+      declineClass,
+    );
+
+    expect(counters.admit).toBe(1);
+    expect(counters.buildOutputPlan).toBe(1);
+    expect(counters.checkOutputPlan).toBe(1);
+    expect(counters.writeOutput).toBe(0);
+    expect(counters.verifyOutput).toBe(0);
+
+    const listing = await readdir(directory);
+    expect(listing).toEqual([sourceName]);
+
+    const sourceAfter = await readFile(path);
+    expect(sourceAfter.equals(sourceBytes)).toBe(true);
+  } finally {
+    restore();
+  }
+}
+
 describe("HOSTILE_FIXTURES catalog shape (D-14)", () => {
   it("has exactly one fixture per IsobmffDeclineClass (key set matches ISOBMFF_DECLINE_CLASSES)", () => {
     const catalogKeys = Object.keys(HOSTILE_FIXTURES).sort();
@@ -164,6 +226,15 @@ describe.each(ISOBMFF_DECLINE_CLASSES)(
       if (fixture.stage === "selection") {
         const bytes = await readFile(path);
         expect(classifyIsobmffBrand(bytes.subarray(0, 256))).toBe("decline");
+      }
+
+      if (fixture.stage === "plan") {
+        await expectFullyDeclinedAtPlanStage(
+          path,
+          declineClass,
+          fixture.expectedCode,
+        );
+        return;
       }
 
       await expectAdmissionDecline(path, declineClass, fixture.expectedCode);

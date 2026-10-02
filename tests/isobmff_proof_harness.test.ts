@@ -43,7 +43,10 @@ import { classifyFallback } from "../src/fallback.js";
 import { ISOBMFF_DECLINE_CLASSES } from "../src/isobmff/errors.js";
 import { assembleHeif, HOSTILE_FIXTURES } from "./isobmff-support/hostile.js";
 import { colrProf } from "./isobmff-support/builder.js";
-import { createIsobmffTestHandler } from "./isobmff-support/test-handler.js";
+import {
+  createIsobmffTestHandler,
+  createIsobmffWriterCountingHandlerForTests,
+} from "./isobmff-support/test-handler.js";
 import { metadataJpeg, metadataPng, metadataWebp } from "./fixtures.js";
 
 const FIXTURES_DIR = join(
@@ -171,6 +174,45 @@ describe("Task 2: every ISOBMFF decline class declines once before any write (BM
       const destinationPath = join(directory, "destination.bin");
       await fixture.write(sourcePath);
       const sourceBytes = await readFile(sourcePath);
+
+      if (fixture.stage === "plan") {
+        // 62-05 (D-12): a "plan"-stage fixture admits cleanly -- the decline happens one stage
+        // later, inside `checkOutputPlan`, which can only be observed by running the REAL writer
+        // handler (never the admission-only counting stub every other stage uses).
+        const { handler, counters } =
+          createIsobmffWriterCountingHandlerForTests("heic");
+        const restore = setRegisteredHandlersForTests([handler]);
+        try {
+          const sanitized = await sanitizeFile({
+            sourcePath,
+            destinationPath,
+            ...NO_PRESERVATION,
+          });
+          expect(sanitized.ok).toBe(false);
+          if (sanitized.ok) throw new Error("unreachable");
+          expect(sanitized.error).toMatchObject({
+            code: fixture.expectedCode,
+            phase: "admission",
+            nativeWrite: "not-started",
+          });
+          expect(classifyFallback(sanitized.error)).toBe("safe-to-fallback");
+
+          expect(counters.admit).toBe(1);
+          expect(counters.buildOutputPlan).toBe(1);
+          expect(counters.checkOutputPlan).toBe(1);
+          expect(counters.writeOutput).toBe(0);
+          expect(counters.verifyOutput).toBe(0);
+
+          const listing = await readdir(directory);
+          expect(listing).toEqual([sourceName]);
+
+          const sourceAfter = await readFile(sourcePath);
+          expect(sourceAfter.equals(sourceBytes)).toBe(true);
+        } finally {
+          restore();
+        }
+        return;
+      }
 
       const { counters, restore } = installTestHandlerAdditively();
       try {
