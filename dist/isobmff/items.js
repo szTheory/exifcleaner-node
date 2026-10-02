@@ -142,10 +142,6 @@ function parseInfe(buffer, header) {
         ...(uri !== undefined ? { uri } : {}),
     };
 }
-/** `iinf` -- FullBox; `entry_count` is 16-bit (v0) or 32-bit (v1), gating where its `infe`
- * children start. The declared `entry_count` value itself is not used to bound iteration: the
- * real sibling boxes are walked instead (naturally bounded by `metaPayload`, already under
- * `budget.checkMetaSize`), so a mismatched declared count cannot drive an over-large loop. */
 function parseIinfEntries(buffer, header) {
     const { version, payload } = readFullBoxChild(buffer, header);
     if (version !== 0 && version !== 1) {
@@ -156,12 +152,15 @@ function parseIinfEntries(buffer, header) {
     const childrenStart = header.payloadStart + 4 + entryCountBytes;
     const children = listSiblings(buffer, childrenStart, header.end);
     const entries = [];
+    const ranges = new Map();
     for (const child of children) {
         if (child.type !== "infe")
             continue;
-        entries.push(parseInfe(buffer, child));
+        const entry = parseInfe(buffer, child);
+        entries.push(entry);
+        ranges.set(entry.itemId, child);
     }
-    return entries;
+    return { version, entries, ranges };
 }
 /** `iref` -- FullBox; each child's own box type is the reference type. `from_item_ID`/
  * `to_item_ID` are 16-bit (v0) or 32-bit (v1); `reference_count` is always 16-bit. */
@@ -192,7 +191,7 @@ function parseIref(buffer, header) {
         }
         references.push({ type: child.type, fromItemId, toItemIds });
     }
-    return references;
+    return { version, references };
 }
 /** `ipco` -- a plain box (not a FullBox); children are the raw property boxes in 1-based
  * declaration order. `auxC` and `colr` are the only property types this engine interprets;
@@ -278,7 +277,7 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
     if (iinfHeader === undefined) {
         throw new IsobmffStructureError("item-graph-invalid", "meta is missing its required iinf child.");
     }
-    const rawEntries = parseIinfEntries(metaPayload, iinfHeader);
+    const { version: iinfVersion, entries: rawEntries, ranges: infeRanges, } = parseIinfEntries(metaPayload, iinfHeader);
     assertNoDuplicateIds(rawEntries.map((entry) => entry.itemId), "iinf");
     const itemIds = new Set(rawEntries.map((entry) => entry.itemId));
     const pitmHeader = metaChildren.find((c) => c.type === "pitm");
@@ -317,9 +316,12 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
         }
     }
     let references = [];
+    let irefVersion;
     const irefHeader = metaChildren.find((c) => c.type === "iref");
     if (irefHeader !== undefined) {
-        references = parseIref(metaPayload, irefHeader);
+        const irefResult = parseIref(metaPayload, irefHeader);
+        irefVersion = irefResult.version;
+        references = irefResult.references;
         for (const reference of references) {
             if (!itemIds.has(reference.fromItemId)) {
                 throw new IsobmffStructureError("item-graph-invalid", `iref "${reference.type}" names undeclared from-item ${reference.fromItemId}.`);
@@ -333,9 +335,13 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
     }
     let rawProperties = [];
     let ipmaEntries = [];
+    let iprpChildrenCaptured = [];
+    let ipmaVersion;
+    let ipmaFlags;
     const iprpHeader = metaChildren.find((c) => c.type === "iprp");
     if (iprpHeader !== undefined) {
         const iprpChildren = listSiblings(metaPayload, iprpHeader.payloadStart, iprpHeader.end);
+        iprpChildrenCaptured = iprpChildren;
         const ipcoHeader = iprpChildren.find((c) => c.type === "ipco");
         if (ipcoHeader !== undefined) {
             rawProperties = parseIpco(metaPayload, ipcoHeader);
@@ -343,6 +349,8 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
         const ipmaHeader = iprpChildren.find((c) => c.type === "ipma");
         if (ipmaHeader !== undefined) {
             const { version, flags, payload } = readFullBoxChild(metaPayload, ipmaHeader);
+            ipmaVersion = version;
+            ipmaFlags = flags;
             ipmaEntries = parseIpma(payload, version, flags);
             assertNoDuplicateIds(ipmaEntries.map((entry) => entry.itemId), "ipma");
         }
@@ -399,6 +407,20 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
         };
     });
     const itemsById = new Map(items.map((item) => [item.id, item]));
+    const layout = {
+        metaChildren,
+        iinfVersion,
+        infeRanges,
+        ilocVersion: ilocTable.version,
+        ilocOffsetSize: ilocTable.offsetSize,
+        ilocLengthSize: ilocTable.lengthSize,
+        ilocBaseOffsetSize: ilocTable.baseOffsetSize,
+        ilocIndexSize: ilocTable.indexSize,
+        ...(irefVersion !== undefined ? { irefVersion } : {}),
+        iprpChildren: iprpChildrenCaptured,
+        ...(ipmaVersion !== undefined ? { ipmaVersion } : {}),
+        ...(ipmaFlags !== undefined ? { ipmaFlags } : {}),
+    };
     return {
         items,
         itemsById,
@@ -411,6 +433,7 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
         ...(colorProfile !== undefined ? { colorProfile } : {}),
         ilocTable,
         ipmaEntries,
+        layout,
     };
 }
 //# sourceMappingURL=items.js.map

@@ -98,6 +98,33 @@ export interface IsobmffItemModel {
   /** Raw resolved `ipma` entries -- `parseIsobmff` reuses this for its existing `model.ipma`
    * field (61-05) rather than parsing `ipma` a second time. */
   readonly ipmaEntries: readonly IpmaEntry[];
+  /** Phase 62 writer layout (D-11..D-14): the raw box ranges and FullBox version/flags the
+   * rebuild encoders (`src/isobmff/rebuild.ts`) need to re-emit `meta`'s children with removed
+   * items dropped. Every range is relative to `metaPayload` (the buffer `parseIsobmff` already
+   * read once under `budget.checkMetaSize`) -- no new file reads. */
+  readonly layout: IsobmffItemLayout;
+}
+
+/** Phase 62 writer layout (D-11..D-14), returned by `buildItemModel`. */
+export interface IsobmffItemLayout {
+  /** `meta`'s direct children, in source order, each range relative to `metaPayload`. */
+  readonly metaChildren: readonly BoxHeader[];
+  readonly iinfVersion: number;
+  /** Each surviving item's whole `infe` box range (header + payload), relative to `metaPayload`. */
+  readonly infeRanges: ReadonlyMap<number, BoxHeader>;
+  readonly ilocVersion: number;
+  readonly ilocOffsetSize: number;
+  readonly ilocLengthSize: number;
+  readonly ilocBaseOffsetSize: number;
+  readonly ilocIndexSize: number;
+  /** Undefined when `meta` has no `iref` child. */
+  readonly irefVersion?: number;
+  /** `iprp`'s direct children (`ipco`/`ipma`), in source order, relative to `metaPayload`. Empty
+   * when `meta` has no `iprp` child. */
+  readonly iprpChildren: readonly BoxHeader[];
+  /** Undefined when `iprp` has no `ipma` child. */
+  readonly ipmaVersion?: number;
+  readonly ipmaFlags?: number;
 }
 
 function ensureBytes(
@@ -275,7 +302,13 @@ function parseInfe(buffer: Buffer, header: BoxHeader): RawInfeEntry {
  * children start. The declared `entry_count` value itself is not used to bound iteration: the
  * real sibling boxes are walked instead (naturally bounded by `metaPayload`, already under
  * `budget.checkMetaSize`), so a mismatched declared count cannot drive an over-large loop. */
-function parseIinfEntries(buffer: Buffer, header: BoxHeader): RawInfeEntry[] {
+interface IinfParseResult {
+  readonly version: number;
+  readonly entries: readonly RawInfeEntry[];
+  readonly ranges: ReadonlyMap<number, BoxHeader>;
+}
+
+function parseIinfEntries(buffer: Buffer, header: BoxHeader): IinfParseResult {
   const { version, payload } = readFullBoxChild(buffer, header);
   if (version !== 0 && version !== 1) {
     throw new IsobmffStructureError(
@@ -288,16 +321,24 @@ function parseIinfEntries(buffer: Buffer, header: BoxHeader): RawInfeEntry[] {
   const childrenStart = header.payloadStart + 4 + entryCountBytes;
   const children = listSiblings(buffer, childrenStart, header.end);
   const entries: RawInfeEntry[] = [];
+  const ranges = new Map<number, BoxHeader>();
   for (const child of children) {
     if (child.type !== "infe") continue;
-    entries.push(parseInfe(buffer, child));
+    const entry = parseInfe(buffer, child);
+    entries.push(entry);
+    ranges.set(entry.itemId, child);
   }
-  return entries;
+  return { version, entries, ranges };
+}
+
+interface IrefParseResult {
+  readonly version: number;
+  readonly references: readonly IsobmffReference[];
 }
 
 /** `iref` -- FullBox; each child's own box type is the reference type. `from_item_ID`/
  * `to_item_ID` are 16-bit (v0) or 32-bit (v1); `reference_count` is always 16-bit. */
-function parseIref(buffer: Buffer, header: BoxHeader): IsobmffReference[] {
+function parseIref(buffer: Buffer, header: BoxHeader): IrefParseResult {
   const { version } = readFullBoxChild(buffer, header);
   if (version !== 0 && version !== 1) {
     throw new IsobmffStructureError(
@@ -330,7 +371,7 @@ function parseIref(buffer: Buffer, header: BoxHeader): IsobmffReference[] {
     }
     references.push({ type: child.type, fromItemId, toItemIds });
   }
-  return references;
+  return { version, references };
 }
 
 interface RawIpcoProperty extends IsobmffProperty {
@@ -440,7 +481,11 @@ export function buildItemModel(
       "meta is missing its required iinf child.",
     );
   }
-  const rawEntries = parseIinfEntries(metaPayload, iinfHeader);
+  const {
+    version: iinfVersion,
+    entries: rawEntries,
+    ranges: infeRanges,
+  } = parseIinfEntries(metaPayload, iinfHeader);
   assertNoDuplicateIds(
     rawEntries.map((entry) => entry.itemId),
     "iinf",
@@ -508,10 +553,13 @@ export function buildItemModel(
     }
   }
 
-  let references: IsobmffReference[] = [];
+  let references: readonly IsobmffReference[] = [];
+  let irefVersion: number | undefined;
   const irefHeader = metaChildren.find((c) => c.type === "iref");
   if (irefHeader !== undefined) {
-    references = parseIref(metaPayload, irefHeader);
+    const irefResult = parseIref(metaPayload, irefHeader);
+    irefVersion = irefResult.version;
+    references = irefResult.references;
     for (const reference of references) {
       if (!itemIds.has(reference.fromItemId)) {
         throw new IsobmffStructureError(
@@ -532,6 +580,9 @@ export function buildItemModel(
 
   let rawProperties: RawIpcoProperty[] = [];
   let ipmaEntries: readonly IpmaEntry[] = [];
+  let iprpChildrenCaptured: readonly BoxHeader[] = [];
+  let ipmaVersion: number | undefined;
+  let ipmaFlags: number | undefined;
   const iprpHeader = metaChildren.find((c) => c.type === "iprp");
   if (iprpHeader !== undefined) {
     const iprpChildren = listSiblings(
@@ -539,6 +590,7 @@ export function buildItemModel(
       iprpHeader.payloadStart,
       iprpHeader.end,
     );
+    iprpChildrenCaptured = iprpChildren;
     const ipcoHeader = iprpChildren.find((c) => c.type === "ipco");
     if (ipcoHeader !== undefined) {
       rawProperties = parseIpco(metaPayload, ipcoHeader);
@@ -549,6 +601,8 @@ export function buildItemModel(
         metaPayload,
         ipmaHeader,
       );
+      ipmaVersion = version;
+      ipmaFlags = flags;
       ipmaEntries = parseIpma(payload, version, flags);
       assertNoDuplicateIds(
         ipmaEntries.map((entry) => entry.itemId),
@@ -620,6 +674,21 @@ export function buildItemModel(
   });
   const itemsById = new Map(items.map((item) => [item.id, item]));
 
+  const layout: IsobmffItemLayout = {
+    metaChildren,
+    iinfVersion,
+    infeRanges,
+    ilocVersion: ilocTable.version,
+    ilocOffsetSize: ilocTable.offsetSize,
+    ilocLengthSize: ilocTable.lengthSize,
+    ilocBaseOffsetSize: ilocTable.baseOffsetSize,
+    ilocIndexSize: ilocTable.indexSize,
+    ...(irefVersion !== undefined ? { irefVersion } : {}),
+    iprpChildren: iprpChildrenCaptured,
+    ...(ipmaVersion !== undefined ? { ipmaVersion } : {}),
+    ...(ipmaFlags !== undefined ? { ipmaFlags } : {}),
+  };
+
   return {
     items,
     itemsById,
@@ -632,5 +701,6 @@ export function buildItemModel(
     ...(colorProfile !== undefined ? { colorProfile } : {}),
     ilocTable,
     ipmaEntries,
+    layout,
   };
 }

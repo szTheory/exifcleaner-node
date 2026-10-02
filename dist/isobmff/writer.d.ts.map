@@ -1,0 +1,1 @@
+{"version":3,"file":"writer.d.ts","sourceRoot":"","sources":["../../src/isobmff/writer.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,kBAAkB,CAAC;AAEnD,OAAO,KAAK,EAAE,iBAAiB,EAAE,MAAM,WAAW,CAAC;AA8BnD,wBAAsB,kBAAkB,CACtC,MAAM,EAAE,UAAU,EAClB,WAAW,EAAE,UAAU,EACvB,IAAI,EAAE,iBAAiB,EACvB,MAAM,CAAC,EAAE,WAAW,GACnB,OAAO,CAAC,IAAI,CAAC,CAiBf"}

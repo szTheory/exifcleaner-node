@@ -1,8 +1,9 @@
 import type { FileHandle } from "node:fs/promises";
 import { type IsobmffCaps } from "./caps.js";
+import { type BoxHeader } from "./boxes.js";
 import type { IlocTable } from "./iloc.js";
 import type { IpmaEntry } from "./ipma.js";
-import { type IsobmffByteRange, type IsobmffEntityGroup, type IsobmffItem, type IsobmffProperty, type IsobmffReference } from "./items.js";
+import { type IsobmffByteRange, type IsobmffEntityGroup, type IsobmffItem, type IsobmffItemLayout, type IsobmffProperty, type IsobmffReference } from "./items.js";
 export interface IsobmffRange {
     readonly offset: number;
     readonly length: number;
@@ -35,6 +36,24 @@ export interface IsobmffModel {
     /** The primary item's `colr` ICC payload (colour_type `prof`/`rICC` only); `nclx` or absent
      * yields `undefined` (D-12). */
     readonly colorProfile?: Buffer;
+    /** Phase 62 writer layout (D-11..D-14): top-level box ranges plus `meta`'s own buffered payload
+     * and item-graph layout, everything the rebuild encoders need, all already read once by this
+     * same `parseIsobmff` call -- no new file reads. */
+    readonly layout: IsobmffLayout;
+}
+export interface IsobmffLayout {
+    /** Every top-level box, in source order (header ranges are file-absolute). */
+    readonly topLevelBoxes: readonly BoxHeader[];
+    /** File offset of `meta`'s own box start. */
+    readonly metaOffset: number;
+    /** Bytes of `meta`'s own box header (size+type, plus largesize/usertype if present) --
+     * excludes the 4-byte FullBox version/flags field, which is the first 4 bytes of
+     * `metaPayload` below. */
+    readonly metaHeaderSize: number;
+    /** `meta`'s already-buffered, cap-bounded FullBox payload (version/flags + children), the
+     * exact buffer `parseIsobmff` read once under `budget.checkMetaSize`. */
+    readonly metaPayload: Buffer;
+    readonly item: IsobmffItemLayout;
 }
 export declare function parseIsobmff(handle: FileHandle, size: number, caps?: IsobmffCaps, signal?: AbortSignal): Promise<IsobmffModel>;
 //# sourceMappingURL=parse.d.ts.map

@@ -70,6 +70,32 @@ export interface IsobmffItemModel {
     /** Raw resolved `ipma` entries -- `parseIsobmff` reuses this for its existing `model.ipma`
      * field (61-05) rather than parsing `ipma` a second time. */
     readonly ipmaEntries: readonly IpmaEntry[];
+    /** Phase 62 writer layout (D-11..D-14): the raw box ranges and FullBox version/flags the
+     * rebuild encoders (`src/isobmff/rebuild.ts`) need to re-emit `meta`'s children with removed
+     * items dropped. Every range is relative to `metaPayload` (the buffer `parseIsobmff` already
+     * read once under `budget.checkMetaSize`) -- no new file reads. */
+    readonly layout: IsobmffItemLayout;
+}
+/** Phase 62 writer layout (D-11..D-14), returned by `buildItemModel`. */
+export interface IsobmffItemLayout {
+    /** `meta`'s direct children, in source order, each range relative to `metaPayload`. */
+    readonly metaChildren: readonly BoxHeader[];
+    readonly iinfVersion: number;
+    /** Each surviving item's whole `infe` box range (header + payload), relative to `metaPayload`. */
+    readonly infeRanges: ReadonlyMap<number, BoxHeader>;
+    readonly ilocVersion: number;
+    readonly ilocOffsetSize: number;
+    readonly ilocLengthSize: number;
+    readonly ilocBaseOffsetSize: number;
+    readonly ilocIndexSize: number;
+    /** Undefined when `meta` has no `iref` child. */
+    readonly irefVersion?: number;
+    /** `iprp`'s direct children (`ipco`/`ipma`), in source order, relative to `metaPayload`. Empty
+     * when `meta` has no `iprp` child. */
+    readonly iprpChildren: readonly BoxHeader[];
+    /** Undefined when `iprp` has no `ipma` child. */
+    readonly ipmaVersion?: number;
+    readonly ipmaFlags?: number;
 }
 /**
  * Build the validated item graph from `meta`'s already-walked children (`parseIsobmff` passes

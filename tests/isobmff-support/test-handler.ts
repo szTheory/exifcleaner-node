@@ -25,6 +25,7 @@ import type {
 } from "../../src/admission/handler.js";
 import type { RegisteredHandler } from "../../src/admission/registry.js";
 import { registeredHandlersForTests } from "../../src/admission/registry.js";
+import { createIsobmffHandler } from "../../src/admission/isobmff-handler.js";
 import { admitIsobmff } from "../../src/isobmff/admission.js";
 import { classifyIsobmffBrand } from "../../src/isobmff/brand.js";
 import { classifyIsobmffAdmissionFailure } from "../../src/isobmff/errors.js";
@@ -133,4 +134,29 @@ export function createIsobmffTestHandler(): IsobmffTestHandler {
   }) as RegisteredHandler;
 
   return { handler, counters };
+}
+
+/**
+ * 62-02 (D-10): builds the one real engine-bound ISOBMFF writer handler (`createIsobmffHandler`,
+ * `src/admission/isobmff-handler.ts`), borrowing the registered png capability the same way
+ * `createIsobmffTestHandler` above does -- `NativeFormat` gains no "heic"/"avif" member until
+ * 62.1-07, so this test harness must not widen that public union. The staging file name is D-10's
+ * `output.heic` / `output.avif`.
+ */
+export function createIsobmffWriterHandlerForTests(
+  brand: "heic" | "avif",
+): RegisteredHandler {
+  const pngHandler = registeredHandlersForTests().find(
+    (candidate) => candidate.capability.format === "png",
+  );
+  if (pngHandler === undefined) {
+    throw new Error(
+      "createIsobmffWriterHandlerForTests: no registered png handler to borrow a capability from",
+    );
+  }
+  return createIsobmffHandler({
+    brand,
+    stagingFileName: brand === "heic" ? "output.heic" : "output.avif",
+    capability: pngHandler.capability,
+  }) as RegisteredHandler;
 }
