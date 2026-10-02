@@ -63,6 +63,11 @@ import {
   type AssembleHeifSpec,
 } from "./isobmff-support/hostile.js";
 import { createMinimalExif } from "../src/metadata/exif.js";
+import fc from "fast-check";
+import {
+  isobmffArmSampleArbitrary,
+  type IsobmffArm,
+} from "./isobmff-support/generator.js";
 
 // C2PA's registered `uuid` usertype (d8fec3d6-1b0e-483c-9297-5828877ec481), restated here as a
 // plain literal rather than imported -- `tests/isobmff-support/` files may only take a type-only
@@ -1606,5 +1611,268 @@ describe("D-14 order, verbatim children, empty iref, top-level positions, empty 
     expect(destinationInventory.topLevel.map((b) => b.type)).toEqual(
       sourceInventory.topLevel.map((b) => b.type).filter((t) => t !== "uuid"),
     );
+  });
+});
+
+// --- Task 3 (62-06): generator arms and HEIC parity ---
+
+const GENERATOR_SEED = 62;
+const GENERATOR_NUM_RUNS = 20;
+const TARGET_ARMS: readonly IsobmffArm[] = [
+  "exif-offset",
+  "xmp",
+  "thmb",
+  "auxl",
+  "grid-idat",
+];
+
+describe("ISO-01 on generator arms (62-06)", () => {
+  it.each(TARGET_ARMS)(
+    "arm %s (seed 62): every planted canary is removed from every admitted sample, and the output re-admits; at least one sample admits",
+    async (arm) => {
+      let admittedCount = 0;
+      let declinedCount = 0;
+
+      // `isobmffArmSampleArbitrary`'s `brand` parameter only drives its ~15%-weight hazard arm
+      // (`buildHazardFile`); the ~85% non-hazard arm draws its own `brand` field independently
+      // inside `nonHazardConfigArbitrary`. With a fixed seed the non-hazard sample sequence is
+      // therefore identical regardless of which brand is passed here -- drawing once (brand
+      // value is irrelevant for the non-hazard samples this test actually uses, since the
+      // outer-loop hazard samples are always excluded by the `arm` filter below) and registering
+      // BOTH writer handlers lets the engine route each sample by its own real ftyp brand,
+      // whichever that turns out to be, rather than guessing from the loop variable.
+      const samples = fc.sample(isobmffArmSampleArbitrary("heic"), {
+        seed: GENERATOR_SEED,
+        numRuns: GENERATOR_NUM_RUNS,
+      });
+
+      const restore = setRegisteredHandlersForTests([
+        createIsobmffWriterHandlerForTests("heic"),
+        createIsobmffWriterHandlerForTests("avif"),
+      ]);
+      try {
+        for (const armSample of samples) {
+          if (!armSample.arms.includes(arm)) continue;
+
+          const { sample } = armSample;
+          const directory = await freshDirectory();
+          const sourcePath = join(directory, "sample.isobmff");
+          const destinationPath = join(directory, "destination.isobmff");
+          await writeFile(sourcePath, sample.bytes);
+
+          const sanitized = await sanitizeFile({
+            sourcePath,
+            destinationPath,
+            preserveOrientation: false,
+            preserveColorProfile: false,
+            preserveTimestamps: false,
+            preserveResolution: false,
+          });
+          if (!sanitized.ok) {
+            declinedCount += 1;
+            continue;
+          }
+          admittedCount += 1;
+
+          const destinationBytes = await readFile(destinationPath);
+          for (const canary of sample.planted) {
+            expect(
+              destinationBytes.indexOf(Buffer.from(canary.canary, "ascii")),
+            ).toBe(-1);
+          }
+
+          const destinationHandle: FileHandle = await open(
+            destinationPath,
+            "r",
+          );
+          try {
+            const reAdmitted = await admitIsobmff(
+              destinationHandle,
+              destinationBytes.length,
+            );
+            expect(reAdmitted.namespaces).not.toContain("EXIF");
+            expect(reAdmitted.namespaces).not.toContain("XMP");
+          } finally {
+            await destinationHandle.close();
+          }
+        }
+      } finally {
+        restore();
+      }
+
+      // Recorded per acceptance criteria: admitted/declined sample counts for this arm.
+      // eslint-disable-next-line no-console
+      console.log(
+        `arm ${arm}: admitted=${admittedCount} declined=${declinedCount} (seed ${GENERATOR_SEED}, numRuns ${GENERATOR_NUM_RUNS})`,
+      );
+      expect(admittedCount).toBeGreaterThanOrEqual(1);
+    },
+  );
+});
+
+// --- Task 3 (62-06): HEIC twin of the Task 1 fixture ---
+
+const HEIC_AUX_PRIMARY_ID = 1;
+const HEIC_AUX_AUX_ID = 2;
+const HEIC_AUX_EXIF_ID = 3;
+const HEIC_AUX_XMP_ID = 4;
+
+function buildHeicAuxHiddenC2paFixture(): {
+  readonly bytes: Buffer;
+  readonly exifCanary: Buffer;
+  readonly xmpCanary: Buffer;
+  readonly c2paCanary: Buffer;
+} {
+  const primaryPayload = Buffer.from([0xc0, 0xc1, 0xc2, 0xc3]);
+  const auxPayload = Buffer.from([0xd0, 0xd1, 0xd2, 0xd3]);
+  const exifCanary = Buffer.from("EXIF-CANARY-62-06-HEIC", "ascii");
+  const xmpCanary = Buffer.from("XMP-CANARY-62-06-HEIC-AAAA", "ascii");
+  const c2paCanary = Buffer.concat([
+    Buffer.from("C2PA-CANARY-62-06-HEIC", "ascii"),
+    Buffer.alloc(32 - "C2PA-CANARY-62-06-HEIC".length, 0x00),
+  ]);
+
+  const tiff = createMinimalExif({ orientation: 1 });
+  const exifPayload = Buffer.concat([Buffer.alloc(4), tiff, exifCanary]);
+  const xmpPayload = Buffer.concat([
+    Buffer.from("<x:xmpmeta>", "ascii"),
+    xmpCanary,
+    Buffer.from("</x:xmpmeta>", "ascii"),
+  ]);
+
+  const refs: IrefRef[] = [
+    { type: "auxl", fromItemId: HEIC_AUX_AUX_ID, toItemIds: [HEIC_AUX_PRIMARY_ID] },
+    { type: "cdsc", fromItemId: HEIC_AUX_EXIF_ID, toItemIds: [HEIC_AUX_AUX_ID] },
+    { type: "cdsc", fromItemId: HEIC_AUX_XMP_ID, toItemIds: [HEIC_AUX_PRIMARY_ID] },
+  ];
+
+  const spec: AssembleHeifSpec = {
+    majorBrand: "heic",
+    compatibleBrands: ["mif1", "heic"],
+    primaryItemId: HEIC_AUX_PRIMARY_ID,
+    items: [
+      {
+        itemId: HEIC_AUX_PRIMARY_ID,
+        itemType: "hvc1",
+        extents: [{ relOffset: 0, length: primaryPayload.length }],
+        propertyIndices: [1, 2],
+      },
+      {
+        itemId: HEIC_AUX_AUX_ID,
+        itemType: "hvc1",
+        hidden: true,
+        extents: [
+          { relOffset: primaryPayload.length, length: auxPayload.length },
+        ],
+        propertyIndices: [3],
+      },
+      {
+        itemId: HEIC_AUX_EXIF_ID,
+        itemType: "Exif",
+        hidden: true,
+        extents: [
+          {
+            relOffset: primaryPayload.length + auxPayload.length,
+            length: exifPayload.length,
+          },
+        ],
+      },
+      {
+        itemId: HEIC_AUX_XMP_ID,
+        itemType: "mime",
+        contentType: "application/rdf+xml",
+        extents: [
+          {
+            relOffset:
+              primaryPayload.length + auxPayload.length + exifPayload.length,
+            length: xmpPayload.length,
+          },
+        ],
+      },
+    ],
+    properties: [ispe(32, 32), hvcC(), auxC(ALPHA_URN)],
+    refs,
+    mdatPayload: Buffer.concat([
+      primaryPayload,
+      auxPayload,
+      exifPayload,
+      xmpPayload,
+    ]),
+    topLevelExtraAfterFtyp: [uuidBox(C2PA_UUID_USERTYPE, c2paCanary)],
+    twoPass: true,
+  };
+
+  return { bytes: assembleHeif(spec), exifCanary, xmpCanary, c2paCanary };
+}
+
+describe("ISO-01/ISO-02 removal on builder fixtures, HEIC parity (62-06)", () => {
+  it("removes a hidden auxiliary Exif item, an XMP item, and a top-level C2PA box right after ftyp, on a heic builder fixture with a hidden aux image", async () => {
+    const { bytes, exifCanary, xmpCanary, c2paCanary } =
+      buildHeicAuxHiddenC2paFixture();
+
+    const directory = await freshDirectory();
+    const sourcePath = join(directory, "source.heic");
+    const destinationPath = join(directory, "destination.heic");
+    await writeFile(sourcePath, bytes);
+
+    const sourceInventory = inventoryIsobmff(bytes);
+
+    const restore = setRegisteredHandlersForTests([
+      createIsobmffWriterHandlerForTests("heic"),
+    ]);
+    try {
+      const sanitized = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: false,
+      });
+      expect(sanitized.ok).toBe(true);
+      if (!sanitized.ok) {
+        throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+      }
+
+      const destinationBytes = await readFile(destinationPath);
+      const destinationInventory = inventoryIsobmff(destinationBytes);
+
+      for (const item of destinationInventory.items) {
+        expect(item.type).not.toBe("Exif");
+        expect(item.type).not.toBe("mime");
+        expect([HEIC_AUX_EXIF_ID, HEIC_AUX_XMP_ID]).not.toContain(item.id);
+      }
+      expect(
+        destinationInventory.topLevel.some((box) => box.type === "uuid"),
+      ).toBe(false);
+      expect(destinationBytes.indexOf(exifCanary)).toBe(-1);
+      expect(destinationBytes.indexOf(xmpCanary)).toBe(-1);
+      expect(destinationBytes.indexOf(c2paCanary)).toBe(-1);
+
+      for (const id of [HEIC_AUX_PRIMARY_ID, HEIC_AUX_AUX_ID]) {
+        const sourceItem = findItem(sourceInventory, id)!;
+        const destinationItem = findItem(destinationInventory, id)!;
+        expect(destinationItem).toBeDefined();
+        const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+        const destinationPayload = readItemExtentBytes(
+          destinationBytes,
+          destinationInventory,
+          destinationItem,
+        );
+        expect(destinationPayload.equals(sourcePayload)).toBe(true);
+      }
+
+      const destinationHandle: FileHandle = await open(destinationPath, "r");
+      try {
+        const reAdmitted = await admitIsobmff(destinationHandle, destinationBytes.length);
+        expect(reAdmitted.namespaces).not.toContain("EXIF");
+        expect(reAdmitted.namespaces).not.toContain("XMP");
+        expect(reAdmitted.namespaces).not.toContain("C2PA");
+      } finally {
+        await destinationHandle.close();
+      }
+    } finally {
+      restore();
+    }
   });
 });
