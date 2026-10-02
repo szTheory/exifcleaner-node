@@ -2,6 +2,7 @@ import type { FileHandle } from "node:fs/promises";
 import { type IsobmffCaps } from "./caps.js";
 import { type IsobmffDeclineClass } from "./errors.js";
 import { type IsobmffModel, type IsobmffRange } from "./parse.js";
+import { type MinimalExifResolution } from "../metadata/exif.js";
 import type { FormatAdmission } from "../admission/handler.js";
 /** D3/D7: image item types this engine preserves verbatim, never decodes. */
 export declare const PRESERVED_ITEM_TYPES: ReadonlySet<string>;
@@ -26,6 +27,14 @@ export interface IsobmffDisposition {
 export interface IsobmffAdmission extends FormatAdmission {
     readonly model: IsobmffModel;
     readonly classification: IsobmffDisposition;
+    /**
+     * D-13 source item k: the first Exif item, in `iinf` order, that is not emptied and has a
+     * `cdsc` reference whose to-list contains `model.primaryItemId`. `undefined` when no item
+     * qualifies (no Exif item describes the primary, or the only such item is emptied).
+     */
+    readonly exifSourceItemId: number | undefined;
+    /** The IFD0 resolution read from k's own Exif payload only, or `undefined`. */
+    readonly sourceResolution: MinimalExifResolution | undefined;
 }
 /**
  * Pure classifier over an already-parsed `IsobmffModel` (BMF-03/BMF-04). Throws
