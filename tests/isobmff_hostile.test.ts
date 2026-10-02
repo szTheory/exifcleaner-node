@@ -29,6 +29,23 @@ import {
   uuidBox,
 } from "./isobmff-support/hostile.js";
 import { createIsobmffTestHandler } from "./isobmff-support/test-handler.js";
+import {
+  ftypBox,
+  grplBox,
+  hdlrBox,
+  hvcC,
+  idatBox,
+  iinfBox,
+  ilocBox,
+  infeBox,
+  ipcoBox,
+  ipmaBox,
+  irefBox,
+  ispe,
+  mdatBox,
+  metaBox,
+  pitmBox,
+} from "./isobmff-support/builder.js";
 
 const cleanupDirectories: string[] = [];
 
@@ -391,6 +408,300 @@ describe("D-17 graph-integrity declines (62-04)", () => {
       "item-graph-invalid",
       "malformed-file",
     );
+  });
+
+  describe("ipma property index boundaries", () => {
+    it("property index 0 declines item-graph-invalid", async () => {
+      const path = await freshPath();
+      const bytes = assembleHeif({
+        items: [
+          {
+            itemId: 1,
+            itemType: "hvc1",
+            extents: [{ relOffset: 0, length: 4 }],
+            propertyIndices: [0],
+          },
+        ],
+      });
+      await writeFile(path, bytes);
+      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+    });
+
+    it("property index equal to the ipco count (2) admits", async () => {
+      const path = await freshPath();
+      const bytes = assembleHeif({
+        items: [
+          {
+            itemId: 1,
+            itemType: "hvc1",
+            extents: [{ relOffset: 0, length: 4 }],
+            propertyIndices: [2],
+          },
+        ],
+        // twoPass: a realistic baseOffset so this "admits" case isn't accidentally caught by
+        // extent-outside-mdat from the single-pass default's placeholder offset (see the Task 1
+        // fixture's own comment above).
+        twoPass: true,
+      });
+      await writeFile(path, bytes);
+      const admission = await admitAtPath(path);
+      expect(admission).toBeDefined();
+    });
+
+    it("property index equal to the ipco count + 1 (3) declines item-graph-invalid", async () => {
+      const path = await freshPath();
+      const bytes = assembleHeif({
+        items: [
+          {
+            itemId: 1,
+            itemType: "hvc1",
+            extents: [{ relOffset: 0, length: 4 }],
+            propertyIndices: [3],
+          },
+        ],
+      });
+      await writeFile(path, bytes);
+      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+    });
+  });
+
+  it("a grpl entity_id (77) not declared in iinf declines item-graph-invalid", async () => {
+    const path = await freshPath();
+    const bytes = assembleHeif({
+      groups: [{ type: "altr", groupId: 1, entityIds: [77] }],
+    });
+    await writeFile(path, bytes);
+    await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+  });
+
+  describe("duplicated meta child types", () => {
+    const duplicateCases: readonly {
+      readonly name: string;
+      readonly spec: Parameters<typeof assembleHeif>[0];
+    }[] = [
+      { name: "hdlr", spec: { extraMetaChildren: [hdlrBox("pict")] } },
+      { name: "pitm", spec: { extraMetaChildren: [pitmBox(0, 1)] } },
+      { name: "iinf", spec: { extraMetaChildren: [iinfBox(0, [])] } },
+      {
+        name: "iloc",
+        spec: {
+          extraMetaChildren: [
+            ilocBox({
+              version: 1,
+              offsetSize: 4,
+              lengthSize: 4,
+              baseOffsetSize: 4,
+              indexSize: 0,
+              items: [],
+            }),
+          ],
+        },
+      },
+      {
+        name: "iref",
+        spec: {
+          refs: [{ type: "thmb", fromItemId: 1, toItemIds: [1] }],
+          extraMetaChildren: [irefBox(0, [])],
+        },
+      },
+      {
+        name: "idat",
+        spec: {
+          idatPayload: Buffer.alloc(4),
+          extraMetaChildren: [idatBox(Buffer.alloc(4))],
+        },
+      },
+      {
+        name: "grpl",
+        spec: {
+          groups: [{ type: "altr", groupId: 1, entityIds: [1] }],
+          extraMetaChildren: [
+            grplBox([{ type: "altr", groupId: 2, entityIds: [1] }]),
+          ],
+        },
+      },
+      {
+        name: "dinf",
+        spec: {
+          extraMetaChildren: [
+            box("dinf", Buffer.alloc(0)),
+            box("dinf", Buffer.alloc(0)),
+          ],
+        },
+      },
+    ];
+
+    it.each(duplicateCases)(
+      "a duplicated $name meta child declines item-graph-invalid",
+      async ({ spec }) => {
+        const path = await freshPath();
+        const bytes = assembleHeif(spec);
+        await writeFile(path, bytes);
+        await expectAdmissionDecline(
+          path,
+          "item-graph-invalid",
+          "malformed-file",
+        );
+      },
+    );
+  });
+
+  describe("duplicated ipco/ipma inside iprp", () => {
+    /** Builds a minimal structurally-valid HEIF with an extra box appended inside `iprp`,
+     * alongside the one real `ipco`/`ipma` pair -- `assembleHeif` always builds `iprp` as
+     * exactly one `ipco` + one `ipma`, so this bespoke assembler (same shape, D-19 independence
+     * preserved: only `./builder.js` functions) is needed to express a second one. */
+    function buildWithExtraIprpChild(extraChild: Buffer): Buffer {
+      const mdatPayload = Buffer.from([1, 2, 3, 4]);
+      const build = (mdatPayloadStart: number): Buffer => {
+        const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+        const hdlr = hdlrBox("pict");
+        const pitm = pitmBox(0, 1);
+        const infe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+        const iinf = iinfBox(0, [infe]);
+        const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+        const ipma = ipmaBox({
+          version: 0,
+          flags: 0,
+          entries: [
+            {
+              itemId: 1,
+              associations: [
+                { propertyIndex: 1, essential: false },
+                { propertyIndex: 2, essential: true },
+              ],
+            },
+          ],
+        });
+        const iprp = box("iprp", Buffer.concat([ipco, ipma, extraChild]));
+        const iloc = ilocBox({
+          version: 1,
+          offsetSize: 4,
+          lengthSize: 4,
+          baseOffsetSize: 4,
+          indexSize: 0,
+          items: [
+            {
+              itemId: 1,
+              constructionMethod: 0,
+              dataReferenceIndex: 0,
+              baseOffset: mdatPayloadStart,
+              extents: [{ offset: 0, length: mdatPayload.length }],
+            },
+          ],
+        });
+        const meta = metaBox([hdlr, pitm, iinf, iloc, iprp]);
+        const header = Buffer.concat([ftyp, meta]);
+        const mdat = mdatBox(mdatPayload);
+        return Buffer.concat([header, mdat]);
+      };
+      const pass1 = build(0);
+      const mdatBoxTotal = 8 + mdatPayload.length;
+      const headerLength = pass1.length - mdatBoxTotal;
+      const final = build(headerLength + 8);
+      if (final.length !== pass1.length) {
+        throw new Error(
+          "buildWithExtraIprpChild: header length changed between placeholder and final passes",
+        );
+      }
+      return final;
+    }
+
+    it("a second ipco inside iprp declines item-graph-invalid", async () => {
+      const path = await freshPath();
+      const bytes = buildWithExtraIprpChild(ipcoBox([ispe(10, 10)]));
+      await writeFile(path, bytes);
+      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+    });
+
+    it("a second ipma inside iprp declines item-graph-invalid", async () => {
+      const path = await freshPath();
+      const bytes = buildWithExtraIprpChild(
+        ipmaBox({ version: 0, flags: 0, entries: [] }),
+      );
+      await writeFile(path, bytes);
+      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+    });
+  });
+
+  describe("dinf/dref self-contained rule (D-17, inferred)", () => {
+    function urlEntry(flags: number, trailing: Buffer = Buffer.alloc(0)): Buffer {
+      return fullBox("url ", 0, flags, trailing);
+    }
+    function urnEntry(flags: number): Buffer {
+      const payload = Buffer.concat([
+        Buffer.from("name\0", "ascii"),
+        Buffer.from("location\0", "ascii"),
+      ]);
+      return fullBox("urn ", 0, flags, payload);
+    }
+    function drefWith(entries: readonly Buffer[]): Buffer {
+      const count = Buffer.alloc(4);
+      count.writeUInt32BE(entries.length, 0);
+      return fullBox("dref", 0, 0, Buffer.concat([count, ...entries]));
+    }
+    function dinfWith(dref: Buffer): Buffer {
+      return box("dinf", dref);
+    }
+
+    it("a urn entry declines item-graph-invalid", async () => {
+      const path = await freshPath();
+      const bytes = assembleHeif({
+        extraMetaChildren: [dinfWith(drefWith([urnEntry(1)]))],
+      });
+      await writeFile(path, bytes);
+      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+    });
+
+    it("a url entry with flags 0 (not self-contained) declines item-graph-invalid", async () => {
+      const path = await freshPath();
+      const bytes = assembleHeif({
+        extraMetaChildren: [dinfWith(drefWith([urlEntry(0)]))],
+      });
+      await writeFile(path, bytes);
+      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+    });
+
+    it("a url entry with flags 1 plus trailing location bytes declines item-graph-invalid", async () => {
+      const path = await freshPath();
+      const bytes = assembleHeif({
+        extraMetaChildren: [
+          dinfWith(drefWith([urlEntry(1, Buffer.from("loc\0", "ascii"))])),
+        ],
+      });
+      await writeFile(path, bytes);
+      await expectAdmissionDecline(path, "item-graph-invalid", "malformed-file");
+    });
+
+    it("no dinf at all admits", async () => {
+      const path = await freshPath();
+      const bytes = assembleHeif({ twoPass: true });
+      await writeFile(path, bytes);
+      const admission = await admitAtPath(path);
+      expect(admission).toBeDefined();
+    });
+
+    it("a dref with zero entries admits", async () => {
+      const path = await freshPath();
+      const bytes = assembleHeif({
+        twoPass: true,
+        extraMetaChildren: [dinfWith(drefWith([]))],
+      });
+      await writeFile(path, bytes);
+      const admission = await admitAtPath(path);
+      expect(admission).toBeDefined();
+    });
+
+    it("a dref holding one self-contained url entry (flags 1, no location) admits", async () => {
+      const path = await freshPath();
+      const bytes = assembleHeif({
+        twoPass: true,
+        extraMetaChildren: [dinfWith(drefWith([urlEntry(1)]))],
+      });
+      await writeFile(path, bytes);
+      const admission = await admitAtPath(path);
+      expect(admission).toBeDefined();
+    });
   });
 });
 
