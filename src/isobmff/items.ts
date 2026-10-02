@@ -490,6 +490,23 @@ export function buildItemModel(
   const ilocByItemId = new Map(
     ilocTable.items.map((item) => [item.itemId, item]),
   );
+  // WR-02 (code review 2026-10-01): the reverse direction of the check above -- every item
+  // declared in iinf must have a corresponding iloc entry. Without this, an item with no iloc
+  // entry at all silently defaults to `extents: []` below, which a removable item (Exif/mime)
+  // then resolves to "admitted, pre-emptied" with no error (admission.ts's end-of-function
+  // emptiedItemIds loop) -- a quiet false negative, distinct from the D-10a "extent_count 0,
+  // admitted as emptied" shape, which is a *present* iloc entry with zero extents. Applies to
+  // every item (not only removable ones): the measured iPhone sample and both heif-enc fixtures
+  // declare an iloc entry for every single item (docs/isobmff.md "Measured real-device sample"),
+  // so this cannot regress any real-world shape.
+  for (const id of itemIds) {
+    if (!ilocByItemId.has(id)) {
+      throw new IsobmffStructureError(
+        "item-graph-invalid",
+        `iinf item ${id} has no corresponding iloc entry.`,
+      );
+    }
+  }
 
   let references: IsobmffReference[] = [];
   const irefHeader = metaChildren.find((c) => c.type === "iref");
