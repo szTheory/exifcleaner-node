@@ -215,16 +215,36 @@ function buildMetaBytes(layoutItem, metaPayload, survivingItems, iinfBytes, iref
         childrenBytes,
     ]);
 }
+/**
+ * D-14/D5: the top-level boxes that never survive into the output -- `free`/`skip` (structurally
+ * inert, admitted but dropped) and `uuid` (the only admitted top-level `uuid` usertype is
+ * `boxes.ts`'s `C2PA_UUID_USERTYPE`, D-09/D5: `parseIsobmff` throws `top-level-box-not-allowed`
+ * for any other `uuid` usertype before an admission is ever produced, so every `uuid` box
+ * reaching this function is a C2PA box -- dropping by `type === "uuid"` alone is exact here).
+ */
+function isDroppedTopLevelBox(box) {
+    return box.type === "free" || box.type === "skip" || box.type === "uuid";
+}
 export function buildIsobmffOutputPlan(admission, _preserveOrientation, _preserveColorProfile, _preserveResolution, _orientation) {
     const { model, classification } = admission;
     const { layout } = model;
     const removedIds = new Set(classification.removableItemIds);
     const survivingItems = model.items.filter((item) => !removedIds.has(item.id));
     const survivingItemIds = survivingItems.map((item) => item.id);
-    const ftypBox = layout.topLevelBoxes.find((box) => box.type === "ftyp");
-    const mdatBox = layout.topLevelBoxes.find((box) => box.type === "mdat");
-    if (ftypBox === undefined || mdatBox === undefined) {
-        return declined(classification.removableItemIds, "Source is missing a top-level ftyp or mdat box.");
+    // D-14: walk every top-level box in its own source order, dropping free/skip/C2PA uuid
+    // wherever they sit (right after ftyp, between meta and mdat, after mdat, or more than once) --
+    // never a hardcoded ftyp-then-meta-then-mdat assumption. Whatever remains is always exactly one
+    // ftyp, one meta and one mdat (every other admitted top-level type is in the drop set; anything
+    // not in the drop set and not one of these three would already have failed parse-time
+    // admission), so the loop below never needs an "else" branch for a fourth kept type.
+    const keptTopLevelBoxes = layout.topLevelBoxes.filter((box) => !isDroppedTopLevelBox(box));
+    const ftypBox = keptTopLevelBoxes.find((box) => box.type === "ftyp");
+    const metaTopLevelBox = keptTopLevelBoxes.find((box) => box.type === "meta");
+    const mdatBox = keptTopLevelBoxes.find((box) => box.type === "mdat");
+    if (ftypBox === undefined ||
+        metaTopLevelBox === undefined ||
+        mdatBox === undefined) {
+        return declined(classification.removableItemIds, "Source is missing a top-level ftyp, meta or mdat box.");
     }
     const sourceExtents = collectSourceExtents(survivingItems);
     const mergedRanges = buildMergedMdatRanges(sourceExtents);
@@ -278,9 +298,19 @@ export function buildIsobmffOutputPlan(admission, _preserveOrientation, _preserv
         return declined(classification.removableItemIds, probeFitError);
     }
     const probeMetaBytes = buildMetaBytes(layout.item, layout.metaPayload, survivingItems, iinfBytes, irefBytes, iprpBytes, probeRewrites);
-    const ftypTotalSize = ftypBox.end - ftypBox.start;
-    const newMetaTotalSize = probeMetaBytes.length;
-    const newMdatPayloadStart = ftypTotalSize + newMetaTotalSize + mdatBox.headerSize;
+    // D-14: the new mdat payload's start is the running byte length of every KEPT top-level box
+    // that precedes mdat in the *source's own order* -- ftyp contributes its verbatim total size,
+    // meta contributes the probe pass's rebuilt length (D-11: widths never change, so that length
+    // is already the real one), and nothing else can precede mdat here (every dropped box
+    // contributes 0, and ftyp/meta/mdat are each a parse-time-enforced singleton).
+    let runningOffsetBeforeMdat = 0;
+    for (const box of keptTopLevelBoxes) {
+        if (box.type === "mdat")
+            break;
+        runningOffsetBeforeMdat +=
+            box.type === "ftyp" ? box.end - box.start : probeMetaBytes.length;
+    }
+    const newMdatPayloadStart = runningOffsetBeforeMdat + mdatBox.headerSize;
     const finalRewrites = computeIlocRewrites(survivingItems, relativeOffsets, layout.item.ilocBaseOffsetSize, newMdatPayloadStart);
     const finalFitError = checkIlocRewriteFit(survivingItems, finalRewrites, layout.item.ilocBaseOffsetSize, layout.item.ilocOffsetSize);
     if (finalFitError !== undefined) {
@@ -295,16 +325,28 @@ export function buildIsobmffOutputPlan(admission, _preserveOrientation, _preserv
         return declined(classification.removableItemIds, "Rebuilt meta length changed between the probe and final passes.");
     }
     const mdatHeaderBytes = buildMdatHeader(mdatBox.sizeForm, newMdatPayloadLength);
-    const parts = [
-        { kind: "copy", sourceOffset: ftypBox.start, length: ftypTotalSize },
-        { kind: "bytes", data: metaBytes },
-        { kind: "bytes", data: mdatHeaderBytes },
-        ...mergedRanges.map((range) => ({
-            kind: "copy",
-            sourceOffset: range.start,
-            length: range.end - range.start,
-        })),
-    ];
+    // D-14: emit parts in the exact kept order (never reordered); free/skip/C2PA uuid simply have
+    // no part at all, wherever they sat in the source.
+    const parts = [];
+    for (const box of keptTopLevelBoxes) {
+        if (box.type === "ftyp") {
+            parts.push({ kind: "copy", sourceOffset: box.start, length: box.end - box.start });
+        }
+        else if (box.type === "meta") {
+            parts.push({ kind: "bytes", data: metaBytes });
+        }
+        else {
+            // box.type === "mdat" (the only remaining kept type).
+            parts.push({ kind: "bytes", data: mdatHeaderBytes });
+            for (const range of mergedRanges) {
+                parts.push({
+                    kind: "copy",
+                    sourceOffset: range.start,
+                    length: range.end - range.start,
+                });
+            }
+        }
+    }
     return { parts, removedItemIds: classification.removableItemIds };
 }
 export function checkIsobmffOutputPlan(plan) {

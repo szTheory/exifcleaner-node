@@ -32,6 +32,8 @@ import {
   type IsobmffInventory,
 } from "./isobmff-support/inventory.js";
 import {
+  auxC,
+  av1C,
   ftypBox,
   hdlrBox,
   hvcC,
@@ -46,11 +48,26 @@ import {
   mdatBox,
   metaBox,
   pitmBox,
+  uuidBox,
   type BoxSizeOverride,
   type IlocItem,
   type IpmaEntry,
+  type IrefRef,
 } from "./isobmff-support/builder.js";
-import { assembleHeif, HOSTILE_FIXTURES } from "./isobmff-support/hostile.js";
+import {
+  assembleHeif,
+  HOSTILE_FIXTURES,
+  type AssembleHeifSpec,
+} from "./isobmff-support/hostile.js";
+import { createMinimalExif } from "../src/metadata/exif.js";
+
+// C2PA's registered `uuid` usertype (d8fec3d6-1b0e-483c-9297-5828877ec481), restated here as a
+// plain literal rather than imported -- `tests/isobmff-support/` files may only take a type-only
+// import from `src/isobmff/`, and this file deliberately mirrors that same narrow discipline for
+// anything it imports from `src/isobmff/*` directly (it does import `admitIsobmff` as a value,
+// which is allowed outside `isobmff-support/`). Must stay equal to
+// `src/isobmff/boxes.ts`'s `C2PA_UUID_USERTYPE`.
+const C2PA_UUID_USERTYPE = "d8fec3d61b0e483c92975828877ec481";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -953,6 +970,212 @@ describe("D-15 mdat union (62-05)", () => {
       } finally {
         await handle.close();
       }
+    }
+  });
+});
+
+// --- Task 1 (62-06): hidden auxiliary Exif + top-level C2PA removed end to end on AVIF ---
+
+const AUX_PRIMARY_ID = 1;
+const AUX_AUX_ID = 2;
+const AUX_EXIF_ID = 3;
+const AUX_XMP_ID = 4;
+const ALPHA_URN = "urn:mpeg:mpegB:cicp:systems:auxiliary:alpha";
+
+function buildAvifAuxHiddenC2paFixture(): {
+  readonly bytes: Buffer;
+  readonly exifCanary: Buffer;
+  readonly xmpCanary: Buffer;
+  readonly c2paCanary: Buffer;
+} {
+  const primaryPayload = Buffer.from([0xa0, 0xa1, 0xa2, 0xa3]);
+  const auxPayload = Buffer.from([0xb0, 0xb1, 0xb2, 0xb3]);
+  const exifCanary = Buffer.from("EXIF-CANARY-62-06", "ascii");
+  const xmpCanary = Buffer.from("XMP-CANARY-62-06-AAAA", "ascii");
+  const c2paCanary = Buffer.concat([
+    Buffer.from("C2PA-CANARY-62-06", "ascii"),
+    Buffer.alloc(32 - "C2PA-CANARY-62-06".length, 0x00),
+  ]);
+
+  const tiff = createMinimalExif({ orientation: 1 });
+  const exifPayload = Buffer.concat([Buffer.alloc(4), tiff, exifCanary]);
+  const xmpPayload = Buffer.concat([
+    Buffer.from("<x:xmpmeta>", "ascii"),
+    xmpCanary,
+    Buffer.from("</x:xmpmeta>", "ascii"),
+  ]);
+
+  const refs: IrefRef[] = [
+    { type: "auxl", fromItemId: AUX_AUX_ID, toItemIds: [AUX_PRIMARY_ID] },
+    { type: "cdsc", fromItemId: AUX_EXIF_ID, toItemIds: [AUX_AUX_ID] },
+    { type: "cdsc", fromItemId: AUX_XMP_ID, toItemIds: [AUX_PRIMARY_ID] },
+  ];
+
+  const spec: AssembleHeifSpec = {
+    majorBrand: "avif",
+    compatibleBrands: ["mif1", "avif"],
+    primaryItemId: AUX_PRIMARY_ID,
+    items: [
+      {
+        itemId: AUX_PRIMARY_ID,
+        itemType: "av01",
+        extents: [{ relOffset: 0, length: primaryPayload.length }],
+        propertyIndices: [1, 2],
+      },
+      {
+        itemId: AUX_AUX_ID,
+        itemType: "av01",
+        hidden: true,
+        extents: [
+          { relOffset: primaryPayload.length, length: auxPayload.length },
+        ],
+        propertyIndices: [3],
+      },
+      {
+        itemId: AUX_EXIF_ID,
+        itemType: "Exif",
+        hidden: true,
+        extents: [
+          {
+            relOffset: primaryPayload.length + auxPayload.length,
+            length: exifPayload.length,
+          },
+        ],
+      },
+      {
+        itemId: AUX_XMP_ID,
+        itemType: "mime",
+        contentType: "application/rdf+xml",
+        extents: [
+          {
+            relOffset:
+              primaryPayload.length + auxPayload.length + exifPayload.length,
+            length: xmpPayload.length,
+          },
+        ],
+      },
+    ],
+    properties: [ispe(32, 32), av1C(Buffer.from([0x81, 0x08, 0x0c, 0x00])), auxC(ALPHA_URN)],
+    refs,
+    mdatPayload: Buffer.concat([
+      primaryPayload,
+      auxPayload,
+      exifPayload,
+      xmpPayload,
+    ]),
+    topLevelExtraAfterFtyp: [uuidBox(C2PA_UUID_USERTYPE, c2paCanary)],
+    twoPass: true,
+  };
+
+  return { bytes: assembleHeif(spec), exifCanary, xmpCanary, c2paCanary };
+}
+
+describe("ISO-01/ISO-02 removal on builder fixtures (62-06)", () => {
+  it("removes a hidden auxiliary Exif item, an XMP item, and a top-level C2PA box right after ftyp, on an avif builder fixture with a hidden aux image", async () => {
+    const { bytes, exifCanary, xmpCanary, c2paCanary } =
+      buildAvifAuxHiddenC2paFixture();
+
+    const directory = await freshDirectory();
+    const sourcePath = join(directory, "source.avif");
+    const destinationPath = join(directory, "destination.avif");
+    await writeFile(sourcePath, bytes);
+
+    const sourceInventory = inventoryIsobmff(bytes);
+    expect(
+      sourceInventory.topLevel.some((box) => box.type === "uuid"),
+    ).toBe(true);
+
+    const restore = setRegisteredHandlersForTests([
+      createIsobmffWriterHandlerForTests("avif"),
+    ]);
+    try {
+      const sanitized = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: false,
+      });
+      expect(sanitized.ok).toBe(true);
+      if (!sanitized.ok) {
+        throw new Error(`sanitizeFile failed: ${JSON.stringify(sanitized.error)}`);
+      }
+
+      const destinationBytes = await readFile(destinationPath);
+      const destinationInventory = inventoryIsobmff(destinationBytes);
+
+      // ISO-01: no Exif/mime item, no iloc/ipma entry, no iref record naming either removed item.
+      for (const item of destinationInventory.items) {
+        expect(item.type).not.toBe("Exif");
+        expect(item.type).not.toBe("mime");
+        expect([AUX_EXIF_ID, AUX_XMP_ID]).not.toContain(item.id);
+      }
+      for (const association of destinationInventory.associations) {
+        expect([AUX_EXIF_ID, AUX_XMP_ID]).not.toContain(association.itemId);
+      }
+      for (const reference of destinationInventory.references) {
+        expect([AUX_EXIF_ID, AUX_XMP_ID]).not.toContain(reference.from);
+        for (const toId of reference.to) {
+          expect([AUX_EXIF_ID, AUX_XMP_ID]).not.toContain(toId);
+        }
+      }
+
+      // ISO-02: no top-level uuid box of any kind survives (the only admitted usertype is C2PA).
+      expect(
+        destinationInventory.topLevel.some((box) => box.type === "uuid"),
+      ).toBe(false);
+
+      // Every planted canary (Exif payload, XMP payload, C2PA payload) is absent from the whole
+      // output.
+      expect(destinationBytes.indexOf(exifCanary)).toBe(-1);
+      expect(destinationBytes.indexOf(xmpCanary)).toBe(-1);
+      expect(destinationBytes.indexOf(c2paCanary)).toBe(-1);
+
+      // ftyp bytes identical, and the kept top-level type list is the source's minus the C2PA uuid.
+      const sourceFtyp = sourceInventory.topLevel.find((b) => b.type === "ftyp")!;
+      const destinationFtyp = destinationInventory.topLevel.find(
+        (b) => b.type === "ftyp",
+      )!;
+      expect(
+        destinationBytes
+          .subarray(destinationFtyp.offset, destinationFtyp.offset + destinationFtyp.size)
+          .equals(
+            bytes.subarray(sourceFtyp.offset, sourceFtyp.offset + sourceFtyp.size),
+          ),
+      ).toBe(true);
+      expect(destinationInventory.topLevel.map((b) => b.type)).toEqual(
+        sourceInventory.topLevel
+          .map((b) => b.type)
+          .filter((type) => type !== "uuid"),
+      );
+
+      // Surviving items (primary, aux) byte-identical.
+      for (const id of [AUX_PRIMARY_ID, AUX_AUX_ID]) {
+        const sourceItem = findItem(sourceInventory, id)!;
+        const destinationItem = findItem(destinationInventory, id)!;
+        expect(destinationItem).toBeDefined();
+        const sourcePayload = readItemExtentBytes(bytes, sourceInventory, sourceItem);
+        const destinationPayload = readItemExtentBytes(
+          destinationBytes,
+          destinationInventory,
+          destinationItem,
+        );
+        expect(destinationPayload.equals(sourcePayload)).toBe(true);
+      }
+
+      // Re-admits, with no removed namespace surviving.
+      const destinationHandle: FileHandle = await open(destinationPath, "r");
+      try {
+        const reAdmitted = await admitIsobmff(destinationHandle, destinationBytes.length);
+        expect(reAdmitted.namespaces).not.toContain("EXIF");
+        expect(reAdmitted.namespaces).not.toContain("XMP");
+        expect(reAdmitted.namespaces).not.toContain("C2PA");
+      } finally {
+        await destinationHandle.close();
+      }
+    } finally {
+      restore();
     }
   });
 });

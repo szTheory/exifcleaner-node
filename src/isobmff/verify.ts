@@ -134,6 +134,55 @@ export async function verifyIsobmffOutput(
   }
 
   try {
+    // D-14/D-18: the output top-level type list equals the source's minus free/skip/C2PA uuid,
+    // in the same source order, and ftyp's bytes are identical. Every admitted top-level `uuid`
+    // is the C2PA box (D-09/D5: any other usertype already fails parse-time admission), so
+    // filtering by type alone (never by usertype) is exact here.
+    const sourceTopLevelTypes = admission.model.layout.topLevelBoxes
+      .map((box) => box.type)
+      .filter((type) => type !== "free" && type !== "skip" && type !== "uuid");
+    const destinationTopLevelTypes = destinationModel.layout.topLevelBoxes.map(
+      (box) => box.type,
+    );
+    if (
+      sourceTopLevelTypes.length !== destinationTopLevelTypes.length ||
+      sourceTopLevelTypes.some(
+        (type, index) => type !== destinationTopLevelTypes[index],
+      )
+    ) {
+      return err(
+        verificationError(
+          "Destination top-level box list did not match the source minus free/skip/C2PA uuid.",
+          destinationPath,
+        ),
+      );
+    }
+
+    const sourceFtyp = admission.model.layout.topLevelBoxes.find(
+      (box) => box.type === "ftyp",
+    );
+    const destinationFtyp = destinationModel.layout.topLevelBoxes.find(
+      (box) => box.type === "ftyp",
+    );
+    if (sourceFtyp === undefined || destinationFtyp === undefined) {
+      return err(
+        verificationError("Missing top-level ftyp box.", destinationPath),
+      );
+    }
+    const ftypEqual = await rangesEqual(
+      sourceHandle,
+      sourceFtyp.start,
+      destinationHandle,
+      destinationFtyp.start,
+      sourceFtyp.end - sourceFtyp.start,
+      signal,
+    );
+    if (!ftypEqual) {
+      return err(
+        verificationError("ftyp bytes changed.", destinationPath),
+      );
+    }
+
     const removedIds = new Set(admission.classification.removableItemIds);
     const expectedSurvivingIds = admission.model.items
       .filter((item) => !removedIds.has(item.id))

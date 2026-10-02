@@ -127,6 +127,11 @@ export interface AssembleHeifSpec {
   };
   /** Appended between `meta` and `mdat` (sequence-box/top-level-box-not-allowed fixtures). */
   readonly topLevelExtraBeforeMdat?: readonly Buffer[];
+  /** Appended right after `ftyp`, before `meta` (62-06 D-14 position matrix: a free/skip/C2PA
+   * uuid box at the very start of the top-level list). */
+  readonly topLevelExtraAfterFtyp?: readonly Buffer[];
+  /** Appended after every `mdat` box, at the very end of the file (62-06 D-14 position matrix). */
+  readonly topLevelExtraAfterMdat?: readonly Buffer[];
   readonly secondMdat?: boolean;
   readonly secondMeta?: boolean;
   readonly quickTimeMeta?: boolean;
@@ -250,12 +255,17 @@ export function assembleHeif(spec: AssembleHeifSpec = {}): Buffer {
     const metaBoxes = spec.secondMeta === true ? [meta, meta] : [meta];
     const header = Buffer.concat([
       ftyp,
+      ...(spec.topLevelExtraAfterFtyp ?? []),
       ...metaBoxes,
       ...(spec.topLevelExtraBeforeMdat ?? []),
     ]);
     const mdat = mdatBox(mdatPayload);
     const mdatBoxes = spec.secondMdat === true ? [mdat, mdat] : [mdat];
-    return Buffer.concat([header, ...mdatBoxes]);
+    return Buffer.concat([
+      header,
+      ...mdatBoxes,
+      ...(spec.topLevelExtraAfterMdat ?? []),
+    ]);
   };
 
   if (spec.twoPass !== true) return build(0);
@@ -263,11 +273,19 @@ export function assembleHeif(spec: AssembleHeifSpec = {}): Buffer {
   // Two-pass (removable-extent-overlap only): iloc's encoded byte length depends only on the
   // declared widths, never the numeric offset values stored, so a placeholder pass (baseOffset 0)
   // yields the real header length, used to compute the real (shared) baseOffset for the final
-  // pass -- mirrors tests/isobmff_admission.test.ts's own `buildFile`.
+  // pass -- mirrors tests/isobmff_admission.test.ts's own `buildFile`. `topLevelExtraAfterFtyp`
+  // (inside `header`) and `topLevelExtraAfterMdat` (trailing) are both fixed-length buffers that
+  // never depend on the numeric offset values either, so the header length derivation below only
+  // needs to subtract the trailing extra's own length in addition to the mdat box(es).
   const pass1 = build(0);
   const mdatBoxTotal = 8 + mdatPayload.length;
   const mdatBoxesCount = spec.secondMdat === true ? 2 : 1;
-  const headerLength = pass1.length - mdatBoxTotal * mdatBoxesCount;
+  const trailingExtraLength = (spec.topLevelExtraAfterMdat ?? []).reduce(
+    (sum, box) => sum + box.length,
+    0,
+  );
+  const headerLength =
+    pass1.length - mdatBoxTotal * mdatBoxesCount - trailingExtraLength;
   const final = build(headerLength + 8);
   if (final.length !== pass1.length) {
     throw new Error(
