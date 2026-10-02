@@ -16,6 +16,7 @@ import { mkdtemp, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import { admitIsobmff } from "../src/isobmff/admission.js";
 import { sanitizeFile } from "../src/engine.js";
@@ -29,10 +30,25 @@ import {
   box,
   colrNclx,
   colrProf,
+  ftypBox,
+  hdlrBox,
   hvcC,
+  iinfBox,
+  ilocBox,
+  infeBox,
+  ipcoBox,
+  ipmaBox,
+  iprpBox,
   ispe,
+  mdatBox,
+  metaBox,
+  pitmBox,
   pixi,
 } from "./isobmff-support/builder.js";
+import {
+  isobmffArmSampleArbitrary,
+  type IsobmffArm,
+} from "./isobmff-support/generator.js";
 import { iccProfileV4 } from "./fixtures.js";
 
 const directories: string[] = [];
@@ -386,4 +402,398 @@ describe("D-16 ICC removal and ipma remap (62-08)", () => {
       },
     );
   });
+
+  describe(
+    "Task 2: preserve-true identity, ipma widths, zero-association entries, boundary " +
+      "indices, generator colr arms",
+    () => {
+      it("preserveColorProfile true: output ipco bytes are byte-identical to the source's", async () => {
+        const bytes = buildIccFixture();
+        const { path: sourcePath } = await writeFixture(bytes, "source.heic");
+        const directory = dirname(sourcePath);
+        const destinationPath = join(directory, "destination.heic");
+
+        await sanitizeThroughRealWriter(sourcePath, destinationPath, true);
+
+        const destinationBytes = await readFile(destinationPath);
+        const sourceMeta = findTopLevelBox(bytes, "meta");
+        const sourceIprp = findChildBox(
+          bytes,
+          sourceMeta.payloadStart + 4,
+          sourceMeta.end,
+          "iprp",
+        )!;
+        const sourceIpco = findChildBox(
+          bytes,
+          sourceIprp.payloadStart,
+          sourceIprp.end,
+          "ipco",
+        )!;
+        const destinationMeta = findTopLevelBox(destinationBytes, "meta");
+        const destinationIprp = findChildBox(
+          destinationBytes,
+          destinationMeta.payloadStart + 4,
+          destinationMeta.end,
+          "iprp",
+        )!;
+        const destinationIpco = findChildBox(
+          destinationBytes,
+          destinationIprp.payloadStart,
+          destinationIprp.end,
+          "ipco",
+        )!;
+
+        const sourceIpcoBytes = bytes.subarray(
+          sourceIpco.start,
+          sourceIpco.end,
+        );
+        const destinationIpcoBytes = destinationBytes.subarray(
+          destinationIpco.start,
+          destinationIpco.end,
+        );
+        expect(destinationIpcoBytes.equals(sourceIpcoBytes)).toBe(true);
+
+        // The primary's ICC (the "prof" property, which it associates with) is identical too.
+        const { properties } = readIpcoIpma(destinationBytes);
+        const destinationProf = properties.find((p) => p.colourType === "prof");
+        expect(
+          destinationProf?.bytes.subarray(12).equals(ICC_BYTES_PROF),
+        ).toBe(true);
+      });
+
+      /**
+       * A minimal one-item HEIF file whose `ipma` box is encoded at exactly the given
+       * `version`/`flags` (never `assembleHeif`'s hardcoded version 0 / flags 0) -- built
+       * directly from `builder.ts` primitives, two-pass exactly like `heifFile`'s own pattern
+       * (`base_offset_size` 0: the single extent's own offset carries the absolute mdat
+       * position). `fillerCount` filler `ispe(1,1)` properties precede the real colr prof/nclx
+       * pair so their indices can be pushed past 127 (needs the 15-bit/wide association format)
+       * without changing anything else about the file's shape.
+       */
+      function buildWideIpmaFixture(
+        version: 0 | 1,
+        flags: number,
+        fillerCount: number,
+      ): { bytes: Buffer; profIndex: number; nclxIndex: number } {
+        const primaryPayload = Buffer.from("primary-bytes", "ascii");
+        const fillerProperties = Array.from({ length: fillerCount }, () =>
+          ispe(1, 1),
+        );
+        const properties = [
+          ...fillerProperties,
+          colrProf(ICC_BYTES_PROF),
+          colrNclx(1, 13, 6, true),
+        ];
+        const profIndex = fillerCount + 1;
+        const nclxIndex = fillerCount + 2;
+
+        const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+        const hdlr = hdlrBox("pict");
+        const pitm = pitmBox(0, 1);
+        const iinf = iinfBox(0, [
+          infeBox({ version: 2, itemId: 1, itemType: "hvc1" }),
+        ]);
+        const ipco = ipcoBox(properties);
+        const ipma = ipmaBox({
+          version,
+          flags,
+          entries: [
+            {
+              itemId: 1,
+              associations: [
+                { propertyIndex: profIndex, essential: true },
+                { propertyIndex: nclxIndex, essential: false },
+              ],
+            },
+          ],
+        });
+        const iprp = iprpBox(ipco, ipma);
+        const metaChildrenWithoutIloc = [hdlr, pitm, iinf, iprp];
+
+        function buildIlocAt(offset: number): Buffer {
+          return ilocBox({
+            version: 1,
+            offsetSize: 4,
+            lengthSize: 4,
+            baseOffsetSize: 0,
+            indexSize: 0,
+            items: [
+              {
+                itemId: 1,
+                constructionMethod: 0,
+                dataReferenceIndex: 0,
+                baseOffset: 0,
+                extents: [{ offset, length: primaryPayload.length }],
+              },
+            ],
+          });
+        }
+
+        const placeholderIloc = buildIlocAt(0);
+        const meta = metaBox([...metaChildrenWithoutIloc, placeholderIloc]);
+        const headerLength = ftyp.length + meta.length + 8;
+        const finalIloc = buildIlocAt(headerLength);
+        const finalMeta = metaBox([...metaChildrenWithoutIloc, finalIloc]);
+        if (finalMeta.length !== meta.length) {
+          throw new Error(
+            "buildWideIpmaFixture: iloc byte length changed between passes",
+          );
+        }
+        const mdat = mdatBox(primaryPayload);
+        return {
+          bytes: Buffer.concat([ftyp, finalMeta, mdat]),
+          profIndex,
+          nclxIndex,
+        };
+      }
+
+      it.each([
+        { version: 0 as const, flags: 0, fillerCount: 2, label: "version 0 / flags 0 (7-bit)" },
+        {
+          version: 1 as const,
+          flags: 1,
+          fillerCount: 148,
+          label: "version 1 / flags 1 (15-bit, index above 127)",
+        },
+      ])(
+        "ipma $label: source version/flags and index width are kept, remap is correct",
+        async ({ version, flags, fillerCount }) => {
+          const { bytes, profIndex, nclxIndex } = buildWideIpmaFixture(
+            version,
+            flags,
+            fillerCount,
+          );
+          const { properties: sourceProperties } = readIpcoIpma(bytes);
+          expect(sourceProperties.length).toBe(fillerCount + 2);
+
+          const { path: sourcePath } = await writeFixture(bytes, "source.heic");
+          const directory = dirname(sourcePath);
+          const destinationPath = join(directory, "destination.heic");
+          await sanitizeThroughRealWriter(sourcePath, destinationPath, false);
+
+          const destinationBytes = await readFile(destinationPath);
+          const { properties: destProperties, associations } =
+            readIpcoIpma(destinationBytes);
+          expect(destProperties.length).toBe(fillerCount + 1);
+          expect(destProperties.some((p) => p.colourType === "prof")).toBe(
+            false,
+          );
+          expect(destProperties.some((p) => p.colourType === "nclx")).toBe(
+            true,
+          );
+          const item1 = associations.find((entry) => entry.itemId === 1);
+          // profIndex is removed; nclxIndex (profIndex + 1) remaps to fillerCount + 1 (one slot
+          // below, since exactly one property -- prof -- was removed below it).
+          expect(nclxIndex).toBe(profIndex + 1);
+          expect(item1?.associations).toEqual([
+            { propertyIndex: fillerCount + 1, essential: false },
+          ]);
+
+          await withHandle(destinationPath, (handle) =>
+            admitIsobmff(handle, destinationBytes.length).then(() => {}),
+          );
+        },
+      );
+
+      it(
+        "an item whose only association was the removed ICC keeps its ipma entry with " +
+          "association_count 0",
+        async () => {
+          const primaryPayload = Buffer.from("primary-bytes", "ascii");
+          const thumbPayload = Buffer.from("thumb-bytes", "ascii");
+          const spec: AssembleHeifSpec = {
+            primaryItemId: 1,
+            items: [
+              {
+                itemId: 1,
+                itemType: "hvc1",
+                extents: [{ relOffset: 0, length: primaryPayload.length }],
+              },
+              {
+                itemId: 2,
+                itemType: "hvc1",
+                hidden: true,
+                extents: [
+                  {
+                    relOffset: primaryPayload.length,
+                    length: thumbPayload.length,
+                  },
+                ],
+              },
+            ],
+            properties: [ispe(32, 32), hvcC(), colrProf(ICC_BYTES_PROF)],
+            extraIpmaEntries: [
+              {
+                itemId: 1,
+                associations: [
+                  { propertyIndex: 1, essential: false },
+                  { propertyIndex: 2, essential: false },
+                ],
+              },
+              {
+                itemId: 2,
+                associations: [{ propertyIndex: 3, essential: false }],
+              },
+            ],
+            mdatPayload: Buffer.concat([primaryPayload, thumbPayload]),
+            twoPass: true,
+          };
+          const bytes = assembleHeif(spec);
+          const { path: sourcePath } = await writeFixture(bytes, "source.heic");
+          const directory = dirname(sourcePath);
+          const destinationPath = join(directory, "destination.heic");
+
+          await sanitizeThroughRealWriter(sourcePath, destinationPath, false);
+
+          const destinationBytes = await readFile(destinationPath);
+          const { associations } = readIpcoIpma(destinationBytes);
+          const item2 = associations.find((entry) => entry.itemId === 2);
+          expect(item2).toBeDefined();
+          expect(item2?.associations).toEqual([]);
+
+          await withHandle(destinationPath, (handle) =>
+            admitIsobmff(handle, destinationBytes.length).then(() => {}),
+          );
+        },
+      );
+
+      it(
+        "ICC at the highest ipco index removed; an association to the new last index resolves " +
+          "to the same bytes as before",
+        async () => {
+          const primaryPayload = Buffer.from("primary-bytes", "ascii");
+          const spec: AssembleHeifSpec = {
+            primaryItemId: 1,
+            items: [
+              {
+                itemId: 1,
+                itemType: "hvc1",
+                extents: [{ relOffset: 0, length: primaryPayload.length }],
+              },
+            ],
+            properties: [
+              ispe(32, 32),
+              hvcC(),
+              pixi([8, 8, 8]),
+              colrProf(ICC_BYTES_PROF), // highest index (4)
+            ],
+            extraIpmaEntries: [
+              {
+                itemId: 1,
+                associations: [
+                  { propertyIndex: 1, essential: false },
+                  { propertyIndex: 3, essential: false },
+                  { propertyIndex: 4, essential: false },
+                ],
+              },
+            ],
+            mdatPayload: primaryPayload,
+            twoPass: true,
+          };
+          const bytes = assembleHeif(spec);
+          const sourcePixi = readIpcoIpma(bytes).properties.find(
+            (p) => p.type === "pixi",
+          )!;
+
+          const { path: sourcePath } = await writeFixture(bytes, "source.heic");
+          const directory = dirname(sourcePath);
+          const destinationPath = join(directory, "destination.heic");
+          await sanitizeThroughRealWriter(sourcePath, destinationPath, false);
+
+          const destinationBytes = await readFile(destinationPath);
+          const { properties, associations } = readIpcoIpma(destinationBytes);
+          expect(properties.length).toBe(3);
+          expect(properties.some((p) => p.colourType === "prof")).toBe(false);
+          const item1 = associations.find((entry) => entry.itemId === 1);
+          expect(item1?.associations).toEqual([
+            { propertyIndex: 1, essential: false },
+            { propertyIndex: 3, essential: false },
+          ]);
+          const destinationPixi = properties[2]!;
+          expect(destinationPixi.type).toBe("pixi");
+          expect(destinationPixi.bytes.equals(sourcePixi.bytes)).toBe(true);
+
+          await withHandle(destinationPath, (handle) =>
+            admitIsobmff(handle, destinationBytes.length).then(() => {}),
+          );
+        },
+      );
+
+      const GENERATOR_SEED = 62;
+      const GENERATOR_NUM_RUNS = 20;
+      const COLR_ARMS: readonly IsobmffArm[] = [
+        "colr-prof",
+        "colr-ricc",
+        "colr-nclx",
+        "colr-none",
+      ];
+
+      it.each(COLR_ARMS)(
+        "generator arm %s (seed 62, preserveColorProfile false): no prof/rICC in the output; " +
+          "nclx is kept; the output re-admits",
+        async (arm) => {
+          const samples = fc.sample(isobmffArmSampleArbitrary("heic"), {
+            seed: GENERATOR_SEED,
+            numRuns: GENERATOR_NUM_RUNS,
+          });
+
+          const restore = setRegisteredHandlersForTests([
+            createIsobmffWriterHandlerForTests("heic"),
+            createIsobmffWriterHandlerForTests("avif"),
+          ]);
+          let admittedCount = 0;
+          try {
+            for (const armSample of samples) {
+              if (!armSample.arms.includes(arm)) continue;
+
+              const { sample } = armSample;
+              const directory = await freshDirectory();
+              const sourcePath = join(directory, "sample.isobmff");
+              const destinationPath = join(directory, "destination.isobmff");
+              await writeFile(sourcePath, sample.bytes);
+
+              const sanitized = await sanitizeFile({
+                sourcePath,
+                destinationPath,
+                preserveOrientation: false,
+                preserveColorProfile: false,
+                preserveTimestamps: false,
+                preserveResolution: false,
+              });
+              if (!sanitized.ok) continue;
+              admittedCount += 1;
+
+              const destinationBytes = await readFile(destinationPath);
+              const { properties } = readIpcoIpma(destinationBytes);
+              expect(
+                properties.some(
+                  (p) => p.colourType === "prof" || p.colourType === "rICC",
+                ),
+              ).toBe(false);
+              if (arm === "colr-nclx") {
+                expect(properties.some((p) => p.colourType === "nclx")).toBe(
+                  true,
+                );
+              }
+
+              const destinationHandle: FileHandle = await open(
+                destinationPath,
+                "r",
+              );
+              try {
+                await admitIsobmff(destinationHandle, destinationBytes.length);
+              } finally {
+                await destinationHandle.close();
+              }
+            }
+          } finally {
+            restore();
+          }
+
+          expect(admittedCount).toBeGreaterThanOrEqual(1);
+        },
+        30_000,
+      );
+    },
+  );
 });
