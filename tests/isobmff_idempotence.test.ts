@@ -466,3 +466,235 @@ describe("ISO-06 clean(clean(x)) (62-11)", () => {
   });
 });
 
+// --- Task 2: clean(exiftool(x)) against ExifTool 13.59 ---
+
+interface ExecutableAuthority {
+  readonly path: string;
+  readonly sha256: string;
+}
+
+interface PreparedOracleTools {
+  readonly exiftool: ExecutableAuthority;
+  readonly dispose: () => void;
+}
+
+interface AuthorityBuilder {
+  readonly loadOrPrepareOracleTools: () => PreparedOracleTools;
+}
+
+interface ExiftoolRunResult {
+  readonly status: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+interface ResolvedExiftool {
+  readonly run: (args: readonly string[]) => ExiftoolRunResult;
+}
+
+type ExiftoolResolution =
+  | { readonly exiftool: ResolvedExiftool }
+  | { readonly skipReason: string };
+
+/** Resolves a real ExifTool 13.59: on linux/x64, the pinned KIT-09 authority (read-only
+ * `loadOrPrepareOracleTools`, disposed on process exit); elsewhere, the electron repo's vendored
+ * 13.59 download, run through `perl`, provided it exists and reports exactly version 13.59.
+ * Otherwise the whole describe block is skipped with a named reason (62-14 then confirms from the
+ * hosted quality job log that the linux leg actually ran rather than skipped). */
+function resolveExiftool(): ExiftoolResolution {
+  if (process.platform === "linux" && process.arch === "x64") {
+    try {
+      const require = createRequire(import.meta.url);
+      const authorityBuilder = require(
+        "../scripts/qualification/build-oracles.cjs",
+      ) as AuthorityBuilder;
+      const tools = authorityBuilder.loadOrPrepareOracleTools();
+      process.once("exit", () => tools.dispose());
+      return {
+        exiftool: {
+          run: (args) => {
+            const result = spawnSync(tools.exiftool.path, args, {
+              encoding: "utf8",
+              maxBuffer: 8 * 1024 * 1024,
+              timeout: 20_000,
+            });
+            return {
+              status: result.status ?? 1,
+              stdout: result.stdout ?? "",
+              stderr: result.stderr ?? "",
+            };
+          },
+        },
+      };
+    } catch (error) {
+      return {
+        skipReason: `linux/x64 KIT-09 oracle preparation failed: ${String(error)}`,
+      };
+    }
+  }
+
+  const electronExiftoolPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "exifcleaner-electron",
+    "exiftool_downloads",
+    "Image-ExifTool-13.59",
+    "exiftool",
+  );
+  if (!existsSync(electronExiftoolPath)) {
+    return {
+      skipReason:
+        `not on linux/x64 and no ExifTool found at ${electronExiftoolPath}`,
+    };
+  }
+  const versionResult = spawnSync("perl", [electronExiftoolPath, "-ver"], {
+    encoding: "utf8",
+    timeout: 20_000,
+  });
+  const version = (versionResult.stdout ?? "").trim();
+  if (versionResult.status !== 0 || version !== "13.59") {
+    return {
+      skipReason:
+        `ExifTool at ${electronExiftoolPath} reported version "${version}" ` +
+        `(status ${String(versionResult.status)}), expected "13.59"`,
+    };
+  }
+  return {
+    exiftool: {
+      run: (args) => {
+        const result = spawnSync("perl", [electronExiftoolPath, ...args], {
+          encoding: "utf8",
+          maxBuffer: 8 * 1024 * 1024,
+          timeout: 20_000,
+        });
+        return {
+          status: result.status ?? 1,
+          stdout: result.stdout ?? "",
+          stderr: result.stderr ?? "",
+        };
+      },
+    },
+  };
+}
+
+const EXIFTOOL_RESOLUTION = resolveExiftool();
+
+// The app's full preserving argument shape (measured, 62-01 / docs/isobmff.md "ExifTool 13.59
+// minimal-Exif placement"), restated here as a literal rather than imported -- this file may not
+// import from the independent `exifcleaner-electron` repository.
+// `exifcleaner-electron/src/domain/exif/exif.ts:69-78` (RESOLUTION_PRESERVE_ARGS, read-only).
+const RESOLUTION_PRESERVE_ARGS: readonly string[] = [
+  "-JFIF:XResolution>JFIF:XResolution",
+  "-JFIF:YResolution>JFIF:YResolution",
+  "-JFIF:ResolutionUnit>JFIF:ResolutionUnit",
+  "-IFD0:XResolution>IFD0:XResolution",
+  "-IFD0:YResolution>IFD0:YResolution",
+  "-IFD0:ResolutionUnit>IFD0:ResolutionUnit",
+  "-PNG:PixelsPerUnitX>PNG:PixelsPerUnitX",
+  "-PNG:PixelsPerUnitY>PNG:PixelsPerUnitY",
+  "-PNG:PixelUnits>PNG:PixelUnits",
+];
+
+const ARG_FORMS: Readonly<Record<string, readonly string[]>> = {
+  "plain -all=": [],
+  "preserving -all= -TagsFromFile @ -Orientation <RESOLUTION_PRESERVE_ARGS>": [
+    "-TagsFromFile",
+    "@",
+    "-Orientation",
+    ...RESOLUTION_PRESERVE_ARGS,
+  ],
+};
+
+async function freshDirectoryForExiftool(): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-isobmff-exiftool-"));
+  return directory;
+}
+
+/** Produces `exiftool(x)`: runs the resolved ExifTool over `bytes` with `-all= ...tagsFromFileArgs
+ * -o <output> <input>`, in a fresh temp directory, with a fixed argument array (no shell). */
+async function runExiftool(
+  exiftool: ResolvedExiftool,
+  bytes: Buffer,
+  extension: ".heic" | ".avif",
+  tagsFromFileArgs: readonly string[],
+): Promise<Buffer> {
+  const directory = await freshDirectoryForExiftool();
+  try {
+    const inputPath = join(directory, `input${extension}`);
+    const outputPath = join(directory, `reference${extension}`);
+    await writeFile(inputPath, bytes);
+    const result = exiftool.run([
+      "-all=",
+      ...tagsFromFileArgs,
+      "-o",
+      outputPath,
+      inputPath,
+    ]);
+    if (result.status !== 0) {
+      throw new Error(`ExifTool reference run failed: ${result.stderr}`);
+    }
+    return await readFile(outputPath);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+describe("ISO-06 clean(exiftool(x)) (62-11)", () => {
+  if ("skipReason" in EXIFTOOL_RESOLUTION) {
+    it.skip(`skipped: ${EXIFTOOL_RESOLUTION.skipReason}`, () => {
+      // no-op
+    });
+  } else {
+    const exiftool = EXIFTOOL_RESOLUTION.exiftool;
+    const CASES = (["heic", "avif"] as const).flatMap((brand) =>
+      Object.entries(ARG_FORMS).map(
+        ([argFormLabel, tagsFromFileArgs]) =>
+          [brand, argFormLabel, tagsFromFileArgs] as const,
+      ),
+    );
+
+    it.each(CASES)(
+      "%s, %s: clean(exiftool(x)) is byte-equal to clean(clean(exiftool(x)))",
+      async (brand, _argFormLabel, tagsFromFileArgs) => {
+        const fixturePath = brand === "heic" ? HEIC_FIXTURE : AVIF_FIXTURE;
+        const sourceBytes = await readFile(fixturePath);
+        const extension = brand === "heic" ? ".heic" : ".avif";
+
+        const e = await runExiftool(exiftool, sourceBytes, extension, tagsFromFileArgs);
+        const defaultSettings = OPTION_SETS["default settings"]!;
+        const cleanedOnce = await clean(e, brand, defaultSettings);
+        const cleanedTwice = await clean(cleanedOnce, brand, defaultSettings);
+        expect(cleanedTwice.equals(cleanedOnce)).toBe(true);
+
+        // When e holds a non-emptied Exif item (D-13's k candidate -- the plain "-all=" form was
+        // measured to leave only a zero-length, emptied Exif item behind, which is correctly never
+        // a k candidate and so writes no minimal Exif item at all), the native output's Exif item
+        // keeps the same item ID and its payload prefix is four zero bytes (measured,
+        // docs/isobmff.md "ExifTool 13.59 minimal-Exif placement": the payload's first four bytes
+        // are 00000000 on both ExifTool argument forms, never the "Exif\0\0" prefix 62-CONTEXT
+        // D-13 originally claimed).
+        const sourceExifItem = inventoryIsobmff(e).items.find(
+          (item) =>
+            item.type === "Exif" &&
+            item.extents.reduce((sum, extent) => sum + extent.length, 0) > 0,
+        );
+        if (sourceExifItem !== undefined) {
+          const outputInventory = inventoryIsobmff(cleanedOnce);
+          const outputExifItem = outputInventory.items.find(
+            (item) => item.type === "Exif",
+          );
+          expect(outputExifItem).toBeDefined();
+          expect(outputExifItem!.id).toBe(sourceExifItem.id);
+          const outputPayload = readItemExtentBytes(
+            cleanedOnce,
+            outputInventory,
+            outputExifItem!,
+          );
+          expect(outputPayload.length).toBeGreaterThanOrEqual(4);
+          expect(outputPayload.subarray(0, 4).equals(Buffer.alloc(4))).toBe(true);
+        }
+      },
+    );
+  }
+});
