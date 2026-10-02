@@ -29,6 +29,7 @@ import { createIsobmffHandler } from "../../src/admission/isobmff-handler.js";
 import { admitIsobmff } from "../../src/isobmff/admission.js";
 import { classifyIsobmffBrand } from "../../src/isobmff/brand.js";
 import { classifyIsobmffAdmissionFailure } from "../../src/isobmff/errors.js";
+import type { IsobmffOutputPlan } from "../../src/isobmff/plan.js";
 import type { Inspection, Result } from "../../src/types.js";
 
 export interface IsobmffTestHandlerCounters {
@@ -253,4 +254,121 @@ export function createIsobmffWriterCountingHandlerForTests(
   }) as RegisteredHandler;
 
   return { handler, counters };
+}
+
+// --- D-19 flip-one-byte negative control (62-10, Task 1) --------------------------------------
+
+/**
+ * D-19 (62-10): a frozen `RegisteredHandler` delegating every method to `inner` except
+ * `writeOutput`, which runs the real `inner.writeOutput` first (so the destination is a fully
+ * correct, real sanitized file) and then, unless `position` is `"none"`, XORs `0xFF` into exactly
+ * one byte of the DESTINATION file -- the first or last byte of the first surviving
+ * construction_method-0 merged mdat range (computed from the plan's own part lengths, D-15: that
+ * range is always `plan.parts[3]`, right after the verbatim `ftyp` copy, the `meta` "bytes" part,
+ * and the `mdat` header "bytes" part, in that fixed order). `"none"` flips nothing, proving the
+ * wrapper itself is inert when disabled (the negative control's negative control).
+ */
+export function createFlipOneByteHandler(
+  inner: RegisteredHandler,
+  options: { readonly position: "first" | "last" | "none" },
+): RegisteredHandler {
+  return Object.freeze({
+    capability: inner.capability,
+    stagingFileName: inner.stagingFileName,
+
+    matches(magic: Buffer): boolean {
+      return inner.matches(magic);
+    },
+
+    async admit(
+      handle: FileHandle,
+      size: number,
+      signal?: AbortSignal,
+    ): Promise<FormatAdmission> {
+      return inner.admit(handle, size, signal);
+    },
+
+    inspect(admission: FormatAdmission): Inspection {
+      return inner.inspect(admission);
+    },
+
+    buildOutputPlan(
+      admission: FormatAdmission,
+      preserveOrientation: boolean,
+      preserveColorProfile: boolean,
+      preserveResolution: boolean,
+      orientation: number | undefined,
+    ): unknown {
+      return inner.buildOutputPlan(
+        admission,
+        preserveOrientation,
+        preserveColorProfile,
+        preserveResolution,
+        orientation,
+      );
+    },
+
+    checkOutputPlan(plan: unknown): string | undefined {
+      return inner.checkOutputPlan(plan as never);
+    },
+
+    async writeOutput(
+      source: FileHandle,
+      destination: FileHandle,
+      plan: unknown,
+      signal?: AbortSignal,
+    ): Promise<void> {
+      await inner.writeOutput(source, destination, plan as never, signal);
+      if (options.position === "none") return;
+
+      const typedPlan = plan as IsobmffOutputPlan;
+      const ftypPart = typedPlan.parts[0];
+      const metaPart = typedPlan.parts[1];
+      const mdatHeaderPart = typedPlan.parts[2];
+      const firstRangePart = typedPlan.parts[3];
+      if (
+        ftypPart === undefined ||
+        ftypPart.kind !== "copy" ||
+        metaPart === undefined ||
+        metaPart.kind !== "bytes" ||
+        mdatHeaderPart === undefined ||
+        mdatHeaderPart.kind !== "bytes" ||
+        firstRangePart === undefined ||
+        firstRangePart.kind !== "copy"
+      ) {
+        throw new Error(
+          "createFlipOneByteHandler: unexpected plan.parts shape -- no surviving mdat range to flip a byte in.",
+        );
+      }
+      const rangeStart =
+        ftypPart.length + metaPart.data.length + mdatHeaderPart.data.length;
+      const flipAt =
+        options.position === "first"
+          ? rangeStart
+          : rangeStart + firstRangePart.length - 1;
+
+      const byte = Buffer.alloc(1);
+      const read = await destination.read(byte, 0, 1, flipAt);
+      if (read.bytesRead !== 1) {
+        throw new Error(
+          `createFlipOneByteHandler: could not read the byte at destination offset ${flipAt}.`,
+        );
+      }
+      byte[0] = byte[0]! ^ 0xff;
+      await destination.write(byte, 0, 1, flipAt);
+    },
+
+    async verifyOutput(
+      ...args: Parameters<RegisteredHandler["verifyOutput"]>
+    ): Promise<Result<void>> {
+      return inner.verifyOutput(...args);
+    },
+
+    classifyAdmissionFailure(
+      cause: unknown,
+      preserveColorProfile: boolean,
+    ): AdmissionDeclineDetail | undefined {
+      return inner.classifyAdmissionFailure(cause, preserveColorProfile);
+    },
+  }) as RegisteredHandler;
 }
