@@ -2,7 +2,8 @@
 // before any write" proof (success criterion 4) and its "recognized through the widened registry
 // read" proof (success criterion 3) install through the existing private
 // `setRegisteredHandlersForTests` seam (`src/admission/registry.ts`). It is never added to the
-// real `HANDLERS` array and never shipped as production `heic-handler.ts`/`avif-handler.ts` (D-15).
+// real `HANDLERS` array (D-15). `createIsobmffWriterHandlerForTests` below (not this stub) is what
+// now exercises the shipped-but-unregistered `heic-handler.ts`/`avif-handler.ts` (62-12).
 //
 // `matches` and `admit` are the real engine (`classifyIsobmffBrand`/`admitIsobmff`) -- a
 // pure-classifier-only proof would not demonstrate the engine path the app actually observes. The
@@ -25,7 +26,8 @@ import type {
 } from "../../src/admission/handler.js";
 import type { RegisteredHandler } from "../../src/admission/registry.js";
 import { registeredHandlersForTests } from "../../src/admission/registry.js";
-import { createIsobmffHandler } from "../../src/admission/isobmff-handler.js";
+import { createHeicHandler } from "../../src/admission/heic-handler.js";
+import { createAvifHandler } from "../../src/admission/avif-handler.js";
 import { admitIsobmff } from "../../src/isobmff/admission.js";
 import { classifyIsobmffBrand } from "../../src/isobmff/brand.js";
 import { classifyIsobmffAdmissionFailure } from "../../src/isobmff/errors.js";
@@ -151,11 +153,14 @@ export function createIsobmffTestHandler(): IsobmffTestHandler {
 }
 
 /**
- * 62-02 (D-10): builds the one real engine-bound ISOBMFF writer handler (`createIsobmffHandler`,
- * `src/admission/isobmff-handler.ts`), borrowing the registered png capability the same way
+ * 62-02 (D-10): builds the one real engine-bound ISOBMFF writer handler, through the shipped
+ * `createHeicHandler`/`createAvifHandler` modules (`src/admission/heic-handler.ts`,
+ * `avif-handler.ts`, 62-12) rather than calling `createIsobmffHandler` directly -- so every suite
+ * that uses this seam exercises the shipped, unregistered handler modules, not just the shared
+ * factory underneath them. Borrows the registered png capability the same way
  * `createIsobmffTestHandler` above does -- `NativeFormat` gains no "heic"/"avif" member until
  * 62.1-07, so this test harness must not widen that public union. The staging file name is D-10's
- * `output.heic` / `output.avif`.
+ * `output.heic` / `output.avif`, now set inside the handler modules themselves.
  */
 export function createIsobmffWriterHandlerForTests(
   brand: "heic" | "avif",
@@ -168,11 +173,8 @@ export function createIsobmffWriterHandlerForTests(
       "createIsobmffWriterHandlerForTests: no registered png handler to borrow a capability from",
     );
   }
-  return createIsobmffHandler({
-    brand,
-    stagingFileName: brand === "heic" ? "output.heic" : "output.avif",
-    capability: pngHandler.capability,
-  }) as RegisteredHandler;
+  const factory = brand === "heic" ? createHeicHandler : createAvifHandler;
+  return factory(pngHandler.capability) as RegisteredHandler;
 }
 
 /**
