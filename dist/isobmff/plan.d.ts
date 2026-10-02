@@ -21,6 +21,6 @@ export interface IsobmffOutputPlan {
  * Mirrors `src/admission/jpeg-handler.ts`'s `computeMinimalExifTags` exactly.
  */
 export declare function computeIsobmffMinimalExifTags(admission: IsobmffAdmission, preserveOrientation: boolean, preserveResolution: boolean, orientation: number | undefined): MinimalExifTags | undefined;
-export declare function buildIsobmffOutputPlan(admission: IsobmffAdmission, preserveOrientation: boolean, _preserveColorProfile: boolean, preserveResolution: boolean, orientation: number | undefined): IsobmffOutputPlan;
+export declare function buildIsobmffOutputPlan(admission: IsobmffAdmission, preserveOrientation: boolean, preserveColorProfile: boolean, preserveResolution: boolean, orientation: number | undefined): IsobmffOutputPlan;
 export declare function checkIsobmffOutputPlan(plan: IsobmffOutputPlan): string | undefined;
 //# sourceMappingURL=plan.d.ts.map

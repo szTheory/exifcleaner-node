@@ -1,10 +1,9 @@
-// Rebuild helpers (Phase 62, D-11/D-14 subset): re-emit the source `meta` child box encodings
-// with removed-item entries dropped, changing values only where D-11 requires (iloc base/offset
-// rewrite for shifted mdat). Every function here is a pure byte-producing transform over
-// already-buffered `metaPayload` bytes and plain data the caller (`plan.ts`) has already
-// computed -- none of these touch a file handle. D-13 (minimal Exif synthesis) and D-16 (ICC
-// removal) are out of scope for this plan: the tracer's preservation flags are all false/no-op
-// for this fixture (no colr prof/rICC is present), so no insertion logic is needed here yet.
+// Rebuild helpers (Phase 62, D-11/D-13/D-14/D-16 subset): re-emit the source `meta` child box
+// encodings with removed-item entries dropped, changing values only where D-11/D-13/D-16 require
+// (iloc base/offset rewrite for shifted mdat, minimal Exif synthesis, ICC property removal).
+// Every function here is a pure byte-producing transform over already-buffered `metaPayload`
+// bytes and plain data the caller (`plan.ts`) has already computed -- none of these touch a file
+// handle.
 /** A plain (non-FullBox) box header: size(32) type(32) payload. */
 export function plainBoxHeader(type, payloadLength) {
     const header = Buffer.alloc(8);
@@ -206,9 +205,19 @@ export function buildMinimalExifInfe(version, hidden, itemId) {
     ]);
 }
 /**
- * Rebuild `iprp`: a plain box whose children are re-emitted in source order -- `ipco` copied
- * verbatim (D-16 ICC removal is out of scope for this plan), `ipma` substituted with its rebuilt
- * bytes when present.
+ * Rebuild `ipco`: a plain box (not a FullBox) whose children are each surviving property's own
+ * verbatim bytes, re-emitted in the source's own declaration order (D-16) -- `propertyBytes`
+ * already excludes any removed ICC (`colr` prof/rICC) property's bytes; every other property
+ * (including every `nclx` `colr` property) is passed through unchanged.
+ */
+export function rebuildIpco(propertyBytes) {
+    const payload = Buffer.concat(propertyBytes);
+    return Buffer.concat([plainBoxHeader("ipco", payload.length), payload]);
+}
+/**
+ * Rebuild `iprp`: a plain box whose children are re-emitted in source order -- `ipco` rebuilt via
+ * `rebuildIpco` (D-16: verbatim when nothing is removed, so bytes stay identical to the source),
+ * `ipma` substituted with its rebuilt bytes when present.
  */
 export function rebuildIprp(childOrder, ipcoBytes, ipmaBytes) {
     const parts = [];

@@ -6,15 +6,20 @@ import { err, ok } from "../result.js";
 import type { MetadataError, Result } from "../types.js";
 import { classifyIsobmffModel, type IsobmffAdmission } from "./admission.js";
 import { IsobmffStructureError } from "./errors.js";
+import type { IsobmffProperty } from "./items.js";
 import { computeIsobmffMinimalExifTags } from "./plan.js";
 import { parseIsobmff, type IsobmffModel } from "./parse.js";
 
 // ISOBMFF output verifier (Phase 62, D-18 subset): re-parses the destination through the real
 // engine, confirms it still admits, confirms the surviving item set matches the plan, confirms no
-// Exif/mime item remains, and proves every surviving item's payload is byte-identical between
-// source and destination through each file's own iloc/idat, in COPY_BLOCK_BYTES-sized streamed
-// windows -- never a whole-item in-memory read. 62-09 completes the remaining D-18 checks
-// (association-by-resolved-bytes, idat coverage, inserted-ICC/-Exif content) this subset defers.
+// Exif/mime item remains, proves every surviving item's payload is byte-identical between source
+// and destination through each file's own iloc/idat (in COPY_BLOCK_BYTES-sized streamed windows
+// for the item payloads themselves, never a whole-item in-memory read), and (D-16, 62-08) the ICC
+// `colr` rule both ways: with preserveColorProfile false, no prof/rICC colr property remains
+// anywhere and none of the removed ICC payload bytes occur anywhere in the destination file; with
+// it true, the whole ipco box is byte-identical to the source's. 62-09 completes the remaining
+// D-18 checks (association-by-resolved-bytes, idat coverage, inserted-Exif content) this subset
+// defers.
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
@@ -101,6 +106,26 @@ async function rangesEqual(
   return true;
 }
 
+/** D-16: read a whole file into one buffer, for the removed-ICC-bytes absence scan only -- every
+ * other check in this module reads bounded ranges through the file handles directly. */
+async function readWholeFile(
+  handle: FileHandle,
+  size: number,
+): Promise<Buffer> {
+  const buffer = Buffer.allocUnsafe(size);
+  const { bytesRead } = await handle.read(buffer, 0, size, 0);
+  if (bytesRead !== size) {
+    throw new Error("readWholeFile: short read.");
+  }
+  return buffer;
+}
+
+/** D-16: "colr" is a plain box (not a FullBox): size(4) type(4) colour_type(4) [ICC bytes]. The
+ * ICC payload starts right after the 8-byte plain box header plus the 4-byte colour_type field. */
+function colrIccPayloadBytes(model: IsobmffModel, property: IsobmffProperty): Buffer {
+  return model.layout.metaPayload.subarray(property.start + 12, property.end);
+}
+
 export async function verifyIsobmffOutput(
   sourceHandle: FileHandle,
   admission: IsobmffAdmission,
@@ -108,7 +133,7 @@ export async function verifyIsobmffOutput(
   destinationSize: number,
   destinationPath: string,
   preserveOrientation: boolean,
-  _preserveColorProfile: boolean,
+  preserveColorProfile: boolean,
   preserveResolution: boolean,
   expectedOrientation: number | undefined,
   signal?: AbortSignal,
@@ -386,6 +411,111 @@ export async function verifyIsobmffOutput(
               destinationPath,
             ),
           );
+        }
+      }
+    }
+
+    // D-16/D-18: the ICC `colr` rule, both ways. `nclx` is always preserved, byte-identical,
+    // regardless of the flag -- checked first since it applies unconditionally.
+    const sourceColrProperties = admission.model.properties.filter(
+      (property) => property.type === "colr",
+    );
+    const destinationColrProperties = destinationModel.properties.filter(
+      (property) => property.type === "colr",
+    );
+    const sourceNclxBytes = sourceColrProperties
+      .filter((property) => property.colourType === "nclx")
+      .map((property) =>
+        admission.model.layout.metaPayload.subarray(property.start, property.end),
+      );
+    const destinationNclxBytes = destinationColrProperties
+      .filter((property) => property.colourType === "nclx")
+      .map((property) =>
+        destinationModel.layout.metaPayload.subarray(property.start, property.end),
+      );
+    if (
+      sourceNclxBytes.length !== destinationNclxBytes.length ||
+      sourceNclxBytes.some(
+        (bytes, index) => !bytes.equals(destinationNclxBytes[index]!),
+      )
+    ) {
+      return err(
+        verificationError(
+          "A kept nclx colr property changed.",
+          destinationPath,
+        ),
+      );
+    }
+
+    if (preserveColorProfile) {
+      // D-16: nothing is removed -- the whole ipco box must be byte-identical to the source's.
+      const sourceIpco = admission.model.layout.item.iprpChildren.find(
+        (child) => child.type === "ipco",
+      );
+      const destinationIpco = destinationModel.layout.item.iprpChildren.find(
+        (child) => child.type === "ipco",
+      );
+      if (
+        (sourceIpco === undefined) !== (destinationIpco === undefined)
+      ) {
+        return err(
+          verificationError(
+            "ipco presence changed although preserveColorProfile is true.",
+            destinationPath,
+          ),
+        );
+      }
+      if (sourceIpco !== undefined && destinationIpco !== undefined) {
+        const sourceIpcoBytes = admission.model.layout.metaPayload.subarray(
+          sourceIpco.start,
+          sourceIpco.end,
+        );
+        const destinationIpcoBytes = destinationModel.layout.metaPayload.subarray(
+          destinationIpco.start,
+          destinationIpco.end,
+        );
+        if (!sourceIpcoBytes.equals(destinationIpcoBytes)) {
+          return err(
+            verificationError(
+              "ipco bytes changed although preserveColorProfile is true.",
+              destinationPath,
+            ),
+          );
+        }
+      }
+    } else {
+      // D-16: no prof/rICC colr property may remain anywhere in the destination's ipco, and none
+      // of the removed ICC payload bytes may occur anywhere in the destination file.
+      for (const property of destinationColrProperties) {
+        if (property.colourType === "prof" || property.colourType === "rICC") {
+          return err(
+            verificationError(
+              "An ICC colr property (prof/rICC) remained after sanitization with " +
+                "preserveColorProfile false.",
+              destinationPath,
+            ),
+          );
+        }
+      }
+      const removedIccProperties = sourceColrProperties.filter(
+        (property) =>
+          property.colourType === "prof" || property.colourType === "rICC",
+      );
+      if (removedIccProperties.length > 0) {
+        const destinationWhole = await readWholeFile(
+          destinationHandle,
+          destinationSize,
+        );
+        for (const property of removedIccProperties) {
+          const iccBytes = colrIccPayloadBytes(admission.model, property);
+          if (iccBytes.length > 0 && destinationWhole.includes(iccBytes)) {
+            return err(
+              verificationError(
+                "Removed ICC payload bytes were found in the destination.",
+                destinationPath,
+              ),
+            );
+          }
         }
       }
     }

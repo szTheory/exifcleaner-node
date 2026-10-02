@@ -1,4 +1,4 @@
-import { buildMinimalExifInfe, fullBoxHeader, plainBoxHeader, rebuildIinf, rebuildIloc, rebuildIpma, rebuildIprp, rebuildIref, } from "./rebuild.js";
+import { buildMinimalExifInfe, fullBoxHeader, plainBoxHeader, rebuildIinf, rebuildIloc, rebuildIpco, rebuildIpma, rebuildIprp, rebuildIref, } from "./rebuild.js";
 import { createMinimalExif } from "../metadata/exif.js";
 function declined(removedItemIds, reason) {
     return { parts: [], removedItemIds, declineReason: reason };
@@ -277,7 +277,7 @@ function buildMetaBytes(layoutItem, metaPayload, itemsForMeta, iinfBytes, irefBy
 function isDroppedTopLevelBox(box) {
     return box.type === "free" || box.type === "skip" || box.type === "uuid";
 }
-export function buildIsobmffOutputPlan(admission, preserveOrientation, _preserveColorProfile, preserveResolution, orientation) {
+export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveColorProfile, preserveResolution, orientation) {
     const { model, classification } = admission;
     const { layout } = model;
     const removedIds = new Set(classification.removableItemIds);
@@ -367,22 +367,47 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, _preserve
             irefBytes = rebuildIref(layout.item.irefVersion, survivingReferences);
         }
     }
-    // iprp: ipco copied verbatim, ipma rebuilt (surviving entries only).
+    // D-16: with preserveColorProfile false, every colr property whose colourType is "prof" or
+    // "rICC" (not only the primary's) is removed; nclx colr properties are never removed. Indices
+    // are 1-based, in ipco declaration order (IsobmffProperty.index, items.ts).
+    const removedPropertyIndices = preserveColorProfile
+        ? new Set()
+        : new Set(model.properties
+            .filter((property) => property.type === "colr" &&
+            (property.colourType === "prof" || property.colourType === "rICC"))
+            .map((property) => property.index));
+    /** D-16: `new = old - countRemovedBelow(old)`, over a property index that itself survives. */
+    function remapSurvivingPropertyIndex(oldIndex) {
+        let removedBelow = 0;
+        for (const removed of removedPropertyIndices) {
+            if (removed < oldIndex)
+                removedBelow += 1;
+        }
+        return oldIndex - removedBelow;
+    }
+    // iprp: ipco rebuilt from each surviving property's own verbatim byte range, in source order
+    // (D-16: byte-identical to the source when nothing is removed); ipma rebuilt (surviving items
+    // only, associations to a removed property deleted, every other association's index remapped,
+    // essential bits and zero-association entries left exactly as they are).
     let iprpBytes;
     const iprpChildren = layout.item.iprpChildren;
     if (iprpChildren.length > 0) {
         const ipcoHeader = iprpChildren.find((child) => child.type === "ipco");
         const ipmaHeader = iprpChildren.find((child) => child.type === "ipma");
         const ipcoBytes = ipcoHeader !== undefined
-            ? layout.metaPayload.subarray(ipcoHeader.start, ipcoHeader.end)
+            ? rebuildIpco(model.properties
+                .filter((property) => !removedPropertyIndices.has(property.index))
+                .map((property) => layout.metaPayload.subarray(property.start, property.end)))
             : Buffer.alloc(0);
         let ipmaBytes;
         if (ipmaHeader !== undefined && layout.item.ipmaVersion !== undefined) {
             const survivingAssociations = (model.ipma ?? []).filter((entry) => !removedIds.has(entry.itemId));
             ipmaBytes = rebuildIpma(layout.item.ipmaVersion, layout.item.ipmaFlags ?? 0, survivingAssociations.map((entry) => ({
                 itemId: entry.itemId,
-                associations: entry.associations.map((association) => ({
-                    propertyIndex: association.propertyIndex,
+                associations: entry.associations
+                    .filter((association) => !removedPropertyIndices.has(association.propertyIndex))
+                    .map((association) => ({
+                    propertyIndex: remapSurvivingPropertyIndex(association.propertyIndex),
                     essential: association.essential,
                 })),
             })));

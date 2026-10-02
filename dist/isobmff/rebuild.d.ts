@@ -45,9 +45,16 @@ export declare function rebuildIpma(version: number, flags: number, entries: rea
  */
 export declare function buildMinimalExifInfe(version: number, hidden: boolean, itemId: number): Buffer;
 /**
- * Rebuild `iprp`: a plain box whose children are re-emitted in source order -- `ipco` copied
- * verbatim (D-16 ICC removal is out of scope for this plan), `ipma` substituted with its rebuilt
- * bytes when present.
+ * Rebuild `ipco`: a plain box (not a FullBox) whose children are each surviving property's own
+ * verbatim bytes, re-emitted in the source's own declaration order (D-16) -- `propertyBytes`
+ * already excludes any removed ICC (`colr` prof/rICC) property's bytes; every other property
+ * (including every `nclx` `colr` property) is passed through unchanged.
+ */
+export declare function rebuildIpco(propertyBytes: readonly Buffer[]): Buffer;
+/**
+ * Rebuild `iprp`: a plain box whose children are re-emitted in source order -- `ipco` rebuilt via
+ * `rebuildIpco` (D-16: verbatim when nothing is removed, so bytes stay identical to the source),
+ * `ipma` substituted with its rebuilt bytes when present.
  */
 export declare function rebuildIprp(childOrder: readonly ("ipco" | "ipma")[], ipcoBytes: Buffer, ipmaBytes: Buffer | undefined): Buffer;
 //# sourceMappingURL=rebuild.d.ts.map

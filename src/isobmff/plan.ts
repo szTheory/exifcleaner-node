@@ -1,12 +1,13 @@
 import type { IsobmffAdmission } from "./admission.js";
 import type { BoxHeader } from "./boxes.js";
-import type { IsobmffItem, IsobmffItemLayout } from "./items.js";
+import type { IsobmffItem, IsobmffItemLayout, IsobmffProperty } from "./items.js";
 import {
   buildMinimalExifInfe,
   fullBoxHeader,
   plainBoxHeader,
   rebuildIinf,
   rebuildIloc,
+  rebuildIpco,
   rebuildIpma,
   rebuildIprp,
   rebuildIref,
@@ -14,19 +15,28 @@ import {
 } from "./rebuild.js";
 import { createMinimalExif, type MinimalExifTags } from "../metadata/exif.js";
 
-// ISOBMFF output plan (Phase 62, D-11/D-12/D-14/D-15 subset): `buildIsobmffOutputPlan` is a pure
-// transform over an already-admitted `IsobmffAdmission` -- it never reads a byte itself, only the
-// plain data `parseIsobmff`/`admitIsobmff` already buffered (`admission.model.layout`). The
-// resulting `IsobmffOutputPlan` is frozen plain data: `writeIsobmffOutput` (writer.ts) derives
+// ISOBMFF output plan (Phase 62, D-11/D-12/D-14/D-15/D-16 subset): `buildIsobmffOutputPlan` is a
+// pure transform over an already-admitted `IsobmffAdmission` -- it never reads a byte itself,
+// only the plain data `parseIsobmff`/`admitIsobmff` already buffered (`admission.model.layout`).
+// The resulting `IsobmffOutputPlan` is frozen plain data: `writeIsobmffOutput` (writer.ts) derives
 // every byte it writes from (source, plan) only, never from the admission.
 //
-// Scope note: D-16 (ICC removal) is deferred to a later plan. D-13 (minimal Exif synthesis) is
-// implemented here (62-07): `computeIsobmffMinimalExifTags` mirrors the JPEG handler's
-// `computeMinimalExifTags` rule, and `buildIsobmffOutputPlan` keeps source item k (the Exif item
-// `admitIsobmff` resolved as the one describing the primary, D-13) in place under its own id when
-// a tag applies, rewriting its `infe` (empty name, item_protection_index 0), its `iloc` entry (new
-// payload at the `mdat` tail, construction_method 0), and its `iref` `cdsc` record (to-list
-// reduced to `[pitm]`) -- every other removable item is still dropped exactly as before.
+// D-13 (minimal Exif synthesis, 62-07): `computeIsobmffMinimalExifTags` mirrors the JPEG
+// handler's `computeMinimalExifTags` rule, and `buildIsobmffOutputPlan` keeps source item k (the
+// Exif item `admitIsobmff` resolved as the one describing the primary, D-13) in place under its
+// own id when a tag applies, rewriting its `infe` (empty name, item_protection_index 0), its
+// `iloc` entry (new payload at the `mdat` tail, construction_method 0), and its `iref` `cdsc`
+// record (to-list reduced to `[pitm]`) -- every other removable item is still dropped exactly as
+// before.
+//
+// D-16 (ICC removal, 62-08): with `preserveColorProfile` false, every `colr` property whose
+// `colourType` is "prof" or "rICC" is dropped from `ipco` (not only the primary's), and every
+// `ipma` association pointing at a removed property is deleted; every surviving association's
+// `propertyIndex` is remapped `new = old - countRemovedBelow(old)`. `ipma` version/flags/
+// essential bits are never touched, and an entry left with zero associations is still emitted.
+// `nclx` `colr` properties are never removed. With `preserveColorProfile` true, nothing is
+// removed, so `ipco` is reassembled from the same verbatim per-property byte ranges in the same
+// order and comes out byte-identical to the source.
 
 export type IsobmffOutputPlanPart =
   | { readonly kind: "copy"; readonly sourceOffset: number; readonly length: number }
@@ -418,7 +428,7 @@ function isDroppedTopLevelBox(box: { readonly type: string }): boolean {
 export function buildIsobmffOutputPlan(
   admission: IsobmffAdmission,
   preserveOrientation: boolean,
-  _preserveColorProfile: boolean,
+  preserveColorProfile: boolean,
   preserveResolution: boolean,
   orientation: number | undefined,
 ): IsobmffOutputPlan {
@@ -558,7 +568,34 @@ export function buildIsobmffOutputPlan(
     }
   }
 
-  // iprp: ipco copied verbatim, ipma rebuilt (surviving entries only).
+  // D-16: with preserveColorProfile false, every colr property whose colourType is "prof" or
+  // "rICC" (not only the primary's) is removed; nclx colr properties are never removed. Indices
+  // are 1-based, in ipco declaration order (IsobmffProperty.index, items.ts).
+  const removedPropertyIndices: ReadonlySet<number> = preserveColorProfile
+    ? new Set()
+    : new Set(
+        model.properties
+          .filter(
+            (property): boolean =>
+              property.type === "colr" &&
+              (property.colourType === "prof" || property.colourType === "rICC"),
+          )
+          .map((property) => property.index),
+      );
+
+  /** D-16: `new = old - countRemovedBelow(old)`, over a property index that itself survives. */
+  function remapSurvivingPropertyIndex(oldIndex: number): number {
+    let removedBelow = 0;
+    for (const removed of removedPropertyIndices) {
+      if (removed < oldIndex) removedBelow += 1;
+    }
+    return oldIndex - removedBelow;
+  }
+
+  // iprp: ipco rebuilt from each surviving property's own verbatim byte range, in source order
+  // (D-16: byte-identical to the source when nothing is removed); ipma rebuilt (surviving items
+  // only, associations to a removed property deleted, every other association's index remapped,
+  // essential bits and zero-association entries left exactly as they are).
   let iprpBytes: Buffer | undefined;
   const iprpChildren = layout.item.iprpChildren;
   if (iprpChildren.length > 0) {
@@ -566,7 +603,13 @@ export function buildIsobmffOutputPlan(
     const ipmaHeader = iprpChildren.find((child) => child.type === "ipma");
     const ipcoBytes =
       ipcoHeader !== undefined
-        ? layout.metaPayload.subarray(ipcoHeader.start, ipcoHeader.end)
+        ? rebuildIpco(
+            model.properties
+              .filter((property) => !removedPropertyIndices.has(property.index))
+              .map((property: IsobmffProperty) =>
+                layout.metaPayload.subarray(property.start, property.end),
+              ),
+          )
         : Buffer.alloc(0);
     let ipmaBytes: Buffer | undefined;
     if (ipmaHeader !== undefined && layout.item.ipmaVersion !== undefined) {
@@ -578,10 +621,14 @@ export function buildIsobmffOutputPlan(
         layout.item.ipmaFlags ?? 0,
         survivingAssociations.map((entry) => ({
           itemId: entry.itemId,
-          associations: entry.associations.map((association) => ({
-            propertyIndex: association.propertyIndex,
-            essential: association.essential,
-          })),
+          associations: entry.associations
+            .filter(
+              (association) => !removedPropertyIndices.has(association.propertyIndex),
+            )
+            .map((association) => ({
+              propertyIndex: remapSurvivingPropertyIndex(association.propertyIndex),
+              essential: association.essential,
+            })),
         })),
       );
     }
