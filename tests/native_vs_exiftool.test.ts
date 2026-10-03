@@ -59,6 +59,7 @@ interface Summary {
 }
 const script = require(scriptPath) as {
   SLACK_RATIO: number;
+  median(values: readonly number[]): number;
   computeVerdict(ratios: { timeRatio: number; rssRatio: number }): Verdict;
   summarize(input: {
     files: { nativeMedianMs: number; exiftoolMedianMs: number }[];
@@ -126,6 +127,19 @@ describe("native-vs-exiftool verdict rule (fixed before measuring)", () => {
     expect(rss.failures).toEqual([
       "marginal peak RSS ratio 0.900 > 0.90 (0.9001)",
     ]);
+  });
+
+  it("median is the exact middle for every odd count and the upper middle for every even count (62.1-13 WR-01)", () => {
+    // 0.5 + 0.5 / n fed to a ceil-based percentile rounds up one rank for n = 29, 87, 149, 181
+    // (floating point), so the old median returned the element above the middle there.
+    const wrong: number[] = [];
+    for (let n = 1; n <= 200; n += 1) {
+      const values = Array.from({ length: n }, (_, index) => index + 1);
+      if (script.median(values) !== Math.floor(n / 2) + 1) wrong.push(n);
+    }
+    expect(wrong).toEqual([]);
+    expect(script.median([3, 1, 2])).toBe(2);
+    expect(() => script.median([])).toThrow();
   });
 
   it("decides on the median per-file ratio, so a passing p95 cannot rescue a failing median", () => {

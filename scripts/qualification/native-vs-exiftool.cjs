@@ -61,9 +61,15 @@ const SUPPORTED_PLATFORMS = new Set(["linux", "darwin"]);
 const liveChildren = new Set();
 const liveRoots = new Set();
 
-/** Exact middle for an odd count, the upper middle for an even one. */
+/**
+ * Exact middle for an odd count, the upper middle for an even one. Indexed
+ * directly: `percentile(values, 0.5 + 0.5 / n)` rounds up one rank for some
+ * odd n (29, 87, ...) through floating point (62.1-13 WR-01). `percentile`
+ * still validates the values.
+ */
 function median(values) {
-  return percentile(values, 0.5 + 0.5 / values.length);
+  percentile(values, 1);
+  return [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 }
 
 function computeVerdict({ timeRatio, rssRatio }) {
