@@ -243,8 +243,44 @@ bytes cannot be vendored into this repository or published inside the npm packag
 
 Nothing in this phase vendors, downloads, or fetches a real download-only file, and
 `tests/corpus/manifest.json` is unchanged. The fetch tool that populates the cache directory
-and the first real download-only records both arrive with the Phase 61/62 HEIC and AVIF
-sources.
+now exists (Phase 62.1, below); the first real download-only records still arrive later, with
+the Phase 61/62 HEIC and AVIF sources.
+
+### Fetching download-only records (Phase 62.1)
+
+`scripts/qualification/fetch-corpus.cjs` (Node built-ins and the global `fetch` only -- no new
+dependency) populates `EXIFCLEANER_CORPUS_CACHE_DIR` for the download-only records above. It
+lives under `scripts/`, never under `src/`: the runtime library stays network-free.
+
+- **CLI:** `node scripts/qualification/fetch-corpus.cjs --cache <absolute dir>
+[--manifest <path>]`. The manifest defaults to `tests/corpus/manifest.json` and every record
+  whose `provenance.kind` is `"download-only"` is fetched by `provenance.url`, `sha256`, and
+  `bytes` -- the exact fields `materializeRecord()` later verifies against. A failing record
+  names itself in the CLI's non-zero exit.
+- **Cache rules:** the same rule `materializeRecord()` enforces -- `cacheDir` must be absolute
+  and outside the repository, checked before any network call. A file already present at
+  `<cacheDir>/<sha256>` that verifies (exact byte count and sha256) is left untouched and no
+  request is made (idempotent re-run).
+- **Integrity and bounds:** bytes are streamed to a temp file (`<sha256>.partial-<random>`) in
+  the cache directory while a streaming sha256 is computed; the stream aborts, without retry,
+  the instant more bytes arrive than declared. On any mismatch (wrong sha256, wrong size, or an
+  oversized stream) the temp file is removed and nothing named `<sha256>` exists afterward. On
+  success the temp file is renamed onto `<sha256>` atomically.
+- **Retry policy:** network errors, timeouts, and HTTP 429/5xx responses are retried up to 3
+  attempts with linearly increasing backoff. Any other HTTP 4xx, a sha256 mismatch, and a size
+  mismatch are never retried -- those are fetch-tool bugs or corpus-data bugs, not transient
+  conditions.
+- **Origin allowlist:** in production (no test override) the only admitted origin is
+  `https://raw.githubusercontent.com` -- exact host, no userinfo, and a 40-hex revision segment
+  in the path, the same shape corpus.ts's own download-only provenance check enforces. `file://`
+  and loopback `http://` origins are admitted only through an explicit `allowOrigin` test
+  option; every test in `tests/qualification/kit/fetch_corpus.test.ts` uses only `file://` or a
+  `127.0.0.1` server and never contacts a real remote host.
+- **CI:** this tool runs before the qualification suites in CI starting in Phase 62.1's
+  registration plan (62.1-08), once the first download-only records (the iPhone sample and the
+  curated Nokia subset) land; this plan adds no `ci.yml` step of its own, only the
+  `tests/qualification/kit/fetch_corpus.test.ts` entry to `QUAL_KIT` and to
+  `scripts/qualification/qualify.cjs`'s full-run list.
 
 ### CC-BY-SA-4.0 attribution
 
