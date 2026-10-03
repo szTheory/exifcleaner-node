@@ -892,3 +892,133 @@ a named residual, not an oversight: pruning orphaned properties is out of scope 
 (62-CONTEXT's Deferred Ideas), and no later plan in this phase reads or removes them. A future
 requirement would need to define whether orphan pruning is itself safe (an orphan could in
 principle be re-associated by a future edit tool reading the same file) before implementing it.
+
+## Qualification baseline (Phase 62.1 measurements)
+
+Measured 2026-10-02 on branch `gsd/phase-62.1-isobmff-registration` (62.1-01), against the built
+`dist/isobmff/admission.js` (`admitIsobmff`) and `dist/isobmff/brand.js`
+(`classifyIsobmffBrand`), fresh for this plan. No handler is registered yet (62.1-07); these are
+classifier-only measurements over corpus bytes, not Save-as-copy results.
+
+### Nokia heif_conformance admit rate
+
+All 63 files in `nokiatech/heif_conformance` `conformance_files/` at pinned revision
+`f17e517f7518984b4450349a88edc09519082c74` were downloaded to the session scratchpad only (never
+committed; see the prohibition below) and run through `admitIsobmff`. **Measured admitted: 35 of
+63** (no threshold is asserted; this is a measured count, recorded even though it differs by one
+from the Phase 62.1 research estimate of 36 of 63 — re-measure, do not copy that number forward).
+
+| Outcome / decline class     | Count |
+| --------------------------- | ----- |
+| admitted                    | 35    |
+| `sequence-box`              | 12    |
+| `item-graph-invalid`        | 10    |
+| `multiple-mdat`             | 4     |
+| `top-level-box-not-allowed` | 2     |
+
+Total: 35 + 12 + 10 + 4 + 2 = 63.
+
+### Curated Nokia subset
+
+A 12-file subset, one per observed decline class plus admitted files of varied structure
+(`C034` included per this plan's must-haves), totaling 716,170 bytes (~0.68 MB, under the ~3 MB
+budget). This table records identity and expected outcome only -- **no bytes are vendored or
+committed by this plan**; 62.1-08 is responsible for the actual download-only corpus manifest
+records that cite this table.
+
+| File                 | SHA-256                                                            | Bytes  | Expected outcome                     |
+| -------------------- | ------------------------------------------------------------------ | ------ | ------------------------------------ |
+| `C041.heic`          | `7a90757b22d3448267f44cc163e19611961e1228cd67a614b6ac8c4144bf082d` | 52191  | decline: `sequence-box`              |
+| `C039.heic`          | `507e4fe241b73e098050ac12d6cefe84efbf2acf0d7f8b0b23f23480f6911658` | 112106 | decline: `item-graph-invalid`        |
+| `C044.heic`          | `550443448520e724af11734f86d51e50a8e42e3f4b5ed47debc2c5d25fdb3190` | 146457 | decline: `top-level-box-not-allowed` |
+| `multilayer005.heic` | `43cd906e0f04e12ceb007e683d637b68c72184f2118a69882e19f286c69f73d2` | 4608   | decline: `multiple-mdat`             |
+| `C034.heic`          | `d2d61c040eba858cff05d7804c0999fb8955bcfe3ec99e5fd9f0b90d2dd2fe97` | 112147 | admitted                             |
+| `C053.heic`          | `c641d26a9189371f9320827ba035eb05bc241975fdc9e6e60540f52de3feae97` | 14550  | admitted                             |
+| `MIAF002.heic`       | `006baff837e3a8736154206f901a6595b0951eb62e282463e7dfc4a33c3da775` | 8837   | admitted                             |
+| `MIAF003.heic`       | `499c8ef32ff744f42b06cc89d6404dcc3754043d2251f4b6f8fedf2f6f04a513` | 13826  | admitted                             |
+| `multilayer003.heic` | `8e3963d7a0f997ad78be13809cccbe125482c5c961a30a0cb043b6aba0c870cb` | 14512  | admitted                             |
+| `C025.heic`          | `8921aa6ccb29aa49a1122c602cdcbecb0a2dcdcae3cd1422631ac794bad72a69` | 19824  | admitted                             |
+| `C017.heic`          | `7bd45ec3b278a601d4ba1905964856cf0003b15896adfffe3f645fd83c0417cd` | 60276  | admitted                             |
+| `C040.heic`          | `7d9160ff8f2e0f195c870484dee255383f549243ec782d70c3cc9431bc5ec268` | 156836 | admitted                             |
+
+All 12 are HEIC brand (`classifyIsobmffBrand` returns `"heic"` for each). None of these sha256
+values match the iPhone sample's sha256
+(`e760c80eed310e4f27c092d5487693ca8e104e7cc01d25ba4828deb28f679676`) -- confirmed disjoint by
+inspection of the two sets.
+
+### ExifTool 13.59 on signed and free/skip sources
+
+Measured fresh with `perl exiftool -all= -o out.<ext> <fixture>` on both c2patool-signed
+fixtures (`tests/corpus/constructed/{heic,avif}/c2pa-signed.heic|avif`) and on copies of
+`tests/isobmff-support/fixtures/heif-enc-grid.{heic,avif}` each with a synthetic 16-byte
+top-level `free` box (payload `0xAB` x8) and a synthetic 16-byte top-level `skip` box (payload
+`0xCD` x8) appended after `mdat`, then walked with a scratch box walker and `exiftool -v2`.
+
+**C2PA `uuid` box:** on both signed fixtures, ExifTool 13.59's `-all=` **drops the top-level C2PA
+`uuid` box entirely** -- neither `signed-out.heic` nor `signed-out.avif` has any `uuid` box; the
+output top-level order is `ftyp meta mdat` on both (down from `ftyp uuid meta mdat`). **This does
+not trigger the plan's maintainer-decision gate** (D-15/D-27 would require a stop if ExifTool
+_kept_ the uuid; it does not).
+
+**`free`/`skip` boxes (grid fixtures):** ExifTool 13.59 **keeps** both boxes on both formats,
+payload bytes unchanged (`ab` x8 / `cd` x8), but **relocates** them from after `mdat` (the input
+position) to immediately **before** `mdat` (between `meta` and `mdat`) on every one of the four
+runs (heic free, heic skip, avif free, avif skip). This matches, independently re-measured here,
+the identical free/skip relocation finding already recorded above under "ExifTool and top-level
+free/skip" (Phase 62 writer baseline) -- same relocation direction, same byte preservation, now
+confirmed on a second fixture pair.
+
+**Exif item extent / minimal Exif (signed fixtures, plain `-all=`):** on both signed fixtures,
+plain `-all=` (no `-TagsFromFile`/preserving arguments) **empties the Exif item to 0 bytes** --
+`exiftool -v2` shows `Item 2: ... len=0x0` and the tag dump (`-a -G1 -s`) on the output has no
+`[IFD0]`/`[ExifIFD]` group at all. This is the plain-removal form, not the app's preserving form
+(`-TagsFromFile @ -Orientation <RESOLUTION_PRESERVE_ARGS>`, already measured above under
+"ExifTool 13.59 minimal-Exif placement" against the heif-enc-grid fixtures, where the preserving
+form writes a minimal Exif reusing the source item ID). With plain `-all=` alone there is no
+minimal Exif at all, so there is no `YCbCrPositioning` tag or any other Exif tag to check --
+confirmed absent along with every other Exif tag.
+
+### iPhone sample record
+
+Downloaded `ianare/exif-samples` `heic/mobile/iphone_13_pro_max.HEIC` at pinned revision
+`f0462fcc42f7bad484fe637389b734612d97041f` to the session scratchpad only (never committed).
+
+| Property               | Value                                                              |
+| ---------------------- | ------------------------------------------------------------------ |
+| SHA-256                | `e760c80eed310e4f27c092d5487693ca8e104e7cc01d25ba4828deb28f679676` |
+| Bytes                  | 2,182,707                                                          |
+| `classifyIsobmffBrand` | `"heic"`                                                           |
+| `admitIsobmff` outcome | admitted (0 top-level removable boxes; no C2PA uuid)               |
+
+Matches the sha256 and byte size pinned in 61-CONTEXT D-01 exactly, re-confirming the file at
+this revision is unchanged since Phase 61's measurement. License basis is recorded verbatim in
+`tests/corpus/NOTICE` under `[ianare-exif-samples-iphone-13-pro-max]` per 61-CONTEXT D-02 (quote
+the README.rst grant line; do not describe the repository as clean CC-BY-SA).
+
+### Deviation: link-u license attribution (D-24 NOTICE)
+
+This plan's must-haves assumed all three D-24 link-u files are CC-BY-SA-4.0. Fresh measurement
+against the link-u repository's own `README.md` at the pinned revision
+(`c666a368b73006246694919b5dbcc078317af6cc`) found this is **not** true for two of the three:
+
+| File                                                       | Assumed license | Measured license (README.md, per-image credit)                                        |
+| ---------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------- |
+| `plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif`  | CC-BY-SA-4.0    | **CC-BY 4.0** (Ryo Hirafuji, @ledyba-z)                                               |
+| `plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif` | CC-BY-SA-4.0    | **CC-BY 4.0** (Ryo Hirafuji, @ledyba-z)                                               |
+| `red-at-12-oclock-with-color-profile-lossy.avif`           | CC-BY-SA-4.0    | **GNU LGPL v2.1 or 2-clause BSD** (Tony Payne), not a Creative Commons license at all |
+
+The repository's root `LICENSE.txt` is CC-BY-SA-4.0, but the README explicitly states "Most
+images are licensed under CC-BY-SA 4.0, but some files are licensed different license. Please
+check" and credits these two specific images under different, per-image licenses. `tests/corpus/
+NOTICE` has been written with the **measured, accurate** per-file licenses (not the plan's
+assumed CC-BY-SA-4.0) to avoid committing false attribution -- a correctness/compliance
+requirement this project treats as non-negotiable (no completion claim without fresh executable
+evidence; no untraced causal/legal claims). **This plan's Task 2 verify command
+`grep -c '^License: https://creativecommons.org/licenses/by-sa/4.0/$' tests/corpus/NOTICE` is
+expected to return 0, not >= 3, as a direct consequence** -- the gate's assumption was wrong, not
+the measurement. This is flagged for a maintainer/62.1-05 decision: either (a) add `CC-BY-4.0`
+and an LGPL-2.1-or-BSD-2-Clause-equivalent class to `APPROVED_CORPUS_LICENSES` in
+`tests/qualification/kit/corpus.ts` so these exact files can be vendored under their true
+licenses in 62.1-08, or (b) select different link-u fixtures that are genuinely CC-BY-SA-4.0 for
+the same structural role (alpha-plane and ICC-profile coverage). No manifest record is written in
+this plan either way (prohibited by this plan's must-haves).

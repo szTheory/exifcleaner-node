@@ -1,0 +1,62 @@
+This file records attribution for vendored and download-only corpus files, per source, as
+measured against each file's own documented license at the pinned revision (not the repository's
+blanket LICENSE file, which does not govern every file in it — see the per-stanza note below).
+
+[link-u-plum-blossom-small-8bpc]
+Title: plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif
+Author: Ryo Hirafuji (@ledyba-z)
+Source: https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif
+License: https://creativecommons.org/licenses/by/4.0/
+Modified: no
+
+NOTE (measured 2026-10-02, 62.1-01): the link-u repository's root LICENSE.txt is CC-BY-SA-4.0, but
+the repository's own README.md credits this specific image ("Plum blossom - test images for
+alpha planes" section) as CC-BY 4.0 (no ShareAlike clause), authored by Ryo Hirafuji. The README
+is the per-image authority ("Most images are licensed under CC-BY-SA 4.0, but some files are
+licensed different license. Please check."); CC-BY-SA-4.0 is NOT the correct license for this
+file.
+
+[link-u-plum-blossom-small-10bpc]
+Title: plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif
+Author: Ryo Hirafuji (@ledyba-z)
+Source: https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif
+License: https://creativecommons.org/licenses/by/4.0/
+Modified: no
+
+NOTE (measured 2026-10-02, 62.1-01): same README section and license basis as
+[link-u-plum-blossom-small-8bpc] above — CC-BY 4.0, not CC-BY-SA-4.0.
+
+[link-u-red-at-12-oclock]
+Title: red-at-12-oclock-with-color-profile-lossy.avif
+Author: Tony Payne <tpayne@chromium.org>
+Source: https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/red-at-12-oclock-with-color-profile-lossy.avif
+License: GNU LGPL v2.1 or 2-clause BSD License (dual-licensed; not a Creative Commons license)
+Modified: no
+
+NOTE (measured 2026-10-02, 62.1-01): the link-u README.md ("Red at 12 o'clock with color
+profile - ICC Profile tests" section) credits this image to Tony Payne, originally from a
+Chromium source commit (https://chromium.googlesource.com/chromium/src/+/e89ab1941644ff34b262cac05f23e82b7e249377),
+dual-licensed under GNU LGPL v2.1 or a 2-clause BSD license. This is NOT CC-BY-SA-4.0, and is not
+a Creative Commons license at all. The repository's blanket root LICENSE.txt (CC-BY-SA-4.0) does
+not govern this file per the README's own per-image override.
+
+[ianare-exif-samples-iphone-13-pro-max]
+Title: iphone_13_pro_max.HEIC
+Author: ianare/exif-samples contributors (PR #13, co-authored-by Anand Mahesh)
+Source: https://raw.githubusercontent.com/ianare/exif-samples/f0462fcc42f7bad484fe637389b734612d97041f/heic/mobile/iphone_13_pro_max.HEIC
+License: see note below (61-CONTEXT D-02 license basis — quoted verbatim, not asserted as clean CC-BY-SA)
+Modified: no
+
+This sample is a download-only record (61-CONTEXT D-01/D-02): its bytes are never vendored into
+this repository, never committed, and never redistributed as part of the npm package. Per
+61-CONTEXT D-02: the `ianare/exif-samples` repository is archived, has no LICENSE file, and
+`gh api repos/ianare/exif-samples` reports `"license": null`. The only grant is the README.rst
+line, quoted verbatim at the pinned revision (confirmed unchanged by this plan, 2026-10-02):
+"User-contributed images will be released under the **Attribution-ShareAlike 4.0 International**
+license." Per D-02's explicit instruction, this project does not describe the repository as
+clean CC-BY-SA on the strength of that one line alone — the repository has no LICENSE file and
+`license: null`, so this stanza records the grant's literal wording rather than a license
+classification. The bytes referenced by this record are fetched only into a download cache
+outside the repository at qualification time (KIT-10 download-only contract); this NOTICE stanza
+exists purely to record authorship/provenance for the corpus manifest, not to claim a
+redistribution license this project does not hold.
