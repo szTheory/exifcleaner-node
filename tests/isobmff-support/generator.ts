@@ -497,18 +497,25 @@ function armsFor(config: NonHazardConfig): readonly IsobmffArm[] {
   return arms;
 }
 
-const nonHazardConfigArbitrary: fc.Arbitrary<
-  Omit<NonHazardConfig, "exifCanary" | "xmpCanary">
-> = fc.record({
-  brand: fc.constantFrom("heic", "avif"),
-  exifOffset: fc.constantFrom(0, 16),
-  colrVariant: fc.constantFrom("none", "nclx", "prof", "ricc"),
-  irot: fc.constantFrom(undefined, "essential", "non-essential"),
-  imir: fc.constantFrom(undefined, "essential", "non-essential"),
-  includeGridIdat: fc.boolean(),
-  includeThmb: fc.boolean(),
-  includeAuxl: fc.boolean(),
-});
+/**
+ * The non-hazard structural config for one brand. IN-01 (62.1-06): the brand is fixed to the
+ * argument, never drawn, so `isobmffArmSampleArbitrary("heic")` emits only heic files and the
+ * per-brand floors measure genuinely per-brand sequences.
+ */
+function nonHazardConfigArbitrary(
+  brand: "heic" | "avif",
+): fc.Arbitrary<Omit<NonHazardConfig, "exifCanary" | "xmpCanary">> {
+  return fc.record({
+    brand: fc.constant(brand),
+    exifOffset: fc.constantFrom(0, 16),
+    colrVariant: fc.constantFrom("none", "nclx", "prof", "ricc"),
+    irot: fc.constantFrom(undefined, "essential", "non-essential"),
+    imir: fc.constantFrom(undefined, "essential", "non-essential"),
+    includeGridIdat: fc.boolean(),
+    includeThmb: fc.boolean(),
+    includeAuxl: fc.boolean(),
+  });
+}
 
 /**
  * The per-arm sample arbitrary (D-19): ~85% of samples are structurally-admitted combinations of
@@ -528,7 +535,7 @@ export function isobmffArmSampleArbitrary(
 
   const nonHazardArbitrary: fc.Arbitrary<IsobmffArmSample> = fc
     .tuple(
-      nonHazardConfigArbitrary,
+      nonHazardConfigArbitrary(brand),
       canaryArbitrary<IsobmffMetadataKind>("EXIF"),
       canaryArbitrary<IsobmffMetadataKind>("XMP"),
     )
@@ -550,6 +557,20 @@ export function isobmffArmSampleArbitrary(
   return fc.oneof(
     { weight: 85, arbitrary: nonHazardArbitrary },
     { weight: 15, arbitrary: hazardArbitrary },
+  );
+}
+
+/**
+ * D-21 negative control (3) for ISOBMFF: the per-arm arbitrary with every Exif/XMP-carrying
+ * (non-hazard) sample removed, so no sample can ever count toward the metadata arms. Proves the
+ * floor assertion itself catches a generator whose metadata coverage silently collapsed. Never a
+ * qualification generator.
+ */
+export function isobmffArmSampleArbitraryWithoutMetadataArm(
+  brand: "heic" | "avif",
+): fc.Arbitrary<IsobmffArmSample> {
+  return isobmffArmSampleArbitrary(brand).filter((armSample) =>
+    armSample.arms.includes("hazard"),
   );
 }
 

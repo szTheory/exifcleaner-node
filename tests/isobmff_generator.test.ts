@@ -24,9 +24,12 @@ import {
 import { assertPlanted } from "./qualification/kit/generators.js";
 import {
   isobmffArmSampleArbitrary,
+  isobmffArmSampleArbitraryWithoutMetadataArm,
   isobmffMetadataGenerator,
   ISOBMFF_ARM_FLOORS,
 } from "./isobmff-support/generator.js";
+import { avifMetadataGenerator } from "./qualification/avif/generators.js";
+import { heicMetadataGenerator } from "./qualification/heic/generators.js";
 
 const PROJECT_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -103,18 +106,19 @@ describe("the generator is not wired into QUALIFICATION_FORMATS (D-19)", () => {
   });
 });
 
-const SEED = 20261001;
-const NUM_RUNS = 150;
+// The qualification fixed seed and run count (FC_SEED/FC_RUNS, 62.1-06 / D-28).
+const FC_SEED = 460046;
+const FC_RUNS = 200;
 
 describe("isobmffArmSampleArbitrary meets ISOBMFF_ARM_FLOORS and agrees with admitIsobmff", () => {
-  it(`every arm clears its floor over ${NUM_RUNS} runs (seed ${SEED}), per brand`, () => {
+  it(`every arm clears its floor over ${FC_RUNS} runs (seed ${FC_SEED}), per brand`, () => {
     for (const brand of ["heic", "avif"] as const) {
       const counters = createCounters();
       fc.assert(
         fc.property(isobmffArmSampleArbitrary(brand), ({ arms }) => {
           countSample(counters, arms);
         }),
-        { seed: SEED, numRuns: NUM_RUNS },
+        { seed: FC_SEED, numRuns: FC_RUNS },
       );
       assertFloors(counters, ISOBMFF_ARM_FLOORS);
     }
@@ -169,8 +173,137 @@ describe("isobmffArmSampleArbitrary meets ISOBMFF_ARM_FLOORS and agrees with adm
             }
           },
         ),
-        { seed: SEED, numRuns: NUM_RUNS },
+        { seed: FC_SEED, numRuns: FC_RUNS },
       );
     }
   }, 30_000);
+});
+
+// IN-01 (62.1-06): QUALIFICATION_FORMATS wires one generator per format, so a sample drawn from
+// `isobmffArmSampleArbitrary("heic")` must actually be a heic file. Read the ftyp box directly
+// here (not through the engine or the builder) so the brand claim has an independent check.
+
+function ftypBrandOf(bytes: Buffer): "heic" | "avif" | "other" {
+  if (bytes.length < 16 || bytes.toString("latin1", 4, 8) !== "ftyp") {
+    return "other";
+  }
+  const size = bytes.readUInt32BE(0);
+  if (size < 16 || size > bytes.length || (size - 16) % 4 !== 0) {
+    return "other";
+  }
+  const brands = [bytes.toString("latin1", 8, 12)];
+  for (let offset = 16; offset < size; offset += 4) {
+    brands.push(bytes.toString("latin1", offset, offset + 4));
+  }
+  const isHeic = brands.some((brand) => brand === "heic" || brand === "heix");
+  const isAvif = brands.some((brand) => brand === "avif" || brand === "avis");
+  if (isHeic && !isAvif) return "heic";
+  if (isAvif && !isHeic) return "avif";
+  return "other";
+}
+
+describe("isobmffArmSampleArbitrary(brand) emits only that brand (IN-01)", () => {
+  it("ftypBrandOf reads heic and avif ftyp boxes and rejects anything else (control)", () => {
+    const ftyp = (major: string, ...compatible: string[]): Buffer => {
+      const body = Buffer.from(
+        [major, "\0\0\0\0", ...compatible].join(""),
+        "latin1",
+      );
+      const header = Buffer.alloc(8);
+      header.writeUInt32BE(8 + body.length, 0);
+      header.write("ftyp", 4, "latin1");
+      return Buffer.concat([header, body]);
+    };
+    expect(ftypBrandOf(ftyp("heic", "mif1", "heic"))).toBe("heic");
+    expect(ftypBrandOf(ftyp("avif", "mif1", "avif"))).toBe("avif");
+    expect(ftypBrandOf(ftyp("mif1", "heic", "avif"))).toBe("other");
+    expect(ftypBrandOf(ftyp("mp42", "isom"))).toBe("other");
+    expect(ftypBrandOf(Buffer.from("not a box at all"))).toBe("other");
+  });
+
+  for (const brand of ["heic", "avif"] as const) {
+    it(`every non-hazard sample from isobmffArmSampleArbitrary("${brand}") classifies as ${brand} (seed ${FC_SEED}, ${FC_RUNS} samples)`, () => {
+      const samples = fc.sample(
+        isobmffArmSampleArbitrary(brand).filter(
+          (armSample) => !armSample.arms.includes("hazard"),
+        ),
+        { seed: FC_SEED, numRuns: FC_RUNS },
+      );
+      expect(samples).toHaveLength(FC_RUNS);
+      const misclassified = samples
+        .map((armSample) => ftypBrandOf(armSample.sample.bytes))
+        .filter((classified) => classified !== brand);
+      expect(misclassified).toEqual([]);
+    });
+  }
+});
+
+describe("heicMetadataGenerator and avifMetadataGenerator (QUA-03, one generator per format)", () => {
+  for (const [brand, generator] of [
+    ["heic", heicMetadataGenerator],
+    ["avif", avifMetadataGenerator],
+  ] as const) {
+    it(`${brand}MetadataGenerator names ${brand}, plants EXIF and XMP, and emits only ${brand} files`, () => {
+      expect(generator.format).toBe(brand);
+      expect(generator.metadataKinds).toEqual(["EXIF", "XMP"]);
+      const samples = fc.sample(generator.arbitrary(), {
+        seed: FC_SEED,
+        numRuns: FC_RUNS,
+      });
+      expect(samples).toHaveLength(FC_RUNS);
+      for (const sample of samples) {
+        expect(ftypBrandOf(sample.bytes)).toBe(brand);
+        expect(sample.planted.map((item) => item.kind)).toEqual([
+          "EXIF",
+          "XMP",
+        ]);
+        assertPlanted(sample.bytes, sample.planted);
+      }
+    });
+  }
+});
+
+describe("ISOBMFF_ARM_FLOORS edges (QUA-03)", () => {
+  it("adjacency: assertFloors passes at exactly the floor and fails at floor - 1 (hand-built counter)", () => {
+    const atFloor = { ...ISOBMFF_ARM_FLOORS };
+    expect(() => assertFloors(atFloor, ISOBMFF_ARM_FLOORS)).not.toThrow();
+    for (const [arm, floor] of Object.entries(ISOBMFF_ARM_FLOORS)) {
+      const belowFloor = { ...ISOBMFF_ARM_FLOORS, [arm]: floor - 1 };
+      expect(() => assertFloors(belowFloor, ISOBMFF_ARM_FLOORS)).toThrow(
+        `${arm}: measured ${floor - 1}, required at least ${floor}`,
+      );
+    }
+  });
+
+  it("empty arm: a generator variant with no Exif/XMP arm fails the floor assertion itself (D-21 negative control (3))", () => {
+    for (const brand of ["heic", "avif"] as const) {
+      const counters = createCounters();
+      for (const { arms } of fc.sample(
+        isobmffArmSampleArbitraryWithoutMetadataArm(brand),
+        { seed: FC_SEED, numRuns: FC_RUNS },
+      )) {
+        expect(arms).toEqual(["hazard"]);
+        countSample(counters, arms);
+      }
+      expect(counters["hazard"]).toBe(FC_RUNS);
+      expect(() => assertFloors(counters, ISOBMFF_ARM_FLOORS)).toThrow(
+        "xmp: measured 0, required at least 50",
+      );
+    }
+  });
+
+  it("ordering: the same seed replays the identical byte sequence per brand, and a different seed differs", () => {
+    const bytesAt = (brand: "heic" | "avif", seed: number): string[] =>
+      fc
+        .sample(isobmffArmSampleArbitrary(brand), {
+          seed,
+          numRuns: FC_RUNS,
+        })
+        .map(({ sample }) => sample.bytes.toString("hex"));
+    for (const brand of ["heic", "avif"] as const) {
+      const first = bytesAt(brand, FC_SEED);
+      expect(bytesAt(brand, FC_SEED)).toEqual(first);
+      expect(bytesAt(brand, FC_SEED + 1)).not.toEqual(first);
+    }
+  });
 });
