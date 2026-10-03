@@ -1119,6 +1119,49 @@ Scope, enforced by `compareIsobmffMetadataNamespaces` and `isobmffAuxiliaryItemX
   text is admitted for that record and setting only. Native and reference warnings are never
   admitted.
 
+### Native vs ExifTool performance (QUA-05)
+
+**Method.** `scripts/qualification/native-vs-exiftool.cjs` (62.1-12, D-30). Native time per file is
+the wall time of a full `sanitizeFile` call with every preservation flag false, in a dedicated
+child process. ExifTool 13.59 runs the way the app drives it: one persistent
+`-stay_open True -@ -` session, one `-all= -o <dest> <src>` command per file, timed from the write
+until its `{ready<N>}` line, so Perl startup is outside every per-file time. Each side gets 1
+warm-up and 5 timed runs per file, sequentially. The rule was fixed before measuring: the median
+over files of the native/ExifTool per-file median-time ratios must be at most 0.90, and so must
+the peak RSS ratio. p50 and p95 are printed but are never the verdict.
+
+Peak RSS is native's **marginal** peak: the child's `process.resourceUsage().maxRSS` minus its
+baseline after importing `dist/` and before the first file. It is compared with ExifTool's
+whole-process peak (`/usr/bin/time -l` on darwin, `VmHWM` on linux). The app already has Node
+resident, so only the native work adds to it (maintainer decision, 2026-10-03). The whole-process
+native peak is still reported.
+
+**Result.** darwin-arm64 (Apple M5 Pro, 18 CPUs), Node v24.19.0, ExifTool 13.59, 13 admitted
+HEIC/AVIF corpus records (every record pinned `success`), script at exifcleaner-node `50e5ccc`:
+
+| run      | median time ratio | native p50 / p95 ms | ExifTool p50 / p95 ms | marginal RSS ratio        | whole-process RSS ratio |
+| -------- | ----------------- | ------------------- | --------------------- | ------------------------- | ----------------------- |
+| verdict  | 9.987             | 8.670 / 10.354      | 0.810 / 2.990         | 0.657 (28768 / 43808 KiB) | 2.029                   |
+| repeat 2 | 10.148            | 8.662 / 12.343      | 0.753 / 2.656         | 0.611 (26688 / 43664 KiB) | 1.978                   |
+| repeat 3 | 6.255             | 6.703 / 12.311      | 0.884 / 2.795         | 0.607 (26560 / 43776 KiB) | 1.960                   |
+
+The peak-memory clause passes on marginal RSS. The time clause fails the rule, and the rule is
+not loosened. It closes on the exception the maintainer accepted:
+
+> QUA-05 time clause: named, accepted exception (2026-10-03). Native sanitize is slower per file
+> than a persistent ExifTool session on every format, not only HEIC/AVIF. On darwin the median is
+> about 8-10x for HEIC/AVIF, at about 6-13 ms per file against 0.4-1 ms. The cost comes from the
+> safety design ExifTool does not have. Most of it is two durable F_FULLFSYNC syncs in the shared
+> transaction, about 4 ms each. The rest is private-stage publication, reopen verification and the
+> payload identity proof. The cost applies equally to PNG, JPEG and WebP. The peak-memory clause
+> passes: native's marginal RSS is 0.58-0.61 of ExifTool's process. A transaction-scoped speedup
+> (dropping the redundant pre-verify sync, or using F_BARRIERFSYNC on darwin) is captured as
+> SEED-005 for a future milestone.
+
+The marginal RSS ratio on this script's three runs was 0.607-0.657, every one under 0.90. The
+speedup candidate is recorded in the workspace's `.planning/seeds/SEED-005-transaction-fsync-cost.md`.
+No CI job runs this script; only its unit test, `tests/native_vs_exiftool.test.ts`, runs in CI.
+
 ## Classification lists (QUA-02)
 
 The closed lists every box, item and property type is classified against (D-28, 62.1-06). The
