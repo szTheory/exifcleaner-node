@@ -97,7 +97,7 @@ jobs:
       # 62.1-09: HEIC and AVIF share src/isobmff/, so an engine change selects both (and every
       # other format) by design; heic-handler/avif-handler-only changes select one brand.
       QUAL_HEIC: "tests/qualification/heic/oracles.test.ts tests/qualification/heic/tracer.test.ts tests/qualification/heic/decode.test.ts tests/qualification/heic/parser.test.ts tests/qualification/heic/property.test.ts"
-      QUAL_AVIF: "tests/qualification/avif/oracles.test.ts tests/qualification/avif/tracer.test.ts tests/qualification/avif/decode.test.ts"
+      QUAL_AVIF: "tests/qualification/avif/oracles.test.ts tests/qualification/avif/tracer.test.ts tests/qualification/avif/decode.test.ts tests/qualification/avif/parser.test.ts tests/qualification/avif/property.test.ts"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

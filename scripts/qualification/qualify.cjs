@@ -288,6 +288,8 @@ function execute(options) {
     "tests/qualification/avif/oracles.test.ts",
     "tests/qualification/avif/tracer.test.ts",
     "tests/qualification/avif/decode.test.ts",
+    "tests/qualification/avif/parser.test.ts",
+    "tests/qualification/avif/property.test.ts",
   ]);
 }
 
