@@ -125,6 +125,13 @@ function readIpcoProperties(bytes: Buffer): readonly RawIpcoProperty[] {
   return properties;
 }
 
+/** True for a `colr` property carrying an embedded ICC profile (`prof` or `rICC`). */
+function isIccColr(property: RawIpcoProperty): boolean {
+  if (property.type !== "colr") return false;
+  const colourType = property.bytes.toString("ascii", 8, 12);
+  return colourType === "prof" || colourType === "rICC";
+}
+
 /**
  * Top-level box types in file order, plus one `infe:<type>` part per declared item entry
  * (regardless of whether its extent is live or declared-empty), plus one
@@ -140,9 +147,10 @@ function readIpcoProperties(bytes: Buffer): readonly RawIpcoProperty[] {
  * membership -- and lets an unlisted structural difference (a leaked/over-stripped item, a
  * changed `irot`/`ispe`/`hvcC` property of any item) surface as an ordinary unpermitted
  * structural difference. Metadata items (`Exif`, `mime`) carry no compared properties: native
- * removes them and entry (a) explains only their `infe` part. `colr` is excluded here -- ICC
- * identity is compared separately via raw profile digests (`isobmffRawColorProfileSha256`),
- * never by structural part membership.
+ * removes them and entry (a) explains only their `infe` part. Only an ICC `colr` (`prof`/`rICC`)
+ * is excluded here -- ICC identity is compared separately via raw profile digests
+ * (`isobmffRawColorProfileSha256`, `compareIsobmffIccProfile`), never by structural part
+ * membership. An `nclx` `colr` is an ordinary compared property (62.1-REVIEW-INDEPENDENT IN-05).
  */
 export function isobmffStructuralParts(bytes: Buffer): readonly string[] {
   const inventory = inventoryIsobmff(bytes);
@@ -166,7 +174,7 @@ export function isobmffStructuralParts(bytes: Buffer): readonly string[] {
         parts.push(`ipco:${association.itemId}:missing:${propertyIndex}`);
         continue;
       }
-      if (property.type === "colr") continue;
+      if (isIccColr(property)) continue;
       parts.push(
         `ipco:${association.itemId}:${ordinal}:${property.type}:${essential ? 1 : 0}:${sha256(property.bytes)}`,
       );
@@ -237,10 +245,7 @@ export function isobmffRawColorProfileSha256(
   bytes: Buffer,
 ): string | undefined {
   for (const property of readIpcoProperties(bytes)) {
-    if (property.type !== "colr") continue;
-    const colourType = property.bytes.toString("ascii", 8, 12);
-    if (colourType === "prof" || colourType === "rICC")
-      return sha256(property.bytes.subarray(12));
+    if (isIccColr(property)) return sha256(property.bytes.subarray(12));
   }
   return undefined;
 }

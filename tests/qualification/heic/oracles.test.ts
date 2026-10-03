@@ -57,7 +57,10 @@ import {
   type MetadataProjection,
 } from "../kit/oracles.js";
 import { iccProfileV4 } from "../../fixtures.js";
-import { withIspeExtent } from "../../isobmff-support/mutations.js";
+import {
+  withIspeExtent,
+  withNclxColour,
+} from "../../isobmff-support/mutations.js";
 import {
   HEIC_ADMITTED_UNKNOWN_TAGS,
   HEIC_AUXILIARY_ITEM_XMP_MEASUREMENT_TITLE,
@@ -1054,6 +1057,16 @@ describe("HEIC differential catches every reviewed blind spot (62.1-REVIEW-INDEP
         ),
       ).toThrow(/^Unpermitted structural difference: ipco:/);
     });
+
+    it("IN-05: a changed nclx colr is an unpermitted structural difference", () => {
+      const mutated = withNclxColour(grid, 9, 16);
+      expect(() =>
+        compareIsobmffStructuralParts(
+          isobmffStructuralParts(mutated),
+          isobmffStructuralParts(grid),
+        ),
+      ).toThrow(/^Unpermitted structural difference: ipco:.*:colr:/);
+    });
   });
 
   it.runIf(LINUX_X64)(
@@ -1071,6 +1084,24 @@ describe("HEIC differential catches every reviewed blind spot (62.1-REVIEW-INDEP
           preserveResolution: true,
         }),
       ).toThrow(/^Unpermitted structural difference: ipco:/);
+    },
+    30_000,
+  );
+  it.runIf(LINUX_X64)(
+    "IN-05: a native output whose nclx colr changed fails the differential",
+    async () => {
+      const output = await produceNativeOutput(grid, DEFAULT_PRESERVATION);
+      expect(() =>
+        runIsobmffDifferential({
+          caseId: "heic-in05-nclx",
+          profile: heicDifferentialProfile,
+          source: grid,
+          output: withNclxColour(output, 9, 16),
+          preserveOrientation: true,
+          preserveColorProfile: true,
+          preserveResolution: true,
+        }),
+      ).toThrow(/^Unpermitted (structural|metadata) difference: /);
     },
     30_000,
   );
