@@ -93,6 +93,14 @@ export const ISOLATION_RULES: readonly IsolationRule[] = [
     fileName: "differential.ts",
     forbiddenSpecifierSubstrings: ["src/isobmff/"],
   },
+  // 62.1-06: spec-lists.ts parses the closed QUA-02 classification lists out of docs/isobmff.md
+  // and classifies the independent inventory against them -- a reading of the spec note, never
+  // of the engine, the builder or the test handler (D-19/D-21). The engine agreement lives in
+  // tests/isobmff_spec_lists.test.ts's drift guard instead.
+  {
+    fileName: "spec-lists.ts",
+    forbiddenSpecifierSubstrings: ["src/isobmff/", "builder", "test-handler"],
+  },
 ];
 
 /**
@@ -409,6 +417,45 @@ describe("isolationViolations() negative controls (synthetic sources)", () => {
       {
         path: "differential.ts",
         source: 'import { inventoryIsobmff } from "./inventory.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([]);
+  });
+});
+
+describe("spec-lists.ts isolation rule (62.1-06) negative controls", () => {
+  it("spec-lists.ts importing src/isobmff/ is a violation (the lists are the spec note's, not the engine's)", () => {
+    const violations = isolationViolations([
+      {
+        path: "spec-lists.ts",
+        source:
+          'import { TOP_LEVEL_ALLOWLIST } from "../../src/isobmff/boxes.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "spec-lists.ts", specifier: "../../src/isobmff/boxes.js" },
+    ]);
+  });
+
+  it("spec-lists.ts importing the builder or the test handler is a violation", () => {
+    const violations = isolationViolations([
+      {
+        path: "spec-lists.ts",
+        source:
+          'import { box } from "./builder.js";\nimport { heicTestHandler } from "./test-handler.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "spec-lists.ts", specifier: "./builder.js" },
+      { path: "spec-lists.ts", specifier: "./test-handler.js" },
+    ]);
+  });
+
+  it("spec-lists.ts importing inventory.ts (type-only, the oracle it classifies) is allowed", () => {
+    const violations = isolationViolations([
+      {
+        path: "spec-lists.ts",
+        source: 'import type { IsobmffInventory } from "./inventory.js";\n',
       },
     ]);
     expect(violations).toEqual([]);

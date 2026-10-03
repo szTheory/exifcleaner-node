@@ -5,6 +5,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { PRESERVED_ITEM_TYPES } from "../src/isobmff/admission.js";
+import {
+  C2PA_UUID_USERTYPE,
+  TOP_LEVEL_ALLOWLIST,
+} from "../src/isobmff/boxes.js";
+import { META_CHILD_ALLOWLIST } from "../src/isobmff/items.js";
 import {
   box,
   ftypBox,
@@ -27,6 +33,8 @@ import {
   EMPTY_SPEC_LISTS,
   loadIsobmffSpecLists,
   parseIsobmffSpecLists,
+  type IsobmffSpecLists,
+  type SpecVerdict,
 } from "./isobmff-support/spec-lists.js";
 
 const DOC_PATH = fileURLToPath(new URL("../docs/isobmff.md", import.meta.url));
@@ -265,4 +273,105 @@ describe("real sources classify with zero unlisted types (QUA-02)", () => {
       expect([...unlisted]).toEqual([]);
     });
   }
+});
+
+/** Types in `list` whose verdict is one of `verdicts`. */
+function typesWith(
+  list: ReadonlyMap<string, SpecVerdict>,
+  ...verdicts: SpecVerdict[]
+): Set<string> {
+  return new Set(
+    [...list].filter(([, v]) => verdicts.includes(v)).map(([type]) => type),
+  );
+}
+
+/** Every disagreement between the spec lists and the engine's own allowlists, both directions. */
+function driftAgainstEngine(lists: IsobmffSpecLists): string[] {
+  const drift: string[] = [];
+  const compare = (
+    label: string,
+    spec: ReadonlySet<string>,
+    engine: ReadonlySet<string>,
+  ): void => {
+    for (const type of spec) {
+      if (!engine.has(type))
+        drift.push(`${label}: spec admits "${type}", engine does not`);
+    }
+    for (const type of engine) {
+      if (!spec.has(type))
+        drift.push(`${label}: engine admits "${type}", spec does not`);
+    }
+  };
+  const declined = (
+    label: string,
+    spec: ReadonlySet<string>,
+    engine: ReadonlySet<string>,
+  ): void => {
+    for (const type of spec) {
+      if (engine.has(type))
+        drift.push(`${label}: spec declines "${type}", engine admits it`);
+    }
+  };
+
+  // Top level: the engine admits TOP_LEVEL_ALLOWLIST plus the one C2PA `uuid` usertype.
+  const topAdmitted = typesWith(lists.topLevel, "preserve", "remove");
+  const uuidAdmitted = topAdmitted.delete("uuid");
+  compare("top-level", topAdmitted, TOP_LEVEL_ALLOWLIST);
+  if (uuidAdmitted !== (C2PA_UUID_USERTYPE.length === 32)) {
+    drift.push(
+      "top-level: the spec's uuid row disagrees with C2PA_UUID_USERTYPE",
+    );
+  }
+  declined(
+    "top-level",
+    typesWith(lists.topLevel, "decline"),
+    TOP_LEVEL_ALLOWLIST,
+  );
+
+  compare(
+    "meta-child",
+    typesWith(lists.metaChildren, "preserve", "remove"),
+    META_CHILD_ALLOWLIST,
+  );
+  declined(
+    "meta-child",
+    typesWith(lists.metaChildren, "decline"),
+    META_CHILD_ALLOWLIST,
+  );
+
+  compare("item", typesWith(lists.itemTypes, "preserve"), PRESERVED_ITEM_TYPES);
+  // admission.ts's Rule 2 removes exactly `Exif` and the XMP `mime` shape (not exported).
+  compare(
+    "item-remove",
+    typesWith(lists.itemTypes, "remove"),
+    new Set(["Exif", "mime"]),
+  );
+  declined("item", typesWith(lists.itemTypes, "decline"), PRESERVED_ITEM_TYPES);
+  return drift;
+}
+
+describe("spec lists agree with the engine (drift guard)", () => {
+  it("the doc's lists equal TOP_LEVEL_ALLOWLIST, META_CHILD_ALLOWLIST and PRESERVED_ITEM_TYPES in both directions", () => {
+    expect(driftAgainstEngine(loadIsobmffSpecLists())).toEqual([]);
+  });
+
+  it("negative control: a spec-only type and an engine-only type are each reported", () => {
+    const lists = loadIsobmffSpecLists();
+    const itemTypes = new Map(lists.itemTypes);
+    itemTypes.set("zzzi", "preserve");
+    itemTypes.delete("tmap");
+    const metaChildren = new Map(lists.metaChildren);
+    metaChildren.set("grpl", "decline");
+    const topLevel = new Map(lists.topLevel);
+    topLevel.delete("uuid");
+    expect(
+      driftAgainstEngine({ ...lists, itemTypes, metaChildren, topLevel }),
+    ).toEqual([
+      "top-level: the spec's uuid row disagrees with C2PA_UUID_USERTYPE",
+      'meta-child: engine admits "grpl", spec does not',
+      'meta-child: spec declines "grpl", engine admits it',
+      'item: spec admits "zzzi", engine does not',
+      'item: engine admits "tmap", spec does not',
+    ]);
+  });
 });
