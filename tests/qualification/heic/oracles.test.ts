@@ -60,6 +60,7 @@ import { iccProfileV4 } from "../../fixtures.js";
 import {
   withIspeExtent,
   withNclxColour,
+  withSwappedSterEntities,
 } from "../../isobmff-support/mutations.js";
 import {
   HEIC_ADMITTED_UNKNOWN_TAGS,
@@ -1104,5 +1105,34 @@ describe("HEIC differential catches every reviewed blind spot (62.1-REVIEW-INDEP
       ).toThrow(/^Unpermitted (structural|metadata) difference: /);
     },
     30_000,
+  );
+
+  corpusIt(
+    "nokia-heif-conformance-multilayer003",
+    "WR-03: a native output whose ster group swapped its left and right views fails the differential",
+    async () => {
+      const record = await loadCorpusRecord(
+        "nokia-heif-conformance-multilayer003",
+      );
+      const source = await materializeRecord(record);
+      const outcome = await sanitizeRegistered(source, DEFAULT_PRESERVATION);
+      if (!outcome.ok) throw new Error("multilayer003 default output refused");
+      const run = (output: Buffer): unknown =>
+        runIsobmffDifferential({
+          caseId: "heic-wr03-ster",
+          profile: heicDifferentialProfile,
+          source,
+          output,
+          preserveOrientation: true,
+          preserveColorProfile: true,
+          preserveResolution: true,
+          permittedDifferences: closedListed(record),
+        });
+      // Negative control: the unmutated output passes.
+      expect(run(outcome.output)).toBeDefined();
+      expect(() => run(withSwappedSterEntities(outcome.output))).toThrow(
+        "Admitted unknown tag differs: QuickTime:Unknown_ster",
+      );
+    },
   );
 });

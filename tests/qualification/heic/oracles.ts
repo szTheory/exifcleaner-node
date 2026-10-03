@@ -107,8 +107,12 @@ export const HEIC_PERMITTED_DIFFERENCES: readonly IsobmffPermittedDifference[] =
  * The three ExifTool unknown tags HEIC admits (maintainer decision 2026-10-03, 62.1-09), measured
  * on the curated Nokia conformance records: ExifTool 13.59 reports their `ster`, `base` and
  * top-level-meta `idat` boxes without a tag name. Admitted by
- * exact key only, and only when the value is identical in source, native and reference
- * (`compareAdmittedUnknownTags`). Any other unknown tag still fails closed.
+ * exact key only, and only when the tag's raw bytes are identical in source, native and
+ * reference: `kit/oracles.ts` reads every instance back with `-b` and compares per-instance
+ * sha256 digests (`admittedUnknownTagBytes`, `compareAdmittedUnknownTags`), never ExifTool's
+ * length-only "(Binary data N bytes ...)" text -- so a same-length change to a `ster`/`base`
+ * entity group (62.1-REVIEW-INDEPENDENT WR-03) still differs. Any other unknown tag still fails
+ * closed.
  */
 export const HEIC_ADMITTED_UNKNOWN_TAGS: readonly string[] = [
   "QuickTime:Unknown_ster",

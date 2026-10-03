@@ -41,9 +41,11 @@ export interface MetadataProjection {
   readonly rawIccSha256?: string;
   /**
    * Present only when the profile's `admittedUnknownTags` hook admitted at least one
-   * ExifTool unknown tag in this file: exact `Group:Tag` key to its decoded value.
+   * ExifTool unknown tag in this file: exact `Group:Tag` key to its value. A live
+   * projection records the sha256 of every instance's raw bytes, read back with `-b`
+   * (`admittedUnknownTagBytes`), never ExifTool's length-only binary placeholder text.
    * Never merged into `namespaces`; `compareAdmittedUnknownTags` requires the same keys
-   * with identical values in source, native and reference.
+   * with identical byte digests in source, native and reference.
    */
   readonly admittedUnknownTags?: Readonly<Record<string, unknown>>;
 }
@@ -141,9 +143,10 @@ export interface DifferentialProfile {
    * admits even though ExifTool names them unknown -- for a container part ExifTool
    * decodes for one sibling file type but not this one. Every entry must itself be an
    * unknown-named tag. An admitted tag never reaches `namespaces`; instead the
-   * differential requires it present with an identical value in source, native and
-   * reference (`compareAdmittedUnknownTags`). Any other unknown tag, and every unknown
-   * tag in a profile that omits this hook, still fails closed.
+   * differential requires it present with identical raw bytes (every instance, read with
+   * `-b`) in source, native and reference (`compareAdmittedUnknownTags`). Any other
+   * unknown tag, and every unknown tag in a profile that omits this hook, still fails
+   * closed.
    */
   readonly admittedUnknownTags?: readonly string[];
 }
@@ -327,7 +330,9 @@ export function projectExiftoolRecord(
 
 /**
  * Pure (no ExifTool invocation): an admitted unknown tag is explained only when source,
- * native and reference all carry the same key with the same canonical value. A key
+ * native and reference all carry the same key with the same canonical value -- in a live
+ * projection, the same per-instance sha256 of the tag's raw `-b` bytes
+ * (`admittedUnknownTagBytes`), so a same-length change to the part still differs. A key
  * present in any one projection but missing, or differently valued, in another throws --
  * the hook admits ExifTool's inability to name a part, never a change to that part.
  */
@@ -354,6 +359,71 @@ export function compareAdmittedUnknownTags(
   }
 }
 
+const COPY_GROUP = /^Copy\d+$/u;
+const BASE64_VALUE = "base64:";
+
+/**
+ * Pure (no ExifTool invocation): reads each admitted `Group:Tag` key's raw bytes out of one
+ * parsed `-G1:4 -a -u -b -json` record, as `sha256:<hex>` per instance in emission order.
+ * `-G1:4` keeps a repeated tag as `Group:CopyN:Tag`, so every instance is counted, not only
+ * the first one plain `-G1 -json` reports. A `base64:` value is decoded first; any other
+ * value is hashed as its UTF-8 text. A key with no instance throws.
+ */
+export function admittedUnknownTagBytes(
+  record: Readonly<Record<string, unknown>>,
+  keys: readonly string[],
+): Readonly<Record<string, readonly string[]>> {
+  const digests: Record<string, string[]> = {};
+  for (const key of keys) {
+    const [group = "", tag = ""] = key.split(":", 2);
+    const instances: string[] = [];
+    for (const [recordKey, value] of Object.entries(record)) {
+      const parts = recordKey.split(":");
+      const matches =
+        parts.length === 2
+          ? parts[0] === group && parts[1] === tag
+          : parts.length === 3 &&
+            parts[0] === group &&
+            COPY_GROUP.test(parts[1]!) &&
+            parts[2] === tag;
+      if (!matches) continue;
+      const text = String(value);
+      const bytes = text.startsWith(BASE64_VALUE)
+        ? Buffer.from(text.slice(BASE64_VALUE.length), "base64")
+        : Buffer.from(text, "utf8");
+      instances.push(`sha256:${digest(bytes)}`);
+    }
+    if (instances.length === 0)
+      throw new Error(`Admitted unknown tag has no raw bytes: ${key}`);
+    digests[key] = instances;
+  }
+  return digests;
+}
+
+function readAdmittedUnknownTagBytes(
+  inputPath: string,
+  keys: readonly string[],
+): Readonly<Record<string, readonly string[]>> {
+  const result = execute(tools().exiftool, [
+    "-G1:4",
+    "-a",
+    "-u",
+    "-s",
+    "-b",
+    "-json",
+    ...keys.map((key) => `-${key}`),
+    inputPath,
+  ]);
+  if (result.status !== 0) throw new Error("ExifTool oracle rejected input");
+  const parsed = JSON.parse(result.stdout) as readonly Record<
+    string,
+    unknown
+  >[];
+  if (!Array.isArray(parsed) || parsed.length !== 1)
+    throw new Error("ExifTool oracle emitted an unknown transcript");
+  return admittedUnknownTagBytes(parsed[0]!, keys);
+}
+
 function runMetadata(
   input: Buffer,
   extension: string,
@@ -378,7 +448,18 @@ function runMetadata(
     >[];
     if (!Array.isArray(parsed) || parsed.length !== 1)
       throw new Error("ExifTool oracle emitted an unknown transcript");
-    const projection = projectExiftoolRecord(parsed[0]!, admittedUnknownTags);
+    const projected = projectExiftoolRecord(parsed[0]!, admittedUnknownTags);
+    // Replace ExifTool's length-only binary placeholder text with the raw bytes' digests.
+    const projection =
+      projected.admittedUnknownTags === undefined
+        ? projected
+        : {
+            ...projected,
+            admittedUnknownTags: readAdmittedUnknownTagBytes(
+              inputPath,
+              Object.keys(projected.admittedUnknownTags),
+            ),
+          };
     const rawIccSha256 = rawColorProfileSha256(input);
     return {
       ...projection,

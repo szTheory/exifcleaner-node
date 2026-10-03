@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   EXCLUDED_GROUPS,
+  admittedUnknownTagBytes,
   compareAdmittedUnknownTags,
   compareDifferential,
   comparePermittedDifferences,
@@ -978,6 +980,78 @@ describe("admittedUnknownTags hook (projectExiftoolRecord, compareAdmittedUnknow
     expect(() =>
       compareAdmittedUnknownTags(absent, projected("a"), projected("a")),
     ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+  });
+
+  describe("admittedUnknownTagBytes (62.1-REVIEW-INDEPENDENT WR-03)", () => {
+    const sha = (bytes: Buffer): string =>
+      `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    const left = Buffer.from([0, 0, 3, 0xea, 0, 0, 3, 0xec]);
+    const right = Buffer.from([0, 0, 3, 0xec, 0, 0, 3, 0xea]);
+    const binary = (bytes: Buffer): string =>
+      `base64:${bytes.toString("base64")}`;
+
+    it("two same-length payloads ExifTool renders with the same placeholder text differ by bytes", () => {
+      const placeholder = "(Binary data 8 bytes, use -b option to extract)";
+      // Without -b both projections read the same; that alone used to pass.
+      expect(() =>
+        compareAdmittedUnknownTags(
+          projected(placeholder),
+          projected(placeholder),
+          projected(placeholder),
+        ),
+      ).not.toThrow();
+      const fromBytes = (bytes: Buffer): MetadataProjection => ({
+        ...projected(placeholder),
+        admittedUnknownTags: admittedUnknownTagBytes(
+          { SourceFile: "/tmp/input", [ADMITTED]: binary(bytes) },
+          [ADMITTED],
+        ),
+      });
+      expect(() =>
+        compareAdmittedUnknownTags(
+          fromBytes(left),
+          fromBytes(right),
+          fromBytes(left),
+        ),
+      ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+      expect(() =>
+        compareAdmittedUnknownTags(
+          fromBytes(left),
+          fromBytes(left),
+          fromBytes(left),
+        ),
+      ).not.toThrow();
+    });
+
+    it("decodes base64 values and hashes any other value as text", () => {
+      expect(
+        admittedUnknownTagBytes({ [ADMITTED]: binary(left) }, [ADMITTED]),
+      ).toEqual({ [ADMITTED]: [sha(left)] });
+      expect(
+        admittedUnknownTagBytes({ [ADMITTED]: "plain" }, [ADMITTED]),
+      ).toEqual({ [ADMITTED]: [sha(Buffer.from("plain", "utf8"))] });
+    });
+
+    it("counts every Group:CopyN:Tag instance, in emission order", () => {
+      const [group, tag] = ADMITTED.split(":");
+      expect(
+        admittedUnknownTagBytes(
+          {
+            [ADMITTED]: binary(left),
+            [`${group}:Copy1:${tag}`]: binary(right),
+            [`VendorZ:Copy1:${tag}`]: binary(left),
+            [`${group}:Copy1:Width`]: 4,
+          },
+          [ADMITTED],
+        ),
+      ).toEqual({ [ADMITTED]: [sha(left), sha(right)] });
+    });
+
+    it("throws when an admitted key has no raw-bytes instance", () => {
+      expect(() =>
+        admittedUnknownTagBytes({ SourceFile: "/tmp/input" }, [ADMITTED]),
+      ).toThrow(`Admitted unknown tag has no raw bytes: ${ADMITTED}`);
+    });
   });
 
   it("passes with zero admitted tags anywhere", () => {
