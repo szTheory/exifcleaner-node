@@ -20,8 +20,18 @@ const NOTICE_PATH = join(CORPUS_ROOT, "NOTICE");
  */
 const PROJECT_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const RAW_GITHUBUSERCONTENT_HOST = "raw.githubusercontent.com";
-const CC_BY_SA_4_0_LICENSE_URL =
-  "https://creativecommons.org/licenses/by-sa/4.0/";
+/**
+ * Licenses whose terms require attribution travelling with the bytes, mapped
+ * to the exact `License:` line the record's NOTICE stanza must carry
+ * (KIT-10/D-15). A record under any of these must name a `noticeId`. The
+ * Creative Commons classes cite their deed URL; the dual-licensed class cites
+ * its SPDX expression, so the stanza cross-references the record verbatim.
+ */
+const ATTRIBUTION_LICENSE_LINES: ReadonlyMap<string, string> = new Map([
+  ["CC-BY-SA-4.0", "https://creativecommons.org/licenses/by-sa/4.0/"],
+  ["CC-BY-4.0", "https://creativecommons.org/licenses/by/4.0/"],
+  ["LGPL-2.1-only OR BSD-2-Clause", "LGPL-2.1-only OR BSD-2-Clause"],
+]);
 const SHA256 = /^[a-f0-9]{64}$/;
 
 /**
@@ -52,6 +62,8 @@ export const APPROVED_CORPUS_LICENSES: ReadonlySet<string> = new Set([
   "Artistic-1.0-Perl OR GPL-1.0-or-later",
   "BSD-3-Clause",
   "CC-BY-SA-4.0",
+  "CC-BY-4.0",
+  "LGPL-2.1-only OR BSD-2-Clause",
 ]);
 
 /**
@@ -277,10 +289,14 @@ export function assertCorpusRecord(
     const noticeId = stringField(provenance.noticeId, "noticeId");
     if (!/^[a-z0-9][a-z0-9.-]*$/.test(noticeId)) invalid("noticeId");
   }
-  // CC BY-SA 4.0 requires attribution (section 3(a)); a record under that
-  // license must name a NOTICE stanza to carry it (KIT-10/D-15).
-  if (license === "CC-BY-SA-4.0" && provenance.noticeId === undefined)
-    invalid("noticeId required for CC-BY-SA-4.0");
+  // CC BY-SA 4.0 and CC BY 4.0 require attribution (section 3(a)), and the
+  // LGPL/BSD dual license requires its notice to be retained; a record under
+  // any of them must name a NOTICE stanza to carry it (KIT-10/D-15).
+  if (
+    ATTRIBUTION_LICENSE_LINES.has(license) &&
+    provenance.noticeId === undefined
+  )
+    invalid(`noticeId required for ${license}`);
   const hasLocalPath = typeof value.localPath === "string";
   const hasGenerator = isObject(value.generator);
   if (isDownloadOnly) {
@@ -384,7 +400,9 @@ function assertManifest(value: unknown): asserts value is CorpusManifest {
 }
 
 /**
- * Verifies CC BY-SA 4.0 attribution (section 3(a)) for a single record
+ * Verifies attribution for a single record under an attribution-requiring
+ * license (CC BY-SA 4.0 / CC BY 4.0 section 3(a), or the LGPL/BSD dual
+ * license's retained notice)
  * against a NOTICE file's full text (KIT-10/D-15). Pure: no I/O, so it can be
  * tested entirely with in-memory strings. The stanza for `record.provenance
  * .noticeId` is the span starting at the line `[<noticeId>]` and ending
@@ -425,7 +443,12 @@ export function assertNoticeAttribution(
     throw new Error(`NOTICE stanza for ${noticeId} is missing Author`);
   if (source !== record.provenance.url)
     throw new Error(`NOTICE stanza for ${noticeId} is missing Source`);
-  if (license !== CC_BY_SA_4_0_LICENSE_URL)
+  const expectedLicense = ATTRIBUTION_LICENSE_LINES.get(
+    record.provenance.license,
+  );
+  if (expectedLicense === undefined)
+    throw new Error(`Record license needs no NOTICE attribution: ${record.id}`);
+  if (license !== expectedLicense)
     throw new Error(`NOTICE stanza for ${noticeId} is missing License`);
   if (modified === undefined || modified.length === 0)
     throw new Error(`NOTICE stanza for ${noticeId} is missing Modified`);
@@ -434,14 +457,14 @@ export function assertNoticeAttribution(
 async function readManifest(): Promise<CorpusManifest> {
   const parsed: unknown = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
   assertManifest(parsed);
-  // tests/corpus/NOTICE is read only when a CC-BY-SA-4.0 record exists --
-  // today none do, so this never reaches the filesystem (D-16).
-  const ccBySaRecords = parsed.records.filter(
-    (record) => record.provenance.license === "CC-BY-SA-4.0",
+  // tests/corpus/NOTICE is read only when an attribution-requiring record
+  // exists (D-16).
+  const attributedRecords = parsed.records.filter((record) =>
+    ATTRIBUTION_LICENSE_LINES.has(record.provenance.license),
   );
-  if (ccBySaRecords.length > 0) {
+  if (attributedRecords.length > 0) {
     const noticeText = await readFile(NOTICE_PATH, "utf8");
-    for (const record of ccBySaRecords)
+    for (const record of attributedRecords)
       assertNoticeAttribution(record, noticeText);
   }
   return parsed;

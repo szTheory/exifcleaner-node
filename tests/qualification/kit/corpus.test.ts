@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { getCapabilities } from "../../../dist/index.js";
 import {
+  APPROVED_CORPUS_LICENSES,
   assertCorpusRecord,
   assertNoticeAttribution,
   materializeRecord,
@@ -109,6 +110,55 @@ describe("assertCorpusRecord provenance (KIT-10)", () => {
     provenanceOf(record).license = "CC-BY-SA-4.0";
     expect(() => assertCorpusRecord(record)).toThrow(/noticeId/);
   });
+});
+
+/**
+ * Negative control for the 2026-10-02 maintainer widening: exactly two
+ * attribution-requiring classes were added. An unlisted license must still
+ * fail closed, and each new class must name a NOTICE stanza.
+ */
+describe("APPROVED_CORPUS_LICENSES widening (KIT-10/D-13)", () => {
+  const ADDED = ["CC-BY-4.0", "LGPL-2.1-only OR BSD-2-Clause"] as const;
+
+  it("still rejects an unlisted license (GPL-3.0-only) on vendored and download-only records", () => {
+    expect(APPROVED_CORPUS_LICENSES.has("GPL-3.0-only")).toBe(false);
+    const vendored = validRecord();
+    provenanceOf(vendored).license = "GPL-3.0-only";
+    expect(() => assertCorpusRecord(vendored)).toThrow(/license/);
+    const downloadOnly = validDownloadOnlyRecord(Buffer.from("x"));
+    provenanceOf(downloadOnly).license = "GPL-3.0-only";
+    expect(() => assertCorpusRecord(downloadOnly)).toThrow(/license/);
+  });
+
+  it("rejects near-miss spellings of the added classes", () => {
+    for (const license of [
+      "CC-BY-4",
+      "BSD-2-Clause OR LGPL-2.1-only",
+      "LGPL-2.1-only",
+      "LGPL-2.1-or-later OR BSD-2-Clause",
+    ]) {
+      const record = validRecord();
+      provenanceOf(record).license = license;
+      provenanceOf(record).noticeId = "example-notice-id";
+      expect(() => assertCorpusRecord(record)).toThrow(/license/);
+    }
+  });
+
+  for (const license of ADDED) {
+    it(`accepts ${license} with a noticeId`, () => {
+      expect(APPROVED_CORPUS_LICENSES.has(license)).toBe(true);
+      const record = validRecord();
+      provenanceOf(record).license = license;
+      provenanceOf(record).noticeId = "example-notice-id";
+      expect(() => assertCorpusRecord(record)).not.toThrow();
+    });
+
+    it(`rejects ${license} without a noticeId`, () => {
+      const record = validRecord();
+      provenanceOf(record).license = license;
+      expect(() => assertCorpusRecord(record)).toThrow(/noticeId/);
+    });
+  }
 });
 
 /**
@@ -311,22 +361,30 @@ describe("materializeRecord download-only cache (KIT-10/D-14)", () => {
   });
 });
 
-function fullNoticeStanza(id: string, url: string): string {
+function fullNoticeStanza(
+  id: string,
+  url: string,
+  licenseLine: string = CC_BY_SA_LICENSE_URL,
+): string {
   return [
     `[${id}]`,
     "Title: Example Fixture Title",
     "Author: Example Author",
     `Source: ${url}`,
-    `License: ${CC_BY_SA_LICENSE_URL}`,
+    `License: ${licenseLine}`,
     "Modified: Converted and cropped to a smaller resolution",
     "",
   ].join("\n");
 }
 
-function noticeRecord(id: string, url: string): CorpusRecord {
+function noticeRecord(
+  id: string,
+  url: string,
+  license = "CC-BY-SA-4.0",
+): CorpusRecord {
   return {
     id: "cc-by-sa-fixture",
-    provenance: { noticeId: id, url },
+    provenance: { noticeId: id, url, license },
   } as unknown as CorpusRecord;
 }
 
@@ -398,5 +456,29 @@ describe("assertNoticeAttribution (KIT-10/D-15)", () => {
     expect(() => assertNoticeAttribution(record, text)).toThrow(
       /No NOTICE stanza/,
     );
+  });
+
+  it("accepts each added class only with its own License line", () => {
+    const lines = {
+      "CC-BY-4.0": "https://creativecommons.org/licenses/by/4.0/",
+      "LGPL-2.1-only OR BSD-2-Clause": "LGPL-2.1-only OR BSD-2-Clause",
+    } as const;
+    for (const [license, line] of Object.entries(lines)) {
+      const record = noticeRecord(noticeId, url, license);
+      expect(() =>
+        assertNoticeAttribution(record, fullNoticeStanza(noticeId, url, line)),
+      ).not.toThrow();
+      // The CC BY-SA deed is not a valid License line for either class.
+      expect(() =>
+        assertNoticeAttribution(record, fullNoticeStanza(noticeId, url)),
+      ).toThrow(/License/);
+    }
+  });
+
+  it("rejects a record whose license needs no attribution", () => {
+    const record = noticeRecord(noticeId, url, "MIT");
+    expect(() =>
+      assertNoticeAttribution(record, fullNoticeStanza(noticeId, url)),
+    ).toThrow(/needs no NOTICE attribution/);
   });
 });
