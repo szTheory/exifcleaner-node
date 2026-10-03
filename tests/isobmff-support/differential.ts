@@ -9,6 +9,7 @@
 // `DifferentialProfile` and permitted-difference citation list.
 import { createHash } from "node:crypto";
 import {
+  compareAdmittedUnknownTags,
   projectMetadata,
   runExiftoolReference,
   validateInput,
@@ -570,6 +571,7 @@ export function runIsobmffDifferential(
   const referenceMeta = projectMetadata(referenceBytes, options.profile);
   if (referenceMeta.warnings.length > 0)
     throw new Error("Oracle warning is not permitted");
+  compareAdmittedUnknownTags(sourceMeta, outputMeta, referenceMeta);
 
   const sourceFreeSkip = isobmffFreeSkipBoxes(options.source);
   const outputFreeSkip = isobmffFreeSkipBoxes(options.output);

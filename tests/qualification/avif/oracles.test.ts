@@ -24,9 +24,15 @@ import {
   runIsobmffDifferential,
   type IsobmffFreeSkipBox,
 } from "../../isobmff-support/differential.js";
-import type { MetadataProjection } from "../kit/oracles.js";
+import {
+  compareAdmittedUnknownTags,
+  projectExiftoolRecord,
+  type DifferentialProfile,
+  type MetadataProjection,
+} from "../kit/oracles.js";
 import { iccProfileV4 } from "../../fixtures.js";
 import {
+  AVIF_ADMITTED_UNKNOWN_IDAT_TAG,
   AVIF_PERMITTED_DIFFERENCES,
   assertAvifOracleToolsAvailable,
   avifDifferentialProfile,
@@ -493,6 +499,100 @@ describe("AVIF differential (62.1-05)", () => {
         "free",
         "skip",
       ]);
+    });
+
+    describe("admitted unknown grid descriptor (maintainer option A, 2026-10-03)", () => {
+      const GRID_DESCRIPTOR = "(Binary data 8 bytes, use -b option to extract)";
+      const record = (extra: Record<string, unknown>) => ({
+        SourceFile: "/tmp/input.avif",
+        "QuickTime:MajorBrand": "avif",
+        ...extra,
+      });
+      const admitted = (value: unknown): MetadataProjection =>
+        projectExiftoolRecord(
+          record({ [AVIF_ADMITTED_UNKNOWN_IDAT_TAG]: value }),
+          avifDifferentialProfile.admittedUnknownTags,
+        );
+
+      it("admits exactly Meta:Unknown_idat and nothing else", () => {
+        expect(avifDifferentialProfile.admittedUnknownTags).toEqual([
+          "Meta:Unknown_idat",
+        ]);
+      });
+
+      it("passes when Meta:Unknown_idat is identical in source, native and reference", () => {
+        expect(() =>
+          compareAdmittedUnknownTags(
+            admitted(GRID_DESCRIPTOR),
+            admitted(GRID_DESCRIPTOR),
+            admitted(GRID_DESCRIPTOR),
+          ),
+        ).not.toThrow();
+      });
+
+      it("(a) a different unknown tag in AVIF still throws", () => {
+        expect(() =>
+          projectExiftoolRecord(
+            record({ "Meta:Unknown_iref": GRID_DESCRIPTOR }),
+            avifDifferentialProfile.admittedUnknownTags,
+          ),
+        ).toThrow("ExifTool oracle found an unknown tag");
+        expect(() =>
+          projectExiftoolRecord(
+            record({ "QuickTime:Unknown_idat": GRID_DESCRIPTOR }),
+            avifDifferentialProfile.admittedUnknownTags,
+          ),
+        ).toThrow("ExifTool oracle found an unknown tag");
+      });
+
+      it("(b) Meta:Unknown_idat with a value differing between native and reference still fails", () => {
+        expect(() =>
+          compareAdmittedUnknownTags(
+            admitted(GRID_DESCRIPTOR),
+            admitted(GRID_DESCRIPTOR),
+            admitted("(Binary data 9 bytes, use -b option to extract)"),
+          ),
+        ).toThrow("Admitted unknown tag differs: Meta:Unknown_idat");
+        expect(() =>
+          compareAdmittedUnknownTags(
+            admitted(GRID_DESCRIPTOR),
+            projectExiftoolRecord(
+              record({}),
+              avifDifferentialProfile.admittedUnknownTags,
+            ),
+            admitted(GRID_DESCRIPTOR),
+          ),
+        ).toThrow("Admitted unknown tag differs: Meta:Unknown_idat");
+      });
+
+      it("(c) a profile without the hook still throws on Meta:Unknown_idat", () => {
+        const withoutHook: DifferentialProfile = {
+          format: avifDifferentialProfile.format,
+          extension: avifDifferentialProfile.extension,
+          rawColorProfileSha256: avifDifferentialProfile.rawColorProfileSha256,
+          permittedKinds: avifDifferentialProfile.permittedKinds,
+        };
+        expect(() =>
+          projectExiftoolRecord(
+            record({ [AVIF_ADMITTED_UNKNOWN_IDAT_TAG]: GRID_DESCRIPTOR }),
+            withoutHook.admittedUnknownTags,
+          ),
+        ).toThrow("ExifTool oracle found an unknown tag");
+      });
+
+      it("no other format's differential profile declares an admitted unknown tag", () => {
+        const qualificationDir = join(
+          dirname(fileURLToPath(import.meta.url)),
+          "..",
+        );
+        expect(
+          readFileSync(join(qualificationDir, "avif", "oracles.ts"), "utf8"),
+        ).toContain("admittedUnknownTags:");
+        for (const format of ["png", "jpeg", "webp", "heic"])
+          expect(
+            readFileSync(join(qualificationDir, format, "oracles.ts"), "utf8"),
+          ).not.toContain("admittedUnknownTags");
+      });
     });
   });
 });

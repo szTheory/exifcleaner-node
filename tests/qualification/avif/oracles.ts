@@ -93,12 +93,23 @@ export const AVIF_PERMITTED_DIFFERENCES: readonly IsobmffPermittedDifference[] =
     },
   ];
 
+/**
+ * The one ExifTool unknown tag AVIF admits (maintainer decision, 2026-10-03, option A).
+ * ExifTool 13.59 QuickTime.pm:2910-2912 decodes a top-level-meta `idat` as `MetaImageSize`
+ * only when FileType is HEIC, so in AVIF the same 8-byte grid descriptor surfaces as this
+ * unknown tag. Admitted by exact key only, and only when its value is identical in source,
+ * native and reference (`compareAdmittedUnknownTags`); the grid bytes themselves stay
+ * covered by `compareIsobmffPayloadDigests`. Any other unknown tag still fails closed.
+ */
+export const AVIF_ADMITTED_UNKNOWN_IDAT_TAG = "Meta:Unknown_idat";
+
 export const avifDifferentialProfile: DifferentialProfile = {
   format: "avif",
   extension: AVIF_EXTENSION,
   rawColorProfileSha256: isobmffRawColorProfileSha256,
   permittedKinds: [],
   structuralParts: isobmffStructuralParts,
+  admittedUnknownTags: [AVIF_ADMITTED_UNKNOWN_IDAT_TAG],
 };
 
 export const avifPayloadDigests = isobmffPayloadDigests;
