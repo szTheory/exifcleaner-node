@@ -19,6 +19,13 @@
  * SLACK_RATIO (0.90) AND the peak RSS ratio native/ExifTool is at most 0.90.
  * p50 and p95 per side are printed, never used as the verdict.
  *
+ * The RSS side of the rule compares native's MARGINAL peak (the child's peak
+ * minus its post-import, pre-work baseline) with ExifTool's whole-process
+ * peak, because Node is already resident in the app and only the native work
+ * is added to it (maintainer decision, 2026-10-03, QUA-05). The whole-process
+ * native peak and its ratio are still reported for transparency. The time
+ * rule is unchanged.
+ *
  * Peak RSS: native from process.resourceUsage().maxRSS in a dedicated child;
  * ExifTool from VmHWM in /proc/<pid>/status just before closing the session
  * (linux) or `/usr/bin/time -l` maximum resident set size (darwin). Any other
@@ -64,20 +71,46 @@ function computeVerdict({ timeRatio, rssRatio }) {
   if (!(timeRatio <= SLACK_RATIO))
     failures.push(`time ratio ${timeRatio.toFixed(3)} > 0.90 (${timeRatio})`);
   if (!(rssRatio <= SLACK_RATIO))
-    failures.push(`peak RSS ratio ${rssRatio.toFixed(3)} > 0.90 (${rssRatio})`);
+    failures.push(
+      `marginal peak RSS ratio ${rssRatio.toFixed(3)} > 0.90 (${rssRatio})`,
+    );
   return { pass: failures.length === 0, failures };
 }
 
-function summarize({ files, nativePeakRSSKiB, exiftoolPeakRSSKiB }) {
+/** Native peak minus the post-import Node footprint: what native work adds. */
+function marginalPeakRSS({ nativePeakRSSKiB, nativeBaselineRSSKiB }) {
+  if (
+    !Number.isFinite(nativePeakRSSKiB) ||
+    !Number.isFinite(nativeBaselineRSSKiB) ||
+    nativeBaselineRSSKiB > nativePeakRSSKiB
+  )
+    throw new Error(
+      `native baseline RSS ${nativeBaselineRSSKiB} KiB is not at or below its peak ${nativePeakRSSKiB} KiB`,
+    );
+  return nativePeakRSSKiB - nativeBaselineRSSKiB;
+}
+
+function summarize({
+  files,
+  nativePeakRSSKiB,
+  nativeBaselineRSSKiB,
+  exiftoolPeakRSSKiB,
+}) {
   const nativeMedians = files.map((file) => file.nativeMedianMs);
   const exiftoolMedians = files.map((file) => file.exiftoolMedianMs);
   const timeRatio = median(
     files.map((file) => file.nativeMedianMs / file.exiftoolMedianMs),
   );
-  const rssRatio = nativePeakRSSKiB / exiftoolPeakRSSKiB;
+  const marginalPeakRSSKiB = marginalPeakRSS({
+    nativePeakRSSKiB,
+    nativeBaselineRSSKiB,
+  });
+  const rssRatio = marginalPeakRSSKiB / exiftoolPeakRSSKiB;
   return {
     timeRatio,
     rssRatio,
+    marginalPeakRSSKiB,
+    totalRssRatio: nativePeakRSSKiB / exiftoolPeakRSSKiB,
     native: {
       p50Ms: median(nativeMedians),
       p95Ms: percentile(nativeMedians, 0.95),
@@ -459,11 +492,16 @@ async function run(options, platform) {
       native: {
         peakRSSKiB: native.maxRSSKiB,
         baselineMaxRSSKiB: native.baselineMaxRSSKiB,
+        marginalPeakRSSKiB: marginalPeakRSS({
+          nativePeakRSSKiB: native.maxRSSKiB,
+          nativeBaselineRSSKiB: native.baselineMaxRSSKiB,
+        }),
       },
       exiftool: { peakRSSKiB: exiftool.peakRSSKiB },
       summary: summarize({
         files,
         nativePeakRSSKiB: native.maxRSSKiB,
+        nativeBaselineRSSKiB: native.baselineMaxRSSKiB,
         exiftoolPeakRSSKiB: exiftool.peakRSSKiB,
       }),
     };
@@ -485,10 +523,11 @@ function formatReport(report) {
         `${path.basename(file.path)} | ${file.bytes} | ${file.nativeMedianMs.toFixed(3)} | ${file.exiftoolMedianMs.toFixed(3)} | ${file.ratio.toFixed(3)}`,
     ),
     "",
-    `native   p50 ${summary.native.p50Ms.toFixed(3)} ms, p95 ${summary.native.p95Ms.toFixed(3)} ms, peak RSS ${report.native.peakRSSKiB} KiB (after import, before work: ${report.native.baselineMaxRSSKiB} KiB)`,
+    `native   p50 ${summary.native.p50Ms.toFixed(3)} ms, p95 ${summary.native.p95Ms.toFixed(3)} ms, marginal peak RSS ${report.native.marginalPeakRSSKiB} KiB (process peak ${report.native.peakRSSKiB} KiB minus post-import baseline ${report.native.baselineMaxRSSKiB} KiB)`,
     `ExifTool p50 ${summary.exiftool.p50Ms.toFixed(3)} ms, p95 ${summary.exiftool.p95Ms.toFixed(3)} ms, peak RSS ${report.exiftool.peakRSSKiB} KiB`,
     `median time ratio native/ExifTool: ${summary.timeRatio.toFixed(3)}`,
-    `peak RSS ratio native/ExifTool: ${summary.rssRatio.toFixed(3)}`,
+    `marginal peak RSS ratio native/ExifTool (verdict): ${summary.rssRatio.toFixed(3)}`,
+    `whole-process peak RSS ratio native/ExifTool (informative): ${summary.totalRssRatio.toFixed(3)}`,
     `verdict: ${summary.verdict.pass ? "pass" : `fail (${summary.verdict.failures.join("; ")})`}`,
   ];
   return `${lines.join("\n")}\n`;
@@ -534,6 +573,7 @@ module.exports = {
   SLACK_RATIO,
   computeVerdict,
   main,
+  marginalPeakRSS,
   median,
   openExifToolSession,
   parseArguments,

@@ -51,6 +51,8 @@ interface Verdict {
 interface Summary {
   timeRatio: number;
   rssRatio: number;
+  marginalPeakRSSKiB: number;
+  totalRssRatio: number;
   native: { p50Ms: number; p95Ms: number };
   exiftool: { p50Ms: number; p95Ms: number };
   verdict: Verdict;
@@ -61,8 +63,13 @@ const script = require(scriptPath) as {
   summarize(input: {
     files: { nativeMedianMs: number; exiftoolMedianMs: number }[];
     nativePeakRSSKiB: number;
+    nativeBaselineRSSKiB: number;
     exiftoolPeakRSSKiB: number;
   }): Summary;
+  marginalPeakRSS(input: {
+    nativePeakRSSKiB: number;
+    nativeBaselineRSSKiB: number;
+  }): number;
   parseDarwinTimeRSSKiB(stderr: string): number;
   parseVmHWMKiB(status: string): number;
   openExifToolSession(options: {
@@ -116,7 +123,9 @@ describe("native-vs-exiftool verdict rule (fixed before measuring)", () => {
     expect(time.failures).toEqual(["time ratio 0.900 > 0.90 (0.9001)"]);
     const rss = script.computeVerdict({ timeRatio: 0.9, rssRatio: 0.9001 });
     expect(rss.pass).toBe(false);
-    expect(rss.failures).toEqual(["peak RSS ratio 0.900 > 0.90 (0.9001)"]);
+    expect(rss.failures).toEqual([
+      "marginal peak RSS ratio 0.900 > 0.90 (0.9001)",
+    ]);
   });
 
   it("decides on the median per-file ratio, so a passing p95 cannot rescue a failing median", () => {
@@ -128,7 +137,8 @@ describe("native-vs-exiftool verdict rule (fixed before measuring)", () => {
         { nativeMedianMs: 10, exiftoolMedianMs: 10 },
         { nativeMedianMs: 50, exiftoolMedianMs: 100 },
       ],
-      nativePeakRSSKiB: 50,
+      nativePeakRSSKiB: 80,
+      nativeBaselineRSSKiB: 30,
       exiftoolPeakRSSKiB: 100,
     });
     // p95 over per-file medians: native 50 / ExifTool 100 = 0.5 would pass.
@@ -140,6 +150,61 @@ describe("native-vs-exiftool verdict rule (fixed before measuring)", () => {
     expect(summary.rssRatio).toBe(0.5);
     expect(summary.verdict.pass).toBe(false);
     expect(summary.verdict.failures).toEqual(["time ratio 1.000 > 0.90 (1)"]);
+  });
+});
+
+describe("native-vs-exiftool marginal peak RSS (maintainer decision 2026-10-03)", () => {
+  const passingTime = [{ nativeMedianMs: 5, exiftoolMedianMs: 10 }];
+
+  it("judges RSS on native's peak minus its post-import baseline, not the whole process", () => {
+    // The plan's darwin run: 84496 - 60176 = 24320 KiB against 43840 KiB.
+    const summary = script.summarize({
+      files: passingTime,
+      nativePeakRSSKiB: 84496,
+      nativeBaselineRSSKiB: 60176,
+      exiftoolPeakRSSKiB: 43840,
+    });
+    expect(summary.marginalPeakRSSKiB).toBe(24320);
+    expect(summary.rssRatio).toBeCloseTo(24320 / 43840, 12);
+    // Whole-process ratio stays in the report and would have failed.
+    expect(summary.totalRssRatio).toBeCloseTo(84496 / 43840, 12);
+    expect(summary.totalRssRatio).toBeGreaterThan(0.9);
+    expect(summary.verdict).toEqual({ pass: true, failures: [] });
+  });
+
+  it("negative control: a marginal peak above 0.90 of ExifTool's fails", () => {
+    const summary = script.summarize({
+      files: passingTime,
+      nativePeakRSSKiB: 160,
+      nativeBaselineRSSKiB: 69,
+      exiftoolPeakRSSKiB: 100,
+    });
+    expect(summary.marginalPeakRSSKiB).toBe(91);
+    expect(summary.rssRatio).toBe(0.91);
+    expect(summary.verdict.pass).toBe(false);
+    expect(summary.verdict.failures).toEqual([
+      "marginal peak RSS ratio 0.910 > 0.90 (0.91)",
+    ]);
+  });
+
+  it("passes a marginal peak at exactly 0.90", () => {
+    const summary = script.summarize({
+      files: passingTime,
+      nativePeakRSSKiB: 150,
+      nativeBaselineRSSKiB: 60,
+      exiftoolPeakRSSKiB: 100,
+    });
+    expect(summary.rssRatio).toBe(0.9);
+    expect(summary.verdict.pass).toBe(true);
+  });
+
+  it("refuses a baseline above the peak instead of reporting a negative margin", () => {
+    expect(() =>
+      script.marginalPeakRSS({
+        nativePeakRSSKiB: 100,
+        nativeBaselineRSSKiB: 101,
+      }),
+    ).toThrow(/not at or below its peak/u);
   });
 });
 
@@ -210,12 +275,23 @@ describe("native-vs-exiftool stay_open session", () => {
   });
 });
 
+interface CliReport {
+  native: {
+    peakRSSKiB: number;
+    baselineMaxRSSKiB: number;
+    marginalPeakRSSKiB: number;
+  };
+  exiftool: { peakRSSKiB: number };
+  summary: Summary;
+}
+
 describe("native-vs-exiftool cleanup", () => {
   async function runCli(
     env: Record<string, string>,
     whileRunning?: (pidFile: string) => Promise<NodeJS.Signals | undefined>,
   ) {
     return withTempDir(async (scratch) => {
+      const jsonPath = join(scratch, "report.json");
       const runTmp = join(scratch, "tmp");
       const pidFile = join(scratch, "fake.pid");
       await mkdir(runTmp);
@@ -231,6 +307,8 @@ describe("native-vs-exiftool cleanup", () => {
           corpusHeic,
           "--repeat",
           "1",
+          "--json",
+          jsonPath,
         ],
         {
           env: {
@@ -243,6 +321,9 @@ describe("native-vs-exiftool cleanup", () => {
         },
       );
       let stderr = "";
+      let stdout = "";
+      child.stdout.setEncoding("utf8");
+      child.stdout.on("data", (chunk: string) => (stdout += chunk));
       child.stderr.setEncoding("utf8");
       child.stderr.on("data", (chunk: string) => (stderr += chunk));
       const exited = new Promise<number | null>((resolve) =>
@@ -259,6 +340,10 @@ describe("native-vs-exiftool cleanup", () => {
       return {
         code,
         stderr,
+        stdout,
+        report: existsSync(jsonPath)
+          ? (JSON.parse(readFileSync(jsonPath, "utf8")) as CliReport)
+          : undefined,
         leftovers: await readdir(runTmp),
         fakePid,
       };
@@ -280,6 +365,36 @@ describe("native-vs-exiftool cleanup", () => {
       expect(result.leftovers).toEqual([]);
       expect(result.fakePid).toBeGreaterThan(0);
       expect(isAlive(result.fakePid as number)).toBe(false);
+    },
+    30_000,
+  );
+
+  it.skipIf(!supportedHost)(
+    "a full run against the fake ExifTool reports and judges the marginal native peak",
+    async () => {
+      const result = await runCli({});
+      expect([0, 3]).toContain(result.code);
+      expect(result.leftovers).toEqual([]);
+      expect(isAlive(result.fakePid as number)).toBe(false);
+      const report = result.report as CliReport;
+      expect(report.native.marginalPeakRSSKiB).toBe(
+        report.native.peakRSSKiB - report.native.baselineMaxRSSKiB,
+      );
+      expect(report.summary.marginalPeakRSSKiB).toBe(
+        report.native.marginalPeakRSSKiB,
+      );
+      expect(report.summary.rssRatio).toBe(
+        report.native.marginalPeakRSSKiB / report.exiftool.peakRSSKiB,
+      );
+      expect(report.summary.totalRssRatio).toBe(
+        report.native.peakRSSKiB / report.exiftool.peakRSSKiB,
+      );
+      expect(result.stdout).toContain(
+        "marginal peak RSS ratio native/ExifTool (verdict):",
+      );
+      expect(result.stdout).toContain(
+        "whole-process peak RSS ratio native/ExifTool (informative):",
+      );
     },
     30_000,
   );
