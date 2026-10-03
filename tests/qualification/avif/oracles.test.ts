@@ -27,6 +27,7 @@ import type { MetadataProjection } from "../kit/oracles.js";
 import { iccProfileV4 } from "../../fixtures.js";
 import {
   AVIF_PERMITTED_DIFFERENCES,
+  assertAvifOracleToolsAvailable,
   avifDifferentialProfile,
 } from "./oracles.js";
 
@@ -72,6 +73,7 @@ async function produceNativeOutput(
   sourceBytes: Buffer,
   preservation: Preservation,
 ): Promise<Buffer> {
+  assertAvifOracleToolsAvailable();
   const directory = await mkdtemp(join(tmpdir(), "exifcleaner-avif-oracles-"));
   try {
     const sourcePath = join(directory, "source.avif");

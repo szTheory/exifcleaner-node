@@ -27,6 +27,7 @@ import type { MetadataProjection } from "../kit/oracles.js";
 import { iccProfileV4 } from "../../fixtures.js";
 import {
   HEIC_PERMITTED_DIFFERENCES,
+  assertHeicOracleToolsAvailable,
   heicDifferentialProfile,
 } from "./oracles.js";
 
@@ -72,6 +73,7 @@ async function produceNativeOutput(
   sourceBytes: Buffer,
   preservation: Preservation,
 ): Promise<Buffer> {
+  assertHeicOracleToolsAvailable();
   const directory = await mkdtemp(join(tmpdir(), "exifcleaner-heic-oracles-"));
   try {
     const sourcePath = join(directory, "source.heic");

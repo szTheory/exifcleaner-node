@@ -1,5 +1,6 @@
 // AVIF ExifTool differential profile (D-27, QUA-01). Still unregistered (D-03) -- native output
 // is produced only through the `setRegisteredHandlersForTests` test seam.
+import { createRequire } from "node:module";
 import {
   isobmffPayloadDigests,
   isobmffRawColorProfileSha256,
@@ -7,6 +8,38 @@ import {
   type IsobmffPermittedDifference,
 } from "../../isobmff-support/differential.js";
 import type { DifferentialProfile } from "../kit/oracles.js";
+
+const require = createRequire(import.meta.url);
+const authorityBuilder =
+  require("../../../scripts/qualification/build-oracles.cjs") as AuthorityBuilder;
+
+interface PreparedOracleTools {
+  readonly dispose: () => void;
+}
+
+interface AuthorityBuilder {
+  readonly loadOrPrepareOracleTools: () => PreparedOracleTools;
+}
+
+let preparedTools: PreparedOracleTools | undefined;
+
+/** AVIF needs no format-specific oracle executable beyond the shared ExifTool authority
+ * `tests/isobmff-support/differential.ts` already drives via `kit/oracles.ts`'s own internal
+ * loader -- but KIT-09 D-04 requires every `oracles.ts` module to route through the one cached
+ * `loadOrPrepareOracleTools()` loader itself (never the raw per-process builder directly), so a
+ * per-process rebuild is never triggered twice across formats. `oracles.test.ts`'s live legs
+ * call this once before producing a native output, to fail fast on a missing/broken authority
+ * rather than inside the differential itself. */
+function tools(): PreparedOracleTools {
+  preparedTools ??= authorityBuilder.loadOrPrepareOracleTools();
+  return preparedTools;
+}
+
+process.once("exit", () => preparedTools?.dispose());
+
+export function assertAvifOracleToolsAvailable(): void {
+  tools();
+}
 
 export const AVIF_EXTENSION = ".avif";
 
