@@ -58,10 +58,14 @@ export const HEIC_BYTE_LAYOUT_MEASUREMENT_TITLE =
 export const HEIC_FREE_SKIP_MEASUREMENT_TITLE =
   "measures ExifTool keeping top-level free/skip as a permitted HEIC difference (62.1-05)";
 
+export const HEIC_AUXILIARY_ITEM_XMP_MEASUREMENT_TITLE =
+  "measures ExifTool keeping the iPhone gain-map auxiliary item's XMP as a permitted HEIC difference (62.1-09)";
+
 /**
- * The closed, five-entry HEIC permitted-difference list (D-27, D-15). Never widened, never
- * reordered to add a sixth entry -- a measured difference outside this list is a stop condition
- * for a maintainer decision, not something this list may absorb.
+ * The closed HEIC permitted-difference list (D-27, D-15): the five measured entries plus a sixth,
+ * `exiftool-keeps-auxiliary-item-xmp`, admitted by maintainer decision on 2026-10-03 (62.1-09)
+ * for the iPhone sample only. Never widened further without a maintainer decision -- a measured
+ * difference outside this list is a stop condition, not something this list may absorb.
  */
 export const HEIC_PERMITTED_DIFFERENCES: readonly IsobmffPermittedDifference[] =
   [
@@ -91,7 +95,70 @@ export const HEIC_PERMITTED_DIFFERENCES: readonly IsobmffPermittedDifference[] =
       measurement: HEIC_FREE_SKIP_MEASUREMENT_TITLE,
       docsHeading: "### ExifTool and top-level free/skip",
     },
+    {
+      id: "exiftool-keeps-auxiliary-item-xmp",
+      measurement: HEIC_AUXILIARY_ITEM_XMP_MEASUREMENT_TITLE,
+      docsHeading:
+        "### ExifTool 13.59 keeps the gain-map auxiliary item's XMP (62.1-09)",
+    },
   ];
+
+/**
+ * The three ExifTool unknown tags HEIC admits (maintainer decision 2026-10-03, 62.1-09), measured
+ * on the curated Nokia conformance records: ExifTool 13.59 reports their `ster`, `base` and
+ * top-level-meta `idat` boxes without a tag name. Admitted by
+ * exact key only, and only when the value is identical in source, native and reference
+ * (`compareAdmittedUnknownTags`). Any other unknown tag still fails closed.
+ */
+export const HEIC_ADMITTED_UNKNOWN_TAGS: readonly string[] = [
+  "QuickTime:Unknown_ster",
+  "QuickTime:Unknown_base",
+  "Meta:Unknown_idat",
+];
+
+/** A preservation setting the corpus legs run. */
+export type HeicCorpusSetting = "default" | "all-false";
+
+/**
+ * Corpus records whose default-settings native outcome is a measured fail-safe refusal rather
+ * than an output (maintainer decision 2026-10-03, 62.1-09). The record stays in scope: the
+ * refusal itself is asserted exactly, and every other setting still runs the full oracles.
+ */
+export const HEIC_DEFAULT_SETTINGS_REFUSALS: Readonly<
+  Record<
+    string,
+    {
+      readonly code: string;
+      readonly feature: string;
+      readonly detail: string;
+    }
+  >
+> = {
+  "nokia-heif-conformance-c034": {
+    code: "unsupported-feature",
+    feature: "orientation-preservation",
+    detail: "EXIF TIFF header is truncated",
+  },
+};
+
+/**
+ * Exact source-side ExifTool warnings admitted for one record and one setting only (maintainer
+ * decision 2026-10-03, 62.1-09). Reading c034's source Exif item, ExifTool warns `Missing Exif
+ * header` (measured); native's all-flags-false output and the `-all=` reference never warn.
+ */
+const HEIC_ADMITTED_SOURCE_WARNINGS: Readonly<
+  Record<string, Partial<Record<HeicCorpusSetting, readonly string[]>>>
+> = {
+  "nokia-heif-conformance-c034": { "all-false": ["Missing Exif header"] },
+};
+
+/** The exact source warnings `recordId` admits under `setting` (none unless listed above). */
+export function heicAdmittedSourceWarnings(
+  recordId: string,
+  setting: HeicCorpusSetting,
+): readonly string[] {
+  return HEIC_ADMITTED_SOURCE_WARNINGS[recordId]?.[setting] ?? [];
+}
 
 export const heicDifferentialProfile: DifferentialProfile = {
   format: "heic",
@@ -99,6 +166,7 @@ export const heicDifferentialProfile: DifferentialProfile = {
   rawColorProfileSha256: isobmffRawColorProfileSha256,
   permittedKinds: [],
   structuralParts: isobmffStructuralParts,
+  admittedUnknownTags: HEIC_ADMITTED_UNKNOWN_TAGS,
 };
 
 export const heicPayloadDigests = isobmffPayloadDigests;

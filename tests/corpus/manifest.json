@@ -2554,7 +2554,11 @@
           "sha256": "2e430e6c0f3522ecd12de620b0bb703e06b10847da9a06d33a13917b71a25dbd"
         }
       ],
-      "permittedDifferences": []
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs"
+      ]
     },
     {
       "id": "heif-enc-grid-avif",
@@ -2600,7 +2604,11 @@
           "sha256": "c4d0f75828fc73c4d0c7af35e8e50d35451d9100112c12c9bf04d9bdf7ad847e"
         }
       ],
-      "permittedDifferences": []
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs"
+      ]
     },
     {
       "id": "c2pa-signed-heic",
@@ -2626,7 +2634,11 @@
           "sha256": "84b930ddf47969e13511b7f2800774960de20951f0bad5ef8c230f951e31e913"
         }
       ],
-      "permittedDifferences": []
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs"
+      ]
     },
     {
       "id": "c2pa-signed-avif",
@@ -2652,7 +2664,11 @@
           "sha256": "a8adf3017fa6c286130a09510706b9c4c0ea5e148a5f804e7ee2c02a3b66688a"
         }
       ],
-      "permittedDifferences": []
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs"
+      ]
     },
     {
       "id": "link-u-plum-blossom-small-8bpc",
@@ -2842,7 +2858,10 @@
           "sha256": "97452513df44aca051ff6bf0ff911cccdc2af356d076a65d8719c80e5ce5fbf7"
         }
       ],
-      "permittedDifferences": []
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "byte-layout-differs"
+      ]
     },
     {
       "id": "nokia-heif-conformance-c053",
@@ -3331,7 +3350,13 @@
           "sha256": "c26da72708fdbf180e20f4465f64a51a92ed28bcd0d39c18cc7cf816ea9dd3c9"
         }
       ],
-      "permittedDifferences": []
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-keeps-icc-when-not-preserving",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs",
+        "exiftool-keeps-auxiliary-item-xmp"
+      ]
     }
   ],
   "benchmarks": {

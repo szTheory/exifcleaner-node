@@ -34,14 +34,19 @@ function sha256(value: Buffer): string {
  * compares raw output bytes between native and reference, only structure and metadata tags, so a
  * byte-layout difference (e.g. the `exif_tiff_header_offset` prefix) is never itself a failure
  * mode; (e) ExifTool keeps top-level `free`/`skip` boxes (byte-identical, relocated before `mdat`)
- * while native drops them wherever they sit (D-14).
+ * while native drops them wherever they sit (D-14). A sixth id, HEIC-only and listed per record
+ * (maintainer decision 2026-10-03, 62.1-09): (f) ExifTool `-all=` keeps the XMP item describing
+ * an auxiliary image (the iPhone HDR gain map's `cdsc` XMP) while native removes it -- explained
+ * only for reference-only XMP entries that the reference's own auxiliary-item XMP carries, never
+ * for XMP native keeps and the reference drops.
  */
 export type IsobmffPermittedDifferenceId =
   | "exiftool-keeps-emptied-metadata-entries"
   | "exiftool-keeps-icc-when-not-preserving"
   | "exiftool-minimal-exif-ycbcr-positioning"
   | "byte-layout-differs"
-  | "exiftool-keeps-free-skip";
+  | "exiftool-keeps-free-skip"
+  | "exiftool-keeps-auxiliary-item-xmp";
 
 export interface IsobmffPermittedDifference {
   readonly id: IsobmffPermittedDifferenceId;
@@ -170,6 +175,39 @@ export function isobmffPayloadDigests(bytes: Buffer): readonly PayloadDigest[] {
     digests.push({ part: item.type, sha256: sha256(payload) });
   }
   return digests;
+}
+
+const XMP_CONTENT_TYPE = "application/rdf+xml";
+
+/**
+ * The `mime` XMP items (`application/rdf+xml`) whose every `cdsc` target is an auxiliary image
+ * (the `from` item of an `auxl` reference), in item order -- entry (f)'s scope. An XMP item that
+ * also describes, or only describes, a non-auxiliary item is never returned. Each returned
+ * payload is the item's own non-empty extent bytes.
+ */
+export function isobmffAuxiliaryItemXmpPayloads(
+  bytes: Buffer,
+): readonly Buffer[] {
+  const inventory = inventoryIsobmff(bytes);
+  const auxiliaryItems = new Set(
+    inventory.references
+      .filter((reference) => reference.type === "auxl")
+      .map((reference) => reference.from),
+  );
+  const payloads: Buffer[] = [];
+  for (const item of inventory.items) {
+    if (item.type !== "mime" || item.contentType !== XMP_CONTENT_TYPE) continue;
+    const targets = inventory.references
+      .filter((reference) => reference.type === "cdsc")
+      .filter((reference) => reference.from === item.id)
+      .flatMap((reference) => reference.to);
+    if (targets.length === 0) continue;
+    if (!targets.every((target) => auxiliaryItems.has(target))) continue;
+    if (item.extents.length === 0) continue;
+    const payload = readItemExtentBytes(bytes, inventory, item);
+    if (payload.length > 0) payloads.push(payload);
+  }
+  return payloads;
 }
 
 /**
@@ -359,6 +397,19 @@ export interface IsobmffMetadataComparisonOptions {
    * a `QuickTime:Free` / `QuickTime:Skip` tag (measured 62.1-05); exactly that many reference-only
    * reports of each are explained, never more and never native-only. Defaults to none. */
   readonly referenceFreeSkip?: readonly IsobmffFreeSkipBox[];
+  /** Entry (f): the XMP-namespace entries ExifTool projects from the reference's own
+   * auxiliary-item XMP payloads (`isobmffAuxiliaryItemXmpPayloads`). Reference-only XMP entries
+   * are explained only as a sub-multiset of these, and only while native has no XMP entry the
+   * reference lacks. Defaults to none. */
+  readonly auxiliaryItemXmp?: readonly MetadataEntry[];
+}
+
+/** Pure: true when every entry of `subset` is matched by a distinct equal entry of `superset`. */
+function isSubMultiset(
+  subset: readonly MetadataEntry[],
+  superset: readonly MetadataEntry[],
+): boolean {
+  return multisetDiffEntries(subset, superset).onlyLeft.length === 0;
 }
 
 const FREE_SKIP_REPORT_TAGS = { free: "Free", skip: "Skip" } as const;
@@ -435,6 +486,12 @@ export function compareIsobmffMetadataNamespaces(
         const keys = Object.keys(entry);
         return keys.length === 1 && keys[0] === "YCbCrPositioning";
       })
+    ) {
+      continue;
+    }
+    if (
+      namespace === "XMP" &&
+      isSubMultiset(onlyRight, options.auxiliaryItemXmp ?? [])
     ) {
       continue;
     }
@@ -535,6 +592,133 @@ export interface IsobmffDifferentialOptions {
   readonly preserveOrientation: boolean;
   readonly preserveColorProfile: boolean;
   readonly preserveResolution: boolean;
+  /** 62.1-09 (QUA-01 on the corpus): when supplied, the closed-list entries this case may use.
+   * Every entry the comparison actually needed must be listed here, or the case throws
+   * `Unlisted permitted difference: <id>`. Omitted (the 62.1-05 synthetic legs): the five D-27
+   * entries apply; entry (f) applies only when explicitly listed. */
+  readonly permittedDifferences?: readonly IsobmffPermittedDifferenceId[];
+  /** 62.1-09 (maintainer decision 2026-10-03): exact ExifTool warning texts this one case admits
+   * on the SOURCE projection only. Each listed text must actually be emitted by the source; any
+   * other source warning, and every native or reference warning, still throws `Oracle warning is
+   * not permitted`. Omitted: no warning is admitted. */
+  readonly admittedSourceWarnings?: readonly string[];
+}
+
+/**
+ * Pure: the oracle-warning rule. Native and reference warnings are never permitted; a source
+ * warning is permitted only when its exact text is in `admittedSourceWarnings`, and every
+ * admitted text must actually occur (a stale admission throws).
+ */
+export function assertIsobmffOracleWarnings(
+  source: MetadataProjection,
+  others: readonly MetadataProjection[],
+  admittedSourceWarnings: readonly string[] = [],
+): void {
+  if (others.some((projection) => projection.warnings.length > 0))
+    throw new Error("Oracle warning is not permitted");
+  const admitted = new Set(admittedSourceWarnings);
+  if (source.warnings.some((warning) => !admitted.has(warning)))
+    throw new Error("Oracle warning is not permitted");
+  const stale = admittedSourceWarnings.find(
+    (warning) => !source.warnings.includes(warning),
+  );
+  if (stale !== undefined)
+    throw new Error(`Stale admitted source warning: ${stale}`);
+}
+
+/** The closed-list entries one comparison actually needed, in closed-list order. */
+export type IsobmffDifferentialUsage = readonly IsobmffPermittedDifferenceId[];
+
+const PERMITTED_DIFFERENCE_ORDER: readonly IsobmffPermittedDifferenceId[] = [
+  "exiftool-keeps-emptied-metadata-entries",
+  "exiftool-keeps-icc-when-not-preserving",
+  "exiftool-minimal-exif-ycbcr-positioning",
+  "byte-layout-differs",
+  "exiftool-keeps-free-skip",
+  "exiftool-keeps-auxiliary-item-xmp",
+];
+
+const DEFAULT_PERMITTED_DIFFERENCES: readonly IsobmffPermittedDifferenceId[] =
+  PERMITTED_DIFFERENCE_ORDER.filter(
+    (id) => id !== "exiftool-keeps-auxiliary-item-xmp",
+  );
+
+function layoutDescriptorEntries(
+  projection: MetadataProjection,
+): readonly MetadataEntry[] {
+  return (projection.namespaces[LAYOUT_DESCRIPTOR_NAMESPACE] ?? []).filter(
+    isLayoutDescriptor,
+  );
+}
+
+/**
+ * Pure: which closed-list entries a comparison that already passed actually needed. (a) a
+ * reference-only `infe:Exif`/`infe:mime` part; (b) differing raw ICC digests; (c) the EXIF
+ * comparison fails without the `YCbCrPositioning` allowance; (d) the layout descriptors' values
+ * differ; (e) the reference keeps top-level free/skip boxes; (f) the reference keeps XMP entries
+ * native lacks (already proven a sub-multiset of the reference's auxiliary-item XMP), and a
+ * reference-only `infe:mime` that is such a kept item is attributed to (f), not (a).
+ */
+function neededPermittedDifferences(inputs: {
+  readonly outputMeta: MetadataProjection & IsobmffIccComparisonInputs;
+  readonly referenceMeta: MetadataProjection & IsobmffIccComparisonInputs;
+  readonly outputParts: readonly string[];
+  readonly referenceParts: readonly string[];
+  readonly referenceFreeSkip: readonly IsobmffFreeSkipBox[];
+  readonly allowYCbCrPositioningCompanion: boolean;
+  readonly outputAuxiliaryXmpItems: number;
+  readonly referenceAuxiliaryXmpItems: number;
+  readonly auxiliaryItemXmp: readonly MetadataEntry[];
+}): IsobmffDifferentialUsage {
+  const needed = new Set<IsobmffPermittedDifferenceId>();
+  const { onlyRight } = multisetDiffStrings(
+    inputs.outputParts,
+    inputs.referenceParts,
+  );
+  // A reference-only `infe:mime` that is a kept auxiliary-item XMP item is entry (f)'s, not (a)'s.
+  const keptAuxiliaryXmpItems = Math.max(
+    0,
+    inputs.referenceAuxiliaryXmpItems - inputs.outputAuxiliaryXmpItems,
+  );
+  const referenceOnlyMime = onlyRight.filter(
+    (part) => part === "infe:mime",
+  ).length;
+  if (
+    onlyRight.includes("infe:Exif") ||
+    referenceOnlyMime > keptAuxiliaryXmpItems
+  )
+    needed.add("exiftool-keeps-emptied-metadata-entries");
+  const xmp = multisetDiffEntries(
+    inputs.outputMeta.namespaces.XMP ?? [],
+    inputs.referenceMeta.namespaces.XMP ?? [],
+  );
+  if (xmp.onlyRight.length > 0) needed.add("exiftool-keeps-auxiliary-item-xmp");
+  if (inputs.outputMeta.rawIccSha256 !== inputs.referenceMeta.rawIccSha256)
+    needed.add("exiftool-keeps-icc-when-not-preserving");
+  if (inputs.allowYCbCrPositioningCompanion) {
+    try {
+      compareIsobmffMetadataNamespaces(
+        inputs.outputMeta,
+        inputs.referenceMeta,
+        {
+          allowYCbCrPositioningCompanion: false,
+          referenceFreeSkip: inputs.referenceFreeSkip,
+          auxiliaryItemXmp: inputs.auxiliaryItemXmp,
+        },
+      );
+    } catch {
+      needed.add("exiftool-minimal-exif-ycbcr-positioning");
+    }
+  }
+  const layout = multisetDiffEntries(
+    layoutDescriptorEntries(inputs.outputMeta),
+    layoutDescriptorEntries(inputs.referenceMeta),
+  );
+  if (layout.onlyLeft.length > 0 || layout.onlyRight.length > 0)
+    needed.add("byte-layout-differs");
+  if (inputs.referenceFreeSkip.length > 0)
+    needed.add("exiftool-keeps-free-skip");
+  return PERMITTED_DIFFERENCE_ORDER.filter((id) => needed.has(id));
 }
 
 /**
@@ -542,19 +726,23 @@ export interface IsobmffDifferentialOptions {
  * fresh `-all=` reference (requesting `-TagsFromFile` re-derivation of exactly the tags the
  * caller's preservation flags grant, mirroring what the app's own ExifTool-path preservation
  * would ask for), then runs every pure comparison above plus the free/skip byte-identity check.
- * Throws on the first unpermitted difference found; returns (no value) when every observed
- * difference is explained by one of the five D-27 entries.
+ * Throws on the first unpermitted difference found; returns the closed-list entries the case
+ * needed when every observed difference is explained by one of the five D-27 entries (62.1-09:
+ * restricted to `permittedDifferences` when supplied).
  */
 export function runIsobmffDifferential(
   options: IsobmffDifferentialOptions,
-): void {
+): IsobmffDifferentialUsage {
   validateInput(options.caseId, options.source);
   validateInput(options.caseId, options.output);
 
   const sourceMeta = projectMetadata(options.source, options.profile);
   const outputMeta = projectMetadata(options.output, options.profile);
-  if (sourceMeta.warnings.length > 0 || outputMeta.warnings.length > 0)
-    throw new Error("Oracle warning is not permitted");
+  assertIsobmffOracleWarnings(
+    sourceMeta,
+    [outputMeta],
+    options.admittedSourceWarnings,
+  );
 
   const tagsFromFileArgs: string[] = [];
   if (options.preserveOrientation) tagsFromFileArgs.push("-Orientation");
@@ -578,9 +766,20 @@ export function runIsobmffDifferential(
   const referenceFreeSkip = isobmffFreeSkipBoxes(referenceBytes);
   compareIsobmffFreeSkip(sourceFreeSkip, outputFreeSkip, referenceFreeSkip);
 
+  const referenceAuxiliaryXmp = isobmffAuxiliaryItemXmpPayloads(referenceBytes);
+  const auxiliaryItemXmp = referenceAuxiliaryXmp.flatMap(
+    (payload) =>
+      projectMetadata(payload, {
+        ...options.profile,
+        extension: ".xmp",
+        rawColorProfileSha256: () => undefined,
+        admittedUnknownTags: [],
+      }).namespaces.XMP ?? [],
+  );
   compareIsobmffMetadataNamespaces(outputMeta, referenceMeta, {
     allowYCbCrPositioningCompanion: tagsFromFileArgs.length > 0,
     referenceFreeSkip,
+    auxiliaryItemXmp,
   });
   compareIsobmffIccProfile(
     sourceMeta,
@@ -597,4 +796,24 @@ export function runIsobmffDifferential(
     isobmffPayloadDigests(options.output),
     isobmffPayloadDigests(referenceBytes),
   );
+
+  const used = neededPermittedDifferences({
+    outputMeta,
+    referenceMeta,
+    outputParts,
+    referenceParts,
+    referenceFreeSkip,
+    allowYCbCrPositioningCompanion: tagsFromFileArgs.length > 0,
+    outputAuxiliaryXmpItems: isobmffAuxiliaryItemXmpPayloads(options.output)
+      .length,
+    referenceAuxiliaryXmpItems: referenceAuxiliaryXmp.length,
+    auxiliaryItemXmp,
+  });
+  const listed = new Set(
+    options.permittedDifferences ?? DEFAULT_PERMITTED_DIFFERENCES,
+  );
+  const unlisted = used.find((id) => !listed.has(id));
+  if (unlisted !== undefined)
+    throw new Error(`Unlisted permitted difference: ${unlisted}`);
+  return used;
 }

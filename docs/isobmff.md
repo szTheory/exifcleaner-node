@@ -1082,6 +1082,43 @@ fail-closed rule rejects any tag whose name contains `unknown`, so every live AV
 over a grid (idat-carrying) source stops at "ExifTool oracle found an unknown tag" before any
 comparison runs. The synthetic AVIF (no `idat`) live leg is unaffected.
 
+### ExifTool 13.59 keeps the gain-map auxiliary item's XMP (62.1-09)
+
+HEIC-only sixth permitted-difference entry (f), `exiftool-keeps-auxiliary-item-xmp`, admitted by
+maintainer decision on 2026-10-03 and listed on the iPhone 13 Pro Max corpus record only.
+
+Measured in the 62.1-09 linux/amd64 container (ExifTool 13.59 from the KIT-09 authority) on the
+iPhone sample: its `mime` XMP item 52 (`application/rdf+xml`) is linked by `cdsc` to item 51, the
+`auxl` HDR gain-map auxiliary image (`urn:com:apple:photo:2020:aux:hdrgainmap`). ExifTool `-all=`
+keeps that item and its content, so the reference projects `XMP: HDRGainMapVersion=65536` and
+`XMPToolkit=XMP Core 6.0.0` (and one more `infe:mime`), while native removes the item. Every other
+namespace matches. Render check (`.planning/seeds/SEED-004-iphone-hdr-gain-map-loss.md`, macOS
+ImageIO/CoreImage): native and reference render identically (`contentHeadroom` 1.0, max linear
+1.26978, 153 px > 1.0), so the difference is render-neutral.
+
+Scope, enforced by `compareIsobmffMetadataNamespaces` and `isobmffAuxiliaryItemXmpPayloads`:
+
+- Only XMP items whose every `cdsc` target is an `auxl` auxiliary image count; XMP describing the
+  primary or any other item does not.
+- Reference-only XMP entries are explained only as a sub-multiset of what ExifTool projects from
+  those auxiliary-item XMP payloads; anything else is still `Over-strip: XMP`.
+- Native must have strictly less: XMP native keeps and the reference drops is still
+  `Unpermitted metadata difference: XMP`.
+- The kept item's reference-only `infe:mime` is attributed to (f), not to entry (a).
+
+### HEIC corpus records needing a maintainer decision (62.1-09)
+
+- **Unknown tags.** On the curated Nokia conformance records ExifTool 13.59 reports
+  `QuickTime:Unknown_ster`, `QuickTime:Unknown_base` and `Meta:Unknown_idat`. The HEIC profile
+  admits exactly these three by key (the same `admittedUnknownTags` hook AVIF uses for
+  `Meta:Unknown_idat`); each must carry an identical value in source, native and reference.
+- **c034.** Under default settings native refuses
+  `unsupported-feature` / `orientation-preservation` / "EXIF TIFF header is truncated" at
+  admission (a fail-safe refusal, pinned as the expected outcome). Under all flags false native
+  writes an output, and ExifTool warns `Missing Exif header` reading the source only; that exact
+  text is admitted for that record and setting only. Native and reference warnings are never
+  admitted.
+
 ## Classification lists (QUA-02)
 
 The closed lists every box, item and property type is classified against (D-28, 62.1-06). The

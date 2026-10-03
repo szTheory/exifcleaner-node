@@ -23,7 +23,17 @@ import {
   isobmffFreeSkipBoxes,
   runIsobmffDifferential,
   type IsobmffFreeSkipBox,
+  type IsobmffPermittedDifferenceId,
 } from "../../isobmff-support/differential.js";
+import {
+  downloadGate,
+  tracerRecords,
+} from "../../isobmff-support/corpus-tracer.js";
+import {
+  loadCorpusRecord,
+  materializeRecord,
+  type CorpusRecord,
+} from "../kit/corpus.js";
 import {
   compareAdmittedUnknownTags,
   projectExiftoolRecord,
@@ -31,6 +41,7 @@ import {
   type MetadataProjection,
 } from "../kit/oracles.js";
 import { iccProfileV4 } from "../../fixtures.js";
+import { heicDifferentialProfile } from "../heic/oracles.js";
 import {
   AVIF_ADMITTED_UNKNOWN_IDAT_TAG,
   AVIF_PERMITTED_DIFFERENCES,
@@ -580,7 +591,7 @@ describe("AVIF differential (62.1-05)", () => {
         ).toThrow("ExifTool oracle found an unknown tag");
       });
 
-      it("no other format's differential profile declares an admitted unknown tag", () => {
+      it("no other format's differential profile declares an admitted unknown tag (HEIC: exactly its three, 62.1-09)", () => {
         const qualificationDir = join(
           dirname(fileURLToPath(import.meta.url)),
           "..",
@@ -588,11 +599,134 @@ describe("AVIF differential (62.1-05)", () => {
         expect(
           readFileSync(join(qualificationDir, "avif", "oracles.ts"), "utf8"),
         ).toContain("admittedUnknownTags:");
-        for (const format of ["png", "jpeg", "webp", "heic"])
+        // Maintainer decision 2026-10-03 (62.1-09): HEIC admits exactly ster, base and idat.
+        expect(heicDifferentialProfile.admittedUnknownTags).toEqual([
+          "QuickTime:Unknown_ster",
+          "QuickTime:Unknown_base",
+          "Meta:Unknown_idat",
+        ]);
+        for (const format of ["png", "jpeg", "webp"])
           expect(
             readFileSync(join(qualificationDir, format, "oracles.ts"), "utf8"),
           ).not.toContain("admittedUnknownTags");
       });
     });
   });
+});
+
+/** Sanitizes `source` through the registered engine (62.1-07 registered `avifHandler`), with
+ * `preservation` applied -- the corpus legs below never use the test seam. */
+async function sanitizeRegistered(
+  source: Buffer,
+  preservation: Preservation,
+): Promise<Buffer> {
+  assertAvifOracleToolsAvailable();
+  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-avif-corpus-"));
+  try {
+    const sourcePath = join(directory, "source.avif");
+    const destinationPath = join(directory, "destination.avif");
+    await writeFile(sourcePath, source);
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      ...preservation,
+    });
+    if (!result.ok) throw new Error(`sanitizeRegistered: ${result.error.code}`);
+    return await readFile(destinationPath);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+const AVIF_CLOSED_IDS: ReadonlySet<string> = new Set(
+  AVIF_PERMITTED_DIFFERENCES.map((entry) => entry.id),
+);
+
+function closedListed(
+  record: CorpusRecord,
+): readonly IsobmffPermittedDifferenceId[] {
+  for (const id of record.permittedDifferences) {
+    if (!AVIF_CLOSED_IDS.has(id))
+      throw new Error(`${record.id}: ${id} is not in the AVIF closed list`);
+  }
+  return record.permittedDifferences as readonly IsobmffPermittedDifferenceId[];
+}
+
+/** Runs the differential for default settings and all flags false with exactly the record's
+ * listed entries; returns the union of entries the two runs needed. */
+async function runCorpusDifferential(
+  record: CorpusRecord,
+  permitted: readonly IsobmffPermittedDifferenceId[],
+): Promise<ReadonlySet<IsobmffPermittedDifferenceId>> {
+  const source = await materializeRecord(record);
+  const used = new Set<IsobmffPermittedDifferenceId>();
+  for (const [label, preservation] of [
+    ["default", DEFAULT_PRESERVATION],
+    ["all-false", ALL_FALSE_PRESERVATION],
+  ] as const) {
+    const output = await sanitizeRegistered(source, preservation);
+    const needed = runIsobmffDifferential({
+      caseId: `${record.id}-${label}`,
+      profile: avifDifferentialProfile,
+      source,
+      output,
+      preserveOrientation: preservation.preserveOrientation,
+      preserveColorProfile: preservation.preserveColorProfile,
+      preserveResolution: preservation.preserveResolution,
+      permittedDifferences: permitted,
+    });
+    for (const id of needed) used.add(id);
+  }
+  return used;
+}
+
+describe("AVIF corpus differential (62.1-09)", () => {
+  const admitted = tracerRecords("avif").filter(
+    (record) => record.outcome.status === "success",
+  );
+
+  it("iterates every admitted AVIF corpus record, each listing only closed-list entries", async () => {
+    expect(admitted.map((record) => record.id)).toContain("heif-enc-grid-avif");
+    expect(admitted.map((record) => record.id)).toContain("c2pa-signed-avif");
+    for (const tracer of admitted)
+      closedListed(await loadCorpusRecord(tracer.id));
+  });
+
+  for (const tracer of admitted) {
+    const gate = downloadGate(tracer);
+    if (gate.kind === "fail") {
+      it(`${tracer.id}: download-only record needs the fetch cache in CI`, () => {
+        throw new Error(gate.reason);
+      });
+      continue;
+    }
+    if (gate.kind === "skip") {
+      console.warn(`skipping ${gate.reason}`);
+      it.skip(`${tracer.id}: download-only (no local fetch cache)`, () => {});
+      continue;
+    }
+    it.runIf(LINUX_X64)(
+      `${tracer.id}: passes the ExifTool differential (default and all flags false) with exactly its listed entries`,
+      async () => {
+        const record = await loadCorpusRecord(tracer.id);
+        const listed = closedListed(record);
+        const used = await runCorpusDifferential(record, listed);
+        // Listed only when needed: no stale entry may sit in the record.
+        expect([...used].sort()).toEqual([...listed].sort());
+      },
+      180_000,
+    );
+  }
+
+  it.runIf(LINUX_X64)(
+    "an empty permittedDifferences list fails a record whose output needs an entry (the per-record list is load-bearing)",
+    async () => {
+      const record = await loadCorpusRecord("heif-enc-grid-avif");
+      expect(record.permittedDifferences.length).toBeGreaterThan(0);
+      await expect(runCorpusDifferential(record, [])).rejects.toThrow(
+        /^Unlisted permitted difference: /,
+      );
+    },
+    180_000,
+  );
 });
