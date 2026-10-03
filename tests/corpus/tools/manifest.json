@@ -18,12 +18,8 @@
         "member": "libwebp-1.5.0/COPYING",
         "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf"
       },
-      "platforms": [
-        "linux"
-      ],
-      "architectures": [
-        "x64"
-      ],
+      "platforms": ["linux"],
+      "architectures": ["x64"],
       "versionProbe": {
         "member": "libwebp-1.5.0/configure",
         "sha256": "77fd17ae46865852e867e86f8aeef090f9dee5eff86731bfe2fe87684f37fc16",
@@ -63,12 +59,8 @@
         "member": "Image-ExifTool-13.59/README",
         "sha256": "e13005e5431c89910feba2309710d844f1bf4fd97df1236284e6475161bc14da"
       },
-      "platforms": [
-        "linux"
-      ],
-      "architectures": [
-        "x64"
-      ],
+      "platforms": ["linux"],
+      "architectures": ["x64"],
       "versionProbe": {
         "member": "Image-ExifTool-13.59/lib/Image/ExifTool.pm",
         "sha256": "95fa4ec3cc3603866dd6e37bfe52ad019ff50a23bbd5cc87ce40f949cf49a508",
@@ -101,12 +93,8 @@
         "member": "libpng-1.6.58/LICENSE",
         "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526"
       },
-      "platforms": [
-        "linux"
-      ],
-      "architectures": [
-        "x64"
-      ],
+      "platforms": ["linux"],
+      "architectures": ["x64"],
       "versionProbe": {
         "member": "libpng-1.6.58/png.h",
         "sha256": "81501c268ec5c3dc79efc6ac9fddb63b22a25e4931360ddd7b29b1744d6cb6b8",
@@ -139,12 +127,8 @@
         "member": "pngcheck-4.0.1/LICENSE",
         "sha256": "137951967c258cdbed01d0af67317236244ef6c750bef9e5a7020098e53b1445"
       },
-      "platforms": [
-        "linux"
-      ],
-      "architectures": [
-        "x64"
-      ],
+      "platforms": ["linux"],
+      "architectures": ["x64"],
       "versionProbe": {
         "member": "pngcheck-4.0.1/pngcheck.c",
         "sha256": "728e82da1e26bcd2142bec2162e908b39dd4b3bbcf6145e2af264114be625dd2",
@@ -177,12 +161,8 @@
         "member": "libjpeg-turbo-3.2.0/LICENSE.md",
         "sha256": "ba6bceebcba0fdd35488477c2cca8c4632ce82c74dbfbc87d886ce6fc4433579"
       },
-      "platforms": [
-        "linux"
-      ],
-      "architectures": [
-        "x64"
-      ],
+      "platforms": ["linux"],
+      "architectures": ["x64"],
       "versionProbe": {
         "member": "libjpeg-turbo-3.2.0/CMakeLists.txt",
         "sha256": "2dbbf2b215dce634c3c5dd383311937733b69e6699e4868e3a6e257700aa3ff6",
@@ -229,12 +209,8 @@
         "member": "libheif-1.23.5/COPYING",
         "sha256": "fa81ce652315b013359d6e8e4744335f31a50c7c192907176d3632f78a3b4596"
       },
-      "platforms": [
-        "linux"
-      ],
-      "architectures": [
-        "x64"
-      ],
+      "platforms": ["linux"],
+      "architectures": ["x64"],
       "versionProbe": {
         "member": "libheif-1.23.5/CMakeLists.txt",
         "sha256": "0e2b6461f5dfd04fe4971d9f06aa96ea83cb444a721b9e2883a8c7278e5eacf8",
@@ -267,12 +243,8 @@
         "member": "libde265-1.1.3/COPYING",
         "sha256": "02cc1585a20677992e0ba578fa692635dc193735f2691dc81de924b51c4e8020"
       },
-      "platforms": [
-        "linux"
-      ],
-      "architectures": [
-        "x64"
-      ],
+      "platforms": ["linux"],
+      "architectures": ["x64"],
       "versionProbe": {
         "member": "libde265-1.1.3/CMakeLists.txt",
         "sha256": "09a1a2116c77676dd328448c6d248dba9090c5951e66b7cb2432e277faba635c",
@@ -310,12 +282,8 @@
         "member": "libaom-3.15.1/PATENTS",
         "sha256": "661fb8e504744e95587b556b94a58343448300606a41bea8c7a9b97125696e61"
       },
-      "platforms": [
-        "linux"
-      ],
-      "architectures": [
-        "x64"
-      ],
+      "platforms": ["linux"],
+      "architectures": ["x64"],
       "versionProbe": {
         "member": "libaom-3.15.1/CMakeLists.txt",
         "sha256": "35a75892cb1b36da5f2d38da5fa650c069c65a77a537cb8bce9f9281ffb8ebeb",
