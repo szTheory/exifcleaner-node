@@ -183,6 +183,15 @@ export interface HeifDecodeCompareOptions {
    * comparison -- every real caller omits this option.
    */
   readonly primaryOnly?: boolean;
+  /**
+   * 62.1-09 (maintainer decision 2026-10-03): the exact preserveColorProfile-false expectation.
+   * Every field of every image must still be equal except `icc`, which must go true -> false on
+   * exactly the images whose source decode reports ICC and stay false everywhere else. The source
+   * must report ICC on at least one image, so the mode never applies vacuously. Any pixel-hash or
+   * other header change, an ICC kept where removal was expected, or an ICC appearing where the
+   * source had none still throws.
+   */
+  readonly expectIccRemoved?: boolean;
 }
 
 function selectImages(
@@ -196,28 +205,30 @@ function selectImages(
 }
 
 /**
- * Compares two whole-graph decode transcripts of `source` and `output` for exact equality: the
- * same decode outcome, then the same ordered image list -- role, item ID, header fields (width,
- * height, chroma, bit depth, alpha, nclx, ICC presence) and plane hash, in that order. ICC
- * presence is compared as its own field (so an ICC-presence regression is still caught) but is
- * never part of what `planesSha256` hashes (D-23) -- the pixel hash and the ICC-presence flag are
- * always independent facts about an image.
+ * Pure: compares two whole-graph decode transcripts for exact equality -- the same decode
+ * outcome, then the same ordered image list: role, item ID, header fields (width, height, chroma,
+ * bit depth, alpha, nclx, ICC presence) and plane hash. ICC presence is its own field and never
+ * part of what `planesSha256` hashes (D-23). With `expectIccRemoved`, `icc` must instead be false
+ * on every output image and true on at least one source image; every other field stays exact.
  *
- * Throws, naming the first image whose fields disagree (by its role and item ID), or naming the
- * index where the two image lists diverge in length, or naming a decode-outcome mismatch when the
- * two inputs do not even agree on whether they decoded at all (`options` has no effect on the
- * outcome check -- a rejected transcript always compares unequal to a decoded one).
+ * Throws, naming the first image whose fields disagree (by its role and item ID), or the index
+ * where the two image lists diverge in length, or a decode-outcome mismatch (`options` has no
+ * effect on the outcome check -- a rejected transcript always compares unequal to a decoded one).
  */
-export function compareHeifDecodes(
-  source: Buffer,
-  output: Buffer,
+export function compareHeifTranscripts(
+  sourceTranscript: HeifGraphTranscript,
+  outputTranscript: HeifGraphTranscript,
   options?: HeifDecodeCompareOptions,
 ): void {
-  const sourceTranscript = decodeHeifGraph(source);
-  const outputTranscript = decodeHeifGraph(output);
   if (sourceTranscript.outcome !== outputTranscript.outcome) {
     throw new Error(
       `compareHeifDecodes: decode outcome differs: source=${sourceTranscript.outcome} output=${outputTranscript.outcome}`,
+    );
+  }
+  const expectIccRemoved = options?.expectIccRemoved === true;
+  if (expectIccRemoved && !sourceTranscript.images.some((image) => image.icc)) {
+    throw new Error(
+      "compareHeifDecodes: expectIccRemoved, but the source reports no ICC on any image",
     );
   }
 
@@ -234,6 +245,9 @@ export function compareHeifDecodes(
         })`,
       );
     }
+    const iccMatches = expectIccRemoved
+      ? right.icc === false
+      : left.icc === right.icc;
     if (
       left.role !== right.role ||
       left.itemId !== right.itemId ||
@@ -243,7 +257,7 @@ export function compareHeifDecodes(
       left.bitDepth !== right.bitDepth ||
       left.alpha !== right.alpha ||
       left.nclx !== right.nclx ||
-      left.icc !== right.icc ||
+      !iccMatches ||
       left.planesSha256 !== right.planesSha256
     ) {
       throw new Error(
@@ -251,4 +265,20 @@ export function compareHeifDecodes(
       );
     }
   }
+}
+
+/**
+ * Decodes `source` and `output` with the libheif oracle and compares the two transcripts with
+ * `compareHeifTranscripts` (see there for the exact rule and `options`).
+ */
+export function compareHeifDecodes(
+  source: Buffer,
+  output: Buffer,
+  options?: HeifDecodeCompareOptions,
+): void {
+  compareHeifTranscripts(
+    decodeHeifGraph(source),
+    decodeHeifGraph(output),
+    options,
+  );
 }

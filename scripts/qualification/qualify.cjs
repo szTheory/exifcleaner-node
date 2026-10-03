@@ -281,8 +281,10 @@ function execute(options) {
     // 62.1-05/62.1-08: HEIC/AVIF oracles and corpus tracers.
     "tests/qualification/heic/oracles.test.ts",
     "tests/qualification/heic/tracer.test.ts",
+    "tests/qualification/heic/decode.test.ts",
     "tests/qualification/avif/oracles.test.ts",
     "tests/qualification/avif/tracer.test.ts",
+    "tests/qualification/avif/decode.test.ts",
   ]);
 }
 

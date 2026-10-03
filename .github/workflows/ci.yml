@@ -94,12 +94,10 @@ jobs:
       # lands here; later 57-* plans append their own suite files to this
       # list (D-16 layout gate requires every on-disk suite file listed).
       QUAL_JPEG: "tests/qualification/jpeg/tracer.test.ts tests/qualification/jpeg/oracles.test.ts tests/qualification/jpeg/property.test.ts tests/qualification/jpeg/parser.test.ts tests/qualification/jpeg/transaction.test.ts tests/qualification/jpeg/golden.test.ts"
-      # 62.1-05/62.1-08: these lists satisfy the layout gate (tests/qualification_layout.test.ts)
-      # for the on-disk HEIC/AVIF oracles and corpus tracer files; the quality job's full
-      # test run covers them today. No run-step `case` branch is added for "heic"/"avif" here;
-      # that lands in 62.1-09.
-      QUAL_HEIC: "tests/qualification/heic/oracles.test.ts tests/qualification/heic/tracer.test.ts"
-      QUAL_AVIF: "tests/qualification/avif/oracles.test.ts tests/qualification/avif/tracer.test.ts"
+      # 62.1-09: HEIC and AVIF share src/isobmff/, so an engine change selects both (and every
+      # other format) by design; heic-handler/avif-handler-only changes select one brand.
+      QUAL_HEIC: "tests/qualification/heic/oracles.test.ts tests/qualification/heic/tracer.test.ts tests/qualification/heic/decode.test.ts"
+      QUAL_AVIF: "tests/qualification/avif/oracles.test.ts tests/qualification/avif/tracer.test.ts tests/qualification/avif/decode.test.ts"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
