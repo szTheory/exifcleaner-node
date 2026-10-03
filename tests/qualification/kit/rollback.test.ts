@@ -59,7 +59,7 @@ const formatsExercisedByRollback: string[] = [];
 
 describe("registry rollback proof (KIT-07 D-24)", () => {
   it.each(registeredHandlersForTests())(
-    "declines a $capability.format sample as unsupported-format once its handler is removed, and accepts it again once restored",
+    "rollback $capability.format: declines its sample as unsupported-format once its handler is removed, leaves every other format's outcome unchanged, and accepts it again once restored",
     async (handler) => {
       const format = handler.capability.format;
       formatsExercisedByRollback.push(format);
@@ -118,6 +118,29 @@ describe("registry rollback proof (KIT-07 D-24)", () => {
         expect(
           getCapabilities().formats.some((entry) => entry.format === format),
         ).toBe(false);
+
+        // D-29: removing this handler changes no other format's outcome --
+        // every other qualified sample still sanitizes natively and reports
+        // its own format, with the rolled-back handler still absent.
+        for (const [otherFormat, otherEntry] of Object.entries(
+          QUALIFICATION_FORMATS,
+        )) {
+          if (otherFormat === format) continue;
+          const otherDirectory = await freshDirectory();
+          const otherSource = join(otherDirectory, "source.bin");
+          await writeFile(otherSource, otherEntry.sample());
+          const other = await sanitizeFile({
+            sourcePath: otherSource,
+            destinationPath: join(otherDirectory, "destination.bin"),
+            preserveOrientation: true,
+            preserveColorProfile: true,
+            preserveTimestamps: true,
+            preserveResolution: false,
+          });
+          expect(other.ok, `${otherFormat} with ${format} removed`).toBe(true);
+          if (!other.ok) throw new Error("unreachable");
+          expect(other.value.format).toBe(otherFormat);
+        }
       } finally {
         restore();
       }
