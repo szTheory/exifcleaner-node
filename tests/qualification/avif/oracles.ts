@@ -1,5 +1,6 @@
-// AVIF ExifTool differential profile (D-27, QUA-01). Still unregistered (D-03) -- native output
-// is produced only through the `setRegisteredHandlersForTests` test seam.
+// AVIF ExifTool differential profile (D-27, QUA-01). Registered since 62.1-07: the corpus legs
+// sanitize through the registered engine; the 62.1-05 synthetic legs still build their output
+// through the `setRegisteredHandlersForTests` test seam.
 import { createRequire } from "node:module";
 import {
   isobmffPayloadDigests,

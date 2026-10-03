@@ -1,6 +1,6 @@
-// HEIC ExifTool differential profile tests (62.1-05, D-27, QUA-01). Still unregistered (D-03) --
-// native output is produced only through the `setRegisteredHandlersForTests` test seam, never a
-// real registered handler.
+// HEIC ExifTool differential profile tests (62.1-05, D-27, QUA-01). Registered since 62.1-07: the
+// corpus legs sanitize through the registered engine, while the 62.1-05 synthetic legs build their
+// native output through the `setRegisteredHandlersForTests` test seam.
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
