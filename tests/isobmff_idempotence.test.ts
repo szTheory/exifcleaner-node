@@ -430,9 +430,10 @@ describe("ISO-06 clean(clean(x)) (62-11)", () => {
     "auxl",
   ];
 
-  // preserveColorProfile is false throughout: the generator's colr-prof/colr-ricc arms carry a
-  // 4-byte fake ICC payload too short to validate, which the engine's own ICC-preservation
-  // validity gate refuses to admit when preserveColorProfile is true (measured, 62-09 Task 3).
+  // preserveColorProfile is false throughout. Chosen in 62-09 Task 3 when the generator's
+  // colr-prof/colr-ricc arms carried a 4-byte stand-in ICC the preservation gate refused; since
+  // 62.1-10 they carry a well-formed profile (GENERATOR_ICC_PROFILE), and the qualification
+  // property suite covers preserveColorProfile true.
   const GENERATOR_OPTIONS: PreserveOptions = {
     preserveOrientation: true,
     preserveColorProfile: false,
