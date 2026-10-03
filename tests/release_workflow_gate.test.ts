@@ -898,7 +898,10 @@ describe("release workflow authority gate", () => {
     expect(new Set(outcomes.map((outcome) => outcome.pid)).size).toBe(
       outcomes.length,
     );
-  });
+    // Measured (62.1-14, darwin, load average ~11): 36 isolated child
+    // processes took 5_508ms and 5_573ms, over vitest's 5s default. 60_000
+    // matches this file's other child-process budgets.
+  }, 60_000);
 
   it("accepts a permuted exact-six manifest through the production immutable tuple stage", () => {
     const workflow = readFileSync(
@@ -1481,7 +1484,12 @@ describe("p95 null-branch closure gate (46-33)", () => {
         ).toThrow();
       }
     },
-    30_000,
+    // Measured (62.1-14, darwin, load average ~11, ~2.4 GB swap in use): this
+    // synchronous test took 302_146ms when tests/qualification/webp/benchmark.test.ts
+    // ran beside it, and passed inside a 25.8s whole-file run alone. Its
+    // sibling in benchmark.test.ts already carries a measured larger budget
+    // (PR #35). 600_000 is margin on that measured contended worst case.
+    600_000,
   );
 });
 
