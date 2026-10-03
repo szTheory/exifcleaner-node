@@ -1045,3 +1045,39 @@ section's "nothing else" wording describes the _item-ID-reuse and tail-placement
 (which tags the TIFF IFD0 holds), not an exhaustive negative claim about companions added by the
 `-TagsFromFile` rewrite machinery itself -- `YCbCrPositioning` is one such companion, re-measured
 explicitly here for this plan's own differential basis.
+
+### ExifTool 13.59 QuickTime media-data layout tags (62.1-05)
+
+Measured in the 62.1-05 linux/amd64 container rehearsal (ExifTool 13.59 from the KIT-09 oracle
+authority), projecting `exiftool -G1 -s -a -u -n -struct -json` over the heif-enc-grid fixtures,
+their native outputs (writer test handler through `setRegisteredHandlersForTests`) and the
+`-all=` references (with and without `-TagsFromFile @ -Orientation -XResolution -YResolution
+-ResolutionUnit`). After the kit's excluded groups, the only native-vs-reference differences were:
+
+| Fixture | Settings      | Native                                     | Reference                                                             |
+| ------- | ------------- | ------------------------------------------ | --------------------------------------------------------------------- |
+| heic    | defaults      | `MediaDataOffset=908`, `MediaDataSize=275` | `MediaDataOffset=984`, `MediaDataSize=287`, `IFD0:YCbCrPositioning=1` |
+| heic    | all flags off | `MediaDataOffset=853`                      | `MediaDataOffset=984`                                                 |
+| avif    | defaults      | `MediaDataOffset=667`, `MediaDataSize=270` | `MediaDataOffset=743`, `MediaDataSize=282`, `IFD0:YCbCrPositioning=1` |
+| avif    | all flags off | `MediaDataOffset=612`                      | `MediaDataOffset=743`                                                 |
+
+(`QuickTime:MediaData`'s binary placeholder text carries the same length as `MediaDataSize`.)
+These three QuickTime tags report where the top-level `mdat` sits and how long it is: the
+reference's `meta` is longer (entry (a)'s kept `infe` declarations) and its minimal Exif is 12
+bytes longer (entry (c)'s extra IFD entry). They are byte layout, so the differential explains
+them under entry (d) (`byte-layout-differs`) by presence only, and compares what they point at
+instead: every surviving non-metadata item payload digest must match between native and
+reference (`compareIsobmffPayloadDigests`). Every other QuickTime tag is still compared by value.
+
+With top-level `free`/`skip` boxes appended to the source, ExifTool also reports each box it
+keeps as `QuickTime:Free` / `QuickTime:Skip` (`(Binary data 16 bytes, ...)`), present in source
+and reference, absent from native. Entry (e) explains exactly one such reference-only report per
+reference box already proven byte-identical to the source's, and never a native-only one.
+
+**AVIF `idat` is an unknown tag to ExifTool 13.59.** `Image::ExifTool::QuickTime` decodes the
+`meta/idat` box as `MetaImageSize` only under `Condition => '$$self{FileType} eq "HEIC"'`; for
+AVIF it falls through to `Meta:Unknown_idat` (`(Binary data 8 bytes, ...)` on heif-enc-grid.avif,
+the grid descriptor), identical in source, native and reference. The kit's `runMetadata`
+fail-closed rule rejects any tag whose name contains `unknown`, so every live AVIF differential
+over a grid (idat-carrying) source stops at "ExifTool oracle found an unknown tag" before any
+comparison runs. The synthetic AVIF (no `idat`) live leg is unaffected.

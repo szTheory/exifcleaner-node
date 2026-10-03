@@ -17,6 +17,7 @@ import {
 } from "../../isobmff-support/hostile.js";
 import {
   compareIsobmffFreeSkip,
+  compareIsobmffPayloadDigests,
   compareIsobmffMetadataNamespaces,
   compareIsobmffStructuralParts,
   isobmffFreeSkipBoxes,
@@ -122,6 +123,7 @@ function buildIccFixtureHeic(): Buffer {
       colrProf(iccProfileV4({ deviceClass: "mntr" })),
     ],
     mdatPayload: primaryPayload,
+    twoPass: true,
   };
   return assembleHeif(spec);
 }
@@ -359,6 +361,126 @@ describe("HEIC differential (62.1-05)", () => {
       );
     });
 
+    it("compares QuickTime media-data layout descriptors by presence, never by value (entry d)", () => {
+      const layout = (offset: number, size: number): MetadataProjection => ({
+        warnings: [],
+        namespaces: {
+          QuickTime: [
+            { MediaDataOffset: offset },
+            { MediaDataSize: size },
+            {
+              MediaData: `(Binary data ${size} bytes, use -b option to extract)`,
+            },
+            { HandlerType: "pict" },
+          ],
+        },
+      });
+      const options = { allowYCbCrPositioningCompanion: false };
+      expect(() =>
+        compareIsobmffMetadataNamespaces(
+          layout(853, 275),
+          layout(984, 287),
+          options,
+        ),
+      ).not.toThrow();
+
+      const missingDescriptor: MetadataProjection = {
+        warnings: [],
+        namespaces: {
+          QuickTime: [{ MediaDataSize: 275 }, { HandlerType: "pict" }],
+        },
+      };
+      expect(() =>
+        compareIsobmffMetadataNamespaces(
+          missingDescriptor,
+          layout(984, 287),
+          options,
+        ),
+      ).toThrow(/QuickTime/);
+
+      const otherTag: MetadataProjection = {
+        warnings: [],
+        namespaces: {
+          QuickTime: [
+            { MediaDataOffset: 853 },
+            { MediaDataSize: 275 },
+            { MediaData: "(Binary data 275 bytes, use -b option to extract)" },
+            { HandlerType: "vide" },
+          ],
+        },
+      };
+      expect(() =>
+        compareIsobmffMetadataNamespaces(otherTag, layout(984, 287), options),
+      ).toThrow(/Unpermitted metadata difference: QuickTime/);
+
+      const elsewhere: MetadataProjection = {
+        warnings: [],
+        namespaces: { XMP: [{ MediaDataOffset: 1 }] },
+      };
+      expect(() =>
+        compareIsobmffMetadataNamespaces(elsewhere, emptyProjection(), options),
+      ).toThrow(/Unpermitted metadata difference: XMP/);
+    });
+
+    it("a changed, extra or missing non-metadata payload throws (entry d never hides payload bytes)", () => {
+      const primary = { part: "hvc1", sha256: "a".repeat(64) };
+      const thumb = { part: "hvc1", sha256: "b".repeat(64) };
+      expect(() =>
+        compareIsobmffPayloadDigests([thumb, primary], [primary, thumb]),
+      ).not.toThrow();
+      expect(() =>
+        compareIsobmffPayloadDigests(
+          [primary, { ...thumb, sha256: "c".repeat(64) }],
+          [primary, thumb],
+        ),
+      ).toThrow(/Unpermitted payload difference/);
+      expect(() =>
+        compareIsobmffPayloadDigests([primary], [primary, thumb]),
+      ).toThrow(/Payload over-strip/);
+      expect(() =>
+        compareIsobmffPayloadDigests([primary, thumb], [primary]),
+      ).toThrow(/Unpermitted payload difference/);
+    });
+
+    it("explains ExifTool's QuickTime:Free/Skip reports only for the reference's own byte-proven free/skip boxes (entry e)", () => {
+      const options = {
+        allowYCbCrPositioningCompanion: false,
+        referenceFreeSkip: [
+          { type: "free", sha256: "a".repeat(64) },
+          { type: "skip", sha256: "b".repeat(64) },
+        ] as const,
+      };
+      const report = (...tags: string[]): MetadataProjection => ({
+        warnings: [],
+        namespaces: {
+          QuickTime: tags.map((tag) => ({
+            [tag]: "(Binary data 16 bytes, use -b option to extract)",
+          })),
+        },
+      });
+      expect(() =>
+        compareIsobmffMetadataNamespaces(
+          report(),
+          report("Free", "Skip"),
+          options,
+        ),
+      ).not.toThrow();
+      expect(() =>
+        compareIsobmffMetadataNamespaces(
+          report(),
+          report("Free", "Skip", "Skip"),
+          options,
+        ),
+      ).toThrow(/Over-strip: QuickTime/);
+      expect(() =>
+        compareIsobmffMetadataNamespaces(report(), report("Free"), {
+          allowYCbCrPositioningCompanion: false,
+        }),
+      ).toThrow(/Over-strip: QuickTime/);
+      expect(() =>
+        compareIsobmffMetadataNamespaces(report("Free"), report(), options),
+      ).toThrow(/Unpermitted metadata difference: QuickTime/);
+    });
     it("isobmffFreeSkipBoxes reads type and payload sha256 for a synthetic free/skip pair", () => {
       const bytes = Buffer.concat([
         box("ftyp", Buffer.alloc(4)),

@@ -281,11 +281,106 @@ function multisetDiffStrings(
   return { onlyLeft, onlyRight };
 }
 
+/**
+ * Entry (d), `byte-layout-differs`: ExifTool 13.59 reports the top-level `mdat` box's own byte
+ * position and length as `QuickTime:MediaDataOffset`, `QuickTime:MediaDataSize` and the
+ * `QuickTime:MediaData` binary placeholder (whose text carries the length). Those values describe
+ * where bytes sit, not what metadata a file carries, so they differ between native and reference
+ * whenever the `meta` box or the minimal Exif payload differs in length (measured 62.1-05:
+ * `docs/isobmff.md` "### ExifTool 13.59 QuickTime media-data layout tags (62.1-05)"). They are
+ * compared by presence only -- each side must report every one of them exactly as many times as
+ * the other -- and the bytes they describe are compared instead, by the non-metadata payload
+ * digest check (`compareIsobmffPayloadDigests`). Every other QuickTime tag is compared by value.
+ */
+const LAYOUT_DESCRIPTOR_NAMESPACE = "QuickTime";
+const LAYOUT_DESCRIPTOR_TAGS: ReadonlySet<string> = new Set([
+  "MediaDataOffset",
+  "MediaDataSize",
+  "MediaData",
+]);
+
+function isLayoutDescriptor(entry: MetadataEntry): boolean {
+  const keys = Object.keys(entry);
+  return keys.length === 1 && LAYOUT_DESCRIPTOR_TAGS.has(keys[0]!);
+}
+
+function layoutDescriptorTags(entries: readonly MetadataEntry[]): string[] {
+  return entries
+    .filter(isLayoutDescriptor)
+    .map((entry) => Object.keys(entry)[0]!)
+    .sort();
+}
+
+/** Drops entry (d)'s layout descriptors from `entries` only when `other` reports exactly the same
+ * descriptor tags, so a descriptor present on one side only still surfaces as a difference. */
+function withoutLayoutDescriptors(
+  namespace: string,
+  entries: readonly MetadataEntry[],
+  other: readonly MetadataEntry[],
+): readonly MetadataEntry[] {
+  if (namespace !== LAYOUT_DESCRIPTOR_NAMESPACE) return entries;
+  if (
+    layoutDescriptorTags(entries).join(",") !==
+    layoutDescriptorTags(other).join(",")
+  )
+    return entries;
+  return entries.filter((entry) => !isLayoutDescriptor(entry));
+}
+
+/**
+ * Pure (no ExifTool invocation): the bytes entry (d)'s layout descriptors point at. Every
+ * surviving non-metadata item payload (`isobmffPayloadDigests`) must be an exact multiset match
+ * between native output and the ExifTool `-all=` reference -- a changed, missing or extra image
+ * payload throws, so presence-only comparison of `MediaDataOffset`/`MediaDataSize` never hides a
+ * payload change.
+ */
+export function compareIsobmffPayloadDigests(
+  outputDigests: readonly PayloadDigest[],
+  referenceDigests: readonly PayloadDigest[],
+): void {
+  const { onlyLeft, onlyRight } = multisetDiffStrings(
+    outputDigests.map((entry) => `${entry.part}:${entry.sha256}`),
+    referenceDigests.map((entry) => `${entry.part}:${entry.sha256}`),
+  );
+  if (onlyLeft.length > 0)
+    throw new Error(`Unpermitted payload difference: ${onlyLeft[0]}`);
+  if (onlyRight.length > 0)
+    throw new Error(`Payload over-strip: ${onlyRight[0]}`);
+}
+
 export interface IsobmffMetadataComparisonOptions {
   /** True exactly when the reference run invoked `-TagsFromFile` for at least one tag (D-27
    * entry (c)): ExifTool's own minimal-Exif rewrite always adds a `YCbCrPositioning` companion
    * in that case, which native's minimal Exif never writes. */
   readonly allowYCbCrPositioningCompanion: boolean;
+  /** D-27 entry (e): the reference's own top-level `free`/`skip` boxes, already proven
+   * byte-identical to the source's by `compareIsobmffFreeSkip`. ExifTool reports each kept box as
+   * a `QuickTime:Free` / `QuickTime:Skip` tag (measured 62.1-05); exactly that many reference-only
+   * reports of each are explained, never more and never native-only. Defaults to none. */
+  readonly referenceFreeSkip?: readonly IsobmffFreeSkipBox[];
+}
+
+const FREE_SKIP_REPORT_TAGS = { free: "Free", skip: "Skip" } as const;
+
+/** Removes, from reference-only QuickTime entries, at most one `Free`/`Skip` report per
+ * matching reference `free`/`skip` box (entry (e)); whatever is left stays unexplained. */
+function withoutFreeSkipReports(
+  onlyRight: readonly MetadataEntry[],
+  referenceFreeSkip: readonly IsobmffFreeSkipBox[],
+): readonly MetadataEntry[] {
+  const budget = new Map<string, number>();
+  for (const freeSkip of referenceFreeSkip) {
+    const tag = FREE_SKIP_REPORT_TAGS[freeSkip.type];
+    budget.set(tag, (budget.get(tag) ?? 0) + 1);
+  }
+  return onlyRight.filter((entry) => {
+    const keys = Object.keys(entry);
+    if (keys.length !== 1) return true;
+    const remaining = budget.get(keys[0]!) ?? 0;
+    if (remaining === 0) return true;
+    budget.set(keys[0]!, remaining - 1);
+    return false;
+  });
 }
 
 /**
@@ -308,8 +403,16 @@ export function compareIsobmffMetadataNamespaces(
   ]);
   for (const namespace of namespaces) {
     if (namespace === "ICC_Profile") continue;
-    const outputEntries = output.namespaces[namespace] ?? [];
-    const referenceEntries = reference.namespaces[namespace] ?? [];
+    const outputEntries = withoutLayoutDescriptors(
+      namespace,
+      output.namespaces[namespace] ?? [],
+      reference.namespaces[namespace] ?? [],
+    );
+    const referenceEntries = withoutLayoutDescriptors(
+      namespace,
+      reference.namespaces[namespace] ?? [],
+      output.namespaces[namespace] ?? [],
+    );
     const { onlyLeft, onlyRight } = multisetDiffEntries(
       outputEntries,
       referenceEntries,
@@ -317,6 +420,13 @@ export function compareIsobmffMetadataNamespaces(
     if (onlyLeft.length === 0 && onlyRight.length === 0) continue;
     if (onlyLeft.length > 0)
       throw new Error(`Unpermitted metadata difference: ${namespace}`);
+    if (
+      namespace === LAYOUT_DESCRIPTOR_NAMESPACE &&
+      withoutFreeSkipReports(onlyRight, options.referenceFreeSkip ?? [])
+        .length === 0
+    ) {
+      continue;
+    }
     if (
       options.allowYCbCrPositioningCompanion &&
       namespace === "EXIF" &&
@@ -461,8 +571,14 @@ export function runIsobmffDifferential(
   if (referenceMeta.warnings.length > 0)
     throw new Error("Oracle warning is not permitted");
 
+  const sourceFreeSkip = isobmffFreeSkipBoxes(options.source);
+  const outputFreeSkip = isobmffFreeSkipBoxes(options.output);
+  const referenceFreeSkip = isobmffFreeSkipBoxes(referenceBytes);
+  compareIsobmffFreeSkip(sourceFreeSkip, outputFreeSkip, referenceFreeSkip);
+
   compareIsobmffMetadataNamespaces(outputMeta, referenceMeta, {
     allowYCbCrPositioningCompanion: tagsFromFileArgs.length > 0,
+    referenceFreeSkip,
   });
   compareIsobmffIccProfile(
     sourceMeta,
@@ -475,10 +591,8 @@ export function runIsobmffDifferential(
   const referenceParts =
     options.profile.structuralParts?.(referenceBytes) ?? [];
   compareIsobmffStructuralParts(outputParts, referenceParts);
-
-  compareIsobmffFreeSkip(
-    isobmffFreeSkipBoxes(options.source),
-    isobmffFreeSkipBoxes(options.output),
-    isobmffFreeSkipBoxes(referenceBytes),
+  compareIsobmffPayloadDigests(
+    isobmffPayloadDigests(options.output),
+    isobmffPayloadDigests(referenceBytes),
   );
 }
