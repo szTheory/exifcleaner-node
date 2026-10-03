@@ -278,6 +278,9 @@ function execute(options) {
     "tests/qualification/jpeg/parser.test.ts",
     "tests/qualification/jpeg/transaction.test.ts",
     "tests/qualification/jpeg/golden.test.ts",
+    // 62.1-05: HEIC/AVIF are still unregistered (D-03); only their oracles.test.ts exist so far.
+    "tests/qualification/heic/oracles.test.ts",
+    "tests/qualification/avif/oracles.test.ts",
   ]);
 }
 

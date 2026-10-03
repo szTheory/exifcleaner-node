@@ -89,6 +89,12 @@ jobs:
       # lands here; later 57-* plans append their own suite files to this
       # list (D-16 layout gate requires every on-disk suite file listed).
       QUAL_JPEG: "tests/qualification/jpeg/tracer.test.ts tests/qualification/jpeg/oracles.test.ts tests/qualification/jpeg/property.test.ts tests/qualification/jpeg/parser.test.ts tests/qualification/jpeg/transaction.test.ts tests/qualification/jpeg/golden.test.ts"
+      # 62.1-05: HEIC/AVIF are still unregistered (D-03) -- these lists satisfy the layout gate
+      # (tests/qualification_layout.test.ts) for the on-disk oracles.test.ts files only. No
+      # run-step `case` branch is added for "heic"/"avif" here; that lands in 62.1-09 alongside
+      # registration.
+      QUAL_HEIC: "tests/qualification/heic/oracles.test.ts"
+      QUAL_AVIF: "tests/qualification/avif/oracles.test.ts"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
