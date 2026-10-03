@@ -37,6 +37,7 @@ import {
   assertIsobmffOracleWarnings,
   isobmffAuxiliaryItemXmpPayloads,
   isobmffFreeSkipBoxes,
+  isobmffStructuralParts,
   runIsobmffDifferential,
   type IsobmffFreeSkipBox,
   type IsobmffPermittedDifferenceId,
@@ -56,6 +57,7 @@ import {
   type MetadataProjection,
 } from "../kit/oracles.js";
 import { iccProfileV4 } from "../../fixtures.js";
+import { withIspeExtent } from "../../isobmff-support/mutations.js";
 import {
   HEIC_ADMITTED_UNKNOWN_TAGS,
   HEIC_AUXILIARY_ITEM_XMP_MEASUREMENT_TITLE,
@@ -1019,4 +1021,57 @@ describe("HEIC 62.1-09 maintainer decisions: pure negative controls (no ExifTool
         expect(section).toContain(cited);
     });
   });
+});
+
+/** 62.1-REVIEW-INDEPENDENT: each reviewer reproducer, committed as a fixture mutation the
+ * differential must reject. The pure legs need no ExifTool; the live legs run the whole
+ * differential on a native output carrying the mutation. */
+describe("HEIC differential catches every reviewed blind spot (62.1-REVIEW-INDEPENDENT)", () => {
+  const grid = readFileSync(HEIC_FIXTURE);
+
+  describe("pure structural parts (no ExifTool)", () => {
+    it("the unmutated grid matches itself (negative control)", () => {
+      expect(() =>
+        compareIsobmffStructuralParts(
+          isobmffStructuralParts(grid),
+          isobmffStructuralParts(grid),
+        ),
+      ).not.toThrow();
+    });
+
+    it("WR-02: a tile item's ispe changed from 64x64 to 63x63 is an unpermitted structural difference", () => {
+      const mutated = withIspeExtent(grid, 2, 63, 63);
+      expect(() =>
+        compareIsobmffStructuralParts(
+          isobmffStructuralParts(mutated),
+          isobmffStructuralParts(grid),
+        ),
+      ).toThrow(/^Unpermitted structural difference: ipco:/);
+      expect(() =>
+        compareIsobmffStructuralParts(
+          isobmffStructuralParts(grid),
+          isobmffStructuralParts(mutated),
+        ),
+      ).toThrow(/^Unpermitted structural difference: ipco:/);
+    });
+  });
+
+  it.runIf(LINUX_X64)(
+    "WR-02: a native output whose tile ispe changed fails the differential without the decode oracle",
+    async () => {
+      const output = await produceNativeOutput(grid, DEFAULT_PRESERVATION);
+      expect(() =>
+        runIsobmffDifferential({
+          caseId: "heic-wr02-tile-ispe",
+          profile: heicDifferentialProfile,
+          source: grid,
+          output: withIspeExtent(output, 2, 63, 63),
+          preserveOrientation: true,
+          preserveColorProfile: true,
+          preserveResolution: true,
+        }),
+      ).toThrow(/^Unpermitted structural difference: ipco:/);
+    },
+    30_000,
+  );
 });

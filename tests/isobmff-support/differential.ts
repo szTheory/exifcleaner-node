@@ -128,32 +128,49 @@ function readIpcoProperties(bytes: Buffer): readonly RawIpcoProperty[] {
 /**
  * Top-level box types in file order, plus one `infe:<type>` part per declared item entry
  * (regardless of whether its extent is live or declared-empty), plus one
- * `ipco:<type>:<sha256>` part per non-`colr` property associated with the primary item.
+ * `ipco:<itemId>:<ordinal>:<type>:<essential>:<sha256>` part per property associated (via
+ * `ipma`) with EVERY non-metadata item -- primary, grid tiles, thumbnails, auxiliary images
+ * alike (62.1-REVIEW-INDEPENDENT WR-02: ExifTool's `-json` projection reports each repeated
+ * `Group:Tag` once, so a tile's or thumbnail's own property is otherwise never compared). The
+ * ordinal is the property's position among the item's compared associations, so a reordered
+ * transform chain also differs. An association that resolves to no `ipco` property becomes an
+ * `ipco:<itemId>:missing:<index>` part.
  * Order-insensitive, multiset comparison between a native output and the ExifTool `-all=`
  * reference is what lets entries (a) and (e) be explained purely from structural part
  * membership -- and lets an unlisted structural difference (a leaked/over-stripped item, a
- * changed `irot`/`nclx` property) surface as an ordinary unpermitted structural difference.
- * `colr` is excluded here -- ICC identity is compared separately via raw profile digests
- * (`isobmffRawColorProfileSha256`), never by structural part membership.
+ * changed `irot`/`ispe`/`hvcC` property of any item) surface as an ordinary unpermitted
+ * structural difference. Metadata items (`Exif`, `mime`) carry no compared properties: native
+ * removes them and entry (a) explains only their `infe` part. `colr` is excluded here -- ICC
+ * identity is compared separately via raw profile digests (`isobmffRawColorProfileSha256`),
+ * never by structural part membership.
  */
 export function isobmffStructuralParts(bytes: Buffer): readonly string[] {
   const inventory = inventoryIsobmff(bytes);
   const parts: string[] = inventory.topLevel.map((box) => box.type);
   for (const item of inventory.items) parts.push(`infe:${item.type}`);
 
-  if (inventory.primaryItemId !== undefined) {
-    const association = inventory.associations.find(
-      (entry) => entry.itemId === inventory.primaryItemId,
-    );
-    if (association !== undefined) {
-      const rawProperties = readIpcoProperties(bytes);
-      for (const { propertyIndex } of association.associations) {
-        const property = rawProperties.find(
-          (candidate) => candidate.index === propertyIndex,
-        );
-        if (property === undefined || property.type === "colr") continue;
-        parts.push(`ipco:${property.type}:${sha256(property.bytes)}`);
+  const metadataItems = new Set(
+    inventory.items
+      .filter((item) => METADATA_ITEM_TYPES.has(item.type))
+      .map((item) => item.id),
+  );
+  const rawProperties = readIpcoProperties(bytes);
+  for (const association of inventory.associations) {
+    if (metadataItems.has(association.itemId)) continue;
+    let ordinal = 0;
+    for (const { propertyIndex, essential } of association.associations) {
+      const property = rawProperties.find(
+        (candidate) => candidate.index === propertyIndex,
+      );
+      if (property === undefined) {
+        parts.push(`ipco:${association.itemId}:missing:${propertyIndex}`);
+        continue;
       }
+      if (property.type === "colr") continue;
+      parts.push(
+        `ipco:${association.itemId}:${ordinal}:${property.type}:${essential ? 1 : 0}:${sha256(property.bytes)}`,
+      );
+      ordinal += 1;
     }
   }
   return parts;
