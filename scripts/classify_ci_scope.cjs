@@ -75,12 +75,13 @@ const LINUX_SAFE_PATH_RULES = Object.freeze(
     {
       id: "format-qualification-tests",
       pattern:
-        /^tests\/qualification\/(?:webp|png|jpeg)\/[a-z0-9_-]+\.test\.ts$/u,
+        /^tests\/qualification\/(?:webp|png|jpeg|heic|avif)\/[a-z0-9_-]+\.test\.ts$/u,
     },
     {
       // D-24: the ISOBMFF test-support directory (builder/generator/hostile/inventory .ts; the
-      // heif-enc fixtures and their recipe moved to tests/corpus/ in 62.1-08) -- no production format rule
-      // exists for isobmff yet (FORMAT_PATH_RULES stays untouched, fail-closed).
+      // heif-enc fixtures and their recipe moved to tests/corpus/ in 62.1-08). Shared by HEIC and
+      // AVIF, so it is deliberately absent from FORMAT_PATH_RULES (62.1-09): a change here runs
+      // every qualified format.
       id: "isobmff-test-support",
       pattern:
         /^tests\/isobmff-support\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.(?:ts|md|heic|avif)$/u,
@@ -126,7 +127,13 @@ const FULL_SCOPE_OVERRIDES = Object.freeze(
  * Phase 55). Keys mirror `NativeFormat`; the `formats` GITHUB_OUTPUT sorts
  * this set alphabetically regardless of declaration order here.
  */
-const QUALIFIED_FORMATS = Object.freeze(["jpeg", "png", "webp"]);
+const QUALIFIED_FORMATS = Object.freeze([
+  "jpeg",
+  "png",
+  "webp",
+  "heic",
+  "avif",
+]);
 
 /**
  * Per-format path rules (D-17). A changed path selects exactly one format's
@@ -166,6 +173,27 @@ const FORMAT_PATH_RULES = Object.freeze({
     /^tests\/qualification\/webp\/.+/u,
     /^tests\/riff\.test\.ts$/u,
     /^tests\/corpus\/upstream\/libwebp-1\.5\.0-example\.webp$/u,
+  ]),
+  // 62.1-09: HEIC and AVIF share src/isobmff/, src/admission/isobmff-handler.ts,
+  // tests/isobmff-support/ and the libheif authority. Those paths are named by NO rule here,
+  // so a change to them matches zero formats and selects every qualified format by design
+  // (62.1-RESEARCH Pitfall 2). Only brand-exclusive paths belong below.
+  heic: Object.freeze([
+    /^src\/admission\/heic-handler\.ts$/u,
+    /^dist\/admission\/heic-handler\.(?:js|js\.map|d\.ts|d\.ts\.map)$/u,
+    /^tests\/qualification\/heic\/.+/u,
+    /^tests\/corpus\/constructed\/heic\/.+/u,
+    /^tests\/corpus\/tools\/archives\/libde265-1\.1\.3\.tar\.gz$/u,
+    /^tests\/corpus\/tools\/licenses\/libde265-COPYING$/u,
+  ]),
+  avif: Object.freeze([
+    /^src\/admission\/avif-handler\.ts$/u,
+    /^dist\/admission\/avif-handler\.(?:js|js\.map|d\.ts|d\.ts\.map)$/u,
+    /^tests\/qualification\/avif\/.+/u,
+    /^tests\/corpus\/constructed\/avif\/.+/u,
+    /^tests\/corpus\/upstream\/link-u-avif-sample-images-c666a36\/.+/u,
+    /^tests\/corpus\/tools\/archives\/libaom-3\.15\.1\.tar\.gz$/u,
+    /^tests\/corpus\/tools\/licenses\/libaom-(?:LICENSE|PATENTS)$/u,
   ]),
 });
 
@@ -239,9 +267,13 @@ function classifyCiScope({ eventName, workflowName, ref, changedPaths }) {
  * format's `FORMAT_PATH_RULES` returns every qualified format. Only when
  * every changed path resolves to exactly one format (possibly a different
  * one per path) does the returned set narrow to the formats actually
- * touched.
+ * touched. `rules` defaults to FORMAT_PATH_RULES; tests pass a stand-in to
+ * prove a narrowing rule would be caught (62.1-09 negative control).
  */
-function classifyQualificationFormats({ eventName, ref, changedPaths }) {
+function classifyQualificationFormats(
+  { eventName, ref, changedPaths },
+  rules = FORMAT_PATH_RULES,
+) {
   const everyFormat = Object.freeze([...QUALIFIED_FORMATS].sort());
   if (!FILTERED_EVENTS.includes(eventName)) return everyFormat;
   if (typeof ref === "string" && ref.startsWith("refs/tags/"))
@@ -253,7 +285,7 @@ function classifyQualificationFormats({ eventName, ref, changedPaths }) {
   for (const path of changedPaths) {
     if (isMalformedPath(path)) return everyFormat;
     const matches = QUALIFIED_FORMATS.filter((format) =>
-      FORMAT_PATH_RULES[format].some((pattern) => pattern.test(path)),
+      (rules[format] ?? []).some((pattern) => pattern.test(path)),
     );
     if (matches.length !== 1) return everyFormat;
     selected.add(matches[0]);

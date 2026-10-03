@@ -141,6 +141,8 @@ jobs:
               webp) files="$files $QUAL_WEBP" ;;
               png) files="$files $QUAL_PNG" ;;
               jpeg) files="$files $QUAL_JPEG" ;;
+              heic) files="$files $QUAL_HEIC" ;;
+              avif) files="$files $QUAL_AVIF" ;;
               *)
                 echo "qualification-linux: unknown format '$format' from classify.outputs.formats" >&2
                 exit 1
