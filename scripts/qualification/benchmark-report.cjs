@@ -3026,6 +3026,7 @@ module.exports = {
   deriveRunScale,
   evaluateTiming,
   loadReference,
+  percentile,
   performanceP95,
   validateCalibration,
   validateReport,
