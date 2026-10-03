@@ -1022,3 +1022,26 @@ and an LGPL-2.1-or-BSD-2-Clause-equivalent class to `APPROVED_CORPUS_LICENSES` i
 licenses in 62.1-08, or (b) select different link-u fixtures that are genuinely CC-BY-SA-4.0 for
 the same structural role (alpha-plane and ICC-profile coverage). No manifest record is written in
 this plan either way (prohibited by this plan's must-haves).
+
+### ExifTool 13.59 minimal-Exif YCbCrPositioning companion (62.1-05)
+
+Measured fresh with `perl exiftool -all= -TagsFromFile @ -Orientation -o orient_only.heic
+src.heic` and, separately, `perl exiftool -all= -TagsFromFile @ -Orientation -XResolution
+-YResolution -ResolutionUnit -o combined.heic src.heic`, both against the committed
+`tests/isobmff-support/fixtures/heif-enc-grid.heic` fixture, then read back with `exiftool -G1 -s
+-a -u -n -struct -json`.
+
+Both invocations -- orientation alone and orientation combined with the resolution tags -- add
+`IFD0:YCbCrPositioning: 1` to the rewritten minimal Exif, alongside the explicitly requested
+tag(s). Native's own minimal Exif writer never writes `YCbCrPositioning` (D-13: only the
+requested Orientation/resolution tags). This superimposes on this plan's D-27 differential as
+permitted-difference entry (c) (`exiftool-minimal-exif-ycbcr-positioning`): whenever the
+differential's reference run invokes `-TagsFromFile` for at least one preserved tag, the
+reference's minimal Exif carries one extra `YCbCrPositioning` entry native never writes, and nothing
+else -- any other reference-only or native-only EXIF entry is still unpermitted.
+
+**Clarifies, does not contradict, "ExifTool 13.59 minimal-Exif placement" above:** that
+section's "nothing else" wording describes the _item-ID-reuse and tail-placement_ measurement
+(which tags the TIFF IFD0 holds), not an exhaustive negative claim about companions added by the
+`-TagsFromFile` rewrite machinery itself -- `YCbCrPositioning` is one such companion, re-measured
+explicitly here for this plan's own differential basis.
