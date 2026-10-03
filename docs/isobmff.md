@@ -1148,6 +1148,7 @@ decline rows name the ones a real file is likely to carry.
 | `uuid` | remove   | only the C2PA usertype `d8fec3d6-1b0e-483c-9297-5828877ec481`; any other usertype declines |
 | `moov` | decline  | `sequence-box`: a sequence or fragmented file                                              |
 | `moof` | decline  | `top-level-box-not-allowed`                                                                |
+| `etyp` | decline  | `top-level-box-not-allowed`: extended type box (observed: nokia-heif-conformance-c044)     |
 
 ### `meta` children
 
@@ -1188,21 +1189,30 @@ The engine declines every other item type with `unknown-item-type`.
 | `jpeg` | decline  | `unknown-item-type`                                                                    |
 | `avc1` | decline  | `unknown-item-type`                                                                    |
 | `unci` | decline  | `unknown-item-type`: uncompressed image                                                |
+| `lhv1` | decline  | `unknown-item-type`: layered HEVC (observed: nokia-heif-conformance-multilayer005)     |
 
 ### `ipco` property types
 
 The engine keeps every property it does not interpret as an opaque byte range, so no property type
 declines on its own. The rows are every type observed on the two heif-enc fixtures, the builder
-catalog (`tests/isobmff-support/builder.ts`) and 200 generator samples per brand (seed 460046).
+catalog (`tests/isobmff-support/builder.ts`) and 200 generator samples per brand (seed 460046),
+plus the types the 62.1-10 corpus sweep observed in refused records (`rref`, `lhvC`, `lsel`, `oinf`,
+`tols`, `pasp`; maintainer decision 2026-10-03).
 
-| Type   | Verdict  | Basis                                                              |
-| ------ | -------- | ------------------------------------------------------------------ |
-| `ispe` | preserve | image spatial extents                                              |
-| `hvcC` | preserve | HEVC decoder configuration                                         |
-| `av1C` | preserve | AV1 decoder configuration                                          |
-| `colr` | preserve | preserve; prof and rICC removed when preserveColorProfile is false |
-| `pixi` | preserve | pixel information                                                  |
-| `clap` | preserve | clean aperture                                                     |
-| `irot` | preserve | rotation, essential or not                                         |
-| `imir` | preserve | mirroring, essential or not                                        |
-| `auxC` | preserve | auxiliary type (alpha, depth)                                      |
+| Type   | Verdict  | Basis                                                                                                                                           |
+| ------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ispe` | preserve | image spatial extents                                                                                                                           |
+| `hvcC` | preserve | HEVC decoder configuration                                                                                                                      |
+| `av1C` | preserve | AV1 decoder configuration                                                                                                                       |
+| `colr` | preserve | preserve; prof and rICC removed when preserveColorProfile is false                                                                              |
+| `pixi` | preserve | pixel information                                                                                                                               |
+| `clap` | preserve | clean aperture                                                                                                                                  |
+| `irot` | preserve | rotation, essential or not                                                                                                                      |
+| `imir` | preserve | mirroring, essential or not                                                                                                                     |
+| `auxC` | preserve | auxiliary type (alpha, depth)                                                                                                                   |
+| `rref` | preserve | required reference types; copied as opaque bytes (observed: nokia-heif-conformance-c044)                                                        |
+| `lhvC` | preserve | layered HEVC configuration; copied as opaque bytes (observed: nokia-heif-conformance-multilayer005)                                             |
+| `lsel` | preserve | layer selector; copied as opaque bytes (observed: nokia-heif-conformance-multilayer005)                                                         |
+| `oinf` | preserve | operating points information; copied as opaque bytes (observed: nokia-heif-conformance-multilayer005)                                           |
+| `tols` | preserve | target output layer set; copied as opaque bytes (observed: nokia-heif-conformance-multilayer005)                                                |
+| `pasp` | preserve | pixel aspect ratio; copied as opaque bytes (observed: link-u-plum-blossom-small-8bpc, link-u-plum-blossom-small-10bpc, link-u-red-at-12-oclock) |
