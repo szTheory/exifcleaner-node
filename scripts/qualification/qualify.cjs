@@ -285,6 +285,8 @@ function execute(options) {
     // 62.1-10: HEIC/AVIF inventory classification (QUA-02) and property suites (QUA-03).
     "tests/qualification/heic/parser.test.ts",
     "tests/qualification/heic/property.test.ts",
+    // 62.1-11: HEIC/AVIF fault injection through the shared transaction (QUA-04, D-26).
+    "tests/qualification/heic/transaction.test.ts",
     "tests/qualification/avif/oracles.test.ts",
     "tests/qualification/avif/tracer.test.ts",
     "tests/qualification/avif/decode.test.ts",
