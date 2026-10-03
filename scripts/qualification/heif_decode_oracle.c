@@ -215,7 +215,8 @@ static int decode_auxiliary_images(const char *planesDir, int *nextIndex,
   for (int i = 0; i < auxCount; i++) {
     struct heif_image_handle *auxHandle = NULL;
     struct heif_error error =
-        heif_image_handle_get_auxiliary_image(handle, auxIds[i], &auxHandle);
+        heif_image_handle_get_auxiliary_image_handle(handle, auxIds[i],
+                                                      &auxHandle);
     if (error.code != heif_error_Ok || auxHandle == NULL) {
       fprintf(stderr,
               "heif_decode_oracle: could not get auxiliary handle: %s\n",

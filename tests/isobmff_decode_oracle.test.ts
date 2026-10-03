@@ -162,9 +162,17 @@ describe("compareHeifDecodes (62.1-03, D-23)", () => {
       );
       expect(thumbnailItem).toBeDefined();
       if (thumbnailItem === undefined) throw new Error("unreachable");
-      const firstExtent = thumbnailItem.extents[0];
-      expect(firstExtent).toBeDefined();
-      if (firstExtent === undefined) throw new Error("unreachable");
+      // The LAST byte of the LAST extent, not the first: the first byte of an HEVC/AV1 bitstream
+      // extent is its NAL/OBU header, and flipping that structural byte makes the whole decode
+      // fail outright (measured) rather than merely corrupting this one image's pixels -- which
+      // would make `compareHeifDecodes` report a decode-outcome mismatch for the WHOLE graph
+      // instead of a per-image pixel-hash mismatch naming the thumbnail, defeating the point of
+      // this control (D-23: prove a primary-only check misses a decodable-but-corrupt thumbnail).
+      const lastExtent =
+        thumbnailItem.extents[thumbnailItem.extents.length - 1];
+      expect(lastExtent).toBeDefined();
+      if (lastExtent === undefined) throw new Error("unreachable");
+      const lastByteIndex = lastExtent.offset + lastExtent.length - 1;
 
       let absoluteOffset: number;
       if (thumbnailItem.constructionMethod === 1) {
@@ -174,9 +182,9 @@ describe("compareHeifDecodes (62.1-03, D-23)", () => {
           );
         }
         absoluteOffset =
-          inventory.idat.offset + thumbnailItem.baseOffset + firstExtent.offset;
+          inventory.idat.offset + thumbnailItem.baseOffset + lastByteIndex;
       } else if (thumbnailItem.constructionMethod === 0) {
-        absoluteOffset = thumbnailItem.baseOffset + firstExtent.offset;
+        absoluteOffset = thumbnailItem.baseOffset + lastByteIndex;
       } else {
         throw new Error(
           `unsupported construction_method ${thumbnailItem.constructionMethod}`,

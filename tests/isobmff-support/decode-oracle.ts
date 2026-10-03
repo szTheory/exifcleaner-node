@@ -92,7 +92,7 @@ function validateInput(bytes: Buffer): void {
 
 function parseHeaderLine(line: string): Omit<HeifGraphImage, "planesSha256"> {
   const fields = line.split(" ");
-  if (fields.length !== 9 || fields[0] !== "IMG")
+  if (fields.length !== 10 || fields[0] !== "IMG")
     throw new Error(`decodeHeifGraph: unrecognized header line: ${line}`);
   const [, role, itemId, width, height, chroma, bitDepth, alpha, nclx, icc] =
     fields as [
