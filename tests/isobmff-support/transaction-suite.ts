@@ -78,6 +78,14 @@ const TERMINAL_FAULTS: readonly LogicalOperation[] = LOGICAL_OPERATIONS.filter(
  */
 const MID_COPY_OCCURRENCES = [2, 3, 4] as const;
 
+/**
+ * Per-test timeout for corpus-record tests. Measured 2026-10-03 before setting it: the iPhone 13
+ * Pro Max record's identity proof (ISO-01's 32-byte residue-window scan) took 2489-2517 ms on the
+ * local macOS host at load average 11.8, and 3989-4347 ms in the linux/amd64 container rehearsal
+ * under emulation -- within 15% of vitest's 5000 ms default, so the default would be a flake.
+ */
+const CORPUS_TEST_TIMEOUT_MS = 20_000;
+
 function digest(value: Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -373,7 +381,11 @@ export function defineIsobmffTransactionSuite(
       it.skip(`${id}: ${title} (download-only, no local fetch cache)`, () => {});
       return;
     }
-    it(`${id}: ${title}`, async () => body(await corpusBytes(id)));
+    it(
+      `${id}: ${title}`,
+      async () => body(await corpusBytes(id)),
+      CORPUS_TEST_TIMEOUT_MS,
+    );
   }
 
   /**
