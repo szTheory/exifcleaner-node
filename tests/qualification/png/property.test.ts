@@ -604,7 +604,9 @@ describe("replayable PNG qualification properties", () => {
       expect(() => assertFloors(counters, PNG_FIXED_SEED_FLOORS)).toThrow(
         /kind:eXIf/,
       );
-    });
+      // 200 synchronous fc.sample runs: 1.76 s alone, 5.21 s under full-suite load
+      // (measured 2026-10-03), past vitest's 5 s default -- same budget as the corpus run above.
+    }, 30_000);
 
     it("(4a) fails a sanitizer that ignores a requested color-profile preservation", async () => {
       const ignoresColorProfile: typeof sanitizeFile = (options) =>
