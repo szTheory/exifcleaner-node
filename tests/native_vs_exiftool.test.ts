@@ -3,8 +3,9 @@
 // tests/support/fake-exiftool.cjs. The file name deliberately has no
 // "benchmark" token; this is a cheap unit test, not a full-scope benchmark.
 import { createRequire } from "node:module";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,15 +25,54 @@ const fakeExifToolPath = join(
   "support",
   "fake-exiftool.cjs",
 );
+// A vendored corpus file the native engine sanitizes (manifest outcome: success).
+const corpusHeic = join(
+  packageRoot,
+  "tests",
+  "corpus",
+  "constructed",
+  "heic",
+  "heif-enc-grid.heic",
+);
 
 interface Session {
   sanitize(source: string, destination: string): Promise<number>;
   version(): Promise<string>;
-  close(): Promise<{ code: number | null; signal: string | null }>;
+  close(): Promise<{
+    code: number | null;
+    signal: string | null;
+    peakRSSKiB: number;
+  }>;
+}
+interface Verdict {
+  pass: boolean;
+  failures: string[];
+}
+interface Summary {
+  timeRatio: number;
+  rssRatio: number;
+  native: { p50Ms: number; p95Ms: number };
+  exiftool: { p50Ms: number; p95Ms: number };
+  verdict: Verdict;
 }
 const script = require(scriptPath) as {
-  openExifToolSession(options: { command: string[] }): Session;
+  SLACK_RATIO: number;
+  computeVerdict(ratios: { timeRatio: number; rssRatio: number }): Verdict;
+  summarize(input: {
+    files: { nativeMedianMs: number; exiftoolMedianMs: number }[];
+    nativePeakRSSKiB: number;
+    exiftoolPeakRSSKiB: number;
+  }): Summary;
+  parseDarwinTimeRSSKiB(stderr: string): number;
+  parseVmHWMKiB(status: string): number;
+  openExifToolSession(options: {
+    command: string[];
+    platform: NodeJS.Platform;
+  }): Session;
 };
+
+const supportedHost =
+  process.platform === "linux" || process.platform === "darwin";
 
 async function withTempDir<T>(run: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "native-vs-exiftool-test-"));
@@ -43,21 +83,217 @@ async function withTempDir<T>(run: (dir: string) => Promise<T>): Promise<T> {
   }
 }
 
-describe("native-vs-exiftool stay_open session", () => {
-  it("times one file through one persistent session and closes it cleanly", async () => {
-    await withTempDir(async (dir) => {
-      const source = join(dir, "source.heic");
-      const destination = join(dir, "destination.heic");
-      await writeFile(source, Buffer.from("not really a heic"));
-      const session = script.openExifToolSession({
-        command: [process.execPath, fakeExifToolPath],
-      });
-      expect(await session.version()).toBe("13.59");
-      const elapsed = await session.sanitize(source, destination);
-      expect(elapsed).toBeGreaterThan(0);
-      expect(existsSync(destination)).toBe(true);
-      expect(readFileSync(destination)).toEqual(readFileSync(source));
-      expect(await session.close()).toEqual({ code: 0, signal: null });
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+  }
+}
+
+async function waitFor(check: () => boolean, ms: number): Promise<boolean> {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    if (check()) return true;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  return check();
+}
+
+describe("native-vs-exiftool verdict rule (fixed before measuring)", () => {
+  it("passes at exactly 0.90 on both ratios", () => {
+    expect(script.SLACK_RATIO).toBe(0.9);
+    expect(script.computeVerdict({ timeRatio: 0.9, rssRatio: 0.9 })).toEqual({
+      pass: true,
+      failures: [],
     });
   });
+
+  it("fails 0.9001 on either ratio and names which", () => {
+    const time = script.computeVerdict({ timeRatio: 0.9001, rssRatio: 0.9 });
+    expect(time.pass).toBe(false);
+    expect(time.failures).toEqual(["time ratio 0.900 > 0.90 (0.9001)"]);
+    const rss = script.computeVerdict({ timeRatio: 0.9, rssRatio: 0.9001 });
+    expect(rss.pass).toBe(false);
+    expect(rss.failures).toEqual(["peak RSS ratio 0.900 > 0.90 (0.9001)"]);
+  });
+
+  it("decides on the median per-file ratio, so a passing p95 cannot rescue a failing median", () => {
+    const summary = script.summarize({
+      files: [
+        { nativeMedianMs: 10, exiftoolMedianMs: 10 },
+        { nativeMedianMs: 10, exiftoolMedianMs: 10 },
+        { nativeMedianMs: 10, exiftoolMedianMs: 10 },
+        { nativeMedianMs: 10, exiftoolMedianMs: 10 },
+        { nativeMedianMs: 50, exiftoolMedianMs: 100 },
+      ],
+      nativePeakRSSKiB: 50,
+      exiftoolPeakRSSKiB: 100,
+    });
+    // p95 over per-file medians: native 50 / ExifTool 100 = 0.5 would pass.
+    expect(summary.native.p95Ms / summary.exiftool.p95Ms).toBe(0.5);
+    expect(summary.native.p50Ms).toBe(10);
+    expect(summary.exiftool.p50Ms).toBe(10);
+    // The median of the per-file ratios [1, 1, 1, 1, 0.5] is 1.
+    expect(summary.timeRatio).toBe(1);
+    expect(summary.rssRatio).toBe(0.5);
+    expect(summary.verdict.pass).toBe(false);
+    expect(summary.verdict.failures).toEqual(["time ratio 1.000 > 0.90 (1)"]);
+  });
+});
+
+describe("native-vs-exiftool peak RSS readers", () => {
+  it("reads darwin /usr/bin/time -l maximum resident set size (bytes) as KiB", () => {
+    const stderr = [
+      "        0.00 real         0.00 user         0.00 sys",
+      "             1294336  maximum resident set size",
+      "                   0  average shared memory size",
+    ].join("\n");
+    expect(script.parseDarwinTimeRSSKiB(stderr)).toBe(1264);
+    expect(() => script.parseDarwinTimeRSSKiB("no report")).toThrow(
+      /maximum resident set size/u,
+    );
+  });
+
+  it("reads linux VmHWM (kB) from /proc/<pid>/status", () => {
+    const status = "Name:\tperl\nVmPeak:\t  30000 kB\nVmHWM:\t   21504 kB\n";
+    expect(script.parseVmHWMKiB(status)).toBe(21504);
+    expect(() => script.parseVmHWMKiB("Name:\tperl\n")).toThrow(/VmHWM/u);
+  });
+});
+
+describe("native-vs-exiftool stay_open session", () => {
+  it.skipIf(!supportedHost)(
+    "times one file through one persistent session, reads its peak RSS and closes it cleanly",
+    async () => {
+      await withTempDir(async (dir) => {
+        const source = join(dir, "source.heic");
+        const destination = join(dir, "destination.heic");
+        await writeFile(source, Buffer.from("not really a heic"));
+        const session = script.openExifToolSession({
+          command: [process.execPath, fakeExifToolPath],
+          platform: process.platform,
+        });
+        expect(await session.version()).toBe("13.59");
+        const elapsed = await session.sanitize(source, destination);
+        expect(elapsed).toBeGreaterThan(0);
+        expect(existsSync(destination)).toBe(true);
+        expect(readFileSync(destination)).toEqual(readFileSync(source));
+        const closed = await session.close();
+        expect(closed.code).toBe(0);
+        expect(closed.signal).toBeNull();
+        // A node process cannot peak below 1 MiB resident.
+        expect(closed.peakRSSKiB).toBeGreaterThan(1024);
+      });
+    },
+  );
+
+  it("refuses an unsupported platform: the CLI exits 2 with a message", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        "-e",
+        `require(${JSON.stringify(scriptPath)}).main(process.argv.slice(1), { platform: "win32" }).then((code) => { process.exitCode = code; });`,
+        "--",
+        "--exiftool",
+        fakeExifToolPath,
+        "--files",
+        corpusHeic,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain(
+      "native-vs-exiftool: unsupported platform win32 (linux and darwin only)",
+    );
+  });
+});
+
+describe("native-vs-exiftool cleanup", () => {
+  async function runCli(
+    env: Record<string, string>,
+    whileRunning?: (pidFile: string) => Promise<NodeJS.Signals | undefined>,
+  ) {
+    return withTempDir(async (scratch) => {
+      const runTmp = join(scratch, "tmp");
+      const pidFile = join(scratch, "fake.pid");
+      await mkdir(runTmp);
+      const child = spawn(
+        process.execPath,
+        [
+          scriptPath,
+          "--exiftool",
+          fakeExifToolPath,
+          "--interpreter",
+          process.execPath,
+          "--files",
+          corpusHeic,
+          "--repeat",
+          "1",
+        ],
+        {
+          env: {
+            ...process.env,
+            TMPDIR: runTmp,
+            FAKE_EXIFTOOL_PID_FILE: pidFile,
+            ...env,
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      let stderr = "";
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", (chunk: string) => (stderr += chunk));
+      const exited = new Promise<number | null>((resolve) =>
+        child.on("exit", (code) => resolve(code)),
+      );
+      if (whileRunning !== undefined) {
+        const signal = await whileRunning(pidFile);
+        if (signal !== undefined) child.kill(signal);
+      }
+      const code = await exited;
+      const fakePid = existsSync(pidFile)
+        ? Number(readFileSync(pidFile, "utf8"))
+        : undefined;
+      return {
+        code,
+        stderr,
+        leftovers: await readdir(runTmp),
+        fakePid,
+      };
+    });
+  }
+
+  it.skipIf(!supportedHost)(
+    "SIGINT mid-file kills the ExifTool child, removes the temp root and exits non-zero",
+    async () => {
+      const result = await runCli(
+        { FAKE_EXIFTOOL_HANG: "1" },
+        async (pidFile) => {
+          expect(await waitFor(() => existsSync(pidFile), 20_000)).toBe(true);
+          return "SIGINT";
+        },
+      );
+      expect(result.code).toBe(130);
+      expect(result.stderr).toContain("interrupted");
+      expect(result.leftovers).toEqual([]);
+      expect(result.fakePid).toBeGreaterThan(0);
+      expect(isAlive(result.fakePid as number)).toBe(false);
+    },
+    30_000,
+  );
+
+  it.skipIf(!supportedHost)(
+    "an ExifTool error mid-run kills the child, removes the temp root and exits 1",
+    async () => {
+      const result = await runCli({ FAKE_EXIFTOOL_SKIP_OUTPUT: "1" });
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("ExifTool did not create");
+      expect(result.leftovers).toEqual([]);
+      expect(result.fakePid).toBeGreaterThan(0);
+      expect(isAlive(result.fakePid as number)).toBe(false);
+    },
+    30_000,
+  );
 });

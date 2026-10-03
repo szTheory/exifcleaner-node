@@ -13,9 +13,24 @@
  * `-all= -o <dest> <src>` command per file, each timed from the write until
  * its `{ready<N>}` line. Perl startup is outside every per-file time.
  *
+ * Verdict rule (fixed in 62.1-12 before measuring): per file, 1 warm-up and
+ * `--repeat` (default 5) timed runs per side, the per-file median per side.
+ * Pass when the median over files of native/ExifTool time ratios is at most
+ * SLACK_RATIO (0.90) AND the peak RSS ratio native/ExifTool is at most 0.90.
+ * p50 and p95 per side are printed, never used as the verdict.
+ *
+ * Peak RSS: native from process.resourceUsage().maxRSS in a dedicated child;
+ * ExifTool from VmHWM in /proc/<pid>/status just before closing the session
+ * (linux) or `/usr/bin/time -l` maximum resident set size (darwin). Any other
+ * platform exits 2.
+ *
  * Usage:
  *   node scripts/qualification/native-vs-exiftool.cjs --exiftool <path>
  *     --files <a,b,...> [--repeat 5] [--json <out>] [--interpreter perl]
+ *
+ * Exit codes: 0 pass, 3 measured and the rule failed, 1 error, 2 unsupported
+ * platform, 130 interrupted. Files run sequentially; SIGINT or an error kills
+ * every child process group and removes the temp root before exiting.
  *
  * It is a measurement tool. No CI job runs it; only its unit test runs in CI.
  */
@@ -32,10 +47,66 @@ const { percentile } = require("./benchmark-report.cjs");
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
 const DEFAULT_REPEAT = 5;
 const WARM_UPS = 1;
+const SLACK_RATIO = 0.9;
+const SUPPORTED_PLATFORMS = new Set(["linux", "darwin"]);
+
+/** Live child process groups and temp roots, for interrupt/error cleanup. */
+const liveChildren = new Set();
+const liveRoots = new Set();
 
 /** Exact middle for an odd count, the upper middle for an even one. */
 function median(values) {
   return percentile(values, 0.5 + 0.5 / values.length);
+}
+
+function computeVerdict({ timeRatio, rssRatio }) {
+  const failures = [];
+  if (!(timeRatio <= SLACK_RATIO))
+    failures.push(`time ratio ${timeRatio.toFixed(3)} > 0.90 (${timeRatio})`);
+  if (!(rssRatio <= SLACK_RATIO))
+    failures.push(`peak RSS ratio ${rssRatio.toFixed(3)} > 0.90 (${rssRatio})`);
+  return { pass: failures.length === 0, failures };
+}
+
+function summarize({ files, nativePeakRSSKiB, exiftoolPeakRSSKiB }) {
+  const nativeMedians = files.map((file) => file.nativeMedianMs);
+  const exiftoolMedians = files.map((file) => file.exiftoolMedianMs);
+  const timeRatio = median(
+    files.map((file) => file.nativeMedianMs / file.exiftoolMedianMs),
+  );
+  const rssRatio = nativePeakRSSKiB / exiftoolPeakRSSKiB;
+  return {
+    timeRatio,
+    rssRatio,
+    native: {
+      p50Ms: median(nativeMedians),
+      p95Ms: percentile(nativeMedians, 0.95),
+    },
+    exiftool: {
+      p50Ms: median(exiftoolMedians),
+      p95Ms: percentile(exiftoolMedians, 0.95),
+    },
+    verdict: computeVerdict({ timeRatio, rssRatio }),
+  };
+}
+
+/** darwin `/usr/bin/time -l` reports maximum resident set size in bytes. */
+function parseDarwinTimeRSSKiB(stderr) {
+  const match = /(\d+)\s+maximum resident set size/u.exec(stderr);
+  if (match === null)
+    throw new Error("no maximum resident set size in /usr/bin/time -l output");
+  return Number(match[1]) / 1024;
+}
+
+/** linux /proc/<pid>/status VmHWM is the peak resident set size in kB. */
+function parseVmHWMKiB(status) {
+  const match = /^VmHWM:\s+(\d+)\s+kB$/mu.exec(status);
+  if (match === null) throw new Error("no VmHWM line in /proc/<pid>/status");
+  return Number(match[1]);
+}
+
+function unsupportedPlatform(platform) {
+  return `native-vs-exiftool: unsupported platform ${platform} (linux and darwin only)`;
 }
 
 function parseArguments(args) {
@@ -80,6 +151,61 @@ function destinationName(fileIndex, run, source) {
   return `${fileIndex}-${run}${path.extname(source)}`;
 }
 
+/* -------------------------------------------------------- child tracking */
+
+/**
+ * Spawns `file args` as its own process group so a kill reaches every
+ * descendant (darwin's `/usr/bin/time` wrapper and the perl under it).
+ */
+function spawnTracked(file, args) {
+  const child = spawn(file, args, {
+    detached: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const exited = new Promise((resolve) => {
+    child.on("exit", (code, signal) => resolve({ code, signal }));
+    child.on("error", () => resolve({ code: null, signal: null }));
+  });
+  const entry = { child, exited };
+  liveChildren.add(entry);
+  exited.then(() => liveChildren.delete(entry));
+  return entry;
+}
+
+function groupAlive(pid) {
+  try {
+    process.kill(-pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+/** SIGKILLs the whole group and waits until the leader is reaped and the group is empty. */
+async function killTracked(entry) {
+  const { child, exited } = entry;
+  if (child.pid === undefined) return;
+  try {
+    process.kill(-child.pid, "SIGKILL");
+  } catch {
+    // The group is already gone.
+  }
+  await exited;
+  const deadline = Date.now() + 5000;
+  while (groupAlive(child.pid) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 10));
+}
+
+async function cleanupAll() {
+  await Promise.all([...liveChildren].map((entry) => killTracked(entry)));
+  await Promise.all(
+    [...liveRoots].map((root) =>
+      fsPromises.rm(root, { recursive: true, force: true }),
+    ),
+  );
+  liveRoots.clear();
+}
+
 /* ---------------------------------------------------------------- native */
 
 /** Runs inside the dedicated native child (the benchmark-child.cjs maxRSS pattern). */
@@ -87,6 +213,11 @@ async function nativeChildMain(spec) {
   const { sanitizeFile } = await import(
     pathToFileURL(path.join(spec.packageRoot, "dist", "index.js")).href
   );
+  // Node reports resourceUsage().maxRSS in KiB on every platform (libuv
+  // divides darwin's byte count). Measured on Node 24.19 darwin-arm64: a
+  // 200 MB buffer gave maxRSS 238496 against memoryUsage().rss / 1024 238560,
+  // so benchmark-child.cjs's darwin "/ 1024" would under-report 1024-fold.
+  const baselineMaxRSSKiB = process.resourceUsage().maxRSS;
   const files = [];
   for (const [fileIndex, source] of spec.files.entries()) {
     const ms = [];
@@ -116,42 +247,35 @@ async function nativeChildMain(spec) {
   }
   return {
     files,
-    // Node reports resourceUsage().maxRSS in KiB on every platform (libuv
-    // divides darwin's byte count). Measured on Node 24.19 darwin-arm64: a
-    // 200 MB buffer gave maxRSS 238496 against memoryUsage().rss / 1024 238560,
-    // so benchmark-child.cjs's darwin "/ 1024" would under-report 1024-fold.
+    baselineMaxRSSKiB,
     maxRSSKiB: process.resourceUsage().maxRSS,
   };
 }
 
-function runNativeChild(spec) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(
-      process.execPath,
-      [__filename, "--native-child", JSON.stringify(spec)],
-      { stdio: ["ignore", "pipe", "pipe"] },
+async function runNativeChild(spec) {
+  const entry = spawnTracked(process.execPath, [
+    __filename,
+    "--native-child",
+    JSON.stringify(spec),
+  ]);
+  const { child } = entry;
+  child.stdin.end();
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => (stdout += chunk));
+  child.stderr.on("data", (chunk) => (stderr += chunk));
+  const { code, signal } = await entry.exited;
+  if (code !== 0)
+    throw new Error(
+      `native child failed (${code ?? signal}): ${stderr.trim()}`,
     );
-    let stdout = "";
-    let stderr = "";
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => (stdout += chunk));
-    child.stderr.on("data", (chunk) => (stderr += chunk));
-    child.on("error", reject);
-    child.on("exit", (code, signal) => {
-      if (code !== 0)
-        return reject(
-          new Error(
-            `native child failed (${code ?? signal}): ${stderr.trim()}`,
-          ),
-        );
-      try {
-        resolve(JSON.parse(stdout));
-      } catch (error) {
-        reject(new Error(`native child output is not JSON: ${error.message}`));
-      }
-    });
-  });
+  try {
+    return JSON.parse(stdout);
+  } catch (error) {
+    throw new Error(`native child output is not JSON: ${error.message}`);
+  }
 }
 
 /* -------------------------------------------------------------- exiftool */
@@ -160,23 +284,22 @@ function runNativeChild(spec) {
  * One persistent ExifTool session, spawned with the app's argument shape
  * (`-stay_open True -@ -`, ExiftoolProcess.ts). Commands are written one
  * argument per line and end with `-execute<N>`; the reply ends with
- * `{ready<N>}`.
+ * `{ready<N>}`. On darwin the session runs under `/usr/bin/time -l` so its
+ * peak RSS is reported when it exits.
  */
-function openExifToolSession({ command }) {
-  const child = spawn(
-    command[0],
-    [...command.slice(1), "-stay_open", "True", "-@", "-"],
-    {
-      stdio: ["pipe", "pipe", "pipe"],
-    },
-  );
+function openExifToolSession({ command, platform }) {
+  if (!SUPPORTED_PLATFORMS.has(platform))
+    throw new Error(unsupportedPlatform(platform));
+  const sessionArgs = [...command, "-stay_open", "True", "-@", "-"];
+  const entry =
+    platform === "darwin"
+      ? spawnTracked("/usr/bin/time", ["-l", ...sessionArgs])
+      : spawnTracked(sessionArgs[0], sessionArgs.slice(1));
+  const { child, exited } = entry;
   let stdout = "";
   let stderr = "";
   let counter = 0;
   let pending = null;
-  const exited = new Promise((resolve) => {
-    child.on("exit", (code, signal) => resolve({ code, signal }));
-  });
   child.on("error", (error) => pending?.reject(error));
   child.stdin.on("error", (error) => pending?.reject(error));
   child.stdout.setEncoding("utf8");
@@ -229,16 +352,31 @@ function openExifToolSession({ command }) {
   }
 
   async function close() {
+    const linuxPeak =
+      platform === "linux"
+        ? parseVmHWMKiB(fs.readFileSync(`/proc/${child.pid}/status`, "utf8"))
+        : undefined;
     child.stdin.write("-stay_open\nFalse\n");
     child.stdin.end();
-    return exited;
+    const { code, signal } = await exited;
+    return {
+      code,
+      signal,
+      peakRSSKiB: linuxPeak ?? parseDarwinTimeRSSKiB(stderr),
+    };
   }
 
-  return { child, sanitize, version, close, stderr: () => stderr };
+  return { child, sanitize, version, close, kill: () => killTracked(entry) };
 }
 
-async function measureExifTool({ command, files, repeat, outputDir }) {
-  const session = openExifToolSession({ command });
+async function measureExifTool({
+  command,
+  platform,
+  files,
+  repeat,
+  outputDir,
+}) {
+  const session = openExifToolSession({ command, platform });
   try {
     const exiftoolVersion = await session.version();
     const measured = [];
@@ -255,20 +393,24 @@ async function measureExifTool({ command, files, repeat, outputDir }) {
       }
       measured.push({ path: source, ms });
     }
-    await session.close();
-    return { exiftoolVersion, files: measured };
+    const closed = await session.close();
+    if (closed.code !== 0)
+      throw new Error(
+        `ExifTool session closed with ${closed.code ?? closed.signal}`,
+      );
+    return { exiftoolVersion, files: measured, peakRSSKiB: closed.peakRSSKiB };
   } finally {
-    if (session.child.exitCode === null && session.child.signalCode === null)
-      session.child.kill("SIGKILL");
+    await session.kill();
   }
 }
 
 /* ------------------------------------------------------------------ main */
 
-async function run(options) {
+async function run(options, platform) {
   const root = await fsPromises.mkdtemp(
     path.join(os.tmpdir(), "native-vs-exiftool-"),
   );
+  liveRoots.add(root);
   try {
     const nativeDir = path.join(root, "native");
     const exiftoolDir = path.join(root, "exiftool");
@@ -282,6 +424,7 @@ async function run(options) {
     });
     const exiftool = await measureExifTool({
       command: [options.interpreter, options.exiftool],
+      platform,
       files: options.files,
       repeat: options.repeat,
       outputDir: exiftoolDir,
@@ -301,7 +444,7 @@ async function run(options) {
     });
     return {
       machine: {
-        platform: process.platform,
+        platform,
         arch: process.arch,
         cpu: os.cpus()[0]?.model ?? "unknown",
         cpus: os.cpus().length,
@@ -311,27 +454,92 @@ async function run(options) {
       exiftoolVersion: exiftool.exiftoolVersion,
       repeat: options.repeat,
       warmUps: WARM_UPS,
+      slackRatio: SLACK_RATIO,
       files,
-      native: { maxRSSKiB: native.maxRSSKiB },
+      native: {
+        peakRSSKiB: native.maxRSSKiB,
+        baselineMaxRSSKiB: native.baselineMaxRSSKiB,
+      },
+      exiftool: { peakRSSKiB: exiftool.peakRSSKiB },
+      summary: summarize({
+        files,
+        nativePeakRSSKiB: native.maxRSSKiB,
+        exiftoolPeakRSSKiB: exiftool.peakRSSKiB,
+      }),
     };
   } finally {
     await fsPromises.rm(root, { recursive: true, force: true });
+    liveRoots.delete(root);
   }
 }
 
-async function main(args) {
-  const options = parseArguments(args);
-  const report = await run(options);
-  const text = `${JSON.stringify(report, null, 2)}\n`;
-  if (options.json !== undefined) fs.writeFileSync(options.json, text);
-  process.stdout.write(text);
-  return 0;
+function formatReport(report) {
+  const { summary } = report;
+  const lines = [
+    `native vs ExifTool ${report.exiftoolVersion} (-stay_open), ${report.files.length} file(s), ${report.warmUps} warm-up + ${report.repeat} timed run(s) per side`,
+    `machine: ${report.machine.cpu} x${report.machine.cpus}, ${report.machine.platform}-${report.machine.arch}, node ${report.node}, loadavg ${report.machine.loadavg.map((value) => value.toFixed(2)).join(" ")}`,
+    "",
+    "file | bytes | native median ms | ExifTool median ms | ratio",
+    ...report.files.map(
+      (file) =>
+        `${path.basename(file.path)} | ${file.bytes} | ${file.nativeMedianMs.toFixed(3)} | ${file.exiftoolMedianMs.toFixed(3)} | ${file.ratio.toFixed(3)}`,
+    ),
+    "",
+    `native   p50 ${summary.native.p50Ms.toFixed(3)} ms, p95 ${summary.native.p95Ms.toFixed(3)} ms, peak RSS ${report.native.peakRSSKiB} KiB (after import, before work: ${report.native.baselineMaxRSSKiB} KiB)`,
+    `ExifTool p50 ${summary.exiftool.p50Ms.toFixed(3)} ms, p95 ${summary.exiftool.p95Ms.toFixed(3)} ms, peak RSS ${report.exiftool.peakRSSKiB} KiB`,
+    `median time ratio native/ExifTool: ${summary.timeRatio.toFixed(3)}`,
+    `peak RSS ratio native/ExifTool: ${summary.rssRatio.toFixed(3)}`,
+    `verdict: ${summary.verdict.pass ? "pass" : `fail (${summary.verdict.failures.join("; ")})`}`,
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
+let interrupted = false;
+
+function onInterrupt() {
+  interrupted = true;
+  process.stderr.write(
+    "native-vs-exiftool: interrupted; stopping child processes and removing temp files\n",
+  );
+  cleanupAll().finally(() => process.exit(130));
+}
+
+async function main(args, { platform = process.platform } = {}) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) {
+    process.stderr.write(`${unsupportedPlatform(platform)}\n`);
+    return 2;
+  }
+  process.once("SIGINT", onInterrupt);
+  process.once("SIGTERM", onInterrupt);
+  try {
+    const options = parseArguments(args);
+    const report = await run(options, platform);
+    if (options.json !== undefined)
+      fs.writeFileSync(options.json, `${JSON.stringify(report, null, 2)}\n`);
+    process.stdout.write(formatReport(report));
+    return report.summary.verdict.pass ? 0 : 3;
+  } catch (error) {
+    await cleanupAll();
+    // An interrupt rejects the in-flight command; onInterrupt reports and exits.
+    if (interrupted) return 130;
+    process.stderr.write(`native-vs-exiftool: ${error.message}\n`);
+    return 1;
+  } finally {
+    process.removeListener("SIGINT", onInterrupt);
+    process.removeListener("SIGTERM", onInterrupt);
+  }
 }
 
 module.exports = {
+  SLACK_RATIO,
+  computeVerdict,
+  main,
   median,
   openExifToolSession,
   parseArguments,
+  parseDarwinTimeRSSKiB,
+  parseVmHWMKiB,
+  summarize,
 };
 
 if (require.main === module) {
@@ -344,12 +552,6 @@ if (require.main === module) {
       },
     );
   } else {
-    main(process.argv.slice(2)).then(
-      (code) => (process.exitCode = code),
-      (error) => {
-        process.stderr.write(`${error.message}\n`);
-        process.exitCode = 1;
-      },
-    );
+    main(process.argv.slice(2)).then((code) => (process.exitCode = code));
   }
 }
