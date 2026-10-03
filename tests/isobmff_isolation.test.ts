@@ -78,6 +78,14 @@ export const ISOLATION_RULES: readonly IsolationRule[] = [
     fileName: "test-handler.ts",
     forbiddenSpecifierSubstrings: [],
   },
+  // 62.1-03: decode-oracle.ts is the whole-graph libheif decode oracle's TypeScript side -- the
+  // decode compare must be our own reading of the container, not libheif's, so it must never
+  // import src/isobmff/ (it has no reason to import builder/inventory/generator/test-handler
+  // either, but only the src/isobmff/ independence is this rule's own concern, D-23).
+  {
+    fileName: "decode-oracle.ts",
+    forbiddenSpecifierSubstrings: ["src/isobmff/"],
+  },
 ];
 
 /**
@@ -361,6 +369,19 @@ describe("isolationViolations() negative controls (synthetic sources)", () => {
       },
     ]);
     expect(violations).toEqual([]);
+  });
+
+  it("decode-oracle.ts importing src/isobmff/ as a value is a violation (62.1-03: the decode compare must be our own reading of the container, not the engine's)", () => {
+    const violations = isolationViolations([
+      {
+        path: "decode-oracle.ts",
+        source:
+          'import { parseBoxHeader } from "../../src/isobmff/boxes.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "decode-oracle.ts", specifier: "../../src/isobmff/boxes.js" },
+    ]);
   });
 });
 
