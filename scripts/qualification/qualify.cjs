@@ -292,6 +292,7 @@ function execute(options) {
     "tests/qualification/avif/decode.test.ts",
     "tests/qualification/avif/parser.test.ts",
     "tests/qualification/avif/property.test.ts",
+    "tests/qualification/avif/transaction.test.ts",
   ]);
 }
 
