@@ -64,6 +64,11 @@ jobs:
         run: |
           echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"
           node scripts/qualification/build-oracles.cjs --prepare "$RUNNER_TEMP/exifcleaner-oracles"
+      - name: Fetch download-only corpus records into the runner cache (KIT-10/D-14)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_CORPUS_CACHE_DIR=$RUNNER_TEMP/exifcleaner-corpus-cache" >> "$GITHUB_ENV"
+          node scripts/qualification/fetch-corpus.cjs --cache "$RUNNER_TEMP/exifcleaner-corpus-cache"
       - run: npm run lint && npm run typecheck && npm run check:cycles && npm run build && npm run build:native && npm test && npm run check:runtime && npm run check:release
       - name: Assert the oracle authorities were built exactly once (KIT-09)
         run: node scripts/qualification/build-oracles.cjs --assert-built-once "$EXIFCLEANER_ORACLE_DIR"
@@ -114,6 +119,11 @@ jobs:
         run: |
           echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"
           node scripts/qualification/build-oracles.cjs --prepare "$RUNNER_TEMP/exifcleaner-oracles"
+      - name: Fetch download-only corpus records into the runner cache (KIT-10/D-14)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_CORPUS_CACHE_DIR=$RUNNER_TEMP/exifcleaner-corpus-cache" >> "$GITHUB_ENV"
+          node scripts/qualification/fetch-corpus.cjs --cache "$RUNNER_TEMP/exifcleaner-corpus-cache"
       - name: Select and run qualification suites for touched formats (D-17)
         env:
           FORMATS: ${{ needs.classify.outputs.formats }}

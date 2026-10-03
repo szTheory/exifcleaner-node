@@ -4,6 +4,7 @@ import {
   assertIso01,
   assertIso02,
   C2PA_UUID_USERTYPE,
+  downloadGate,
   isMetadataItem,
   sanitizeAllFalse,
   survivingPayloadDigests,
@@ -50,6 +51,20 @@ describe("HEIC qualification tracer", () => {
   });
 
   for (const record of records) {
+    // Download-only records (T-62.1-19): fail when CI is set but the fetch cache is not;
+    // skip with a logged reason only on a local run (CI unset) without the cache.
+    const gate = downloadGate(record);
+    if (gate.kind === "fail") {
+      it(`${record.id}: download-only record needs the fetch cache in CI`, () => {
+        throw new Error(gate.reason);
+      });
+      continue;
+    }
+    if (gate.kind === "skip") {
+      console.warn(`skipping ${gate.reason}`);
+      it.skip(`${record.id}: download-only (no local fetch cache)`, () => {});
+      continue;
+    }
     if (record.outcome.status === "refused") {
       it(`${record.id}: pinned refusal ${record.outcome.errorCode}/${record.outcome.declineClass}, source unchanged, no destination`, async () => {
         const declineClass = record.outcome.declineClass;
@@ -134,5 +149,24 @@ describe("HEIC qualification tracer", () => {
     expect(() => assertIso02(source, source)).toThrow(
       /keeps the top-level C2PA/,
     );
+  });
+
+  it("download gate: fails in CI without the cache, skips only locally, runs with it", () => {
+    const iphone = records.find(
+      (record) => record.id === "ianare-exif-samples-iphone-13-pro-max",
+    );
+    const vendored = records.find(
+      (record) => record.id === "heif-enc-grid-heic",
+    );
+    if (iphone === undefined || vendored === undefined)
+      throw new Error("gate fixtures missing");
+    expect(downloadGate(iphone, { CI: "true" }).kind).toBe("fail");
+    expect(downloadGate(iphone, { CI: "1" }).kind).toBe("fail");
+    expect(downloadGate(iphone, {}).kind).toBe("skip");
+    expect(
+      downloadGate(iphone, { CI: "true", EXIFCLEANER_CORPUS_CACHE_DIR: "/c" })
+        .kind,
+    ).toBe("run");
+    expect(downloadGate(vendored, { CI: "true" }).kind).toBe("run");
   });
 });

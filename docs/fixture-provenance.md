@@ -211,8 +211,9 @@ Two new `provenance` keys support this, alongside the existing `revision`, `url`
 and `licenseStatus`:
 
 - `kind` (optional): `"vendored"` (the default, implicit when absent) or `"download-only"`.
-- `noticeId` (optional, required when `license` is `CC-BY-SA-4.0`): the stanza identifier in
-  `tests/corpus/NOTICE` carrying that record's attribution.
+- `noticeId` (optional, required when `license` is `CC-BY-SA-4.0`, `CC-BY-4.0` or
+  `LGPL-2.1-only OR BSD-2-Clause`): the stanza identifier in `tests/corpus/NOTICE` carrying that
+  record's attribution.
 
 Any other key in `provenance` is rejected -- the key set is exact, not merely a superset check.
 
@@ -276,11 +277,11 @@ lives under `scripts/`, never under `src/`: the runtime library stays network-fr
   and loopback `http://` origins are admitted only through an explicit `allowOrigin` test
   option; every test in `tests/qualification/kit/fetch_corpus.test.ts` uses only `file://` or a
   `127.0.0.1` server and never contacts a real remote host.
-- **CI:** this tool runs before the qualification suites in CI starting in Phase 62.1's
-  registration plan (62.1-08), once the first download-only records (the iPhone sample and the
-  curated Nokia subset) land; this plan adds no `ci.yml` step of its own, only the
-  `tests/qualification/kit/fetch_corpus.test.ts` entry to `QUAL_KIT` and to
-  `scripts/qualification/qualify.cjs`'s full-run list.
+- **CI:** since 62.1-08 the `quality` and `qualification-linux` jobs each run this tool into
+  `$RUNNER_TEMP/exifcleaner-corpus-cache` and export `EXIFCLEANER_CORPUS_CACHE_DIR` before their
+  tests. The HEIC/AVIF tracer suites fail (never skip) a download-only record when `CI` is set
+  and the cache is not configured; they skip it, with a logged reason, only on a local run
+  where `CI` is unset.
 
 ### CC-BY-SA-4.0 attribution
 
@@ -288,8 +289,8 @@ link-u's AVIF samples are CC-BY-SA-4.0, which requires attribution (section 3(a)
 author, a link to the source, a link to the license, and a statement of whether the material
 was modified. A record under that license must carry a `noticeId`, and
 `tests/corpus/NOTICE` must contain a matching stanza. `readManifest()` reads that file **only**
-when at least one manifest record declares `CC-BY-SA-4.0` -- today none do, so the file is
-never read and does not exist.
+when at least one manifest record declares an attribution-requiring license (`CC-BY-SA-4.0`,
+`CC-BY-4.0` or `LGPL-2.1-only OR BSD-2-Clause`); since 62.1-08 the three link-u records do.
 
 A stanza is the lines following a header of the form `[<noticeId>]`, up to the next `[`-headed
 line or end of file. `assertNoticeAttribution(record, noticeText)` requires five fields, each on
@@ -305,9 +306,49 @@ Modified: Converted to AVIF and cropped to a smaller resolution
 ```
 
 `Source` must equal the record's `provenance.url` exactly; `License` must be the literal
-CC BY-SA 4.0 URL above; `Title`, `Author`, and `Modified` must each be non-empty. The real
+CC BY-SA 4.0 URL above (for `CC-BY-4.0` records, `https://creativecommons.org/licenses/by/4.0/`;
+for `LGPL-2.1-only OR BSD-2-Clause` records, that SPDX expression verbatim); `Title`, `Author`, and `Modified` must each be non-empty. The real
 `tests/corpus/NOTICE` file is created, like the fetch tool above, when the first CC-BY-SA-4.0
 record is added in Phase 61/62 -- this phase documents the format without creating it.
+
+## Pinned HEIC/AVIF corpus (Phase 62.1)
+
+Every HEIC/AVIF record in `tests/corpus/manifest.json` (62.1-08, D-24/D-25), pinned to its exact
+measured outcome -- never an admit rate or a threshold. A refused record also pins the engine's
+internal decline class, read by the test-only `tests/isobmff-support/decline-class.ts`
+(`selection-decline` when the brand selector declines before admission). The tracer suites
+`tests/qualification/heic/tracer.test.ts` and `tests/qualification/avif/tracer.test.ts` run every
+record and prove ISO-01/ISO-02 on each admitted output.
+
+| Record                                  | Format | Source                                                                                                         | License                         | Pinned outcome                                             |
+| --------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------------------- |
+| `heif-enc-grid-heic`                    | heic   | vendored `constructed/heic/heif-enc-grid.heic`                                                                 | `MIT`                           | success, removes `EXIF` + `XMP`                            |
+| `heif-enc-grid-avif`                    | avif   | vendored `constructed/avif/heif-enc-grid.avif`                                                                 | `MIT`                           | success, removes `EXIF` + `XMP`                            |
+| `c2pa-signed-heic`                      | heic   | vendored `constructed/heic/c2pa-signed.heic`                                                                   | `MIT`                           | success, removes `C2PA` + `EXIF` + `XMP`                   |
+| `c2pa-signed-avif`                      | avif   | vendored `constructed/avif/c2pa-signed.avif`                                                                   | `MIT`                           | success, removes `C2PA` + `EXIF` + `XMP`                   |
+| `link-u-plum-blossom-small-8bpc`        | avif   | vendored `upstream/link-u-avif-sample-images-c666a36/plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif`  | `CC-BY-4.0`                     | refused `malformed-file` / `item-graph-invalid`            |
+| `link-u-plum-blossom-small-10bpc`       | avif   | vendored `upstream/link-u-avif-sample-images-c666a36/plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif` | `CC-BY-4.0`                     | refused `malformed-file` / `item-graph-invalid`            |
+| `link-u-red-at-12-oclock`               | avif   | vendored `upstream/link-u-avif-sample-images-c666a36/red-at-12-oclock-with-color-profile-lossy.avif`           | `LGPL-2.1-only OR BSD-2-Clause` | refused `unsafe-structure` / `surviving-offset-width-zero` |
+| `nokia-heif-conformance-c041`           | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | refused `unsupported-format` / `selection-decline`         |
+| `nokia-heif-conformance-c039`           | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | refused `malformed-file` / `item-graph-invalid`            |
+| `nokia-heif-conformance-c044`           | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | refused `unsupported-format` / `selection-decline`         |
+| `nokia-heif-conformance-multilayer005`  | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | refused `unsupported-format` / `multiple-mdat`             |
+| `nokia-heif-conformance-c034`           | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | success, removes `EXIF`                                    |
+| `nokia-heif-conformance-c053`           | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | success, removes nothing                                   |
+| `nokia-heif-conformance-miaf002`        | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | success, removes nothing                                   |
+| `nokia-heif-conformance-miaf003`        | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | success, removes nothing                                   |
+| `nokia-heif-conformance-multilayer003`  | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | success, removes nothing                                   |
+| `nokia-heif-conformance-c025`           | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | success, removes nothing                                   |
+| `nokia-heif-conformance-c017`           | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | success, removes nothing                                   |
+| `nokia-heif-conformance-c040`           | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | success, removes nothing                                   |
+| `ianare-exif-samples-iphone-13-pro-max` | heic   | download-only                                                                                                  | `LicenseRef-default-copyright`  | success, removes `ICC` + `XMP` + `EXIF`                    |
+
+License classes: `MIT` for the fixtures this repository constructed (the heif-enc grids and the
+c2patool-signed pair); `CC-BY-4.0` and `LGPL-2.1-only OR BSD-2-Clause` for the three vendored
+link-u files, as measured against link-u's per-image README credits (maintainer decision
+2026-10-02, option a; `tests/corpus/NOTICE` carries each stanza); `LicenseRef-default-copyright`
+for the download-only Nokia `heif_conformance` and `ianare/exif-samples` files, whose bytes are
+never committed and are fetched only into the cache above.
 
 ## Manifest and Promotion Workflow
 

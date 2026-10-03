@@ -240,3 +240,27 @@ export function assertIso02(source: Buffer, output: Buffer): readonly string[] {
     );
   return before;
 }
+
+export type DownloadGate =
+  | { readonly kind: "run" }
+  | { readonly kind: "fail"; readonly reason: string }
+  | { readonly kind: "skip"; readonly reason: string };
+
+/**
+ * How a tracer suite treats one record (KIT-10/D-14, T-62.1-19). Vendored records always run. A
+ * download-only record runs when `EXIFCLEANER_CORPUS_CACHE_DIR` is set (a cache miss then fails in
+ * `materializeRecord`); with no cache it FAILS whenever `CI` is set, and is skipped with a logged
+ * reason only on a local run where `CI` is unset -- it never skips silently in CI.
+ */
+export function downloadGate(
+  record: TracerRecord,
+  env: NodeJS.ProcessEnv = process.env,
+): DownloadGate {
+  if (record.provenance.kind !== "download-only") return { kind: "run" };
+  const cache = env.EXIFCLEANER_CORPUS_CACHE_DIR;
+  if (cache !== undefined && cache.length > 0) return { kind: "run" };
+  const reason = `${record.id} is download-only and EXIFCLEANER_CORPUS_CACHE_DIR is not set (run node scripts/qualification/fetch-corpus.cjs --cache <dir> first)`;
+  const ci = env.CI;
+  if (ci !== undefined && ci.length > 0) return { kind: "fail", reason };
+  return { kind: "skip", reason };
+}

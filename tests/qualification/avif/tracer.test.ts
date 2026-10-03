@@ -3,6 +3,7 @@ import {
   assertIso01,
   assertIso02,
   C2PA_UUID_USERTYPE,
+  downloadGate,
   sanitizeAllFalse,
   survivingPayloadDigests,
   tracerRecords,
@@ -48,6 +49,20 @@ describe("AVIF qualification tracer", () => {
   });
 
   for (const record of records) {
+    // Download-only records (T-62.1-19): fail when CI is set but the fetch cache is not;
+    // skip with a logged reason only on a local run (CI unset) without the cache.
+    const gate = downloadGate(record);
+    if (gate.kind === "fail") {
+      it(`${record.id}: download-only record needs the fetch cache in CI`, () => {
+        throw new Error(gate.reason);
+      });
+      continue;
+    }
+    if (gate.kind === "skip") {
+      console.warn(`skipping ${gate.reason}`);
+      it.skip(`${record.id}: download-only (no local fetch cache)`, () => {});
+      continue;
+    }
     if (record.outcome.status === "refused") {
       it(`${record.id}: pinned refusal ${record.outcome.errorCode}/${record.outcome.declineClass}, source unchanged, no destination`, async () => {
         const declineClass = record.outcome.declineClass;
