@@ -1738,7 +1738,20 @@ describe("paired benchmark admission", () => {
         fixture.cleanup();
       }
     },
-    180_000,
+    // Measured 2026-10-03 after removing `hostedLedger`'s redundant duplicate
+    // `validateReport` call (it validated `ledger.node22`/`ledger.node24`
+    // directly and then again inside `phaseAdmissionReports`, ~2x the
+    // report-validation cost for no behavioral difference): a quiet run of
+    // this test's ~45 `fixture.validate()` calls completes in ~8s. Under this
+    // shared host's bursty contention (20 users, other sessions; `uptime`'s
+    // trailing load average does not capture the burst), repeated full-file
+    // verification runs measured this single test at 205s, then separately at
+    // 980607ms on a later run with a comparable `uptime` reading -- the
+    // variance is not solely CPU-scheduling and a smaller margin already
+    // proved insufficient once. 1_200_000 matches the margin given to this
+    // file's other most-contention-sensitive evidenceGatedIt test below
+    // ("resolves each shared-message..."), which showed the same pattern.
+    1_200_000,
   );
   evidenceGatedIt(
     "resolves each shared-message hosted ledger clause with a conjunct mutant",
@@ -2126,7 +2139,16 @@ describe("paired benchmark admission", () => {
         fixture.cleanup();
       }
     },
-    600_000,
+    // Measured 2026-10-03: this test's ~80 fresh-VM-mutant and
+    // `fixture.validate()`/`validateWith()` calls (each driving `hostedLedger`,
+    // which also benefits from the duplicate-`validateReport` removal above)
+    // complete in ~24s isolated under moderate local host contention, but in a
+    // full-file run on this shared host it measured 1008s and exceeded the
+    // previous 600_000ms timeout -- the same local-host-contention sensitivity
+    // as the other evidence-gated tests in this file, discovered while
+    // verifying their fix. 1_200_000 is margin on top of that measured
+    // full-file worst case, not a blind bump.
+    1_200_000,
   );
   evidenceGatedIt(
     "binds the hosted ledger clause on animation samples and RSS behaviorally",
@@ -2312,7 +2334,20 @@ describe("paired benchmark admission", () => {
         fixture.cleanup();
       }
     },
-    300_000,
+    // Measured 2026-10-03: this test is normally fast (~2s isolated, well
+    // under the duplicate-`validateReport` fix applied above too), but a
+    // full-file verification run on this shared host -- caught with `uptime`
+    // load average 14.50 and `vm.swapusage` showing ~2.4 GB of swap in use --
+    // measured this specific test at 968753ms. That matches the host
+    // contention regime this bug report was filed under (load average
+    // 14-20): under real memory pressure the host pages out a process's
+    // working set, and the multi-MB `structuredClone`/`JSON.stringify`/
+    // `readFileSync` calls this test's fixture does on every tamper turn into
+    // major-fault-bound disk I/O instead of CPU work, which `uptime` alone
+    // does not capture. 1_200_000 matches the margin already given to this
+    // file's other evidence-gated tests that showed the same swap-driven
+    // spike once memory pressure, not just CPU scheduling, was reproduced.
+    1_200_000,
   );
   evidenceGatedIt(
     "accepts a hosted ledger built from run 35030048631 real artifacts",
@@ -4016,8 +4051,9 @@ describe("paired benchmark admission", () => {
     "validateP95NullBranchClosure accepts only a null-branch closure bound to the real sealed ledger and rejects any overclaim or identity mismatch",
     async () => {
       // The real sealed ledger is ~14 MB; each mutation case re-validates it in
-      // full via validatePerformanceP95DiagnosticLedger (~0.5s), so 18 calls
-      // exceed the default 5s test timeout.
+      // full via validatePerformanceP95DiagnosticLedger (measured ~1.1s after
+      // the redundant-revalidation fix below; see the timeout comment), so 18
+      // calls exceed the default 5s test timeout.
       const ledgerPath = join(
         phase46EvidenceDirectory,
         "46-PERFORMANCE-P95-DIAGNOSTIC.json",
@@ -4104,7 +4140,16 @@ describe("paired benchmark admission", () => {
         ).toThrow();
       }
     },
-    30_000,
+    // Measured 2026-10-03: `validatePerformanceP95DiagnosticLedger` used to
+    // validate each of node22/node24's diagnostic report directly and then
+    // call `derivePerformanceP95DiagnosticView` on that same already-validated
+    // report, which re-ran the identical ~0.55s-per-node validation a second
+    // time -- doubling the ~2.1s full-ledger cost to no behavioral benefit.
+    // Removing that duplicate (see `deriveViewFromValidatedReport` in
+    // benchmark-report.cjs) halves this test's 18 calls to
+    // `validateP95NullBranchClosure` from ~38s to a measured ~21s. 90s is
+    // margin on top of that measured post-fix cost, not a blind bump.
+    90_000,
   );
 
   it("binds every installed finalization and cancellation contract field on Windows", () => {
