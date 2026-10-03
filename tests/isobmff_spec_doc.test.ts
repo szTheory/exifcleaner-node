@@ -6,7 +6,10 @@
 //  2. the "## Permitted differences (QUA-01)" table lists exactly the ids of
 //     HEIC_PERMITTED_DIFFERENCES and AVIF_PERMITTED_DIFFERENCES, per format;
 //  3. the "## Advertised limits" table equals the src/isobmff/caps.ts constants and the
-//     `limits` getCapabilities() advertises for heic and avif.
+//     `limits` getCapabilities() advertises for heic and avif;
+//  4. README.md's "## Formats" table and docs/capabilities.md's "## Supported Surface" table
+//     list exactly the formats getCapabilities() returns, each with its media types,
+//     extensions and `removes` list, and both state the full `NativeFormat` union.
 //
 // Every check reads the doc fresh from disk, so deleting a heading or a row turns this red.
 import { readFile } from "node:fs/promises";
@@ -23,6 +26,12 @@ import { AVIF_PERMITTED_DIFFERENCES } from "./qualification/avif/oracles.js";
 import { HEIC_PERMITTED_DIFFERENCES } from "./qualification/heic/oracles.js";
 
 const DOC_PATH = fileURLToPath(new URL("../docs/isobmff.md", import.meta.url));
+const README_PATH = fileURLToPath(new URL("../README.md", import.meta.url));
+const CAPABILITIES_PATH = fileURLToPath(
+  new URL("../docs/capabilities.md", import.meta.url),
+);
+
+const NATIVE_FORMAT_UNION = '"webp" | "png" | "jpeg" | "heic" | "avif"';
 
 export const SPEC_STATUS_LINE = "Status: Final (Phase 62.1).";
 
@@ -175,5 +184,67 @@ describe("docs/isobmff.md final spec note drift gate (62.1-13)", () => {
     expect(gap).toMatch(/item-graph-invalid/);
     expect(gap).toMatch(/surviving-offset-width-zero/);
     expect(gap).toMatch(/ipma/);
+  });
+});
+
+describe("README.md and docs/capabilities.md format lists equal getCapabilities() (62.1-13)", () => {
+  it.each([
+    ["README.md", README_PATH, "## Formats"],
+    ["docs/capabilities.md", CAPABILITIES_PATH, "## Supported Surface"],
+  ] as const)(
+    "%s lists every registered format with its media types, extensions and removes",
+    async (_name, path, heading) => {
+      // The header row (`| `format` | ...`) is not a format row.
+      const rows = backtickedRows(
+        sectionText(await readFile(path, "utf8"), heading),
+      ).filter((row) => row[0] !== "format");
+      const formats = getCapabilities().formats;
+      expect(rows.map((row) => row[0]).sort()).toEqual(
+        formats.map((entry) => entry.format).sort(),
+      );
+      for (const entry of formats) {
+        const row =
+          rows
+            .find((candidate) => candidate[0] === entry.format)
+            ?.join(" | ") ?? "";
+        const tokens = [
+          ...entry.mimeTypes,
+          ...entry.extensions,
+          ...entry.removes,
+        ];
+        for (const token of tokens) {
+          expect(row, `${entry.format} row names ${token}`).toContain(
+            `\`${token}\``,
+          );
+        }
+      }
+    },
+  );
+
+  it("both docs state the full NativeFormat union", async () => {
+    const [readme, capabilities] = await Promise.all([
+      readFile(README_PATH, "utf8"),
+      readFile(CAPABILITIES_PATH, "utf8"),
+    ]);
+    expect(readme).toContain(`It is currently \`${NATIVE_FORMAT_UNION}\``);
+    expect(capabilities.replace(/\s+/g, " ")).toContain(
+      `(currently \`${NATIVE_FORMAT_UNION}\`)`,
+    );
+  });
+
+  it("the old three-handler phrase is gone and HEIC/AVIF capability names are documented", async () => {
+    const [readme, capabilities] = await Promise.all([
+      readFile(README_PATH, "utf8"),
+      readFile(CAPABILITIES_PATH, "utf8"),
+    ]);
+    expect(capabilities).not.toMatch(/only those three/);
+    for (const doc of [readme, capabilities]) {
+      expect(doc).toContain("HeicCapabilities");
+      expect(doc).toContain("AvifCapabilities");
+    }
+    expect(capabilities).toContain("magic admission");
+    expect(capabilities).toContain(
+      '`validation.container: "full"` for ISOBMFF',
+    );
   });
 });

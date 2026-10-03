@@ -1,6 +1,7 @@
 # Format Admission Criteria
 
-Every format `exifcleaner-node` admits — WebP today, PNG and JPEG in Phases 56 and 57 — must clear
+Every format `exifcleaner-node` admits — WebP first, PNG and JPEG in Phases 56 and 57, HEIC and AVIF
+in Phase 62.1 — must clear
 the same eight tiered evidence items before it registers a handler. This document lists what the
 shared qualification kit already provides for each item, and what a format must supply on top of
 it. `tests/format_admission_doc.test.ts` enforces the item order, the presence of both lines in
@@ -310,3 +311,9 @@ because a format's own code changed.
 registration, its `NativeFormat`/`FormatCapabilities` member, its `QUALIFICATION_FORMATS` entry, its
 full `tests/qualification/<format>/` suite, and its own `tests/corpus/manifest.json` fixture
 records.
+
+**HEIC and AVIF completed it in Phase 62.1**, registered together in one commit with their
+`QUALIFICATION_FORMATS` entries and rollback proof. Their suites are `tests/qualification/heic/`
+and `tests/qualification/avif/`. Their ExifTool differential uses the shared ISOBMFF comparison
+in `tests/isobmff-support/differential.ts`, with one closed permitted-difference list per format
+recorded in `docs/isobmff.md`.
