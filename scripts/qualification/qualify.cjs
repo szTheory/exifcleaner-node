@@ -284,6 +284,7 @@ function execute(options) {
     "tests/qualification/heic/decode.test.ts",
     // 62.1-10: HEIC/AVIF inventory classification (QUA-02) and property suites (QUA-03).
     "tests/qualification/heic/parser.test.ts",
+    "tests/qualification/heic/property.test.ts",
     "tests/qualification/avif/oracles.test.ts",
     "tests/qualification/avif/tracer.test.ts",
     "tests/qualification/avif/decode.test.ts",

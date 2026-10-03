@@ -6,17 +6,25 @@
 // Independence: every structural fact comes from the independent inventory walker
 // (`inventory.ts`) and the closed lists in `docs/isobmff.md` (`spec-lists.ts`). This file never
 // imports `src/isobmff/` (the engine under test); `tests/isobmff_isolation.test.ts` enforces it.
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { sanitizeFile } from "../../dist/index.js";
+import { inspectFile, sanitizeFile } from "../../dist/index.js";
 import type { SanitizeOptions } from "../../src/types.js";
 import { createMinimalExif } from "../../src/metadata/exif.js";
-import type {
-  FormatGenerator,
-  PlantedCanary,
+import { ok } from "../../src/result.js";
+import {
+  assertFloors,
+  countSample,
+  createCounters,
+} from "../qualification/kit/floors.js";
+import {
+  assertCanariesAbsent,
+  assertPlanted,
+  type FormatGenerator,
+  type PlantedCanary,
 } from "../qualification/kit/generators.js";
 import {
   loadCorpusRecord,
@@ -27,9 +35,19 @@ import {
   downloadGate,
   firstSurvivingWindow,
   RESIDUE_WINDOW,
+  survivingPayloadDigests,
   tracerRecords,
 } from "./corpus-tracer.js";
-import type { IsobmffMetadataKind } from "./generator.js";
+import { isobmffRawColorProfileSha256 } from "./differential.js";
+import {
+  buildNonHazardFile,
+  GENERATOR_TRUNCATED_ICC,
+  ISOBMFF_ARM_FLOORS,
+  isobmffArmSampleArbitrary,
+  type IsobmffArmSample,
+  type IsobmffMetadataKind,
+  type NonHazardConfig,
+} from "./generator.js";
 import {
   inventoryIsobmff,
   readItemExtentBytes,
@@ -83,17 +101,25 @@ export interface IsobmffParserSuiteConfig {
   >;
 }
 
-export type SanitizeOutcome =
-  | { readonly ok: true; readonly output: Buffer }
-  | { readonly ok: false; readonly code: string };
+export type InspectOutcome = Awaited<ReturnType<typeof inspectFile>>;
 
-/** Sanitizes `source` through `sanitize` with `preservation`; returns the output bytes or the
- * refusal code. */
+export type SanitizeOutcome =
+  | {
+      readonly ok: true;
+      readonly output: Buffer;
+      /** `inspectFile` on the output, only when `inspect` was requested. */
+      readonly inspection?: InspectOutcome;
+    }
+  | { readonly ok: false; readonly code: string; readonly feature?: string };
+
+/** Sanitizes `source` through `sanitize` with `preservation`; returns the output bytes (and, with
+ * `inspect`, `inspectFile` on the output) or the refusal code and feature. */
 export async function sanitizeBytes(
   source: Buffer,
   extension: string,
   preservation: Preservation,
   sanitize: typeof sanitizeFile = sanitizeFile,
+  inspect = false,
 ): Promise<SanitizeOutcome> {
   const directory = await mkdtemp(join(tmpdir(), "isobmff-qualification-"));
   try {
@@ -105,8 +131,17 @@ export async function sanitizeBytes(
       destinationPath,
       ...preservation,
     });
-    if (!result.ok) return { ok: false, code: result.error.code };
-    return { ok: true, output: await readFile(destinationPath) };
+    if (!result.ok) {
+      const { feature } = result.error as { readonly feature?: string };
+      return {
+        ok: false,
+        code: result.error.code,
+        ...(feature === undefined ? {} : { feature }),
+      };
+    }
+    const output = await readFile(destinationPath);
+    if (!inspect) return { ok: true, output };
+    return { ok: true, output, inspection: await inspectFile(destinationPath) };
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -668,6 +703,473 @@ export function defineIsobmffParserSuite(
           `seed ${ISOBMFF_FC_SEED} sample 0 source: unlisted type(s) property:ispe`,
         );
       });
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// QUA-03 / D-28: the property suite and its pure-copy drill.
+// ---------------------------------------------------------------------------------------------
+
+/** One metadata property the suite asserts per sample. Each has its own failure message, so the
+ * pure-copy drill can show each one turning red on its own. */
+export type IsobmffProperty =
+  "exif-canary" | "xmp-canary" | "icc-absent" | "icc-identical" | "payloads";
+
+export const ALL_ISOBMFF_PROPERTIES: ReadonlySet<IsobmffProperty> = new Set([
+  "exif-canary",
+  "xmp-canary",
+  "icc-absent",
+  "icc-identical",
+  "payloads",
+]);
+
+export const PROPERTY_MESSAGES: Readonly<Record<IsobmffProperty, string>> = {
+  "exif-canary": "EXIF canary survives",
+  "xmp-canary": "XMP canary survives",
+  "icc-absent": "ICC profile survives with preserveColorProfile false",
+  "icc-identical":
+    "ICC profile is not byte-identical with preserveColorProfile true",
+  payloads: "surviving item payloads differ from the source",
+};
+
+const PROPERTY_SETTINGS: readonly (readonly [CorpusSetting, Preservation])[] =
+  CORPUS_SETTINGS;
+
+function canaryOf(
+  planted: readonly PlantedCanary<string>[],
+  kind: string,
+): readonly PlantedCanary<string>[] {
+  return planted.filter((item) => item.kind === kind);
+}
+
+/** Fails with `PROPERTY_MESSAGES[property]` when a planted canary of `kind` occurs in the output
+ * bytes (raw search, `assertCanariesAbsent`) or anywhere in the output's `inspectFile` result. */
+function checkCanaryAbsent(
+  property: "exif-canary" | "xmp-canary",
+  kind: IsobmffMetadataKind,
+  planted: readonly PlantedCanary<string>[],
+  output: Buffer,
+  inspection: InspectOutcome | undefined,
+  label: string,
+): void {
+  const canaries = canaryOf(planted, kind);
+  if (canaries.length === 0)
+    throw new Error(`${label}: no ${kind} canary was planted`);
+  try {
+    assertCanariesAbsent(output, canaries, []);
+  } catch (error) {
+    throw new Error(
+      `${label}: ${PROPERTY_MESSAGES[property]} in the output bytes (${String(error)})`,
+    );
+  }
+  if (inspection === undefined || !inspection.ok)
+    throw new Error(`${label}: inspectFile on the output did not succeed`);
+  const inspected = JSON.stringify(inspection.value);
+  for (const item of canaries) {
+    if (inspected.includes(item.canary))
+      throw new Error(
+        `${label}: ${PROPERTY_MESSAGES[property]} in inspectFile (${item.canary})`,
+      );
+  }
+}
+
+/** The per-sample property check, run on the real handler and on the pure-copy stand-in alike.
+ * Returns the arms the sample counts toward. */
+export async function checkIsobmffArmSample(
+  armSample: IsobmffArmSample,
+  extension: string,
+  sanitize: typeof sanitizeFile,
+  properties: ReadonlySet<IsobmffProperty> = ALL_ISOBMFF_PROPERTIES,
+): Promise<readonly string[]> {
+  const { sample, arms } = armSample;
+  if (arms.includes("hazard")) {
+    for (const [setting, preservation] of PROPERTY_SETTINGS) {
+      const outcome = await sanitizeBytes(
+        sample.bytes,
+        extension,
+        preservation,
+        sanitize,
+      );
+      if (outcome.ok)
+        throw new Error(
+          `hazard sample (${armSample.hazardClass ?? "?"}) was admitted (${setting})`,
+        );
+    }
+    return arms;
+  }
+  assertPlanted(sample.bytes, sample.planted);
+  const sourceProfile = isobmffRawColorProfileSha256(sample.bytes);
+  const sourcePayloads = JSON.stringify(survivingPayloadDigests(sample.bytes));
+  for (const [setting, preservation] of PROPERTY_SETTINGS) {
+    const label = `${setting} [${arms.join("+")}]`;
+    const outcome = await sanitizeBytes(
+      sample.bytes,
+      extension,
+      preservation,
+      sanitize,
+      true,
+    );
+    if (!outcome.ok)
+      throw new Error(`${label}: unexpected refusal ${outcome.code}`);
+    const { output, inspection } = outcome;
+    if (properties.has("exif-canary"))
+      checkCanaryAbsent(
+        "exif-canary",
+        "EXIF",
+        sample.planted,
+        output,
+        inspection,
+        label,
+      );
+    if (properties.has("xmp-canary"))
+      checkCanaryAbsent(
+        "xmp-canary",
+        "XMP",
+        sample.planted,
+        output,
+        inspection,
+        label,
+      );
+    const outputProfile = isobmffRawColorProfileSha256(output);
+    if (
+      properties.has("icc-absent") &&
+      !preservation.preserveColorProfile &&
+      outputProfile !== undefined
+    )
+      throw new Error(`${label}: ${PROPERTY_MESSAGES["icc-absent"]}`);
+    if (
+      properties.has("icc-identical") &&
+      preservation.preserveColorProfile &&
+      outputProfile !== sourceProfile
+    )
+      throw new Error(
+        `${label}: ${PROPERTY_MESSAGES["icc-identical"]} (${String(sourceProfile)} -> ${String(outputProfile)})`,
+      );
+    if (
+      properties.has("payloads") &&
+      JSON.stringify(survivingPayloadDigests(output)) !== sourcePayloads
+    )
+      throw new Error(`${label}: ${PROPERTY_MESSAGES.payloads}`);
+  }
+  return arms;
+}
+
+/** A pure-copy `sanitizeFile` stand-in: copies the source to the destination and reports
+ * success. The drill runs it through the same checks; every metadata property must turn red. */
+export function pureCopySanitize(format: IsobmffBrand): typeof sanitizeFile {
+  return async (options) => {
+    await copyFile(options.sourcePath, options.destinationPath);
+    return ok({
+      format,
+      destinationPath: options.destinationPath,
+      removedNamespaces: [],
+      preserved: {
+        orientation: false,
+        colorProfile: false,
+        timestamps: false,
+        resolution: false,
+      },
+      warnings: [],
+      postCommitResidue: { state: "none" },
+    });
+  };
+}
+
+function boundedInteger(
+  value: string | undefined,
+  fallback: number,
+  maximum: number,
+  label: string,
+): number {
+  if (value === undefined) return fallback;
+  if (!/^\d+$/u.test(value)) throw new Error(`${label} must be an integer`);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > maximum)
+    throw new Error(`${label} is outside its admitted range`);
+  return parsed;
+}
+
+/** FC_SEED / FC_RUNS / FC_PATH, as the PNG property suite reads them: a focused run defaults to
+ * 200 runs, and an FC_PATH replay to one. */
+export function resolveIsobmffReplayConfig(environment: NodeJS.ProcessEnv): {
+  readonly seed: number;
+  readonly numRuns: number;
+  readonly path?: string;
+  readonly endOnFailure?: true;
+} {
+  const seed = boundedInteger(
+    environment.FC_SEED,
+    ISOBMFF_FC_SEED,
+    0x7fff_ffff,
+    "FC_SEED",
+  );
+  const path = environment.FC_PATH;
+  const numRuns = boundedInteger(
+    environment.FC_RUNS,
+    path === undefined ? ISOBMFF_FC_RUNS : 1,
+    ISOBMFF_FC_RUNS,
+    "FC_RUNS",
+  );
+  if (path !== undefined && !/^\d+(?::\d+)*$/u.test(path))
+    throw new Error("FC_PATH is not a bounded fast-check replay path");
+  // An FC_PATH replay runs exactly that sample and stops: no further shrinking.
+  return {
+    seed,
+    numRuns,
+    ...(path === undefined ? {} : { path, endOnFailure: true as const }),
+  };
+}
+
+/** The replay record a failing run prints: seed, path and the exact command that replays it. */
+export function formatIsobmffReplayRecord(
+  format: IsobmffBrand,
+  seed: number,
+  path: string | null,
+  error: unknown,
+): string {
+  if (path === null || !/^\d+(?::\d+)*$/u.test(path))
+    throw new Error("Replay identity is incomplete");
+  return JSON.stringify({
+    seed,
+    path,
+    nodeVersion: process.version,
+    platform: process.platform,
+    architecture: process.arch,
+    replayCommand: `FC_SEED=${seed} FC_PATH=${path} npm test -- tests/qualification/${format}/property.test.ts`,
+    error: String(error),
+  });
+}
+
+export interface IsobmffPropertySuiteConfig {
+  readonly format: IsobmffBrand;
+  readonly extension: string;
+}
+
+// Measured 2026-10-03 on this host (load average ~11): the HEIC 200-sample property run (two
+// sanitizes and one inspectFile per non-hazard sample) took 3.3 s, each drill under 0.1 s. The
+// budgets leave room for a loaded CI runner.
+const PROPERTY_RUN_TIMEOUT_MS = 180_000;
+const DRILL_TIMEOUT_MS = 60_000;
+
+const DRILL_PARAMS = {
+  seed: ISOBMFF_FC_SEED,
+  numRuns: ISOBMFF_FC_RUNS,
+  endOnFailure: true,
+} as const;
+
+/** A fixed non-hazard config carrying a `prof` or `rICC` colr (the truncated-ICC control). */
+function iccControlConfig(
+  brand: IsobmffBrand,
+  colrVariant: "prof" | "ricc",
+): NonHazardConfig {
+  return {
+    brand,
+    exifOffset: 0,
+    colrVariant,
+    irot: undefined,
+    imir: undefined,
+    includeGridIdat: false,
+    includeThmb: false,
+    includeAuxl: false,
+    exifCanary: `EXIFCLEANER-CANARY-EXIF-${"11".repeat(16)}`,
+    xmpCanary: `EXIFCLEANER-CANARY-XMP-${"22".repeat(16)}`,
+  };
+}
+
+/**
+ * QUA-03 / D-28: sanitizes `ISOBMFF_FC_RUNS` per-arm samples of `config.format` at the fixed seed
+ * through the registered handler, asserting per sample every metadata property
+ * (`checkIsobmffArmSample`), then the brand's `ISOBMFF_ARM_FLOORS`. The pure-copy drill runs the
+ * same checks against a stand-in that copies the source: the EXIF-canary, XMP-canary and ICC
+ * (preserveColorProfile false) properties each turn red on their own.
+ */
+export function defineIsobmffPropertySuite(
+  config: IsobmffPropertySuiteConfig,
+): void {
+  const FORMAT = config.format.toUpperCase();
+  describe(`${FORMAT} property suite (QUA-03)`, () => {
+    it("defaults focused runs to 200 and an FC_PATH replay to one", () => {
+      expect(resolveIsobmffReplayConfig({})).toEqual({
+        seed: ISOBMFF_FC_SEED,
+        numRuns: ISOBMFF_FC_RUNS,
+      });
+      expect(resolveIsobmffReplayConfig({ FC_PATH: "3:1" })).toEqual({
+        seed: ISOBMFF_FC_SEED,
+        numRuns: 1,
+        path: "3:1",
+        endOnFailure: true,
+      });
+      expect(() => resolveIsobmffReplayConfig({ FC_PATH: "../x" })).toThrow(
+        "FC_PATH",
+      );
+      expect(() => resolveIsobmffReplayConfig({ FC_RUNS: "201" })).toThrow(
+        "FC_RUNS",
+      );
+    });
+
+    it(
+      `every property holds through the registered handler; every arm clears its floor at seed ${ISOBMFF_FC_SEED}`,
+      async () => {
+        const replay = resolveIsobmffReplayConfig(process.env);
+        const counters = createCounters();
+        let executed = 0;
+        const result = await fc.check(
+          fc.asyncProperty(
+            isobmffArmSampleArbitrary(config.format),
+            async (armSample) => {
+              executed += 1;
+              countSample(
+                counters,
+                await checkIsobmffArmSample(
+                  armSample,
+                  config.extension,
+                  sanitizeFile,
+                ),
+              );
+            },
+          ),
+          replay,
+        );
+        if (result.failed)
+          throw new Error(
+            formatIsobmffReplayRecord(
+              config.format,
+              replay.seed,
+              result.counterexamplePath,
+              result.errorInstance,
+            ),
+          );
+        expect(executed).toBe(replay.numRuns);
+        console.info(
+          `${config.format} arm counts: ${JSON.stringify(counters)}`,
+        );
+        // Floors bind only the full fixed-seed run (D-20); a focused replay has none.
+        if (
+          replay.path === undefined &&
+          replay.numRuns === ISOBMFF_FC_RUNS &&
+          replay.seed === ISOBMFF_FC_SEED
+        )
+          assertFloors(counters, ISOBMFF_ARM_FLOORS);
+      },
+      PROPERTY_RUN_TIMEOUT_MS,
+    );
+
+    it("an injected failure prints its seed and path, and replaying that path reproduces exactly that sample", () => {
+      const arbitrary = isobmffArmSampleArbitrary(config.format);
+      const injected = (armSample: IsobmffArmSample): boolean =>
+        !armSample.arms.includes("auxl");
+      const first = fc.check(fc.property(arbitrary, injected), {
+        seed: ISOBMFF_FC_SEED,
+        numRuns: ISOBMFF_FC_RUNS,
+      });
+      if (!first.failed) throw new Error("Expected the injected failure");
+      const record = JSON.parse(
+        formatIsobmffReplayRecord(
+          config.format,
+          ISOBMFF_FC_SEED,
+          first.counterexamplePath,
+          first.errorInstance,
+        ),
+      ) as { readonly path: string; readonly replayCommand: string };
+      expect(record.replayCommand).toContain(
+        `FC_SEED=${ISOBMFF_FC_SEED} FC_PATH=${record.path} npm test -- tests/qualification/${config.format}/property.test.ts`,
+      );
+      let replayed = 0;
+      const replay = fc.check(
+        fc.property(arbitrary, (armSample) => {
+          replayed += 1;
+          return injected(armSample);
+        }),
+        resolveIsobmffReplayConfig({
+          FC_SEED: String(ISOBMFF_FC_SEED),
+          FC_PATH: record.path,
+        }),
+      );
+      expect(replay.failed).toBe(true);
+      expect(replayed).toBe(1);
+      const [expected] = first.counterexample ?? [];
+      const [actual] = replay.counterexample ?? [];
+      expect(
+        actual?.sample.bytes.equals(expected?.sample.bytes ?? Buffer.alloc(0)),
+      ).toBe(true);
+    });
+
+    it("a truncated ICC (the old 4-byte stand-in) with preserveColorProfile true still refuses", async () => {
+      for (const variant of ["prof", "ricc"] as const) {
+        const nonHazard = iccControlConfig(config.format, variant);
+        const truncated = await sanitizeBytes(
+          buildNonHazardFile(nonHazard, GENERATOR_TRUNCATED_ICC),
+          config.extension,
+          DEFAULT_PRESERVATION,
+        );
+        expect(truncated).toEqual({
+          ok: false,
+          code: "unsupported-feature",
+          feature: "color-profile-preservation",
+        });
+        // Pairing: the same file with the well-formed profile is admitted.
+        const wellFormed = await sanitizeBytes(
+          buildNonHazardFile(nonHazard),
+          config.extension,
+          DEFAULT_PRESERVATION,
+        );
+        expect(wellFormed.ok).toBe(true);
+      }
+    });
+
+    describe("pure-copy drill: each metadata property turns red on its own", () => {
+      const standIn = pureCopySanitize(config.format);
+      const nonHazard = isobmffArmSampleArbitrary(config.format).filter(
+        (armSample) => !armSample.arms.includes("hazard"),
+      );
+      const drill = async (
+        property: IsobmffProperty,
+        arbitrary: fc.Arbitrary<IsobmffArmSample>,
+      ): Promise<void> => {
+        const result = await fc.check(
+          fc.asyncProperty(arbitrary, async (armSample) => {
+            await checkIsobmffArmSample(
+              armSample,
+              config.extension,
+              standIn,
+              new Set([property]),
+            );
+          }),
+          DRILL_PARAMS,
+        );
+        expect(result.failed).toBe(true);
+        console.info(
+          `pure-copy ${property} red: ${String(result.errorInstance).split("\n")[0]}`,
+        );
+        expect(String(result.errorInstance)).toContain(
+          PROPERTY_MESSAGES[property],
+        );
+      };
+
+      it(
+        "pure-copy: the EXIF-canary property fails",
+        () => drill("exif-canary", nonHazard),
+        DRILL_TIMEOUT_MS,
+      );
+      it(
+        "pure-copy: the XMP-canary property fails",
+        () => drill("xmp-canary", nonHazard),
+        DRILL_TIMEOUT_MS,
+      );
+      it(
+        "pure-copy: the ICC property fails with preserveColorProfile false",
+        () =>
+          drill(
+            "icc-absent",
+            nonHazard.filter(
+              (armSample) =>
+                armSample.arms.includes("colr-prof") ||
+                armSample.arms.includes("colr-ricc"),
+            ),
+          ),
+        DRILL_TIMEOUT_MS,
+      );
     });
   });
 }
