@@ -20,11 +20,11 @@ import { createIsobmffWriterHandlerForTests } from "./isobmff-support/test-handl
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
-const HEIC_FIXTURE = join(FIXTURES_DIR, "heif-enc-grid.heic");
-const AVIF_FIXTURE = join(FIXTURES_DIR, "heif-enc-grid.avif");
+const HEIC_FIXTURE = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
+const AVIF_FIXTURE = join(FIXTURES_DIR, "avif", "heif-enc-grid.avif");
 
 const LINUX_X64 = process.platform === "linux" && process.arch === "x64";
 

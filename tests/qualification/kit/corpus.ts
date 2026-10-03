@@ -148,9 +148,32 @@ interface SuccessOutcome {
 
 interface RefusalOutcome {
   readonly status: "refused";
-  readonly errorCode: "malformed-file" | "unsafe-structure";
+  readonly errorCode:
+    "malformed-file" | "unsafe-structure" | "unsupported-format";
   readonly nativeWrite: "not-started";
+  /**
+   * The format's own internal decline class for this refusal (D-25). The
+   * public sanitize error carries no class, so the caller supplies a
+   * `readDeclineClass` reader; this kit checks only the slug shape and never
+   * names a format's class vocabulary (the per-format suites check the set).
+   */
+  readonly declineClass?: string;
 }
+
+/** The closed key sets per outcome status: any other key fails closed. */
+const SUCCESS_OUTCOME_KEYS = new Set(["status", "removedNamespaces"]);
+const REFUSAL_OUTCOME_KEYS = new Set([
+  "status",
+  "errorCode",
+  "nativeWrite",
+  "declineClass",
+]);
+const REFUSAL_ERROR_CODES = new Set([
+  "malformed-file",
+  "unsafe-structure",
+  "unsupported-format",
+]);
+const DECLINE_CLASS = /^[a-z][a-z0-9-]*$/;
 
 export interface CorpusRecord {
   readonly id: string;
@@ -184,6 +207,20 @@ export interface RunQualificationCaseOptions {
    * This kit never parses a container format itself.
    */
   readonly payloadDigests: (bytes: Buffer) => readonly PayloadDigest[];
+  /**
+   * Reads the format's internal decline class from the source bytes, or
+   * `undefined` when the format would admit them (D-25). Required whenever a
+   * refused record pins `outcome.declineClass`: a pinned class with no reader
+   * fails closed rather than going unchecked.
+   */
+  readonly readDeclineClass?: (
+    bytes: Buffer,
+  ) => string | undefined | Promise<string | undefined>;
+  /**
+   * Test seam: read records from this manifest instead of the corpus's own.
+   * Record `localPath`s still resolve against the corpus root.
+   */
+  readonly manifestPath?: string;
 }
 
 type QualificationTranscript =
@@ -356,20 +393,30 @@ export function assertCorpusRecord(
   )
     invalid("topology");
   if (!isObject(value.outcome)) invalid("outcome");
-  if (value.outcome.status === "success") {
-    const removed = arrayField(
-      value.outcome.removedNamespaces,
-      "removedNamespaces",
-    );
+  const outcome = value.outcome;
+  if (outcome.status === "success") {
+    for (const key of Object.keys(outcome))
+      if (!SUCCESS_OUTCOME_KEYS.has(key)) invalid("outcome keys");
+    const removed = arrayField(outcome.removedNamespaces, "removedNamespaces");
     if (removed.some((item) => !ALL_NAMESPACES.has(String(item))))
       invalid("removedNamespaces");
-  } else if (
-    value.outcome.status !== "refused" ||
-    (value.outcome.errorCode !== "malformed-file" &&
-      value.outcome.errorCode !== "unsafe-structure") ||
-    value.outcome.nativeWrite !== "not-started"
-  )
-    invalid("outcome");
+  } else {
+    if (outcome.status !== "refused") invalid("outcome");
+    for (const key of Object.keys(outcome))
+      if (!REFUSAL_OUTCOME_KEYS.has(key)) invalid("outcome keys");
+    if (
+      typeof outcome.errorCode !== "string" ||
+      !REFUSAL_ERROR_CODES.has(outcome.errorCode) ||
+      outcome.nativeWrite !== "not-started"
+    )
+      invalid("outcome");
+    if (
+      outcome.declineClass !== undefined &&
+      (typeof outcome.declineClass !== "string" ||
+        !DECLINE_CLASS.test(outcome.declineClass))
+    )
+      invalid("declineClass");
+  }
   const retained = arrayField(value.retainedPayloads, "retainedPayloads");
   for (const item of retained) {
     if (
@@ -454,8 +501,10 @@ export function assertNoticeAttribution(
     throw new Error(`NOTICE stanza for ${noticeId} is missing Modified`);
 }
 
-async function readManifest(): Promise<CorpusManifest> {
-  const parsed: unknown = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
+async function readManifest(
+  manifestPath: string = MANIFEST_PATH,
+): Promise<CorpusManifest> {
+  const parsed: unknown = JSON.parse(await readFile(manifestPath, "utf8"));
   assertManifest(parsed);
   // tests/corpus/NOTICE is read only when an attribution-requiring record
   // exists (D-16).
@@ -470,8 +519,11 @@ async function readManifest(): Promise<CorpusManifest> {
   return parsed;
 }
 
-export async function loadCorpusRecord(caseId: string): Promise<CorpusRecord> {
-  const manifest = await readManifest();
+export async function loadCorpusRecord(
+  caseId: string,
+  manifestPath: string = MANIFEST_PATH,
+): Promise<CorpusRecord> {
+  const manifest = await readManifest(manifestPath);
   const record = manifest.records.find((item) => item.id === caseId);
   if (record === undefined) throw new Error(`Unknown corpus case: ${caseId}`);
   return record;
@@ -561,8 +613,20 @@ export async function runQualificationCase(
   caseId: string,
   options: RunQualificationCaseOptions,
 ): Promise<QualificationTranscript> {
-  const record = await loadCorpusRecord(caseId);
-  const source = await materializeCorpusRecord(caseId);
+  const record = await loadCorpusRecord(caseId, options.manifestPath);
+  const source = await materializeRecord(record);
+  if (
+    record.outcome.status === "refused" &&
+    record.outcome.declineClass !== undefined
+  ) {
+    if (options.readDeclineClass === undefined)
+      throw new Error(`No decline-class reader for pinned class: ${record.id}`);
+    const measured = await options.readDeclineClass(source);
+    if (measured !== record.outcome.declineClass)
+      throw new Error(
+        `Decline class mismatch: ${record.id} pinned ${record.outcome.declineClass}, measured ${measured ?? "admitted"}`,
+      );
+  }
   const extension = extensionFor(record.format);
   const directory = await mkdtemp(join(tmpdir(), "exifcleaner-qualification-"));
   const sourcePath = join(directory, `source${extension}`);

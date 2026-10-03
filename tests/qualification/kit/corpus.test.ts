@@ -11,6 +11,7 @@ import {
   assertCorpusRecord,
   assertNoticeAttribution,
   materializeRecord,
+  runQualificationCase,
   type CorpusRecord,
 } from "./corpus.js";
 
@@ -480,5 +481,151 @@ describe("assertNoticeAttribution (KIT-10/D-15)", () => {
     expect(() =>
       assertNoticeAttribution(record, fullNoticeStanza(noticeId, url)),
     ).toThrow(/needs no NOTICE attribution/);
+  });
+});
+
+describe("refusal outcome schema (D-25)", () => {
+  function refusedRecord(): Record<string, unknown> {
+    return {
+      ...validRecord(),
+      outcome: {
+        status: "refused",
+        errorCode: "unsupported-format",
+        nativeWrite: "not-started",
+        declineClass: "some-decline-class",
+      },
+    };
+  }
+
+  it("accepts unsupported-format with a slug decline class", () => {
+    expect(() => assertCorpusRecord(refusedRecord())).not.toThrow();
+  });
+
+  it("rejects an unknown error code", () => {
+    const record = refusedRecord();
+    (record.outcome as Record<string, unknown>).errorCode =
+      "unsupported-feature";
+    expect(() => assertCorpusRecord(record)).toThrow(/outcome/);
+  });
+
+  it("rejects a malformed decline class", () => {
+    for (const declineClass of [
+      "",
+      "Upper-Case",
+      "1-leading-digit",
+      "has space",
+      7,
+    ]) {
+      const record = refusedRecord();
+      (record.outcome as Record<string, unknown>).declineClass = declineClass;
+      expect(() => assertCorpusRecord(record)).toThrow(/declineClass/);
+    }
+  });
+
+  it("rejects an extra refused or success outcome key", () => {
+    const refused = refusedRecord();
+    (refused.outcome as Record<string, unknown>).reason = "extra";
+    expect(() => assertCorpusRecord(refused)).toThrow(/outcome keys/);
+    const success = validRecord();
+    (success.outcome as Record<string, unknown>).declineClass = "x";
+    expect(() => assertCorpusRecord(success)).toThrow(/outcome keys/);
+  });
+});
+
+/**
+ * D-25 pins are exact: an unexpected admit, a wrong decline class or a
+ * missing class reader is red. Each case rewrites one real record in a temp
+ * manifest copy (chosen by shape, never by format name).
+ */
+describe("runQualificationCase exact refusal pins (D-25)", () => {
+  type MutableRecord = Record<string, unknown> & { id: string };
+  const realRecords = (
+    JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as {
+      records: MutableRecord[];
+    }
+  ).records;
+  const admitted = realRecords.find(
+    (record) =>
+      typeof record.localPath === "string" &&
+      (record.outcome as { status: string }).status === "success",
+  );
+  const refused = realRecords.find(
+    (record) =>
+      typeof record.localPath === "string" &&
+      (record.outcome as { status: string }).status === "refused",
+  );
+  if (admitted === undefined || refused === undefined)
+    throw new Error("Manifest lacks a vendored success and refused record");
+  const noDigests = (): readonly never[] => [];
+  let directory: string | undefined;
+
+  afterEach(async () => {
+    if (directory !== undefined)
+      await rm(directory, { recursive: true, force: true });
+    directory = undefined;
+  });
+
+  async function manifestWith(record: MutableRecord): Promise<string> {
+    directory = await mkdtemp(join(tmpdir(), "corpus-pin-"));
+    const path = join(directory, "manifest.json");
+    await writeFile(
+      path,
+      JSON.stringify({ schemaVersion: 1, records: [record] }),
+    );
+    return path;
+  }
+
+  it("throws when an admitted file is pinned as refused", async () => {
+    const manifestPath = await manifestWith({
+      ...admitted,
+      outcome: {
+        status: "refused",
+        errorCode: "unsupported-format",
+        nativeWrite: "not-started",
+      },
+    });
+    await expect(
+      runQualificationCase(admitted.id, {
+        payloadDigests: noDigests,
+        manifestPath,
+      }),
+    ).rejects.toThrow(/Expected refusal/);
+  });
+
+  it("passes a pinned refusal with the source unchanged and no destination", async () => {
+    const manifestPath = await manifestWith(refused);
+    const transcript = await runQualificationCase(refused.id, {
+      payloadDigests: noDigests,
+      manifestPath,
+    });
+    expect(transcript).toMatchObject({
+      status: "refused",
+      source: { unchanged: true },
+      destination: { state: "absent" },
+    });
+  });
+
+  it("requires the reader's class to equal a pinned decline class", async () => {
+    const manifestPath = await manifestWith({
+      ...refused,
+      outcome: {
+        ...(refused.outcome as object),
+        declineClass: "pinned-class",
+      },
+    });
+    const run = (readDeclineClass?: (bytes: Buffer) => string | undefined) =>
+      runQualificationCase(refused.id, {
+        payloadDigests: noDigests,
+        manifestPath,
+        ...(readDeclineClass === undefined ? {} : { readDeclineClass }),
+      });
+    await expect(run()).rejects.toThrow(/No decline-class reader/);
+    await expect(run(() => "other-class")).rejects.toThrow(
+      /Decline class mismatch/,
+    );
+    await expect(run(() => undefined)).rejects.toThrow(/measured admitted/);
+    await expect(run(() => "pinned-class")).resolves.toMatchObject({
+      status: "refused",
+    });
   });
 });

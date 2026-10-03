@@ -63,14 +63,16 @@ void [
 const TESTS_DIR = dirname(fileURLToPath(import.meta.url));
 const HEIF_ENC_HEIC = join(
   TESTS_DIR,
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
+  "heic",
   "heif-enc-grid.heic",
 );
 const HEIF_ENC_AVIF = join(
   TESTS_DIR,
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
+  "avif",
   "heif-enc-grid.avif",
 );
 const SIGNED_HEIC = join(

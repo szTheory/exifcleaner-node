@@ -2509,6 +2509,52 @@
         }
       ],
       "permittedDifferences": []
+    },
+    {
+      "id": "heif-enc-grid-heic",
+      "format": "heic",
+      "roles": ["differential", "structural"],
+      "localPath": "constructed/heic/heif-enc-grid.heic",
+      "provenance": {
+        "revision": "8765f1e1e037ecc510cac09220375c7977964600",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/8765f1e1e037ecc510cac09220375c7977964600/tests/isobmff-support/fixtures/heif-enc-grid.heic",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "ae40a80f0a85cd984b9d8b1a2e811e138ac2c8c26f14b77360d62e1e4867bad6",
+      "bytes": 4243,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["EXIF", "XMP"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "grid",
+          "sha256": "2ff7c611f6ef4fedf4db141b68a48f3e24846127ae176467496b5a81af60a5c8"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "c876df5fe0d92a7018bd6b5885709e42202add385d8178a19d7e86912ae49759"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "6f765543882032a81b0763927dd313d8bab9ef7dcc599fc2f219e735f062504a"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "b1b085161706d6a12f7f057e00e1e02ffd03f10176ec46f91b6ad3cb71d6a101"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "c7d47fbccbea6baa49d695a10e1c96782b259728893fbee4a3e850d45067b404"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "2e430e6c0f3522ecd12de620b0bb703e06b10847da9a06d33a13917b71a25dbd"
+        }
+      ],
+      "permittedDifferences": []
     }
   ],
   "benchmarks": {

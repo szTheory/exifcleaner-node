@@ -89,9 +89,7 @@ const ISOBMFF_LINUX_FIXTURES = [
   "dist/isobmff/admission.js",
   "tests/isobmff_brand.test.ts",
   "tests/isobmff-support/builder.ts",
-  "tests/isobmff-support/fixtures/heif-enc-grid.heic",
-  "tests/isobmff-support/fixtures/heif-enc-grid.avif",
-  "tests/isobmff-support/fixtures/RECIPE.md",
+  "tests/isobmff-support/inventory.ts",
 ];
 
 const DOCS_ONLY_LINUX_FIXTURES = [
@@ -123,6 +121,11 @@ const FULL_ALONE_FIXTURES = [
   ".github/workflows/ci.yml",
   ".github/dependabot.yml",
   "tests/corpus/manifest.json",
+  // 62.1-08 (D-24): the heif-enc fixtures moved under tests/corpus/, so they
+  // now select full scope like every other corpus file.
+  "tests/corpus/constructed/heic/heif-enc-grid.heic",
+  "tests/corpus/constructed/avif/heif-enc-grid.avif",
+  "tests/corpus/constructed/heif-enc-RECIPE.md",
   "tests/classify_ci_scope.test.ts",
   "tests/qualification/kit/corpus.ts",
   "tests/qualification/kit/oracles.ts",

@@ -84,11 +84,11 @@ const C2PA_UUID_USERTYPE = "d8fec3d61b0e483c92975828877ec481";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
-const HEIC_FIXTURE = join(FIXTURES_DIR, "heif-enc-grid.heic");
-const AVIF_FIXTURE = join(FIXTURES_DIR, "heif-enc-grid.avif");
+const HEIC_FIXTURE = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
+const AVIF_FIXTURE = join(FIXTURES_DIR, "avif", "heif-enc-grid.avif");
 
 const directories: string[] = [];
 afterEach(async () => {

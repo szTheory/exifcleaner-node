@@ -25,10 +25,10 @@ import { inventoryIsobmff } from "./isobmff-support/inventory.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
-const HEIC_PATH = join(FIXTURES_DIR, "heif-enc-grid.heic");
+const HEIC_PATH = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
 
 type Width = 0 | 4 | 8;
 const WIDTHS: readonly Width[] = [0, 4, 8];

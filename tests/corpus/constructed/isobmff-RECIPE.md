@@ -4,7 +4,7 @@ Two c2patool-signed fixtures, produced once at dev time and committed. c2patool 
 installed by any script CI runs; it is a pinned GitHub release asset downloaded into the session
 scratchpad for this one signing session and never committed. Everything below is the literal
 command transcript and measured facts, following the format of
-`tests/isobmff-support/fixtures/RECIPE.md`.
+`tests/corpus/constructed/heif-enc-RECIPE.md`.
 
 ## Tool versions (quoted, not assumed)
 
@@ -42,7 +42,7 @@ c2patool 0.27.22
    `sips -g pixelWidth -g pixelHeight base.jpg`.
 3. Write Exif (Orientation=1, Artist) and an XMP packet (XMP-dc:Title) with ExifTool 13.59, using
    `-n` for the Orientation write (same fixed, verified pattern as
-   `tests/isobmff-support/fixtures/RECIPE.md`):
+   `tests/corpus/constructed/heif-enc-RECIPE.md`):
    ```
    $ perl exiftool -n -Orientation=1 -Artist="ExifCleaner Test" \
        -XMP-dc:Title="C2PA Signed Fixture" -overwrite_original base.jpg

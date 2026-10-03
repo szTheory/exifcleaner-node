@@ -78,8 +78,8 @@ const LINUX_SAFE_PATH_RULES = Object.freeze(
         /^tests\/qualification\/(?:webp|png|jpeg)\/[a-z0-9_-]+\.test\.ts$/u,
     },
     {
-      // D-24: the ISOBMFF test-support directory (builder/generator/hostile/inventory .ts,
-      // RECIPE.md, and the two heif-enc .heic/.avif fixture images) -- no production format rule
+      // D-24: the ISOBMFF test-support directory (builder/generator/hostile/inventory .ts; the
+      // heif-enc fixtures and their recipe moved to tests/corpus/ in 62.1-08) -- no production format rule
       // exists for isobmff yet (FORMAT_PATH_RULES stays untouched, fail-closed).
       id: "isobmff-test-support",
       pattern:

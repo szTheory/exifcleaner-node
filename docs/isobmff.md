@@ -295,10 +295,10 @@ references", l.3485-3488) -- not merely unusual, a hard parse error in the refer
 
 ## Fixtures
 
-Two real `heif-enc -T` fixtures are committed under `tests/isobmff-support/fixtures/` (D-22): a
+Two real `heif-enc -T` fixtures are committed under `tests/corpus/constructed/{heic,avif}/` (D-22; moved from `tests/isobmff-support/fixtures/` in 62.1-08): a
 2x2 grid of 64x64 tiles with a 32x32 thumbnail, Exif and XMP metadata, encoded once with x265
 (HEIC) and once with aom (AVIF). The full generation recipe -- tool versions, every command line,
-and every measured structural fact -- lives in `tests/isobmff-support/fixtures/RECIPE.md`; this
+and every measured structural fact -- lives in `tests/corpus/constructed/heif-enc-RECIPE.md`; this
 section is a summary for readers who only need the shape, not the transcript.
 
 | Fixture              | Size       | Encoder                     | SHA-256                                                            |
@@ -468,7 +468,7 @@ D-29); the recorded figures and the exact ceiling derivation live in
 
 `src/isobmff/admission.ts` implements the D3/D5 admission classifier (`classifyIsobmffModel`,
 `admitIsobmff`) over the item graph (61-07). Proof against both real `heif-enc -T` fixtures
-(`tests/isobmff-support/fixtures/`) and a hand-built, measured-iPhone-shaped file
+(`tests/corpus/constructed/{heic,avif}/`) and a hand-built, measured-iPhone-shaped file
 (grid-in-`idat` primary, hidden tiles via `dimg`, an `hvc1` thumbnail via `thmb`, an `auxl`
 `hdrgainmap` target, and `cdsc`-from-item Exif/XMP) lives in `tests/isobmff_admission.test.ts`.
 
@@ -519,7 +519,7 @@ raw bytes to produce the figures below.
 
 ### heif-enc fixture layout
 
-Measured on both committed fixtures (`tests/isobmff-support/fixtures/heif-enc-grid.heic` and
+Measured on both committed fixtures (`tests/corpus/constructed/heic/heif-enc-grid.heic` and
 `.avif`) with the scratch walker, reading `iloc`'s FullBox version and its four packed-nibble
 widths directly:
 
@@ -950,7 +950,7 @@ inspection of the two sets.
 
 Measured fresh with `perl exiftool -all= -o out.<ext> <fixture>` on both c2patool-signed
 fixtures (`tests/corpus/constructed/{heic,avif}/c2pa-signed.heic|avif`) and on copies of
-`tests/isobmff-support/fixtures/heif-enc-grid.{heic,avif}` each with a synthetic 16-byte
+`tests/corpus/constructed/{heic,avif}/heif-enc-grid.{heic,avif}` each with a synthetic 16-byte
 top-level `free` box (payload `0xAB` x8) and a synthetic 16-byte top-level `skip` box (payload
 `0xCD` x8) appended after `mdat`, then walked with a scratch box walker and `exiftool -v2`.
 
@@ -1028,7 +1028,7 @@ this plan either way (prohibited by this plan's must-haves).
 Measured fresh with `perl exiftool -all= -TagsFromFile @ -Orientation -o orient_only.heic
 src.heic` and, separately, `perl exiftool -all= -TagsFromFile @ -Orientation -XResolution
 -YResolution -ResolutionUnit -o combined.heic src.heic`, both against the committed
-`tests/isobmff-support/fixtures/heif-enc-grid.heic` fixture, then read back with `exiftool -G1 -s
+`tests/corpus/constructed/heic/heif-enc-grid.heic` fixture, then read back with `exiftool -G1 -s
 -a -u -n -struct -json`.
 
 Both invocations -- orientation alone and orientation combined with the resolution tags -- add

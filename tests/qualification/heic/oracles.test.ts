@@ -36,10 +36,10 @@ const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
-const HEIC_FIXTURE = join(FIXTURES_DIR, "heif-enc-grid.heic");
+const HEIC_FIXTURE = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
 const LINUX_X64 = process.platform === "linux" && process.arch === "x64";
 
 interface Preservation {

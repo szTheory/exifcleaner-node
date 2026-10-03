@@ -1,7 +1,7 @@
 // Sha pins and generation-time facts for the real `heif-enc` fixtures (D-22), plus cross-checks
 // of the independent inventory walker against builder configurations and the measured iPhone
 // sample (D-20/D-21). Every expected value below is copied from
-// `tests/isobmff-support/fixtures/RECIPE.md`'s measured facts (heif-info + exiftool -v2 + the
+// `tests/corpus/constructed/heif-enc-RECIPE.md`'s measured facts (heif-info + exiftool -v2 + the
 // scratch inspector used to generate the fixtures) -- never computed by calling
 // `inventoryIsobmff` itself; the inventory is the thing being checked, not the source of truth.
 import { createHash } from "node:crypto";
@@ -28,15 +28,15 @@ import {
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
 
-const HEIC_PATH = join(FIXTURES_DIR, "heif-enc-grid.heic");
+const HEIC_PATH = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
 const HEIC_SHA256 =
   "ae40a80f0a85cd984b9d8b1a2e811e138ac2c8c26f14b77360d62e1e4867bad6";
 
-const AVIF_PATH = join(FIXTURES_DIR, "heif-enc-grid.avif");
+const AVIF_PATH = join(FIXTURES_DIR, "avif", "heif-enc-grid.avif");
 const AVIF_SHA256 =
   "682a1e626c4d8db4f7ccf4a2d5058d0104394f7a08d0a70fad3950bed4b0a85e";
 

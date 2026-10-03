@@ -39,9 +39,12 @@ import {
 
 const DOC_PATH = fileURLToPath(new URL("../docs/isobmff.md", import.meta.url));
 const FIXTURE_DIR = fileURLToPath(
-  new URL("./isobmff-support/fixtures/", import.meta.url),
+  new URL("./corpus/constructed/", import.meta.url),
 );
-const FIXTURES = ["heif-enc-grid.heic", "heif-enc-grid.avif"] as const;
+const FIXTURES = [
+  "heic/heif-enc-grid.heic",
+  "avif/heif-enc-grid.avif",
+] as const;
 const FC_SEED = 460046;
 const FC_RUNS = 200;
 
@@ -181,7 +184,7 @@ describe("classifyInventoryAgainstSpec reports unlisted types (QUA-02)", () => {
 
   it("empty lists: a real inventory reports every type it contains", () => {
     const inventory = inventoryIsobmff(
-      readFileSync(`${FIXTURE_DIR}heif-enc-grid.heic`),
+      readFileSync(`${FIXTURE_DIR}heic/heif-enc-grid.heic`),
     );
     const expected = [
       ...inventory.topLevel.map((b) => `top-level:${b.type}`),
