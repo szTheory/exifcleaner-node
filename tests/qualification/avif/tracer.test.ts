@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { inventoryIsobmff } from "../../isobmff-support/inventory.js";
 import {
   assertIso01,
   assertIso02,
   C2PA_UUID_USERTYPE,
-  isMetadataItem,
   sanitizeAllFalse,
   survivingPayloadDigests,
   tracerRecords,
@@ -19,10 +17,10 @@ import {
   materializeRecord,
   runQualificationCase,
 } from "../kit/corpus.js";
-import { HEIC_EXTENSION, heicPayloadDigests } from "./oracles.js";
+import { AVIF_EXTENSION, avifPayloadDigests } from "./oracles.js";
 
 const OPTIONS = {
-  payloadDigests: heicPayloadDigests,
+  payloadDigests: avifPayloadDigests,
   readDeclineClass: isobmffDeclineClassOf,
 };
 
@@ -31,18 +29,18 @@ async function sourceOf(record: TracerRecord): Promise<Buffer> {
 }
 
 /**
- * The HEIC qualification tracer (62.1-08, D-25): every HEIC corpus record runs through the
+ * The AVIF qualification tracer (62.1-08, D-25): every AVIF corpus record runs through the
  * built-package sanitize/reopen round trip via the format-neutral `runQualificationCase` with its
  * exact pinned outcome (an unexpected admit or a different decline class is red). Admitted records
  * then get the ISO-01 corpus checks on an independent all-flags-false output; signed records get
  * ISO-02.
  */
-describe("HEIC qualification tracer", () => {
-  const records = tracerRecords("heic");
+describe("AVIF qualification tracer", () => {
+  const records = tracerRecords("avif");
 
   it("pins the heif-enc grid fixture as a successful EXIF+XMP removal", () => {
     expect(
-      records.find((record) => record.id === "heif-enc-grid-heic")?.outcome,
+      records.find((record) => record.id === "heif-enc-grid-avif")?.outcome,
     ).toEqual({
       status: "success",
       removedNamespaces: ["EXIF", "XMP"],
@@ -71,10 +69,10 @@ describe("HEIC qualification tracer", () => {
       expect(transcript).toMatchObject({
         caseId: record.id,
         status: "success",
-        reopened: { format: "heic" },
+        reopened: { format: "avif" },
       });
       const source = await sourceOf(record);
-      const { output, result } = await sanitizeAllFalse(source, HEIC_EXTENSION);
+      const { output, result } = await sanitizeAllFalse(source, AVIF_EXTENSION);
       expect([...result.removedNamespaces].sort()).toEqual(
         [...(record.outcome.removedNamespaces ?? [])].sort(),
       );
@@ -91,12 +89,12 @@ describe("HEIC qualification tracer", () => {
     });
   }
 
-  it("ISO-02: the C2PA uuid box is removed from the signed HEIC fixture and the remaining top-level order is kept", async () => {
-    const record = records.find((item) => item.id === "c2pa-signed-heic");
+  it("ISO-02: the C2PA uuid box is removed from the signed AVIF fixture and the remaining top-level order is kept", async () => {
+    const record = records.find((item) => item.id === "c2pa-signed-avif");
     if (record === undefined)
-      throw new Error("c2pa-signed-heic record missing");
+      throw new Error("c2pa-signed-avif record missing");
     const source = await sourceOf(record);
-    const { output } = await sanitizeAllFalse(source, HEIC_EXTENSION);
+    const { output } = await sanitizeAllFalse(source, AVIF_EXTENSION);
     // 62.1-01 measured c2patool placing the C2PA uuid right after ftyp.
     expect(assertIso02(source, output)).toEqual([
       "ftyp",
@@ -104,35 +102,5 @@ describe("HEIC qualification tracer", () => {
       "meta",
       "mdat",
     ]);
-  });
-
-  // Negative controls: each ISO-01 check must go red on a real violation.
-  it("ISO-01 check is red on an unsanitized output and on a surviving metadata run", async () => {
-    const record = await loadCorpusRecord("heif-enc-grid-heic");
-    const source = await materializeRecord(record);
-    expect(() => assertIso01(source, source)).toThrow(/keeps metadata items/);
-    const { output } = await sanitizeAllFalse(source, HEIC_EXTENSION);
-    const inventory = inventoryIsobmff(source);
-    const exif = inventory.items.find(isMetadataItem);
-    if (exif === undefined) throw new Error("fixture lost its metadata item");
-    const extent = exif.extents[0];
-    if (extent === undefined) throw new Error("metadata item has no extent");
-    const start = exif.baseOffset + extent.offset;
-    const run = source.subarray(start, start + 40);
-    const header = Buffer.alloc(8);
-    header.writeUInt32BE(8 + run.length, 0);
-    header.write("free", 4, "ascii");
-    expect(() =>
-      assertIso01(source, Buffer.concat([output, header, run])),
-    ).toThrow(/payload survives/);
-  });
-
-  it("ISO-02 check is red when the C2PA uuid box survives", async () => {
-    const source = await materializeRecord(
-      await loadCorpusRecord("c2pa-signed-heic"),
-    );
-    expect(() => assertIso02(source, source)).toThrow(
-      /keeps the top-level C2PA/,
-    );
   });
 });

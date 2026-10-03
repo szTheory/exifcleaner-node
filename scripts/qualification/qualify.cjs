@@ -282,6 +282,7 @@ function execute(options) {
     "tests/qualification/heic/oracles.test.ts",
     "tests/qualification/heic/tracer.test.ts",
     "tests/qualification/avif/oracles.test.ts",
+    "tests/qualification/avif/tracer.test.ts",
   ]);
 }
 

@@ -2555,6 +2555,176 @@
         }
       ],
       "permittedDifferences": []
+    },
+    {
+      "id": "heif-enc-grid-avif",
+      "format": "avif",
+      "roles": ["differential", "structural"],
+      "localPath": "constructed/avif/heif-enc-grid.avif",
+      "provenance": {
+        "revision": "8765f1e1e037ecc510cac09220375c7977964600",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/8765f1e1e037ecc510cac09220375c7977964600/tests/isobmff-support/fixtures/heif-enc-grid.avif",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "682a1e626c4d8db4f7ccf4a2d5058d0104394f7a08d0a70fad3950bed4b0a85e",
+      "bytes": 3997,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["EXIF", "XMP"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "grid",
+          "sha256": "2ff7c611f6ef4fedf4db141b68a48f3e24846127ae176467496b5a81af60a5c8"
+        },
+        {
+          "part": "av01",
+          "sha256": "00c838d4295d6228bc900e9a1ee1703d4a4a32341b638cd0ff0db1d8932fb653"
+        },
+        {
+          "part": "av01",
+          "sha256": "c463a6fcca4eeb4c089a2706452dff229d4cf2145236817898b9f75dc1b3a335"
+        },
+        {
+          "part": "av01",
+          "sha256": "db1054d60a89a2fa468d0bc105f2190064ed340d852b8347511aaff9cb40d287"
+        },
+        {
+          "part": "av01",
+          "sha256": "e14a911ac46d434f4ce0317461006e9366750d722eed2ba447f08d79c37a9838"
+        },
+        {
+          "part": "av01",
+          "sha256": "c4d0f75828fc73c4d0c7af35e8e50d35451d9100112c12c9bf04d9bdf7ad847e"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "c2pa-signed-heic",
+      "format": "heic",
+      "roles": ["structural"],
+      "localPath": "constructed/heic/c2pa-signed.heic",
+      "provenance": {
+        "revision": "0c91cea15db00521d5208da38c250b566e6449db",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/0c91cea15db00521d5208da38c250b566e6449db/tests/corpus/constructed/heic/c2pa-signed.heic",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "2e5868a05c42f45d3696a6dda33c4050a1ddffc717eab503d89ee57feb127ffd",
+      "bytes": 17120,
+      "topology": ["ftyp", "uuid", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["C2PA", "EXIF", "XMP"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "84b930ddf47969e13511b7f2800774960de20951f0bad5ef8c230f951e31e913"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "c2pa-signed-avif",
+      "format": "avif",
+      "roles": ["structural"],
+      "localPath": "constructed/avif/c2pa-signed.avif",
+      "provenance": {
+        "revision": "db570ce348d48e788ff6c62e67d327bcacbe8a6c",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/db570ce348d48e788ff6c62e67d327bcacbe8a6c/tests/corpus/constructed/avif/c2pa-signed.avif",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "9ed31cea5d391e79863f157eeab32e49980627bbcf677ac98334aae21c8df242",
+      "bytes": 16998,
+      "topology": ["ftyp", "uuid", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["C2PA", "EXIF", "XMP"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "av01",
+          "sha256": "a8adf3017fa6c286130a09510706b9c4c0ea5e148a5f804e7ee2c02a3b66688a"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "link-u-plum-blossom-small-8bpc",
+      "format": "avif",
+      "roles": ["negative-control"],
+      "localPath": "upstream/link-u-avif-sample-images-c666a36/plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif",
+      "provenance": {
+        "revision": "c666a368b73006246694919b5dbcc078317af6cc",
+        "url": "https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif",
+        "license": "CC-BY-4.0",
+        "licenseStatus": "approved",
+        "noticeId": "link-u-plum-blossom-small-8bpc"
+      },
+      "sha256": "541ca66a11b1430d11f77b74a13f859239a3bd9f44976b8dfe163c5d7595a69f",
+      "bytes": 3284,
+      "topology": ["ftyp", "meta", "mdat", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started",
+        "declineClass": "item-graph-invalid"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "link-u-plum-blossom-small-10bpc",
+      "format": "avif",
+      "roles": ["negative-control"],
+      "localPath": "upstream/link-u-avif-sample-images-c666a36/plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif",
+      "provenance": {
+        "revision": "c666a368b73006246694919b5dbcc078317af6cc",
+        "url": "https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif",
+        "license": "CC-BY-4.0",
+        "licenseStatus": "approved",
+        "noticeId": "link-u-plum-blossom-small-10bpc"
+      },
+      "sha256": "fe3379620f983e5da4210b0f7c5d164e86208b34106d6b11d56e2b52beee5dfe",
+      "bytes": 4217,
+      "topology": ["ftyp", "meta", "mdat", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started",
+        "declineClass": "item-graph-invalid"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "link-u-red-at-12-oclock",
+      "format": "avif",
+      "roles": ["negative-control"],
+      "localPath": "upstream/link-u-avif-sample-images-c666a36/red-at-12-oclock-with-color-profile-lossy.avif",
+      "provenance": {
+        "revision": "c666a368b73006246694919b5dbcc078317af6cc",
+        "url": "https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/red-at-12-oclock-with-color-profile-lossy.avif",
+        "license": "LGPL-2.1-only OR BSD-2-Clause",
+        "licenseStatus": "approved",
+        "noticeId": "link-u-red-at-12-oclock"
+      },
+      "sha256": "79483242f2dca12c4ec18bd33ff8099216b3094fb55a26a909f046b2f9b4ce58",
+      "bytes": 2840,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started",
+        "declineClass": "surviving-offset-width-zero"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
     }
   ],
   "benchmarks": {

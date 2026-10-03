@@ -7,6 +7,7 @@ Title: plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif
 Author: Ryo Hirafuji (@ledyba-z)
 Source: https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif
 License: https://creativecommons.org/licenses/by/4.0/
+SPDX: CC-BY-4.0
 Modified: no
 
 NOTE (measured 2026-10-02, 62.1-01): the link-u repository's root LICENSE.txt is CC-BY-SA-4.0, but
@@ -21,6 +22,7 @@ Title: plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif
 Author: Ryo Hirafuji (@ledyba-z)
 Source: https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif
 License: https://creativecommons.org/licenses/by/4.0/
+SPDX: CC-BY-4.0
 Modified: no
 
 NOTE (measured 2026-10-02, 62.1-01): same README section and license basis as
@@ -30,8 +32,13 @@ NOTE (measured 2026-10-02, 62.1-01): same README section and license basis as
 Title: red-at-12-oclock-with-color-profile-lossy.avif
 Author: Tony Payne <tpayne@chromium.org>
 Source: https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/red-at-12-oclock-with-color-profile-lossy.avif
-License: GNU LGPL v2.1 or 2-clause BSD License (dual-licensed; not a Creative Commons license)
+License: LGPL-2.1-only OR BSD-2-Clause
+SPDX: LGPL-2.1-only OR BSD-2-Clause
 Modified: no
+
+The License line above is the SPDX expression the corpus manifest record carries (maintainer
+decision 2026-10-02, option a): GNU LGPL v2.1 or the 2-clause BSD license, dual-licensed; not a
+Creative Commons license.
 
 NOTE (measured 2026-10-02, 62.1-01): the link-u README.md ("Red at 12 o'clock with color
 profile - ICC Profile tests" section) credits this image to Tony Payne, originally from a

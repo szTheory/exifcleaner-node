@@ -94,7 +94,7 @@ jobs:
       # test run covers them today. No run-step `case` branch is added for "heic"/"avif" here;
       # that lands in 62.1-09.
       QUAL_HEIC: "tests/qualification/heic/oracles.test.ts tests/qualification/heic/tracer.test.ts"
-      QUAL_AVIF: "tests/qualification/avif/oracles.test.ts"
+      QUAL_AVIF: "tests/qualification/avif/oracles.test.ts tests/qualification/avif/tracer.test.ts"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
