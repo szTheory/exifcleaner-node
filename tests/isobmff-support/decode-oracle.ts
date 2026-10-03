@@ -174,3 +174,81 @@ export function decodeHeifGraph(bytes: Buffer): HeifGraphTranscript {
     rmSync(planesDir, { recursive: true, force: true });
   }
 }
+
+export interface HeifDecodeCompareOptions {
+  /**
+   * D-23 negative control, demonstration-only: restricts the comparison to the primary/
+   * top-level image(s), proving that a primary-only check misses a non-primary (e.g. thumbnail)
+   * corruption the full whole-graph comparison catches. Never used by a production-equivalent
+   * comparison -- every real caller omits this option.
+   */
+  readonly primaryOnly?: boolean;
+}
+
+function selectImages(
+  transcript: HeifGraphTranscript,
+  options: HeifDecodeCompareOptions | undefined,
+): readonly HeifGraphImage[] {
+  if (options?.primaryOnly !== true) return transcript.images;
+  return transcript.images.filter(
+    (image) => image.role === "primary" || image.role === "toplevel",
+  );
+}
+
+/**
+ * Compares two whole-graph decode transcripts of `source` and `output` for exact equality: the
+ * same decode outcome, then the same ordered image list -- role, item ID, header fields (width,
+ * height, chroma, bit depth, alpha, nclx, ICC presence) and plane hash, in that order. ICC
+ * presence is compared as its own field (so an ICC-presence regression is still caught) but is
+ * never part of what `planesSha256` hashes (D-23) -- the pixel hash and the ICC-presence flag are
+ * always independent facts about an image.
+ *
+ * Throws, naming the first image whose fields disagree (by its role and item ID), or naming the
+ * index where the two image lists diverge in length, or naming a decode-outcome mismatch when the
+ * two inputs do not even agree on whether they decoded at all (`options` has no effect on the
+ * outcome check -- a rejected transcript always compares unequal to a decoded one).
+ */
+export function compareHeifDecodes(
+  source: Buffer,
+  output: Buffer,
+  options?: HeifDecodeCompareOptions,
+): void {
+  const sourceTranscript = decodeHeifGraph(source);
+  const outputTranscript = decodeHeifGraph(output);
+  if (sourceTranscript.outcome !== outputTranscript.outcome) {
+    throw new Error(
+      `compareHeifDecodes: decode outcome differs: source=${sourceTranscript.outcome} output=${outputTranscript.outcome}`,
+    );
+  }
+
+  const sourceImages = selectImages(sourceTranscript, options);
+  const outputImages = selectImages(outputTranscript, options);
+  const length = Math.max(sourceImages.length, outputImages.length);
+  for (let index = 0; index < length; index++) {
+    const left = sourceImages[index];
+    const right = outputImages[index];
+    if (left === undefined || right === undefined) {
+      throw new Error(
+        `compareHeifDecodes: image count differs at index ${index} (role ${
+          left?.role ?? right?.role ?? "unknown"
+        })`,
+      );
+    }
+    if (
+      left.role !== right.role ||
+      left.itemId !== right.itemId ||
+      left.width !== right.width ||
+      left.height !== right.height ||
+      left.chroma !== right.chroma ||
+      left.bitDepth !== right.bitDepth ||
+      left.alpha !== right.alpha ||
+      left.nclx !== right.nclx ||
+      left.icc !== right.icc ||
+      left.planesSha256 !== right.planesSha256
+    ) {
+      throw new Error(
+        `compareHeifDecodes: image ${index} (role ${left.role}, item ${left.itemId}) differs`,
+      );
+    }
+  }
+}
