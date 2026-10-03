@@ -79,10 +79,11 @@ const TERMINAL_FAULTS: readonly LogicalOperation[] = LOGICAL_OPERATIONS.filter(
 const MID_COPY_OCCURRENCES = [2, 3, 4] as const;
 
 /**
- * Per-test timeout for corpus-record tests. Measured 2026-10-03 before setting it: the iPhone 13
- * Pro Max record's identity proof (ISO-01's 32-byte residue-window scan) took 2489-2517 ms on the
- * local macOS host at load average 11.8, and 3989-4347 ms in the linux/amd64 container rehearsal
- * under emulation -- within 15% of vitest's 5000 ms default, so the default would be a flake.
+ * Per-test timeout for corpus-record tests, measured 2026-10-03. The iPhone 13 Pro Max record's
+ * control and residue tests first took 2.5 s locally (load 11.8), 4.0-4.8 s in the linux/amd64
+ * rehearsal and 7.2-9.7 s on hosted CI run 37138667911 -- past vitest's 5000 ms default. The cost
+ * was vitest's element-wise `toEqual` over multi-megabyte source Buffers, now sha256 compares:
+ * 0.6 s locally (load 5.0). The explicit bound keeps headroom for loaded shared runners.
  */
 const CORPUS_TEST_TIMEOUT_MS = 20_000;
 
@@ -357,7 +358,9 @@ export function defineIsobmffTransactionSuite(
     expect((await readdir(prepared.directory)).sort()).toEqual(
       [prepared.destinationName, prepared.sourceName].sort(),
     );
-    expect(await readFile(prepared.sourcePath)).toEqual(sourceBytes);
+    expect(digest(await readFile(prepared.sourcePath))).toBe(
+      digest(sourceBytes),
+    );
     const output = await readFile(prepared.destinationPath);
     expectIdentityProof(sourceBytes, output);
     return output;
@@ -526,7 +529,9 @@ export function defineIsobmffTransactionSuite(
             openHandles: 0,
             writerAttempts: 1,
           });
-          expect(await readFile(prepared.sourcePath)).toEqual(bytes);
+          expect(digest(await readFile(prepared.sourcePath))).toBe(
+            digest(bytes),
+          );
           expectIdentityProof(bytes, await readFile(prepared.destinationPath));
           const stageDirectories = await stageDirectoriesOf(prepared);
           expect(stageDirectories).toHaveLength(1);
@@ -654,7 +659,9 @@ export function defineIsobmffTransactionSuite(
             writerAttempts: 1,
           });
           expectIdentityProof(bytes, await readFile(prepared.destinationPath));
-          expect(await readFile(prepared.sourcePath)).toEqual(bytes);
+          expect(digest(await readFile(prepared.sourcePath))).toBe(
+            digest(bytes),
+          );
         } finally {
           restore();
         }
