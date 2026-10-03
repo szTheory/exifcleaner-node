@@ -1081,3 +1081,91 @@ the grid descriptor), identical in source, native and reference. The kit's `runM
 fail-closed rule rejects any tag whose name contains `unknown`, so every live AVIF differential
 over a grid (idat-carrying) source stops at "ExifTool oracle found an unknown tag" before any
 comparison runs. The synthetic AVIF (no `idat`) live leg is unaffected.
+
+## Classification lists (QUA-02)
+
+The closed lists every box, item and property type is classified against (D-28, 62.1-06). The
+independent test inventory (`tests/isobmff-support/inventory.ts`) reads a file, and
+`tests/isobmff-support/spec-lists.ts` parses the four tables below (this section is their single
+source) and reports every type the inventory saw that no table names. An unlisted type is a
+qualification finding, never a silent pass. `tests/isobmff_spec_lists.test.ts` holds the lists
+against the engine's `TOP_LEVEL_ALLOWLIST`, `META_CHILD_ALLOWLIST` and `PRESERVED_ITEM_TYPES` in
+both directions.
+
+Verdicts: `preserve` (kept in the output, possibly rewritten), `remove` (dropped from the output),
+`decline` (the engine refuses the file). A type spelled with a trailing space keeps it inside the
+code span (`xml `, `uri `).
+
+### Top-level boxes
+
+The engine declines every top-level type not admitted below with `top-level-box-not-allowed`; the
+decline rows name the ones a real file is likely to carry.
+
+| Type   | Verdict  | Basis                                                                                      |
+| ------ | -------- | ------------------------------------------------------------------------------------------ |
+| `ftyp` | preserve | brand box, copied verbatim                                                                 |
+| `meta` | preserve | rewritten without removed items (D-11..D-16)                                               |
+| `mdat` | preserve | one admitted, kept as the media data (D-15)                                                |
+| `free` | remove   | admitted padding, dropped by the writer                                                    |
+| `skip` | remove   | admitted padding, dropped by the writer                                                    |
+| `uuid` | remove   | only the C2PA usertype `d8fec3d6-1b0e-483c-9297-5828877ec481`; any other usertype declines |
+| `moov` | decline  | `sequence-box`: a sequence or fragmented file                                              |
+| `moof` | decline  | `top-level-box-not-allowed`                                                                |
+
+### `meta` children
+
+The engine declines every other `meta` child with `unknown-meta-child`.
+
+| Type   | Verdict  | Basis                                                     |
+| ------ | -------- | --------------------------------------------------------- |
+| `hdlr` | preserve | copied verbatim                                           |
+| `dinf` | preserve | copied verbatim; only self-contained `dref` entries admit |
+| `pitm` | preserve | copied verbatim                                           |
+| `iinf` | preserve | rewritten without removed items' `infe`                   |
+| `iref` | preserve | rewritten without references to removed items             |
+| `iprp` | preserve | rewritten: `ipco` and `ipma` remapped (D-16)              |
+| `idat` | preserve | copied verbatim                                           |
+| `iloc` | preserve | rewritten with new offsets (D-11)                         |
+| `grpl` | preserve | copied verbatim                                           |
+| `ipro` | decline  | `unknown-meta-child`: item protection                     |
+| `xml ` | decline  | `unknown-meta-child`                                      |
+| `bxml` | decline  | `unknown-meta-child`                                      |
+| `fiin` | decline  | `unknown-meta-child`                                      |
+
+### Item types
+
+The engine declines every other item type with `unknown-item-type`.
+
+| Type   | Verdict  | Basis                                                                                  |
+| ------ | -------- | -------------------------------------------------------------------------------------- |
+| `Exif` | remove   | metadata item (D-13 adds a minimal Exif back only when orientation must survive)       |
+| `mime` | remove   | XMP only (`application/rdf+xml`, no content encoding); any other `mime` shape declines |
+| `hvc1` | preserve | coded image, never decoded                                                             |
+| `av01` | preserve | coded image, never decoded                                                             |
+| `grid` | preserve | derived image                                                                          |
+| `iden` | preserve | derived image                                                                          |
+| `iovl` | preserve | derived image                                                                          |
+| `tmap` | preserve | derived image (tone map)                                                               |
+| `uri ` | decline  | `unknown-item-type`                                                                    |
+| `hvt1` | decline  | `unknown-item-type`: HEVC tile                                                         |
+| `jpeg` | decline  | `unknown-item-type`                                                                    |
+| `avc1` | decline  | `unknown-item-type`                                                                    |
+| `unci` | decline  | `unknown-item-type`: uncompressed image                                                |
+
+### `ipco` property types
+
+The engine keeps every property it does not interpret as an opaque byte range, so no property type
+declines on its own. The rows are every type observed on the two heif-enc fixtures, the builder
+catalog (`tests/isobmff-support/builder.ts`) and 200 generator samples per brand (seed 460046).
+
+| Type   | Verdict  | Basis                                                              |
+| ------ | -------- | ------------------------------------------------------------------ |
+| `ispe` | preserve | image spatial extents                                              |
+| `hvcC` | preserve | HEVC decoder configuration                                         |
+| `av1C` | preserve | AV1 decoder configuration                                          |
+| `colr` | preserve | preserve; prof and rICC removed when preserveColorProfile is false |
+| `pixi` | preserve | pixel information                                                  |
+| `clap` | preserve | clean aperture                                                     |
+| `irot` | preserve | rotation, essential or not                                         |
+| `imir` | preserve | mirroring, essential or not                                        |
+| `auxC` | preserve | auxiliary type (alpha, depth)                                      |
