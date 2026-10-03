@@ -15,8 +15,8 @@ import { materializeRecord, type CorpusRecord } from "./corpus.js";
 
 /**
  * `fetch-corpus.cjs` is CommonJS (Node built-ins and global `fetch` only --
- * no new dependency, per D-24), loaded the same way `webp/oracles.ts` loads
- * `build-oracles.cjs`.
+ * no new dependency, per D-24), loaded the same way an existing
+ * per-format `oracles.ts` loads `build-oracles.cjs`.
  */
 const require = createRequire(import.meta.url);
 
