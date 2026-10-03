@@ -89,22 +89,38 @@ function positiveInteger(value, label) {
     fail(`${label} must be a positive integer`);
 }
 
+const AUTHORITY_REQUIRED_KEYS = [
+  "id",
+  "kind",
+  "version",
+  "revision",
+  "origin",
+  "archive",
+  "license",
+  "platforms",
+  "architectures",
+  "versionProbe",
+  "entrypoints",
+];
+// `licenseExtra` is optional (closed-key, not a required field): it is
+// populated only by authorities that carry a second legal document distinct
+// from their primary SPDX-classified license (D-20) -- today only
+// libaom-3.15.1's PATENTS file, which is not itself an SPDX license
+// identifier and so is not validated against the admitted SPDX Set below.
+function exactKeysWithOptional(value, required, optional, label) {
+  if (!isObject(value)) fail(`${label} must be an object`);
+  const actual = new Set(Object.keys(value));
+  for (const key of required)
+    if (!actual.has(key)) fail(`${label} fields are not exact`);
+  const allowed = new Set([...required, ...optional]);
+  for (const key of actual) if (!allowed.has(key)) fail(`${label} fields are not exact`);
+}
+
 function validateAuthorityShape(authority) {
-  exactKeys(
+  exactKeysWithOptional(
     authority,
-    [
-      "id",
-      "kind",
-      "version",
-      "revision",
-      "origin",
-      "archive",
-      "license",
-      "platforms",
-      "architectures",
-      "versionProbe",
-      "entrypoints",
-    ],
+    AUTHORITY_REQUIRED_KEYS,
+    ["licenseExtra"],
     "authority",
   );
   const id = requiredString(authority.id, "authority.id");
@@ -135,12 +151,29 @@ function validateAuthorityShape(authority) {
       "libpng-2.0",
       "HPND",
       "IJG AND BSD-3-Clause AND Zlib",
+      "LGPL-3.0-or-later",
+      "BSD-2-Clause",
     ]).has(authority.license.spdx)
   )
     fail(`${id}.license.spdx is not admitted`);
   repositoryPath(authority.license.path, `${id}.license.path`);
   tarMemberName(authority.license.member, root, `${id}.license.member`);
   sha(authority.license.sha256, `${id}.license.sha256`);
+
+  if (authority.licenseExtra !== undefined) {
+    exactKeys(
+      authority.licenseExtra,
+      ["path", "member", "sha256"],
+      `${id}.licenseExtra`,
+    );
+    repositoryPath(authority.licenseExtra.path, `${id}.licenseExtra.path`);
+    tarMemberName(
+      authority.licenseExtra.member,
+      root,
+      `${id}.licenseExtra.member`,
+    );
+    sha(authority.licenseExtra.sha256, `${id}.licenseExtra.sha256`);
+  }
 
   if (
     JSON.stringify(authority.platforms) !== JSON.stringify(["linux"]) ||
@@ -206,8 +239,8 @@ function validateFixtureShape(fixture) {
 function validateManifestShape(manifest) {
   exactKeys(manifest, ["schemaVersion", "authorities", "fixtures"], "manifest");
   if (manifest.schemaVersion !== 1) fail("schemaVersion must be 1");
-  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 5)
-    fail("exactly five tool authorities are required");
+  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 8)
+    fail("exactly eight tool authorities are required");
   manifest.authorities.forEach(validateAuthorityShape);
   const ids = manifest.authorities.map((item) => item.id);
   if (
@@ -218,6 +251,9 @@ function validateManifestShape(manifest) {
       "libpng-1.6.58",
       "pngcheck-4.0.1",
       "libjpeg-turbo-3.2.0",
+      "libheif-1.23.5",
+      "libde265-1.1.3",
+      "libaom-3.15.1",
     ])
   )
     fail("authority order and IDs are not exact");
@@ -289,6 +325,9 @@ function validateAuthorityBytes(authority) {
     fail(`${authority.id} archive digest drift`);
   const memberNames = [
     authority.license.member,
+    ...(authority.licenseExtra !== undefined
+      ? [authority.licenseExtra.member]
+      : []),
     authority.versionProbe.member,
     ...authority.entrypoints.map((entrypoint) => entrypoint.member),
   ];
@@ -302,6 +341,20 @@ function validateAuthorityBytes(authority) {
     !license.equals(archivedLicense)
   )
     fail(`${authority.id} license evidence drift`);
+  if (authority.licenseExtra !== undefined) {
+    const licenseExtra = fs.readFileSync(
+      repositoryPath(
+        authority.licenseExtra.path,
+        `${authority.id}.licenseExtra.path`,
+      ),
+    );
+    const archivedLicenseExtra = members.get(authority.licenseExtra.member);
+    if (
+      digest(licenseExtra) !== authority.licenseExtra.sha256 ||
+      !licenseExtra.equals(archivedLicenseExtra)
+    )
+      fail(`${authority.id} licenseExtra evidence drift`);
+  }
   const versionProbe = members.get(authority.versionProbe.member);
   if (
     digest(versionProbe) !== authority.versionProbe.sha256 ||
@@ -406,6 +459,11 @@ function runShapeMutationChecks(manifest) {
     (copy) => copy.authorities.splice(2, 1), // drop libpng-1.6.58
     (copy) => copy.authorities.splice(3, 1), // drop pngcheck-4.0.1
     (copy) => copy.authorities.splice(4, 1), // drop libjpeg-turbo-3.2.0
+    (copy) => copy.authorities.splice(5, 1), // drop libheif-1.23.5
+    (copy) => copy.authorities.splice(6, 1), // drop libde265-1.1.3
+    (copy) => copy.authorities.splice(7, 1), // drop libaom-3.15.1
+    (copy) => (copy.authorities[5].license.spdx = "unknown"), // libheif bad SPDX
+    (copy) => delete copy.authorities[7].licenseExtra.sha256, // aom licenseExtra shape (WR-02-style negative control)
   ];
   for (const mutate of mutations) {
     const copy = structuredClone(manifest);
