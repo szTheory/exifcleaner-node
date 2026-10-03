@@ -1,9 +1,9 @@
-// HEIC/AVIF handler modules, unregistered (62-12): proves `createHeicHandler`/`createAvifHandler`
-// (`src/admission/heic-handler.ts`, `avif-handler.ts`) are thin factories over the shared ISOBMFF
-// writer engine that sanitize their own brand's fixture through the real engine -- with BOTH
-// handlers installed at once via `setRegisteredHandlersForTests`, never through the admission-only
-// counting stub -- while remaining unreachable from the real registry (D-02/D-03: `HANDLERS` stays
-// `[webp, png, jpeg]` until 62.1-07).
+// HEIC/AVIF handler modules (62-12, registered in 62.1-07): proves `createHeicHandler`/
+// `createAvifHandler` (`src/admission/heic-handler.ts`, `avif-handler.ts`) are thin factories over
+// the shared ISOBMFF writer engine that sanitize their own brand's fixture through the real engine
+// -- with BOTH handlers installed at once via `setRegisteredHandlersForTests`, never through the
+// admission-only counting stub. Since 62.1-07's atomic registration commit (D-03), the real
+// registry is `[webp, png, jpeg, heic, avif]` (D-08).
 import { mkdtemp, open, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -30,11 +30,11 @@ import { ftypBox } from "./isobmff-support/builder.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
-const HEIC_PATH = join(FIXTURES_DIR, "heif-enc-grid.heic");
-const AVIF_PATH = join(FIXTURES_DIR, "heif-enc-grid.avif");
+const HEIC_PATH = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
+const AVIF_PATH = join(FIXTURES_DIR, "avif", "heif-enc-grid.avif");
 
 const directories: string[] = [];
 
@@ -54,12 +54,12 @@ async function freshDirectory(): Promise<string> {
   return directory;
 }
 
-describe("HEIC/AVIF handler modules, unregistered (62-12)", () => {
-  it("D-02/D-03: registeredHandlersForTests() still returns only webp, png and jpeg", () => {
+describe("HEIC/AVIF handler modules (62-12, registered in 62.1-07)", () => {
+  it("D-03/D-08: registeredHandlersForTests() returns webp, png, jpeg, heic and avif in that order", () => {
     const formats = registeredHandlersForTests().map(
       (handler) => handler.capability.format,
     );
-    expect(formats).toEqual(["webp", "png", "jpeg"]);
+    expect(formats).toEqual(["webp", "png", "jpeg", "heic", "avif"]);
   });
 
   it("D-10: createHeicHandler/createAvifHandler produce the expected brand and staging name", () => {

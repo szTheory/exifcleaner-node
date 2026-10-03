@@ -78,6 +78,29 @@ export const ISOLATION_RULES: readonly IsolationRule[] = [
     fileName: "test-handler.ts",
     forbiddenSpecifierSubstrings: [],
   },
+  // 62.1-03: decode-oracle.ts is the whole-graph libheif decode oracle's TypeScript side -- the
+  // decode compare must be our own reading of the container, not libheif's, so it must never
+  // import src/isobmff/ (it has no reason to import builder/inventory/generator/test-handler
+  // either, but only the src/isobmff/ independence is this rule's own concern, D-23).
+  {
+    fileName: "decode-oracle.ts",
+    forbiddenSpecifierSubstrings: ["src/isobmff/"],
+  },
+  // 62.1-05: differential.ts is the shared HEIC/AVIF ExifTool differential helper -- the
+  // comparison must stay independent of the engine under test (D-27), so it may use
+  // inventory.ts/builder.ts freely but must never import src/isobmff/ directly.
+  {
+    fileName: "differential.ts",
+    forbiddenSpecifierSubstrings: ["src/isobmff/"],
+  },
+  // 62.1-06: spec-lists.ts parses the closed QUA-02 classification lists out of docs/isobmff.md
+  // and classifies the independent inventory against them -- a reading of the spec note, never
+  // of the engine, the builder or the test handler (D-19/D-21). The engine agreement lives in
+  // tests/isobmff_spec_lists.test.ts's drift guard instead.
+  {
+    fileName: "spec-lists.ts",
+    forbiddenSpecifierSubstrings: ["src/isobmff/", "builder", "test-handler"],
+  },
 ];
 
 /**
@@ -358,6 +381,81 @@ describe("isolationViolations() negative controls (synthetic sources)", () => {
         path: "test-handler.ts",
         source:
           'import { admitIsobmff } from "../../src/isobmff/admission.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([]);
+  });
+
+  it("decode-oracle.ts importing src/isobmff/ as a value is a violation (62.1-03: the decode compare must be our own reading of the container, not the engine's)", () => {
+    const violations = isolationViolations([
+      {
+        path: "decode-oracle.ts",
+        source:
+          'import { parseBoxHeader } from "../../src/isobmff/boxes.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "decode-oracle.ts", specifier: "../../src/isobmff/boxes.js" },
+    ]);
+  });
+
+  it("differential.ts importing src/isobmff/ as a value is a violation (62.1-05: the differential must stay independent of the engine under test)", () => {
+    const violations = isolationViolations([
+      {
+        path: "differential.ts",
+        source:
+          'import { admitIsobmff } from "../../src/isobmff/admission.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "differential.ts", specifier: "../../src/isobmff/admission.js" },
+    ]);
+  });
+
+  it("differential.ts importing inventory.ts is allowed (62.1-05: the shared independent inventory walker)", () => {
+    const violations = isolationViolations([
+      {
+        path: "differential.ts",
+        source: 'import { inventoryIsobmff } from "./inventory.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([]);
+  });
+});
+
+describe("spec-lists.ts isolation rule (62.1-06) negative controls", () => {
+  it("spec-lists.ts importing src/isobmff/ is a violation (the lists are the spec note's, not the engine's)", () => {
+    const violations = isolationViolations([
+      {
+        path: "spec-lists.ts",
+        source:
+          'import { TOP_LEVEL_ALLOWLIST } from "../../src/isobmff/boxes.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "spec-lists.ts", specifier: "../../src/isobmff/boxes.js" },
+    ]);
+  });
+
+  it("spec-lists.ts importing the builder or the test handler is a violation", () => {
+    const violations = isolationViolations([
+      {
+        path: "spec-lists.ts",
+        source:
+          'import { box } from "./builder.js";\nimport { heicTestHandler } from "./test-handler.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "spec-lists.ts", specifier: "./builder.js" },
+      { path: "spec-lists.ts", specifier: "./test-handler.js" },
+    ]);
+  });
+
+  it("spec-lists.ts importing inventory.ts (type-only, the oracle it classifies) is allowed", () => {
+    const violations = isolationViolations([
+      {
+        path: "spec-lists.ts",
+        source: 'import type { IsobmffInventory } from "./inventory.js";\n',
       },
     ]);
     expect(violations).toEqual([]);

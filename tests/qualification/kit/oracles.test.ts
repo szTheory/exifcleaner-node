@@ -1,10 +1,14 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   EXCLUDED_GROUPS,
+  admittedUnknownTagBytes,
+  compareAdmittedUnknownTags,
   compareDifferential,
   comparePermittedDifferences,
   compareStructuralDifferential,
   metadataGroupDisposition,
+  projectExiftoolRecord,
   type MetadataProjection,
   type PermittedKind,
 } from "./oracles.js";
@@ -880,5 +884,180 @@ describe("compareStructuralDifferential (56-07 Task 2)", () => {
     expect(() =>
       compareStructuralDifferential(["A"], ["A"], ["Resolution:Preserved"], []),
     ).toThrow("Unknown permitted metadata difference");
+  });
+});
+
+describe("admittedUnknownTags hook (projectExiftoolRecord, compareAdmittedUnknownTags)", () => {
+  const ADMITTED = "GroupOmega:Unknown_0x7a";
+  const record = (extra: Record<string, unknown>) => ({
+    SourceFile: "/tmp/input",
+    "VendorZ:Width": 4,
+    ...extra,
+  });
+  const projected = (value: unknown): MetadataProjection =>
+    projectExiftoolRecord(record({ [ADMITTED]: value }), [ADMITTED]);
+
+  it("throws on any unknown tag when no admitted list is given", () => {
+    expect(() => projectExiftoolRecord(record({ [ADMITTED]: "x" }))).toThrow(
+      "ExifTool oracle found an unknown tag",
+    );
+  });
+
+  it("throws on an unknown tag outside the admitted list, by exact key", () => {
+    expect(() =>
+      projectExiftoolRecord(record({ "GroupOmega:Unknown_0x7b": "x" }), [
+        ADMITTED,
+      ]),
+    ).toThrow("ExifTool oracle found an unknown tag");
+    expect(() =>
+      projectExiftoolRecord(record({ "VendorZ:Unknown_0x7a": "x" }), [
+        ADMITTED,
+      ]),
+    ).toThrow("ExifTool oracle found an unknown tag");
+  });
+
+  it("records an admitted unknown tag outside namespaces", () => {
+    const projection = projected("8 bytes");
+    expect(projection.admittedUnknownTags).toEqual({ [ADMITTED]: "8 bytes" });
+    expect(projection.namespaces.GroupOmega).toBeUndefined();
+    expect(projection.namespaces.VendorZ).toEqual([{ Width: 4 }]);
+  });
+
+  it("omits admittedUnknownTags when nothing was admitted", () => {
+    expect(
+      projectExiftoolRecord(record({}), [ADMITTED]).admittedUnknownTags,
+    ).toBeUndefined();
+  });
+
+  it("rejects an admitted key that is not an unknown-named Group:Tag", () => {
+    expect(() => projectExiftoolRecord(record({}), ["VendorZ:Width"])).toThrow(
+      "Admitted unknown tag is not an unknown-named Group:Tag key",
+    );
+    expect(() => projectExiftoolRecord(record({}), ["Unknown_0x7a"])).toThrow(
+      "Admitted unknown tag is not an unknown-named Group:Tag key",
+    );
+  });
+
+  it("passes when source, native and reference carry the same admitted value", () => {
+    expect(() =>
+      compareAdmittedUnknownTags(
+        projected("a"),
+        projected("a"),
+        projected("a"),
+      ),
+    ).not.toThrow();
+  });
+
+  it("throws when the admitted value differs in any one projection", () => {
+    expect(() =>
+      compareAdmittedUnknownTags(
+        projected("a"),
+        projected("b"),
+        projected("a"),
+      ),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+    expect(() =>
+      compareAdmittedUnknownTags(
+        projected("a"),
+        projected("a"),
+        projected("b"),
+      ),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+    expect(() =>
+      compareAdmittedUnknownTags(
+        projected("b"),
+        projected("a"),
+        projected("a"),
+      ),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+  });
+
+  it("throws when the admitted tag is missing from any one projection", () => {
+    const absent = projectExiftoolRecord(record({}), [ADMITTED]);
+    expect(() =>
+      compareAdmittedUnknownTags(projected("a"), absent, projected("a")),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+    expect(() =>
+      compareAdmittedUnknownTags(absent, projected("a"), projected("a")),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+  });
+
+  describe("admittedUnknownTagBytes (62.1-REVIEW-INDEPENDENT WR-03)", () => {
+    const sha = (bytes: Buffer): string =>
+      `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    const left = Buffer.from([0, 0, 3, 0xea, 0, 0, 3, 0xec]);
+    const right = Buffer.from([0, 0, 3, 0xec, 0, 0, 3, 0xea]);
+    const binary = (bytes: Buffer): string =>
+      `base64:${bytes.toString("base64")}`;
+
+    it("two same-length payloads ExifTool renders with the same placeholder text differ by bytes", () => {
+      const placeholder = "(Binary data 8 bytes, use -b option to extract)";
+      // Without -b both projections read the same; that alone used to pass.
+      expect(() =>
+        compareAdmittedUnknownTags(
+          projected(placeholder),
+          projected(placeholder),
+          projected(placeholder),
+        ),
+      ).not.toThrow();
+      const fromBytes = (bytes: Buffer): MetadataProjection => ({
+        ...projected(placeholder),
+        admittedUnknownTags: admittedUnknownTagBytes(
+          { SourceFile: "/tmp/input", [ADMITTED]: binary(bytes) },
+          [ADMITTED],
+        ),
+      });
+      expect(() =>
+        compareAdmittedUnknownTags(
+          fromBytes(left),
+          fromBytes(right),
+          fromBytes(left),
+        ),
+      ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+      expect(() =>
+        compareAdmittedUnknownTags(
+          fromBytes(left),
+          fromBytes(left),
+          fromBytes(left),
+        ),
+      ).not.toThrow();
+    });
+
+    it("decodes base64 values and hashes any other value as text", () => {
+      expect(
+        admittedUnknownTagBytes({ [ADMITTED]: binary(left) }, [ADMITTED]),
+      ).toEqual({ [ADMITTED]: [sha(left)] });
+      expect(
+        admittedUnknownTagBytes({ [ADMITTED]: "plain" }, [ADMITTED]),
+      ).toEqual({ [ADMITTED]: [sha(Buffer.from("plain", "utf8"))] });
+    });
+
+    it("counts every Group:CopyN:Tag instance, in emission order", () => {
+      const [group, tag] = ADMITTED.split(":");
+      expect(
+        admittedUnknownTagBytes(
+          {
+            [ADMITTED]: binary(left),
+            [`${group}:Copy1:${tag}`]: binary(right),
+            [`VendorZ:Copy1:${tag}`]: binary(left),
+            [`${group}:Copy1:Width`]: 4,
+          },
+          [ADMITTED],
+        ),
+      ).toEqual({ [ADMITTED]: [sha(left), sha(right)] });
+    });
+
+    it("throws when an admitted key has no raw-bytes instance", () => {
+      expect(() =>
+        admittedUnknownTagBytes({ SourceFile: "/tmp/input" }, [ADMITTED]),
+      ).toThrow(`Admitted unknown tag has no raw bytes: ${ADMITTED}`);
+    });
+  });
+
+  it("passes with zero admitted tags anywhere", () => {
+    const absent = projectExiftoolRecord(record({}), [ADMITTED]);
+    expect(() =>
+      compareAdmittedUnknownTags(absent, absent, absent),
+    ).not.toThrow();
   });
 });

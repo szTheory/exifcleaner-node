@@ -51,11 +51,11 @@ import { metadataJpeg, metadataPng, metadataWebp } from "./fixtures.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
-const HEIC_PATH = join(FIXTURES_DIR, "heif-enc-grid.heic");
-const AVIF_PATH = join(FIXTURES_DIR, "heif-enc-grid.avif");
+const HEIC_PATH = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
+const AVIF_PATH = join(FIXTURES_DIR, "avif", "heif-enc-grid.avif");
 
 /** D-16: hostile runs use no preservation options at all, so only admission decides. */
 const NO_PRESERVATION = {
@@ -104,8 +104,10 @@ async function selectThroughRealRegistry(
 function installTestHandlerAdditively() {
   const { handler, counters } = createIsobmffTestHandler();
   const restore = setRegisteredHandlersForTests([
-    ...registeredHandlersForTests(),
+    // Prepended, not appended: since 62.1-07 registered the real heic/avif handlers, an
+    // appended stub would never be selected for an ISOBMFF file (first match wins).
     handler,
+    ...registeredHandlersForTests(),
   ]);
   return { handler, counters, restore };
 }

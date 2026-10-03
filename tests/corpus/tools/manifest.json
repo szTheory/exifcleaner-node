@@ -191,6 +191,113 @@
           "sha256": "c7ce8e4b94a69c1eb250575618ce4e61a2df89cc49622a352afbe846f8bc6d8b"
         }
       ]
+    },
+    {
+      "id": "libheif-1.23.5",
+      "kind": "compiled-source",
+      "version": "1.23.5",
+      "revision": "413e2a87e6a70b3eccc3a3adc5801179dd2d9e00",
+      "origin": "https://github.com/strukturag/libheif/releases/download/v1.23.5/libheif-1.23.5.tar.gz",
+      "archive": {
+        "path": "tests/corpus/tools/archives/libheif-1.23.5.tar.gz",
+        "sha256": "fd9036064c4432f0550d15072ddf34956a248279ee9aeaff0fba3fa0f77d8f1a",
+        "root": "libheif-1.23.5"
+      },
+      "license": {
+        "spdx": "LGPL-3.0-or-later",
+        "path": "tests/corpus/tools/licenses/libheif-COPYING",
+        "member": "libheif-1.23.5/COPYING",
+        "sha256": "fa81ce652315b013359d6e8e4744335f31a50c7c192907176d3632f78a3b4596"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "libheif-1.23.5/CMakeLists.txt",
+        "sha256": "0e2b6461f5dfd04fe4971d9f06aa96ea83cb444a721b9e2883a8c7278e5eacf8",
+        "contains": "project(libheif LANGUAGES C CXX VERSION 1.23.5)"
+      },
+      "entrypoints": [
+        {
+          "id": "heif-header",
+          "kind": "c-source",
+          "member": "libheif-1.23.5/libheif/api/libheif/heif.h",
+          "bytes": 1419,
+          "sha256": "cb0bb43ff20199d1d6347af7c342ef8795dcf6cc517bd498c114b59f359af8fd"
+        }
+      ]
+    },
+    {
+      "id": "libde265-1.1.3",
+      "kind": "compiled-source",
+      "version": "1.1.3",
+      "revision": "ba62bf4cfb3242f3bf0a45617ff09e35236e4d82",
+      "origin": "https://github.com/strukturag/libde265/releases/download/v1.1.3/libde265-1.1.3.tar.gz",
+      "archive": {
+        "path": "tests/corpus/tools/archives/libde265-1.1.3.tar.gz",
+        "sha256": "554228bd17788c99a7e63b37ab5634722190e6e2bf60c1dcb01cef328e133905",
+        "root": "libde265-1.1.3"
+      },
+      "license": {
+        "spdx": "LGPL-3.0-or-later",
+        "path": "tests/corpus/tools/licenses/libde265-COPYING",
+        "member": "libde265-1.1.3/COPYING",
+        "sha256": "02cc1585a20677992e0ba578fa692635dc193735f2691dc81de924b51c4e8020"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "libde265-1.1.3/CMakeLists.txt",
+        "sha256": "09a1a2116c77676dd328448c6d248dba9090c5951e66b7cb2432e277faba635c",
+        "contains": "VERSION 1.1.3"
+      },
+      "entrypoints": [
+        {
+          "id": "de265-header",
+          "kind": "c-source",
+          "member": "libde265-1.1.3/libde265/de265.h",
+          "bytes": 21129,
+          "sha256": "0f06f06717076a0535c5e967a4fd8fdc9bd3b57d7f5a1d6fc2d0b9a89ef735b7"
+        }
+      ]
+    },
+    {
+      "id": "libaom-3.15.1",
+      "kind": "compiled-source",
+      "version": "3.15.1",
+      "revision": "44d0a57786f432d933ff64b653347c66f4d0fa1d",
+      "origin": "https://storage.googleapis.com/aom-releases/libaom-3.15.1.tar.gz",
+      "archive": {
+        "path": "tests/corpus/tools/archives/libaom-3.15.1.tar.gz",
+        "sha256": "8ca0c52746174603500f0adb6f2a215d69c9ca2aab2acb3caa06fb791d8d01bf",
+        "root": "libaom-3.15.1"
+      },
+      "license": {
+        "spdx": "BSD-2-Clause",
+        "path": "tests/corpus/tools/licenses/libaom-LICENSE",
+        "member": "libaom-3.15.1/LICENSE",
+        "sha256": "4764a286d8b2faeaf42f4418e7d7a28d58fc8fd4d00a3d0a7f44b0a4099de7f2"
+      },
+      "licenseExtra": {
+        "path": "tests/corpus/tools/licenses/libaom-PATENTS",
+        "member": "libaom-3.15.1/PATENTS",
+        "sha256": "661fb8e504744e95587b556b94a58343448300606a41bea8c7a9b97125696e61"
+      },
+      "platforms": ["linux"],
+      "architectures": ["x64"],
+      "versionProbe": {
+        "member": "libaom-3.15.1/CMakeLists.txt",
+        "sha256": "35a75892cb1b36da5f2d38da5fa650c069c65a77a537cb8bce9f9281ffb8ebeb",
+        "contains": "project(AOM LANGUAGES C CXX VERSION 3.15.1)"
+      },
+      "entrypoints": [
+        {
+          "id": "aom-decoder-header",
+          "kind": "c-source",
+          "member": "libaom-3.15.1/aom/aom_decoder.h",
+          "bytes": 10670,
+          "sha256": "39aa4e4328bab8aee530e47cf4ef920b8428db7db4b262ed52501c896c4b32b6"
+        }
+      ]
     }
   ],
   "fixtures": [

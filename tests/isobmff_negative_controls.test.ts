@@ -36,10 +36,10 @@ import {
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
-const HEIC_FIXTURE = join(FIXTURES_DIR, "heif-enc-grid.heic");
+const HEIC_FIXTURE = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
 
 /** The preservation flags every heif-enc-grid.heic case uses -- the same "default settings" 62-07
  * already measured synthesize exactly one minimal Exif item (id 6) at the mdat tail. */

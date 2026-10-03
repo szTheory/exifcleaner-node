@@ -2,8 +2,9 @@
 // before any write" proof (success criterion 4) and its "recognized through the widened registry
 // read" proof (success criterion 3) install through the existing private
 // `setRegisteredHandlersForTests` seam (`src/admission/registry.ts`). It is never added to the
-// real `HANDLERS` array (D-15). `createIsobmffWriterHandlerForTests` below (not this stub) is what
-// now exercises the shipped-but-unregistered `heic-handler.ts`/`avif-handler.ts` (62-12).
+// real `HANDLERS` array (D-15). `createIsobmffWriterHandlerForTests` below (not this stub) builds
+// the real writer through the shipped `heic-handler.ts`/`avif-handler.ts` factories (62-12), with
+// a borrowed capability; the registered `heicHandler`/`avifHandler` (62.1-07) are separate.
 //
 // `matches` and `admit` are the real engine (`classifyIsobmffBrand`/`admitIsobmff`) -- a
 // pure-classifier-only proof would not demonstrate the engine path the app actually observes. The
@@ -161,11 +162,11 @@ export function createIsobmffTestHandler(): IsobmffTestHandler {
  * 62-02 (D-10): builds the one real engine-bound ISOBMFF writer handler, through the shipped
  * `createHeicHandler`/`createAvifHandler` modules (`src/admission/heic-handler.ts`,
  * `avif-handler.ts`, 62-12) rather than calling `createIsobmffHandler` directly -- so every suite
- * that uses this seam exercises the shipped, unregistered handler modules, not just the shared
- * factory underneath them. Borrows the registered png capability the same way
- * `createIsobmffTestHandler` above does -- `NativeFormat` gains no "heic"/"avif" member until
- * 62.1-07, so this test harness must not widen that public union. The staging file name is D-10's
- * `output.heic` / `output.avif`, now set inside the handler modules themselves.
+ * that uses this seam exercises the shipped handler modules, not just the shared factory
+ * underneath them. Borrows the registered png capability the same way
+ * `createIsobmffTestHandler` above does (written before 62.1-07 gave `NativeFormat` its
+ * "heic"/"avif" members; the registered handlers carry their own real capabilities). The staging
+ * file name is D-10's `output.heic` / `output.avif`, set inside the handler modules themselves.
  */
 export function createIsobmffWriterHandlerForTests(
   brand: "heic" | "avif",

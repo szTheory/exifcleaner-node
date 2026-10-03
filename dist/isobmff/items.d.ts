@@ -2,6 +2,8 @@ import type { IsobmffBudget } from "./caps.js";
 import { type BoxHeader } from "./boxes.js";
 import { type IlocExtent, type IlocTable } from "./iloc.js";
 import { type IpmaEntry } from "./ipma.js";
+/** `meta` children this engine resolves; anything else declines `unknown-meta-child`. */
+export declare const META_CHILD_ALLOWLIST: ReadonlySet<string>;
 export interface IsobmffItemPropertyAssociation {
     readonly index: number;
     readonly essential: boolean;

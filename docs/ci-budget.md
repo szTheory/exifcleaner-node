@@ -80,7 +80,8 @@ non-matrix job as passing its required check directly.
 
 ## Per-format qualification scoping
 
-Three formats are qualified today (`QUALIFIED_FORMATS`: `jpeg`, `png`, `webp`). A format's Linux
+Five formats are qualified today (`QUALIFIED_FORMATS`, sorted output: `avif`, `heic`, `jpeg`,
+`png`, `webp`; HEIC and AVIF added in 62.1-09). A format's Linux
 qualification suite runs on changes to its own `src/<format>/**`, its registered handler, its
 `tests/qualification/<format>/**` directory, and (for jpeg/png/webp) its own
 `tests/corpus/upstream/**` authority where one exists. JPEG's own `FORMAT_PATH_RULES` entry covers
@@ -102,9 +103,29 @@ job-level skip. `qualification-linux` lists `classify` in `needs` **only** to re
 `outputs.formats`; it is never gated by `outputs.scope`, and `validateCiScopeWiring` (the same
 script) throws if that invariant ever regresses. Its run step always executes `QUAL_KIT` (the
 shared kit suites), then a bash `case` over the comma-separated `formats` output appends
-`QUAL_WEBP`, `QUAL_PNG`, and/or `QUAL_JPEG`; an unrecognized format name fails the step rather than
+`QUAL_WEBP`, `QUAL_PNG`, `QUAL_JPEG`, `QUAL_HEIC` and/or `QUAL_AVIF`; an unrecognized format name fails the step rather than
 silently running nothing. `QUAL_JPEG` currently lists only `tests/qualification/jpeg/tracer.test.ts`
 -- every later JPEG qualification plan appends its own suite file to this list.
+
+**HEIC and AVIF share one engine (62.1-09).** Both brands run through `src/isobmff/**` and
+`src/admission/isobmff-handler.ts`, are tested through `tests/isobmff-support/**`, and are decoded
+by the one libheif authority (`tests/corpus/tools/archives/libheif-1.23.5.tar.gz`). No
+`FORMAT_PATH_RULES` entry names any of those paths, so a change to the shared engine matches zero
+formats and runs **every** qualified format's suite, HEIC and AVIF both, by design (62.1-RESEARCH
+Pitfall 2). `FORMAT_PATH_RULES.heic` names only HEIC-exclusive paths:
+`src/admission/heic-handler.ts` and its `dist/` mirror, `tests/qualification/heic/**`,
+`tests/corpus/constructed/heic/**`, and the libde265 archive and license.
+`FORMAT_PATH_RULES.avif` names only AVIF-exclusive paths: `src/admission/avif-handler.ts` and its
+`dist/` mirror, `tests/qualification/avif/**`, `tests/corpus/constructed/avif/**`, the link-u
+sample directory, and the libaom archive and licenses. `tests/classify_ci_scope.test.ts` asserts
+that every shared path selects all five formats, and its negative control shows that a stand-in rule
+adding `src/isobmff/` to `heic` would narrow a shared-engine change to one brand and is caught. The
+`qualification-linux` run step's `case` has `heic)` and `avif)` arms. Its file lists:
+
+- `QUAL_HEIC`: `tests/qualification/heic/oracles.test.ts`, `tests/qualification/heic/tracer.test.ts`,
+  `tests/qualification/heic/decode.test.ts`
+- `QUAL_AVIF`: `tests/qualification/avif/oracles.test.ts`, `tests/qualification/avif/tracer.test.ts`,
+  `tests/qualification/avif/decode.test.ts`
 
 This in-job selection, rather than a workflow-level filter or a job-level skip, is required, not a
 style choice: measured directly on 2026-09-24 (re-measured 2026-09-26; unchanged) with

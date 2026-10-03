@@ -22,9 +22,9 @@ import type { FormatCapabilities, Inspection, Result } from "../types.js";
 // placeholder, forbidden by D-03) or a borrowed capability frozen into a production module (a
 // latent misreport if it were ever registered). So production code is this factory, taking the
 // capability as a parameter -- only tests supply a borrowed capability (test-handler.ts
-// precedent); 62.1-07 passes the real D-05 literal to this same factory in its atomic
-// registration commit. This module is never imported by `src/admission/registry.ts` in this
-// plan (D-02/D-03): the handler it produces stays unregistered until 62.1.
+// precedent). Since 62.1-07 the registered `heicHandler`/`avifHandler` (`heic-handler.ts`,
+// `avif-handler.ts`) pass their real D-05 capability literals to this same factory, and
+// `src/admission/registry.ts` lists both in `HANDLERS` (it never imports this module directly).
 
 export interface CreateIsobmffHandlerOptions {
   readonly brand: "heic" | "avif";

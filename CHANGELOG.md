@@ -1,6 +1,46 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
+
+### Added (HEIC and AVIF)
+
+HEIC and AVIF still-image files are now registered natively. `getCapabilities()` lists two new
+entries, `heic` (`image/heic`, `image/heif`; `.heic`, `.heif`) and `avif` (`image/avif`; `.avif`),
+and `sanitizeFile`/`inspectFile` accept them. Admission is by magic, from the leading `ftyp` box's
+major and compatible brands. Each capability states the recognized set in a new `brands` field
+(`heic`, `heix`, `heim`, `heis` for HEIC; `avif` for AVIF). A brand set with both an AVIF and a
+HEIC brand, neither, or a sequence brand (`msf1`, `avis`) is not admitted.
+
+Sanitizing rebuilds the `meta` box. It removes the Exif and XMP items, ICC `colr` profiles (unless
+`preserveColorProfile` keeps them), the top-level C2PA `uuid` box and top-level `free`/`skip`
+boxes. The `removes` list is `EXIF`, `XMP`, `ICC`, `C2PA`. Every surviving image item, including
+thumbnails and auxiliary images such as alpha planes and gain maps, is copied byte for byte and
+re-proven after the output is reopened. `preserveOrientation` and `preserveResolution` keep only
+the requested tags, in a minimal Exif item built from the primary image's own Exif item.
+
+Files the engine cannot rewrite safely are refused before any destination is created, with one of
+seven `refuses` classes: `malformed-container`, `resource-limits`, `image-sequence`,
+`unknown-boxes`, `unknown-item-types`, `unsupported-features` and `unsafe-item-layout`. The new
+`limits` are `maxMetaBytes` (16 MiB), `maxBoxCount` (65,536), `maxBoxDepth` (8) and
+`maxBufferedBytesTotal` (32 MiB). Every such refusal is `"safe-to-fallback"`. Some older AVIF
+encoder output is among the refused layouts (see the AVIF reach gap in `docs/isobmff.md`).
+
+**Exhaustive switches need two new cases.** `NativeFormat` is now
+`"webp" | "png" | "jpeg" | "heic" | "avif"`, and `FormatCapabilities` gains `HeicCapabilities` and
+`AvifCapabilities`. TypeScript code that switches exhaustively on `NativeFormat`,
+`Inspection.format`, `SanitizeResult.format` or `FormatCapabilities["format"]` needs a `heic` case
+and an `avif` case.
+
+### Differences from ExifTool (HEIC and AVIF)
+
+The ExifTool 13.59 differential allows only a closed, measured list of differences per format,
+recorded in `docs/isobmff.md`. ExifTool keeps a removed metadata item's declaration with an empty
+extent, while native removes the entry. When not asked to preserve, ExifTool keeps the ICC bytes
+and native removes them. ExifTool's minimal Exif adds `YCbCrPositioning`. ExifTool keeps top-level
+`free`/`skip` boxes and moves them before `mdat`, while native drops them. The two outputs also
+differ in byte layout. For the measured iPhone sample, ExifTool also keeps the XMP item describing
+the HDR gain-map auxiliary image, while native removes it; a macOS render check found the two
+outputs render identically.
 
 ### Internal
 
@@ -37,6 +77,9 @@ writer rewrite that cannot be expressed without going negative or widening a fie
 of this is reachable yet: no production module registers `heicHandler`/`avifHandler`,
 `NativeFormat` and `FormatCapabilities` are unchanged, and there is no public API or routing
 change.
+
+Phase 62.1 then registered `heicHandler` and `avifHandler` and widened the public unions. The two
+paragraphs above describe the state before that registration; see "Added (HEIC and AVIF)".
 
 ### Fixed (PNG)
 

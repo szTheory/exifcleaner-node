@@ -258,8 +258,10 @@ describe("D-18 negative control: brand past byte 12 recognized only through the 
 
     const path = await writeFixture(fileBytes);
     const restore = setRegisteredHandlersForTests([
-      ...registeredHandlersForTests(),
+      // Prepended, not appended: since 62.1-07 registered the real heic/avif handlers, an
+      // appended stub would never be selected for an ISOBMFF file (first match wins).
       brandOnlyHandler,
+      ...registeredHandlersForTests(),
     ]);
     try {
       const selected = await selectThroughRealRegistry(path);

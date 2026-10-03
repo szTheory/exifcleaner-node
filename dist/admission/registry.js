@@ -1,10 +1,14 @@
 import { webpHandler } from "./webp-handler.js";
 import { pngHandler } from "./png-handler.js";
 import { jpegHandler } from "./jpeg-handler.js";
+import { heicHandler } from "./heic-handler.js";
+import { avifHandler } from "./avif-handler.js";
 const HANDLERS = Object.freeze([
     webpHandler,
     pngHandler,
     jpegHandler,
+    heicHandler,
+    avifHandler,
 ]);
 // Private test seam (mirrors setNativePublicationBindingForTests in
 // src/transaction/native-publication.ts): lets a test roll a handler out of

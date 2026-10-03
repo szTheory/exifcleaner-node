@@ -4,28 +4,60 @@
 
 ## Supported Surface
 
-| Area         | Contract                                                                                                                                     |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime      | Node.js 22+, ESM                                                                                                                             |
-| Formats      | WebP, PNG and JPEG, all detected by magic: WebP by `RIFF` + `WEBP`, PNG by its 8-byte signature, JPEG by `FF D8 FF`                          |
-| Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                                                                         |
-| Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                                                                 |
-| Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable                                           |
-| Resolution   | Capability-gated by `preserves.resolution`; a format reporting `false` (WebP) declines a `preserveResolution: true` request before any write |
-| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract; baseline/extended-sequential/progressive 8-bit JPEG frames     |
-| Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized                                                  |
-| Cancellation | Optional `AbortSignal` on inspection and sanitization                                                                                        |
-| Failures     | Discriminated `MetadataError` returned through `Result`                                                                                      |
+| Area         | Contract                                                                                                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime      | Node.js 22+, ESM                                                                                                                                                         |
+| Formats      | WebP, PNG, JPEG, HEIC and AVIF, all detected by magic: WebP by `RIFF` + `WEBP`, PNG by its 8-byte signature, JPEG by `FF D8 FF`, HEIC and AVIF by their `ftyp` brand set |
+| Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                                                                                                     |
+| Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                                                                                             |
+| Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable                                                                       |
+| Resolution   | Capability-gated by `preserves.resolution`; a format reporting `false` (WebP) declines a `preserveResolution: true` request before any write                             |
+| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract; baseline/extended-sequential/progressive 8-bit JPEG frames                                 |
+| Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized                                                                              |
+| Cancellation | Optional `AbortSignal` on inspection and sanitization                                                                                                                    |
+| Failures     | Discriminated `MetadataError` returned through `Result`                                                                                                                  |
 
 `NativeFormat` is the format-neutral discriminant (currently
-`"webp" | "png" | "jpeg"`). `FormatCapabilities` is the format-neutral
-capability union, currently refined by the supported `WebpCapabilities`,
-`PngCapabilities` and `JpegCapabilities` shapes. Admission is by magic
-admission: the already-open source must begin with `RIFF` + `WEBP`, with
-PNG's own 8-byte signature, or with a JPEG SOI marker (`FF D8 FF`), never
-merely carry a matching extension. The private registry is frozen and
-contains only those three qualified handlers; this package exposes no
-handler registration API.
+`"webp" | "png" | "jpeg" | "heic" | "avif"`). `FormatCapabilities` is the
+format-neutral capability union, currently refined by the supported
+`WebpCapabilities`, `PngCapabilities`, `JpegCapabilities`, `HeicCapabilities`
+and `AvifCapabilities` shapes. Admission is by magic admission: the
+already-open source must begin with `RIFF` + `WEBP`, with PNG's own 8-byte
+signature, with a JPEG SOI marker (`FF D8 FF`), or with an ISOBMFF `ftyp` box
+whose brands select HEIC or AVIF. It is never enough to carry a matching
+extension. The private registry is frozen and contains exactly the five
+qualified handlers below; this package exposes no handler registration API.
+
+| `format` | Capabilities       | Magic admission                                        | Media types                | Extensions       | `removes`                            |
+| -------- | ------------------ | ------------------------------------------------------ | -------------------------- | ---------------- | ------------------------------------ |
+| `webp`   | `WebpCapabilities` | `RIFF` + `WEBP`                                        | `image/webp`               | `.webp`          | `EXIF`, `XMP`, `ICC`                 |
+| `png`    | `PngCapabilities`  | the 8-byte PNG signature                               | `image/png`                | `.png`           | `EXIF`, `XMP`, `ICC`, `PNG`, `C2PA`  |
+| `jpeg`   | `JpegCapabilities` | `FF D8 FF`                                             | `image/jpeg`               | `.jpg`, `.jpeg`  | `EXIF`, `XMP`, `ICC`, `C2PA`, `JPEG` |
+| `heic`   | `HeicCapabilities` | `ftyp` brands include `heic`, `heix`, `heim` or `heis` | `image/heic`, `image/heif` | `.heic`, `.heif` | `EXIF`, `XMP`, `ICC`, `C2PA`         |
+| `avif`   | `AvifCapabilities` | `ftyp` brands include `avif`                           | `image/avif`               | `.avif`          | `EXIF`, `XMP`, `ICC`, `C2PA`         |
+
+**Magic admission for ISOBMFF (HEIC and AVIF).** The registry reads a bounded magic buffer
+(256 bytes) and classifies the leading `ftyp` box's major brand together with its compatible
+brands (`src/isobmff/brand.ts`). The `brands` capability field states the set each format
+recognizes: `["heic", "heix", "heim", "heis"]` for HEIC and `["avif"]` for AVIF. A brand set
+containing both an AVIF and a HEIC brand, neither, or a sequence brand (`msf1`, `avis`) is not
+admitted, and neither is a truncated or malformed `ftyp`. `.heif` is listed only under HEIC. A
+`mif1`-only file with no HEIC or AVIF brand is not admitted.
+
+**`validation.container: "full"` for ISOBMFF.** Every box header the engine walks is checked for
+framing (size, largesize, parent and file bounds), every item table (`iinf`, `iloc`, `ipma`,
+`iref`, `pitm`) is parsed and checked as a graph, and every file-relative extent is bounded by the single `mdat`. Property
+payloads in `ipco` are opaque: they are copied byte for byte and never interpreted, except that a
+`colr` profile is recognized so that it can be removed. `validation.codecBitstream:
+"not-decoded"`: HEVC and AV1 payloads are never decoded. The qualification kit decodes them with
+libheif to prove the output renders the same, but the runtime package does not.
+
+HEIC and AVIF `refuses` lists seven classes: `malformed-container`, `resource-limits`,
+`image-sequence`, `unknown-boxes`, `unknown-item-types`, `unsupported-features` and
+`unsafe-item-layout`. Each refusal is returned before a destination exists. Their `limits` are
+`maxMetaBytes` (16,777,216), `maxBoxCount` (65,536), `maxBoxDepth` (8) and
+`maxBufferedBytesTotal` (33,554,432). [The ISOBMFF spec note](isobmff.md) maps every internal
+decline class to one refusal and records the measured evidence.
 
 ## Consumer and Publication Contract
 
@@ -177,6 +209,11 @@ byte-identical (D-01), and the grouped resolution copy-back would otherwise
 recreate a fresh JFIF header without the source's thumbnail bytes, so the
 whole request declines and falls back to ExifTool instead of silently losing
 the thumbnail (see "## JPEG" below).
+
+HEIC and AVIF report `resolution: true`. When the Exif item describing the primary image carries
+`XResolution`, `YResolution` and `ResolutionUnit`, a `preserveResolution: true` request keeps
+those values in the minimal Exif item the writer builds. That item contains only the requested
+tags (see [the ISOBMFF spec note](isobmff.md), D-13).
 
 Capability-shape changes -- adding a required field to `CommonFormatCapabilities`
 or widening the discriminated union with a new format -- are a minor version

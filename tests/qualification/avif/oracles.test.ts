@@ -1,0 +1,732 @@
+// AVIF ExifTool differential profile tests (62.1-05, D-27, QUA-01). Registered since 62.1-07: the
+// corpus legs sanitize through the registered engine, while the 62.1-05 synthetic legs build their
+// native output through the `setRegisteredHandlersForTests` test seam.
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { setRegisteredHandlersForTests } from "../../../src/admission/registry.js";
+import { sanitizeFile } from "../../../src/engine.js";
+import { createIsobmffWriterHandlerForTests } from "../../isobmff-support/test-handler.js";
+import { av1C, box, colrProf, ispe } from "../../isobmff-support/builder.js";
+import {
+  assembleHeif,
+  type AssembleHeifSpec,
+} from "../../isobmff-support/hostile.js";
+import {
+  compareIsobmffFreeSkip,
+  compareIsobmffPayloadDigests,
+  compareIsobmffMetadataNamespaces,
+  compareIsobmffStructuralParts,
+  isobmffFreeSkipBoxes,
+  runIsobmffDifferential,
+  type IsobmffFreeSkipBox,
+  type IsobmffPermittedDifferenceId,
+} from "../../isobmff-support/differential.js";
+import {
+  downloadGate,
+  tracerRecords,
+} from "../../isobmff-support/corpus-tracer.js";
+import {
+  loadCorpusRecord,
+  materializeRecord,
+  type CorpusRecord,
+} from "../kit/corpus.js";
+import {
+  compareAdmittedUnknownTags,
+  projectExiftoolRecord,
+  type DifferentialProfile,
+  type MetadataProjection,
+} from "../kit/oracles.js";
+import { iccProfileV4 } from "../../fixtures.js";
+import { heicDifferentialProfile } from "../heic/oracles.js";
+import {
+  AVIF_ADMITTED_UNKNOWN_IDAT_TAG,
+  AVIF_PERMITTED_DIFFERENCES,
+  assertAvifOracleToolsAvailable,
+  avifDifferentialProfile,
+} from "./oracles.js";
+
+const FIXTURES_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "corpus",
+  "constructed",
+);
+const AVIF_FIXTURE = join(FIXTURES_DIR, "avif", "heif-enc-grid.avif");
+const LINUX_X64 = process.platform === "linux" && process.arch === "x64";
+
+interface Preservation {
+  readonly preserveOrientation: boolean;
+  readonly preserveColorProfile: boolean;
+  readonly preserveTimestamps: boolean;
+  readonly preserveResolution: boolean;
+}
+
+const DEFAULT_PRESERVATION: Preservation = {
+  preserveOrientation: true,
+  preserveColorProfile: true,
+  preserveTimestamps: true,
+  preserveResolution: true,
+};
+
+const ALL_FALSE_PRESERVATION: Preservation = {
+  preserveOrientation: false,
+  preserveColorProfile: false,
+  preserveTimestamps: false,
+  preserveResolution: false,
+};
+
+/**
+ * Produces a native output for `sourceBytes` through the real, registered writer handler
+ * (`createIsobmffWriterHandlerForTests`, never a stub) -- the exact engine path 62-05/62-12
+ * already exercise -- with `preservation` applied. Mirrors
+ * `tests/isobmff_decode_oracle.test.ts`'s own `produceNativeOutput`, generalized to take raw
+ * bytes rather than a fixture path so this suite can build its own synthetic sources.
+ */
+async function produceNativeOutput(
+  sourceBytes: Buffer,
+  preservation: Preservation,
+): Promise<Buffer> {
+  assertAvifOracleToolsAvailable();
+  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-avif-oracles-"));
+  try {
+    const sourcePath = join(directory, "source.avif");
+    await writeFile(sourcePath, sourceBytes);
+    const restore = setRegisteredHandlersForTests([
+      createIsobmffWriterHandlerForTests("avif"),
+    ]);
+    try {
+      const destinationPath = join(directory, "destination.avif");
+      const result = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        ...preservation,
+      });
+      if (!result.ok) {
+        throw new Error(
+          `produceNativeOutput: sanitizeFile failed: ${result.error.code}`,
+        );
+      }
+      return await readFile(destinationPath);
+    } finally {
+      restore();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+/** A minimal structurally-valid AVIF carrying a `colr` `prof` ICC property on its primary item
+ * and no Exif/mime items -- D-16/F-HEIC-ICC is independent of D-13's minimal Exif synthesis. */
+function buildIccFixtureAvif(): Buffer {
+  const primaryPayload = Buffer.from("avif-icc-primary-bytes", "ascii");
+  const spec: AssembleHeifSpec = {
+    majorBrand: "avif",
+    compatibleBrands: ["mif1", "avif"],
+    primaryItemId: 1,
+    items: [
+      {
+        itemId: 1,
+        itemType: "av01",
+        extents: [{ relOffset: 0, length: primaryPayload.length }],
+        propertyIndices: [1, 2, 3],
+      },
+    ],
+    properties: [
+      ispe(32, 32),
+      av1C(Buffer.from([0x81, 0x08, 0x0c, 0x00])),
+      colrProf(iccProfileV4({ deviceClass: "mntr" })),
+    ],
+    mdatPayload: primaryPayload,
+    twoPass: true,
+  };
+  return assembleHeif(spec);
+}
+
+describe("AVIF differential (62.1-05)", () => {
+  it.runIf(LINUX_X64)(
+    "sanitizes heif-enc-grid.avif through the seam with default settings and passes the ExifTool differential (62.1-05)",
+    async () => {
+      const source = await readFile(AVIF_FIXTURE);
+      const output = await produceNativeOutput(source, DEFAULT_PRESERVATION);
+      runIsobmffDifferential({
+        caseId: "avif-default-settings",
+        profile: avifDifferentialProfile,
+        source,
+        output,
+        preserveOrientation: DEFAULT_PRESERVATION.preserveOrientation,
+        preserveColorProfile: DEFAULT_PRESERVATION.preserveColorProfile,
+        preserveResolution: DEFAULT_PRESERVATION.preserveResolution,
+      });
+    },
+    30_000,
+  );
+
+  it.runIf(LINUX_X64)(
+    "measures emptied Exif/XMP metadata entries as the only permitted AVIF structural difference (62.1-05)",
+    async () => {
+      const source = await readFile(AVIF_FIXTURE);
+      const output = await produceNativeOutput(source, ALL_FALSE_PRESERVATION);
+      runIsobmffDifferential({
+        caseId: "avif-emptied-metadata",
+        profile: avifDifferentialProfile,
+        source,
+        output,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveResolution: false,
+      });
+    },
+    30_000,
+  );
+
+  it.runIf(LINUX_X64)(
+    "measures ExifTool keeping ICC when not preserving as a permitted AVIF difference (62.1-05)",
+    async () => {
+      const source = buildIccFixtureAvif();
+      const output = await produceNativeOutput(source, ALL_FALSE_PRESERVATION);
+      runIsobmffDifferential({
+        caseId: "avif-icc-not-preserving",
+        profile: avifDifferentialProfile,
+        source,
+        output,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveResolution: false,
+      });
+    },
+    30_000,
+  );
+
+  it.runIf(LINUX_X64)(
+    "measures ExifTool's minimal-Exif YCbCrPositioning companion as a permitted AVIF difference (62.1-05)",
+    async () => {
+      const source = await readFile(AVIF_FIXTURE);
+      const output = await produceNativeOutput(source, {
+        ...ALL_FALSE_PRESERVATION,
+        preserveOrientation: true,
+      });
+      runIsobmffDifferential({
+        caseId: "avif-ycbcr-positioning",
+        profile: avifDifferentialProfile,
+        source,
+        output,
+        preserveOrientation: true,
+        preserveColorProfile: false,
+        preserveResolution: false,
+      });
+    },
+    30_000,
+  );
+
+  it.runIf(LINUX_X64)(
+    "measures ExifTool keeping top-level free/skip as a permitted AVIF difference (62.1-05)",
+    async () => {
+      const fixture = await readFile(AVIF_FIXTURE);
+      const source = Buffer.concat([
+        fixture,
+        box("free", Buffer.alloc(16, 0xab)),
+        box("skip", Buffer.alloc(16, 0xcd)),
+      ]);
+      const output = await produceNativeOutput(source, ALL_FALSE_PRESERVATION);
+      runIsobmffDifferential({
+        caseId: "avif-free-skip",
+        profile: avifDifferentialProfile,
+        source,
+        output,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveResolution: false,
+      });
+    },
+    30_000,
+  );
+
+  it("cites the exact live test title and docs/isobmff.md heading for every AVIF permitted difference", () => {
+    const testFilePath = fileURLToPath(import.meta.url);
+    const testFileText = readFileSync(testFilePath, "utf8");
+    const docsPath = join(
+      dirname(testFilePath),
+      "..",
+      "..",
+      "..",
+      "docs",
+      "isobmff.md",
+    );
+    const docsText = readFileSync(docsPath, "utf8");
+    expect(AVIF_PERMITTED_DIFFERENCES).toHaveLength(5);
+    for (const entry of AVIF_PERMITTED_DIFFERENCES) {
+      expect(testFileText).toContain(entry.measurement);
+      expect(docsText).toContain(entry.docsHeading);
+    }
+  });
+
+  describe("pure red controls (no ExifTool)", () => {
+    const emptyProjection = (): MetadataProjection => ({
+      warnings: [],
+      namespaces: {},
+    });
+
+    it("a native output with an extra XMP tag throws (leak)", () => {
+      const output: MetadataProjection = {
+        warnings: [],
+        namespaces: { XMP: [{ XMPToolkit: "leaked" }] },
+      };
+      expect(() =>
+        compareIsobmffMetadataNamespaces(output, emptyProjection(), {
+          allowYCbCrPositioningCompanion: false,
+        }),
+      ).toThrow(/Unpermitted metadata difference: XMP/);
+    });
+
+    it("a reference whose thumbnail item is missing throws (over-strip of a non-metadata item)", () => {
+      const outputParts = ["ftyp", "meta", "mdat", "infe:hvc1", "infe:hvc1"];
+      const referenceParts = ["ftyp", "meta", "mdat", "infe:hvc1"];
+      expect(() =>
+        compareIsobmffStructuralParts(outputParts, referenceParts),
+      ).toThrow(/Unpermitted structural difference: infe:hvc1/);
+    });
+
+    it("an nclx or irot difference throws", () => {
+      const outputParts = ["ftyp", "meta", "mdat", "ipco:irot:aaaa"];
+      const referenceParts = ["ftyp", "meta", "mdat", "ipco:irot:bbbb"];
+      expect(() =>
+        compareIsobmffStructuralParts(outputParts, referenceParts),
+      ).toThrow(/Unpermitted structural difference: ipco:irot:aaaa/);
+
+      const outputNclxParts = ["ftyp", "meta", "mdat", "ipco:nclx:aaaa"];
+      const referenceNclxParts = ["ftyp", "meta", "mdat", "ipco:nclx:bbbb"];
+      expect(() =>
+        compareIsobmffStructuralParts(outputNclxParts, referenceNclxParts),
+      ).toThrow(/Unpermitted structural difference: ipco:nclx:aaaa/);
+    });
+
+    it("explains reference-only infe:Exif/infe:mime and free/skip structural parts, in any order (entries a/e)", () => {
+      const outputParts = ["ftyp", "meta", "mdat", "infe:hvc1"];
+      const referenceParts = [
+        "mdat",
+        "infe:mime",
+        "free",
+        "ftyp",
+        "infe:hvc1",
+        "infe:Exif",
+        "skip",
+        "meta",
+      ];
+      expect(() =>
+        compareIsobmffStructuralParts(outputParts, referenceParts),
+      ).not.toThrow();
+    });
+
+    it.each([
+      ["first", ["bogus-part", "ftyp", "meta", "mdat", "infe:hvc1"]],
+      ["middle", ["ftyp", "meta", "bogus-part", "mdat", "infe:hvc1"]],
+      ["last", ["ftyp", "meta", "mdat", "infe:hvc1", "bogus-part"]],
+    ])(
+      "an unlisted reference-only part at the %s position throws",
+      (_label, referenceParts) => {
+        const outputParts = ["ftyp", "meta", "mdat", "infe:hvc1"];
+        expect(() =>
+          compareIsobmffStructuralParts(outputParts, referenceParts),
+        ).toThrow(/Unpermitted structural difference: bogus-part/);
+      },
+    );
+
+    it("an empty permitted set never admits a difference (empty edge)", () => {
+      expect(() => compareIsobmffStructuralParts([], [])).not.toThrow();
+      expect(() => compareIsobmffStructuralParts([], ["bogus-part"])).toThrow(
+        /Unpermitted structural difference: bogus-part/,
+      );
+    });
+
+    it("explains a free box before mdat in reference and a skip box after mdat in source, by presence and bytes, never by order (entry e adjacency)", () => {
+      const sourceFreeSkip: readonly IsobmffFreeSkipBox[] = [
+        { type: "free", sha256: "a".repeat(64) },
+        { type: "skip", sha256: "b".repeat(64) },
+      ];
+      const referenceFreeSkip: readonly IsobmffFreeSkipBox[] = [
+        { type: "skip", sha256: "b".repeat(64) },
+        { type: "free", sha256: "a".repeat(64) },
+      ];
+      expect(() =>
+        compareIsobmffFreeSkip(sourceFreeSkip, [], referenceFreeSkip),
+      ).not.toThrow();
+    });
+
+    it("a free/skip box with the same type but different bytes throws (entry e byte identity)", () => {
+      const sourceFreeSkip: readonly IsobmffFreeSkipBox[] = [
+        { type: "free", sha256: "a".repeat(64) },
+      ];
+      const referenceFreeSkip: readonly IsobmffFreeSkipBox[] = [
+        { type: "free", sha256: "c".repeat(64) },
+      ];
+      expect(() =>
+        compareIsobmffFreeSkip(sourceFreeSkip, [], referenceFreeSkip),
+      ).toThrow(/Stale permitted difference: exiftool-keeps-free-skip/);
+    });
+
+    it("free/skip surviving natively throws, even when the reference also keeps it", () => {
+      const freeSkip: readonly IsobmffFreeSkipBox[] = [
+        { type: "free", sha256: "a".repeat(64) },
+      ];
+      expect(() =>
+        compareIsobmffFreeSkip(freeSkip, freeSkip, freeSkip),
+      ).toThrow(
+        /Unpermitted structural difference: free\/skip survived natively/,
+      );
+    });
+
+    it("compares QuickTime media-data layout descriptors by presence, never by value (entry d)", () => {
+      const layout = (offset: number, size: number): MetadataProjection => ({
+        warnings: [],
+        namespaces: {
+          QuickTime: [
+            { MediaDataOffset: offset },
+            { MediaDataSize: size },
+            {
+              MediaData: `(Binary data ${size} bytes, use -b option to extract)`,
+            },
+            { HandlerType: "pict" },
+          ],
+        },
+      });
+      const options = { allowYCbCrPositioningCompanion: false };
+      expect(() =>
+        compareIsobmffMetadataNamespaces(
+          layout(853, 275),
+          layout(984, 287),
+          options,
+        ),
+      ).not.toThrow();
+
+      const missingDescriptor: MetadataProjection = {
+        warnings: [],
+        namespaces: {
+          QuickTime: [{ MediaDataSize: 275 }, { HandlerType: "pict" }],
+        },
+      };
+      expect(() =>
+        compareIsobmffMetadataNamespaces(
+          missingDescriptor,
+          layout(984, 287),
+          options,
+        ),
+      ).toThrow(/QuickTime/);
+
+      const otherTag: MetadataProjection = {
+        warnings: [],
+        namespaces: {
+          QuickTime: [
+            { MediaDataOffset: 853 },
+            { MediaDataSize: 275 },
+            { MediaData: "(Binary data 275 bytes, use -b option to extract)" },
+            { HandlerType: "vide" },
+          ],
+        },
+      };
+      expect(() =>
+        compareIsobmffMetadataNamespaces(otherTag, layout(984, 287), options),
+      ).toThrow(/Unpermitted metadata difference: QuickTime/);
+
+      const elsewhere: MetadataProjection = {
+        warnings: [],
+        namespaces: { XMP: [{ MediaDataOffset: 1 }] },
+      };
+      expect(() =>
+        compareIsobmffMetadataNamespaces(elsewhere, emptyProjection(), options),
+      ).toThrow(/Unpermitted metadata difference: XMP/);
+    });
+
+    it("a changed, extra or missing non-metadata payload throws (entry d never hides payload bytes)", () => {
+      const primary = { part: "av01", sha256: "a".repeat(64) };
+      const thumb = { part: "av01", sha256: "b".repeat(64) };
+      expect(() =>
+        compareIsobmffPayloadDigests([thumb, primary], [primary, thumb]),
+      ).not.toThrow();
+      expect(() =>
+        compareIsobmffPayloadDigests(
+          [primary, { ...thumb, sha256: "c".repeat(64) }],
+          [primary, thumb],
+        ),
+      ).toThrow(/Unpermitted payload difference/);
+      expect(() =>
+        compareIsobmffPayloadDigests([primary], [primary, thumb]),
+      ).toThrow(/Payload over-strip/);
+      expect(() =>
+        compareIsobmffPayloadDigests([primary, thumb], [primary]),
+      ).toThrow(/Unpermitted payload difference/);
+    });
+
+    it("explains ExifTool's QuickTime:Free/Skip reports only for the reference's own byte-proven free/skip boxes (entry e)", () => {
+      const options = {
+        allowYCbCrPositioningCompanion: false,
+        referenceFreeSkip: [
+          { type: "free", sha256: "a".repeat(64) },
+          { type: "skip", sha256: "b".repeat(64) },
+        ] as const,
+      };
+      const report = (...tags: string[]): MetadataProjection => ({
+        warnings: [],
+        namespaces: {
+          QuickTime: tags.map((tag) => ({
+            [tag]: "(Binary data 16 bytes, use -b option to extract)",
+          })),
+        },
+      });
+      expect(() =>
+        compareIsobmffMetadataNamespaces(
+          report(),
+          report("Free", "Skip"),
+          options,
+        ),
+      ).not.toThrow();
+      expect(() =>
+        compareIsobmffMetadataNamespaces(
+          report(),
+          report("Free", "Skip", "Skip"),
+          options,
+        ),
+      ).toThrow(/Over-strip: QuickTime/);
+      expect(() =>
+        compareIsobmffMetadataNamespaces(report(), report("Free"), {
+          allowYCbCrPositioningCompanion: false,
+        }),
+      ).toThrow(/Over-strip: QuickTime/);
+      expect(() =>
+        compareIsobmffMetadataNamespaces(report("Free"), report(), options),
+      ).toThrow(/Unpermitted metadata difference: QuickTime/);
+    });
+    it("isobmffFreeSkipBoxes reads type and payload sha256 for a synthetic free/skip pair", () => {
+      const bytes = Buffer.concat([
+        box("ftyp", Buffer.alloc(4)),
+        box("free", Buffer.alloc(16, 0xab)),
+        box("skip", Buffer.alloc(16, 0xcd)),
+      ]);
+      expect(isobmffFreeSkipBoxes(bytes).map((entry) => entry.type)).toEqual([
+        "free",
+        "skip",
+      ]);
+    });
+
+    describe("admitted unknown grid descriptor (maintainer option A, 2026-10-03)", () => {
+      const GRID_DESCRIPTOR = "(Binary data 8 bytes, use -b option to extract)";
+      const record = (extra: Record<string, unknown>) => ({
+        SourceFile: "/tmp/input.avif",
+        "QuickTime:MajorBrand": "avif",
+        ...extra,
+      });
+      const admitted = (value: unknown): MetadataProjection =>
+        projectExiftoolRecord(
+          record({ [AVIF_ADMITTED_UNKNOWN_IDAT_TAG]: value }),
+          avifDifferentialProfile.admittedUnknownTags,
+        );
+
+      it("admits exactly Meta:Unknown_idat and nothing else", () => {
+        expect(avifDifferentialProfile.admittedUnknownTags).toEqual([
+          "Meta:Unknown_idat",
+        ]);
+      });
+
+      it("passes when Meta:Unknown_idat is identical in source, native and reference", () => {
+        expect(() =>
+          compareAdmittedUnknownTags(
+            admitted(GRID_DESCRIPTOR),
+            admitted(GRID_DESCRIPTOR),
+            admitted(GRID_DESCRIPTOR),
+          ),
+        ).not.toThrow();
+      });
+
+      it("(a) a different unknown tag in AVIF still throws", () => {
+        expect(() =>
+          projectExiftoolRecord(
+            record({ "Meta:Unknown_iref": GRID_DESCRIPTOR }),
+            avifDifferentialProfile.admittedUnknownTags,
+          ),
+        ).toThrow("ExifTool oracle found an unknown tag");
+        expect(() =>
+          projectExiftoolRecord(
+            record({ "QuickTime:Unknown_idat": GRID_DESCRIPTOR }),
+            avifDifferentialProfile.admittedUnknownTags,
+          ),
+        ).toThrow("ExifTool oracle found an unknown tag");
+      });
+
+      it("(b) Meta:Unknown_idat with a value differing between native and reference still fails", () => {
+        expect(() =>
+          compareAdmittedUnknownTags(
+            admitted(GRID_DESCRIPTOR),
+            admitted(GRID_DESCRIPTOR),
+            admitted("(Binary data 9 bytes, use -b option to extract)"),
+          ),
+        ).toThrow("Admitted unknown tag differs: Meta:Unknown_idat");
+        expect(() =>
+          compareAdmittedUnknownTags(
+            admitted(GRID_DESCRIPTOR),
+            projectExiftoolRecord(
+              record({}),
+              avifDifferentialProfile.admittedUnknownTags,
+            ),
+            admitted(GRID_DESCRIPTOR),
+          ),
+        ).toThrow("Admitted unknown tag differs: Meta:Unknown_idat");
+      });
+
+      it("(c) a profile without the hook still throws on Meta:Unknown_idat", () => {
+        const withoutHook: DifferentialProfile = {
+          format: avifDifferentialProfile.format,
+          extension: avifDifferentialProfile.extension,
+          rawColorProfileSha256: avifDifferentialProfile.rawColorProfileSha256,
+          permittedKinds: avifDifferentialProfile.permittedKinds,
+        };
+        expect(() =>
+          projectExiftoolRecord(
+            record({ [AVIF_ADMITTED_UNKNOWN_IDAT_TAG]: GRID_DESCRIPTOR }),
+            withoutHook.admittedUnknownTags,
+          ),
+        ).toThrow("ExifTool oracle found an unknown tag");
+      });
+
+      it("no other format's differential profile declares an admitted unknown tag (HEIC: exactly its three, 62.1-09)", () => {
+        const qualificationDir = join(
+          dirname(fileURLToPath(import.meta.url)),
+          "..",
+        );
+        expect(
+          readFileSync(join(qualificationDir, "avif", "oracles.ts"), "utf8"),
+        ).toContain("admittedUnknownTags:");
+        // Maintainer decision 2026-10-03 (62.1-09): HEIC admits exactly ster, base and idat.
+        expect(heicDifferentialProfile.admittedUnknownTags).toEqual([
+          "QuickTime:Unknown_ster",
+          "QuickTime:Unknown_base",
+          "Meta:Unknown_idat",
+        ]);
+        for (const format of ["png", "jpeg", "webp"])
+          expect(
+            readFileSync(join(qualificationDir, format, "oracles.ts"), "utf8"),
+          ).not.toContain("admittedUnknownTags");
+      });
+    });
+  });
+});
+
+/** Sanitizes `source` through the registered engine (62.1-07 registered `avifHandler`), with
+ * `preservation` applied -- the corpus legs below never use the test seam. */
+async function sanitizeRegistered(
+  source: Buffer,
+  preservation: Preservation,
+): Promise<Buffer> {
+  assertAvifOracleToolsAvailable();
+  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-avif-corpus-"));
+  try {
+    const sourcePath = join(directory, "source.avif");
+    const destinationPath = join(directory, "destination.avif");
+    await writeFile(sourcePath, source);
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      ...preservation,
+    });
+    if (!result.ok) throw new Error(`sanitizeRegistered: ${result.error.code}`);
+    return await readFile(destinationPath);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+const AVIF_CLOSED_IDS: ReadonlySet<string> = new Set(
+  AVIF_PERMITTED_DIFFERENCES.map((entry) => entry.id),
+);
+
+function closedListed(
+  record: CorpusRecord,
+): readonly IsobmffPermittedDifferenceId[] {
+  for (const id of record.permittedDifferences) {
+    if (!AVIF_CLOSED_IDS.has(id))
+      throw new Error(`${record.id}: ${id} is not in the AVIF closed list`);
+  }
+  return record.permittedDifferences as readonly IsobmffPermittedDifferenceId[];
+}
+
+/** Runs the differential for default settings and all flags false with exactly the record's
+ * listed entries; returns the union of entries the two runs needed. */
+async function runCorpusDifferential(
+  record: CorpusRecord,
+  permitted: readonly IsobmffPermittedDifferenceId[],
+): Promise<ReadonlySet<IsobmffPermittedDifferenceId>> {
+  const source = await materializeRecord(record);
+  const used = new Set<IsobmffPermittedDifferenceId>();
+  for (const [label, preservation] of [
+    ["default", DEFAULT_PRESERVATION],
+    ["all-false", ALL_FALSE_PRESERVATION],
+  ] as const) {
+    const output = await sanitizeRegistered(source, preservation);
+    const needed = runIsobmffDifferential({
+      caseId: `${record.id}-${label}`,
+      profile: avifDifferentialProfile,
+      source,
+      output,
+      preserveOrientation: preservation.preserveOrientation,
+      preserveColorProfile: preservation.preserveColorProfile,
+      preserveResolution: preservation.preserveResolution,
+      permittedDifferences: permitted,
+    });
+    for (const id of needed) used.add(id);
+  }
+  return used;
+}
+
+describe("AVIF corpus differential (62.1-09)", () => {
+  const admitted = tracerRecords("avif").filter(
+    (record) => record.outcome.status === "success",
+  );
+
+  it("iterates every admitted AVIF corpus record, each listing only closed-list entries", async () => {
+    expect(admitted.map((record) => record.id)).toContain("heif-enc-grid-avif");
+    expect(admitted.map((record) => record.id)).toContain("c2pa-signed-avif");
+    for (const tracer of admitted)
+      closedListed(await loadCorpusRecord(tracer.id));
+  });
+
+  for (const tracer of admitted) {
+    const gate = downloadGate(tracer);
+    if (gate.kind === "fail") {
+      it(`${tracer.id}: download-only record needs the fetch cache in CI`, () => {
+        throw new Error(gate.reason);
+      });
+      continue;
+    }
+    if (gate.kind === "skip") {
+      console.warn(`skipping ${gate.reason}`);
+      it.skip(`${tracer.id}: download-only (no local fetch cache)`, () => {});
+      continue;
+    }
+    it.runIf(LINUX_X64)(
+      `${tracer.id}: passes the ExifTool differential (default and all flags false) with exactly its listed entries`,
+      async () => {
+        const record = await loadCorpusRecord(tracer.id);
+        const listed = closedListed(record);
+        const used = await runCorpusDifferential(record, listed);
+        // Listed only when needed: no stale entry may sit in the record.
+        expect([...used].sort()).toEqual([...listed].sort());
+      },
+      180_000,
+    );
+  }
+
+  it.runIf(LINUX_X64)(
+    "an empty permittedDifferences list fails a record whose output needs an entry (the per-record list is load-bearing)",
+    async () => {
+      const record = await loadCorpusRecord("heif-enc-grid-avif");
+      expect(record.permittedDifferences.length).toBeGreaterThan(0);
+      await expect(runCorpusDifferential(record, [])).rejects.toThrow(
+        /^Unlisted permitted difference: /,
+      );
+    },
+    180_000,
+  );
+});

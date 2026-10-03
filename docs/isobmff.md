@@ -1,12 +1,20 @@
 # ISOBMFF (HEIC/AVIF) Spec Note
 
-Status: Draft (Phase 61). Finished in Phase 62 (Locked Decision 21).
+Status: Final (Phase 62.1).
 
 This note records the measured real-device layout, license basis, the mechanical D-04 stop
 gate, and the ExifTool 13.59 HEIC baseline used to design the ISOBMFF reader and admission
 classifier. It is the fresh, agent-executed evidence basis for BMF-06; see
 `.planning/phases/61-isobmff-reader-and-admission-classifier/61-01-SUMMARY.md` for the full
 command transcripts.
+
+Phase 62 added the rebuild writer and Phase 62.1 registered the `heic` and `avif` handlers, so
+this note is now the published contract for both formats (Locked Decision 21, D-32). It holds the
+writer layout rules (D-11..D-19), the measured ExifTool 13.59 baseline, the decline list with its
+public refusal mapping, the limits `getCapabilities()` advertises, the closed permitted-difference
+lists, the essential-bit policy, C2PA placement, the corpus and performance records, and the open
+risks. `tests/isobmff_spec_doc.test.ts` and `tests/isobmff_writer_doc.test.ts` hold it against the
+code at the same head.
 
 ## Measured real-device sample
 
@@ -111,7 +119,9 @@ length: 363` is identical before and after. `exiftool -a -G1 -s` on the `-all=` 
   also observed; this is `F-HEIC-ICC`, already recorded in `.planning/STATE.md`, and is
   unrelated to the Exif/XMP measurement above.
 
-## Open risk
+## Open risks
+
+### Unmeasured real-device layouts
 
 The following layouts are **unmeasured** and remain open risk; this note does not claim
 "plain mode only" coverage, since the one measured sample already carries an `auxl`/`auxC`
@@ -123,6 +133,38 @@ HDR gain-map auxiliary item (`urn:com:apple:photo:2020:aux:hdrgainmap`):
 
 No maintainer device sample is requested for any of these, now or later in this phase
 (D-01).
+
+### Real-device C2PA placement
+
+The only measured C2PA placement is the reference writer's: c2patool 0.27.22 puts the top-level
+C2PA `uuid` box directly after `ftyp` (offset 28) in both signed fixtures,
+`tests/corpus/constructed/{heic,avif}/c2pa-signed.{heic,avif}` (62.1-01). See "C2PA placement"
+for what the engine does with it. No camera or phone file carrying C2PA has been measured, so
+where real devices place the manifest is open. The engine fails closed on any other placement: a
+`uuid` box with another usertype declines as `top-level-box-not-allowed`, a box inside `meta` outside
+the closed set declines as `unknown-meta-child`, and an item type outside the closed set declines as
+`unknown-item-type` (see "Classification lists (QUA-02)").
+
+### AVIF reach gap (D-31)
+
+D-31 keeps the D3 `surviving-offset-width-zero` and `multiple-mdat` declines unchanged, so some
+older AVIF encoder output declines and falls back to ExifTool. Declining is safe. The three vendored
+link-u files (`tests/corpus/upstream/link-u-avif-sample-images-c666a36/`, records pinned in
+`tests/corpus/manifest.json` by 62.1-08) are the evidence set, and their
+measured outcomes differ from the D-31 expectation:
+
+| File                                                       | Measured decline class                                    | Measured cause                                                                                                             |
+| ---------------------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif`  | `item-graph-invalid` (public `malformed-file`)            | two `ipma` boxes with the same version 0 and flags 0, which ISO/IEC 23008-12 forbids; not `multiple-mdat` as D-31 expected |
+| `plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif` | `item-graph-invalid` (public `malformed-file`)            | the same duplicate `ipma` pair                                                                                             |
+| `red-at-12-oclock-with-color-profile-lossy.avif`           | `surviving-offset-width-zero` (public `unsafe-structure`) | an `iloc` offset field width of 0 on a surviving item, as D-31 expected                                                    |
+
+Current libavif writes `offset_size 4` (`libavif src/write.c:938-940`, recorded in 62-CONTEXT
+D-31), and the heif-enc and c2patool AVIF fixtures admit. Widening reach (admitting `offset_size 0`
+with a non-zero `base_offset_size`, and multi-`mdat` alpha layouts) needs a future requirement with
+link-u as its evidence set. Nokia `C041` (`moov`) and `C044` (`etyp`) decline earlier, at the
+handler's brand selection, as `selection-decline` / `unsupported-format`; their corpus records pin that outcome rather
+than the `admitIsobmff`-direct classes in the "Curated Nokia subset" table.
 
 ## Grammar
 
@@ -295,10 +337,10 @@ references", l.3485-3488) -- not merely unusual, a hard parse error in the refer
 
 ## Fixtures
 
-Two real `heif-enc -T` fixtures are committed under `tests/isobmff-support/fixtures/` (D-22): a
+Two real `heif-enc -T` fixtures are committed under `tests/corpus/constructed/{heic,avif}/` (D-22; moved from `tests/isobmff-support/fixtures/` in 62.1-08): a
 2x2 grid of 64x64 tiles with a 32x32 thumbnail, Exif and XMP metadata, encoded once with x265
 (HEIC) and once with aom (AVIF). The full generation recipe -- tool versions, every command line,
-and every measured structural fact -- lives in `tests/isobmff-support/fixtures/RECIPE.md`; this
+and every measured structural fact -- lives in `tests/corpus/constructed/heif-enc-RECIPE.md`; this
 section is a summary for readers who only need the shape, not the transcript.
 
 | Fixture              | Size       | Encoder                     | SHA-256                                                            |
@@ -449,9 +491,9 @@ ever reads a removable item's own small extents, each individually capped by
 **Every cap is checked before the read or descent it guards, never after** (the "Checked before"
 column above; mirrors `BufferedBudget`/`InflateBudget`, `src/png/chunks.ts:548-571, 817-838`).
 
-**Caps are not advertised in `FormatCapabilities.limits` in Phase 61** -- no public type changes
-this phase (D-15; 61-CONTEXT.md "Claude's Discretion"). Phase 62 decides whether to surface them
-when `heic`/`avif` handlers are registered.
+**These caps are now advertised.** Phase 61 kept them internal; since 62.1-07 the registered
+handlers publish them as `HeicCapabilities["limits"]` and `AvifCapabilities["limits"]`. See
+"Advertised limits".
 
 **Measurement method (D-29):** `tests/isobmff_memory.test.ts` + `tests/isobmff_memory_child.mjs`
 prove each cap discriminates with a real, measured child-process peak RSS: one fixture per cap,
@@ -464,11 +506,29 @@ load-bearing. No measured RSS figure is published here or in any test/CHANGELOG 
 D-29); the recorded figures and the exact ceiling derivation live in
 `.planning/phases/61-isobmff-reader-and-admission-classifier/61-11-SUMMARY.md`.
 
+## Advertised limits
+
+`getCapabilities()` advertises the four caps above, unchanged, as the `limits` of both the `heic`
+and the `avif` entry (62.1-07, D-05). Both handlers (`src/admission/heic-handler.ts`,
+`src/admission/avif-handler.ts`) build the value from the `src/isobmff/caps.ts` constants, so the
+advertised limit and the enforced cap cannot differ. A file over any limit declines with the public
+refusal `resource-limits` and error code `unsafe-structure`, before the guarded read.
+
+| Limit                   | Value (bytes or count) | Source constant                    |
+| ----------------------- | ---------------------- | ---------------------------------- |
+| `maxMetaBytes`          | 16,777,216             | `ISOBMFF_MAX_META_BYTES`           |
+| `maxBoxCount`           | 65,536                 | `ISOBMFF_MAX_BOX_COUNT`            |
+| `maxBoxDepth`           | 8                      | `ISOBMFF_MAX_BOX_DEPTH`            |
+| `maxBufferedBytesTotal` | 33,554,432             | `ISOBMFF_MAX_BUFFERED_BYTES_TOTAL` |
+
+`tests/isobmff_spec_doc.test.ts` holds this table equal to the constants and to both advertised
+`limits` objects.
+
 ## Admission of the measured sample
 
 `src/isobmff/admission.ts` implements the D3/D5 admission classifier (`classifyIsobmffModel`,
 `admitIsobmff`) over the item graph (61-07). Proof against both real `heif-enc -T` fixtures
-(`tests/isobmff-support/fixtures/`) and a hand-built, measured-iPhone-shaped file
+(`tests/corpus/constructed/{heic,avif}/`) and a hand-built, measured-iPhone-shaped file
 (grid-in-`idat` primary, hidden tiles via `dimg`, an `hvc1` thumbnail via `thmb`, an `auxl`
 `hdrgainmap` target, and `cdsc`-from-item Exif/XMP) lives in `tests/isobmff_admission.test.ts`.
 
@@ -519,7 +579,7 @@ raw bytes to produce the figures below.
 
 ### heif-enc fixture layout
 
-Measured on both committed fixtures (`tests/isobmff-support/fixtures/heif-enc-grid.heic` and
+Measured on both committed fixtures (`tests/corpus/constructed/heic/heif-enc-grid.heic` and
 `.avif`) with the scratch walker, reading `iloc`'s FullBox version and its four packed-nibble
 widths directly:
 
@@ -892,3 +952,454 @@ a named residual, not an oversight: pruning orphaned properties is out of scope 
 (62-CONTEXT's Deferred Ideas), and no later plan in this phase reads or removes them. A future
 requirement would need to define whether orphan pruning is itself safe (an orphan could in
 principle be re-associated by a future edit tool reading the same file) before implementing it.
+
+## Qualification baseline (Phase 62.1 measurements)
+
+Measured 2026-10-02 on branch `gsd/phase-62.1-isobmff-registration` (62.1-01), against the built
+`dist/isobmff/admission.js` (`admitIsobmff`) and `dist/isobmff/brand.js`
+(`classifyIsobmffBrand`), fresh for this plan. No handler is registered yet (62.1-07); these are
+classifier-only measurements over corpus bytes, not Save-as-copy results.
+
+### Nokia heif_conformance admit rate
+
+All 63 files in `nokiatech/heif_conformance` `conformance_files/` at pinned revision
+`f17e517f7518984b4450349a88edc09519082c74` were downloaded to the session scratchpad only (never
+committed; see the prohibition below) and run through `admitIsobmff`. **Measured admitted: 35 of
+63** (no threshold is asserted; this is a measured count, recorded even though it differs by one
+from the Phase 62.1 research estimate of 36 of 63 — re-measure, do not copy that number forward).
+
+| Outcome / decline class     | Count |
+| --------------------------- | ----- |
+| admitted                    | 35    |
+| `sequence-box`              | 12    |
+| `item-graph-invalid`        | 10    |
+| `multiple-mdat`             | 4     |
+| `top-level-box-not-allowed` | 2     |
+
+Total: 35 + 12 + 10 + 4 + 2 = 63.
+
+### Curated Nokia subset
+
+A 12-file subset, one per observed decline class plus admitted files of varied structure
+(`C034` included per this plan's must-haves), totaling 716,170 bytes (~0.68 MB, under the ~3 MB
+budget). This table records identity and expected outcome only -- **no bytes are vendored or
+committed by this plan**; 62.1-08 is responsible for the actual download-only corpus manifest
+records that cite this table.
+
+| File                 | SHA-256                                                            | Bytes  | Expected outcome                     |
+| -------------------- | ------------------------------------------------------------------ | ------ | ------------------------------------ |
+| `C041.heic`          | `7a90757b22d3448267f44cc163e19611961e1228cd67a614b6ac8c4144bf082d` | 52191  | decline: `sequence-box`              |
+| `C039.heic`          | `507e4fe241b73e098050ac12d6cefe84efbf2acf0d7f8b0b23f23480f6911658` | 112106 | decline: `item-graph-invalid`        |
+| `C044.heic`          | `550443448520e724af11734f86d51e50a8e42e3f4b5ed47debc2c5d25fdb3190` | 146457 | decline: `top-level-box-not-allowed` |
+| `multilayer005.heic` | `43cd906e0f04e12ceb007e683d637b68c72184f2118a69882e19f286c69f73d2` | 4608   | decline: `multiple-mdat`             |
+| `C034.heic`          | `d2d61c040eba858cff05d7804c0999fb8955bcfe3ec99e5fd9f0b90d2dd2fe97` | 112147 | admitted                             |
+| `C053.heic`          | `c641d26a9189371f9320827ba035eb05bc241975fdc9e6e60540f52de3feae97` | 14550  | admitted                             |
+| `MIAF002.heic`       | `006baff837e3a8736154206f901a6595b0951eb62e282463e7dfc4a33c3da775` | 8837   | admitted                             |
+| `MIAF003.heic`       | `499c8ef32ff744f42b06cc89d6404dcc3754043d2251f4b6f8fedf2f6f04a513` | 13826  | admitted                             |
+| `multilayer003.heic` | `8e3963d7a0f997ad78be13809cccbe125482c5c961a30a0cb043b6aba0c870cb` | 14512  | admitted                             |
+| `C025.heic`          | `8921aa6ccb29aa49a1122c602cdcbecb0a2dcdcae3cd1422631ac794bad72a69` | 19824  | admitted                             |
+| `C017.heic`          | `7bd45ec3b278a601d4ba1905964856cf0003b15896adfffe3f645fd83c0417cd` | 60276  | admitted                             |
+| `C040.heic`          | `7d9160ff8f2e0f195c870484dee255383f549243ec782d70c3cc9431bc5ec268` | 156836 | admitted                             |
+
+All 12 are HEIC brand (`classifyIsobmffBrand` returns `"heic"` for each). None of these sha256
+values match the iPhone sample's sha256
+(`e760c80eed310e4f27c092d5487693ca8e104e7cc01d25ba4828deb28f679676`) -- confirmed disjoint by
+inspection of the two sets.
+
+### ExifTool 13.59 on signed and free/skip sources
+
+Measured fresh with `perl exiftool -all= -o out.<ext> <fixture>` on both c2patool-signed
+fixtures (`tests/corpus/constructed/{heic,avif}/c2pa-signed.heic|avif`) and on copies of
+`tests/corpus/constructed/{heic,avif}/heif-enc-grid.{heic,avif}` each with a synthetic 16-byte
+top-level `free` box (payload `0xAB` x8) and a synthetic 16-byte top-level `skip` box (payload
+`0xCD` x8) appended after `mdat`, then walked with a scratch box walker and `exiftool -v2`.
+
+**C2PA `uuid` box:** on both signed fixtures, ExifTool 13.59's `-all=` **drops the top-level C2PA
+`uuid` box entirely** -- neither `signed-out.heic` nor `signed-out.avif` has any `uuid` box; the
+output top-level order is `ftyp meta mdat` on both (down from `ftyp uuid meta mdat`). **This does
+not trigger the plan's maintainer-decision gate** (D-15/D-27 would require a stop if ExifTool
+_kept_ the uuid; it does not).
+
+**`free`/`skip` boxes (grid fixtures):** ExifTool 13.59 **keeps** both boxes on both formats,
+payload bytes unchanged (`ab` x8 / `cd` x8), but **relocates** them from after `mdat` (the input
+position) to immediately **before** `mdat` (between `meta` and `mdat`) on every one of the four
+runs (heic free, heic skip, avif free, avif skip). This matches, independently re-measured here,
+the identical free/skip relocation finding already recorded above under "ExifTool and top-level
+free/skip" (Phase 62 writer baseline) -- same relocation direction, same byte preservation, now
+confirmed on a second fixture pair.
+
+**Exif item extent / minimal Exif (signed fixtures, plain `-all=`):** on both signed fixtures,
+plain `-all=` (no `-TagsFromFile`/preserving arguments) **empties the Exif item to 0 bytes** --
+`exiftool -v2` shows `Item 2: ... len=0x0` and the tag dump (`-a -G1 -s`) on the output has no
+`[IFD0]`/`[ExifIFD]` group at all. This is the plain-removal form, not the app's preserving form
+(`-TagsFromFile @ -Orientation <RESOLUTION_PRESERVE_ARGS>`, already measured above under
+"ExifTool 13.59 minimal-Exif placement" against the heif-enc-grid fixtures, where the preserving
+form writes a minimal Exif reusing the source item ID). With plain `-all=` alone there is no
+minimal Exif at all, so there is no `YCbCrPositioning` tag or any other Exif tag to check --
+confirmed absent along with every other Exif tag.
+
+### iPhone sample record
+
+Downloaded `ianare/exif-samples` `heic/mobile/iphone_13_pro_max.HEIC` at pinned revision
+`f0462fcc42f7bad484fe637389b734612d97041f` to the session scratchpad only (never committed).
+
+| Property               | Value                                                              |
+| ---------------------- | ------------------------------------------------------------------ |
+| SHA-256                | `e760c80eed310e4f27c092d5487693ca8e104e7cc01d25ba4828deb28f679676` |
+| Bytes                  | 2,182,707                                                          |
+| `classifyIsobmffBrand` | `"heic"`                                                           |
+| `admitIsobmff` outcome | admitted (0 top-level removable boxes; no C2PA uuid)               |
+
+Matches the sha256 and byte size pinned in 61-CONTEXT D-01 exactly, re-confirming the file at
+this revision is unchanged since Phase 61's measurement. License basis is recorded verbatim in
+`tests/corpus/NOTICE` under `[ianare-exif-samples-iphone-13-pro-max]` per 61-CONTEXT D-02 (quote
+the README.rst grant line; do not describe the repository as clean CC-BY-SA).
+
+### Deviation: link-u license attribution (D-24 NOTICE)
+
+This plan's must-haves assumed all three D-24 link-u files are CC-BY-SA-4.0. Fresh measurement
+against the link-u repository's own `README.md` at the pinned revision
+(`c666a368b73006246694919b5dbcc078317af6cc`) found this is **not** true for two of the three:
+
+| File                                                       | Assumed license | Measured license (README.md, per-image credit)                                        |
+| ---------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------- |
+| `plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif`  | CC-BY-SA-4.0    | **CC-BY 4.0** (Ryo Hirafuji, @ledyba-z)                                               |
+| `plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif` | CC-BY-SA-4.0    | **CC-BY 4.0** (Ryo Hirafuji, @ledyba-z)                                               |
+| `red-at-12-oclock-with-color-profile-lossy.avif`           | CC-BY-SA-4.0    | **GNU LGPL v2.1 or 2-clause BSD** (Tony Payne), not a Creative Commons license at all |
+
+The repository's root `LICENSE.txt` is CC-BY-SA-4.0, but the README explicitly states "Most
+images are licensed under CC-BY-SA 4.0, but some files are licensed different license. Please
+check" and credits these two specific images under different, per-image licenses. `tests/corpus/
+NOTICE` has been written with the **measured, accurate** per-file licenses (not the plan's
+assumed CC-BY-SA-4.0) to avoid committing false attribution -- a correctness/compliance
+requirement this project treats as non-negotiable (no completion claim without fresh executable
+evidence; no untraced causal/legal claims). **This plan's Task 2 verify command
+`grep -c '^License: https://creativecommons.org/licenses/by-sa/4.0/$' tests/corpus/NOTICE` is
+expected to return 0, not >= 3, as a direct consequence** -- the gate's assumption was wrong, not
+the measurement. This is flagged for a maintainer/62.1-05 decision: either (a) add `CC-BY-4.0`
+and an LGPL-2.1-or-BSD-2-Clause-equivalent class to `APPROVED_CORPUS_LICENSES` in
+`tests/qualification/kit/corpus.ts` so these exact files can be vendored under their true
+licenses in 62.1-08, or (b) select different link-u fixtures that are genuinely CC-BY-SA-4.0 for
+the same structural role (alpha-plane and ICC-profile coverage). No manifest record is written in
+this plan either way (prohibited by this plan's must-haves).
+
+### ExifTool 13.59 minimal-Exif YCbCrPositioning companion (62.1-05)
+
+Measured fresh with `perl exiftool -all= -TagsFromFile @ -Orientation -o orient_only.heic
+src.heic` and, separately, `perl exiftool -all= -TagsFromFile @ -Orientation -XResolution
+-YResolution -ResolutionUnit -o combined.heic src.heic`, both against the committed
+`tests/corpus/constructed/heic/heif-enc-grid.heic` fixture, then read back with `exiftool -G1 -s
+-a -u -n -struct -json`.
+
+Both invocations -- orientation alone and orientation combined with the resolution tags -- add
+`IFD0:YCbCrPositioning: 1` to the rewritten minimal Exif, alongside the explicitly requested
+tag(s). Native's own minimal Exif writer never writes `YCbCrPositioning` (D-13: only the
+requested Orientation/resolution tags). This superimposes on this plan's D-27 differential as
+permitted-difference entry (c) (`exiftool-minimal-exif-ycbcr-positioning`): whenever the
+differential's reference run invokes `-TagsFromFile` for at least one preserved tag, the
+reference's minimal Exif carries one extra `YCbCrPositioning` entry native never writes, and nothing
+else -- any other reference-only or native-only EXIF entry is still unpermitted.
+
+**Clarifies, does not contradict, "ExifTool 13.59 minimal-Exif placement" above:** that
+section's "nothing else" wording describes the _item-ID-reuse and tail-placement_ measurement
+(which tags the TIFF IFD0 holds), not an exhaustive negative claim about companions added by the
+`-TagsFromFile` rewrite machinery itself -- `YCbCrPositioning` is one such companion, re-measured
+explicitly here for this plan's own differential basis.
+
+### ExifTool 13.59 QuickTime media-data layout tags (62.1-05)
+
+Measured in the 62.1-05 linux/amd64 container rehearsal (ExifTool 13.59 from the KIT-09 oracle
+authority), projecting `exiftool -G1 -s -a -u -n -struct -json` over the heif-enc-grid fixtures,
+their native outputs (writer test handler through `setRegisteredHandlersForTests`) and the
+`-all=` references (with and without `-TagsFromFile @ -Orientation -XResolution -YResolution
+-ResolutionUnit`). After the kit's excluded groups, the only native-vs-reference differences were:
+
+| Fixture | Settings      | Native                                     | Reference                                                             |
+| ------- | ------------- | ------------------------------------------ | --------------------------------------------------------------------- |
+| heic    | defaults      | `MediaDataOffset=908`, `MediaDataSize=275` | `MediaDataOffset=984`, `MediaDataSize=287`, `IFD0:YCbCrPositioning=1` |
+| heic    | all flags off | `MediaDataOffset=853`                      | `MediaDataOffset=984`                                                 |
+| avif    | defaults      | `MediaDataOffset=667`, `MediaDataSize=270` | `MediaDataOffset=743`, `MediaDataSize=282`, `IFD0:YCbCrPositioning=1` |
+| avif    | all flags off | `MediaDataOffset=612`                      | `MediaDataOffset=743`                                                 |
+
+(`QuickTime:MediaData`'s binary placeholder text carries the same length as `MediaDataSize`.)
+These three QuickTime tags report where the top-level `mdat` sits and how long it is: the
+reference's `meta` is longer (entry (a)'s kept `infe` declarations) and its minimal Exif is 12
+bytes longer (entry (c)'s extra IFD entry). They are byte layout, so the differential explains
+them under entry (d) (`byte-layout-differs`) by presence only, and compares what they point at
+instead: every surviving non-metadata item payload digest must match between native and
+reference (`compareIsobmffPayloadDigests`). Every other QuickTime tag is still compared by value.
+
+With top-level `free`/`skip` boxes appended to the source, ExifTool also reports each box it
+keeps as `QuickTime:Free` / `QuickTime:Skip` (`(Binary data 16 bytes, ...)`), present in source
+and reference, absent from native. Entry (e) explains exactly one such reference-only report per
+reference box already proven byte-identical to the source's, and never a native-only one.
+
+**AVIF `idat` is an unknown tag to ExifTool 13.59.** `Image::ExifTool::QuickTime` decodes the
+`meta/idat` box as `MetaImageSize` only under `Condition => '$$self{FileType} eq "HEIC"'`; for
+AVIF it falls through to `Meta:Unknown_idat` (`(Binary data 8 bytes, ...)` on heif-enc-grid.avif,
+the grid descriptor), identical in source, native and reference. The kit's `runMetadata`
+fail-closed rule rejects any tag whose name contains `unknown`, so every live AVIF differential
+over a grid (idat-carrying) source stops at "ExifTool oracle found an unknown tag" before any
+comparison runs. The synthetic AVIF (no `idat`) live leg is unaffected.
+
+### ExifTool 13.59 keeps the gain-map auxiliary item's XMP (62.1-09)
+
+HEIC-only sixth permitted-difference entry (f), `exiftool-keeps-auxiliary-item-xmp`, admitted by
+maintainer decision on 2026-10-03 and listed on the iPhone 13 Pro Max corpus record only.
+
+Measured in the 62.1-09 linux/amd64 container (ExifTool 13.59 from the KIT-09 authority) on the
+iPhone sample: its `mime` XMP item 52 (`application/rdf+xml`) is linked by `cdsc` to item 51, the
+`auxl` HDR gain-map auxiliary image (`urn:com:apple:photo:2020:aux:hdrgainmap`). ExifTool `-all=`
+keeps that item and its content, so the reference projects `XMP: HDRGainMapVersion=65536` and
+`XMPToolkit=XMP Core 6.0.0` (and one more `infe:mime`), while native removes the item. Every other
+namespace matches. Render check (`.planning/seeds/SEED-004-iphone-hdr-gain-map-loss.md`, macOS
+ImageIO/CoreImage): native and reference render identically (`contentHeadroom` 1.0, max linear
+1.26978, 153 px > 1.0), so the difference is render-neutral.
+
+Scope, enforced by `compareIsobmffMetadataNamespaces` and `isobmffAuxiliaryItemXmpPayloads`:
+
+- Only XMP items whose every `cdsc` target is an `auxl` auxiliary image count; XMP describing the
+  primary or any other item does not.
+- Reference-only XMP entries are explained only as a sub-multiset of what ExifTool projects from
+  those auxiliary-item XMP payloads; anything else is still `Over-strip: XMP`.
+- Native must have strictly less: XMP native keeps and the reference drops is still
+  `Unpermitted metadata difference: XMP`.
+- The kept item's reference-only `infe:mime` is attributed to (f), not to entry (a).
+
+### HEIC corpus records needing a maintainer decision (62.1-09)
+
+- **Unknown tags.** On the curated Nokia conformance records ExifTool 13.59 reports
+  `QuickTime:Unknown_ster`, `QuickTime:Unknown_base` and `Meta:Unknown_idat`. The HEIC profile
+  admits exactly these three by key (the same `admittedUnknownTags` hook AVIF uses for
+  `Meta:Unknown_idat`); each must carry an identical value in source, native and reference.
+- **c034.** Under default settings native refuses
+  `unsupported-feature` / `orientation-preservation` / "EXIF TIFF header is truncated" at
+  admission (a fail-safe refusal, pinned as the expected outcome). Under all flags false native
+  writes an output, and ExifTool warns `Missing Exif header` reading the source only; that exact
+  text is admitted for that record and setting only. Native and reference warnings are never
+  admitted.
+
+### Native vs ExifTool performance (QUA-05)
+
+**Method.** `scripts/qualification/native-vs-exiftool.cjs` (62.1-12, D-30). Native time per file is
+the wall time of a full `sanitizeFile` call with every preservation flag false, in a dedicated
+child process. ExifTool 13.59 runs the way the app drives it: one persistent
+`-stay_open True -@ -` session, one `-all= -o <dest> <src>` command per file, timed from the write
+until its `{ready<N>}` line, so Perl startup is outside every per-file time. Each side gets 1
+warm-up and 5 timed runs per file, sequentially. The rule was fixed before measuring: the median
+over files of the native/ExifTool per-file median-time ratios must be at most 0.90, and so must
+the peak RSS ratio. p50 and p95 are printed but are never the verdict.
+
+Peak RSS is native's **marginal** peak: the child's `process.resourceUsage().maxRSS` minus its
+baseline after importing `dist/` and before the first file. It is compared with ExifTool's
+whole-process peak (`/usr/bin/time -l` on darwin, `VmHWM` on linux). The app already has Node
+resident, so only the native work adds to it (maintainer decision, 2026-10-03). The whole-process
+native peak is still reported.
+
+**Result.** darwin-arm64 (Apple M5 Pro, 18 CPUs), Node v24.19.0, ExifTool 13.59, 13 admitted
+HEIC/AVIF corpus records (every record pinned `success`), script at exifcleaner-node `50e5ccc`:
+
+| run      | median time ratio | native p50 / p95 ms | ExifTool p50 / p95 ms | marginal RSS ratio        | whole-process RSS ratio |
+| -------- | ----------------- | ------------------- | --------------------- | ------------------------- | ----------------------- |
+| verdict  | 9.987             | 8.670 / 10.354      | 0.810 / 2.990         | 0.657 (28768 / 43808 KiB) | 2.029                   |
+| repeat 2 | 10.148            | 8.662 / 12.343      | 0.753 / 2.656         | 0.611 (26688 / 43664 KiB) | 1.978                   |
+| repeat 3 | 6.255             | 6.703 / 12.311      | 0.884 / 2.795         | 0.607 (26560 / 43776 KiB) | 1.960                   |
+
+The peak-memory clause passes on marginal RSS. The time clause fails the rule, and the rule is
+not loosened. It closes on the exception the maintainer accepted:
+
+> QUA-05 time clause: named, accepted exception (2026-10-03). Native sanitize is slower per file
+> than a persistent ExifTool session on every format, not only HEIC/AVIF. On darwin the median is
+> about 8-10x for HEIC/AVIF, at about 6-13 ms per file against 0.4-1 ms. The cost comes from the
+> safety design ExifTool does not have. Most of it is two durable F_FULLFSYNC syncs in the shared
+> transaction, about 4 ms each. The rest is private-stage publication, reopen verification and the
+> payload identity proof. The cost applies equally to PNG, JPEG and WebP. The peak-memory clause
+> passes: native's marginal RSS is 0.58-0.66 of ExifTool's process (two independent darwin
+> measurements). A transaction-scoped speedup
+> (dropping the redundant pre-verify sync, or using F_BARRIERFSYNC on darwin) is captured as
+> SEED-005 for a future milestone.
+
+The marginal RSS ratio on this script's three runs was 0.607-0.657, every one under 0.90. The
+speedup candidate is recorded in the workspace's `.planning/seeds/SEED-005-transaction-fsync-cost.md`.
+No CI job runs this script; only its unit test, `tests/native_vs_exiftool.test.ts`, runs in CI.
+
+## Permitted differences (QUA-01)
+
+The ExifTool 13.59 differential (`tests/isobmff-support/differential.ts`,
+`runIsobmffDifferential`) compares native output with an ExifTool `-all=` reference built with the
+same preservation request. Each format has a closed list: `HEIC_PERMITTED_DIFFERENCES` in
+`tests/qualification/heic/oracles.ts` and `AVIF_PERMITTED_DIFFERENCES` in
+`tests/qualification/avif/oracles.ts`. Any difference outside the list fails, and each list's red
+proof is in its own `oracles.test.ts`. Each entry cites the exact title of the live test that
+measures it and the heading below that records the measurement. A citation test fails if either is
+missing. Widening a list needs a maintainer decision.
+
+| Id                                        | HEIC | AVIF | Entry | What differs                                                                                                                       | Measurement heading                                              |
+| ----------------------------------------- | ---- | ---- | ----- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `exiftool-keeps-emptied-metadata-entries` | yes  | yes  | (a)   | ExifTool keeps a removed metadata item's `infe` with a zero-length extent; native deletes the entry                                | Measured structural effect of `exiftool -all=`                   |
+| `exiftool-keeps-icc-when-not-preserving`  | yes  | yes  | (b)   | ExifTool warns `ICC_Profile deleted` but keeps the `colr` bytes; native, asked not to preserve, removes them                       | Measured structural effect of `exiftool -all=`                   |
+| `exiftool-minimal-exif-ycbcr-positioning` | yes  | yes  | (c)   | ExifTool's `-TagsFromFile` minimal Exif adds `IFD0:YCbCrPositioning`; native's never does                                          | ExifTool 13.59 minimal-Exif YCbCrPositioning companion (62.1-05) |
+| `byte-layout-differs`                     | yes  | yes  | (d)   | byte layout only (`MediaDataOffset`, `MediaDataSize`, the `exif_tiff_header_offset` prefix); the payloads they point at must match | ExifTool 13.59 minimal-Exif placement                            |
+| `exiftool-keeps-free-skip`                | yes  | yes  | (e)   | ExifTool keeps top-level `free`/`skip` byte-identical but moves them before `mdat`; native drops them                              | ExifTool and top-level free/skip                                 |
+| `exiftool-keeps-auxiliary-item-xmp`       | yes  | no   | (f)   | ExifTool keeps the XMP item whose `cdsc` targets are all `auxl` auxiliary images; native removes it. Render-neutral                | ExifTool 13.59 keeps the gain-map auxiliary item's XMP (62.1-09) |
+
+Notes on the lists:
+
+- **(e) and the free/skip relocation.** ExifTool does not drop top-level `free`/`skip`. It keeps
+  their bytes and relocates them to between `meta` and `mdat`, measured on all four heic/avif ×
+  free/skip runs (see "ExifTool and top-level free/skip" and "ExifTool 13.59 on signed and
+  free/skip sources"). Native drops both wherever they sit (D-14). The differential explains one
+  reference-only `QuickTime:Free`/`QuickTime:Skip` report per reference box proven byte-identical to
+  the source's, and never a native-only report.
+- **(f) is HEIC-only and per record.** It was admitted by maintainer decision on 2026-10-03 and
+  listed only on the iPhone 13 Pro Max corpus record. The macOS render check in the workspace's
+  `.planning/seeds/SEED-004-iphone-hdr-gain-map-loss.md` found native and reference render
+  identically. XMP native keeps and the reference drops still fails.
+- **D-13 minimal Exif tag set.** When a preservation flag applies, native's minimal Exif carries
+  only the requested tags read from the primary's own Exif item: `Orientation` when orientation is
+  preserved, and `XResolution`/`YResolution`/`ResolutionUnit` when resolution is preserved
+  (`computeIsobmffMinimalExifTags`, `src/isobmff/plan.ts`; see "D-13: minimal Exif item"). Any
+  other native-only or reference-only Exif entry is unpermitted. Entry (c) is the only Exif
+  companion the reference may add.
+- **Admitted unknown tags.** These are separate from the lists. The kit fails closed on any
+  ExifTool tag whose name contains `unknown`. Each profile admits named keys through
+  `admittedUnknownTags`, and only when the value is identical in source, native and reference.
+  AVIF admits `Meta:Unknown_idat`, because ExifTool 13.59's `QuickTime.pm` decodes `meta/idat` as
+  `MetaImageSize` only when `FileType` is `HEIC` (see "ExifTool 13.59 QuickTime media-data layout
+  tags (62.1-05)"). HEIC admits `QuickTime:Unknown_ster`, `QuickTime:Unknown_base` and
+  `Meta:Unknown_idat`, as measured on the curated Nokia records (maintainer decision 2026-10-03,
+  "HEIC corpus records needing a maintainer decision (62.1-09)").
+
+## Essential-bit policy
+
+The `essential` bit of each `ipma` association is copied verbatim and never repaired (62-CONTEXT
+D-16, Locked research decision on property removal):
+
+- `src/isobmff/ipma.ts` reads it per association (bit `0x80` in the 1-byte form, `0x8000` in the
+  2-byte form). `src/isobmff/plan.ts` carries it unchanged through the D-16 index remap, and
+  `src/isobmff/rebuild.ts` writes it back in the same bit position.
+- The writer never sets, clears or infers the bit, including on `irot`/`imir` in either state and on
+  properties this engine does not interpret.
+- An unknown property type does not decline, essential or not. Every property is copied as an
+  opaque byte range (see "`ipco` property types"), so the reader keeps the meaning the source
+  declared.
+- `verifyOutput` (D-18) checks each surviving item's associations by resolved property bytes plus
+  essential bit, not by index. A flipped bit fails verification and the destination is never
+  published. `tests/isobmff_verify.test.ts` runs essential and non-essential `irot`/`imir` through
+  the full proof.
+
+## C2PA placement
+
+The engine admits a top-level `uuid` box only when its usertype is C2PA's
+(`C2PA_UUID_USERTYPE`, `src/isobmff/boxes.ts`). It records the box as removable at whatever
+top-level position it occupies (`src/isobmff/parse.ts`), and the writer drops it (D-14).
+`verifyOutput` checks that the output's top-level type list equals the source's minus
+`free`/`skip`/C2PA `uuid`. Native output therefore reports `C2PA` in `removedNamespaces`, and the
+`removes` capability list includes `C2PA`.
+
+The reference writer measured here is c2patool 0.27.22. Both signed fixtures,
+`tests/corpus/constructed/heic/c2pa-signed.heic` and `tests/corpus/constructed/avif/c2pa-signed.avif`,
+have top-level order `ftyp uuid(C2PA) meta mdat`. Their corpus records pin `success` with
+`removedNamespaces` `["C2PA", "EXIF", "XMP"]`. `tests/qualification/{heic,avif}/tracer.test.ts`
+proves ISO-02: the box is removed and the remaining top-level order is kept. ExifTool 13.59 `-all=`
+also drops the box (see "ExifTool 13.59 on signed and free/skip sources"), so C2PA adds no
+permitted difference. Where real devices place the manifest is an open risk (see "Real-device
+C2PA placement").
+
+## Classification lists (QUA-02)
+
+The closed lists every box, item and property type is classified against (D-28, 62.1-06). The
+independent test inventory (`tests/isobmff-support/inventory.ts`) reads a file, and
+`tests/isobmff-support/spec-lists.ts` parses the four tables below (this section is their single
+source) and reports every type the inventory saw that no table names. An unlisted type is a
+qualification finding, never a silent pass. `tests/isobmff_spec_lists.test.ts` holds the lists
+against the engine's `TOP_LEVEL_ALLOWLIST`, `META_CHILD_ALLOWLIST` and `PRESERVED_ITEM_TYPES` in
+both directions.
+
+Verdicts: `preserve` (kept in the output, possibly rewritten), `remove` (dropped from the output),
+`decline` (the engine refuses the file). A type spelled with a trailing space keeps it inside the
+code span (`xml `, `uri `).
+
+### Top-level boxes
+
+The engine declines every top-level type not admitted below with `top-level-box-not-allowed`; the
+decline rows name the ones a real file is likely to carry.
+
+| Type   | Verdict  | Basis                                                                                      |
+| ------ | -------- | ------------------------------------------------------------------------------------------ |
+| `ftyp` | preserve | brand box, copied verbatim                                                                 |
+| `meta` | preserve | rewritten without removed items (D-11..D-16)                                               |
+| `mdat` | preserve | one admitted, kept as the media data (D-15)                                                |
+| `free` | remove   | admitted padding, dropped by the writer                                                    |
+| `skip` | remove   | admitted padding, dropped by the writer                                                    |
+| `uuid` | remove   | only the C2PA usertype `d8fec3d6-1b0e-483c-9297-5828877ec481`; any other usertype declines |
+| `moov` | decline  | `sequence-box`: a sequence or fragmented file                                              |
+| `moof` | decline  | `top-level-box-not-allowed`                                                                |
+| `etyp` | decline  | `top-level-box-not-allowed`: extended type box (observed: nokia-heif-conformance-c044)     |
+
+### `meta` children
+
+The engine declines every other `meta` child with `unknown-meta-child`.
+
+| Type   | Verdict  | Basis                                                     |
+| ------ | -------- | --------------------------------------------------------- |
+| `hdlr` | preserve | copied verbatim                                           |
+| `dinf` | preserve | copied verbatim; only self-contained `dref` entries admit |
+| `pitm` | preserve | copied verbatim                                           |
+| `iinf` | preserve | rewritten without removed items' `infe`                   |
+| `iref` | preserve | rewritten without references to removed items             |
+| `iprp` | preserve | rewritten: `ipco` and `ipma` remapped (D-16)              |
+| `idat` | preserve | copied verbatim                                           |
+| `iloc` | preserve | rewritten with new offsets (D-11)                         |
+| `grpl` | preserve | copied verbatim                                           |
+| `ipro` | decline  | `unknown-meta-child`: item protection                     |
+| `xml ` | decline  | `unknown-meta-child`                                      |
+| `bxml` | decline  | `unknown-meta-child`                                      |
+| `fiin` | decline  | `unknown-meta-child`                                      |
+
+### Item types
+
+The engine declines every other item type with `unknown-item-type`.
+
+| Type   | Verdict  | Basis                                                                                  |
+| ------ | -------- | -------------------------------------------------------------------------------------- |
+| `Exif` | remove   | metadata item (D-13 adds a minimal Exif back only when orientation must survive)       |
+| `mime` | remove   | XMP only (`application/rdf+xml`, no content encoding); any other `mime` shape declines |
+| `hvc1` | preserve | coded image, never decoded                                                             |
+| `av01` | preserve | coded image, never decoded                                                             |
+| `grid` | preserve | derived image                                                                          |
+| `iden` | preserve | derived image                                                                          |
+| `iovl` | preserve | derived image                                                                          |
+| `tmap` | preserve | derived image (tone map)                                                               |
+| `uri ` | decline  | `unknown-item-type`                                                                    |
+| `hvt1` | decline  | `unknown-item-type`: HEVC tile                                                         |
+| `jpeg` | decline  | `unknown-item-type`                                                                    |
+| `avc1` | decline  | `unknown-item-type`                                                                    |
+| `unci` | decline  | `unknown-item-type`: uncompressed image                                                |
+| `lhv1` | decline  | `unknown-item-type`: layered HEVC (observed: nokia-heif-conformance-multilayer005)     |
+
+### `ipco` property types
+
+The engine keeps every property it does not interpret as an opaque byte range, so no property type
+declines on its own. The rows are every type observed on the two heif-enc fixtures, the builder
+catalog (`tests/isobmff-support/builder.ts`) and 200 generator samples per brand (seed 460046),
+plus the types the 62.1-10 corpus sweep observed in refused records (`rref`, `lhvC`, `lsel`, `oinf`,
+`tols`, `pasp`; maintainer decision 2026-10-03).
+
+| Type   | Verdict  | Basis                                                                                                                                           |
+| ------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ispe` | preserve | image spatial extents                                                                                                                           |
+| `hvcC` | preserve | HEVC decoder configuration                                                                                                                      |
+| `av1C` | preserve | AV1 decoder configuration                                                                                                                       |
+| `colr` | preserve | preserve; prof and rICC removed when preserveColorProfile is false                                                                              |
+| `pixi` | preserve | pixel information                                                                                                                               |
+| `clap` | preserve | clean aperture                                                                                                                                  |
+| `irot` | preserve | rotation, essential or not                                                                                                                      |
+| `imir` | preserve | mirroring, essential or not                                                                                                                     |
+| `auxC` | preserve | auxiliary type (alpha, depth)                                                                                                                   |
+| `rref` | preserve | required reference types; copied as opaque bytes (observed: nokia-heif-conformance-c044)                                                        |
+| `lhvC` | preserve | layered HEVC configuration; copied as opaque bytes (observed: nokia-heif-conformance-multilayer005)                                             |
+| `lsel` | preserve | layer selector; copied as opaque bytes (observed: nokia-heif-conformance-multilayer005)                                                         |
+| `oinf` | preserve | operating points information; copied as opaque bytes (observed: nokia-heif-conformance-multilayer005)                                           |
+| `tols` | preserve | target output layer set; copied as opaque bytes (observed: nokia-heif-conformance-multilayer005)                                                |
+| `pasp` | preserve | pixel aspect ratio; copied as opaque bytes (observed: link-u-plum-blossom-small-8bpc, link-u-plum-blossom-small-10bpc, link-u-red-at-12-oclock) |
