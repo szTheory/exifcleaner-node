@@ -214,6 +214,14 @@ async function streamAttempt(readable, cacheDir, sha256, bytes, targetPath) {
       });
     });
   } catch (error) {
+    // `fail` destroys the write stream, but its async open may still be in flight on another
+    // threadpool thread: removing the temp path before the stream has closed lets that open
+    // re-create the file afterwards and leak a `.partial-*` into the cache dir. Wait for close.
+    if (!writeStream.closed) {
+      await new Promise((resolveClose) =>
+        writeStream.once("close", resolveClose),
+      );
+    }
     await fsp.rm(tempPath, { force: true });
     throw error;
   }
