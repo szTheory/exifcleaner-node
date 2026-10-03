@@ -66,7 +66,13 @@ function respond(command, number) {
   const outputIndex = command.indexOf("-o");
   const destination = command[outputIndex + 1];
   const source = command[command.length - 1];
-  if (pidFile !== undefined) fs.writeFileSync(pidFile, String(process.pid));
+  if (pidFile !== undefined) {
+    // Written to a sibling and renamed, so the pid file never exists empty: the interrupt test
+    // signals as soon as it exists, and the runner's process-group SIGKILL could otherwise land
+    // between writeFileSync's open and write (measured: fakePid read as 0 under full-suite load).
+    fs.writeFileSync(`${pidFile}.partial`, String(process.pid));
+    fs.renameSync(`${pidFile}.partial`, pidFile);
+  }
   if (hang) return;
   if (!skipOutput) fs.copyFileSync(source, destination);
   process.stdout.write(`    1 image files created\n{ready${number}}\n`);
