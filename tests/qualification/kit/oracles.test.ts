@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   EXCLUDED_GROUPS,
+  compareAdmittedUnknownTags,
   compareDifferential,
   comparePermittedDifferences,
   compareStructuralDifferential,
   metadataGroupDisposition,
+  projectExiftoolRecord,
   type MetadataProjection,
   type PermittedKind,
 } from "./oracles.js";
@@ -880,5 +882,108 @@ describe("compareStructuralDifferential (56-07 Task 2)", () => {
     expect(() =>
       compareStructuralDifferential(["A"], ["A"], ["Resolution:Preserved"], []),
     ).toThrow("Unknown permitted metadata difference");
+  });
+});
+
+describe("admittedUnknownTags hook (projectExiftoolRecord, compareAdmittedUnknownTags)", () => {
+  const ADMITTED = "GroupOmega:Unknown_0x7a";
+  const record = (extra: Record<string, unknown>) => ({
+    SourceFile: "/tmp/input",
+    "VendorZ:Width": 4,
+    ...extra,
+  });
+  const projected = (value: unknown): MetadataProjection =>
+    projectExiftoolRecord(record({ [ADMITTED]: value }), [ADMITTED]);
+
+  it("throws on any unknown tag when no admitted list is given", () => {
+    expect(() => projectExiftoolRecord(record({ [ADMITTED]: "x" }))).toThrow(
+      "ExifTool oracle found an unknown tag",
+    );
+  });
+
+  it("throws on an unknown tag outside the admitted list, by exact key", () => {
+    expect(() =>
+      projectExiftoolRecord(record({ "GroupOmega:Unknown_0x7b": "x" }), [
+        ADMITTED,
+      ]),
+    ).toThrow("ExifTool oracle found an unknown tag");
+    expect(() =>
+      projectExiftoolRecord(record({ "VendorZ:Unknown_0x7a": "x" }), [
+        ADMITTED,
+      ]),
+    ).toThrow("ExifTool oracle found an unknown tag");
+  });
+
+  it("records an admitted unknown tag outside namespaces", () => {
+    const projection = projected("8 bytes");
+    expect(projection.admittedUnknownTags).toEqual({ [ADMITTED]: "8 bytes" });
+    expect(projection.namespaces.GroupOmega).toBeUndefined();
+    expect(projection.namespaces.VendorZ).toEqual([{ Width: 4 }]);
+  });
+
+  it("omits admittedUnknownTags when nothing was admitted", () => {
+    expect(
+      projectExiftoolRecord(record({}), [ADMITTED]).admittedUnknownTags,
+    ).toBeUndefined();
+  });
+
+  it("rejects an admitted key that is not an unknown-named Group:Tag", () => {
+    expect(() => projectExiftoolRecord(record({}), ["VendorZ:Width"])).toThrow(
+      "Admitted unknown tag is not an unknown-named Group:Tag key",
+    );
+    expect(() => projectExiftoolRecord(record({}), ["Unknown_0x7a"])).toThrow(
+      "Admitted unknown tag is not an unknown-named Group:Tag key",
+    );
+  });
+
+  it("passes when source, native and reference carry the same admitted value", () => {
+    expect(() =>
+      compareAdmittedUnknownTags(
+        projected("a"),
+        projected("a"),
+        projected("a"),
+      ),
+    ).not.toThrow();
+  });
+
+  it("throws when the admitted value differs in any one projection", () => {
+    expect(() =>
+      compareAdmittedUnknownTags(
+        projected("a"),
+        projected("b"),
+        projected("a"),
+      ),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+    expect(() =>
+      compareAdmittedUnknownTags(
+        projected("a"),
+        projected("a"),
+        projected("b"),
+      ),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+    expect(() =>
+      compareAdmittedUnknownTags(
+        projected("b"),
+        projected("a"),
+        projected("a"),
+      ),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+  });
+
+  it("throws when the admitted tag is missing from any one projection", () => {
+    const absent = projectExiftoolRecord(record({}), [ADMITTED]);
+    expect(() =>
+      compareAdmittedUnknownTags(projected("a"), absent, projected("a")),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+    expect(() =>
+      compareAdmittedUnknownTags(absent, projected("a"), projected("a")),
+    ).toThrow(`Admitted unknown tag differs: ${ADMITTED}`);
+  });
+
+  it("passes with zero admitted tags anywhere", () => {
+    const absent = projectExiftoolRecord(record({}), [ADMITTED]);
+    expect(() =>
+      compareAdmittedUnknownTags(absent, absent, absent),
+    ).not.toThrow();
   });
 });

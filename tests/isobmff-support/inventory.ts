@@ -611,3 +611,24 @@ export function readItemExtentBytes(
     `readItemExtentBytes: unsupported construction_method ${item.constructionMethod} for item ${item.id}`,
   );
 }
+
+/**
+ * The item ids in `iloc` declaration order (62.1-08, ISO-01 ordering edge). `inventory.items`
+ * follows `iinf` order and `associations` follows `ipma` order; `iloc` keeps its own order, which
+ * this exposes without changing `IsobmffInventory`'s shape.
+ */
+export function ilocItemOrder(bytes: Buffer): readonly number[] {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const metaBox = readBoxes(view, 0, bytes.byteLength).find(
+    (b) => b.type === "meta",
+  );
+  if (metaBox === undefined) return [];
+  const { afterHeader } = readFullBoxHeader(view, metaBox.payloadOffset);
+  const ilocBox = readBoxes(
+    view,
+    afterHeader,
+    metaBox.offset + metaBox.size,
+  ).find((b) => b.type === "iloc");
+  if (ilocBox === undefined) return [];
+  return [...parseIloc(view, ilocBox).byItemId.keys()];
+}

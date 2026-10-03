@@ -9,7 +9,7 @@ import { parseIpma } from "./ipma.js";
 // reads `mdat` (BMF-05): every field read here comes from `metaPayload`, the single buffer
 // `parseIsobmff` already read once under `budget.checkMetaSize`.
 /** `meta` children this engine resolves; anything else declines `unknown-meta-child`. */
-const META_CHILD_ALLOWLIST = new Set([
+export const META_CHILD_ALLOWLIST = new Set([
     "hdlr",
     "dinf",
     "pitm",

@@ -45,6 +45,54 @@ import {
   type IrefRef,
 } from "./builder.js";
 
+/**
+ * The ICC profile the `colr-prof` and `colr-ricc` arms carry (62.1-10, maintainer decision
+ * 2026-10-03): a minimal well-formed v4.4 display (`mntr`) RGB/XYZ profile -- 128-byte header with
+ * the `acsp` signature, declared size equal to its length, a valid creation date, the D50
+ * illuminant, an all-zero profile ID and reserved bytes, then a one-record tag table (`rTRC`, an
+ * 8-byte `curv` tag with zero entries). Constant bytes, so the fast-check draw sequence is
+ * unchanged. It replaced a 4-byte stand-in (`00 01 02 03`) that the engine's ICC-preservation
+ * gate refused as truncated whenever `preserveColorProfile` was true; the qualification property
+ * suite keeps that old payload as a dedicated refusal control (`GENERATOR_TRUNCATED_ICC`).
+ */
+function minimalIccProfile(): Buffer {
+  const tableEnd = 128 + 4 + 12;
+  const profile = Buffer.alloc(tableEnd + 8);
+  profile.writeUInt32BE(profile.length, 0);
+  profile.write("TEST", 4, 4, "ascii");
+  profile[8] = 4;
+  profile[9] = 0x40;
+  profile.write("mntr", 12, 4, "ascii");
+  profile.write("RGB ", 16, 4, "ascii");
+  profile.write("XYZ ", 20, 4, "ascii");
+  profile.writeUInt16BE(2024, 24);
+  profile.writeUInt16BE(2, 26);
+  profile.writeUInt16BE(29, 28);
+  profile.writeUInt16BE(12, 30);
+  profile.writeUInt16BE(34, 32);
+  profile.writeUInt16BE(56, 34);
+  profile.write("acsp", 36, 4, "ascii");
+  profile.write("APPL", 40, 4, "ascii");
+  profile.write("TEST", 48, 4, "ascii");
+  profile.write("MODL", 52, 4, "ascii");
+  profile.writeUInt32BE(0x0000_f6d6, 68);
+  profile.writeUInt32BE(0x0001_0000, 72);
+  profile.writeUInt32BE(0x0000_d32d, 76);
+  profile.writeUInt32BE(1, 128);
+  profile.write("rTRC", 132, 4, "ascii");
+  profile.writeUInt32BE(tableEnd, 136);
+  profile.writeUInt32BE(8, 140);
+  profile.write("curv", tableEnd, 4, "ascii");
+  return profile;
+}
+
+export const GENERATOR_ICC_PROFILE: Buffer = minimalIccProfile();
+
+/** The 4-byte ICC stand-in the generator carried before 62.1-10 (a truncated profile). */
+export const GENERATOR_TRUNCATED_ICC: Buffer = Buffer.from([
+  0x00, 0x01, 0x02, 0x03,
+]);
+
 /** The two metadata kinds this generator plants canaries for (D-19). */
 export type IsobmffMetadataKind = "EXIF" | "XMP";
 
@@ -208,7 +256,10 @@ export interface NonHazardConfig {
  * planted canary) plus whichever optional structural dimensions `config` turns on. Two-pass
  * (mirrors `builder.ts`'s own `heifFile`/`tests/isobmff_admission.test.ts`'s `buildFile`): the
  * `iloc` entries' byte length depends only on the declared widths, never the numeric values. */
-function buildNonHazardFile(config: NonHazardConfig): Buffer {
+export function buildNonHazardFile(
+  config: NonHazardConfig,
+  iccBytes: Buffer = GENERATOR_ICC_PROFILE,
+): Buffer {
   const { major, compatible } = majorBrandFor(config.brand);
 
   const primaryId = 1;
@@ -273,7 +324,6 @@ function buildNonHazardFile(config: NonHazardConfig): Buffer {
 
   if (config.colrVariant !== "none") {
     propertyIndex += 1;
-    const iccBytes = Buffer.from([0x00, 0x01, 0x02, 0x03]);
     const colrBox =
       config.colrVariant === "nclx"
         ? colrNclx(1, 13, 6, true)
@@ -497,18 +547,25 @@ function armsFor(config: NonHazardConfig): readonly IsobmffArm[] {
   return arms;
 }
 
-const nonHazardConfigArbitrary: fc.Arbitrary<
-  Omit<NonHazardConfig, "exifCanary" | "xmpCanary">
-> = fc.record({
-  brand: fc.constantFrom("heic", "avif"),
-  exifOffset: fc.constantFrom(0, 16),
-  colrVariant: fc.constantFrom("none", "nclx", "prof", "ricc"),
-  irot: fc.constantFrom(undefined, "essential", "non-essential"),
-  imir: fc.constantFrom(undefined, "essential", "non-essential"),
-  includeGridIdat: fc.boolean(),
-  includeThmb: fc.boolean(),
-  includeAuxl: fc.boolean(),
-});
+/**
+ * The non-hazard structural config for one brand. IN-01 (62.1-06): the brand is fixed to the
+ * argument, never drawn, so `isobmffArmSampleArbitrary("heic")` emits only heic files and the
+ * per-brand floors measure genuinely per-brand sequences.
+ */
+function nonHazardConfigArbitrary(
+  brand: "heic" | "avif",
+): fc.Arbitrary<Omit<NonHazardConfig, "exifCanary" | "xmpCanary">> {
+  return fc.record({
+    brand: fc.constant(brand),
+    exifOffset: fc.constantFrom(0, 16),
+    colrVariant: fc.constantFrom("none", "nclx", "prof", "ricc"),
+    irot: fc.constantFrom(undefined, "essential", "non-essential"),
+    imir: fc.constantFrom(undefined, "essential", "non-essential"),
+    includeGridIdat: fc.boolean(),
+    includeThmb: fc.boolean(),
+    includeAuxl: fc.boolean(),
+  });
+}
 
 /**
  * The per-arm sample arbitrary (D-19): ~85% of samples are structurally-admitted combinations of
@@ -528,7 +585,7 @@ export function isobmffArmSampleArbitrary(
 
   const nonHazardArbitrary: fc.Arbitrary<IsobmffArmSample> = fc
     .tuple(
-      nonHazardConfigArbitrary,
+      nonHazardConfigArbitrary(brand),
       canaryArbitrary<IsobmffMetadataKind>("EXIF"),
       canaryArbitrary<IsobmffMetadataKind>("XMP"),
     )
@@ -550,6 +607,20 @@ export function isobmffArmSampleArbitrary(
   return fc.oneof(
     { weight: 85, arbitrary: nonHazardArbitrary },
     { weight: 15, arbitrary: hazardArbitrary },
+  );
+}
+
+/**
+ * D-21 negative control (3) for ISOBMFF: the per-arm arbitrary with every Exif/XMP-carrying
+ * (non-hazard) sample removed, so no sample can ever count toward the metadata arms. Proves the
+ * floor assertion itself catches a generator whose metadata coverage silently collapsed. Never a
+ * qualification generator.
+ */
+export function isobmffArmSampleArbitraryWithoutMetadataArm(
+  brand: "heic" | "avif",
+): fc.Arbitrary<IsobmffArmSample> {
+  return isobmffArmSampleArbitrary(brand).filter((armSample) =>
+    armSample.arms.includes("hazard"),
   );
 }
 

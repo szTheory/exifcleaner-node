@@ -40,6 +40,8 @@ import {
   iccProfile,
   iccProfileV2,
   iccProfileV4,
+  metadataAvif,
+  metadataHeic,
   metadataJpeg,
   metadataPng,
   metadataWebp,
@@ -126,11 +128,12 @@ afterEach(async () => {
 describe("getCapabilities", () => {
   it("reports the exact conservative WebP feature set as immutable data", () => {
     const capabilities = getCapabilities();
-    // 56-03 registered a second (PNG) handler and 57-05 a third (JPEG); this
+    // 56-03 registered a second (PNG) handler, 57-05 a third (JPEG) and 62.1-07
+    // the fourth and fifth (HEIC, AVIF); this
     // test now asserts WebP's own entry (index 0, registration order) rather
     // than the whole array, since `formats` legitimately grows as more
     // formats are admitted.
-    expect(capabilities.formats).toHaveLength(3);
+    expect(capabilities.formats).toHaveLength(5);
     expect(capabilities.formats[0]).toEqual({
       format: "webp",
       mimeTypes: ["image/webp"],
@@ -1462,6 +1465,8 @@ describe("format-neutral admission boundary", () => {
       webp: metadataWebp(),
       png: metadataPng(),
       jpeg: metadataJpeg(),
+      heic: metadataHeic(),
+      avif: metadataAvif(),
     };
     const directory = await workspace();
     const capabilities = getCapabilities();

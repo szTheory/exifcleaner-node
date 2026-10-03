@@ -49,11 +49,11 @@ import { buildMinimalExifInfe } from "../src/isobmff/rebuild.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
-const HEIC_FIXTURE = join(FIXTURES_DIR, "heif-enc-grid.heic");
-const AVIF_FIXTURE = join(FIXTURES_DIR, "heif-enc-grid.avif");
+const HEIC_FIXTURE = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
+const AVIF_FIXTURE = join(FIXTURES_DIR, "avif", "heif-enc-grid.avif");
 
 const directories: string[] = [];
 afterEach(async () => {

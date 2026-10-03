@@ -2509,6 +2509,854 @@
         }
       ],
       "permittedDifferences": []
+    },
+    {
+      "id": "heif-enc-grid-heic",
+      "format": "heic",
+      "roles": ["differential", "structural"],
+      "localPath": "constructed/heic/heif-enc-grid.heic",
+      "provenance": {
+        "revision": "8765f1e1e037ecc510cac09220375c7977964600",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/8765f1e1e037ecc510cac09220375c7977964600/tests/isobmff-support/fixtures/heif-enc-grid.heic",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "ae40a80f0a85cd984b9d8b1a2e811e138ac2c8c26f14b77360d62e1e4867bad6",
+      "bytes": 4243,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["EXIF", "XMP"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "grid",
+          "sha256": "2ff7c611f6ef4fedf4db141b68a48f3e24846127ae176467496b5a81af60a5c8"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "c876df5fe0d92a7018bd6b5885709e42202add385d8178a19d7e86912ae49759"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "6f765543882032a81b0763927dd313d8bab9ef7dcc599fc2f219e735f062504a"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "b1b085161706d6a12f7f057e00e1e02ffd03f10176ec46f91b6ad3cb71d6a101"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "c7d47fbccbea6baa49d695a10e1c96782b259728893fbee4a3e850d45067b404"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "2e430e6c0f3522ecd12de620b0bb703e06b10847da9a06d33a13917b71a25dbd"
+        }
+      ],
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs"
+      ]
+    },
+    {
+      "id": "heif-enc-grid-avif",
+      "format": "avif",
+      "roles": ["differential", "structural"],
+      "localPath": "constructed/avif/heif-enc-grid.avif",
+      "provenance": {
+        "revision": "8765f1e1e037ecc510cac09220375c7977964600",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/8765f1e1e037ecc510cac09220375c7977964600/tests/isobmff-support/fixtures/heif-enc-grid.avif",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "682a1e626c4d8db4f7ccf4a2d5058d0104394f7a08d0a70fad3950bed4b0a85e",
+      "bytes": 3997,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["EXIF", "XMP"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "grid",
+          "sha256": "2ff7c611f6ef4fedf4db141b68a48f3e24846127ae176467496b5a81af60a5c8"
+        },
+        {
+          "part": "av01",
+          "sha256": "00c838d4295d6228bc900e9a1ee1703d4a4a32341b638cd0ff0db1d8932fb653"
+        },
+        {
+          "part": "av01",
+          "sha256": "c463a6fcca4eeb4c089a2706452dff229d4cf2145236817898b9f75dc1b3a335"
+        },
+        {
+          "part": "av01",
+          "sha256": "db1054d60a89a2fa468d0bc105f2190064ed340d852b8347511aaff9cb40d287"
+        },
+        {
+          "part": "av01",
+          "sha256": "e14a911ac46d434f4ce0317461006e9366750d722eed2ba447f08d79c37a9838"
+        },
+        {
+          "part": "av01",
+          "sha256": "c4d0f75828fc73c4d0c7af35e8e50d35451d9100112c12c9bf04d9bdf7ad847e"
+        }
+      ],
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs"
+      ]
+    },
+    {
+      "id": "c2pa-signed-heic",
+      "format": "heic",
+      "roles": ["structural"],
+      "localPath": "constructed/heic/c2pa-signed.heic",
+      "provenance": {
+        "revision": "0c91cea15db00521d5208da38c250b566e6449db",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/0c91cea15db00521d5208da38c250b566e6449db/tests/corpus/constructed/heic/c2pa-signed.heic",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "2e5868a05c42f45d3696a6dda33c4050a1ddffc717eab503d89ee57feb127ffd",
+      "bytes": 17120,
+      "topology": ["ftyp", "uuid", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["C2PA", "EXIF", "XMP"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "84b930ddf47969e13511b7f2800774960de20951f0bad5ef8c230f951e31e913"
+        }
+      ],
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs"
+      ]
+    },
+    {
+      "id": "c2pa-signed-avif",
+      "format": "avif",
+      "roles": ["structural"],
+      "localPath": "constructed/avif/c2pa-signed.avif",
+      "provenance": {
+        "revision": "db570ce348d48e788ff6c62e67d327bcacbe8a6c",
+        "url": "https://github.com/szTheory/exifcleaner-node/blob/db570ce348d48e788ff6c62e67d327bcacbe8a6c/tests/corpus/constructed/avif/c2pa-signed.avif",
+        "license": "MIT",
+        "licenseStatus": "approved"
+      },
+      "sha256": "9ed31cea5d391e79863f157eeab32e49980627bbcf677ac98334aae21c8df242",
+      "bytes": 16998,
+      "topology": ["ftyp", "uuid", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["C2PA", "EXIF", "XMP"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "av01",
+          "sha256": "a8adf3017fa6c286130a09510706b9c4c0ea5e148a5f804e7ee2c02a3b66688a"
+        }
+      ],
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs"
+      ]
+    },
+    {
+      "id": "link-u-plum-blossom-small-8bpc",
+      "format": "avif",
+      "roles": ["negative-control"],
+      "localPath": "upstream/link-u-avif-sample-images-c666a36/plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif",
+      "provenance": {
+        "revision": "c666a368b73006246694919b5dbcc078317af6cc",
+        "url": "https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/plum-blossom-small.profile0.8bpc.yuv420.alpha-full.avif",
+        "license": "CC-BY-4.0",
+        "licenseStatus": "approved",
+        "noticeId": "link-u-plum-blossom-small-8bpc"
+      },
+      "sha256": "541ca66a11b1430d11f77b74a13f859239a3bd9f44976b8dfe163c5d7595a69f",
+      "bytes": 3284,
+      "topology": ["ftyp", "meta", "mdat", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started",
+        "declineClass": "item-graph-invalid"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "link-u-plum-blossom-small-10bpc",
+      "format": "avif",
+      "roles": ["negative-control"],
+      "localPath": "upstream/link-u-avif-sample-images-c666a36/plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif",
+      "provenance": {
+        "revision": "c666a368b73006246694919b5dbcc078317af6cc",
+        "url": "https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/plum-blossom-small.profile0.10bpc.yuv420.alpha-full.avif",
+        "license": "CC-BY-4.0",
+        "licenseStatus": "approved",
+        "noticeId": "link-u-plum-blossom-small-10bpc"
+      },
+      "sha256": "fe3379620f983e5da4210b0f7c5d164e86208b34106d6b11d56e2b52beee5dfe",
+      "bytes": 4217,
+      "topology": ["ftyp", "meta", "mdat", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started",
+        "declineClass": "item-graph-invalid"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "link-u-red-at-12-oclock",
+      "format": "avif",
+      "roles": ["negative-control"],
+      "localPath": "upstream/link-u-avif-sample-images-c666a36/red-at-12-oclock-with-color-profile-lossy.avif",
+      "provenance": {
+        "revision": "c666a368b73006246694919b5dbcc078317af6cc",
+        "url": "https://raw.githubusercontent.com/link-u/avif-sample-images/c666a368b73006246694919b5dbcc078317af6cc/red-at-12-oclock-with-color-profile-lossy.avif",
+        "license": "LGPL-2.1-only OR BSD-2-Clause",
+        "licenseStatus": "approved",
+        "noticeId": "link-u-red-at-12-oclock"
+      },
+      "sha256": "79483242f2dca12c4ec18bd33ff8099216b3094fb55a26a909f046b2f9b4ce58",
+      "bytes": 2840,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsafe-structure",
+        "nativeWrite": "not-started",
+        "declineClass": "surviving-offset-width-zero"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-c041",
+      "format": "heic",
+      "roles": ["negative-control"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/C041.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "7a90757b22d3448267f44cc163e19611961e1228cd67a614b6ac8c4144bf082d",
+      "bytes": 52191,
+      "topology": ["ftyp", "moov", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsupported-format",
+        "nativeWrite": "not-started",
+        "declineClass": "selection-decline"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-c039",
+      "format": "heic",
+      "roles": ["negative-control"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/C039.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "507e4fe241b73e098050ac12d6cefe84efbf2acf0d7f8b0b23f23480f6911658",
+      "bytes": 112106,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "malformed-file",
+        "nativeWrite": "not-started",
+        "declineClass": "item-graph-invalid"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-c044",
+      "format": "heic",
+      "roles": ["negative-control"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/C044.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "550443448520e724af11734f86d51e50a8e42e3f4b5ed47debc2c5d25fdb3190",
+      "bytes": 146457,
+      "topology": ["ftyp", "etyp", "meta", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsupported-format",
+        "nativeWrite": "not-started",
+        "declineClass": "selection-decline"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-multilayer005",
+      "format": "heic",
+      "roles": ["negative-control"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/multilayer005.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "43cd906e0f04e12ceb007e683d637b68c72184f2118a69882e19f286c69f73d2",
+      "bytes": 4608,
+      "topology": ["ftyp", "meta", "mdat", "mdat"],
+      "outcome": {
+        "status": "refused",
+        "errorCode": "unsupported-format",
+        "nativeWrite": "not-started",
+        "declineClass": "multiple-mdat"
+      },
+      "retainedPayloads": [],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-c034",
+      "format": "heic",
+      "roles": ["structural"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/C034.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "d2d61c040eba858cff05d7804c0999fb8955bcfe3ec99e5fd9f0b90d2dd2fe97",
+      "bytes": 112147,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["EXIF"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "97452513df44aca051ff6bf0ff911cccdc2af356d076a65d8719c80e5ce5fbf7"
+        }
+      ],
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "byte-layout-differs"
+      ]
+    },
+    {
+      "id": "nokia-heif-conformance-c053",
+      "format": "heic",
+      "roles": ["structural"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/C053.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "c641d26a9189371f9320827ba035eb05bc241975fdc9e6e60540f52de3feae97",
+      "bytes": 14550,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "5c2057873a4105e227fc6bbb7da81f33465ce08925518b146a2cbdacf51df6fb"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "1256365c5a27520e3474ae7b2248f06a32ebbab9b08bfc2cc76f86ba2a8de00f"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-miaf002",
+      "format": "heic",
+      "roles": ["structural"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/MIAF002.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "006baff837e3a8736154206f901a6595b0951eb62e282463e7dfc4a33c3da775",
+      "bytes": 8837,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "0e1dd134c2d2a2398970c8bd8834ca774bcf1986df49efd4d2443f1414549392"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "637018b11f0f735402b5835e053668a24bcd43560ae93c0c59fdd3ba82b1c630"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-miaf003",
+      "format": "heic",
+      "roles": ["structural"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/MIAF003.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "499c8ef32ff744f42b06cc89d6404dcc3754043d2251f4b6f8fedf2f6f04a513",
+      "bytes": 13826,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "8ee3a0913f1bcd687608547f3c473dd19eaf454d6a5974bbf14cff2bba0f5812"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "637018b11f0f735402b5835e053668a24bcd43560ae93c0c59fdd3ba82b1c630"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-multilayer003",
+      "format": "heic",
+      "roles": ["structural"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/multilayer003.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "8e3963d7a0f997ad78be13809cccbe125482c5c961a30a0cb043b6aba0c870cb",
+      "bytes": 14512,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "5c2057873a4105e227fc6bbb7da81f33465ce08925518b146a2cbdacf51df6fb"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "1256365c5a27520e3474ae7b2248f06a32ebbab9b08bfc2cc76f86ba2a8de00f"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-c025",
+      "format": "heic",
+      "roles": ["structural"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/C025.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "8921aa6ccb29aa49a1122c602cdcbecb0a2dcdcae3cd1422631ac794bad72a69",
+      "bytes": 19824,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "2efe64ea1edffc0364d75578e1068e97a4d5fe11c8cf3e93336a8d0fe0c96ec2"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "c21cc8b35d5f5fa9fdf8782027d5e71fff1fd99a88948ba611d0e4dcb58035f2"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "a40270888d058d71760371f39e4270a452af2f28e73435f3d75d362029fc7022"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "df834e91bc43f8dad495f66e2731fd365292fad18b30cd0e8e41d1768d7125e1"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "5c3c5b9e1752c9d896cfae32f82ffe8a61aff1f5be39c7a1e474546091bb927c"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "c7cf6a473b269c89a7892c97a961231e4f0121e87a9780d739f54664d596bcc9"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "e0c516bd202bfa9e9f3faafdf2610a303873dc37ca8ee37886010ac301b73563"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "280f1c1a6dc6ce1fa93e2ae949f32d77787ce0dbe42a502e27bc21135d11ac44"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "1d172656cf0d3c3370994ef72e6f2c59539b4490fffda5484287f9904d52bf65"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "2739f60b06054926b84d37f8758b49fc3a66947331f29810e6b48f02d6fd98f1"
+        },
+        {
+          "part": "grid",
+          "sha256": "a7317f1b1149e320db9b6bc11c7526babc29b105e55355e9c513b8383fc2568c"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-c017",
+      "format": "heic",
+      "roles": ["structural"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/C017.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "7bd45ec3b278a601d4ba1905964856cf0003b15896adfffe3f645fd83c0417cd",
+      "bytes": 60276,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "95bc19e78e0c6f43ce04fb7cd251e179614bf4e5de5dd289e9aa93160101deb5"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "d2a8d0fa7fa5805c0248a855cb4b44badc831cf65e2dcb84b792622f7c34590c"
+        },
+        {
+          "part": "iovl",
+          "sha256": "2c9607df55c7e07c0d7f7e6d77e7ed298d6a979581c1840da1a6ca3a3ba91070"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "nokia-heif-conformance-c040",
+      "format": "heic",
+      "roles": ["structural"],
+      "provenance": {
+        "revision": "f17e517f7518984b4450349a88edc09519082c74",
+        "url": "https://raw.githubusercontent.com/nokiatech/heif_conformance/f17e517f7518984b4450349a88edc09519082c74/conformance_files/C040.heic",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only"
+      },
+      "sha256": "7d9160ff8f2e0f195c870484dee255383f549243ec782d70c3cc9431bc5ec268",
+      "bytes": 156836,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": []
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "aebd02e87d4a1e362452bc5af969f835c2d5a5aa045d1d2ac70c2a614f2aaf4b"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "18ca6327bd634379a22da15a21ffa1e8a503d1a0e79772b32c0ba7e979c27c26"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "adcb224e2ff58e47c88a47ac4016095485240db98faf0c7d2d09926d4cf13140"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "2c0ae541aa9c630e964e0595b5905a2d6c20e62dc3ef867299ec313c16d4a7ab"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "f724624b9ccd4fa8cd476137f5a78bc6dc4ab9d0cc132b133a30e06a631c65b0"
+        }
+      ],
+      "permittedDifferences": []
+    },
+    {
+      "id": "ianare-exif-samples-iphone-13-pro-max",
+      "format": "heic",
+      "roles": ["structural"],
+      "provenance": {
+        "revision": "f0462fcc42f7bad484fe637389b734612d97041f",
+        "url": "https://raw.githubusercontent.com/ianare/exif-samples/f0462fcc42f7bad484fe637389b734612d97041f/heic/mobile/iphone_13_pro_max.HEIC",
+        "license": "LicenseRef-default-copyright",
+        "licenseStatus": "approved",
+        "kind": "download-only",
+        "noticeId": "ianare-exif-samples-iphone-13-pro-max"
+      },
+      "sha256": "e760c80eed310e4f27c092d5487693ca8e104e7cc01d25ba4828deb28f679676",
+      "bytes": 2182707,
+      "topology": ["ftyp", "meta", "mdat"],
+      "outcome": {
+        "status": "success",
+        "removedNamespaces": ["ICC", "XMP", "EXIF"]
+      },
+      "retainedPayloads": [
+        {
+          "part": "hvc1",
+          "sha256": "b76f02ef1bbdb09cef0aecb51da4479e42a1627564a54a0d2ab7efc3b5412b21"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "9d661b4638e6e5f3c1212929442b7ae2f1556c8cb8a13350fee53ca2ed610bd6"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "12a2d367fe9b90a51d4f274265ca4c3bbdba34918571ab9b239a730d25e1cf58"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "6168869f53bcba82ab3107fff58396113e0069b33ea86980c221b1939dcca7b1"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "141fe4dddb5624e61e3d8f319396b3688c5169ef4c322c49e8e24372f6211c56"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "b31452f265fccd00401d4880e5d2abf989709251cc7014b6741f74bfeae8db68"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "9c2a66e1564d17e7d0aff896254261db380ce91ced3d22db9cc12d0646fa950d"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "5cbb4d3d7cc81b039e0c977b30793ed291b36b23dd61f7732dae83659a32939c"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "b5cb3c4d62d1d1d0453ab9e27f1b3afbae392af2b022077672a337c3ad88e76b"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "35a6f24802ccd043b7777ded927fe653469dec761b19850880e4615416e66108"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "bcc08fab190ea20086d78f978ea10acaa8124fbda79ae75e218934cc9971b04e"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "1ab7fca4a63102abf5cf8a563ade748f90bdb86f774a491dd462d0c2ec35f2c4"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "1d1f9656daff2de94007c1149b10e1f094856f6a63d6afb021c1eb1d815d0823"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "de06a7aca7d8a06dfbc610794b10cb05e3a879cae20a6b93a7db4bb336fb18bd"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "bd212b8a37590f86bfff2109680b2ea37f3a9ebb8871c6ac43cc4468d92afa77"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "6a32e157067b0b2fd4f5494918b5612b6800174d26559cc39b42eccb87958649"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "f0af3e5aecb84cd616c7017777fab9ab42bb8b1525f5d2aed9948fcbbe417101"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "6299d4a79d83bd157131089e25ec00316fcd020db6785ee080469511c6808d94"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "9b440f4f062e237e2d6237ccabc17f1bfa8004c0f5eff23366c9500b946382d7"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "861f48bb66cb4884c154cb4be84f47df5b1a9ad0603737d5a2225a5915102526"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "d1a39a1b57d31652f0b967e7667fc32fc9a5ba1cef60a151661a807508827f63"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "22dcdeb27b15bcd56b7a8b6f87cd29c1936896bc9d2b42dd1b8ae1ad80cdc7f6"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "f3d98a11347f15dffcfa2d7ade690a94fb5e661f7c7de0a80f20b16667e74189"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "95375fc9709a498ac3a360fd9d5330c77ff950dd001490f4392f45c34674e52d"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "7df42e50766af4da1d2bd6cce8f770f977336a6d0f75aac974d6daf26f08439c"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "c3327fb864f7910773190a4f806dc7331d2e1932c256547532fa89143527bcaf"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "940fa3cebdadb3d8a10e597bd1063ac2ee6701a6e555a8e05c181c1cfc93ae1e"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "16dfc77c31226a0cd7a56e28864b866e8d4924c84f4bbbb1c410456e234d485d"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "498f55ba6662d52704934299b67d1304bfe43d9ea6008e0893d216524e839423"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "2614109618e3eb87ae9210c7d9ac0742b8133274a3a9844af20cd2a847eaff3e"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "fddba08fa02f566eaa94d30146a6a920b63c3025784f9fc5105bb5f5b4a69c5a"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "0f307c6580956beebf917cf2ea3c5df322deb59a0954cdd4779edc4526878580"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "215e7571aa562eff594619d8bbf6e906837f97594a3c5cb34b32d928aa534a3c"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "ffc232c22ab23d07d2e50e86554e5dd38359093bea41e9746f0649a497c80389"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "ee10b85a12f8390e9ed5c917730b6613e42818eb3145f61f903f837f27b860d2"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "dd87e38c28a35cca99780c6aaeb83abb4260ade6607ec99a0399b9b7fcfa3b3c"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "ec398428be896c6ad9a3752a19a3cbcd0ebe1ce5127d1c8ffc83e6150d57cc32"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "44eddb8e6910cfa12a4e44f89ce24f1f404ebb37a9ee044d3a42244e2b602109"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "1c42d9aa645b8d163a1d250fdadad6045f34a8907ddcf7608c0d2110249fe557"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "06f1a383cf543713023b34a5ad9bb4488259da7b30034bb75a265ee848e51c8b"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "f3647e26547a83730e1acb3f3488e16a0af8cc4425dcc475107b0fe174e0a48e"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "96b4f9c0449b31338e5dcfaabc3351c652f5d5da495a0d1f86e202583ed77029"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "d5a7d0ee71596b8c8c0a2fa25940f0631e31abeead43fba672cbbdc0f7b7e4b7"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "3467b46ff8459b36d5a1c59b20333a455b29ec38a4433a6970cb68c0af582174"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "dc90e5bab58ab42323e63482074e5626893321b3a1d88c13f4151f2bc3d79658"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "064ef80dca4b1bedae3626369c9a66d2edfa5ef33fd18681a42c8db5d0204ab7"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "86bcc43a69e88e6977539957034269c0a273e40b7ced2ad794cfca1b00a87759"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "0cd51a96a61bf53c299112c2a5b660a641a7cb0b96e2c11b7a2a87486db21b6c"
+        },
+        {
+          "part": "grid",
+          "sha256": "03dd2afa5e318dbc951b36fac7f57cc85770e7a18ece15f316ab559290c2aadb"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "1898ef2f069331b9c03b43454c3b67ab95195a566206b70ba3adf7e06c236d57"
+        },
+        {
+          "part": "hvc1",
+          "sha256": "c26da72708fdbf180e20f4465f64a51a92ed28bcd0d39c18cc7cf816ea9dd3c9"
+        }
+      ],
+      "permittedDifferences": [
+        "exiftool-keeps-emptied-metadata-entries",
+        "exiftool-keeps-icc-when-not-preserving",
+        "exiftool-minimal-exif-ycbcr-positioning",
+        "byte-layout-differs",
+        "exiftool-keeps-auxiliary-item-xmp"
+      ]
     }
   ],
   "benchmarks": {

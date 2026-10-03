@@ -64,6 +64,11 @@ jobs:
         run: |
           echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"
           node scripts/qualification/build-oracles.cjs --prepare "$RUNNER_TEMP/exifcleaner-oracles"
+      - name: Fetch download-only corpus records into the runner cache (KIT-10/D-14)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_CORPUS_CACHE_DIR=$RUNNER_TEMP/exifcleaner-corpus-cache" >> "$GITHUB_ENV"
+          node scripts/qualification/fetch-corpus.cjs --cache "$RUNNER_TEMP/exifcleaner-corpus-cache"
       - run: npm run lint && npm run typecheck && npm run check:cycles && npm run build && npm run build:native && npm test && npm run check:runtime && npm run check:release
       - name: Assert the oracle authorities were built exactly once (KIT-09)
         run: node scripts/qualification/build-oracles.cjs --assert-built-once "$EXIFCLEANER_ORACLE_DIR"
@@ -82,13 +87,17 @@ jobs:
     env:
       FC_SEED: "460046"
       FC_RUNS: "200"
-      QUAL_KIT: "tests/qualification/kit/build_oracles.test.ts tests/qualification/kit/corpus.test.ts tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts"
+      QUAL_KIT: "tests/qualification/kit/build_oracles.test.ts tests/qualification/kit/corpus.test.ts tests/qualification/kit/fetch_corpus.test.ts tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts"
       QUAL_WEBP: "tests/qualification/webp/tracer.test.ts tests/qualification/webp/parser.test.ts tests/qualification/webp/property.test.ts tests/qualification/webp/transaction.test.ts tests/qualification/webp/oracles.test.ts tests/qualification/webp/golden.test.ts"
       QUAL_PNG: "tests/qualification/png/oracles.test.ts tests/qualification/png/tracer.test.ts tests/qualification/png/property.test.ts tests/qualification/png/parser.test.ts tests/qualification/png/transaction.test.ts tests/qualification/png/golden.test.ts"
       # 57-07: the JPEG qualification suite's first file (tracer.test.ts)
       # lands here; later 57-* plans append their own suite files to this
       # list (D-16 layout gate requires every on-disk suite file listed).
       QUAL_JPEG: "tests/qualification/jpeg/tracer.test.ts tests/qualification/jpeg/oracles.test.ts tests/qualification/jpeg/property.test.ts tests/qualification/jpeg/parser.test.ts tests/qualification/jpeg/transaction.test.ts tests/qualification/jpeg/golden.test.ts"
+      # 62.1-09: HEIC and AVIF share src/isobmff/, so an engine change selects both (and every
+      # other format) by design; heic-handler/avif-handler-only changes select one brand.
+      QUAL_HEIC: "tests/qualification/heic/oracles.test.ts tests/qualification/heic/tracer.test.ts tests/qualification/heic/decode.test.ts tests/qualification/heic/parser.test.ts tests/qualification/heic/property.test.ts"
+      QUAL_AVIF: "tests/qualification/avif/oracles.test.ts tests/qualification/avif/tracer.test.ts tests/qualification/avif/decode.test.ts tests/qualification/avif/parser.test.ts tests/qualification/avif/property.test.ts"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -108,6 +117,11 @@ jobs:
         run: |
           echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"
           node scripts/qualification/build-oracles.cjs --prepare "$RUNNER_TEMP/exifcleaner-oracles"
+      - name: Fetch download-only corpus records into the runner cache (KIT-10/D-14)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_CORPUS_CACHE_DIR=$RUNNER_TEMP/exifcleaner-corpus-cache" >> "$GITHUB_ENV"
+          node scripts/qualification/fetch-corpus.cjs --cache "$RUNNER_TEMP/exifcleaner-corpus-cache"
       - name: Select and run qualification suites for touched formats (D-17)
         env:
           FORMATS: ${{ needs.classify.outputs.formats }}
@@ -127,6 +141,8 @@ jobs:
               webp) files="$files $QUAL_WEBP" ;;
               png) files="$files $QUAL_PNG" ;;
               jpeg) files="$files $QUAL_JPEG" ;;
+              heic) files="$files $QUAL_HEIC" ;;
+              avif) files="$files $QUAL_AVIF" ;;
               *)
                 echo "qualification-linux: unknown format '$format' from classify.outputs.formats" >&2
                 exit 1

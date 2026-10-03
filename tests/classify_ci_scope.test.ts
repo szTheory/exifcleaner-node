@@ -49,6 +49,7 @@ const classify = require("../scripts/classify_ci_scope.cjs") as {
   classifyCiScope(input: ClassifyInput): ClassifyResult;
   classifyQualificationFormats(
     input: QualificationFormatsInput,
+    rules?: Readonly<Record<string, readonly RegExp[]>>,
   ): readonly string[];
   changedPathsForEvent(input: {
     eventName: string;
@@ -89,9 +90,7 @@ const ISOBMFF_LINUX_FIXTURES = [
   "dist/isobmff/admission.js",
   "tests/isobmff_brand.test.ts",
   "tests/isobmff-support/builder.ts",
-  "tests/isobmff-support/fixtures/heif-enc-grid.heic",
-  "tests/isobmff-support/fixtures/heif-enc-grid.avif",
-  "tests/isobmff-support/fixtures/RECIPE.md",
+  "tests/isobmff-support/inventory.ts",
 ];
 
 const DOCS_ONLY_LINUX_FIXTURES = [
@@ -123,6 +122,11 @@ const FULL_ALONE_FIXTURES = [
   ".github/workflows/ci.yml",
   ".github/dependabot.yml",
   "tests/corpus/manifest.json",
+  // 62.1-08 (D-24): the heif-enc fixtures moved under tests/corpus/, so they
+  // now select full scope like every other corpus file.
+  "tests/corpus/constructed/heic/heif-enc-grid.heic",
+  "tests/corpus/constructed/avif/heif-enc-grid.avif",
+  "tests/corpus/constructed/heif-enc-RECIPE.md",
   "tests/classify_ci_scope.test.ts",
   "tests/qualification/kit/corpus.ts",
   "tests/qualification/kit/oracles.ts",
@@ -407,15 +411,15 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       classify.classifyQualificationFormats(
         formatsInput({ changedPaths: ["src/metadata/exif.ts"] }),
       ),
-    ).toEqual(["jpeg", "png", "webp"]);
+    ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
   });
 
-  it("selects every qualified format for a src/isobmff/ path (D-24: no isobmff key in FORMAT_PATH_RULES yet, fail-closed)", () => {
+  it("selects every qualified format for a src/isobmff/ path (62.1-09: the shared HEIC/AVIF engine is named by no format rule, so it runs every suite)", () => {
     expect(
       classify.classifyQualificationFormats(
         formatsInput({ changedPaths: ["src/isobmff/admission.ts"] }),
       ),
-    ).toEqual(["jpeg", "png", "webp"]);
+    ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
   });
 
   it("selects every format for a kit-shared path (matches zero formats)", () => {
@@ -425,7 +429,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
           changedPaths: ["tests/qualification/kit/oracles.ts"],
         }),
       ),
-    ).toEqual(["jpeg", "png", "webp"]);
+    ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
   });
 
   it("selects every format for a mixed png + full-scope-only diff (matches zero formats on the second path)", () => {
@@ -435,7 +439,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
           changedPaths: ["src/png/chunks.ts", "src/engine.ts"],
         }),
       ),
-    ).toEqual(["jpeg", "png", "webp"]);
+    ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
   });
 
   it("selects jpeg and png for a mixed jpeg + png diff (each path matches exactly one different format)", () => {
@@ -453,7 +457,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       classify.classifyQualificationFormats(
         formatsInput({ ref: "refs/tags/v0.3.0" }),
       ),
-    ).toEqual(["jpeg", "png", "webp"]);
+    ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
   });
 
   it("selects every format for a non-PR/push event", () => {
@@ -461,7 +465,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       classify.classifyQualificationFormats(
         formatsInput({ eventName: "workflow_dispatch" }),
       ),
-    ).toEqual(["jpeg", "png", "webp"]);
+    ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
   });
 
   it("selects every format for an unknown eventName", () => {
@@ -469,13 +473,13 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       classify.classifyQualificationFormats(
         formatsInput({ eventName: "schedule" }),
       ),
-    ).toEqual(["jpeg", "png", "webp"]);
+    ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
   });
 
   it("selects every format for an empty diff", () => {
     expect(
       classify.classifyQualificationFormats(formatsInput({ changedPaths: [] })),
-    ).toEqual(["jpeg", "png", "webp"]);
+    ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
   });
 
   it("selects every format for a null (errored) diff", () => {
@@ -483,7 +487,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
       classify.classifyQualificationFormats(
         formatsInput({ changedPaths: null }),
       ),
-    ).toEqual(["jpeg", "png", "webp"]);
+    ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
   });
 
   it.each(MALFORMED_PATHS)(
@@ -493,7 +497,7 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
         classify.classifyQualificationFormats(
           formatsInput({ changedPaths: [path] }),
         ),
-      ).toEqual(["jpeg", "png", "webp"]);
+      ).toEqual(["avif", "heic", "jpeg", "png", "webp"]);
     },
   );
 
@@ -511,7 +515,9 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
         classifyOne(["src/png/chunks.ts", "src/engine.ts"]),
         classifyOne(["src/jpeg/parser.ts", "src/png/chunks.ts"]),
       ].join("|"),
-    ).toBe("png|webp|jpeg|jpeg,png,webp|jpeg,png,webp|jpeg,png");
+    ).toBe(
+      "png|webp|jpeg|avif,heic,jpeg,png,webp|avif,heic,jpeg,png,webp|jpeg,png",
+    );
   });
 
   describe("dead-rule coverage (no per-format rule is unreachable)", () => {
@@ -610,7 +616,9 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=linux\nformats=jpeg,png,webp\n");
+      expect(outputFileContents).toBe(
+        "scope=linux\nformats=avif,heic,jpeg,png,webp\n",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -634,7 +642,9 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\nformats=jpeg,png,webp\n");
+      expect(outputFileContents).toBe(
+        "scope=full\nformats=avif,heic,jpeg,png,webp\n",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -656,7 +666,9 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=linux\nformats=jpeg,png,webp\n");
+      expect(outputFileContents).toBe(
+        "scope=linux\nformats=avif,heic,jpeg,png,webp\n",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -673,7 +685,9 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\nformats=jpeg,png,webp\n");
+      expect(outputFileContents).toBe(
+        "scope=full\nformats=avif,heic,jpeg,png,webp\n",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -696,7 +710,9 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\nformats=jpeg,png,webp\n");
+      expect(outputFileContents).toBe(
+        "scope=full\nformats=avif,heic,jpeg,png,webp\n",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -713,7 +729,9 @@ describe("CLI end-to-end", () => {
       });
 
       expect(status).toBe(0);
-      expect(outputFileContents).toBe("scope=full\nformats=jpeg,png,webp\n");
+      expect(outputFileContents).toBe(
+        "scope=full\nformats=avif,heic,jpeg,png,webp\n",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -983,6 +1001,8 @@ function runQualificationSelectionStep(
   const qualWebp = extractQuotedEnvVar(jobText, "QUAL_WEBP");
   const qualPng = extractQuotedEnvVar(jobText, "QUAL_PNG");
   const qualJpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG");
+  const qualHeic = extractQuotedEnvVar(jobText, "QUAL_HEIC");
+  const qualAvif = extractQuotedEnvVar(jobText, "QUAL_AVIF");
 
   const workDir = mkdtempSync(join(tmpdir(), "wr03-qualselect-"));
   const binDir = join(workDir, "bin");
@@ -1018,6 +1038,8 @@ function runQualificationSelectionStep(
         QUAL_WEBP: qualWebp,
         QUAL_PNG: qualPng,
         QUAL_JPEG: qualJpeg,
+        QUAL_HEIC: qualHeic,
+        QUAL_AVIF: qualAvif,
         WR03_NPM_RECORD_FILE: recordFile,
       },
       encoding: "utf8",
@@ -1065,7 +1087,11 @@ describe.skipIf(process.platform === "win32")(
       const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
       const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
       const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
-      for (const file of [...kit, ...png, ...webp, ...jpeg]) {
+      const heic = extractQuotedEnvVar(jobText, "QUAL_HEIC").split(" ");
+      const avif = extractQuotedEnvVar(jobText, "QUAL_AVIF").split(" ");
+      expect(heic).toContain("tests/qualification/heic/decode.test.ts");
+      expect(avif).toContain("tests/qualification/avif/decode.test.ts");
+      for (const file of [...kit, ...png, ...webp, ...jpeg, ...heic, ...avif]) {
         expect(recordedArgs).toContain(file);
       }
     });
@@ -1082,7 +1108,11 @@ describe.skipIf(process.platform === "win32")(
       const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
       const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
       const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
-      for (const file of [...kit, ...png, ...webp, ...jpeg]) {
+      const heic = extractQuotedEnvVar(jobText, "QUAL_HEIC").split(" ");
+      const avif = extractQuotedEnvVar(jobText, "QUAL_AVIF").split(" ");
+      expect(heic).toContain("tests/qualification/heic/decode.test.ts");
+      expect(avif).toContain("tests/qualification/avif/decode.test.ts");
+      for (const file of [...kit, ...png, ...webp, ...jpeg, ...heic, ...avif]) {
         expect(recordedArgs).toContain(file);
       }
     });
@@ -1099,7 +1129,11 @@ describe.skipIf(process.platform === "win32")(
       const png = extractQuotedEnvVar(jobText, "QUAL_PNG").split(" ");
       const webp = extractQuotedEnvVar(jobText, "QUAL_WEBP").split(" ");
       const jpeg = extractQuotedEnvVar(jobText, "QUAL_JPEG").split(" ");
-      for (const file of [...kit, ...png, ...webp, ...jpeg]) {
+      const heic = extractQuotedEnvVar(jobText, "QUAL_HEIC").split(" ");
+      const avif = extractQuotedEnvVar(jobText, "QUAL_AVIF").split(" ");
+      expect(heic).toContain("tests/qualification/heic/decode.test.ts");
+      expect(avif).toContain("tests/qualification/avif/decode.test.ts");
+      for (const file of [...kit, ...png, ...webp, ...jpeg, ...heic, ...avif]) {
         expect(recordedArgs).toContain(file);
       }
     });
@@ -1238,3 +1272,149 @@ describe.skipIf(process.platform === "win32")(
     });
   },
 );
+
+// ---------------------------------------------------------------------------
+// 62.1-09: heic/avif per-format scoping; shared ISOBMFF engine runs both
+// ---------------------------------------------------------------------------
+
+const EVERY_FORMAT = ["avif", "heic", "jpeg", "png", "webp"];
+
+/** Paths shared by the HEIC and AVIF engines (and the shared decode authority): a change to
+ * any of them must select every qualified format, never one brand (62.1-RESEARCH Pitfall 2). */
+const SHARED_ISOBMFF_PATHS = [
+  "src/isobmff/parse.ts",
+  "dist/isobmff/parse.js",
+  "src/admission/isobmff-handler.ts",
+  "dist/admission/isobmff-handler.js",
+  "tests/isobmff-support/inventory.ts",
+  "tests/corpus/tools/archives/libheif-1.23.5.tar.gz",
+  "tests/corpus/tools/licenses/libheif-COPYING",
+];
+
+/** The shared paths a rule set would narrow below every qualified format. */
+function narrowedSharedPaths(
+  rules: Readonly<Record<string, readonly RegExp[]>>,
+): string[] {
+  return SHARED_ISOBMFF_PATHS.filter(
+    (path) =>
+      classify
+        .classifyQualificationFormats(
+          formatsInput({ changedPaths: [path] }),
+          rules,
+        )
+        .join(",") !== EVERY_FORMAT.join(","),
+  );
+}
+
+describe("heic/avif qualification scoping (62.1-09)", () => {
+  it("QUALIFIED_FORMATS is exactly avif, heic, jpeg, png, webp (sorted)", () => {
+    expect([...classify.QUALIFIED_FORMATS].sort()).toEqual(EVERY_FORMAT);
+    expect(
+      classify.classifyQualificationFormats(formatsInput({ changedPaths: [] })),
+    ).toEqual(EVERY_FORMAT);
+  });
+
+  it.each([
+    "src/admission/heic-handler.ts",
+    "dist/admission/heic-handler.js",
+    "dist/admission/heic-handler.d.ts.map",
+    "tests/qualification/heic/x.test.ts",
+    "tests/qualification/heic/decode.test.ts",
+    "tests/corpus/constructed/heic/heif-enc-grid.heic",
+    "tests/corpus/tools/archives/libde265-1.1.3.tar.gz",
+    "tests/corpus/tools/licenses/libde265-COPYING",
+  ])("selects exactly heic for %s", (path) => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ changedPaths: [path] }),
+      ),
+    ).toEqual(["heic"]);
+  });
+
+  it.each([
+    "src/admission/avif-handler.ts",
+    "dist/admission/avif-handler.js",
+    "tests/qualification/avif/decode.test.ts",
+    "tests/corpus/constructed/avif/heif-enc-grid.avif",
+    "tests/corpus/upstream/link-u-avif-sample-images-c666a36/red-at-12-oclock-with-color-profile-8bpc.avif",
+    "tests/corpus/tools/archives/libaom-3.15.1.tar.gz",
+    "tests/corpus/tools/licenses/libaom-LICENSE",
+    "tests/corpus/tools/licenses/libaom-PATENTS",
+  ])("selects exactly avif for %s", (path) => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ changedPaths: [path] }),
+      ),
+    ).toEqual(["avif"]);
+  });
+
+  it("selects heic and avif for a heic-handler + avif-handler diff", () => {
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({
+          changedPaths: [
+            "src/admission/heic-handler.ts",
+            "src/admission/avif-handler.ts",
+          ],
+        }),
+      ),
+    ).toEqual(["avif", "heic"]);
+  });
+
+  it.each(SHARED_ISOBMFF_PATHS)(
+    "selects every qualified format for the shared-engine path %s",
+    (path) => {
+      expect(
+        classify.classifyQualificationFormats(
+          formatsInput({ changedPaths: [path] }),
+        ),
+      ).toEqual(EVERY_FORMAT);
+    },
+  );
+
+  it("no shared-engine path is narrowed by the real FORMAT_PATH_RULES", () => {
+    expect(narrowedSharedPaths(classify.FORMAT_PATH_RULES)).toEqual([]);
+  });
+
+  it("negative control: a stand-in adding src/isobmff/ to heic narrows a shared-engine change and is caught", () => {
+    const standIn = {
+      ...classify.FORMAT_PATH_RULES,
+      heic: [...(classify.FORMAT_PATH_RULES.heic ?? []), /^src\/isobmff\/.+/u],
+    };
+    expect(
+      classify.classifyQualificationFormats(
+        formatsInput({ changedPaths: ["src/isobmff/parse.ts"] }),
+        standIn,
+      ),
+    ).toEqual(["heic"]);
+    expect(narrowedSharedPaths(standIn)).toEqual(["src/isobmff/parse.ts"]);
+  });
+
+  it("every heic/avif rule names a brand-exclusive path (no isobmff, libheif or shared-support pattern)", () => {
+    for (const format of ["heic", "avif"]) {
+      const rules = classify.FORMAT_PATH_RULES[format] ?? [];
+      expect(rules.length).toBeGreaterThan(0);
+      for (const pattern of rules) {
+        expect(pattern.source).not.toMatch(/isobmff|libheif|isobmff-support/u);
+      }
+    }
+  });
+
+  it("the linux-safe format-qualification-tests rule admits heic and avif suite files", () => {
+    for (const path of [
+      "tests/qualification/heic/decode.test.ts",
+      "tests/qualification/avif/oracles.test.ts",
+    ]) {
+      expect(classify.isLinuxSafePath(path)).toBe(true);
+    }
+  });
+
+  it("the qualification-linux run step has a case arm for every qualified format, heic and avif included", () => {
+    const { scriptBody } = loadSelectionStep();
+    for (const format of classify.QUALIFIED_FORMATS) {
+      expect(scriptBody).toContain(
+        `${format}) files="$files $QUAL_${format.toUpperCase()}" ;;`,
+      );
+    }
+  });
+});

@@ -89,22 +89,39 @@ function positiveInteger(value, label) {
     fail(`${label} must be a positive integer`);
 }
 
+const AUTHORITY_REQUIRED_KEYS = [
+  "id",
+  "kind",
+  "version",
+  "revision",
+  "origin",
+  "archive",
+  "license",
+  "platforms",
+  "architectures",
+  "versionProbe",
+  "entrypoints",
+];
+// `licenseExtra` is optional (closed-key, not a required field): it is
+// populated only by authorities that carry a second legal document distinct
+// from their primary SPDX-classified license (D-20) -- today only
+// libaom-3.15.1's PATENTS file, which is not itself an SPDX license
+// identifier and so is not validated against the admitted SPDX Set below.
+function exactKeysWithOptional(value, required, optional, label) {
+  if (!isObject(value)) fail(`${label} must be an object`);
+  const actual = new Set(Object.keys(value));
+  for (const key of required)
+    if (!actual.has(key)) fail(`${label} fields are not exact`);
+  const allowed = new Set([...required, ...optional]);
+  for (const key of actual)
+    if (!allowed.has(key)) fail(`${label} fields are not exact`);
+}
+
 function validateAuthorityShape(authority) {
-  exactKeys(
+  exactKeysWithOptional(
     authority,
-    [
-      "id",
-      "kind",
-      "version",
-      "revision",
-      "origin",
-      "archive",
-      "license",
-      "platforms",
-      "architectures",
-      "versionProbe",
-      "entrypoints",
-    ],
+    AUTHORITY_REQUIRED_KEYS,
+    ["licenseExtra"],
     "authority",
   );
   const id = requiredString(authority.id, "authority.id");
@@ -135,12 +152,29 @@ function validateAuthorityShape(authority) {
       "libpng-2.0",
       "HPND",
       "IJG AND BSD-3-Clause AND Zlib",
+      "LGPL-3.0-or-later",
+      "BSD-2-Clause",
     ]).has(authority.license.spdx)
   )
     fail(`${id}.license.spdx is not admitted`);
   repositoryPath(authority.license.path, `${id}.license.path`);
   tarMemberName(authority.license.member, root, `${id}.license.member`);
   sha(authority.license.sha256, `${id}.license.sha256`);
+
+  if (authority.licenseExtra !== undefined) {
+    exactKeys(
+      authority.licenseExtra,
+      ["path", "member", "sha256"],
+      `${id}.licenseExtra`,
+    );
+    repositoryPath(authority.licenseExtra.path, `${id}.licenseExtra.path`);
+    tarMemberName(
+      authority.licenseExtra.member,
+      root,
+      `${id}.licenseExtra.member`,
+    );
+    sha(authority.licenseExtra.sha256, `${id}.licenseExtra.sha256`);
+  }
 
   if (
     JSON.stringify(authority.platforms) !== JSON.stringify(["linux"]) ||
@@ -206,8 +240,8 @@ function validateFixtureShape(fixture) {
 function validateManifestShape(manifest) {
   exactKeys(manifest, ["schemaVersion", "authorities", "fixtures"], "manifest");
   if (manifest.schemaVersion !== 1) fail("schemaVersion must be 1");
-  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 5)
-    fail("exactly five tool authorities are required");
+  if (!Array.isArray(manifest.authorities) || manifest.authorities.length !== 8)
+    fail("exactly eight tool authorities are required");
   manifest.authorities.forEach(validateAuthorityShape);
   const ids = manifest.authorities.map((item) => item.id);
   if (
@@ -218,6 +252,9 @@ function validateManifestShape(manifest) {
       "libpng-1.6.58",
       "pngcheck-4.0.1",
       "libjpeg-turbo-3.2.0",
+      "libheif-1.23.5",
+      "libde265-1.1.3",
+      "libaom-3.15.1",
     ])
   )
     fail("authority order and IDs are not exact");
@@ -289,6 +326,9 @@ function validateAuthorityBytes(authority) {
     fail(`${authority.id} archive digest drift`);
   const memberNames = [
     authority.license.member,
+    ...(authority.licenseExtra !== undefined
+      ? [authority.licenseExtra.member]
+      : []),
     authority.versionProbe.member,
     ...authority.entrypoints.map((entrypoint) => entrypoint.member),
   ];
@@ -302,6 +342,20 @@ function validateAuthorityBytes(authority) {
     !license.equals(archivedLicense)
   )
     fail(`${authority.id} license evidence drift`);
+  if (authority.licenseExtra !== undefined) {
+    const licenseExtra = fs.readFileSync(
+      repositoryPath(
+        authority.licenseExtra.path,
+        `${authority.id}.licenseExtra.path`,
+      ),
+    );
+    const archivedLicenseExtra = members.get(authority.licenseExtra.member);
+    if (
+      digest(licenseExtra) !== authority.licenseExtra.sha256 ||
+      !licenseExtra.equals(archivedLicenseExtra)
+    )
+      fail(`${authority.id} licenseExtra evidence drift`);
+  }
   const versionProbe = members.get(authority.versionProbe.member);
   if (
     digest(versionProbe) !== authority.versionProbe.sha256 ||
@@ -406,6 +460,11 @@ function runShapeMutationChecks(manifest) {
     (copy) => copy.authorities.splice(2, 1), // drop libpng-1.6.58
     (copy) => copy.authorities.splice(3, 1), // drop pngcheck-4.0.1
     (copy) => copy.authorities.splice(4, 1), // drop libjpeg-turbo-3.2.0
+    (copy) => copy.authorities.splice(5, 1), // drop libheif-1.23.5
+    (copy) => copy.authorities.splice(6, 1), // drop libde265-1.1.3
+    (copy) => copy.authorities.splice(7, 1), // drop libaom-3.15.1
+    (copy) => (copy.authorities[5].license.spdx = "unknown"), // libheif bad SPDX
+    (copy) => delete copy.authorities[7].licenseExtra.sha256, // aom licenseExtra shape (WR-02-style negative control)
   ];
   for (const mutate of mutations) {
     const copy = structuredClone(manifest);
@@ -509,6 +568,34 @@ function assertLibjpegTurboFeatures({
   ];
   for (const [feature, ok] of checks)
     if (!ok) throw new Error(`libjpeg-turbo feature drift: ${feature}`);
+}
+
+/**
+ * D-21's feature-set assertion for the HEIF decode stack (libheif +
+ * libde265 + aom, built decoder-only): proves the oracle was actually built
+ * with the flags `buildOracleTools` requested, throwing `libheif feature
+ * drift: <feature>` (not wrapped by `fail()`, so the message names exactly
+ * which of the three independent checks failed) the moment any one of them
+ * drifts. `aomConfigureLog` and `heifConfigureLog` are the raw stdout+stderr
+ * text captured from each library's own `cmake -S ... -B ...` configure step.
+ */
+function assertHeifFeatures({ aomConfigureLog, heifConfigureLog }) {
+  const checks = [
+    [
+      "aom target CPU is generic",
+      aomConfigureLog.includes("Detected CPU: generic"),
+    ],
+    [
+      "libde265 HEVC decoder built in",
+      /libde265 HEVC decoder\s*:\s*\+ built-in/.test(heifConfigureLog),
+    ],
+    [
+      "AOM AV1 decoder built in",
+      /AOM AV1 decoder\s*:\s*\+ built-in/.test(heifConfigureLog),
+    ],
+  ];
+  for (const [feature, ok] of checks)
+    if (!ok) throw new Error(`libheif feature drift: ${feature}`);
 }
 
 /**
@@ -738,6 +825,155 @@ function buildOracleTools(workspace) {
     "jpeg decode oracle build failed",
   );
 
+  // --- HEIF decode stack (D-21, QUA-04 prerequisite): aom (decoder-only),
+  // then libde265, then libheif, installed into one shared job-local prefix
+  // so libheif's own -DCMAKE_PREFIX_PATH finds both decoder backends. Build
+  // order matters: libheif's configure step probes for the other two.
+  const heifPrefix = path.join(workspace, "heif-prefix");
+  fs.mkdirSync(heifPrefix, { recursive: true });
+  const parallelJobs = String(os.cpus().length || 1);
+
+  const aomAuthority = manifest.authorities[7];
+  const aomRoot = path.join(workspace, aomAuthority.archive.root);
+  const aomBuild = path.join(workspace, "aom-build");
+  const aomConfigure = runTool(
+    "cmake",
+    [
+      "-S",
+      aomRoot,
+      "-B",
+      aomBuild,
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DAOM_TARGET_CPU=generic",
+      "-DCONFIG_AV1_ENCODER=0",
+      "-DENABLE_DOCS=0",
+      "-DENABLE_EXAMPLES=0",
+      "-DENABLE_TESTS=0",
+      "-DENABLE_TOOLS=0",
+      "-DENABLE_TESTDATA=0",
+      "-DBUILD_SHARED_LIBS=0",
+      `-DCMAKE_INSTALL_PREFIX=${heifPrefix}`,
+    ],
+    {},
+    "aom configure failed",
+  );
+  const aomConfigureLog = `${aomConfigure.stdout ?? ""}\n${aomConfigure.stderr ?? ""}`;
+  runTool(
+    "cmake",
+    ["--build", aomBuild, "--parallel", parallelJobs],
+    {},
+    "aom build failed",
+  );
+  runTool("cmake", ["--install", aomBuild], {}, "aom install failed");
+
+  const libde265Authority = manifest.authorities[6];
+  const libde265Root = path.join(workspace, libde265Authority.archive.root);
+  const libde265Build = path.join(workspace, "libde265-build");
+  runTool(
+    "cmake",
+    [
+      "-S",
+      libde265Root,
+      "-B",
+      libde265Build,
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DENABLE_SIMD=OFF",
+      "-DENABLE_AVX2=OFF",
+      "-DENABLE_AVX512=OFF",
+      "-DENABLE_DECODER=OFF",
+      "-DENABLE_SDL=OFF",
+      "-DBUILD_SHARED_LIBS=OFF",
+      `-DCMAKE_INSTALL_PREFIX=${heifPrefix}`,
+    ],
+    {},
+    "libde265 configure failed",
+  );
+  runTool(
+    "cmake",
+    ["--build", libde265Build, "--parallel", parallelJobs],
+    {},
+    "libde265 build failed",
+  );
+  runTool("cmake", ["--install", libde265Build], {}, "libde265 install failed");
+
+  const libheifAuthority = manifest.authorities[5];
+  const libheifRoot = path.join(workspace, libheifAuthority.archive.root);
+  const libheifBuild = path.join(workspace, "libheif-build");
+  const heifConfigure = runTool(
+    "cmake",
+    [
+      "-S",
+      libheifRoot,
+      "-B",
+      libheifBuild,
+      "-DCMAKE_BUILD_TYPE=Release",
+      `-DCMAKE_PREFIX_PATH=${heifPrefix}`,
+      `-DCMAKE_INSTALL_PREFIX=${heifPrefix}`,
+      "-DBUILD_SHARED_LIBS=OFF",
+      "-DENABLE_PLUGIN_LOADING=OFF",
+      "-DWITH_LIBDE265=ON",
+      "-DWITH_AOM_DECODER=ON",
+      "-DWITH_AOM_ENCODER=OFF",
+      "-DWITH_X265=OFF",
+      "-DWITH_X264=OFF",
+      "-DWITH_OpenH264_DECODER=OFF",
+      "-DWITH_EXAMPLES=OFF",
+      "-DWITH_GDK_PIXBUF=OFF",
+      "-DBUILD_TESTING=OFF",
+      "-DBUILD_DOCUMENTATION=OFF",
+      "-DWITH_UNCOMPRESSED_CODEC=OFF",
+    ],
+    {},
+    "libheif configure failed",
+  );
+  const heifConfigureLog = `${heifConfigure.stdout ?? ""}\n${heifConfigure.stderr ?? ""}`;
+  assertHeifFeatures({ aomConfigureLog, heifConfigureLog });
+  runTool(
+    "cmake",
+    ["--build", libheifBuild, "--parallel", parallelJobs],
+    {},
+    "libheif build failed",
+  );
+  runTool("cmake", ["--install", libheifBuild], {}, "libheif install failed");
+
+  const heifIncludeDir = path.join(heifPrefix, "include");
+  const heifLibDir = path.join(heifPrefix, "lib");
+  const aomStaticPath = path.join(heifLibDir, "libaom.a");
+  const de265StaticPath = path.join(heifLibDir, "libde265.a");
+  const heifStaticPath = path.join(heifLibDir, "libheif.a");
+
+  // --- HEIF whole-graph decode oracle (62.1-03, D-23, QUA-04): built once per job against the
+  // D-21 static stack above, exactly like the JPEG/PNG decode oracles.
+  const heifDecodeSourcePath = path.join(
+    projectRoot,
+    "scripts/qualification/heif_decode_oracle.c",
+  );
+  if (!fs.existsSync(heifDecodeSourcePath))
+    fail("heif decode oracle source is missing");
+  const heifDecodePath = path.join(workspace, "heif-decode-oracle");
+  runTool(
+    "cc",
+    [
+      "-std=c11",
+      "-O2",
+      heifDecodeSourcePath,
+      "-I",
+      heifIncludeDir,
+      "-L",
+      heifLibDir,
+      "-o",
+      heifDecodePath,
+      "-lheif",
+      "-lde265",
+      "-laom",
+      "-lstdc++",
+      "-lpthread",
+      "-lm",
+    ],
+    {},
+    "heif decode oracle build failed",
+  );
+
   const executable = (filePath) => ({
     path: filePath,
     sha256: digest(fs.readFileSync(filePath)),
@@ -755,6 +991,13 @@ function buildOracleTools(workspace) {
     rdjpgcom: executable(rdjpgcomPath),
     jpegStatic: executable(libjpegStaticPath),
     jpegDecode: executable(jpegDecodePath),
+    // HEIF decode stack (62.1-03 links these against the whole-graph oracle below).
+    heifIncludeDir,
+    heifLibDir,
+    aomStatic: executable(aomStaticPath),
+    de265Static: executable(de265StaticPath),
+    heifStatic: executable(heifStaticPath),
+    heifDecode: executable(heifDecodePath),
   };
   probeOracleVersions(tools, manifest);
   return tools;
@@ -774,6 +1017,7 @@ function probeOracleVersions(tools, manifest) {
   const libpng = manifest.authorities[2];
   const pngcheck = manifest.authorities[3];
   const libjpegTurbo = manifest.authorities[4];
+  const libheif = manifest.authorities[5];
 
   const dwebpVersion = runTool(
     tools.dwebp.path,
@@ -838,6 +1082,20 @@ function probeOracleVersions(tools, manifest) {
       `libjpeg-turbo ${libjpegTurbo.version}`,
     )
   )
+    fail("built oracle version drift");
+
+  // Same no-`-version`-flag pattern as the other decode oracles: the whole-graph HEIF decode
+  // oracle takes exactly one usage error path (missing argv), printing the libheif version to
+  // stderr unconditionally even then.
+  const heifDecodeUsage = spawnSync(tools.heifDecode.path, [], {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  if (heifDecodeUsage.error !== undefined)
+    fail(
+      `heif decode oracle version check failed: ${heifDecodeUsage.error.message}`,
+    );
+  if (!(heifDecodeUsage.stderr ?? "").includes(`libheif ${libheif.version}`))
     fail("built oracle version drift");
 }
 
@@ -926,19 +1184,28 @@ function prepareOracleDir(dir, { build = buildOracleTools } = {}) {
   }
 
   const executables = {};
+  // Plain-string directory fields (for example `heifIncludeDir`/`heifLibDir`,
+  // D-21): not a hashable file, but still needed by a cache-mode reload (CI
+  // sets EXIFCLEANER_ORACLE_DIR, never rebuilding), so they ride alongside
+  // `executables` in their own bag rather than being silently dropped.
+  const directories = {};
   for (const [name, value] of Object.entries(tools)) {
+    if (name === "authority") continue;
     if (
-      name !== "authority" &&
       isObject(value) &&
       typeof value.path === "string" &&
       typeof value.sha256 === "string"
-    )
+    ) {
       executables[name] = { path: value.path, sha256: value.sha256 };
+    } else if (typeof value === "string") {
+      directories[name] = value;
+    }
   }
   const complete = {
     version: 1,
     authority: tools.authority,
     executables,
+    directories,
     toolchain: { node: process.version },
   };
   const tmpPath = path.join(dir, "complete.json.tmp");
@@ -979,6 +1246,16 @@ function loadPreparedOracleTools(dir, { probe = probeOracleVersions } = {}) {
     if (digest(bytes) !== record.sha256)
       fail(`cached oracle sha256 mismatch: ${name}`);
     tools[name] = { path: recordPath, sha256: record.sha256 };
+  }
+  for (const [name, dirPath] of Object.entries(complete.directories ?? {})) {
+    const resolvedPath = assertPathWithinDir(
+      dir,
+      dirPath,
+      `cached oracle directory for ${name}`,
+    );
+    if (!fs.existsSync(resolvedPath))
+      fail(`cached oracle directory missing: ${name}`);
+    tools[name] = resolvedPath;
   }
   probe(tools, manifest);
   process.stderr.write(`oracle cache hit ${dir}\n`);
@@ -1055,6 +1332,7 @@ module.exports = {
   loadOrPrepareOracleTools,
   readTarMembers,
   assertLibjpegTurboFeatures,
+  assertHeifFeatures,
 };
 
 if (require.main === module) {

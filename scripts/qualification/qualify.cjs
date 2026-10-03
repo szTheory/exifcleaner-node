@@ -256,6 +256,7 @@ function execute(options) {
     "--",
     "tests/qualification/kit/build_oracles.test.ts",
     "tests/qualification/kit/corpus.test.ts",
+    "tests/qualification/kit/fetch_corpus.test.ts",
     "tests/qualification/kit/floors.test.ts",
     "tests/qualification/kit/oracles.test.ts",
     "tests/qualification/kit/rollback.test.ts",
@@ -277,6 +278,18 @@ function execute(options) {
     "tests/qualification/jpeg/parser.test.ts",
     "tests/qualification/jpeg/transaction.test.ts",
     "tests/qualification/jpeg/golden.test.ts",
+    // 62.1-05/62.1-08: HEIC/AVIF oracles and corpus tracers.
+    "tests/qualification/heic/oracles.test.ts",
+    "tests/qualification/heic/tracer.test.ts",
+    "tests/qualification/heic/decode.test.ts",
+    // 62.1-10: HEIC/AVIF inventory classification (QUA-02) and property suites (QUA-03).
+    "tests/qualification/heic/parser.test.ts",
+    "tests/qualification/heic/property.test.ts",
+    "tests/qualification/avif/oracles.test.ts",
+    "tests/qualification/avif/tracer.test.ts",
+    "tests/qualification/avif/decode.test.ts",
+    "tests/qualification/avif/parser.test.ts",
+    "tests/qualification/avif/property.test.ts",
   ]);
 }
 

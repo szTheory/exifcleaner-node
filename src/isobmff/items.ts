@@ -12,7 +12,7 @@ import { parseIpma, type IpmaEntry } from "./ipma.js";
 // `parseIsobmff` already read once under `budget.checkMetaSize`.
 
 /** `meta` children this engine resolves; anything else declines `unknown-meta-child`. */
-const META_CHILD_ALLOWLIST: ReadonlySet<string> = new Set([
+export const META_CHILD_ALLOWLIST: ReadonlySet<string> = new Set([
   "hdlr",
   "dinf",
   "pitm",

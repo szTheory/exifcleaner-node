@@ -17,10 +17,10 @@ import { inventoryIsobmff } from "./isobmff-support/inventory.js";
 
 const FIXTURES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "isobmff-support",
-  "fixtures",
+  "corpus",
+  "constructed",
 );
-const HEIC_PATH = join(FIXTURES_DIR, "heif-enc-grid.heic");
+const HEIC_PATH = join(FIXTURES_DIR, "heic", "heif-enc-grid.heic");
 
 describe("IPMA_LAYOUTS", () => {
   it("has exactly the four version/flags keys", () => {

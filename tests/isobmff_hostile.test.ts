@@ -119,8 +119,10 @@ async function expectFullyDeclinedBeforeWrite(
 
   const { handler, counters } = createIsobmffTestHandler();
   const restore = setRegisteredHandlersForTests([
-    ...registeredHandlersForTests(),
+    // Prepended, not appended: since 62.1-07 registered the real heic/avif handlers, an
+    // appended stub would never be selected for an ISOBMFF file (first match wins).
     handler,
+    ...registeredHandlersForTests(),
   ]);
   try {
     const sanitized = await sanitizeFile({
