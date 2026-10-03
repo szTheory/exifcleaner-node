@@ -86,6 +86,13 @@ export const ISOLATION_RULES: readonly IsolationRule[] = [
     fileName: "decode-oracle.ts",
     forbiddenSpecifierSubstrings: ["src/isobmff/"],
   },
+  // 62.1-05: differential.ts is the shared HEIC/AVIF ExifTool differential helper -- the
+  // comparison must stay independent of the engine under test (D-27), so it may use
+  // inventory.ts/builder.ts freely but must never import src/isobmff/ directly.
+  {
+    fileName: "differential.ts",
+    forbiddenSpecifierSubstrings: ["src/isobmff/"],
+  },
 ];
 
 /**
@@ -382,6 +389,29 @@ describe("isolationViolations() negative controls (synthetic sources)", () => {
     expect(violations).toEqual([
       { path: "decode-oracle.ts", specifier: "../../src/isobmff/boxes.js" },
     ]);
+  });
+
+  it("differential.ts importing src/isobmff/ as a value is a violation (62.1-05: the differential must stay independent of the engine under test)", () => {
+    const violations = isolationViolations([
+      {
+        path: "differential.ts",
+        source:
+          'import { admitIsobmff } from "../../src/isobmff/admission.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([
+      { path: "differential.ts", specifier: "../../src/isobmff/admission.js" },
+    ]);
+  });
+
+  it("differential.ts importing inventory.ts is allowed (62.1-05: the shared independent inventory walker)", () => {
+    const violations = isolationViolations([
+      {
+        path: "differential.ts",
+        source: 'import { inventoryIsobmff } from "./inventory.js";\n',
+      },
+    ]);
+    expect(violations).toEqual([]);
   });
 });
 
