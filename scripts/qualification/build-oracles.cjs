@@ -113,7 +113,8 @@ function exactKeysWithOptional(value, required, optional, label) {
   for (const key of required)
     if (!actual.has(key)) fail(`${label} fields are not exact`);
   const allowed = new Set([...required, ...optional]);
-  for (const key of actual) if (!allowed.has(key)) fail(`${label} fields are not exact`);
+  for (const key of actual)
+    if (!allowed.has(key)) fail(`${label} fields are not exact`);
 }
 
 function validateAuthorityShape(authority) {
@@ -570,6 +571,34 @@ function assertLibjpegTurboFeatures({
 }
 
 /**
+ * D-21's feature-set assertion for the HEIF decode stack (libheif +
+ * libde265 + aom, built decoder-only): proves the oracle was actually built
+ * with the flags `buildOracleTools` requested, throwing `libheif feature
+ * drift: <feature>` (not wrapped by `fail()`, so the message names exactly
+ * which of the three independent checks failed) the moment any one of them
+ * drifts. `aomConfigureLog` and `heifConfigureLog` are the raw stdout+stderr
+ * text captured from each library's own `cmake -S ... -B ...` configure step.
+ */
+function assertHeifFeatures({ aomConfigureLog, heifConfigureLog }) {
+  const checks = [
+    [
+      "aom target CPU is generic",
+      aomConfigureLog.includes("Detected CPU: generic"),
+    ],
+    [
+      "libde265 HEVC decoder built in",
+      /libde265 HEVC decoder\s*:\s*\+ built-in/.test(heifConfigureLog),
+    ],
+    [
+      "AOM AV1 decoder built in",
+      /AOM AV1 decoder\s*:\s*\+ built-in/.test(heifConfigureLog),
+    ],
+  ];
+  for (const [feature, ok] of checks)
+    if (!ok) throw new Error(`libheif feature drift: ${feature}`);
+}
+
+/**
  * Builds every oracle into an already-existing `workspace` directory and
  * returns the tools record (authority summary plus each built executable's
  * `{ path, sha256 }`), WITHOUT a `dispose()` -- disposal is the caller's
@@ -796,6 +825,123 @@ function buildOracleTools(workspace) {
     "jpeg decode oracle build failed",
   );
 
+  // --- HEIF decode stack (D-21, QUA-04 prerequisite): aom (decoder-only),
+  // then libde265, then libheif, installed into one shared job-local prefix
+  // so libheif's own -DCMAKE_PREFIX_PATH finds both decoder backends. Build
+  // order matters: libheif's configure step probes for the other two.
+  const heifPrefix = path.join(workspace, "heif-prefix");
+  fs.mkdirSync(heifPrefix, { recursive: true });
+  const parallelJobs = String(os.cpus().length || 1);
+
+  const aomAuthority = manifest.authorities[7];
+  const aomRoot = path.join(workspace, aomAuthority.archive.root);
+  const aomBuild = path.join(workspace, "aom-build");
+  const aomConfigure = runTool(
+    "cmake",
+    [
+      "-S",
+      aomRoot,
+      "-B",
+      aomBuild,
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DAOM_TARGET_CPU=generic",
+      "-DCONFIG_AV1_ENCODER=0",
+      "-DENABLE_DOCS=0",
+      "-DENABLE_EXAMPLES=0",
+      "-DENABLE_TESTS=0",
+      "-DENABLE_TOOLS=0",
+      "-DENABLE_TESTDATA=0",
+      "-DBUILD_SHARED_LIBS=0",
+      `-DCMAKE_INSTALL_PREFIX=${heifPrefix}`,
+    ],
+    {},
+    "aom configure failed",
+  );
+  const aomConfigureLog = `${aomConfigure.stdout ?? ""}\n${aomConfigure.stderr ?? ""}`;
+  runTool(
+    "cmake",
+    ["--build", aomBuild, "--parallel", parallelJobs],
+    {},
+    "aom build failed",
+  );
+  runTool("cmake", ["--install", aomBuild], {}, "aom install failed");
+
+  const libde265Authority = manifest.authorities[6];
+  const libde265Root = path.join(workspace, libde265Authority.archive.root);
+  const libde265Build = path.join(workspace, "libde265-build");
+  runTool(
+    "cmake",
+    [
+      "-S",
+      libde265Root,
+      "-B",
+      libde265Build,
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DENABLE_SIMD=OFF",
+      "-DENABLE_AVX2=OFF",
+      "-DENABLE_AVX512=OFF",
+      "-DENABLE_DECODER=OFF",
+      "-DENABLE_SDL=OFF",
+      "-DBUILD_SHARED_LIBS=OFF",
+      `-DCMAKE_INSTALL_PREFIX=${heifPrefix}`,
+    ],
+    {},
+    "libde265 configure failed",
+  );
+  runTool(
+    "cmake",
+    ["--build", libde265Build, "--parallel", parallelJobs],
+    {},
+    "libde265 build failed",
+  );
+  runTool("cmake", ["--install", libde265Build], {}, "libde265 install failed");
+
+  const libheifAuthority = manifest.authorities[5];
+  const libheifRoot = path.join(workspace, libheifAuthority.archive.root);
+  const libheifBuild = path.join(workspace, "libheif-build");
+  const heifConfigure = runTool(
+    "cmake",
+    [
+      "-S",
+      libheifRoot,
+      "-B",
+      libheifBuild,
+      "-DCMAKE_BUILD_TYPE=Release",
+      `-DCMAKE_PREFIX_PATH=${heifPrefix}`,
+      `-DCMAKE_INSTALL_PREFIX=${heifPrefix}`,
+      "-DBUILD_SHARED_LIBS=OFF",
+      "-DENABLE_PLUGIN_LOADING=OFF",
+      "-DWITH_LIBDE265=ON",
+      "-DWITH_AOM_DECODER=ON",
+      "-DWITH_AOM_ENCODER=OFF",
+      "-DWITH_X265=OFF",
+      "-DWITH_X264=OFF",
+      "-DWITH_OpenH264_DECODER=OFF",
+      "-DWITH_EXAMPLES=OFF",
+      "-DWITH_GDK_PIXBUF=OFF",
+      "-DBUILD_TESTING=OFF",
+      "-DBUILD_DOCUMENTATION=OFF",
+      "-DWITH_UNCOMPRESSED_CODEC=OFF",
+    ],
+    {},
+    "libheif configure failed",
+  );
+  const heifConfigureLog = `${heifConfigure.stdout ?? ""}\n${heifConfigure.stderr ?? ""}`;
+  assertHeifFeatures({ aomConfigureLog, heifConfigureLog });
+  runTool(
+    "cmake",
+    ["--build", libheifBuild, "--parallel", parallelJobs],
+    {},
+    "libheif build failed",
+  );
+  runTool("cmake", ["--install", libheifBuild], {}, "libheif install failed");
+
+  const heifIncludeDir = path.join(heifPrefix, "include");
+  const heifLibDir = path.join(heifPrefix, "lib");
+  const aomStaticPath = path.join(heifLibDir, "libaom.a");
+  const de265StaticPath = path.join(heifLibDir, "libde265.a");
+  const heifStaticPath = path.join(heifLibDir, "libheif.a");
+
   const executable = (filePath) => ({
     path: filePath,
     sha256: digest(fs.readFileSync(filePath)),
@@ -813,6 +959,14 @@ function buildOracleTools(workspace) {
     rdjpgcom: executable(rdjpgcomPath),
     jpegStatic: executable(libjpegStaticPath),
     jpegDecode: executable(jpegDecodePath),
+    // HEIF decode stack (62.1-03 links these against its whole-graph oracle;
+    // no decode executable exists yet in this plan, so these are not probed
+    // by probeOracleVersions the way jpegStatic's sibling executables are).
+    heifIncludeDir,
+    heifLibDir,
+    aomStatic: executable(aomStaticPath),
+    de265Static: executable(de265StaticPath),
+    heifStatic: executable(heifStaticPath),
   };
   probeOracleVersions(tools, manifest);
   return tools;
@@ -984,19 +1138,28 @@ function prepareOracleDir(dir, { build = buildOracleTools } = {}) {
   }
 
   const executables = {};
+  // Plain-string directory fields (for example `heifIncludeDir`/`heifLibDir`,
+  // D-21): not a hashable file, but still needed by a cache-mode reload (CI
+  // sets EXIFCLEANER_ORACLE_DIR, never rebuilding), so they ride alongside
+  // `executables` in their own bag rather than being silently dropped.
+  const directories = {};
   for (const [name, value] of Object.entries(tools)) {
+    if (name === "authority") continue;
     if (
-      name !== "authority" &&
       isObject(value) &&
       typeof value.path === "string" &&
       typeof value.sha256 === "string"
-    )
+    ) {
       executables[name] = { path: value.path, sha256: value.sha256 };
+    } else if (typeof value === "string") {
+      directories[name] = value;
+    }
   }
   const complete = {
     version: 1,
     authority: tools.authority,
     executables,
+    directories,
     toolchain: { node: process.version },
   };
   const tmpPath = path.join(dir, "complete.json.tmp");
@@ -1037,6 +1200,16 @@ function loadPreparedOracleTools(dir, { probe = probeOracleVersions } = {}) {
     if (digest(bytes) !== record.sha256)
       fail(`cached oracle sha256 mismatch: ${name}`);
     tools[name] = { path: recordPath, sha256: record.sha256 };
+  }
+  for (const [name, dirPath] of Object.entries(complete.directories ?? {})) {
+    const resolvedPath = assertPathWithinDir(
+      dir,
+      dirPath,
+      `cached oracle directory for ${name}`,
+    );
+    if (!fs.existsSync(resolvedPath))
+      fail(`cached oracle directory missing: ${name}`);
+    tools[name] = resolvedPath;
   }
   probe(tools, manifest);
   process.stderr.write(`oracle cache hit ${dir}\n`);
@@ -1113,6 +1286,7 @@ module.exports = {
   loadOrPrepareOracleTools,
   readTarMembers,
   assertLibjpegTurboFeatures,
+  assertHeifFeatures,
 };
 
 if (require.main === module) {

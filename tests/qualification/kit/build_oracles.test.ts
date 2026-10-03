@@ -45,6 +45,10 @@ const buildOracles = require(scriptPath) as {
     readonly build?: (workspace: string) => FakeTools;
     readonly probe?: () => void;
   }) => { readonly tools: () => PreparedTools };
+  readonly assertHeifFeatures: (logs: {
+    readonly aomConfigureLog: string;
+    readonly heifConfigureLog: string;
+  }) => void;
 };
 
 interface FakeExecutable {
@@ -367,6 +371,99 @@ describe("build-oracles.cjs negative controls and edges (KIT-09 D-07)", () => {
       expect(lines.length).toBe(1);
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("rejects a manifest copy with an inadmissible SPDX value on a new (HEIF) authority (D-20/D-21)", () => {
+    const manifestPath = require.resolve("../../corpus/tools/manifest.json");
+    const original = readFileSync(manifestPath, "utf8");
+    try {
+      const manifest = JSON.parse(original);
+      const heifIndex = manifest.authorities.findIndex(
+        (item: { id: string }) => item.id === "libheif-1.23.5",
+      );
+      expect(heifIndex).toBeGreaterThanOrEqual(0);
+      manifest.authorities[heifIndex].license.spdx = "GPL-2.0-only";
+      writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+      expect(() => buildOracles.loadAndValidateAuthority()).toThrow(
+        /license\.spdx is not admitted/,
+      );
+    } finally {
+      writeFileSync(manifestPath, original, "utf8");
+    }
+    // Unmutated reload confirms the restore above actually took effect.
+    const restored = buildOracles.loadAndValidateAuthority() as {
+      authorities: ReadonlyArray<{ id: string }>;
+    };
+    expect(restored.authorities.map((item) => item.id)).toContain(
+      "libheif-1.23.5",
+    );
+  });
+
+  it("rejects a manifest copy with a new authority's id replaced (expected-id check, D-20/D-21)", () => {
+    const manifestPath = require.resolve("../../corpus/tools/manifest.json");
+    const original = readFileSync(manifestPath, "utf8");
+    try {
+      const manifest = JSON.parse(original);
+      const aomIndex = manifest.authorities.findIndex(
+        (item: { id: string }) => item.id === "libaom-3.15.1",
+      );
+      expect(aomIndex).toBeGreaterThanOrEqual(0);
+      // Keep the array at exactly eight entries (a length change hits the
+      // earlier "exactly eight tool authorities are required" check first);
+      // renaming the id in place isolates the order/ID-list check itself.
+      manifest.authorities[aomIndex].id = "libaom-9.9.9";
+      writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+      expect(() => buildOracles.loadAndValidateAuthority()).toThrow(
+        /authority order and IDs are not exact/,
+      );
+    } finally {
+      writeFileSync(manifestPath, original, "utf8");
+    }
+  });
+
+  describe("assertHeifFeatures (D-21 configure-log drift gate)", () => {
+    const GOOD_AOM_LOG = "--- aom_configure: Detected CPU: generic\n";
+    const GOOD_HEIF_LOG =
+      "libde265 HEVC decoder                : + built-in\n" +
+      "AOM AV1 decoder                      : + built-in\n";
+
+    it("passes on a log holding all three required lines", () => {
+      expect(() =>
+        buildOracles.assertHeifFeatures({
+          aomConfigureLog: GOOD_AOM_LOG,
+          heifConfigureLog: GOOD_HEIF_LOG,
+        }),
+      ).not.toThrow();
+    });
+
+    it("throws naming the aom CPU feature when its line is missing", () => {
+      expect(() =>
+        buildOracles.assertHeifFeatures({
+          aomConfigureLog: "--- aom_configure: Detected CPU: x86_64\n",
+          heifConfigureLog: GOOD_HEIF_LOG,
+        }),
+      ).toThrow(/libheif feature drift: aom target CPU is generic/);
+    });
+
+    it("throws naming the libde265 built-in feature when its line is missing", () => {
+      expect(() =>
+        buildOracles.assertHeifFeatures({
+          aomConfigureLog: GOOD_AOM_LOG,
+          heifConfigureLog:
+            "AOM AV1 decoder                      : + built-in\n",
+        }),
+      ).toThrow(/libheif feature drift: libde265 HEVC decoder built in/);
+    });
+
+    it("throws naming the AOM built-in feature when its line is missing", () => {
+      expect(() =>
+        buildOracles.assertHeifFeatures({
+          aomConfigureLog: GOOD_AOM_LOG,
+          heifConfigureLog:
+            "libde265 HEVC decoder                : + built-in\n",
+        }),
+      ).toThrow(/libheif feature drift: AOM AV1 decoder built in/);
+    });
   });
 
   it("source scan: every oracles.ts module under tests/qualification/*/ calls loadOrPrepareOracleTools(), and none calls prepareOracleTools() directly", () => {
