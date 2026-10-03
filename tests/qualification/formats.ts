@@ -9,7 +9,17 @@ import { pngDifferentialProfile } from "./png/oracles.js";
 import { pngMetadataGenerator } from "./png/generators.js";
 import { jpegDifferentialProfile } from "./jpeg/oracles.js";
 import { jpegMetadataGenerator } from "./jpeg/generators.js";
-import { metadataJpeg, metadataPng, metadataWebp } from "../fixtures.js";
+import { heicDifferentialProfile } from "./heic/oracles.js";
+import { heicMetadataGenerator } from "./heic/generators.js";
+import { avifDifferentialProfile } from "./avif/oracles.js";
+import { avifMetadataGenerator } from "./avif/generators.js";
+import {
+  metadataAvif,
+  metadataHeic,
+  metadataJpeg,
+  metadataPng,
+  metadataWebp,
+} from "../fixtures.js";
 
 /**
  * The compile-time-exhaustive per-format qualification wiring (KIT-01).
@@ -39,6 +49,16 @@ export const QUALIFICATION_FORMATS = {
     differential: jpegDifferentialProfile,
     generator: jpegMetadataGenerator,
     sample: metadataJpeg,
+  },
+  heic: {
+    differential: heicDifferentialProfile,
+    generator: heicMetadataGenerator,
+    sample: metadataHeic,
+  },
+  avif: {
+    differential: avifDifferentialProfile,
+    generator: avifMetadataGenerator,
+    sample: metadataAvif,
   },
 } as const satisfies Record<NativeFormat, QualificationFormat>;
 

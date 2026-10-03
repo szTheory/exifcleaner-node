@@ -1,5 +1,6 @@
 import { deflateSync } from "node:zlib";
 import { PNG_SIGNATURE, encodePngChunk } from "../src/png/chunks.js";
+import { heifFile } from "./isobmff-support/builder.js";
 
 export interface FixtureChunk {
   readonly fourCc: string;
@@ -1016,4 +1017,53 @@ export function metadataJpeg(): Buffer {
     jpegSegment(0xfe, Buffer.from("private comment", "ascii")),
     base.subarray(2),
   ]);
+}
+
+/** HEIF Exif item payload: a 4-byte `exif_tiff_header_offset` of 0, then a bare TIFF body. */
+function heifExifItem(tiff: Buffer): Buffer {
+  return Buffer.concat([Buffer.alloc(4), tiff]);
+}
+
+function metadataHeif(
+  majorBrand: string,
+  compatibleBrands: readonly string[],
+  primaryItemType: string,
+): Buffer {
+  return heifFile({
+    majorBrand,
+    compatibleBrands,
+    primary: {
+      itemId: 1,
+      itemType: primaryItemType,
+      width: 1,
+      height: 1,
+      payload: Buffer.from([0x00, 0x01, 0x02, 0x03]),
+    },
+    exif: {
+      itemId: 2,
+      payload: heifExifItem(exifWithArtist("private workflow")),
+    },
+    mime: {
+      itemId: 3,
+      contentType: "application/rdf+xml",
+      payload: xmpPacket("private workflow"),
+    },
+  });
+}
+
+/**
+ * An admitted HEIC (ftyp heic, compatible mif1/heic) carrying an Exif item (Artist "private
+ * workflow") and an XMP `mime` item, so removal is observable -- 62.1-07's
+ * QUALIFICATION_FORMATS.heic sample.
+ */
+export function metadataHeic(): Buffer {
+  return metadataHeif("heic", ["mif1", "heic"], "hvc1");
+}
+
+/**
+ * An admitted AVIF (ftyp avif, compatible mif1/avif) carrying the same Exif and XMP items --
+ * 62.1-07's QUALIFICATION_FORMATS.avif sample.
+ */
+export function metadataAvif(): Buffer {
+  return metadataHeif("avif", ["mif1", "avif"], "av01");
 }

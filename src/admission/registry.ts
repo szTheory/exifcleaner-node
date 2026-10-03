@@ -4,11 +4,15 @@ import type { RegisteredHandler } from "./handler.js";
 import { webpHandler } from "./webp-handler.js";
 import { pngHandler } from "./png-handler.js";
 import { jpegHandler } from "./jpeg-handler.js";
+import { heicHandler } from "./heic-handler.js";
+import { avifHandler } from "./avif-handler.js";
 
 const HANDLERS: readonly RegisteredHandler[] = Object.freeze([
   webpHandler,
   pngHandler,
   jpegHandler,
+  heicHandler,
+  avifHandler,
 ]);
 
 // Private test seam (mirrors setNativePublicationBindingForTests in

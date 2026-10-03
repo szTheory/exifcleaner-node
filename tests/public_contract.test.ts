@@ -234,17 +234,25 @@ describe("published format-neutral declaration contract", () => {
         capability.format === "png" ? capability.mimeTypes[0] : undefined;
       const narrowJpeg = (capability: FormatCapabilities): "image/jpeg" | undefined =>
         capability.format === "jpeg" ? capability.mimeTypes[0] : undefined;
-      const narrow = (capability: FormatCapabilities): "image/webp" | "image/png" | "image/jpeg" => {
+      const narrowHeic = (capability: FormatCapabilities): "image/heic" | undefined =>
+        capability.format === "heic" ? capability.mimeTypes[0] : undefined;
+      const narrowAvif = (capability: FormatCapabilities): "image/avif" | undefined =>
+        capability.format === "avif" ? capability.mimeTypes[0] : undefined;
+      const narrow = (
+        capability: FormatCapabilities,
+      ): "image/webp" | "image/png" | "image/jpeg" | "image/heic" | "image/avif" => {
         switch (capability.format) {
           case "webp": return capability.mimeTypes[0];
           case "png": return capability.mimeTypes[0];
           case "jpeg": return capability.mimeTypes[0];
+          case "heic": return capability.mimeTypes[0];
+          case "avif": return capability.mimeTypes[0];
         }
         return assertNever(capability);
       };
       const advertised = getCapabilities().formats;
       const first: FormatCapabilities = advertised[0];
-      void [useGeneric, useRefinement, narrow, narrowPng, narrowJpeg, first];
+      void [useGeneric, useRefinement, narrow, narrowPng, narrowJpeg, narrowHeic, narrowAvif, first];
     `);
   });
 
@@ -304,10 +312,12 @@ describe("published format-neutral declaration contract", () => {
       "sanitizeFile",
     ]);
     expect([...types].sort()).toEqual([
+      "AvifCapabilities",
       "Capabilities",
       "CommonFormatCapabilities",
       "FallbackDisposition",
       "FormatCapabilities",
+      "HeicCapabilities",
       "InspectOptions",
       "Inspection",
       "JpegCapabilities",
@@ -346,8 +356,10 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
   it("pins NativeFormat, FormatCapabilities, and the base/member preserves shapes by exact type equality", async () => {
     await expectConsumerToCompile(`
       import type {
+        AvifCapabilities,
         CommonFormatCapabilities,
         FormatCapabilities,
+        HeicCapabilities,
         JpegCapabilities,
         NativeFormat,
         PngCapabilities,
@@ -359,8 +371,25 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
           ? true
           : false;
 
-      const nativeFormatPin: Equals<NativeFormat, "webp" | "png" | "jpeg"> = true;
-      const formatCapabilitiesPin: Equals<FormatCapabilities, WebpCapabilities | PngCapabilities | JpegCapabilities> = true;
+      const nativeFormatPin: Equals<NativeFormat, "webp" | "png" | "jpeg" | "heic" | "avif"> = true;
+      const formatCapabilitiesPin: Equals<
+        FormatCapabilities,
+        WebpCapabilities | PngCapabilities | JpegCapabilities | HeicCapabilities | AvifCapabilities
+      > = true;
+      const heicAvifPreservesPin: Equals<HeicCapabilities["preserves"], AvifCapabilities["preserves"]> = true;
+      const heicPreservesPin: Equals<
+        HeicCapabilities["preserves"],
+        {
+          readonly orientation: true;
+          readonly colorProfile: true;
+          readonly timestamps: true;
+          readonly resolution: true;
+          readonly imagePayload: true;
+          readonly animationPayload: false;
+        }
+      > = true;
+      const heicDetectionPin: Equals<HeicCapabilities["detection"], "magic"> = true;
+      const avifDetectionPin: Equals<AvifCapabilities["detection"], "magic"> = true;
       const commonPreservesPin: Equals<
         CommonFormatCapabilities["preserves"],
         {
@@ -392,6 +421,10 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
         pngResolutionPreservesPin,
         jpegResolutionPreservesPin,
         pngMaxBufferedMetadataBytesTotalPin,
+        heicAvifPreservesPin,
+        heicPreservesPin,
+        heicDetectionPin,
+        avifDetectionPin,
       ];
     `);
   });
@@ -475,7 +508,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
     expect(omittedCaseDiagnostics).not.toEqual([]);
   });
 
-  it("compiles an exhaustive switch over the real three-member FormatCapabilities union and fails when a case is omitted", async () => {
+  it("compiles an exhaustive switch over the real five-member FormatCapabilities union and fails when a case is omitted", async () => {
     const real = `
       import type { FormatCapabilities } ${rootImport};
 
@@ -489,6 +522,8 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
           case "webp": return "webp";
           case "png": return "png";
           case "jpeg": return "jpeg";
+          case "heic": return "heic";
+          case "avif": return "avif";
           default: return assertNever(capability);
         }
       };
@@ -501,6 +536,8 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
         switch (capability.format) {
           case "webp": return "webp";
           case "png": return "png";
+          case "jpeg": return "jpeg";
+          case "heic": return "heic";
           default: return assertNever(capability);
         }
       };

@@ -2,7 +2,7 @@ export type Result<T, E = MetadataError> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: E };
 
-export type NativeFormat = "webp" | "png" | "jpeg";
+export type NativeFormat = "webp" | "png" | "jpeg" | "heic" | "avif";
 
 /**
  * The closed set of metadata namespaces this package can report inspecting,
@@ -245,17 +245,127 @@ export interface JpegCapabilities extends CommonFormatCapabilities {
   readonly detection: "magic";
 }
 
+/**
+ * HEIC still-image item files (ftyp brands heic/heix/heim/heis). Identical to
+ * `AvifCapabilities` except for `format`, `mimeTypes`, `extensions` and
+ * `brands`, so extension gating in a consumer and brand gating in this package
+ * always agree on what is preserved. `brands` states the bounded `ftyp` brand
+ * set that magic admission recognizes; `.heif` is listed here only.
+ */
+export interface HeicCapabilities extends CommonFormatCapabilities {
+  readonly format: "heic";
+  readonly mimeTypes: readonly ["image/heic", "image/heif"];
+  readonly extensions: readonly [".heic", ".heif"];
+  readonly brands: readonly ["heic", "heix", "heim", "heis"];
+  readonly inspect: true;
+  readonly sanitize: true;
+  readonly preserves: {
+    readonly orientation: true;
+    readonly colorProfile: true;
+    readonly timestamps: true;
+    readonly resolution: true;
+    readonly imagePayload: true;
+    readonly animationPayload: false;
+  };
+  readonly validation: {
+    readonly container: "full";
+    readonly codecBitstream: "not-decoded";
+  };
+  readonly colorProfile: {
+    readonly policy: "icc-structural-v0.2";
+    readonly preservation: "preserve-if-present";
+    readonly versions: readonly ["v2.0-v2.4", "v4.0-v4.4"];
+    readonly classes: readonly ["scnr", "mntr"];
+    readonly spaces: readonly ["RGB /XYZ ", "RGB /Lab "];
+    readonly maxProfileBytes: number;
+    readonly maxTagCount: number;
+  };
+  readonly limits: {
+    readonly maxMetaBytes: number;
+    readonly maxBoxCount: number;
+    readonly maxBoxDepth: number;
+    readonly maxBufferedBytesTotal: number;
+  };
+  readonly refuses: readonly [
+    "malformed-container",
+    "resource-limits",
+    "image-sequence",
+    "unknown-boxes",
+    "unknown-item-types",
+    "unsupported-features",
+    "unsafe-item-layout",
+  ];
+  readonly removes: readonly ["EXIF", "XMP", "ICC", "C2PA"];
+  readonly detection: "magic";
+}
+
+/**
+ * AVIF still-image item files (ftyp brand avif). Identical to
+ * `HeicCapabilities` except for `format`, `mimeTypes`, `extensions` and
+ * `brands`.
+ */
+export interface AvifCapabilities extends CommonFormatCapabilities {
+  readonly format: "avif";
+  readonly mimeTypes: readonly ["image/avif"];
+  readonly extensions: readonly [".avif"];
+  readonly brands: readonly ["avif"];
+  readonly inspect: true;
+  readonly sanitize: true;
+  readonly preserves: {
+    readonly orientation: true;
+    readonly colorProfile: true;
+    readonly timestamps: true;
+    readonly resolution: true;
+    readonly imagePayload: true;
+    readonly animationPayload: false;
+  };
+  readonly validation: {
+    readonly container: "full";
+    readonly codecBitstream: "not-decoded";
+  };
+  readonly colorProfile: {
+    readonly policy: "icc-structural-v0.2";
+    readonly preservation: "preserve-if-present";
+    readonly versions: readonly ["v2.0-v2.4", "v4.0-v4.4"];
+    readonly classes: readonly ["scnr", "mntr"];
+    readonly spaces: readonly ["RGB /XYZ ", "RGB /Lab "];
+    readonly maxProfileBytes: number;
+    readonly maxTagCount: number;
+  };
+  readonly limits: {
+    readonly maxMetaBytes: number;
+    readonly maxBoxCount: number;
+    readonly maxBoxDepth: number;
+    readonly maxBufferedBytesTotal: number;
+  };
+  readonly refuses: readonly [
+    "malformed-container",
+    "resource-limits",
+    "image-sequence",
+    "unknown-boxes",
+    "unknown-item-types",
+    "unsupported-features",
+    "unsafe-item-layout",
+  ];
+  readonly removes: readonly ["EXIF", "XMP", "ICC", "C2PA"];
+  readonly detection: "magic";
+}
+
 export interface Capabilities {
   readonly formats: readonly [FormatCapabilities, ...FormatCapabilities[]];
 }
 
 /**
  * The union of every registered format's capabilities, discriminated on `format`.
- * Phase 56 added the PNG member; Phase 57 adds the JPEG member without
- * changing this contract's shape.
+ * Phase 56 added the PNG member, Phase 57 the JPEG member, and Phase 62.1 the
+ * HEIC and AVIF members, without changing this contract's shape.
  */
 export type FormatCapabilities =
-  WebpCapabilities | PngCapabilities | JpegCapabilities;
+  | WebpCapabilities
+  | PngCapabilities
+  | JpegCapabilities
+  | HeicCapabilities
+  | AvifCapabilities;
 
 export type ColorProfileAdmissionReason =
   "invalid" | "unsupported" | "policy-limit";

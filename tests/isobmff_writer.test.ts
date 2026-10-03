@@ -248,11 +248,11 @@ describe("tracer: heif-enc-grid.heic rebuild (62-02)", () => {
   });
 });
 
-describe("Task 2: the writer handler stays unreachable and unregistered (62-02)", () => {
-  it("registeredHandlersForTests() still returns exactly the webp, png and jpeg handlers", () => {
+describe("Task 2: the writer handlers' registration and brand separation (62-02, registered in 62.1-07)", () => {
+  it("registeredHandlersForTests() returns exactly the webp, png, jpeg, heic and avif handlers (62.1-07 D-03/D-08)", () => {
     expect(
       registeredHandlersForTests().map((h) => h.capability.format),
-    ).toEqual(["webp", "png", "jpeg"]);
+    ).toEqual(["webp", "png", "jpeg", "heic", "avif"]);
   });
 
   it("the AVIF fixture does not match the heic writer handler and the HEIC fixture does not match the avif writer handler", async () => {

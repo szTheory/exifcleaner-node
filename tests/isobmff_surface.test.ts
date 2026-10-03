@@ -1,7 +1,9 @@
-// D-15/61-10: proves `dist/isobmff/` is committed (`check:dist` already gates that) but
-// UNREACHABLE from the public package surface. The engine built across this phase must never
-// become reachable from `dist/index.js` -- the one file `package.json`'s `exports` map actually
-// publishes -- until Phase 62 deliberately wires a real handler in.
+// D-15/61-10, flipped by 62.1-07: proves `dist/isobmff/` is committed (`check:dist` already gates
+// that) and that, now that `heicHandler`/`avifHandler` are registered (62.1-07's atomic
+// registration commit, D-03), the engine is REACHABLE from `dist/index.js` -- the one file
+// `package.json`'s `exports` map actually publishes -- only as runtime code behind the registry:
+// no value or type the engine modules export is re-exported from the public entry point. The
+// only public additions are the two capability types, which live in `src/types.ts`.
 import {
   access,
   mkdir,
@@ -12,7 +14,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -88,11 +90,10 @@ const ISOBMFF_DIST_MODULES = [
 ] as const;
 
 /**
- * 62-12: the three handler modules (`isobmff-handler.ts`, the shared engine-bound factory, and
- * `heic-handler.ts`/`avif-handler.ts`, the two unregistered per-brand modules built on it) must
- * stay committed under `dist/admission/` (`check:dist` already gates that) AND unreachable from
- * the public surface, exactly like `dist/isobmff/` above -- they are never imported by
- * `src/admission/registry.ts` in this plan (D-02/D-03).
+ * 62-12 / 62.1-07: the three handler modules (`isobmff-handler.ts`, the shared engine-bound
+ * factory, and `heic-handler.ts`/`avif-handler.ts`, the two per-brand modules built on it) are
+ * committed under `dist/admission/` (`check:dist` already gates that) and, since 62.1-07
+ * registered both handlers, are IN the public entry point's runtime import closure.
  */
 const ISOBMFF_HANDLER_DIST_MODULES = [
   "isobmff-handler",
@@ -108,30 +109,64 @@ describe("dist/isobmff is committed (BMF-02..BMF-06)", () => {
   });
 });
 
-describe("dist/isobmff is unreachable from the public surface (D-15)", () => {
-  it("the transitive import closure of dist/index.js contains no path under dist/isobmff/", async () => {
-    const closure = await transitiveImportClosure(DIST_INDEX);
-    expect(closure.length).toBeGreaterThan(0);
-    const isobmffPaths = closure.filter((path) =>
-      path.replaceAll("\\", "/").includes("/dist/isobmff/"),
-    );
-    expect(isobmffPaths).toEqual([]);
-  });
-});
-
 describe.each(ISOBMFF_HANDLER_DIST_MODULES)(
-  "dist/admission/%s.js is unreachable from the public surface (62-02/62-12, D-02 shape (c))",
+  "dist/admission/%s.js is reachable from the public entry point (registered in 62.1-07)",
   (module) => {
-    it(`the transitive import closure of dist/index.js contains no path under dist/admission/${module}.js`, async () => {
+    it(`the transitive import closure of dist/index.js contains dist/admission/${module}.js`, async () => {
       const closure = await transitiveImportClosure(DIST_INDEX);
-      expect(closure.length).toBeGreaterThan(0);
       const handlerPaths = closure.filter((path) =>
-        path.replaceAll("\\", "/").includes(`/dist/admission/${module}.js`),
+        path.replaceAll("\\", "/").endsWith(`/dist/admission/${module}.js`),
       );
-      expect(handlerPaths).toEqual([]);
+      expect(handlerPaths).toHaveLength(1);
     });
   },
 );
+
+/** Every name a `dist/isobmff/*.d.ts` module exports (values and types), read from its text. */
+async function isobmffExportedNames(): Promise<Set<string>> {
+  const names = new Set<string>();
+  const declaration =
+    /\bexport\s+(?:declare\s+)?(?:abstract\s+)?(?:const|let|function|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gu;
+  for (const module of ISOBMFF_DIST_MODULES) {
+    const source = await readFile(
+      join(DIST_ROOT, "isobmff", `${module}.d.ts`),
+      "utf8",
+    );
+    for (const match of source.matchAll(declaration)) {
+      const name = match[1];
+      if (name !== undefined) names.add(name);
+    }
+  }
+  return names;
+}
+
+describe("no isobmff engine symbol is exported from the public entry point (D-15, 62.1-07)", () => {
+  it("the engine modules export a non-empty set of names (the check below is not vacuous)", async () => {
+    const names = await isobmffExportedNames();
+    expect(names.has("classifyIsobmffBrand")).toBe(true);
+    expect(names.has("HEIF_REFUSALS")).toBe(true);
+    expect(names.has("HeifRefusal")).toBe(true);
+  });
+
+  it("dist/index.js exports no runtime value any engine module exports", async () => {
+    const names = await isobmffExportedNames();
+    const publicValues = Object.keys(
+      (await import(pathToFileURL(DIST_INDEX).href)) as Record<string, unknown>,
+    );
+    expect(publicValues.length).toBeGreaterThan(0);
+    expect(publicValues.filter((name) => names.has(name))).toEqual([]);
+  });
+
+  it("dist/index.d.ts names no engine export and imports nothing from ./isobmff/", async () => {
+    const names = await isobmffExportedNames();
+    const declaration = await readFile(join(DIST_ROOT, "index.d.ts"), "utf8");
+    expect(declaration.toLowerCase()).not.toContain("isobmff");
+    const identifiers = new Set(declaration.match(/[A-Za-z_$][\w$]*/gu) ?? []);
+    expect([...names].filter((name) => identifiers.has(name))).toEqual([]);
+    expect(identifiers.has("HeicCapabilities")).toBe(true);
+    expect(identifiers.has("AvifCapabilities")).toBe(true);
+  });
+});
 
 describe("transitiveImportClosure negative controls (D-15: the walker actually detects a reachable isobmff path)", () => {
   const directories: string[] = [];
