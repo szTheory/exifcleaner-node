@@ -484,4 +484,37 @@ describe("build-oracles.cjs negative controls and edges (KIT-09 D-07)", () => {
       expect(text.includes("loadOrPrepareOracleTools()")).toBe(true);
     }
   });
+
+  // 62.1-02 Known Gap, closed here (62.1-03): the real build's `heifIncludeDir`/`heifLibDir`
+  // fields are plain strings, not `{path, sha256}` executables, and `prepareOracleDir`'s
+  // `directories` bag is what keeps them from vanishing on a cache-mode reload
+  // (`loadPreparedOracleTools`, the CI path). No existing `fakeBuild` variant exercised a
+  // directory-shaped field through that round trip; this does, on any host (no real linux/x64
+  // build required -- `fakeBuildWithDirectory` below injects one the same way `fakeBuild` injects
+  // its placeholder executables).
+  it("round-trips a plain-string directory field (e.g. heifIncludeDir) through prepare and a cache-mode reload", () => {
+    const dir = mkdtempSync(join(tmpdir(), "exifcleaner-oracle-directories-"));
+    const fakeBuildWithDirectory = (workspace: string): FakeTools => {
+      const built = fakeBuild(workspace) as Record<string, unknown>;
+      const includeDir = join(workspace, "fake-include");
+      mkdirSync(includeDir, { recursive: true });
+      built.heifIncludeDir = includeDir;
+      return built as FakeTools;
+    };
+    try {
+      const built = buildOracles.prepareOracleDir(dir, {
+        build: fakeBuildWithDirectory,
+      });
+      expect(typeof built.heifIncludeDir).toBe("string");
+
+      const loaded = buildOracles.loadPreparedOracleTools(dir, {
+        probe: () => {},
+      });
+      const loadedIncludeDir = loaded.heifIncludeDir as string;
+      expect(loadedIncludeDir).toBe(join(dir, "workspace", "fake-include"));
+      expect(existsSync(loadedIncludeDir)).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 }, 30_000);

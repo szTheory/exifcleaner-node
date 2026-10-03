@@ -942,6 +942,38 @@ function buildOracleTools(workspace) {
   const de265StaticPath = path.join(heifLibDir, "libde265.a");
   const heifStaticPath = path.join(heifLibDir, "libheif.a");
 
+  // --- HEIF whole-graph decode oracle (62.1-03, D-23, QUA-04): built once per job against the
+  // D-21 static stack above, exactly like the JPEG/PNG decode oracles.
+  const heifDecodeSourcePath = path.join(
+    projectRoot,
+    "scripts/qualification/heif_decode_oracle.c",
+  );
+  if (!fs.existsSync(heifDecodeSourcePath))
+    fail("heif decode oracle source is missing");
+  const heifDecodePath = path.join(workspace, "heif-decode-oracle");
+  runTool(
+    "cc",
+    [
+      "-std=c11",
+      "-O2",
+      heifDecodeSourcePath,
+      "-I",
+      heifIncludeDir,
+      "-L",
+      heifLibDir,
+      "-o",
+      heifDecodePath,
+      "-lheif",
+      "-lde265",
+      "-laom",
+      "-lstdc++",
+      "-lpthread",
+      "-lm",
+    ],
+    {},
+    "heif decode oracle build failed",
+  );
+
   const executable = (filePath) => ({
     path: filePath,
     sha256: digest(fs.readFileSync(filePath)),
@@ -959,14 +991,13 @@ function buildOracleTools(workspace) {
     rdjpgcom: executable(rdjpgcomPath),
     jpegStatic: executable(libjpegStaticPath),
     jpegDecode: executable(jpegDecodePath),
-    // HEIF decode stack (62.1-03 links these against its whole-graph oracle;
-    // no decode executable exists yet in this plan, so these are not probed
-    // by probeOracleVersions the way jpegStatic's sibling executables are).
+    // HEIF decode stack (62.1-03 links these against the whole-graph oracle below).
     heifIncludeDir,
     heifLibDir,
     aomStatic: executable(aomStaticPath),
     de265Static: executable(de265StaticPath),
     heifStatic: executable(heifStaticPath),
+    heifDecode: executable(heifDecodePath),
   };
   probeOracleVersions(tools, manifest);
   return tools;
@@ -986,6 +1017,7 @@ function probeOracleVersions(tools, manifest) {
   const libpng = manifest.authorities[2];
   const pngcheck = manifest.authorities[3];
   const libjpegTurbo = manifest.authorities[4];
+  const libheif = manifest.authorities[5];
 
   const dwebpVersion = runTool(
     tools.dwebp.path,
@@ -1050,6 +1082,20 @@ function probeOracleVersions(tools, manifest) {
       `libjpeg-turbo ${libjpegTurbo.version}`,
     )
   )
+    fail("built oracle version drift");
+
+  // Same no-`-version`-flag pattern as the other decode oracles: the whole-graph HEIF decode
+  // oracle takes exactly one usage error path (missing argv), printing the libheif version to
+  // stderr unconditionally even then.
+  const heifDecodeUsage = spawnSync(tools.heifDecode.path, [], {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  if (heifDecodeUsage.error !== undefined)
+    fail(
+      `heif decode oracle version check failed: ${heifDecodeUsage.error.message}`,
+    );
+  if (!(heifDecodeUsage.stderr ?? "").includes(`libheif ${libheif.version}`))
     fail("built oracle version drift");
 }
 
