@@ -21,6 +21,15 @@ async function digestFile(filePath) {
   return hash.digest("hex");
 }
 
+// Node reports process.resourceUsage().maxRSS in KiB on every platform: libuv
+// already divides darwin's getrusage byte count by 1024. Dividing again on
+// darwin under-reported peak RSS 1024-fold (measured on darwin: maxRSS 238368
+// against memoryUsage().rss / 1024 238432 after a 200 MB allocation). Linux
+// values are unchanged. native-vs-exiftool.cjs relies on the same fact.
+function maxRSSKiB() {
+  return process.resourceUsage().maxRSS;
+}
+
 function memorySnapshot(phase) {
   const memory = process.memoryUsage();
   return {
@@ -29,10 +38,7 @@ function memorySnapshot(phase) {
     heapUsed: memory.heapUsed,
     external: memory.external,
     arrayBuffers: memory.arrayBuffers,
-    maxRSSKiB:
-      process.platform === "darwin"
-        ? process.resourceUsage().maxRSS / 1024
-        : process.resourceUsage().maxRSS,
+    maxRSSKiB: maxRSSKiB(),
   };
 }
 
@@ -333,10 +339,7 @@ async function main() {
       packageSha: options.packageSha,
       runToken: options.runToken,
       elapsedNs: Number(endedAt - startedAt),
-      maxRSSKiB:
-        process.platform === "darwin"
-          ? process.resourceUsage().maxRSS / 1024
-          : process.resourceUsage().maxRSS,
+      maxRSSKiB: maxRSSKiB(),
       startedRss,
       endedRss: process.memoryUsage().rss,
       outputBytes,

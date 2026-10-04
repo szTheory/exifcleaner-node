@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
+import { tmpdir, totalmem } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
@@ -5177,6 +5177,54 @@ describe("paired benchmark admission", () => {
     expect(child).not.toMatch(/readFileSync\(destinationPath\)/u);
     expect(child).not.toMatch(/readFileSync\(sourcePath\)/u);
     expect(child).not.toMatch(/global\.gc|process\.gc/u);
+  });
+
+  it("reports the child's peak RSS in KiB on every platform, consistent with its own rss", () => {
+    // resourceUsage().maxRSS is already KiB on darwin too; a darwin "/ 1024" made the
+    // child under-report 1024-fold. Peak RSS can never sit below the live rss of the same
+    // process, so the lower bound is the regression gate. It is not tight from above: on
+    // Linux CI a spawned child's maxRSS measured 278448 KiB against rss 65432 KiB, so the
+    // upper bound is only physical memory.
+    const fixture = benchmark
+      .loadBenchmarkManifest()
+      .fixtures.find((record) => record.id === "malformed-tiny");
+    expect(fixture).toBeDefined();
+    const result = spawnSync(
+      process.execPath,
+      [
+        join(projectRoot, "scripts", "qualification", "benchmark-child.cjs"),
+        "--package-root",
+        projectRoot,
+        "--package-sha",
+        "a".repeat(64),
+        "--version",
+        "candidate",
+        "--fixture",
+        Buffer.from(JSON.stringify(fixture)).toString("base64"),
+        "--run-token",
+        "b".repeat(32),
+      ],
+      { encoding: "utf8", timeout: 60_000 },
+    );
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    const record = JSON.parse(result.stdout) as {
+      maxRSSKiB: number;
+      endedRss: number;
+      allocationPhases: readonly { rss: number; maxRSSKiB: number }[];
+    };
+    const samples = [
+      { rssKiB: record.endedRss / 1024, maxRSSKiB: record.maxRSSKiB },
+      ...record.allocationPhases.map((phase) => ({
+        rssKiB: phase.rss / 1024,
+        maxRSSKiB: phase.maxRSSKiB,
+      })),
+    ];
+    expect(samples).toHaveLength(5);
+    for (const { rssKiB, maxRSSKiB } of samples) {
+      expect(maxRSSKiB).toBeGreaterThanOrEqual(rssKiB * 0.5);
+      expect(maxRSSKiB).toBeLessThanOrEqual(totalmem() / 1024);
+    }
   });
 
   it("uses a bounded MiB payload I/O window to avoid hundreds of scheduler-sensitive file operations", async () => {
