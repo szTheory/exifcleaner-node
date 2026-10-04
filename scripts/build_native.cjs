@@ -2,8 +2,10 @@
 "use strict";
 
 const { execFileSync } = require("node:child_process");
-const { copyFile, mkdir, readFile, rm } = require("node:fs/promises");
-const { dirname, join, resolve } = require("node:path");
+const { randomBytes } = require("node:crypto");
+const { constants } = require("node:fs");
+const { copyFile, mkdir, readFile, rename, rm } = require("node:fs/promises");
+const { basename, dirname, join, resolve } = require("node:path");
 
 const packageRoot = resolve(__dirname, "..");
 const supportedTuples = new Set([
@@ -59,6 +61,26 @@ function validateBinary(binary) {
     binary.readUInt16LE(peOffset + 4) !== machine
   ) {
     throw new Error("Built addon is not the expected PE architecture.");
+  }
+}
+
+// Publishes `source` at `destination` as a brand-new inode: copy to a unique sibling in the
+// destination directory, then rename it over the destination. Copying straight onto the
+// destination rewrites the existing inode in place; on darwin, once any process has loaded
+// that addon, the kernel's cached code signature for the inode goes stale and every later
+// load is SIGKILLed (measured 2026-10-03: `npm run verify` lost 47 vitest workers). The
+// bytes written are identical either way; the temp file is removed on failure.
+async function replaceFileAtomically(source, destination) {
+  const temporary = join(
+    dirname(destination),
+    `.${basename(destination)}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`,
+  );
+  try {
+    await copyFile(source, temporary, constants.COPYFILE_EXCL);
+    await rename(temporary, destination);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
   }
 }
 
@@ -119,14 +141,18 @@ async function main() {
     }
     validateBinary(await readFile(output));
     await mkdir(dirname(destination), { recursive: true });
-    await copyFile(output, destination);
+    await replaceFileAtomically(output, destination);
     console.log(`Built native publication addon: ${tuple}`);
   } finally {
     await rm(buildDirectory, { force: true, recursive: true });
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { replaceFileAtomically };
