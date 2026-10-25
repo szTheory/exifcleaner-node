@@ -1,7 +1,10 @@
 // PNG-05 / D-28: a real, measured RSS harness for the memory-bound proof. Runs as a
-// standalone child process (never imported by a test file directly) so
-// `process.resourceUsage().maxRSS` reflects only this process's own peak, not the vitest
-// worker that spawned it. Not collected by vitest.config.ts's `tests/**/*.test.ts` include,
+// standalone child process (never imported by a test file directly) so the peak it reports
+// is the parser's own, not the vitest worker's. A separate process is necessary but not
+// sufficient: on linux `ru_maxrss` (process.resourceUsage().maxRSS) folds in the parent's
+// resident set at fork/exec, so a large vitest worker inflates it. Linux therefore reads
+// VmHWM from /proc/self/status (a fresh mm at exec, not inherited); darwin and win32 report
+// per-process maxRSS. Not collected by vitest.config.ts's `tests/**/*.test.ts` include,
 // but is still formatted by `npm run lint` (prettier globs all of `tests/`).
 //
 // argv: <fixturePath|--idle> <budgetMode: default|infinity> <retainMode: default|view>
@@ -17,10 +20,12 @@
 //   control that proves the ceiling discriminates when the window-copy fix is removed.
 //
 // Prints exactly one JSON line to stdout:
-//   { outcome: "parsed" | "error", kind, limit, maxRssBytes }
-// maxRssBytes = process.resourceUsage().maxRSS * 1024 -- Node documents maxRSS in kilobytes,
-// confirmed (not assumed) by the idle sanity test in png_memory.test.ts, which asserts the
-// reported value falls in a wide, units-mistake-revealing 16 MiB-256 MiB band.
+//   { outcome: "parsed" | "error", kind, limit, maxRssBytes, peakSource }
+// maxRssBytes is this process's own peak in bytes and peakSource names where it came from:
+// "VmHWM" (linux, /proc/self/status kB * 1024; the harness fails with exit 2 if it cannot be
+// read, never falling back to maxRSS) or "resourceUsage.maxRSS" (every other platform; Node
+// documents maxRSS in kilobytes). The idle sanity tests in png_memory.test.ts assert the
+// source for the platform and a wide, units-mistake-revealing 16 MiB-256 MiB band.
 //
 // Exit code is 0 for every completed run (parsed or a caught PngStructureError alike) --
 // the JSON line's "outcome" field carries the result. Exit code 2 means the harness itself
@@ -28,6 +33,7 @@
 // non-PngStructureError throw) -- distinct from a successful "error" outcome so a test
 // failure is never confused with a harness bug.
 
+import { readFileSync } from "node:fs";
 import { open } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
@@ -105,8 +111,31 @@ if (fixtureArg !== "--idle") {
   }
 }
 
-const maxRssBytes = process.resourceUsage().maxRSS * 1024;
+function ownPeak() {
+  if (process.platform === "linux") {
+    let status;
+    try {
+      status = readFileSync("/proc/self/status", "utf8");
+    } catch (error) {
+      fail(
+        `cannot read /proc/self/status: ${error && error.message ? error.message : String(error)}`,
+      );
+    }
+    const match = /^VmHWM:\s+(\d+)\s+kB\s*$/m.exec(status);
+    const kilobytes = match === null ? Number.NaN : Number(match[1]);
+    if (!Number.isFinite(kilobytes) || kilobytes <= 0) {
+      fail("VmHWM missing or unparseable in /proc/self/status");
+    }
+    return { bytes: kilobytes * 1024, source: "VmHWM" };
+  }
+  return {
+    bytes: process.resourceUsage().maxRSS * 1024,
+    source: "resourceUsage.maxRSS",
+  };
+}
+
+const { bytes: maxRssBytes, source: peakSource } = ownPeak();
 
 process.stdout.write(
-  JSON.stringify({ outcome, kind, limit, maxRssBytes }) + "\n",
+  JSON.stringify({ outcome, kind, limit, maxRssBytes, peakSource }) + "\n",
 );

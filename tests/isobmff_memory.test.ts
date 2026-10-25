@@ -5,13 +5,13 @@
 // `tests/isobmff_memory_child.mjs`). The PNG precedent (56 WR-02) showed a cap that exists but
 // does not gate the expensive read; only a measured negative control proves a cap discriminates.
 //
-// Every measured RSS figure is recorded ONLY in `61-11-SUMMARY.md` (60-CONTEXT D-29): this file
-// states the ceiling-derivation RULE, never a measured number.
+// Every measured RSS figure is recorded ONLY in `61-11-SUMMARY.md` and in 66-EVIDENCE.md `## 66-17`
+// (60-CONTEXT D-29): this file states the ceiling-derivation RULE, never a measured number.
 
 import { spawnSync } from "node:child_process";
 import { mkdtemp, open, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { admitIsobmff } from "../src/isobmff/admission.js";
@@ -236,7 +236,11 @@ interface ChildResult {
   kind?: string;
   errorName?: string;
   maxRssBytes: number;
+  peakSource: "VmHWM" | "resourceUsage.maxRSS";
 }
+
+const EXPECTED_PEAK_SOURCE =
+  process.platform === "linux" ? "VmHWM" : "resourceUsage.maxRSS";
 
 // ISOBMFF-05 / D-23: spawns the real measurement harness (tests/isobmff_memory_child.mjs) and
 // parses its single JSON stdout line.
@@ -259,11 +263,17 @@ function runChild(fixture: string, capMode: CapMode): ChildResult {
       `isobmff_memory_child produced no output: ${result.stderr}`,
     );
   }
-  return JSON.parse(lastLine) as ChildResult;
+  const parsed = JSON.parse(lastLine) as ChildResult;
+  // Machine-readable sample for hosted logs (D-29: the figure lives in the log, not in test text).
+  console.log(
+    `rss-measure file=isobmff fixture=${fixture === "--idle" ? "--idle" : basename(fixture)} mode=${capMode} outcome=${parsed.outcome} peakSource=${parsed.peakSource} node=${process.version} host=${process.platform}-${process.arch} bytes=${parsed.maxRssBytes}`,
+  );
+  return parsed;
 }
 
-// ISOBMFF-05 / D-29: chosen from local measurement (see 61-11-SUMMARY.md "Memory measurement"
-// for the recorded figures and host/runtime details -- this file states only the derivation
+// ISOBMFF-05 / D-29: measured on darwin and linux with the child's own peak (see 61-11-SUMMARY.md
+// "Memory measurement" for the original darwin run and 66-EVIDENCE.md `## 66-17` for the
+// cross-platform re-derivation -- this file states only the derivation
 // rule, never the measured numbers, per 60-CONTEXT D-29). The ceiling sits at or above 1.5x the
 // highest measured capped-run peak and at or below 0.6x the lowest measured uncapped-run peak
 // among the RSS-discriminating controls (no-meta, no-count, no-buffered), with headroom on both
@@ -274,6 +284,7 @@ describe("child RSS harness unit sanity", () => {
   it("an idle child (no fixture) reports maxRssBytes between 16 MiB and 256 MiB", () => {
     const result = runChild("--idle", "default");
     expect(result.outcome).toBe("admitted");
+    expect(result.peakSource).toBe(EXPECTED_PEAK_SOURCE);
     expect(result.maxRssBytes).toBeGreaterThanOrEqual(16 * 1024 * 1024);
     expect(result.maxRssBytes).toBeLessThanOrEqual(256 * 1024 * 1024);
   });
@@ -288,6 +299,7 @@ describe("child RSS harness unit sanity", () => {
     ballast = undefined;
     expect(live).toBe(1);
     expect(result.outcome).toBe("admitted");
+    expect(result.peakSource).toBe(EXPECTED_PEAK_SOURCE);
     const measuredMiB = result.maxRssBytes / (1024 * 1024);
     expect(
       result.maxRssBytes,

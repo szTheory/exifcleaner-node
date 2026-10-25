@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { sanitizeFile } from "../src/index.js";
@@ -244,7 +244,11 @@ interface ChildResult {
   kind?: string;
   limit?: { chunkType: string; size: number; limit: number };
   maxRssBytes: number;
+  peakSource: "VmHWM" | "resourceUsage.maxRSS";
 }
+
+const EXPECTED_PEAK_SOURCE =
+  process.platform === "linux" ? "VmHWM" : "resourceUsage.maxRSS";
 
 // PNG-05 / D-28: spawns the real measurement harness (tests/png_memory_child.mjs) and
 // parses its single JSON stdout line. `fixture` is a real path or the literal `--idle`.
@@ -271,21 +275,27 @@ function runChild(
   if (lastLine === undefined) {
     throw new Error(`png_memory_child produced no output: ${result.stderr}`);
   }
-  return JSON.parse(lastLine) as ChildResult;
+  const parsed = JSON.parse(lastLine) as ChildResult;
+  // Machine-readable sample for hosted logs (D-29: the figure lives in the log, not in test text).
+  console.log(
+    `rss-measure file=png fixture=${fixture === "--idle" ? "--idle" : basename(fixture)} mode=${budgetMode}/${retainMode} outcome=${parsed.outcome} peakSource=${parsed.peakSource} node=${process.version} host=${process.platform}-${process.arch} bytes=${parsed.maxRssBytes}`,
+  );
+  return parsed;
 }
 
-// PNG-05 / D-29: chosen from local measurement (node v24.19.0, Darwin arm64; see
-// 60-EVIDENCE.md "## PNG-05 RSS measurement (local)"). The highest measured capped peak
-// (flood, default budget) was ~85.9 MiB; the lowest measured uncapped peak (flood,
-// budget infinity) was ~567.2 MiB. 256 MiB sits at >= 1.5x the capped peak (~128.8 MiB
-// floor) and <= 0.6x the uncapped peak (~340.3 MiB ceiling), satisfying D-29's
-// discrimination rule with headroom on both sides.
+// PNG-05 / D-29: the ceiling sits at or above 1.5x the highest measured capped-run peak and at
+// or below 0.6x the lowest measured uncapped-run peak among the RSS-discriminating controls,
+// with headroom on both sides. Figures live only in 60-EVIDENCE.md "## PNG-05 RSS measurement
+// (local)" (the original darwin derivation) and in
+// `.planning/phases/66-measurable-node-suite/66-EVIDENCE.md` `## 66-17` (the cross-platform
+// measurement with the child's own peak); this file states the rule, never a number.
 export const PNG_MEMORY_RSS_CEILING_BYTES = 256 * 1024 * 1024;
 
 describe("child RSS harness unit sanity", () => {
   it("an idle child (no fixture) reports maxRssBytes between 16 MiB and 256 MiB", () => {
     const result = runChild("--idle", "default", "default");
     expect(result.outcome).toBe("parsed");
+    expect(result.peakSource).toBe(EXPECTED_PEAK_SOURCE);
     expect(result.maxRssBytes).toBeGreaterThanOrEqual(16 * 1024 * 1024);
     expect(result.maxRssBytes).toBeLessThanOrEqual(256 * 1024 * 1024);
   });
@@ -300,6 +310,7 @@ describe("child RSS harness unit sanity", () => {
     ballast = undefined;
     expect(live).toBe(1);
     expect(result.outcome).toBe("parsed");
+    expect(result.peakSource).toBe(EXPECTED_PEAK_SOURCE);
     const measuredMiB = result.maxRssBytes / (1024 * 1024);
     expect(
       result.maxRssBytes,
