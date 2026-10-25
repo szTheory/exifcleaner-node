@@ -418,7 +418,9 @@ describe("deterministic transaction qualification (PNG)", () => {
         openHandles: 0,
         writerAttempts: 1,
       });
-      expect(await readFile(prepared.destinationPath)).toBeInstanceOf(Buffer);
+      const published = await readFile(prepared.destinationPath);
+      expect(published).toEqual(await expectedOutput(prepared));
+      expect(published).not.toEqual(prepared.sourceBytes);
       expect(await readFile(prepared.sourcePath)).toEqual(prepared.sourceBytes);
     } finally {
       restore();
