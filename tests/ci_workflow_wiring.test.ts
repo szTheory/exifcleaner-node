@@ -31,10 +31,12 @@ function sliceJobs(text: string): Record<string, string> {
   const matches = [...searchText.matchAll(JOB_HEADER_RE)];
   const jobs: Record<string, string> = {};
   matches.forEach((match, index) => {
-    const start = match.index + match[0].length;
+    const start = (match.index ?? 0) + match[0].length;
     const end =
-      index + 1 < matches.length ? matches[index + 1].index : searchText.length;
-    jobs[match[1]] = searchText.slice(start, end);
+      index + 1 < matches.length
+        ? (matches[index + 1]?.index ?? searchText.length)
+        : searchText.length;
+    jobs[match[1] ?? ""] = searchText.slice(start, end);
   });
   return jobs;
 }
