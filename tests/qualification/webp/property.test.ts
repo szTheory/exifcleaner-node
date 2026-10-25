@@ -1,23 +1,20 @@
 import {
   access,
+  appendFile,
   copyFile,
-  mkdtemp,
   open,
   readFile,
-  rm,
   stat,
   utimes,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../src/index.js";
 import { parseExif } from "../../../src/metadata/exif.js";
 import { validateIccForPreservation } from "../../../src/metadata/icc_admission.js";
 import { ok } from "../../../src/result.js";
-import { parseWebp } from "../../../src/webp/riff.js";
+import { WebpStructureError, parseWebp } from "../../../src/webp/riff.js";
 import {
   exifWithOrientation,
   readChunks,
@@ -26,6 +23,14 @@ import {
 } from "../../fixtures.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
 import { assertFloors, countSample, createCounters } from "../kit/floors.js";
+import {
+  INVARIANT_MESSAGES,
+  assertAdmittedOutcome,
+  assertCanariesDistinct,
+  assertNonSuccessBlastRadius,
+  assertTotal,
+  withSampleWorkspace,
+} from "../kit/invariants.js";
 import {
   bytesDigest,
   checkWithReplay,
@@ -79,122 +84,139 @@ const SEEDED_SOURCE_TIME = new Date("2001-02-03T04:05:06.789Z");
 async function checkSample(
   sample: QualificationSample,
   sanitize: typeof sanitizeFile = sanitizeFile,
+  parse: typeof parseWebp = parseWebp,
 ): Promise<readonly string[]> {
-  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-property-"));
-  const sourcePath = join(directory, "source.webp");
-  const destinationPath = join(directory, "output.webp");
   const counterKeys: string[] = [`arm:${sample.arm}`];
-  try {
-    await writeFile(sourcePath, sample.bytes);
-    if (sample.expected === "success") {
-      assertPlanted(sample.bytes, sample.planted);
-      const source = await open(sourcePath, "r");
+  await withSampleWorkspace(
+    "source.webp",
+    "output.webp",
+    sample.bytes,
+    async ({ directory, sourcePath, destinationPath }) => {
+      // Parser totality for every sample (PBT-03): resolve, or throw the typed error.
+      const totalityHandle = await open(sourcePath, "r");
       try {
-        await expect(
-          parseWebp(source, sample.bytes.length),
-        ).resolves.toBeDefined();
+        await assertTotal(
+          () => parse(totalityHandle, sample.bytes.length),
+          (error) => error instanceof WebpStructureError,
+        );
       } finally {
-        await source.close();
+        await totalityHandle.close();
       }
-      const plantedKinds = new Set(sample.planted.map((item) => item.kind));
-      for (const kind of plantedKinds) counterKeys.push(`kind:${kind}`);
-      await utimes(sourcePath, SEEDED_SOURCE_TIME, SEEDED_SOURCE_TIME);
+      if (sample.expected === "success") {
+        assertPlanted(sample.bytes, sample.planted);
+        assertCanariesDistinct(sample.planted);
+        const source = await open(sourcePath, "r");
+        try {
+          await expect(
+            parse(source, sample.bytes.length),
+          ).resolves.toBeDefined();
+        } finally {
+          await source.close();
+        }
+        const plantedKinds = new Set(sample.planted.map((item) => item.kind));
+        for (const kind of plantedKinds) counterKeys.push(`kind:${kind}`);
+        await utimes(sourcePath, SEEDED_SOURCE_TIME, SEEDED_SOURCE_TIME);
 
-      const result = await sanitize({
-        sourcePath,
-        destinationPath,
-        ...sample.options,
-      });
-      expect(result.ok).toBe(true);
-
-      const preserveColorProfile =
-        sample.options.preserveColorProfile && plantedKinds.has("ICCP");
-      const preserveOrientation =
-        sample.options.preserveOrientation && plantedKinds.has("EXIF");
-      const preservedKinds = preserveColorProfile ? ["ICCP"] : [];
-
-      const output = await readFile(destinationPath);
-      assertCanariesAbsent(output, sample.planted, preservedKinds);
-
-      // Validity: the output parses as WebP and its RIFF size equals the file length.
-      const destinationHandle = await open(destinationPath, "r");
-      try {
-        await expect(
-          parseWebp(destinationHandle, output.length),
-        ).resolves.toBeDefined();
-      } finally {
-        await destinationHandle.close();
-      }
-      expect(output.readUInt32LE(4) + 8).toBe(output.length);
-
-      const outputChunks = readChunks(output);
-
-      if (preserveColorProfile) {
-        counterKeys.push("flag:preserveColorProfile");
-        const sourceIccChunk = readChunks(sample.bytes).find(
-          (chunk) => chunk.fourCc === "ICCP",
-        );
-        const destinationIccChunk = outputChunks.find(
-          (chunk) => chunk.fourCc === "ICCP",
-        );
-        expect(
-          destinationIccChunk,
-          PRESERVATION_MESSAGES.iccMissing,
-        ).toBeDefined();
-        expect(
-          destinationIccChunk?.data,
-          PRESERVATION_MESSAGES.iccBytes,
-        ).toEqual(sourceIccChunk?.data);
-      }
-
-      if (preserveOrientation) {
-        counterKeys.push("flag:preserveOrientation");
-        const destinationExifChunks = outputChunks.filter(
-          (chunk) => chunk.fourCc === "EXIF",
-        );
-        expect(
-          destinationExifChunks,
-          PRESERVATION_MESSAGES.orientationMissing,
-        ).toHaveLength(1);
-        const parsedExif = parseExif(destinationExifChunks[0]!.data);
-        expect(
-          parsedExif.orientation,
-          PRESERVATION_MESSAGES.orientationValue,
-        ).toMatchObject({
-          status: "valid",
-          value: sample.plantedOrientation,
+        const result = await sanitize({
+          sourcePath,
+          destinationPath,
+          ...sample.options,
         });
-      }
+        assertAdmittedOutcome(result);
+        expect(result.ok).toBe(true);
 
-      if (sample.options.preserveTimestamps) {
-        counterKeys.push("flag:preserveTimestamps");
-        const destinationStats = await stat(destinationPath);
-        expect(destinationStats.mtime.getTime()).toBe(
-          SEEDED_SOURCE_TIME.getTime(),
-        );
-      }
+        const preserveColorProfile =
+          sample.options.preserveColorProfile && plantedKinds.has("ICCP");
+        const preserveOrientation =
+          sample.options.preserveOrientation && plantedKinds.has("EXIF");
+        const preservedKinds = preserveColorProfile ? ["ICCP"] : [];
 
-      expect(await readFile(sourcePath)).toEqual(sample.bytes);
-      expect(output).toBeInstanceOf(Buffer);
-    } else {
-      const result = await sanitize({
-        sourcePath,
-        destinationPath,
-        ...sample.options,
-      });
-      expect(result).toMatchObject({
-        ok: false,
-        error: {
-          code: sample.expected,
-          phase: "admission",
-          nativeWrite: "not-started",
-        },
-      });
-      await expect(access(destinationPath)).rejects.toBeDefined();
-    }
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+        const output = await readFile(destinationPath);
+        assertCanariesAbsent(output, sample.planted, preservedKinds);
+
+        // Validity: the output parses as WebP and its RIFF size equals the file length.
+        const destinationHandle = await open(destinationPath, "r");
+        try {
+          await expect(
+            parseWebp(destinationHandle, output.length),
+          ).resolves.toBeDefined();
+        } finally {
+          await destinationHandle.close();
+        }
+        expect(output.readUInt32LE(4) + 8).toBe(output.length);
+
+        const outputChunks = readChunks(output);
+
+        if (preserveColorProfile) {
+          counterKeys.push("flag:preserveColorProfile");
+          const sourceIccChunk = readChunks(sample.bytes).find(
+            (chunk) => chunk.fourCc === "ICCP",
+          );
+          const destinationIccChunk = outputChunks.find(
+            (chunk) => chunk.fourCc === "ICCP",
+          );
+          expect(
+            destinationIccChunk,
+            PRESERVATION_MESSAGES.iccMissing,
+          ).toBeDefined();
+          expect(
+            destinationIccChunk?.data,
+            PRESERVATION_MESSAGES.iccBytes,
+          ).toEqual(sourceIccChunk?.data);
+        }
+
+        if (preserveOrientation) {
+          counterKeys.push("flag:preserveOrientation");
+          const destinationExifChunks = outputChunks.filter(
+            (chunk) => chunk.fourCc === "EXIF",
+          );
+          expect(
+            destinationExifChunks,
+            PRESERVATION_MESSAGES.orientationMissing,
+          ).toHaveLength(1);
+          const parsedExif = parseExif(destinationExifChunks[0]!.data);
+          expect(
+            parsedExif.orientation,
+            PRESERVATION_MESSAGES.orientationValue,
+          ).toMatchObject({
+            status: "valid",
+            value: sample.plantedOrientation,
+          });
+        }
+
+        if (sample.options.preserveTimestamps) {
+          counterKeys.push("flag:preserveTimestamps");
+          const destinationStats = await stat(destinationPath);
+          expect(destinationStats.mtime.getTime()).toBe(
+            SEEDED_SOURCE_TIME.getTime(),
+          );
+        }
+
+        expect(await readFile(sourcePath)).toEqual(sample.bytes);
+      } else {
+        const result = await sanitize({
+          sourcePath,
+          destinationPath,
+          ...sample.options,
+        });
+        assertAdmittedOutcome(result);
+        await assertNonSuccessBlastRadius({
+          directory,
+          sourcePath,
+          sourceBytes: sample.bytes,
+        });
+        expect(result).toMatchObject({
+          ok: false,
+          error: {
+            code: sample.expected,
+            phase: "admission",
+            nativeWrite: "not-started",
+          },
+        });
+        await expect(access(destinationPath)).rejects.toBeDefined();
+      }
+    },
+  );
   return counterKeys;
 }
 
@@ -376,6 +398,116 @@ describe("replayable WebP qualification properties", () => {
     const sample = replayed.counterexample?.[0] as QualificationSample;
     expect(bytesDigest(sample.bytes)).toBe(record.fixtureSha256);
   }, 30_000);
+
+  describe("PBT-03 non-success drills", () => {
+    const REPLAY_PARAMS = {
+      seed: 460_046,
+      numRuns: 200,
+      endOnFailure: true,
+    } as const;
+    const hostile = () =>
+      qualificationArbitrary().filter(
+        (sample) => sample.expected !== "success",
+      );
+
+    const drill = async (
+      label: string,
+      wrap: (
+        real: typeof sanitizeFile,
+        seen: { count: number },
+      ) => typeof sanitizeFile,
+    ) => {
+      const seen = { count: 0 };
+      const fake = wrap(sanitizeFile, seen);
+      const result = await fc.check(
+        fc.asyncProperty(hostile(), async (sample) => {
+          await checkSample(sample, fake);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(seen.count).toBeGreaterThan(0);
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(label);
+    };
+
+    it("a refusal that leaves a stage file turns the suite red (residue)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.residue,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          await writeFile(`${options.destinationPath}.stage`, "x");
+          return outcome;
+        },
+      );
+    });
+
+    it("a refusal that changes the source turns the suite red (sourceChanged)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.sourceChanged,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          await appendFile(options.sourcePath, Buffer.from([0]));
+          return outcome;
+        },
+      );
+    });
+
+    it("a verification-failed result turns the suite red (verificationFailed)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.verificationFailed,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          if (outcome.ok) return outcome;
+          return {
+            ok: false,
+            error: { ...outcome.error, code: "verification-failed" },
+          } as typeof outcome;
+        },
+      );
+    });
+
+    it("a read-failed result on a readable source turns the suite red (untypedThrow)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.untypedThrow,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          if (outcome.ok) return outcome;
+          return {
+            ok: false,
+            error: { ...outcome.error, code: "read-failed" },
+          } as typeof outcome;
+        },
+      );
+    });
+  });
+
+  it("untyped parser throw turns the suite red (PBT-03 totality)", async () => {
+    let calls = 0;
+    const stub: typeof parseWebp = async () => {
+      calls += 1;
+      throw new Error("untyped parser stub");
+    };
+    const result = await fc.check(
+      fc.asyncProperty(
+        qualificationArbitrary().filter(
+          (sample) => sample.expected === "success",
+        ),
+        async (sample) => {
+          await checkSample(sample, sanitizeFile, stub);
+        },
+      ),
+      { seed: 460_046, numRuns: 200, endOnFailure: true },
+    );
+    expect(calls).toBeGreaterThan(0);
+    expect(result.failed).toBe(true);
+    expect(String(result.errorInstance)).toContain(
+      INVARIANT_MESSAGES.untypedParserThrow,
+    );
+  });
 
   describe("negative controls (D-21)", () => {
     const REPLAY_PARAMS = {
