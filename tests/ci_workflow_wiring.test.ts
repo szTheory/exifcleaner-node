@@ -115,13 +115,14 @@ describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-
       "          node-version: 26\n          cache: npm\n      - run: npm ci\n      - name: Prepare",
     );
     expect(mutated).not.toBe(workflowText);
+    expect(mutated).not.toBe(workflowText);
     expect(checkCiWiring(mutated, packageJson)).not.toEqual([]);
   });
 
   it("mutation 2: engines >=24 is rejected", () => {
-    const mutatedPkg = { engines: { node: ">=24" } };
-    expect(mutatedPkg.engines.node).not.toBe(packageJson.engines?.node);
-    expect(checkCiWiring(workflowText, mutatedPkg)).not.toEqual([]);
+    const mutated = { engines: { node: ">=24" } };
+    expect(mutated.engines.node).not.toBe(packageJson.engines?.node);
+    expect(checkCiWiring(workflowText, mutated)).not.toEqual([]);
   });
 
   it("mutation 3: check:dist removed from quality is rejected", () => {
@@ -129,6 +130,7 @@ describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-
       "npm run build && npm run check:dist &&",
       "npm run build &&",
     );
+    expect(mutated).not.toBe(workflowText);
     expect(checkCiWiring(mutated, packageJson)).not.toEqual([]);
   });
 
@@ -137,6 +139,7 @@ describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-
       "npm run build && npm run check:dist &&",
       "npm run check:dist && npm run build &&",
     );
+    expect(mutated).not.toBe(workflowText);
     expect(checkCiWiring(mutated, packageJson)).not.toEqual([]);
   });
 
@@ -158,6 +161,7 @@ describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-
       "  test-node26:\n",
       "  test-node26:\n    needs: classify\n",
     );
+    expect(mutated).not.toBe(workflowText);
     expect(checkCiWiring(mutated, packageJson)).not.toEqual([]);
   });
 });
