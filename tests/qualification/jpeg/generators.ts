@@ -317,8 +317,9 @@ export interface JpegSampleOptions {
 export interface QualificationSample {
   readonly id: string;
   readonly bytes: Buffer;
-  readonly expected: "success" | "malformed-file" | "unsafe-structure";
-  readonly arm: "metadata" | "no-metadata" | "hostile";
+  /** "any" (mutation arm, zero-byte example): success or any typed refusal is admitted. */
+  readonly expected: "success" | "malformed-file" | "unsafe-structure" | "any";
+  readonly arm: "metadata" | "no-metadata" | "hostile" | "mutation";
   readonly planted: readonly PlantedCanary<JpegMetadataKind>[];
   readonly options: JpegSampleOptions;
   /** Set only when an `APP1-EXIF` canary was planted with an orientation value. */
@@ -1142,34 +1143,124 @@ function toHostileSample(item: JpegHostileMutationCase): QualificationSample {
   } satisfies QualificationSample;
 }
 
-/** Category-uniform-then-case sampling (56-10/56-16 lesson): picks an
- * `expectedRefusal` bucket uniformly first, then a case within it, so a
- * refusal with many cases (e.g. `malformed-container`, `resource-limits`)
- * does not dominate the hostile arm's draw. Only cases whose materialized
- * `fileSize` equals its real `prefix.length` are sampled here (a sparse
- * case's real on-disk bytes never reproduce its own refusal from a plain
- * in-memory sample -- `parser.test.ts`'s own materialization covers those). */
-function buildHostileArm(): fc.Arbitrary<QualificationSample> {
-  const byRefusal = new Map<JpegRefusal, JpegHostileMutationCase[]>();
-  for (const item of hostileMutationCases) {
+/**
+ * The refusals of every hostile mutation case whose materialized `fileSize`
+ * equals its real `prefix.length` (a sparse case's real on-disk bytes never
+ * reproduce its own refusal from a plain in-memory sample -- `parser.test.ts`'s
+ * own materialization covers those). Sorted for a stable listing.
+ */
+export const JPEG_HOSTILE_REFUSALS: readonly JpegRefusal[] = Object.freeze(
+  [
+    ...new Set(
+      hostileMutationCases
+        .filter((item) => {
+          const materialized = item.materialize();
+          return materialized.fileSize === materialized.prefix.length;
+        })
+        .map((item) => item.expectedRefusal),
+    ),
+  ].sort(),
+);
+
+/**
+ * The fixed hostile fixtures, replayed first by every property run as fast-check
+ * `examples` (they count inside numRuns), plus one zero-byte sample whose outcome
+ * is any typed refusal (G2, PBT-03 totality). Every non-sparse hostile mutation
+ * case is included, so each refusal is exercised on every run at a count equal to
+ * its case number instead of by a random category draw.
+ */
+export const JPEG_HOSTILE_EXAMPLES: readonly (readonly [
+  QualificationSample,
+])[] = Object.freeze([
+  ...hostileMutationCases.flatMap((item) => {
     const materialized = item.materialize();
-    if (materialized.fileSize !== materialized.prefix.length) continue;
-    const list = byRefusal.get(item.expectedRefusal) ?? [];
-    list.push(item);
-    byRefusal.set(item.expectedRefusal, list);
+    return materialized.fileSize === materialized.prefix.length
+      ? [[toHostileSample(item)] as const]
+      : [];
+  }),
+  [
+    {
+      id: "zero-byte",
+      bytes: Buffer.alloc(0),
+      expected: "any",
+      arm: "hostile",
+      planted: [] as PlantedCanary<JpegMetadataKind>[],
+      options: NO_PRESERVATION,
+      plantedJfif: false,
+      plantedAdobe: false,
+    },
+  ] as const,
+]);
+
+type MutationOperation =
+  | {
+      readonly kind: "flip";
+      readonly edits: readonly (readonly [number, number])[];
+    }
+  | { readonly kind: "truncate"; readonly at: number }
+  | { readonly kind: "append"; readonly bytes: Uint8Array };
+
+const mutationOperationArbitrary: fc.Arbitrary<MutationOperation> = fc.oneof(
+  fc.record({
+    kind: fc.constant("flip" as const),
+    edits: fc.array(fc.tuple(fc.nat(), fc.integer({ min: 1, max: 255 })), {
+      minLength: 1,
+      maxLength: 4,
+    }),
+  }),
+  fc.record({ kind: fc.constant("truncate" as const), at: fc.nat() }),
+  fc.record({
+    kind: fc.constant("append" as const),
+    bytes: fc.uint8Array({ minLength: 1, maxLength: 64 }),
+  }),
+);
+
+function applyMutation(source: Buffer, operation: MutationOperation): Buffer {
+  if (operation.kind === "truncate") {
+    return Buffer.from(source.subarray(0, operation.at % source.length));
   }
-  const refusals = [...byRefusal.keys()];
+  if (operation.kind === "append") {
+    return Buffer.concat([source, Buffer.from(operation.bytes)]);
+  }
+  const mutated = Buffer.from(source);
+  for (const [offset, mask] of operation.edits) {
+    const index = offset % mutated.length;
+    mutated[index] = (mutated[index] ?? 0) ^ mask;
+  }
+  return mutated;
+}
+
+/**
+ * The mutation arm (PBT-03, G2): a valid metadata sample with 1-4 byte flips, a
+ * truncation to any length 0..n-1, or 1-64 appended bytes. `planted` holds only
+ * the canaries still present verbatim in the mutated bytes, so the absence check
+ * cannot demand the removal of a canary the mutation already destroyed.
+ */
+function buildMutationArm(): fc.Arbitrary<QualificationSample> {
   return fc
-    .constantFrom(...refusals)
-    .chain((refusal) => fc.constantFrom(...byRefusal.get(refusal)!))
-    .map(toHostileSample);
+    .tuple(jpegQualificationMetadataArbitrary(), mutationOperationArbitrary)
+    .map(([base, operation]): QualificationSample => {
+      const bytes = applyMutation(base.bytes, operation);
+      return {
+        id: `mutation-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
+        bytes,
+        expected: "any",
+        arm: "mutation",
+        planted: base.planted.filter((item) =>
+          bytes.includes(Buffer.from(item.canary, "ascii")),
+        ),
+        options: base.options,
+        plantedJfif: false,
+        plantedAdobe: false,
+      };
+    });
 }
 
 export function jpegQualificationArbitrary(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 10, arbitrary: buildMetadataArm() },
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 7, arbitrary: buildHostileArm() },
+    { weight: 3, arbitrary: buildMutationArm() },
   );
 }
 
@@ -1180,7 +1271,7 @@ export function jpegQualificationArbitrary(): fc.Arbitrary<QualificationSample> 
 export function jpegQualificationArbitraryWithoutMetadataArm(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 7, arbitrary: buildHostileArm() },
+    { weight: 3, arbitrary: buildMutationArm() },
   );
 }
 
