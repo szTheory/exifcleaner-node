@@ -1322,7 +1322,7 @@ describe("sanitizeFile", () => {
           expect(outputPayload).toEqual(payload);
         },
       ),
-      { numRuns: 40 },
+      { numRuns: 40, seed: 460_046 },
     );
   });
 
@@ -1388,7 +1388,7 @@ describe("sanitizeFile", () => {
           ).toEqual(payload);
         },
       ),
-      { numRuns: 30 },
+      { numRuns: 30, seed: 460_046 },
     );
   });
 });

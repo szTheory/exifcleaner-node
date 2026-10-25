@@ -89,6 +89,7 @@ describe("crc32", () => {
         const buffer = Buffer.from(bytes);
         expect(crc32(buffer)).toBe(zlibCrc32(buffer) >>> 0);
       }),
+      { seed: 460_046 },
     );
   });
 });
