@@ -60,6 +60,7 @@ import { heifFile } from "./builder.js";
 import {
   downloadGate,
   firstSurvivingWindow,
+  isMetadataItem,
   RESIDUE_WINDOW,
   survivingPayloadDigests,
   tracerRecords,
@@ -935,6 +936,49 @@ export function pureCopySanitize(format: IsobmffBrand): typeof sanitizeFile {
   };
 }
 
+/**
+ * A strip-but-corrupt `sanitizeFile` stand-in (PBT-02): the real sanitizer, then one byte of the
+ * first surviving item's first extent flipped (XOR 0xff) at that extent's middle, found with the
+ * suite's own inventory walker. The offset lies strictly inside item payload data -- never in a
+ * box header, an `iloc` entry or `ftyp` -- so the file still parses and the only property that can
+ * notice is payload identity. `corrupted.count` counts the files it altered.
+ */
+export function corruptingSanitize(
+  corrupted: { count: number } = { count: 0 },
+): typeof sanitizeFile {
+  return async (options) => {
+    const outcome = await sanitizeFile(options);
+    if (!outcome.ok) return outcome;
+    const bytes = await readFile(options.destinationPath);
+    const offset = middleOfFirstSurvivingExtent(bytes);
+    if (offset === undefined) return outcome;
+    const mutated = Buffer.from(bytes);
+    mutated[offset] = (mutated[offset] ?? 0) ^ 0xff;
+    await writeFile(options.destinationPath, mutated);
+    corrupted.count += 1;
+    return outcome;
+  };
+}
+
+/** The file offset of the middle byte of the first surviving (non-metadata) item's first extent,
+ * or undefined when no such item has a non-empty extent in the file's own data. */
+export function middleOfFirstSurvivingExtent(
+  bytes: Buffer,
+): number | undefined {
+  const inventory = inventoryIsobmff(bytes);
+  for (const item of inventory.items) {
+    const [extent] = item.extents;
+    if (isMetadataItem(item) || extent === undefined || extent.length === 0)
+      continue;
+    const start =
+      item.constructionMethod === 1
+        ? (inventory.idat?.offset ?? 0) + item.baseOffset + extent.offset
+        : item.baseOffset + extent.offset;
+    return start + Math.floor(extent.length / 2);
+  }
+  return undefined;
+}
+
 function isobmffGeneratorSources(format: IsobmffBrand): readonly string[] {
   return [
     "tests/isobmff-support/generator.ts",
@@ -1255,6 +1299,78 @@ export function defineIsobmffPropertySuite(
       },
       DRILL_TIMEOUT_MS,
     );
+
+    describe("strip-but-corrupt drill (PBT-02)", () => {
+      const standard = isobmffArmSampleArbitrary(config.format).filter(
+        (armSample) => !armSample.arms.includes("hazard"),
+      );
+
+      it(
+        "strip-but-corrupt sanitizer turns the suite red (PBT-02)",
+        async () => {
+          const corrupted = { count: 0 };
+          const result = await fc.check(
+            fc.asyncProperty(standard, async (armSample) => {
+              await checkIsobmffArmSample(
+                armSample,
+                config.extension,
+                corruptingSanitize(corrupted),
+                new Set<IsobmffProperty>(["payloads"]),
+              );
+            }),
+            DRILL_PARAMS,
+          );
+          expect(corrupted.count).toBeGreaterThan(0);
+          expect(result.failed).toBe(true);
+          expect(String(result.errorInstance)).toContain(
+            PROPERTY_MESSAGES.payloads,
+          );
+        },
+        DRILL_TIMEOUT_MS,
+      );
+
+      it("a corrupted destination still parses, and one byte inside the first surviving extent is the only difference", async () => {
+        const [armSample] = fc.sample(standard, {
+          seed: ISOBMFF_FC_SEED,
+          numRuns: 1,
+        });
+        if (armSample === undefined) throw new Error("generator gave nothing");
+        const clean = await sanitizeBytes(
+          armSample.sample.bytes,
+          config.extension,
+          DEFAULT_PRESERVATION,
+        );
+        const corrupted = { count: 0 };
+        const altered = await sanitizeBytes(
+          armSample.sample.bytes,
+          config.extension,
+          DEFAULT_PRESERVATION,
+          corruptingSanitize(corrupted),
+        );
+        if (!clean.ok || !altered.ok) throw new Error("expected success");
+        expect(corrupted.count).toBe(1);
+        const differing = [...clean.output.keys()].filter(
+          (index) => clean.output[index] !== altered.output[index],
+        );
+        expect(altered.output.length).toBe(clean.output.length);
+        expect(differing).toEqual([middleOfFirstSurvivingExtent(clean.output)]);
+        await withSampleWorkspace(
+          `source${config.extension}`,
+          `sanitized${config.extension}`,
+          altered.output,
+          async ({ sourcePath }) => {
+            const handle = await open(sourcePath, "r");
+            try {
+              await expect(
+                parseIsobmff(handle, altered.output.length),
+              ).resolves.toBeDefined();
+            } finally {
+              await handle.close();
+            }
+          },
+        );
+      });
+    });
 
     describe("pure-copy drill: each metadata property turns red on its own", () => {
       const standIn = pureCopySanitize(config.format);
