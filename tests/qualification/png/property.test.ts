@@ -15,7 +15,7 @@ import {
   createOrientationExif,
   parseExif,
 } from "../../../src/metadata/exif.js";
-import { PngStructureError, parsePng } from "../../../src/png/chunks.js";
+import { PngStructureError, crc32, parsePng } from "../../../src/png/chunks.js";
 import { ok } from "../../../src/result.js";
 import { png, pngChunk } from "../../fixtures.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
@@ -143,6 +143,7 @@ const PRESERVATION_MESSAGES = Object.freeze({
     "checkSample: requested pHYs resolution chunk is missing from the output",
   resolutionBytes:
     "checkSample: preserved pHYs resolution bytes differ from the source",
+  payloadIdentity: "checkSample: IDAT bytes differ from the source",
 } as const);
 
 /** Source mtime/atime seeded before every success sample sanitizes (D-20 timestamps). */
@@ -223,7 +224,10 @@ async function checkSample(
         }
 
         // IDAT data bytes are identical.
-        expect(pngIdatData(output)).toEqual(pngIdatData(sample.bytes));
+        expect(
+          pngIdatData(output),
+          PRESERVATION_MESSAGES.payloadIdentity,
+        ).toEqual(pngIdatData(sample.bytes));
 
         const sourceChunks = readPngChunkRecords(sample.bytes);
         const outputChunks = readPngChunkRecords(output);
@@ -687,6 +691,98 @@ describe("replayable PNG qualification properties", () => {
     expect(String(result.errorInstance)).toContain(
       INVARIANT_MESSAGES.untypedParserThrow,
     );
+  });
+
+  describe("strip-but-corrupt drill (PBT-02)", () => {
+    let corrupted = 0;
+    /**
+     * Real sanitizer, then the middle byte of the first IDAT chunk's data is
+     * flipped (XOR 0xff) and that chunk's CRC is recomputed over type plus data.
+     * The offset is deterministic and strictly inside the data region, so the
+     * length, type and CRC fields stay valid, the corrupted file still parses, and
+     * the drill can only go red on payload identity.
+     */
+    const corruptingSanitize: typeof sanitizeFile = async (options) => {
+      const outcome = await sanitizeFile(options);
+      if (!outcome.ok) return outcome;
+      const mutated = Buffer.from(await readFile(options.destinationPath));
+      let offset = 8;
+      while (offset + 12 <= mutated.length) {
+        const length = mutated.readUInt32BE(offset);
+        const type = mutated.toString("ascii", offset + 4, offset + 8);
+        if (type === "IDAT" && length > 0) {
+          const dataOffset = offset + 8;
+          const index = dataOffset + Math.floor(length / 2);
+          mutated[index] = (mutated[index] ?? 0) ^ 0xff;
+          mutated.writeUInt32BE(
+            crc32(
+              mutated.subarray(offset + 4, offset + 8),
+              mutated.subarray(dataOffset, dataOffset + length),
+            ),
+            dataOffset + length,
+          );
+          await writeFile(options.destinationPath, mutated);
+          corrupted += 1;
+          return outcome;
+        }
+        offset += 12 + length;
+      }
+      return outcome;
+    };
+
+    it("strip-but-corrupt sanitizer turns the suite red (PBT-02)", async () => {
+      const before = corrupted;
+      const result = await fc.check(
+        fc.asyncProperty(
+          pngQualificationArbitrary().filter(
+            (sample) => sample.expected === "success",
+          ),
+          async (sample) => {
+            await checkSample(sample, corruptingSanitize);
+          },
+        ),
+        { seed: 460_046, numRuns: 200, endOnFailure: true },
+      );
+      expect(corrupted).toBeGreaterThan(before);
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.payloadIdentity,
+      );
+      expect(String(result.errorInstance)).not.toContain("EXIFCLEANER-CANARY-");
+    });
+
+    it("the corrupted destination still parses, so red can only be payload identity", async () => {
+      const [sample] = fc.sample(
+        pngQualificationArbitrary().filter(
+          (candidate) => candidate.expected === "success",
+        ),
+        { seed: 460_046, numRuns: 1 },
+      );
+      await withSampleWorkspace(
+        "source.png",
+        "output.png",
+        sample!.bytes,
+        async ({ sourcePath, destinationPath }) => {
+          const before = corrupted;
+          await corruptingSanitize({
+            sourcePath,
+            destinationPath,
+            ...sample!.options,
+          });
+          expect(corrupted).toBe(before + 1);
+          const output = await readFile(destinationPath);
+          expect(pngIdatData(output)).not.toEqual(pngIdatData(sample!.bytes));
+          const handle = await open(destinationPath, "r");
+          try {
+            await expect(
+              parsePng(handle, output.length),
+            ).resolves.toBeDefined();
+          } finally {
+            await handle.close();
+          }
+        },
+      );
+    });
   });
 
   describe("negative controls (PNG)", () => {
