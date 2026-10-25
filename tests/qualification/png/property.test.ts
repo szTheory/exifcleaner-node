@@ -698,8 +698,15 @@ describe("replayable PNG qualification properties", () => {
       config.seed === 460_046
     ) {
       assertFloors(counters, PNG_FIXED_SEED_FLOORS);
+      // WR-04: the hostile fixtures are fixed examples, so the full sweep counts exactly
+      // all of them; a deleted or generator-filtered fixture must fail here.
+      expect(counters["arm:hostile"]).toBe(PNG_HOSTILE_EXAMPLES.length);
     }
   }, 30_000);
+
+  it("pins the fixed hostile example count to 26 (WR-04)", () => {
+    expect(PNG_HOSTILE_EXAMPLES.length).toBe(26);
+  });
 
   it("slot distribution (fc.statistics, PBT-01)", () => {
     const config = resolveReplayConfig(process.env);

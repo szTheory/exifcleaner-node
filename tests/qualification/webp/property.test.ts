@@ -438,8 +438,15 @@ describe("replayable WebP qualification properties", () => {
     // no floor — floors only bind the full fixed-seed 200-run sweep (D-20).
     if (config.path === undefined && config.numRuns === 200) {
       assertFloors(counters, FIXED_SEED_FLOORS);
+      // WR-04: the hostile fixtures are fixed examples, so the full sweep counts exactly
+      // all of them; a deleted or generator-filtered fixture must fail here.
+      expect(counters["arm:hostile"]).toBe(WEBP_HOSTILE_EXAMPLES.length);
     }
   }, 30_000);
+
+  it("pins the fixed hostile example count to 13 (WR-04)", () => {
+    expect(WEBP_HOSTILE_EXAMPLES.length).toBe(13);
+  });
 
   it("slot distribution (fc.statistics, PBT-01)", () => {
     const config = resolveReplayConfig(process.env);
