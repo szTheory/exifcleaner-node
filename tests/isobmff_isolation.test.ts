@@ -39,6 +39,13 @@ interface IsolationRule {
    * specifier imported as a *value* is still forbidden (see the negative control below).
    */
   readonly allowedTypeOnlySpecifierSubstrings?: readonly string[];
+  /**
+   * 66-16 WR-06: specifier substrings that are allowed as a *value* import even though they match
+   * `forbiddenSpecifierSubstrings`. `qualification-suites.ts` uses it for its two PBT-03 totality
+   * imports only (`src/isobmff/parse.js`, `src/isobmff/errors.js`); any other `src/isobmff/` module
+   * (the box tables, refusals, the plan builder) stays forbidden.
+   */
+  readonly allowedSpecifierSubstrings?: readonly string[];
 }
 
 /**
@@ -100,6 +107,17 @@ export const ISOLATION_RULES: readonly IsolationRule[] = [
   {
     fileName: "spec-lists.ts",
     forbiddenSpecifierSubstrings: ["src/isobmff/", "builder", "test-handler"],
+  },
+  // 66-16 WR-06: qualification-suites.ts may import exactly the engine's parseIsobmff and
+  // IsobmffStructureError (the PBT-03 parser-totality check); every other engine fact must come
+  // from the independent inventory and the closed lists in docs/isobmff.md.
+  {
+    fileName: "qualification-suites.ts",
+    forbiddenSpecifierSubstrings: ["src/isobmff/"],
+    allowedSpecifierSubstrings: [
+      "src/isobmff/parse.js",
+      "src/isobmff/errors.js",
+    ],
   },
 ];
 
@@ -165,6 +183,11 @@ export function isolationViolations(
     for (const occurrence of importSpecifiers(file.source)) {
       if (
         !isForbidden(occurrence.specifier, rule.forbiddenSpecifierSubstrings)
+      ) {
+        continue;
+      }
+      if (
+        isAllowedTypeOnly(occurrence.specifier, rule.allowedSpecifierSubstrings)
       ) {
         continue;
       }
@@ -420,6 +443,41 @@ describe("isolationViolations() negative controls (synthetic sources)", () => {
       },
     ]);
     expect(violations).toEqual([]);
+  });
+});
+
+describe("qualification-suites.ts isolation rule (66-16 WR-06) negative controls", () => {
+  it("the two PBT-03 totality imports are allowed", () => {
+    expect(
+      isolationViolations([
+        {
+          path: "qualification-suites.ts",
+          source:
+            'import { IsobmffStructureError } from "../../src/isobmff/errors.js";\nimport { parseIsobmff } from "../../src/isobmff/parse.js";\n',
+        },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("any other src/isobmff/ module is a violation", () => {
+    expect(
+      isolationViolations([
+        {
+          path: "qualification-suites.ts",
+          source:
+            'import { TOP_LEVEL_ALLOWLIST } from "../../src/isobmff/boxes.js";\nimport { planIsobmff } from "../../src/isobmff/plan.js";\n',
+        },
+      ]),
+    ).toEqual([
+      {
+        path: "qualification-suites.ts",
+        specifier: "../../src/isobmff/boxes.js",
+      },
+      {
+        path: "qualification-suites.ts",
+        specifier: "../../src/isobmff/plan.js",
+      },
+    ]);
   });
 });
 
