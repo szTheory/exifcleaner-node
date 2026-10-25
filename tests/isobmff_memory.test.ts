@@ -278,7 +278,7 @@ function runChild(fixture: string, capMode: CapMode): ChildResult {
 // highest measured capped-run peak and at or below 0.6x the lowest measured uncapped-run peak
 // among the RSS-discriminating controls (no-meta, no-count, no-buffered), with headroom on both
 // sides.
-export const ISOBMFF_MEMORY_RSS_CEILING_BYTES = 256 * 1024 * 1024;
+export const ISOBMFF_MEMORY_RSS_CEILING_BYTES = 192 * 1024 * 1024;
 
 describe("child RSS harness unit sanity", () => {
   it("an idle child (no fixture) reports maxRssBytes between 16 MiB and 256 MiB", () => {
