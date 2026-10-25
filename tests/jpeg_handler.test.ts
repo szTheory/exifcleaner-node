@@ -2,7 +2,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { classifyFallback, sanitizeFile } from "../dist/index.js";
+import { classifyFallback, sanitizeFile } from "../src/index.js";
 import {
   iccProfileV4,
   jpegAdobe,
@@ -23,8 +23,8 @@ import {
  * End-to-end proof that a JPEG travels the whole native path (57-05's
  * architectural tracer): magic selection, admission through the 57-03/57-04
  * codec, the D-01 closed rule, output plan, write, re-parse verification and
- * publication -- through the public API, against the built `dist/index.js`
- * (mirrors tests/png_handler.test.ts's dist-import convention).
+ * publication -- through the public API, against `src/index.js`
+ * (mirrors the src-import convention of tests/png_handler.test.ts).
  */
 
 const directories: string[] = [];
