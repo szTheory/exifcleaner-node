@@ -157,8 +157,6 @@ export const PENDING_REPOINT: readonly string[] = Object.freeze([
   "tests/qualification/jpeg/parser.test.ts",
   "tests/qualification/jpeg/property.test.ts",
   "tests/qualification/jpeg/tracer.test.ts",
-  "tests/qualification/kit/corpus.test.ts",
-  "tests/qualification/kit/corpus.ts",
   "tests/qualification/png/golden.test.ts",
   "tests/qualification/png/oracles.test.ts",
   "tests/qualification/png/parser.test.ts",

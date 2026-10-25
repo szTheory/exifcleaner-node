@@ -7,7 +7,7 @@ import {
   getCapabilities,
   inspectFile,
   sanitizeFile,
-} from "../../../dist/index.js";
+} from "../../../src/index.js";
 import type { MetadataEntry, NativeFormat } from "../../../src/types.js";
 
 const CORPUS_ROOT = fileURLToPath(new URL("../../corpus/", import.meta.url));
