@@ -341,9 +341,10 @@ export interface PngSampleOptions {
 export interface QualificationSample {
   readonly id: string;
   readonly bytes: Buffer;
+  /** "any" (mutation arm, zero-byte example): success or any typed refusal is admitted. */
   readonly expected:
-    "success" | PngStructureError["kind"] | "unsupported-feature";
-  readonly arm: "metadata" | "no-metadata" | "hostile";
+    "success" | "any" | PngStructureError["kind"] | "unsupported-feature";
+  readonly arm: "metadata" | "no-metadata" | "hostile" | "mutation";
   readonly planted: readonly PlantedCanary<PngMetadataKind>[];
   readonly options: PngSampleOptions;
   /** The EXIF orientation value planted alongside an eXIf canary, when any. */
@@ -1060,7 +1061,7 @@ export const validGrammarCases: readonly PngValidGrammarCase[] = Object.freeze([
   { id: "screenshot-shaped", bytes: screenshotShapedPng() },
 ]);
 
-/** The hostile arm of `pngQualificationArbitrary` (Task 2): every hostile
+/** A hostile fixture as a property sample (see `PNG_HOSTILE_EXAMPLES`): every hostile
  * mutation case whose materialization is not sparse (a sparse case's real
  * on-disk bytes would not reproduce its own declared refusal from a plain
  * in-memory sample, since fast-check samples never get truncated). */
@@ -1078,43 +1079,99 @@ function toHostileSample(item: PngHostileMutationCase): QualificationSample {
 }
 
 /**
- * Picks a category uniformly first, then a case within it, instead of
- * picking uniformly across all 26 cases. `decompression-bomb` (4 cases) and
- * `crc` (3 cases) would otherwise draw ~4x as often as the single-case
- * categories (`unknown-critical`, `length-overflow`, `duplicate-singleton`,
- * `idot-adjacency`, `registered-unmeasured`, `metadata-limit`), which
- * measured well under the D-20 20-run re-measure threshold for those
- * categories on more than one of the four fixed seeds (Task 3).
- * `trailing-data` grew from 2 to 4 cases in 56-14 (CR-01's iCCP, zTXt and
- * compressed-iTXt trailing-bytes fixtures joined the pre-existing
- * `trailing-byte-after-iend` case), still no re-weighting needed.
- * `chunk-count` (56-16, CR-02) adds a 13th category (idat-flood,
- * ancillary-flood), diluting every other category's per-run draw frequency
- * from 1/12 to 1/13 -- re-measured in Task 3; see the fixed-seed
- * distribution comment in property.test.ts. Both new cases have a real
- * (non-sparse) `prefix`/`fileSize`, so neither is filtered out below.
+ * The fixed hostile fixtures, replayed first by every property run as fast-check
+ * `examples` (they count inside numRuns), plus one zero-byte sample whose outcome
+ * is any typed refusal (G2, PBT-03 totality). Every non-sparse hostile mutation
+ * case is included, so each hostile category is exercised on every run at a count
+ * equal to its case number instead of by a random category draw.
  */
-function buildHostileArm(): fc.Arbitrary<QualificationSample> {
-  const byCategory = new Map<PngHostileCategory, PngHostileMutationCase[]>();
-  for (const item of hostileMutationCases) {
-    const materialized = item.materialize();
-    if (materialized.fileSize !== materialized.prefix.length) continue;
-    const list = byCategory.get(item.category) ?? [];
-    list.push(item);
-    byCategory.set(item.category, list);
+export const PNG_HOSTILE_EXAMPLES: readonly (readonly [QualificationSample])[] =
+  Object.freeze([
+    ...hostileMutationCases.flatMap((item) => {
+      const materialized = item.materialize();
+      return materialized.fileSize === materialized.prefix.length
+        ? [[toHostileSample(item)] as const]
+        : [];
+    }),
+    [
+      {
+        id: "zero-byte",
+        bytes: Buffer.alloc(0),
+        expected: "any",
+        arm: "hostile",
+        planted: [] as PlantedCanary<PngMetadataKind>[],
+        options: NO_PRESERVATION,
+      },
+    ] as const,
+  ]);
+
+type MutationOperation =
+  | {
+      readonly kind: "flip";
+      readonly edits: readonly (readonly [number, number])[];
+    }
+  | { readonly kind: "truncate"; readonly at: number }
+  | { readonly kind: "append"; readonly bytes: Uint8Array };
+
+const mutationOperationArbitrary: fc.Arbitrary<MutationOperation> = fc.oneof(
+  fc.record({
+    kind: fc.constant("flip" as const),
+    edits: fc.array(fc.tuple(fc.nat(), fc.integer({ min: 1, max: 255 })), {
+      minLength: 1,
+      maxLength: 4,
+    }),
+  }),
+  fc.record({ kind: fc.constant("truncate" as const), at: fc.nat() }),
+  fc.record({
+    kind: fc.constant("append" as const),
+    bytes: fc.uint8Array({ minLength: 1, maxLength: 64 }),
+  }),
+);
+
+function applyMutation(source: Buffer, operation: MutationOperation): Buffer {
+  if (operation.kind === "truncate") {
+    return Buffer.from(source.subarray(0, operation.at % source.length));
   }
-  const categories = [...byCategory.keys()];
+  if (operation.kind === "append") {
+    return Buffer.concat([source, Buffer.from(operation.bytes)]);
+  }
+  const mutated = Buffer.from(source);
+  for (const [offset, mask] of operation.edits) {
+    const index = offset % mutated.length;
+    mutated[index] = (mutated[index] ?? 0) ^ mask;
+  }
+  return mutated;
+}
+
+/**
+ * The mutation arm (PBT-03, G2): a valid metadata sample with 1-4 byte flips, a
+ * truncation to any length 0..n-1, or 1-64 appended trailer bytes. `planted` holds
+ * only the canaries still present verbatim in the mutated bytes, so the absence
+ * check cannot demand the removal of a canary the mutation already destroyed.
+ */
+function buildMutationArm(): fc.Arbitrary<QualificationSample> {
   return fc
-    .constantFrom(...categories)
-    .chain((category) => fc.constantFrom(...byCategory.get(category)!))
-    .map(toHostileSample);
+    .tuple(pngMetadataArbitrary(), mutationOperationArbitrary)
+    .map(([base, operation]): QualificationSample => {
+      const bytes = applyMutation(base.bytes, operation);
+      return {
+        id: `mutation-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
+        bytes,
+        expected: "any",
+        arm: "mutation",
+        planted: base.planted.filter((item) =>
+          bytes.includes(Buffer.from(item.canary, "ascii")),
+        ),
+        options: base.options,
+      };
+    });
 }
 
 export function pngQualificationArbitrary(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 10, arbitrary: buildMetadataArm() },
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 7, arbitrary: buildHostileArm() },
+    { weight: 3, arbitrary: buildMutationArm() },
   );
 }
 
@@ -1127,7 +1184,7 @@ export function pngQualificationArbitrary(): fc.Arbitrary<QualificationSample> {
 export function pngQualificationArbitraryWithoutMetadataArm(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 7, arbitrary: buildHostileArm() },
+    { weight: 3, arbitrary: buildMutationArm() },
   );
 }
 

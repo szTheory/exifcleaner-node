@@ -8,6 +8,7 @@ import {
   utimes,
   writeFile,
 } from "node:fs/promises";
+import { deflateSync, inflateSync } from "node:zlib";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../src/index.js";
@@ -37,6 +38,7 @@ import {
   resolveReplayConfig,
 } from "../kit/replay.js";
 import {
+  PNG_HOSTILE_EXAMPLES,
   pngQualificationArbitrary,
   pngQualificationArbitraryWithoutMetadataArm,
   type QualificationSample,
@@ -146,6 +148,74 @@ const PRESERVATION_MESSAGES = Object.freeze({
   payloadIdentity: "checkSample: IDAT bytes differ from the source",
 } as const);
 
+/**
+ * The metadata kinds a sample contributes to the `kind:<K>` counters: its planted
+ * kinds when it is a success sample, none otherwise. checkSample's counter keys and
+ * the fc.statistics classifier both come from here, so the two cannot disagree.
+ */
+function countedKinds(sample: QualificationSample): readonly string[] {
+  return sample.expected === "success"
+    ? [...new Set(sample.planted.map((item) => item.kind))]
+    : [];
+}
+
+/** Output limit for the test's own inflate of compressed slots (T-66-26). */
+const INFLATE_LIMIT_BYTES = 1024 * 1024;
+
+function inflateLimited(data: Buffer): Buffer | undefined {
+  try {
+    return inflateSync(data, { maxOutputLength: INFLATE_LIMIT_BYTES });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The inflated payload of every compressed metadata slot in a PNG: every zTXt, every
+ * iTXt whose compression flag is set, and the iCCP profile. Found by this test's own
+ * chunk walker, inflated with an explicit output limit; a stream that does not inflate
+ * within the limit contributes nothing (structure checks judge validity elsewhere).
+ */
+function inflatedSlotPayloads(output: Buffer): readonly Buffer[] {
+  const payloads: Buffer[] = [];
+  for (const record of readPngChunkRecords(output)) {
+    const data = record.data;
+    const keywordEnd = data.indexOf(0);
+    if (keywordEnd < 0) continue;
+    if (record.type === "zTXt" || record.type === "iCCP") {
+      const inflated = inflateLimited(data.subarray(keywordEnd + 2));
+      if (inflated !== undefined) payloads.push(inflated);
+    } else if (record.type === "iTXt" && data[keywordEnd + 1] === 1) {
+      // keyword\0 flag method language\0 translated\0 text
+      const languageEnd = data.indexOf(0, keywordEnd + 3);
+      const translatedEnd =
+        languageEnd < 0 ? -1 : data.indexOf(0, languageEnd + 1);
+      if (translatedEnd < 0) continue;
+      const inflated = inflateLimited(data.subarray(translatedEnd + 1));
+      if (inflated !== undefined) payloads.push(inflated);
+    }
+  }
+  return payloads;
+}
+
+/**
+ * The raw search of `assertCanariesAbsent` plus the same search (same label) over
+ * every inflated compressed slot, so a canary re-deflated at another level cannot
+ * hide from the raw search (PBT-01 encoding).
+ */
+function assertCanariesAbsentIncludingCompressed(
+  output: Buffer,
+  planted: readonly QualificationSample["planted"][number][],
+  preservedKinds: readonly string[],
+): void {
+  assertCanariesAbsent(output, planted, preservedKinds);
+  assertCanariesAbsent(
+    Buffer.concat(inflatedSlotPayloads(output)),
+    planted,
+    preservedKinds,
+  );
+}
+
 /** Source mtime/atime seeded before every success sample sanitizes (D-20 timestamps). */
 const SEEDED_SOURCE_TIME = new Date("2001-02-03T04:05:06.789Z");
 
@@ -191,7 +261,7 @@ async function checkSample(
         } finally {
           await source.close();
         }
-        const plantedKinds = new Set(sample.planted.map((item) => item.kind));
+        const plantedKinds = new Set(countedKinds(sample));
         for (const kind of plantedKinds) counterKeys.push(`kind:${kind}`);
         await utimes(sourcePath, SEEDED_SOURCE_TIME, SEEDED_SOURCE_TIME);
 
@@ -211,7 +281,11 @@ async function checkSample(
         const preservedKinds = preserveColorProfile ? ["iCCP"] : [];
 
         const output = await readFile(destinationPath);
-        assertCanariesAbsent(output, sample.planted, preservedKinds);
+        assertCanariesAbsentIncludingCompressed(
+          output,
+          sample.planted,
+          preservedKinds,
+        );
 
         // Validity: the output re-parses structurally.
         const destinationHandle = await open(destinationPath, "r");
@@ -317,6 +391,44 @@ async function checkSample(
         }
 
         expect(await readFile(sourcePath)).toEqual(sample.bytes);
+      } else if (sample.expected === "any") {
+        // Mutation arm and zero-byte example: success or any typed refusal is admitted.
+        const preservedKinds =
+          sample.options.preserveColorProfile &&
+          sample.planted.some((item) => item.kind === "iCCP")
+            ? ["iCCP"]
+            : [];
+        assertCanariesDistinct(sample.planted);
+        const result = await sanitize({
+          sourcePath,
+          destinationPath,
+          ...sample.options,
+        });
+        assertAdmittedOutcome(result);
+        if (result.ok) {
+          const output = await readFile(destinationPath);
+          assertCanariesAbsentIncludingCompressed(
+            output,
+            sample.planted,
+            preservedKinds,
+          );
+          const destinationHandle = await open(destinationPath, "r");
+          try {
+            await expect(
+              parsePng(destinationHandle, output.length),
+            ).resolves.toBeDefined();
+          } finally {
+            await destinationHandle.close();
+          }
+          expect(await readFile(sourcePath)).toEqual(sample.bytes);
+        } else {
+          await assertNonSuccessBlastRadius({
+            directory,
+            sourcePath,
+            sourceBytes: sample.bytes,
+          });
+          await expect(access(destinationPath)).rejects.toBeDefined();
+        }
       } else {
         const result = await sanitize({
           sourcePath,
@@ -423,38 +535,76 @@ async function checkSample(
  *                idot-adjacency 6, registered-unmeasured 4,
  *                aggregate-inflate 7, chunk-count 3
  *
- * `hostile:chunk-count`'s floor is floor(min(7, 7, 2, 3) / 2) = 1 (the D-20
- * hard minimum). `hostile:registered-unmeasured` measures 0 at seed 1, but
- * -- like every seed other than 460046 -- that seed is never asserted
- * against a floor (D-20/55-REVIEW WR-01 binds only at FC_SEED 460046); its
- * own floor (1) is satisfied at 460046 (measured 10).
+ * 66-12 re-measurement after the generator change: the fixed hostile fixtures now
+ * run first as fast-check `examples` (26 buffered cases plus a zero-byte sample, all
+ * counted inside the 200 runs, 26 as `hostile`) and a generated mutation arm (weight
+ * 3; metadata 10, no-metadata 2) replaced the random hostile arm. Each `hostile:*`
+ * counter is therefore the fixed number of fixtures in that category (the same at
+ * every seed), so those rule values are the file's own (half the minimum, rounded
+ * down, hard minimum 1); `arm:hostile` 31 -> 13 and the four `hostile:*` floors that
+ * exceeded their fixture count (unknown-critical, chunk-order, truncation,
+ * duplicate-singleton) follow the rule because the arm changed from random draws to
+ * fixed examples, not because a gate failed. Every counter that is still drawn at
+ * random keeps `max(existing floor, rule value)`: none was lowered; arm:metadata,
+ * kind:XMP, kind:eXIf, kind:private, kind:iCCP, kind:iTXt, flag:preserveOrientation,
+ * flag:preserveResolution and hostile:decompression-bomb were raised to the rule
+ * value. `arm:mutation` is new. Measured distributions at seeds 460046, 1, 2, 3:
+ *
+ *   seed 460046: metadata 118, no-metadata 27, mutation 29, hostile 26;
+ *                tEXt 36, zTXt 38, iTXt 35, iTXtCompressed 38, XMP 37,
+ *                eXIf 42, caBX 33, private 31, iCCP 41;
+ *                preserveOrientation 18, preserveColorProfile 14,
+ *                preserveResolution 18, preserveTimestamps 73
+ *   seed 1:      metadata 123, no-metadata 15, mutation 36, hostile 26;
+ *                tEXt 40, zTXt 36, iTXt 46, iTXtCompressed 45, XMP 41,
+ *                eXIf 36, caBX 36, private 39, iCCP 42;
+ *                preserveOrientation 17, preserveColorProfile 21,
+ *                preserveResolution 19, preserveTimestamps 70
+ *   seed 2:      metadata 114, no-metadata 26, mutation 34, hostile 26;
+ *                tEXt 35, zTXt 33, iTXt 43, iTXtCompressed 30, XMP 34,
+ *                eXIf 38, caBX 39, private 35, iCCP 35;
+ *                preserveOrientation 17, preserveColorProfile 19,
+ *                preserveResolution 18, preserveTimestamps 72
+ *   seed 3:      metadata 120, no-metadata 17, mutation 37, hostile 26;
+ *                tEXt 40, zTXt 33, iTXt 35, iTXtCompressed 35, XMP 36,
+ *                eXIf 35, caBX 38, private 36, iCCP 47;
+ *                preserveOrientation 18, preserveColorProfile 25,
+ *                preserveResolution 27, preserveTimestamps 62
+ *   hostile (all seeds): crc 3, unknown-critical 1, chunk-order 2, truncation 1,
+ *                trailing-data 4, apng 3, decompression-bomb 4, length-overflow 1,
+ *                duplicate-singleton 1, idot-adjacency 1, registered-unmeasured 1,
+ *                aggregate-inflate 1, chunk-count 2
+ *
+ * The statistics gate below derives each slot's minimum printed rate from these same
+ * kind floors (floor / 200), so a rate and its counter floor cannot drift apart.
  */
 const PNG_FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze({
-  "arm:metadata": 52,
+  "arm:metadata": 57,
   "arm:no-metadata": 11,
-  "arm:hostile": 31,
+  "arm:hostile": 13,
+  "arm:mutation": 14,
   "kind:tEXt": 17,
-  "kind:zTXt": 14,
-  "kind:iTXt": 16,
+  "kind:zTXt": 16,
+  "kind:iTXt": 17,
   "kind:iTXtCompressed": 16,
-  "kind:XMP": 13,
-  "kind:eXIf": 16,
+  "kind:XMP": 17,
+  "kind:eXIf": 17,
   "kind:caBX": 16,
-  "kind:private": 14,
-  "kind:iCCP": 16,
-  "flag:preserveOrientation": 7,
+  "kind:private": 15,
+  "kind:iCCP": 17,
+  "flag:preserveOrientation": 8,
   "flag:preserveColorProfile": 8,
-  "flag:preserveResolution": 7,
+  "flag:preserveResolution": 9,
   "flag:preserveTimestamps": 33,
   "hostile:crc": 1,
-  "hostile:unknown-critical": 3,
-  "hostile:chunk-order": 3,
-  "hostile:truncation": 2,
+  "hostile:unknown-critical": 1,
+  "hostile:chunk-order": 1,
+  "hostile:truncation": 1,
   "hostile:trailing-data": 2,
   "hostile:apng": 2,
-  "hostile:decompression-bomb": 1,
+  "hostile:decompression-bomb": 2,
   "hostile:length-overflow": 1,
-  "hostile:duplicate-singleton": 2,
+  "hostile:duplicate-singleton": 1,
   "hostile:idot-adjacency": 1,
   "hostile:registered-unmeasured": 1,
   "hostile:aggregate-inflate": 1,
@@ -488,12 +638,20 @@ describe("replayable PNG qualification properties", () => {
         countSample(counters, keys);
       },
     );
-    await checkWithReplay(property, config, {
-      format: "png",
-      toBytes: (sample) => sample.bytes,
-      generatorSources: PNG_GENERATOR_SOURCES,
-    });
+    // The fixed hostile fixtures run first as examples and count inside numRuns.
+    await checkWithReplay(
+      property,
+      Object.assign({}, config, {
+        examples: PNG_HOSTILE_EXAMPLES.map((example) => [...example]),
+      }),
+      {
+        format: "png",
+        toBytes: (sample) => sample.bytes,
+        generatorSources: PNG_GENERATOR_SOURCES,
+      },
+    );
     expect(executed).toBe(config.numRuns);
+    console.info(`png counters: ${JSON.stringify(counters)}`);
     // A focused FC_PATH replay (config.path defined) or a non-default FC_RUNS
     // has no floor -- floors only bind the full fixed-seed 200-run sweep at
     // the fixed seed itself (D-20, 55-REVIEW WR-01).
@@ -693,6 +851,30 @@ describe("replayable PNG qualification properties", () => {
     );
   });
 
+  it("untyped parser throw on a mutation sample turns the suite red (PBT-03 totality)", async () => {
+    let calls = 0;
+    const stub: typeof parsePng = async () => {
+      calls += 1;
+      throw new Error("untyped parser stub");
+    };
+    const result = await fc.check(
+      fc.asyncProperty(
+        pngQualificationArbitrary().filter(
+          (sample) => sample.arm === "mutation",
+        ),
+        async (sample) => {
+          await checkSample(sample, sanitizeFile, stub);
+        },
+      ),
+      { seed: 460_046, numRuns: 200, endOnFailure: true },
+    );
+    expect(calls).toBeGreaterThan(0);
+    expect(result.failed).toBe(true);
+    expect(String(result.errorInstance)).toContain(
+      INVARIANT_MESSAGES.untypedParserThrow,
+    );
+  });
+
   describe("strip-but-corrupt drill (PBT-02)", () => {
     let corrupted = 0;
     /**
@@ -855,6 +1037,60 @@ describe("replayable PNG qualification properties", () => {
       expect(String(result.errorInstance)).toContain("EXIFCLEANER-CANARY-");
     });
 
+    it("re-deflated zTXt canary is still caught (PBT-01 encoding)", async () => {
+      // The fake runs the real sanitizer, then inserts one zTXt chunk (correct CRC)
+      // holding a planted canary deflated at level 9, which is not a raw substring.
+      let calls = 0;
+      let rawVisible = 0;
+      const redeflatedLeak: typeof sanitizeFile = async (options) => {
+        const outcome = await sanitizeFile(options);
+        if (!outcome.ok) return outcome;
+        const source = readPngChunkRecords(await readFile(options.sourcePath));
+        const canary = source
+          .filter((item) => item.type === "zTXt")
+          .map((item) => item.data.toString("latin1"))
+          .map((text) => /EXIFCLEANER-CANARY-zTXt-[0-9a-f]{32}/.exec(text)?.[0])
+          .find((found) => found !== undefined);
+        if (canary === undefined) return outcome;
+        const leaked = Buffer.concat([
+          Buffer.from("Leak\0\0", "latin1"),
+          deflateSync(Buffer.from(canary, "latin1"), { level: 9 }),
+        ]);
+        await rewritePngDestination(options.destinationPath, (records) => [
+          ...records.slice(0, -1),
+          { type: "zTXt", data: leaked },
+          ...records.slice(-1),
+        ]);
+        calls += 1;
+        if (
+          (await readFile(options.destinationPath)).includes(
+            Buffer.from(canary, "ascii"),
+          )
+        )
+          rawVisible += 1;
+        return outcome;
+      };
+      const arbitrary = pngQualificationArbitrary().filter(
+        (sample) =>
+          sample.expected === "success" &&
+          sample.planted.some((item) => item.kind === "zTXt"),
+      );
+      const result = await fc.check(
+        fc.asyncProperty(arbitrary, async (sample) => {
+          await checkSample(sample, redeflatedLeak);
+        }),
+        REPLAY_PARAMS,
+      );
+      expect(calls).toBeGreaterThan(0);
+      // The control is meaningful only when the raw search cannot see the canary.
+      expect(rawVisible).toBe(0);
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain("kind zTXt");
+      expect(String(result.errorInstance)).toContain(
+        "was found in the sanitized output",
+      );
+    });
+
     it("(3) fails a generator with no metadata arm on the floor assertion itself", () => {
       const samples = fc.sample(pngQualificationArbitraryWithoutMetadataArm(), {
         seed: 460_046,
@@ -972,9 +1208,11 @@ describe("replayable PNG qualification properties", () => {
           postCommitResidue: { state: "none" },
         });
       };
-      const arbitrary = pngQualificationArbitrary().filter(
-        (sample) =>
-          sample.arm === "hostile" && sample.hostileCategory === "crc",
+      // The hostile fixtures are examples, not a random arm: draw from the crc ones.
+      const arbitrary = fc.constantFrom(
+        ...PNG_HOSTILE_EXAMPLES.map(([sample]) => sample).filter(
+          (sample) => sample.hostileCategory === "crc",
+        ),
       );
       const result = await fc.check(
         fc.asyncProperty(arbitrary, async (sample) => {
