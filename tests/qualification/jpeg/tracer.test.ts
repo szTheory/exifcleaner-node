@@ -6,7 +6,7 @@ import {
   classifyFallback,
   getCapabilities,
   sanitizeFile,
-} from "../../../dist/index.js";
+} from "../../../src/index.js";
 import {
   JPEG_MAX_ICC_SEGMENTS,
   JPEG_REFUSAL_KIND,

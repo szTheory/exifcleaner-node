@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { sanitizeFile } from "../../../dist/index.js";
+import { sanitizeFile } from "../../../src/index.js";
 import { createMinimalExif } from "../../../src/metadata/exif.js";
 import { parseJpeg } from "../../../src/jpeg/parser.js";
 import { ok } from "../../../src/result.js";

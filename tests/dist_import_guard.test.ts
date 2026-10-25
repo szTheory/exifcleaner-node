@@ -152,11 +152,6 @@ export const ALLOWLIST: Readonly<
 export const PENDING_REPOINT: readonly string[] = Object.freeze([
   "tests/isobmff-support/corpus-tracer.ts",
   "tests/isobmff-support/qualification-suites.ts",
-  "tests/qualification/jpeg/golden.test.ts",
-  "tests/qualification/jpeg/oracles.test.ts",
-  "tests/qualification/jpeg/parser.test.ts",
-  "tests/qualification/jpeg/property.test.ts",
-  "tests/qualification/jpeg/tracer.test.ts",
   "tests/qualification/png/golden.test.ts",
   "tests/qualification/png/oracles.test.ts",
   "tests/qualification/png/parser.test.ts",
