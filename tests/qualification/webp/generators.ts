@@ -70,8 +70,9 @@ export interface WebpSampleOptions {
 export interface QualificationSample {
   readonly id: string;
   readonly bytes: Buffer;
-  readonly expected: "success" | WebpStructureError["kind"];
-  readonly arm: "metadata" | "no-metadata" | "hostile";
+  /** "any" (mutation arm, zero-byte example): success or any typed refusal is admitted. */
+  readonly expected: "success" | "any" | WebpStructureError["kind"];
+  readonly arm: "metadata" | "no-metadata" | "hostile" | "mutation";
   readonly planted: readonly PlantedCanary<WebpMetadataKind>[];
   readonly options: WebpSampleOptions;
   /** The EXIF orientation value planted alongside an EXIF canary, when any. */
@@ -510,30 +511,110 @@ function buildNoMetadataArm(): fc.Arbitrary<QualificationSample> {
     }));
 }
 
-function buildHostileArm(): fc.Arbitrary<QualificationSample> {
-  const bufferedHostile = hostileMutationCases.flatMap((item) => {
+/**
+ * The fixed hostile fixtures, replayed first by every property run as fast-check
+ * `examples` (they count inside numRuns), plus one zero-byte sample whose
+ * outcome is any typed refusal (G2, PBT-03 totality).
+ */
+export const WEBP_HOSTILE_EXAMPLES: readonly (readonly [
+  QualificationSample,
+])[] = Object.freeze([
+  ...hostileMutationCases.flatMap((item) => {
     const materialized = item.materialize();
     return materialized.fileSize === materialized.prefix.length
       ? [
-          {
-            id: item.id,
-            bytes: materialized.prefix,
-            expected: item.expectedKind,
-            arm: "hostile" as const,
-            planted: [] as PlantedCanary<WebpMetadataKind>[],
-            options: NO_PRESERVATION,
-          } satisfies QualificationSample,
+          [
+            {
+              id: item.id,
+              bytes: materialized.prefix,
+              expected: item.expectedKind,
+              arm: "hostile" as const,
+              planted: [] as PlantedCanary<WebpMetadataKind>[],
+              options: NO_PRESERVATION,
+            } satisfies QualificationSample,
+          ] as const,
         ]
       : [];
-  });
-  return fc.constantFrom(...bufferedHostile);
+  }),
+  [
+    {
+      id: "zero-byte",
+      bytes: Buffer.alloc(0),
+      expected: "any",
+      arm: "hostile",
+      planted: [],
+      options: NO_PRESERVATION,
+    },
+  ] as const,
+]);
+
+type MutationOperation =
+  | {
+      readonly kind: "flip";
+      readonly edits: readonly (readonly [number, number])[];
+    }
+  | { readonly kind: "truncate"; readonly at: number }
+  | { readonly kind: "append"; readonly bytes: Uint8Array };
+
+const mutationOperationArbitrary: fc.Arbitrary<MutationOperation> = fc.oneof(
+  fc.record({
+    kind: fc.constant("flip" as const),
+    edits: fc.array(fc.tuple(fc.nat(), fc.integer({ min: 1, max: 255 })), {
+      minLength: 1,
+      maxLength: 4,
+    }),
+  }),
+  fc.record({ kind: fc.constant("truncate" as const), at: fc.nat() }),
+  fc.record({
+    kind: fc.constant("append" as const),
+    bytes: fc.uint8Array({ minLength: 1, maxLength: 64 }),
+  }),
+);
+
+function applyMutation(source: Buffer, operation: MutationOperation): Buffer {
+  if (operation.kind === "truncate") {
+    return Buffer.from(source.subarray(0, operation.at % source.length));
+  }
+  if (operation.kind === "append") {
+    return Buffer.concat([source, Buffer.from(operation.bytes)]);
+  }
+  const mutated = Buffer.from(source);
+  for (const [offset, mask] of operation.edits) {
+    const index = offset % mutated.length;
+    mutated[index] = (mutated[index] ?? 0) ^ mask;
+  }
+  return mutated;
+}
+
+/**
+ * The mutation arm (PBT-03, G2): a valid metadata sample with 1-4 byte flips, a
+ * truncation to any length 0..n-1, or 1-64 appended trailer bytes. `planted` holds
+ * only the canaries still present verbatim in the mutated bytes, so the absence check
+ * cannot demand the removal of a canary the mutation already destroyed.
+ */
+function buildMutationArm(): fc.Arbitrary<QualificationSample> {
+  return fc
+    .tuple(webpMetadataArbitrary(), mutationOperationArbitrary)
+    .map(([base, operation]): QualificationSample => {
+      const bytes = applyMutation(base.bytes, operation);
+      return {
+        id: `mutation-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
+        bytes,
+        expected: "any",
+        arm: "mutation",
+        planted: base.planted.filter((item) =>
+          bytes.includes(Buffer.from(item.canary, "ascii")),
+        ),
+        options: base.options,
+      };
+    });
 }
 
 export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 6, arbitrary: buildMetadataArm() },
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 2, arbitrary: buildHostileArm() },
+    { weight: 2, arbitrary: buildMutationArm() },
   );
 }
 
@@ -545,6 +626,6 @@ export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
 export function qualificationArbitraryWithoutMetadataArm(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 2, arbitrary: buildHostileArm() },
+    { weight: 2, arbitrary: buildMutationArm() },
   );
 }

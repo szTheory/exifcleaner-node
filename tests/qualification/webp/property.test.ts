@@ -39,6 +39,7 @@ import {
   resolveReplayConfig,
 } from "../kit/replay.js";
 import {
+  WEBP_HOSTILE_EXAMPLES,
   qualificationArbitrary,
   qualificationArbitraryWithoutMetadataArm,
   webpMetadataArbitrary,
@@ -219,6 +220,40 @@ async function checkSample(
         }
 
         expect(await readFile(sourcePath)).toEqual(sample.bytes);
+      } else if (sample.expected === "any") {
+        // Mutation arm and zero-byte example: success or any typed refusal is admitted.
+        const preservedKinds =
+          sample.options.preserveColorProfile &&
+          sample.planted.some((item) => item.kind === "ICCP")
+            ? ["ICCP"]
+            : [];
+        assertCanariesDistinct(sample.planted);
+        const result = await sanitize({
+          sourcePath,
+          destinationPath,
+          ...sample.options,
+        });
+        assertAdmittedOutcome(result);
+        if (result.ok) {
+          const output = await readFile(destinationPath);
+          assertCanariesAbsent(output, sample.planted, preservedKinds);
+          const destinationHandle = await open(destinationPath, "r");
+          try {
+            await expect(
+              parseWebp(destinationHandle, output.length),
+            ).resolves.toBeDefined();
+          } finally {
+            await destinationHandle.close();
+          }
+          expect(await readFile(sourcePath)).toEqual(sample.bytes);
+        } else {
+          await assertNonSuccessBlastRadius({
+            directory,
+            sourcePath,
+            sourceBytes: sample.bytes,
+          });
+          await expect(access(destinationPath)).rejects.toBeDefined();
+        }
       } else {
         const result = await sanitize({
           sourcePath,
@@ -266,27 +301,36 @@ async function rewriteDestination(
 /**
  * Absolute per-arm/per-flag floors (D-20), measured over 200 runs each at seed
  * 460046 and at seeds 1, 2 and 3 (FC_SEED). Each floor is half the minimum measured
- * count across those four seeds, rounded down, with a hard minimum of 10 (none hit
- * it here). The metadata-arm weight was raised from 4 to 6 after an initial
- * measurement put `flag:preserveOrientation` at 18 on seed 2 — below the 20
- * re-measure threshold — per D-20 ("raise weight and re-measure", never lower the
- * floor). Measured distributions (arm/kind/flag -> count), 200 runs each:
+ * count across those four seeds, rounded down, with a hard minimum of 10. The
+ * metadata-arm weight was raised from 4 to 6 in an earlier measurement per D-20
+ * ("raise weight and re-measure", never lower the floor).
  *
- *   seed 460046: metadata 116, no-metadata 40, hostile 44; EXIF 66, XMP 76, ICCP 65;
- *                preserveOrientation 33, preserveColorProfile 33, preserveTimestamps 75
- *   seed 1:      metadata 121, no-metadata 32, hostile 47; EXIF 76, XMP 71, ICCP 65;
- *                preserveOrientation 32, preserveColorProfile 34, preserveTimestamps 82
- *   seed 2:      metadata 115, no-metadata 40, hostile 45; EXIF 62, XMP 74, ICCP 59;
- *                preserveOrientation 31, preserveColorProfile 26, preserveTimestamps 87
- *   seed 3:      metadata 119, no-metadata 34, hostile 47; EXIF 65, XMP 79, ICCP 69;
- *                preserveOrientation 34, preserveColorProfile 40, preserveTimestamps 83
+ * 66-11 re-measurement after the generator change: the fixed hostile fixtures now
+ * run first as fast-check `examples` (13 of the 200 runs, all counted as `hostile`)
+ * and a generated mutation arm (weight 2) replaced the constantFrom hostile arm.
+ * `arm:hostile` is therefore the fixed example count (13), so its rule value is the
+ * hard minimum 10 (it was 22 when it was drawn at random). Every other counter's
+ * rule value (half of the minimum below, rounded down: EXIF 29, XMP 33, ICCP 27,
+ * no-metadata 16, mutation 19, preserveOrientation 14, preserveColorProfile 11,
+ * preserveTimestamps 35) is at or below the floor already set, so those floors are
+ * kept: none was lowered. Measured distributions (arm/kind/flag -> count):
+ *
+ *   seed 460046: metadata 111, no-metadata 37, mutation 39, hostile 13; EXIF 63, XMP 73,
+ *                ICCP 63; preserveOrientation 31, preserveColorProfile 31, preserveTimestamps 71
+ *   seed 1:      metadata 111, no-metadata 32, mutation 44, hostile 13; EXIF 69, XMP 66,
+ *                ICCP 61; preserveOrientation 28, preserveColorProfile 32, preserveTimestamps 75
+ *   seed 2:      metadata 109, no-metadata 38, mutation 40, hostile 13; EXIF 59, XMP 70,
+ *                ICCP 54; preserveOrientation 31, preserveColorProfile 22, preserveTimestamps 83
+ *   seed 3:      metadata 111, no-metadata 32, mutation 44, hostile 13; EXIF 59, XMP 73,
+ *                ICCP 67; preserveOrientation 30, preserveColorProfile 39, preserveTimestamps 78
  */
 const FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze({
   "kind:EXIF": 31,
   "kind:XMP": 35,
   "kind:ICCP": 29,
   "arm:no-metadata": 16,
-  "arm:hostile": 22,
+  "arm:hostile": 10,
+  "arm:mutation": 19,
   "flag:preserveOrientation": 15,
   "flag:preserveColorProfile": 13,
   "flag:preserveTimestamps": 37,
@@ -319,12 +363,20 @@ describe("replayable WebP qualification properties", () => {
         countSample(counters, keys);
       },
     );
-    await checkWithReplay(property, config, {
-      format: "webp",
-      toBytes: (sample) => sample.bytes,
-      generatorSources: WEBP_GENERATOR_SOURCES,
-    });
+    // The fixed hostile fixtures run first as examples and count inside numRuns.
+    await checkWithReplay(
+      property,
+      Object.assign({}, config, {
+        examples: WEBP_HOSTILE_EXAMPLES.map((example) => [...example]),
+      }),
+      {
+        format: "webp",
+        toBytes: (sample) => sample.bytes,
+        generatorSources: WEBP_GENERATOR_SOURCES,
+      },
+    );
     expect(executed).toBe(config.numRuns);
+    console.info(`webp counters: ${JSON.stringify(counters)}`);
     // A focused FC_PATH replay (config.path defined) or a non-default FC_RUNS has
     // no floor — floors only bind the full fixed-seed 200-run sweep (D-20).
     if (config.path === undefined && config.numRuns === 200) {
@@ -522,6 +574,28 @@ describe("replayable WebP qualification properties", () => {
         qualificationArbitrary().filter(
           (sample) => sample.expected === "success",
         ),
+        async (sample) => {
+          await checkSample(sample, sanitizeFile, stub);
+        },
+      ),
+      { seed: 460_046, numRuns: 200, endOnFailure: true },
+    );
+    expect(calls).toBeGreaterThan(0);
+    expect(result.failed).toBe(true);
+    expect(String(result.errorInstance)).toContain(
+      INVARIANT_MESSAGES.untypedParserThrow,
+    );
+  });
+
+  it("untyped parser throw on a mutation sample turns the suite red (PBT-03 totality)", async () => {
+    let calls = 0;
+    const stub: typeof parseWebp = async () => {
+      calls += 1;
+      throw new Error("untyped parser stub");
+    };
+    const result = await fc.check(
+      fc.asyncProperty(
+        qualificationArbitrary().filter((sample) => sample.arm === "mutation"),
         async (sample) => {
           await checkSample(sample, sanitizeFile, stub);
         },
