@@ -69,6 +69,7 @@ import { isobmffRawColorProfileSha256 } from "./differential.js";
 import {
   buildNonHazardFile,
   GENERATOR_TRUNCATED_ICC,
+  isMetadataSample,
   ISOBMFF_ARM_FLOORS,
   isobmffArmSampleArbitrary,
   type IsobmffArmSample,
@@ -741,11 +742,19 @@ export function defineIsobmffParserSuite(
 /** One metadata property the suite asserts per sample. Each has its own failure message, so the
  * pure-copy drill can show each one turning red on its own. */
 export type IsobmffProperty =
-  "exif-canary" | "xmp-canary" | "icc-absent" | "icc-identical" | "payloads";
+  | "exif-canary"
+  | "xmp-canary"
+  | "icc-canary"
+  | "c2pa-canary"
+  | "icc-absent"
+  | "icc-identical"
+  | "payloads";
 
 export const ALL_ISOBMFF_PROPERTIES: ReadonlySet<IsobmffProperty> = new Set([
   "exif-canary",
   "xmp-canary",
+  "icc-canary",
+  "c2pa-canary",
   "icc-absent",
   "icc-identical",
   "payloads",
@@ -754,6 +763,8 @@ export const ALL_ISOBMFF_PROPERTIES: ReadonlySet<IsobmffProperty> = new Set([
 export const PROPERTY_MESSAGES: Readonly<Record<IsobmffProperty, string>> = {
   "exif-canary": "EXIF canary survives",
   "xmp-canary": "XMP canary survives",
+  "icc-canary": "ICC canary survives with preserveColorProfile false",
+  "c2pa-canary": "C2PA canary survives",
   "icc-absent": "ICC profile survives with preserveColorProfile false",
   "icc-identical":
     "ICC profile is not byte-identical with preserveColorProfile true",
@@ -773,7 +784,7 @@ function canaryOf(
 /** Fails with `PROPERTY_MESSAGES[property]` when a planted canary of `kind` occurs in the output
  * bytes (raw search, `assertCanariesAbsent`) or anywhere in the output's `inspectFile` result. */
 function checkCanaryAbsent(
-  property: "exif-canary" | "xmp-canary",
+  property: "exif-canary" | "xmp-canary" | "icc-canary" | "c2pa-canary",
   kind: IsobmffMetadataKind,
   planted: readonly PlantedCanary<string>[],
   output: Buffer,
@@ -873,6 +884,34 @@ export async function checkIsobmffArmSample(
     if (!outcome.ok)
       throw new Error(`${label}: unexpected refusal ${outcome.code}`);
     const { output, inspection } = outcome;
+    // ICC and C2PA canaries exist only on samples that carry them (a `prof`/`rICC` colr, a C2PA
+    // `uuid` box). The ICC canary is checked only when the profile is not preserved: with
+    // preserveColorProfile true the profile is copied byte for byte (`icc-identical`).
+    if (
+      properties.has("icc-canary") &&
+      !preservation.preserveColorProfile &&
+      canaryOf(sample.planted, "ICC").length > 0
+    )
+      checkCanaryAbsent(
+        "icc-canary",
+        "ICC",
+        sample.planted,
+        output,
+        inspection,
+        label,
+      );
+    if (
+      properties.has("c2pa-canary") &&
+      canaryOf(sample.planted, "C2PA").length > 0
+    )
+      checkCanaryAbsent(
+        "c2pa-canary",
+        "C2PA",
+        sample.planted,
+        output,
+        inspection,
+        label,
+      );
     if (properties.has("exif-canary"))
       checkCanaryAbsent(
         "exif-canary",
@@ -1026,8 +1065,11 @@ function iccControlConfig(
     includeGridIdat: false,
     includeThmb: false,
     includeAuxl: false,
+    includeC2pa: false,
     exifCanary: `EXIFCLEANER-CANARY-EXIF-${"11".repeat(16)}`,
     xmpCanary: `EXIFCLEANER-CANARY-XMP-${"22".repeat(16)}`,
+    iccCanary: `EXIFCLEANER-CANARY-ICC-${"33".repeat(16)}`,
+    c2paCanary: `EXIFCLEANER-CANARY-C2PA-${"44".repeat(16)}`,
   };
 }
 
@@ -1302,7 +1344,7 @@ export function defineIsobmffPropertySuite(
 
     describe("strip-but-corrupt drill (PBT-02)", () => {
       const standard = isobmffArmSampleArbitrary(config.format).filter(
-        (armSample) => !armSample.arms.includes("hazard"),
+        isMetadataSample,
       );
 
       it(
@@ -1375,7 +1417,7 @@ export function defineIsobmffPropertySuite(
     describe("pure-copy drill: each metadata property turns red on its own", () => {
       const standIn = pureCopySanitize(config.format);
       const nonHazard = isobmffArmSampleArbitrary(config.format).filter(
-        (armSample) => !armSample.arms.includes("hazard"),
+        isMetadataSample,
       );
       const drill = async (
         property: IsobmffProperty,
@@ -1409,6 +1451,28 @@ export function defineIsobmffPropertySuite(
       it(
         "pure-copy: the XMP-canary property fails",
         () => drill("xmp-canary", nonHazard),
+        DRILL_TIMEOUT_MS,
+      );
+      it(
+        "pure-copy: the ICC-canary property fails with preserveColorProfile false",
+        () =>
+          drill(
+            "icc-canary",
+            nonHazard.filter((armSample) =>
+              armSample.sample.planted.some((item) => item.kind === "ICC"),
+            ),
+          ),
+        DRILL_TIMEOUT_MS,
+      );
+      it(
+        "pure-copy: the C2PA-canary property fails",
+        () =>
+          drill(
+            "c2pa-canary",
+            nonHazard.filter((armSample) =>
+              armSample.arms.includes("c2pa-uuid"),
+            ),
+          ),
         DRILL_TIMEOUT_MS,
       );
       it(
