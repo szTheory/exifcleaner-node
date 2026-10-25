@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   access,
   copyFile,
@@ -26,16 +25,24 @@ import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
 import { assertFloors, countSample, createCounters } from "../kit/floors.js";
 import { pngIdatData } from "./oracles.js";
 import {
+  bytesDigest,
+  checkWithReplay,
   formatReplayRecord,
+  parseReplayRecord,
+  resolveReplayConfig,
+} from "../kit/replay.js";
+import {
   pngQualificationArbitrary,
   pngQualificationArbitraryWithoutMetadataArm,
-  resolveReplayConfig,
   type QualificationSample,
 } from "./generators.js";
 
-function digest(value: Buffer): string {
-  return createHash("sha256").update(value).digest("hex");
-}
+const PNG_GENERATOR_SOURCES = [
+  "tests/qualification/png/generators.ts",
+  "tests/qualification/kit/generators.ts",
+  "tests/fixtures.ts",
+  "tests/isobmff-support/builder.ts",
+];
 
 interface PngChunkRecord {
   readonly type: string;
@@ -434,6 +441,7 @@ describe("replayable PNG qualification properties", () => {
       seed: 460_046,
       path: "0:1",
       numRuns: 1,
+      endOnFailure: true,
     });
     expect(() => resolveReplayConfig({ FC_PATH: "../../private" })).toThrow(
       "FC_PATH",
@@ -453,21 +461,11 @@ describe("replayable PNG qualification properties", () => {
         countSample(counters, keys);
       },
     );
-    const result = await fc.check(property, config);
-    if (result.failed) {
-      throw new Error(
-        JSON.stringify(
-          formatReplayRecord({
-            seed: config.seed,
-            path: result.counterexamplePath,
-            fixtureSha256: digest(
-              Buffer.from(JSON.stringify(result.counterexample)),
-            ),
-            faultPlan: null,
-          }),
-        ),
-      );
-    }
+    await checkWithReplay(property, config, {
+      format: "png",
+      bytesOf: (sample) => sample.bytes,
+      generatorSources: PNG_GENERATOR_SOURCES,
+    });
     expect(executed).toBe(config.numRuns);
     // A focused FC_PATH replay (config.path defined) or a non-default FC_RUNS
     // has no floor -- floors only bind the full fixed-seed 200-run sweep at
@@ -506,22 +504,56 @@ describe("replayable PNG qualification properties", () => {
     expect(replay.counterexample).toEqual(first.counterexample);
     expect(
       formatReplayRecord({
+        format: "png",
         seed: 460_046,
         path: replayPath,
-        fixtureSha256: "a".repeat(64),
+        bytes: Buffer.from("fixture"),
+        generatorSources: PNG_GENERATOR_SOURCES,
         faultPlan: { operation: "stage-sync", occurrence: 1, error: "EIO" },
       }),
     ).toMatchObject({
-      version: 1,
+      version: 2,
+      format: "png",
       seed: 460_046,
       path: replayPath,
       platform: process.platform,
       architecture: process.arch,
       nodeVersion: process.version,
-      fixtureSha256: "a".repeat(64),
+      fixtureSha256: bytesDigest(Buffer.from("fixture")),
       replayCommand: expect.stringContaining("FC_PATH="),
     });
   });
+
+  it("prints a record whose replay yields the same bytes on the real arbitrary", async () => {
+    const forced = () =>
+      fc.asyncProperty(pngQualificationArbitrary(), async (sample) => {
+        if (sample.bytes.length >= 100) throw new Error("forced");
+      });
+    let message = "";
+    try {
+      await checkWithReplay(forced(), resolveReplayConfig({}), {
+        format: "png",
+        bytesOf: (sample) => sample.bytes,
+        generatorSources: PNG_GENERATOR_SOURCES,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    const record = parseReplayRecord(message);
+    const replayed = await fc.check(
+      forced(),
+      resolveReplayConfig({
+        FC_SEED: String(record.seed),
+        FC_PATH: record.path,
+      }),
+    );
+    expect(replayed.failed).toBe(true);
+    const sample = replayed.counterexample?.[0] as QualificationSample;
+    expect(bytesDigest(sample.bytes)).toBe(record.fixtureSha256);
+    expect(bytesDigest(sample.bytes)).not.toBe(
+      `${record.fixtureSha256.startsWith("a") ? "b" : "a"}${record.fixtureSha256.slice(1)}`,
+    );
+  }, 60_000);
 
   describe("negative controls (PNG)", () => {
     const REPLAY_PARAMS = {
