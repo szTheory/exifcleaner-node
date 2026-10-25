@@ -277,6 +277,24 @@ describe("child RSS harness unit sanity", () => {
     expect(result.maxRssBytes).toBeGreaterThanOrEqual(16 * 1024 * 1024);
     expect(result.maxRssBytes).toBeLessThanOrEqual(256 * 1024 * 1024);
   });
+
+  it("an idle child spawned while the parent holds 384 MiB of touched ballast reports its own peak (inheritance excluded)", () => {
+    let ballast: Buffer | undefined = Buffer.alloc(384 * 1024 * 1024, 1);
+    // Armed check: the control only means something while the worker really is that large.
+    expect(process.memoryUsage().rss).toBeGreaterThanOrEqual(384 * 1024 * 1024);
+    const result = runChild("--idle", "default");
+    // Keep the ballast live across the spawn (freed ballast does not inherit), then drop it.
+    const live = ballast[0];
+    ballast = undefined;
+    expect(live).toBe(1);
+    expect(result.outcome).toBe("admitted");
+    const measuredMiB = result.maxRssBytes / (1024 * 1024);
+    expect(
+      result.maxRssBytes,
+      `measured ${measuredMiB.toFixed(2)} MiB, idle band max ${(256).toFixed(2)} MiB`,
+    ).toBeLessThanOrEqual(256 * 1024 * 1024);
+    expect(result.maxRssBytes).toBeGreaterThanOrEqual(16 * 1024 * 1024);
+  });
 });
 
 describe("ISOBMFF memory caps (BMF-05, D-23): oversized meta end to end under default caps", () => {
