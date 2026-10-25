@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { sanitizeFile } from "../../../dist/index.js";
+import { sanitizeFile } from "../../../src/index.js";
 import { encodePngChunk } from "../../../src/png/chunks.js";
 import {
   COLOUR_FIXTURES,

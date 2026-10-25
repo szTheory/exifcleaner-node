@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { sanitizeFile } from "../../../dist/index.js";
+import { sanitizeFile } from "../../../src/index.js";
 import {
   createOrientationExif,
   parseExif,
@@ -139,7 +139,7 @@ const SEEDED_SOURCE_TIME = new Date("2001-02-03T04:05:06.789Z");
 /**
  * Per-sample body of the fixed-seed property (extracted so Task 3 reuses it
  * against injected fakes). `sanitize` is injectable and defaults to the real
- * dist `sanitizeFile` -- every negative control replaces it with a
+ * src `sanitizeFile` -- every negative control replaces it with a
  * deliberately broken fake.
  *
  * Returns the counter keys this sample contributes to the absolute per-arm/
@@ -561,7 +561,7 @@ describe("replayable PNG qualification properties", () => {
     });
 
     it("(2) fails a sanitizer that keeps zTXt", async () => {
-      // The fake calls the real dist sanitizeFile, then appends the
+      // The fake calls the real src sanitizeFile, then appends the
       // source's zTXt chunk(s) back onto the genuine output, so the canary
       // check runs against real sanitizer output that leaks exactly one
       // metadata kind.
