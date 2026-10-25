@@ -30,6 +30,12 @@ import {
   loadCorpusRecord,
   materializeRecord,
 } from "../qualification/kit/corpus.js";
+import {
+  bytesDigest,
+  checkWithReplay,
+  parseReplayRecord,
+  resolveReplayConfig,
+} from "../qualification/kit/replay.js";
 import { heifFile } from "./builder.js";
 import {
   downloadGate,
@@ -876,68 +882,19 @@ export function pureCopySanitize(format: IsobmffBrand): typeof sanitizeFile {
   };
 }
 
-function boundedInteger(
-  value: string | undefined,
-  fallback: number,
-  maximum: number,
-  label: string,
-): number {
-  if (value === undefined) return fallback;
-  if (!/^\d+$/u.test(value)) throw new Error(`${label} must be an integer`);
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > maximum)
-    throw new Error(`${label} is outside its admitted range`);
-  return parsed;
+function isobmffGeneratorSources(format: IsobmffBrand): readonly string[] {
+  return [
+    "tests/isobmff-support/generator.ts",
+    "tests/isobmff-support/builder.ts",
+    "tests/qualification/kit/generators.ts",
+    `tests/qualification/${format}/generators.ts`,
+  ];
 }
 
-/** FC_SEED / FC_RUNS / FC_PATH, as the PNG property suite reads them: a focused run defaults to
- * 200 runs, and an FC_PATH replay to one. */
-export function resolveIsobmffReplayConfig(environment: NodeJS.ProcessEnv): {
-  readonly seed: number;
-  readonly numRuns: number;
-  readonly path?: string;
-  readonly endOnFailure?: true;
-} {
-  const seed = boundedInteger(
-    environment.FC_SEED,
-    ISOBMFF_FC_SEED,
-    0x7fff_ffff,
-    "FC_SEED",
-  );
-  const path = environment.FC_PATH;
-  const numRuns = boundedInteger(
-    environment.FC_RUNS,
-    path === undefined ? ISOBMFF_FC_RUNS : 1,
-    ISOBMFF_FC_RUNS,
-    "FC_RUNS",
-  );
-  if (path !== undefined && !/^\d+(?::\d+)*$/u.test(path))
-    throw new Error("FC_PATH is not a bounded fast-check replay path");
-  // An FC_PATH replay runs exactly that sample and stops: no further shrinking.
-  return {
-    seed,
-    numRuns,
-    ...(path === undefined ? {} : { path, endOnFailure: true as const }),
-  };
-}
-
-/** The replay record a failing run prints: seed, path and the exact command that replays it. */
-export function formatIsobmffReplayRecord(
-  format: IsobmffBrand,
-  seed: number,
-  path: string | null,
-  error: unknown,
-): string {
-  if (path === null || !/^\d+(?::\d+)*$/u.test(path))
-    throw new Error("Replay identity is incomplete");
-  return JSON.stringify({
-    seed,
-    path,
-    nodeVersion: process.version,
-    platform: process.platform,
-    architecture: process.arch,
-    replayCommand: `FC_SEED=${seed} FC_PATH=${path} npm test -- tests/qualification/${format}/property.test.ts`,
-    error: String(error),
+function resolveIsobmffReplayConfig(environment: NodeJS.ProcessEnv) {
+  return resolveReplayConfig(environment, {
+    seed: ISOBMFF_FC_SEED,
+    numRuns: ISOBMFF_FC_RUNS,
   });
 }
 
@@ -1014,7 +971,7 @@ export function defineIsobmffPropertySuite(
         const replay = resolveIsobmffReplayConfig(process.env);
         const counters = createCounters();
         let executed = 0;
-        const result = await fc.check(
+        await checkWithReplay(
           fc.asyncProperty(
             isobmffArmSampleArbitrary(config.format),
             async (armSample) => {
@@ -1030,16 +987,12 @@ export function defineIsobmffPropertySuite(
             },
           ),
           replay,
+          {
+            format: config.format,
+            bytesOf: (armSample) => armSample.sample.bytes,
+            generatorSources: isobmffGeneratorSources(config.format),
+          },
         );
-        if (result.failed)
-          throw new Error(
-            formatIsobmffReplayRecord(
-              config.format,
-              replay.seed,
-              result.counterexamplePath,
-              result.errorInstance,
-            ),
-          );
         expect(executed).toBe(replay.numRuns);
         console.info(
           `${config.format} arm counts: ${JSON.stringify(counters)}`,
@@ -1055,7 +1008,7 @@ export function defineIsobmffPropertySuite(
       PROPERTY_RUN_TIMEOUT_MS,
     );
 
-    it("an injected failure prints its seed and path, and replaying that path reproduces exactly that sample", () => {
+    it("an injected failure prints its seed and path, and replaying that path reproduces exactly that sample", async () => {
       const arbitrary = isobmffArmSampleArbitrary(config.format);
       const injected = (armSample: IsobmffArmSample): boolean =>
         !armSample.arms.includes("auxl");
@@ -1064,35 +1017,47 @@ export function defineIsobmffPropertySuite(
         numRuns: ISOBMFF_FC_RUNS,
       });
       if (!first.failed) throw new Error("Expected the injected failure");
-      const record = JSON.parse(
-        formatIsobmffReplayRecord(
-          config.format,
-          ISOBMFF_FC_SEED,
-          first.counterexamplePath,
-          first.errorInstance,
-        ),
-      ) as { readonly path: string; readonly replayCommand: string };
+      let message = "";
+      try {
+        await checkWithReplay(
+          fc.asyncProperty(arbitrary, async (armSample) => {
+            if (!injected(armSample)) throw new Error("injected");
+          }),
+          resolveIsobmffReplayConfig({}),
+          {
+            format: config.format,
+            bytesOf: (armSample) => armSample.sample.bytes,
+            generatorSources: isobmffGeneratorSources(config.format),
+          },
+        );
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      const record = parseReplayRecord(message);
       expect(record.replayCommand).toContain(
-        `FC_SEED=${ISOBMFF_FC_SEED} FC_PATH=${record.path} npm test -- tests/qualification/${config.format}/property.test.ts`,
+        `FC_SEED=${record.seed} FC_PATH=${record.path} npm test -- tests/qualification/${config.format}/property.test.ts`,
       );
       let replayed = 0;
-      const replay = fc.check(
-        fc.property(arbitrary, (armSample) => {
+      const replay = await fc.check(
+        fc.asyncProperty(arbitrary, async (armSample) => {
           replayed += 1;
-          return injected(armSample);
+          if (!injected(armSample)) throw new Error("injected");
         }),
         resolveIsobmffReplayConfig({
-          FC_SEED: String(ISOBMFF_FC_SEED),
+          FC_SEED: String(record.seed),
           FC_PATH: record.path,
         }),
       );
       expect(replay.failed).toBe(true);
       expect(replayed).toBe(1);
-      const [expected] = first.counterexample ?? [];
       const [actual] = replay.counterexample ?? [];
-      expect(
-        actual?.sample.bytes.equals(expected?.sample.bytes ?? Buffer.alloc(0)),
-      ).toBe(true);
+      expect(bytesDigest(actual?.sample.bytes ?? Buffer.alloc(0))).toBe(
+        record.fixtureSha256,
+      );
+      const flipped = `${record.fixtureSha256.startsWith("a") ? "b" : "a"}${record.fixtureSha256.slice(1)}`;
+      expect(bytesDigest(actual?.sample.bytes ?? Buffer.alloc(0))).not.toBe(
+        flipped,
+      );
     });
 
     it("a truncated ICC (the old 4-byte stand-in) with preserveColorProfile true still refuses", async () => {
