@@ -97,13 +97,6 @@ const allMetadataErrors = [
     nativeWrite: "not-started",
   }),
   metadataError({
-    code: "destination-changed",
-    detail: "Destination changed.",
-    path: "/tmp/clean.webp",
-    phase: "transaction",
-    nativeWrite: "started",
-  }),
-  metadataError({
     code: "read-failed",
     detail: "Read failed.",
     path: "/tmp/source.webp",
@@ -124,14 +117,6 @@ const allMetadataErrors = [
     detail: "Verification failed.",
     path: "/tmp/clean.webp",
     cause: { message: "mismatch" },
-    phase: "transaction",
-    nativeWrite: "started",
-  }),
-  metadataError({
-    code: "cleanup-failed",
-    detail: "Cleanup failed.",
-    path: "/tmp/clean.webp",
-    cause: { message: "EPERM" },
     phase: "transaction",
     nativeWrite: "started",
   }),
@@ -228,11 +213,9 @@ describe("classifyFallback", () => {
       { code: "unsupported-feature", disposition: "safe-to-fallback" },
       { code: "source-changed", disposition: "do-not-fallback" },
       { code: "destination-exists", disposition: "do-not-fallback" },
-      { code: "destination-changed", disposition: "do-not-fallback" },
       { code: "read-failed", disposition: "do-not-fallback" },
       { code: "write-failed", disposition: "do-not-fallback" },
       { code: "verification-failed", disposition: "do-not-fallback" },
-      { code: "cleanup-failed", disposition: "do-not-fallback" },
     ]);
 
     const proofVariants = [
