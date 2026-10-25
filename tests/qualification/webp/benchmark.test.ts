@@ -4616,13 +4616,6 @@ describe("paired benchmark admission", () => {
   });
 
   it("uses the fixed v2 robust block estimator at every threshold in both drift directions", () => {
-    const nextUp = (value: number): number => {
-      const bytes = new ArrayBuffer(8);
-      const view = new DataView(bytes);
-      view.setFloat64(0, value);
-      view.setBigUint64(0, view.getBigUint64(0) + 1n);
-      return view.getFloat64(0);
-    };
     const stable = Array<number>(15).fill(100);
     const clustered = [
       100, 100, 100, 100, 100, 100, 100, 100, 110, 110, 110, 110, 110, 110, 110,

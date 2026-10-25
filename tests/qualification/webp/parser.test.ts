@@ -46,7 +46,7 @@ async function parsePath(path: string, fileSize: number) {
 describe("grammar-aware WebP qualification cases", () => {
   it.each(validGrammarCases)(
     "parses $id with distinct ordered chunk boundaries",
-    async ({ id, bytes }) => {
+    async ({ bytes }) => {
       const directory = await mkdtemp(join(tmpdir(), "webp-valid-case-"));
       const path = join(directory, "source.webp");
       try {
