@@ -273,7 +273,7 @@ describe("replayable WebP qualification properties", () => {
     );
     await checkWithReplay(property, config, {
       format: "webp",
-      bytesOf: (sample) => sample.bytes,
+      toBytes: (sample) => sample.bytes,
       generatorSources: WEBP_GENERATOR_SOURCES,
     });
     expect(executed).toBe(config.numRuns);
@@ -358,7 +358,7 @@ describe("replayable WebP qualification properties", () => {
     try {
       await checkWithReplay(forced(), resolveReplayConfig({}), {
         format: "webp",
-        bytesOf: (sample) => sample.bytes,
+        toBytes: (sample) => sample.bytes,
         generatorSources: WEBP_GENERATOR_SOURCES,
       });
     } catch (error) {

@@ -559,7 +559,7 @@ describe("replayable JPEG qualification properties", () => {
     );
     await checkWithReplay(property, config, {
       format: "jpeg",
-      bytesOf: (sample) => sample.bytes,
+      toBytes: (sample) => sample.bytes,
       generatorSources: JPEG_GENERATOR_SOURCES,
     });
     expect(executed).toBe(config.numRuns);
@@ -619,7 +619,7 @@ describe("replayable JPEG qualification properties", () => {
     try {
       await checkWithReplay(forced(), resolveReplayConfig({}), {
         format: "jpeg",
-        bytesOf: (sample) => sample.bytes,
+        toBytes: (sample) => sample.bytes,
         generatorSources: JPEG_GENERATOR_SOURCES,
       });
     } catch (error) {

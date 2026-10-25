@@ -11,10 +11,6 @@ import { fileURLToPath } from "node:url";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
-  qualificationArbitrary,
-  type QualificationSample,
-} from "../webp/generators.js";
-import {
   REPLAY_RECORD_KEYS,
   bytesDigest,
   checkWithReplay,
@@ -32,33 +28,33 @@ const PACKAGE_ROOT = resolve(
   "..",
 );
 const SOURCES = [
-  "tests/qualification/webp/generators.ts",
+  "tests/qualification/kit/replay.ts",
   "tests/qualification/kit/generators.ts",
 ];
 
-/** Forces a failure on the real WebP arbitrary and returns the printed record. */
+/** Forces a failure on the given arbitrary and returns the printed record. */
 async function forceFailure<T>(
   arbitrary: fc.Arbitrary<T>,
   options: {
     readonly format: string;
-    readonly bytesOf: (value: T) => Uint8Array;
+    readonly toBytes: (value: T) => Uint8Array;
     readonly sources: readonly string[];
     readonly threshold?: number;
   },
 ): Promise<{ record: ReplayRecord; arbitrary: fc.Arbitrary<T> }> {
-  const threshold = options.threshold ?? 100;
+  const threshold = options.threshold ?? 1;
   const config = resolveReplayConfig({ FC_SEED: "460046" });
   let message = "";
   try {
     await checkWithReplay(
       fc.asyncProperty(arbitrary, async (value) => {
-        if (options.bytesOf(value).length >= threshold)
+        if (options.toBytes(value).length >= threshold)
           throw new Error("forced failure");
       }),
       config,
       {
         format: options.format,
-        bytesOf: options.bytesOf,
+        toBytes: options.toBytes,
         generatorSources: options.sources,
       },
     );
@@ -72,8 +68,8 @@ async function forceFailure<T>(
 async function replayDigest<T>(
   record: ReplayRecord,
   arbitrary: fc.Arbitrary<T>,
-  bytesOf: (value: T) => Uint8Array,
-  threshold = 100,
+  toBytes: (value: T) => Uint8Array,
+  threshold = 1,
 ): Promise<string> {
   const config = resolveReplayConfig({
     FC_SEED: String(record.seed),
@@ -81,12 +77,12 @@ async function replayDigest<T>(
   });
   const result = await fc.check(
     fc.asyncProperty(arbitrary, async (value) => {
-      if (bytesOf(value).length >= threshold) throw new Error("forced failure");
+      if (toBytes(value).length >= threshold) throw new Error("forced failure");
     }),
     config,
   );
   expect(result.failed).toBe(true);
-  return bytesDigest(bytesOf(result.counterexample?.[0] as T));
+  return bytesDigest(toBytes(result.counterexample?.[0] as T));
 }
 
 describe("resolveReplayConfig", () => {
@@ -153,7 +149,7 @@ describe("generatorHash", () => {
 
 describe("formatReplayRecord", () => {
   const base = {
-    format: "webp",
+    format: "sample",
     seed: 460_046,
     path: "0:1",
     bytes: Buffer.from("abc"),
@@ -230,29 +226,31 @@ function relativeFromRoot(absolute: string): string {
   ].join("/");
 }
 
-describe("WebP record reproduction (PBT-04)", () => {
-  const bytesOf = (sample: QualificationSample) => sample.bytes;
+describe("record reproduction on a format-neutral arbitrary (PBT-04)", () => {
+  const toBytes = (sample: Buffer) => sample;
+  const sampleArbitrary = () =>
+    fc.uint8Array({ minLength: 0, maxLength: 400 }).map((a) => Buffer.from(a));
 
   it("replays the printed seed and path to the same bytes", async () => {
-    const { record, arbitrary } = await forceFailure(qualificationArbitrary(), {
-      format: "webp",
-      bytesOf,
+    const { record, arbitrary } = await forceFailure(sampleArbitrary(), {
+      format: "sample",
+      toBytes,
       sources: SOURCES,
     });
-    expect(await replayDigest(record, arbitrary, bytesOf)).toBe(
+    expect(await replayDigest(record, arbitrary, toBytes)).toBe(
       record.fixtureSha256,
     );
   }, 30_000);
 
   it("fails the comparison when one digest character is flipped", async () => {
-    const { record, arbitrary } = await forceFailure(qualificationArbitrary(), {
-      format: "webp",
-      bytesOf,
+    const { record, arbitrary } = await forceFailure(sampleArbitrary(), {
+      format: "sample",
+      toBytes,
       sources: SOURCES,
     });
     const flipped = record.fixtureSha256.startsWith("a")
       ? `b${record.fixtureSha256.slice(1)}`
       : `a${record.fixtureSha256.slice(1)}`;
-    expect(await replayDigest(record, arbitrary, bytesOf)).not.toBe(flipped);
+    expect(await replayDigest(record, arbitrary, toBytes)).not.toBe(flipped);
   }, 30_000);
 });

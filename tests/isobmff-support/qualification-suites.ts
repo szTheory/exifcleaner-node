@@ -989,7 +989,7 @@ export function defineIsobmffPropertySuite(
           replay,
           {
             format: config.format,
-            bytesOf: (armSample) => armSample.sample.bytes,
+            toBytes: (armSample) => armSample.sample.bytes,
             generatorSources: isobmffGeneratorSources(config.format),
           },
         );
@@ -1026,7 +1026,7 @@ export function defineIsobmffPropertySuite(
           resolveIsobmffReplayConfig({}),
           {
             format: config.format,
-            bytesOf: (armSample) => armSample.sample.bytes,
+            toBytes: (armSample) => armSample.sample.bytes,
             generatorSources: isobmffGeneratorSources(config.format),
           },
         );

@@ -164,7 +164,7 @@ export function parseReplayRecord(message: string): ReplayRecord {
 
 export interface CheckWithReplayOptions<T> {
   readonly format: string;
-  readonly bytesOf: (counterexample: T) => Uint8Array;
+  readonly toBytes: (counterexample: T) => Uint8Array;
   readonly generatorSources: readonly string[];
   readonly faultPlan?: unknown;
 }
@@ -189,7 +189,7 @@ export async function checkWithReplay<T>(
         format: options.format,
         seed: config.seed,
         path: result.counterexamplePath,
-        bytes: options.bytesOf(counterexample),
+        bytes: options.toBytes(counterexample),
         generatorSources: options.generatorSources,
         faultPlan: options.faultPlan ?? null,
       }),

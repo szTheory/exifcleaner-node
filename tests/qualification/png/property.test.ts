@@ -463,7 +463,7 @@ describe("replayable PNG qualification properties", () => {
     );
     await checkWithReplay(property, config, {
       format: "png",
-      bytesOf: (sample) => sample.bytes,
+      toBytes: (sample) => sample.bytes,
       generatorSources: PNG_GENERATOR_SOURCES,
     });
     expect(executed).toBe(config.numRuns);
@@ -533,7 +533,7 @@ describe("replayable PNG qualification properties", () => {
     try {
       await checkWithReplay(forced(), resolveReplayConfig({}), {
         format: "png",
-        bytesOf: (sample) => sample.bytes,
+        toBytes: (sample) => sample.bytes,
         generatorSources: PNG_GENERATOR_SOURCES,
       });
     } catch (error) {
