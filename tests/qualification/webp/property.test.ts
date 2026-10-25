@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { sanitizeFile } from "../../../dist/index.js";
+import { sanitizeFile } from "../../../src/index.js";
 import { parseExif } from "../../../src/metadata/exif.js";
 import { validateIccForPreservation } from "../../../src/metadata/icc_admission.js";
 import { ok } from "../../../src/result.js";
@@ -62,7 +62,7 @@ const SEEDED_SOURCE_TIME = new Date("2001-02-03T04:05:06.789Z");
 
 /**
  * Per-sample body of the fixed-seed property (extracted so Task 2/3 can reuse it
- * against injected fakes). `sanitize` is injectable and defaults to the real dist
+ * against injected fakes). `sanitize` is injectable and defaults to the real src
  * `sanitizeFile` — every negative control replaces it with a deliberately broken fake.
  *
  * Returns the counter keys this sample contributes to the absolute per-arm/per-flag
@@ -386,7 +386,7 @@ describe("replayable WebP qualification properties", () => {
     });
 
     it("(2) fails a sanitizer that strips every metadata kind except XMP", async () => {
-      // The fake calls the real dist sanitizeFile, then appends the source's XMP
+      // The fake calls the real src sanitizeFile, then appends the source's XMP
       // chunk(s) back onto the genuine output, so the canary check runs against
       // real sanitizer output that leaks exactly one metadata kind (D-21 (2)).
       const xmpKeepingSanitize: typeof sanitizeFile = async (options) => {
@@ -436,7 +436,7 @@ describe("replayable WebP qualification properties", () => {
     });
 
     it("(4a) fails a sanitizer that ignores a requested color-profile preservation", async () => {
-      // The fake calls the real dist sanitizeFile but forces preserveColorProfile
+      // The fake calls the real src sanitizeFile but forces preserveColorProfile
       // to false regardless of what the caller requested. Every other option,
       // including preserveTimestamps, passes through unchanged, so the timestamp
       // expect cannot be what makes this control red (D-21 (4), WR-03 root cause).

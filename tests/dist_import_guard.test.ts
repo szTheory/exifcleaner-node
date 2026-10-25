@@ -11,7 +11,8 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const DIST_SEGMENT = /(^|[/\\])dist([/\\]|$)/;
 
 /**
- * Sorted 1-based line numbers of every string-like literal whose text names a
+ * Sorted 1-based line numbers, one per string-like literal (a line holding two
+ * literals appears twice), for every literal whose text names a
  * `dist` path segment. Comments, identifiers and regex literals never count:
  * only StringLiteral, NoSubstitutionTemplateLiteral and template parts do.
  */
@@ -25,7 +26,7 @@ export function findDistReferences(
     ts.ScriptTarget.Latest,
     true,
   );
-  const lines = new Set<number>();
+  const lines: number[] = [];
   const visit = (node: ts.Node): void => {
     if (
       ts.isStringLiteral(node) ||
@@ -38,13 +39,13 @@ export function findDistReferences(
         const { line } = sourceFile.getLineAndCharacterOfPosition(
           node.getStart(sourceFile),
         );
-        lines.add(line + 1);
+        lines.push(line + 1);
       }
     }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
-  return [...lines].sort((a, b) => a - b);
+  return lines.sort((a, b) => a - b);
 }
 
 export interface DistScanEntry {
@@ -92,7 +93,7 @@ type AllowClass =
   | "path-data"
   | "guard-self";
 
-/** Files that may keep a dist literal, with the reason. Exactness is asserted in 66-03. */
+/** Files that may keep a dist literal, with the reason. Exactness is asserted by checkAllowlist. */
 export const ALLOWLIST: Readonly<
   Record<string, { class: AllowClass; expectedLiteralCount: number }>
 > = Object.freeze({
@@ -136,7 +137,7 @@ export const ALLOWLIST: Readonly<
     class: "path-data",
     expectedLiteralCount: 11,
   },
-  // Holds 3 until 66-03 repoints its dynamic import.
+  // Two digest-contract strings; the dynamic import now names src.
   "tests/qualification/webp/benchmark.test.ts": {
     class: "path-data",
     expectedLiteralCount: 2,
@@ -148,13 +149,30 @@ export const ALLOWLIST: Readonly<
   },
 });
 
-/** Offenders not yet repointed to src. This list can only shrink. */
-export const PENDING_REPOINT: readonly string[] = Object.freeze([
-  "tests/qualification/webp/golden.test.ts",
-  "tests/qualification/webp/oracles.test.ts",
-  "tests/qualification/webp/parser.test.ts",
-  "tests/qualification/webp/property.test.ts",
-]);
+export type AllowlistShape = Readonly<
+  Record<string, { class: string; expectedLiteralCount: number }>
+>;
+
+/** Problem strings for every allowlist entry that is stale, drifted or missing. */
+export function checkAllowlist(
+  scanResult: readonly DistScanEntry[],
+  allowlist: AllowlistShape,
+): string[] {
+  const hits = new Map(scanResult.map((e) => [e.relativePath, e.lines.length]));
+  const problems: string[] = [];
+  for (const path of Object.keys(allowlist).sort()) {
+    const expected = allowlist[path]?.expectedLiteralCount;
+    const actual = hits.get(path) ?? 0;
+    if (actual === 0) {
+      problems.push(`${path}: stale allowlist entry, no dist literal found`);
+    } else if (actual !== expected) {
+      problems.push(
+        `${path}: expected ${expected} dist literals, actual ${actual}`,
+      );
+    }
+  }
+  return problems;
+}
 
 describe("findDistReferences matcher", () => {
   it.each([
@@ -204,23 +222,35 @@ describe("tracer", () => {
   });
 });
 
-describe("dist-import ratchet", () => {
-  const offenders = scanTestsForDist(packageRoot).filter(
-    (entry) => !(entry.relativePath in ALLOWLIST),
-  );
+describe("whole-tree dist guard", () => {
+  const scan = scanTestsForDist(packageRoot);
 
-  it("allows no dist offender outside the frozen pending list", () => {
-    console.info(`dist offenders outside allowlist: ${offenders.length}`);
-    console.info(offenders.map((o) => o.relativePath).join("\n"));
-    const unlisted = offenders
-      .filter((o) => !PENDING_REPOINT.includes(o.relativePath))
-      .flatMap((o) => o.lines.map((line) => `${o.relativePath}:${line}`));
-    expect(unlisted).toEqual([]);
+  it("allows no dist literal outside the allowlist (d)", () => {
+    const offenders = scan
+      .filter((entry) => !(entry.relativePath in ALLOWLIST))
+      .flatMap((entry) =>
+        [...new Set(entry.lines)].map(
+          (line) => `${entry.relativePath}:${line}`,
+        ),
+      );
+    expect(offenders).toEqual([]);
   });
 
-  it("holds no stale pending entry", () => {
-    const offenderPaths = new Set(offenders.map((o) => o.relativePath));
-    const stale = PENDING_REPOINT.filter((p) => !offenderPaths.has(p));
-    expect(stale, `stale pending: ${stale.join(", ")}`).toEqual([]);
+  it("holds every allowlist entry to its exact literal count (e)", () => {
+    expect(checkAllowlist(scan, ALLOWLIST)).toEqual([]);
+  });
+
+  it("keeps the allowlist at ten classed entries (f)", () => {
+    const classes = new Set([
+      "public-contract",
+      "runtime-surface",
+      "package-surface",
+      "memory-child",
+      "path-data",
+      "guard-self",
+    ]);
+    const entries = Object.values(ALLOWLIST);
+    expect(entries).toHaveLength(10);
+    for (const entry of entries) expect(classes.has(entry.class)).toBe(true);
   });
 });

@@ -4978,7 +4978,7 @@ describe("paired benchmark admission", () => {
     );
     // Candidate side: sanitize each generated fixture through this build, exactly as the
     // benchmark child does, and require the pinned payload.
-    const { sanitizeFile } = await import("../../../dist/index.js");
+    const { sanitizeFile } = await import("../../../src/index.js");
     const manifest = benchmark.loadBenchmarkManifest();
     const sandbox = mkdtempSync(join(tmpdir(), "benchmark-kit08-"));
     try {
