@@ -67,7 +67,22 @@ const PRESERVATION_MESSAGES = Object.freeze({
     "checkSample: requested Orientation EXIF is missing from the output",
   orientationValue:
     "checkSample: preserved Orientation value differs from the planted value",
+  payloadIdentity:
+    "checkSample: image payload chunk bytes differ from the source",
 } as const);
+
+/** Non-metadata chunks whose data must survive sanitization byte for byte (PBT-02). */
+const PAYLOAD_FOURCCS: ReadonlySet<string> = new Set([
+  "VP8 ",
+  "VP8L",
+  "ALPH",
+  "ANIM",
+  "ANMF",
+]);
+
+function payloadChunks(file: Buffer): readonly FixtureChunk[] {
+  return readChunks(file).filter((chunk) => PAYLOAD_FOURCCS.has(chunk.fourCc));
+}
 
 /** Source mtime/atime seeded before every success sample sanitizes (D-20 timestamps). */
 const SEEDED_SOURCE_TIME = new Date("2001-02-03T04:05:06.789Z");
@@ -146,6 +161,17 @@ async function checkSample(
         expect(output.readUInt32LE(4) + 8).toBe(output.length);
 
         const outputChunks = readChunks(output);
+
+        // Payload identity (PBT-02): every image payload chunk survives byte for byte.
+        expect(
+          payloadChunks(output).map((chunk) => [chunk.fourCc, chunk.data]),
+          PRESERVATION_MESSAGES.payloadIdentity,
+        ).toEqual(
+          payloadChunks(sample.bytes).map((chunk) => [
+            chunk.fourCc,
+            chunk.data,
+          ]),
+        );
 
         if (preserveColorProfile) {
           counterKeys.push("flag:preserveColorProfile");
@@ -507,6 +533,108 @@ describe("replayable WebP qualification properties", () => {
     expect(String(result.errorInstance)).toContain(
       INVARIANT_MESSAGES.untypedParserThrow,
     );
+  });
+
+  describe("strip-but-corrupt drill (PBT-02)", () => {
+    let corrupted = 0;
+    /**
+     * Real sanitizer, then one byte flipped (XOR 0x80) strictly inside the first
+     * payload chunk's data region whose corruption the parser still accepts. The
+     * candidate order is deterministic: the middle byte first, then ascending from
+     * the start of the data. Payload fixtures are tiny headers (a VP8 key-frame
+     * signature sits at the middle byte), so the first candidate the parser rejects
+     * is skipped; a corrupted file therefore always still parses, and the drill can
+     * only go red on payload identity.
+     */
+    const corruptingSanitize: typeof sanitizeFile = async (options) => {
+      const outcome = await sanitizeFile(options);
+      if (!outcome.ok) return outcome;
+      const original = await readFile(options.destinationPath);
+      let offset = 12;
+      while (offset + 8 <= original.length) {
+        const fourCc = original.toString("ascii", offset, offset + 4);
+        const size = original.readUInt32LE(offset + 4);
+        if (PAYLOAD_FOURCCS.has(fourCc) && size > 0) {
+          const dataOffset = offset + 8;
+          const candidates = [
+            Math.floor(size / 2),
+            ...Array.from({ length: size }, (_, index) => index),
+          ];
+          for (const candidate of candidates) {
+            const mutated = Buffer.from(original);
+            const index = dataOffset + candidate;
+            mutated[index] = (mutated[index] ?? 0) ^ 0x80;
+            await writeFile(options.destinationPath, mutated);
+            const handle = await open(options.destinationPath, "r");
+            try {
+              await parseWebp(handle, mutated.length);
+              corrupted += 1;
+              return outcome;
+            } catch (error) {
+              if (!(error instanceof WebpStructureError)) throw error;
+            } finally {
+              await handle.close();
+            }
+          }
+          await writeFile(options.destinationPath, original);
+        }
+        offset += 8 + size + (size & 1);
+      }
+      return outcome;
+    };
+
+    it("strip-but-corrupt sanitizer turns the suite red (PBT-02)", async () => {
+      const before = corrupted;
+      const result = await fc.check(
+        fc.asyncProperty(
+          qualificationArbitrary().filter(
+            (sample) => sample.expected === "success",
+          ),
+          async (sample) => {
+            await checkSample(sample, corruptingSanitize);
+          },
+        ),
+        { seed: 460_046, numRuns: 200, endOnFailure: true },
+      );
+      expect(corrupted).toBeGreaterThan(before);
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.payloadIdentity,
+      );
+      expect(String(result.errorInstance)).not.toContain("EXIFCLEANER-CANARY-");
+    });
+
+    it("the corrupted destination still parses, so red can only be payload identity", async () => {
+      const [sample] = fc.sample(
+        qualificationArbitrary().filter(
+          (candidate) => candidate.expected === "success",
+        ),
+        { seed: 460_046, numRuns: 1 },
+      );
+      await withSampleWorkspace(
+        "source.webp",
+        "output.webp",
+        sample!.bytes,
+        async ({ sourcePath, destinationPath }) => {
+          const before = corrupted;
+          await corruptingSanitize({
+            sourcePath,
+            destinationPath,
+            ...sample!.options,
+          });
+          expect(corrupted).toBe(before + 1);
+          const output = await readFile(destinationPath);
+          const handle = await open(destinationPath, "r");
+          try {
+            await expect(
+              parseWebp(handle, output.length),
+            ).resolves.toBeDefined();
+          } finally {
+            await handle.close();
+          }
+        },
+      );
+    });
   });
 
   describe("negative controls (D-21)", () => {
