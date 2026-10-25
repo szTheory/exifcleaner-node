@@ -194,5 +194,7 @@ export async function checkWithReplay<T>(
         faultPlan: options.faultPlan ?? null,
       }),
     ),
+    // The record has a fixed key set; the failing assertion rides along as the cause.
+    { cause: result.errorInstance },
   );
 }

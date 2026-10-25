@@ -254,3 +254,35 @@ describe("record reproduction on a format-neutral arbitrary (PBT-04)", () => {
     expect(await replayDigest(record, arbitrary, toBytes)).not.toBe(flipped);
   }, 30_000);
 });
+
+describe("checkWithReplay failure detail (WR-01)", () => {
+  it("keeps the failing assertion as the error cause and the message a pure record", async () => {
+    let caught: unknown;
+    try {
+      await checkWithReplay(
+        fc.asyncProperty(
+          fc.uint8Array({ minLength: 1 }),
+          async (_value: Uint8Array) => {
+            throw new Error(
+              "checkSample: payload bytes differ from the source",
+            );
+          },
+        ),
+        resolveReplayConfig({ FC_SEED: "460046" }),
+        {
+          format: "unit",
+          toBytes: (value: Uint8Array) => value,
+          generatorSources: SOURCES,
+        },
+      );
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const error = caught as Error;
+    expect((error.cause as Error).message).toBe(
+      "checkSample: payload bytes differ from the source",
+    );
+    expect(parseReplayRecord(error.message).format).toBe("unit");
+  });
+});
