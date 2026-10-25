@@ -25,6 +25,7 @@ import {
 import { assertPlanted } from "./qualification/kit/generators.js";
 import {
   GENERATOR_C2PA_USERTYPE,
+  isMetadataSample,
   isobmffArmSampleArbitrary,
   isobmffArmSampleArbitraryWithoutMetadataArm,
   isobmffMetadataGenerator,
@@ -137,7 +138,7 @@ describe("isobmffArmSampleArbitrary meets ISOBMFF_ARM_FLOORS and agrees with adm
     }
   });
 
-  it("every non-hazard sample admits with its canaries present and Exif/XMP removable; every hazard sample declines with its own class", async () => {
+  it("every non-hazard sample admits with its canaries present (a mutation sample keeps its surviving canaries verbatim) and Exif/XMP removable; every hazard sample declines with its own class", async () => {
     for (const brand of ["heic", "avif"] as const) {
       await fc.assert(
         fc.asyncProperty(
@@ -168,6 +169,8 @@ describe("isobmffArmSampleArbitrary meets ISOBMFF_ARM_FLOORS and agrees with adm
             }
 
             assertPlanted(sample.bytes, sample.planted);
+            // A mutation sample is admitted or refused: only its planted canaries are checked.
+            if (arms.includes("mutation")) return;
             const admission = await withTempFile(sample.bytes, (handle, size) =>
               admitIsobmff(handle, size),
             );
@@ -237,9 +240,7 @@ describe("isobmffArmSampleArbitrary(brand) emits only that brand (IN-01)", () =>
   for (const brand of ["heic", "avif"] as const) {
     it(`every non-hazard sample from isobmffArmSampleArbitrary("${brand}") classifies as ${brand} (seed ${FC_SEED}, ${FC_RUNS} samples)`, () => {
       const samples = fc.sample(
-        isobmffArmSampleArbitrary(brand).filter(
-          (armSample) => !armSample.arms.includes("hazard"),
-        ),
+        isobmffArmSampleArbitrary(brand).filter(isMetadataSample),
         { seed: FC_SEED, numRuns: FC_RUNS },
       );
       expect(samples).toHaveLength(FC_RUNS);

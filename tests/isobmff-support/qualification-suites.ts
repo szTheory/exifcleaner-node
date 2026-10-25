@@ -29,8 +29,11 @@ import { createMinimalExif } from "../../src/metadata/exif.js";
 import { ok } from "../../src/result.js";
 import {
   assertFloors,
+  assertSlotRates,
   countSample,
   createCounters,
+  parseStatisticsRates,
+  slotRateFloors,
 } from "../qualification/kit/floors.js";
 import {
   assertCanariesAbsent,
@@ -71,6 +74,8 @@ import {
   GENERATOR_TRUNCATED_ICC,
   isMetadataSample,
   ISOBMFF_ARM_FLOORS,
+  ISOBMFF_SLOT_FLOOR_KEYS,
+  ISOBMFF_ZERO_BYTE_EXAMPLE,
   isobmffArmSampleArbitrary,
   type IsobmffArmSample,
   type IsobmffMetadataKind,
@@ -771,6 +776,14 @@ export const PROPERTY_MESSAGES: Readonly<Record<IsobmffProperty, string>> = {
   payloads: "surviving item payloads differ from the source",
 };
 
+/** Labels for the mutation branch's own assertions (PBT-03), so a drill can only pass by driving
+ * the real gate. */
+export const MUTATION_MESSAGES = Object.freeze({
+  canarySurvives: "mutation sample: a planted canary survives a success output",
+  sourceChanged:
+    "invariant: a success result left the source bytes different from the sample",
+} as const);
+
 const PROPERTY_SETTINGS: readonly (readonly [CorpusSetting, Preservation])[] =
   CORPUS_SETTINGS;
 
@@ -845,6 +858,13 @@ export async function checkIsobmffArmSample(
   sanitize = async (options) => {
     const result = await rawSanitize(options);
     assertAdmittedOutcome(result);
+    if (result.ok) {
+      const current = await readFile(options.sourcePath);
+      expect(
+        current.equals(sample.bytes),
+        MUTATION_MESSAGES.sourceChanged,
+      ).toBe(true);
+    }
     if (!result.ok)
       await assertNonSuccessBlastRadius({
         directory: dirname(options.sourcePath),
@@ -865,6 +885,33 @@ export async function checkIsobmffArmSample(
         throw new Error(
           `hazard sample (${armSample.hazardClass ?? "?"}) was admitted (${setting})`,
         );
+    }
+    return arms;
+  }
+  if (arms.includes("mutation")) {
+    // A mutated file is admitted or refused with a typed error (the wrapper above checked the
+    // admitted outcome, the blast radius and, on success, the source). A success output holds no
+    // surviving canary, except the ICC canary inside a profile preserveColorProfile keeps.
+    assertCanariesDistinct(sample.planted);
+    for (const [setting, preservation] of PROPERTY_SETTINGS) {
+      const outcome = await sanitizeBytes(
+        sample.bytes,
+        extension,
+        preservation,
+        sanitize,
+      );
+      if (!outcome.ok) continue;
+      try {
+        assertCanariesAbsent(
+          outcome.output,
+          sample.planted,
+          preservation.preserveColorProfile ? ["ICC"] : [],
+        );
+      } catch (error) {
+        throw new Error(
+          `${setting} [mutation]: ${MUTATION_MESSAGES.canarySurvives} (${String(error)})`,
+        );
+      }
     }
     return arms;
   }
@@ -1125,7 +1172,10 @@ export function defineIsobmffPropertySuite(
               );
             },
           ),
-          replay,
+          // The zero-byte mutation example runs first and counts inside numRuns (PBT-03).
+          Object.assign({}, replay, {
+            examples: [[ISOBMFF_ZERO_BYTE_EXAMPLE]],
+          }),
           {
             format: config.format,
             toBytes: (armSample) => armSample.sample.bytes,
@@ -1136,12 +1186,9 @@ export function defineIsobmffPropertySuite(
         console.info(
           `${config.format} arm counts: ${JSON.stringify(counters)}`,
         );
-        // Floors bind only the full fixed-seed run (D-20); a focused replay has none.
-        if (
-          replay.path === undefined &&
-          replay.numRuns === ISOBMFF_FC_RUNS &&
-          replay.seed === ISOBMFF_FC_SEED
-        )
+        // Floors bind the full 200-run sweep at any seed (they were derived from the minimum over
+        // seeds 460046, 1, 2 and 3, D-20); a focused FC_PATH replay has none.
+        if (replay.path === undefined && replay.numRuns === ISOBMFF_FC_RUNS)
           assertFloors(counters, ISOBMFF_ARM_FLOORS);
       },
       PROPERTY_RUN_TIMEOUT_MS,
@@ -1411,6 +1458,131 @@ export function defineIsobmffPropertySuite(
             }
           },
         );
+      });
+    });
+
+    it(
+      "untyped parser throw on a mutation sample turns the suite red (PBT-03 totality)",
+      async () => {
+        let calls = 0;
+        const stub: typeof parseIsobmff = async () => {
+          calls += 1;
+          throw new Error("untyped parser stub");
+        };
+        const mutation = isobmffArmSampleArbitrary(config.format).filter(
+          (armSample) => armSample.arms.includes("mutation"),
+        );
+        const result = await fc.check(
+          fc.asyncProperty(mutation, async (armSample) => {
+            await checkIsobmffArmSample(
+              armSample,
+              config.extension,
+              sanitizeFile,
+              ALL_ISOBMFF_PROPERTIES,
+              stub,
+            );
+          }),
+          DRILL_PARAMS,
+        );
+        expect(calls).toBeGreaterThan(0);
+        expect(result.failed).toBe(true);
+        expect(String(result.errorInstance)).toContain(
+          INVARIANT_MESSAGES.untypedParserThrow,
+        );
+      },
+      DRILL_TIMEOUT_MS,
+    );
+
+    it(
+      "a pure copy of a mutation sample turns the mutation canary check red (PBT-03)",
+      async () => {
+        const mutation = isobmffArmSampleArbitrary(config.format).filter(
+          (armSample) =>
+            armSample.arms.includes("mutation") &&
+            armSample.sample.planted.length > 0,
+        );
+        const result = await fc.check(
+          fc.asyncProperty(mutation, async (armSample) => {
+            await checkIsobmffArmSample(
+              armSample,
+              config.extension,
+              pureCopySanitize(config.format),
+            );
+          }),
+          DRILL_PARAMS,
+        );
+        expect(result.failed).toBe(true);
+        expect(String(result.errorInstance)).toContain(
+          MUTATION_MESSAGES.canarySurvives,
+        );
+      },
+      DRILL_TIMEOUT_MS,
+    );
+
+    describe("slot distribution (PBT-01)", () => {
+      const labels = ["EXIF", "XMP", "ICC", "C2PA"] as const;
+      const rateFloors = slotRateFloors(
+        ISOBMFF_ARM_FLOORS,
+        labels,
+        (kind) => ISOBMFF_SLOT_FLOOR_KEYS[kind as IsobmffMetadataKind],
+      );
+      const classify = (armSample: IsobmffArmSample): string[] => [
+        ...new Set(armSample.sample.planted.map((item) => item.kind)),
+      ];
+      const capture = (
+        arbitrary: fc.Arbitrary<IsobmffArmSample>,
+        seed: number,
+        numRuns: number,
+      ): string[] => {
+        const lines: string[] = [];
+        fc.statistics(arbitrary, classify, {
+          seed,
+          numRuns,
+          logger: (line) => lines.push(line),
+        });
+        return lines;
+      };
+
+      it("slot distribution (fc.statistics, PBT-01)", () => {
+        const replay = resolveIsobmffReplayConfig(process.env);
+        const lines = capture(
+          isobmffArmSampleArbitrary(config.format),
+          replay.seed,
+          replay.numRuns,
+        );
+        console.info(`${config.format} slot table:\n${lines.join("\n")}`);
+        const present = new Set(parseStatisticsRates(lines).keys());
+        expect(labels.filter((label) => !present.has(label))).toEqual([]);
+        if (replay.path === undefined && replay.numRuns === ISOBMFF_FC_RUNS)
+          assertSlotRates(lines, rateFloors);
+      });
+
+      it("statistics gate goes red on a generator missing a slot", () => {
+        const dropC2pa = isobmffArmSampleArbitrary(config.format).map(
+          (armSample): IsobmffArmSample => ({
+            ...armSample,
+            sample: {
+              ...armSample.sample,
+              planted: armSample.sample.planted.filter(
+                (item) => item.kind !== "C2PA",
+              ),
+            },
+          }),
+        );
+        const seed = ISOBMFF_FC_SEED;
+        expect(() =>
+          assertSlotRates(
+            capture(
+              isobmffArmSampleArbitrary(config.format),
+              seed,
+              ISOBMFF_FC_RUNS,
+            ),
+            rateFloors,
+          ),
+        ).not.toThrow();
+        expect(() =>
+          assertSlotRates(capture(dropC2pa, seed, ISOBMFF_FC_RUNS), rateFloors),
+        ).toThrow(/slot C2PA/);
       });
     });
 

@@ -152,6 +152,7 @@ export type IsobmffArm =
   | "thmb"
   | "auxl"
   | "c2pa-uuid"
+  | "mutation"
   | "hazard";
 
 /**
@@ -191,6 +192,24 @@ const HAZARD_CLASSES: readonly IsobmffHazardClass[] = [
  *   grid-idat 94 / 95 / 83 / 82         thmb 74 / 84 / 86 / 90
  *   auxl 83 / 91 / 79 / 76              c2pa-uuid 83 / 82 / 88 / 90
  *   hazard 39 / 32 / 29 / 28
+ *
+ * 66-14 Task 3 re-measurement after the mutation arm took weight 10 from the non-hazard share
+ * (75 / 10 / 15 non-hazard / mutation / hazard; the zero-byte example counts as one `mutation`
+ * run inside the 200). Seed 460046 / 1 / 2 / 3:
+ *
+ *   mutation 18 / 22 / 17 / 21          hazard 38 / 32 / 28 / 28
+ *   exif-offset 70 / 65 / 84 / 76       xmp 144 / 146 / 155 / 151
+ *   colr-none 36 / 42 / 47 / 44         colr-nclx 35 / 38 / 40 / 29
+ *   colr-prof 38 / 33 / 38 / 32         colr-ricc 35 / 33 / 30 / 46
+ *   irot-essential 45 / 53 / 49 / 43    irot-non-essential 42 / 43 / 48 / 52
+ *   imir-essential 56 / 39 / 53 / 45    imir-non-essential 46 / 67 / 59 / 57
+ *   grid-idat 86 / 82 / 74 / 70         thmb 65 / 69 / 80 / 79
+ *   auxl 74 / 78 / 70 / 63              c2pa-uuid 73 / 75 / 81 / 81
+ *
+ * `mutation` is new: half its minimum (8) is below the hard minimum, so its floor is 10. Every
+ * other floor set at Task 2 stays: half of the Task 3 minimum is lower for the counters the
+ * weight change shrank, but a floor is never lowered, and every counter still clears its floor
+ * at all four seeds (the property suite binds the floors at any seed with 200 runs).
  */
 export const ISOBMFF_ARM_FLOORS: Readonly<Record<IsobmffArm, number>> =
   Object.freeze({
@@ -208,6 +227,7 @@ export const ISOBMFF_ARM_FLOORS: Readonly<Record<IsobmffArm, number>> =
     thmb: 37,
     auxl: 38,
     "c2pa-uuid": 41,
+    mutation: 10,
     hazard: 14,
   });
 
@@ -657,12 +677,56 @@ function nonHazardConfigArbitrary(
   });
 }
 
+type MutationOperation =
+  | {
+      readonly kind: "flip";
+      readonly edits: readonly (readonly [number, number])[];
+    }
+  | { readonly kind: "truncate"; readonly at: number }
+  | { readonly kind: "append"; readonly bytes: Uint8Array };
+
+const mutationOperationArbitrary: fc.Arbitrary<MutationOperation> = fc.oneof(
+  fc.record({
+    kind: fc.constant("flip" as const),
+    edits: fc.array(fc.tuple(fc.nat(), fc.integer({ min: 1, max: 255 })), {
+      minLength: 1,
+      maxLength: 4,
+    }),
+  }),
+  fc.record({ kind: fc.constant("truncate" as const), at: fc.nat() }),
+  fc.record({
+    kind: fc.constant("append" as const),
+    bytes: fc.uint8Array({ minLength: 1, maxLength: 64 }),
+  }),
+);
+
+function applyMutation(source: Buffer, operation: MutationOperation): Buffer {
+  if (operation.kind === "truncate")
+    return Buffer.from(source.subarray(0, operation.at % source.length));
+  if (operation.kind === "append")
+    return Buffer.concat([source, Buffer.from(operation.bytes)]);
+  const mutated = Buffer.from(source);
+  for (const [offset, mask] of operation.edits) {
+    const index = offset % mutated.length;
+    mutated[index] = (mutated[index] ?? 0) ^ mask;
+  }
+  return mutated;
+}
+
+/** The zero-byte mutation example (PBT-03): no bytes, no canary, any typed outcome is admitted. */
+export const ISOBMFF_ZERO_BYTE_EXAMPLE: IsobmffArmSample = Object.freeze({
+  sample: Object.freeze({ bytes: Buffer.alloc(0), planted: [] }),
+  arms: Object.freeze(["mutation"] as const),
+});
+
 /**
  * True for a sample that is a structurally admitted metadata file: neither a hazard sample (never
  * admitted) nor a mutation sample (admitted or refused, no canary is guaranteed to be removable).
  */
 export function isMetadataSample(armSample: IsobmffArmSample): boolean {
-  return !armSample.arms.includes("hazard");
+  return (
+    !armSample.arms.includes("hazard") && !armSample.arms.includes("mutation")
+  );
 }
 
 /**
@@ -721,8 +785,24 @@ export function isobmffArmSampleArbitrary(
   const nonHazardArbitrary: fc.Arbitrary<IsobmffArmSample> =
     metadataArbitrary.map(({ sample, arms }) => ({ sample, arms }));
 
+  const mutationArbitrary: fc.Arbitrary<IsobmffArmSample> = fc
+    .tuple(metadataArbitrary, mutationOperationArbitrary)
+    .map(([base, operation]): IsobmffArmSample => {
+      const bytes = applyMutation(base.sample.bytes, operation);
+      return {
+        sample: {
+          bytes,
+          planted: base.sample.planted.filter((item) =>
+            bytes.includes(Buffer.from(item.canary, "ascii")),
+          ),
+        },
+        arms: ["mutation"],
+      };
+    });
+
   return fc.oneof(
-    { weight: 85, arbitrary: nonHazardArbitrary },
+    { weight: 75, arbitrary: nonHazardArbitrary },
+    { weight: 10, arbitrary: mutationArbitrary },
     { weight: 15, arbitrary: hazardArbitrary },
   );
 }
