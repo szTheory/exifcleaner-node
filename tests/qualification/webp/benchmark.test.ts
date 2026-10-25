@@ -755,13 +755,17 @@ type BenchmarkReportOptions = {
   maxRSSKiB?: (fixtureId: string, version: string) => number;
 };
 
+/** benchmark-calibration-reference.json defines references for Node majors 22 and 24 only.
+ * The synthetic fixtures below test validator logic on synthetic data, not host behaviour,
+ * so they pin major 24 instead of following the host Node major (Node 26 has no reference). */
+const SYNTHETIC_FIXTURE_NODE_MAJOR = 24;
+
 /** The complete schema-v4 hundred-observation benchmark report, extracted
  * verbatim from the manifest-evidence test so the hosted-ledger positive
  * control is built from the same construction `validateReport` already
  * accepts.  Defaults reproduce the original inline values exactly. */
 function completeBenchmarkReport(options: BenchmarkReportOptions = {}) {
-  const nodeMajor =
-    options.nodeMajor ?? Number(process.versions.node.split(".")[0]);
+  const nodeMajor = options.nodeMajor ?? SYNTHETIC_FIXTURE_NODE_MAJOR;
   const candidateTarballSha256 = options.candidateSha256 ?? "3".repeat(64);
   const reportPlatform = options.platform ?? process.platform;
   const reportArchitecture = options.architecture ?? process.arch;
@@ -4616,13 +4620,6 @@ describe("paired benchmark admission", () => {
   });
 
   it("uses the fixed v2 robust block estimator at every threshold in both drift directions", () => {
-    const nextUp = (value: number): number => {
-      const bytes = new ArrayBuffer(8);
-      const view = new DataView(bytes);
-      view.setFloat64(0, value);
-      view.setBigUint64(0, view.getBigUint64(0) + 1n);
-      return view.getFloat64(0);
-    };
     const stable = Array<number>(15).fill(100);
     const clustered = [
       100, 100, 100, 100, 100, 100, 100, 100, 110, 110, 110, 110, 110, 110, 110,
@@ -4735,7 +4732,7 @@ describe("paired benchmark admission", () => {
     const authority = {
       schemaVersion: 2,
       algorithmId: "exifcleaner-run-calibration-v2",
-      nodeMajor: Number(process.versions.node.split(".")[0]),
+      nodeMajor: SYNTHETIC_FIXTURE_NODE_MAJOR,
       observations: Array.from({ length: 15 }, (_, index) => ({
         ordinal: index + 1,
         elapsedNs: 1600,
@@ -4978,7 +4975,7 @@ describe("paired benchmark admission", () => {
     );
     // Candidate side: sanitize each generated fixture through this build, exactly as the
     // benchmark child does, and require the pinned payload.
-    const { sanitizeFile } = await import("../../../dist/index.js");
+    const { sanitizeFile } = await import("../../../src/index.js");
     const manifest = benchmark.loadBenchmarkManifest();
     const sandbox = mkdtempSync(join(tmpdir(), "benchmark-kit08-"));
     try {

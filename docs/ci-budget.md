@@ -227,6 +227,23 @@ unrelated/native path still classifies `full`. `validateCiScopeWiring` (the same
 asserts the `ci.yml` wiring invariants and fails on any of 8 known weakening mutations, so a
 format addition that only touches the allowlist tables needs no `ci.yml` change.
 
+## Node 26 compatibility leg (Phase 66, M6)
+
+`ci.yml` has one extra job, `test-node26`: an unconditional `ubuntu-24.04` job (no `needs`, no `if`)
+that sets up Node 26 with the same pinned actions as `quality` and runs `npm ci`,
+`npm run build:native` and `npm test`. It is a separate job, not a matrix on `quality`, because a
+matrix would rename the required `quality` status context. It prepares the oracle authorities and
+the download-only corpus exactly as `quality` does: the first hosted run (66-08) measured 222
+failures without them, because `npm test` under CI refuses to skip oracle-backed suites.
+`engines.node` stays `>=22`.
+Local runtime basis: the full suite takes about 55 s and `build:native` about 1.3 s. It is not a
+required context until the maintainer adds it. `quality` also runs `npm run check:dist` right after
+`npm run build`, so CI fails when a fresh build changes a tracked `dist` file or leaves a new,
+untracked file under `dist`. It does not detect a stale `dist` file whose `src/` module was deleted:
+`tsc` never removes outputs, so that case relies on review (66-REVIEW WR-02, deferred half).
+
+Measured hosted minutes: test-node26 minutes at 66-08: 4.1 (run 40227776761, the first green run).
+
 ## Measured minutes
 
 Job-minutes are the sum of each job's `completedAt − startedAt` (negative durations — a skipped

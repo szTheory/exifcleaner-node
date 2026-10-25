@@ -4,11 +4,17 @@
 import type fc from "fast-check";
 import type { FormatGenerator, GeneratedSample } from "../kit/generators.js";
 import {
+  isMetadataSample,
   isobmffArmSampleArbitrary,
   type IsobmffMetadataKind,
 } from "../../isobmff-support/generator.js";
 
-const METADATA_KINDS: readonly IsobmffMetadataKind[] = ["EXIF", "XMP"];
+const METADATA_KINDS: readonly IsobmffMetadataKind[] = [
+  "EXIF",
+  "XMP",
+  "ICC",
+  "C2PA",
+];
 
 export const heicMetadataGenerator: FormatGenerator<IsobmffMetadataKind> =
   Object.freeze({
@@ -16,6 +22,6 @@ export const heicMetadataGenerator: FormatGenerator<IsobmffMetadataKind> =
     metadataKinds: Object.freeze(METADATA_KINDS),
     arbitrary: (): fc.Arbitrary<GeneratedSample<IsobmffMetadataKind>> =>
       isobmffArmSampleArbitrary("heic")
-        .filter((armSample) => !armSample.arms.includes("hazard"))
+        .filter(isMetadataSample)
         .map((armSample) => armSample.sample),
   });

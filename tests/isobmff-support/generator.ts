@@ -42,6 +42,7 @@ import {
   mdatBox,
   metaBox,
   pitmBox,
+  uuidBox,
   type IrefRef,
 } from "./builder.js";
 
@@ -55,9 +56,22 @@ import {
  * gate refused as truncated whenever `preserveColorProfile` was true; the qualification property
  * suite keeps that old payload as a dedicated refusal control (`GENERATOR_TRUNCATED_ICC`).
  */
-function minimalIccProfile(): Buffer {
-  const tableEnd = 128 + 4 + 12;
-  const profile = Buffer.alloc(tableEnd + 8);
+function minimalIccProfile(canary?: string): Buffer {
+  // Tag table: `rTRC` (an 8-byte `curv` tag with zero entries) and, with a canary, `cprt` (a
+  // `text` tag whose payload is the canary and a NUL, zero padded to a 4-byte boundary).
+  const tagCount = canary === undefined ? 1 : 2;
+  const tableEnd = 128 + 4 + tagCount * 12;
+  const textBody =
+    canary === undefined
+      ? Buffer.alloc(0)
+      : Buffer.concat([
+          Buffer.from(canary, "ascii"),
+          Buffer.alloc(1 + ((4 - ((canary.length + 1) % 4)) % 4)),
+        ]);
+  const cprtSize = 8 + (canary === undefined ? 0 : canary.length + 1);
+  const profile = Buffer.alloc(
+    tableEnd + 8 + (canary === undefined ? 0 : 8 + textBody.length),
+  );
   profile.writeUInt32BE(profile.length, 0);
   profile.write("TEST", 4, 4, "ascii");
   profile[8] = 4;
@@ -78,12 +92,24 @@ function minimalIccProfile(): Buffer {
   profile.writeUInt32BE(0x0000_f6d6, 68);
   profile.writeUInt32BE(0x0001_0000, 72);
   profile.writeUInt32BE(0x0000_d32d, 76);
-  profile.writeUInt32BE(1, 128);
+  profile.writeUInt32BE(tagCount, 128);
   profile.write("rTRC", 132, 4, "ascii");
   profile.writeUInt32BE(tableEnd, 136);
   profile.writeUInt32BE(8, 140);
   profile.write("curv", tableEnd, 4, "ascii");
+  if (canary !== undefined) {
+    profile.write("cprt", 144, 4, "ascii");
+    profile.writeUInt32BE(tableEnd + 8, 148);
+    profile.writeUInt32BE(cprtSize, 152);
+    profile.write("text", tableEnd + 8, 4, "ascii");
+    textBody.copy(profile, tableEnd + 16);
+  }
   return profile;
+}
+
+/** The generator's ICC profile carrying `canary` in a `cprt` text tag (PBT-01). */
+export function iccProfileWithCanary(canary: string): Buffer {
+  return minimalIccProfile(canary);
 }
 
 export const GENERATOR_ICC_PROFILE: Buffer = minimalIccProfile();
@@ -93,10 +119,19 @@ export const GENERATOR_TRUNCATED_ICC: Buffer = Buffer.from([
   0x00, 0x01, 0x02, 0x03,
 ]);
 
-/** The two metadata kinds this generator plants canaries for (D-19). */
-export type IsobmffMetadataKind = "EXIF" | "XMP";
+/** The metadata kinds this generator plants canaries for (D-19, PBT-01). */
+export type IsobmffMetadataKind = "EXIF" | "XMP" | "ICC" | "C2PA";
 
-const ALL_METADATA_KINDS: readonly IsobmffMetadataKind[] = ["EXIF", "XMP"];
+const ALL_METADATA_KINDS: readonly IsobmffMetadataKind[] = [
+  "EXIF",
+  "XMP",
+  "ICC",
+  "C2PA",
+];
+
+/** The C2PA `uuid` usertype, a literal equal to (not imported from, per D-19) `C2PA_UUID_USERTYPE`
+ * in `src/isobmff/boxes.ts`; `tests/isobmff_generator.test.ts` asserts the equality. */
+export const GENERATOR_C2PA_USERTYPE = "d8fec3d61b0e483c92975828877ec481";
 
 /**
  * Every structural dimension this generator exercises (D-19). `"hazard"` is the one arm a sample
@@ -116,6 +151,8 @@ export type IsobmffArm =
   | "grid-idat"
   | "thmb"
   | "auxl"
+  | "c2pa-uuid"
+  | "mutation"
   | "hazard";
 
 /**
@@ -137,24 +174,77 @@ const HAZARD_CLASSES: readonly IsobmffHazardClass[] = [
   "removable-item-referenced",
 ];
 
-/** Absolute per-arm floors (D-20) over the fixed sample count `tests/isobmff_generator.test.ts` runs. */
+/**
+ * Absolute per-arm floors (D-20) over the fixed sample count `tests/isobmff_generator.test.ts` runs.
+ *
+ * Rule (as for the other formats): each floor is half the minimum count measured over 200 runs at
+ * seeds 460046, 1, 2 and 3 (FC_SEED), rounded down, with a hard minimum of 10, and a floor is
+ * never lowered. 66-14 added the `c2pa-uuid` arm and the ICC canary and re-measured; the heic and
+ * avif counters are identical at each seed (the brand is fixed, not drawn). Measured at seed
+ * 460046 / 1 / 2 / 3 (66-14 Task 2, before the mutation arm took weight 10 from the non-hazard
+ * share):
+ *
+ *   exif-offset 78 / 75 / 94 / 82       xmp 161 / 168 / 171 / 172
+ *   colr-none 40 / 47 / 52 / 47         colr-nclx 38 / 46 / 46 / 33
+ *   colr-prof 43 / 39 / 40 / 41         colr-ricc 40 / 36 / 33 / 51
+ *   irot-essential 50 / 63 / 56 / 54    irot-non-essential 46 / 48 / 52 / 58
+ *   imir-essential 60 / 47 / 58 / 50    imir-non-essential 50 / 75 / 64 / 67
+ *   grid-idat 94 / 95 / 83 / 82         thmb 74 / 84 / 86 / 90
+ *   auxl 83 / 91 / 79 / 76              c2pa-uuid 83 / 82 / 88 / 90
+ *   hazard 39 / 32 / 29 / 28
+ *
+ * 66-14 Task 3 re-measurement after the mutation arm took weight 10 from the non-hazard share
+ * (75 / 10 / 15 non-hazard / mutation / hazard; the zero-byte example counts as one `mutation`
+ * run inside the 200). Seed 460046 / 1 / 2 / 3:
+ *
+ *   mutation 18 / 22 / 17 / 21          hazard 38 / 32 / 28 / 28
+ *   exif-offset 70 / 65 / 84 / 76       xmp 144 / 146 / 155 / 151
+ *   colr-none 36 / 42 / 47 / 44         colr-nclx 35 / 38 / 40 / 29
+ *   colr-prof 38 / 33 / 38 / 32         colr-ricc 35 / 33 / 30 / 46
+ *   irot-essential 45 / 53 / 49 / 43    irot-non-essential 42 / 43 / 48 / 52
+ *   imir-essential 56 / 39 / 53 / 45    imir-non-essential 46 / 67 / 59 / 57
+ *   grid-idat 86 / 82 / 74 / 70         thmb 65 / 69 / 80 / 79
+ *   auxl 74 / 78 / 70 / 63              c2pa-uuid 73 / 75 / 81 / 81
+ *
+ * `mutation` is new: half its minimum (8) is below the hard minimum, so its floor is 10. Every
+ * other floor set at Task 2 stays: half of the Task 3 minimum is lower for the counters the
+ * weight change shrank, but a floor is never lowered, and every counter still clears its floor
+ * at all four seeds (the property suite binds the floors at any seed with 200 runs).
+ */
 export const ISOBMFF_ARM_FLOORS: Readonly<Record<IsobmffArm, number>> =
   Object.freeze({
-    "exif-offset": 10,
-    xmp: 50,
-    "colr-none": 10,
-    "colr-nclx": 10,
-    "colr-prof": 10,
-    "colr-ricc": 10,
-    "irot-essential": 5,
-    "irot-non-essential": 5,
-    "imir-essential": 5,
-    "imir-non-essential": 5,
-    "grid-idat": 10,
-    thmb: 10,
-    auxl: 10,
-    hazard: 10,
+    "exif-offset": 37,
+    xmp: 80,
+    "colr-none": 20,
+    "colr-nclx": 16,
+    "colr-prof": 19,
+    "colr-ricc": 16,
+    "irot-essential": 25,
+    "irot-non-essential": 23,
+    "imir-essential": 23,
+    "imir-non-essential": 25,
+    "grid-idat": 41,
+    thmb: 37,
+    auxl: 38,
+    "c2pa-uuid": 41,
+    mutation: 10,
+    hazard: 14,
   });
+
+/**
+ * The counter floor key each metadata slot's minimum printed rate derives from (PBT-01, D-09):
+ * the slot's minimum rate is `ISOBMFF_ARM_FLOORS[key] / 200`. EXIF and ICC keys are lower bounds:
+ * every non-hazard, non-mutation sample plants EXIF (the `exif-offset` arm counts only the
+ * offset-16 ones) and every `colr-prof` sample plants the ICC canary (so do `colr-ricc` ones).
+ */
+export const ISOBMFF_SLOT_FLOOR_KEYS: Readonly<
+  Record<IsobmffMetadataKind, IsobmffArm>
+> = Object.freeze({
+  EXIF: "exif-offset",
+  XMP: "xmp",
+  ICC: "colr-prof",
+  C2PA: "c2pa-uuid",
+});
 
 export interface IsobmffArmSample {
   readonly sample: GeneratedSample<IsobmffMetadataKind>;
@@ -248,8 +338,13 @@ export interface NonHazardConfig {
   readonly includeGridIdat: boolean;
   readonly includeThmb: boolean;
   readonly includeAuxl: boolean;
+  readonly includeC2pa: boolean;
   readonly exifCanary: string;
   readonly xmpCanary: string;
+  /** Planted in the ICC profile's `cprt` tag of a `prof` or `rICC` colr (PBT-01). */
+  readonly iccCanary: string;
+  /** Planted in the top-level C2PA `uuid` box when `includeC2pa` is true (PBT-01). */
+  readonly c2paCanary: string;
 }
 
 /** Composes a structurally-admitted HEIC/AVIF file carrying an Exif and an XMP item (each with a
@@ -258,7 +353,7 @@ export interface NonHazardConfig {
  * `iloc` entries' byte length depends only on the declared widths, never the numeric values. */
 export function buildNonHazardFile(
   config: NonHazardConfig,
-  iccBytes: Buffer = GENERATOR_ICC_PROFILE,
+  iccBytes: Buffer = iccProfileWithCanary(config.iccCanary),
 ): Buffer {
   const { major, compatible } = majorBrandFor(config.brand);
 
@@ -418,13 +513,24 @@ export function buildNonHazardFile(
     const meta = metaBox(metaChildren);
     const mdatPayload = Buffer.concat(mdatItems.map((item) => item.payload));
     const mdat = mdatBox(mdatPayload);
-    return Buffer.concat([ftyp, meta, mdat]);
+    const c2pa = config.includeC2pa
+      ? [
+          uuidBox(
+            GENERATOR_C2PA_USERTYPE,
+            Buffer.from(`c2pa-manifest-store:${config.c2paCanary}`, "ascii"),
+          ),
+        ]
+      : [];
+    return Buffer.concat([ftyp, meta, mdat, ...c2pa]);
   }
 
   const pass1 = assemble(0);
   const mdatTotal =
     8 + mdatItems.reduce((sum, item) => sum + item.payload.length, 0);
-  const headerLength = pass1.length - mdatTotal;
+  const trailerLength = config.includeC2pa
+    ? 8 + 16 + `c2pa-manifest-store:${config.c2paCanary}`.length
+    : 0;
+  const headerLength = pass1.length - mdatTotal - trailerLength;
   const final = assemble(headerLength + 8);
   if (final.length !== pass1.length) {
     throw new Error(
@@ -544,6 +650,7 @@ function armsFor(config: NonHazardConfig): readonly IsobmffArm[] {
   if (config.includeGridIdat) arms.push("grid-idat");
   if (config.includeThmb) arms.push("thmb");
   if (config.includeAuxl) arms.push("auxl");
+  if (config.includeC2pa) arms.push("c2pa-uuid");
   return arms;
 }
 
@@ -554,7 +661,9 @@ function armsFor(config: NonHazardConfig): readonly IsobmffArm[] {
  */
 function nonHazardConfigArbitrary(
   brand: "heic" | "avif",
-): fc.Arbitrary<Omit<NonHazardConfig, "exifCanary" | "xmpCanary">> {
+): fc.Arbitrary<
+  Omit<NonHazardConfig, "exifCanary" | "xmpCanary" | "iccCanary" | "c2paCanary">
+> {
   return fc.record({
     brand: fc.constant(brand),
     exifOffset: fc.constantFrom(0, 16),
@@ -564,13 +673,71 @@ function nonHazardConfigArbitrary(
     includeGridIdat: fc.boolean(),
     includeThmb: fc.boolean(),
     includeAuxl: fc.boolean(),
+    includeC2pa: fc.boolean(),
   });
 }
 
+type MutationOperation =
+  | {
+      readonly kind: "flip";
+      readonly edits: readonly (readonly [number, number])[];
+    }
+  | { readonly kind: "truncate"; readonly at: number }
+  | { readonly kind: "append"; readonly bytes: Uint8Array };
+
+const mutationOperationArbitrary: fc.Arbitrary<MutationOperation> = fc.oneof(
+  fc.record({
+    kind: fc.constant("flip" as const),
+    edits: fc.array(fc.tuple(fc.nat(), fc.integer({ min: 1, max: 255 })), {
+      minLength: 1,
+      maxLength: 4,
+    }),
+  }),
+  fc.record({ kind: fc.constant("truncate" as const), at: fc.nat() }),
+  fc.record({
+    kind: fc.constant("append" as const),
+    bytes: fc.uint8Array({ minLength: 1, maxLength: 64 }),
+  }),
+);
+
+function applyMutation(source: Buffer, operation: MutationOperation): Buffer {
+  if (operation.kind === "truncate")
+    return Buffer.from(source.subarray(0, operation.at % source.length));
+  if (operation.kind === "append")
+    return Buffer.concat([source, Buffer.from(operation.bytes)]);
+  const mutated = Buffer.from(source);
+  for (const [offset, mask] of operation.edits) {
+    const index = offset % mutated.length;
+    mutated[index] = (mutated[index] ?? 0) ^ mask;
+  }
+  return mutated;
+}
+
+/** The zero-byte mutation example (PBT-03): no bytes, no canary, any typed outcome is admitted. */
+export const ISOBMFF_ZERO_BYTE_EXAMPLE: IsobmffArmSample = Object.freeze({
+  sample: Object.freeze({ bytes: Buffer.alloc(0), planted: [] }),
+  arms: Object.freeze(["mutation"] as const),
+});
+
 /**
- * The per-arm sample arbitrary (D-19): ~85% of samples are structurally-admitted combinations of
- * the non-hazard arms, each carrying a planted Exif and XMP canary; ~15% are a single hazard
- * mutation drawn from `IsobmffHazardClass`, carrying no canary and expected to decline.
+ * True for a sample that is a structurally admitted metadata file: neither a hazard sample (never
+ * admitted) nor a mutation sample (admitted or refused, no canary is guaranteed to be removable).
+ */
+export function isMetadataSample(armSample: IsobmffArmSample): boolean {
+  return (
+    !armSample.arms.includes("hazard") && !armSample.arms.includes("mutation")
+  );
+}
+
+/**
+ * The per-arm sample arbitrary (D-19, D-11): ~75% of samples are structurally-admitted
+ * combinations of the non-hazard arms, each carrying a planted Exif and XMP canary (plus an ICC
+ * canary on a `prof` or `rICC` colr and a C2PA canary when the C2PA `uuid` box is drawn); ~10% are
+ * a mutation of such a file (1-4 byte flips, a truncation to 0..n-1 bytes, or 1-64 appended
+ * bytes) whose `planted` holds only the canaries still verbatim in the mutated bytes; ~15% are a
+ * single hazard mutation drawn from `IsobmffHazardClass`, carrying no canary and expected to
+ * decline. The mutation share comes out of the non-hazard share, so the hazard weight is
+ * unchanged.
  */
 export function isobmffArmSampleArbitrary(
   brand: "heic" | "avif",
@@ -583,29 +750,59 @@ export function isobmffArmSampleArbitrary(
       hazardClass,
     }));
 
-  const nonHazardArbitrary: fc.Arbitrary<IsobmffArmSample> = fc
+  const metadataArbitrary: fc.Arbitrary<
+    IsobmffArmSample & { readonly config: NonHazardConfig }
+  > = fc
     .tuple(
       nonHazardConfigArbitrary(brand),
       canaryArbitrary<IsobmffMetadataKind>("EXIF"),
       canaryArbitrary<IsobmffMetadataKind>("XMP"),
+      canaryArbitrary<IsobmffMetadataKind>("ICC"),
+      canaryArbitrary<IsobmffMetadataKind>("C2PA"),
     )
-    .map(([base, exifCanary, xmpCanary]): IsobmffArmSample => {
+    .map(([base, exifCanary, xmpCanary, iccCanary, c2paCanary]) => {
       const config: NonHazardConfig = {
         ...base,
         exifCanary: exifCanary.canary,
         xmpCanary: xmpCanary.canary,
+        iccCanary: iccCanary.canary,
+        c2paCanary: c2paCanary.canary,
       };
+      const planted: PlantedCanary<IsobmffMetadataKind>[] = [
+        exifCanary,
+        xmpCanary,
+      ];
+      if (config.colrVariant === "prof" || config.colrVariant === "ricc")
+        planted.push(iccCanary);
+      if (config.includeC2pa) planted.push(c2paCanary);
+      return {
+        sample: { bytes: buildNonHazardFile(config), planted },
+        arms: armsFor(config),
+        config,
+      };
+    });
+
+  const nonHazardArbitrary: fc.Arbitrary<IsobmffArmSample> =
+    metadataArbitrary.map(({ sample, arms }) => ({ sample, arms }));
+
+  const mutationArbitrary: fc.Arbitrary<IsobmffArmSample> = fc
+    .tuple(metadataArbitrary, mutationOperationArbitrary)
+    .map(([base, operation]): IsobmffArmSample => {
+      const bytes = applyMutation(base.sample.bytes, operation);
       return {
         sample: {
-          bytes: buildNonHazardFile(config),
-          planted: [exifCanary, xmpCanary],
+          bytes,
+          planted: base.sample.planted.filter((item) =>
+            bytes.includes(Buffer.from(item.canary, "ascii")),
+          ),
         },
-        arms: armsFor(config),
+        arms: ["mutation"],
       };
     });
 
   return fc.oneof(
-    { weight: 85, arbitrary: nonHazardArbitrary },
+    { weight: 75, arbitrary: nonHazardArbitrary },
+    { weight: 10, arbitrary: mutationArbitrary },
     { weight: 15, arbitrary: hazardArbitrary },
   );
 }
@@ -638,7 +835,7 @@ export const isobmffMetadataGenerator: FormatGenerator<IsobmffMetadataKind> =
       fc
         .constantFrom("heic" as const, "avif" as const)
         .chain((brand) => isobmffArmSampleArbitrary(brand))
-        .filter((armSample) => !armSample.arms.includes("hazard"))
+        .filter(isMetadataSample)
         .map((armSample) => armSample.sample),
   });
 

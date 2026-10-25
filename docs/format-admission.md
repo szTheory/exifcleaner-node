@@ -120,6 +120,28 @@ APPn/COM identifier class, plus `TRAILER` and the preservable `ICC`/`APP1-EXIF` 
 seed `460046` with `FC_RUNS=200`; coverage floors are derived across four seeds
 (`460046`, `1`, `2`, `3`), never lowered to fit a low measurement.
 
+**Shared replay and invariants kit (Phase 66):** `tests/qualification/kit/replay.ts` provides
+`resolveReplayConfig` (the pinned seed and run count, read from the FC_SEED and FC_RUNS environment variables),
+`formatReplayRecord` (the version 2 failure record: seed, counterexample path, fixture SHA-256,
+generator hash, platform and runtime versions, replay command) and `checkWithReplay` (runs the
+property and, on failure, throws the version 2 record built from the counterexample's bytes). `tests/qualification/kit/invariants.ts` provides `assertAdmittedOutcome`,
+`assertNonSuccessBlastRadius` and `assertTotal`, so every format states the same invariants
+instead of re-deriving them.
+
+**Drills, mutation arms, slots.** Every format's property suite carries a pure-copy drill and a
+strip-but-corrupt drill (a sanitizer that copies, or that strips correctly and then flips one
+payload byte, must turn the suite red). Every format also has a generated mutation arm (byte flips,
+truncation, appended bytes over otherwise valid samples) whose expectation is totality: the
+sanitizer returns a typed outcome and never throws, whatever the parser makes of the input. HEIC and
+AVIF plant ICC and C2PA slots in generated samples, each with a slot-rate statistics check.
+
+**Slot dispositions.** WebP: C2PA not applicable (WebpCapabilities removes EXIF, XMP, ICC).
+WebP: text chunks: not applicable (WebpCapabilities removes EXIF, XMP, ICC; no text-chunk slot).
+HEIC: text chunks: not applicable (HeicCapabilities removes EXIF, XMP, ICC, C2PA; no text-chunk
+slot). AVIF: text chunks: not applicable (AvifCapabilities removes EXIF, XMP, ICC, C2PA; no
+text-chunk slot). PNG is the only native format whose capability carries text chunks, as
+tEXt, zTXt and iTXt.
+
 ## 5. Payload identity
 
 Proof that the format's image payload survives sanitize unchanged: either the payload chunk bytes
@@ -139,6 +161,11 @@ result through `runPngDecodeOracle` and `runPngcheck` (the pinned `pngcheck` 4.0
 `jpegPayloadDigests`/`jpegEntropyCodedBytes` scan bytes directly, and independently confirms the
 decoded result through the pinned libjpeg-turbo `djpeg`/`rdjpgcom` binaries (`djpegPnm`,
 `rdjpgcomText`).
+
+**Property-suite labels.** Each format's `property.test.ts` asserts payload identity under a
+format-specific payload identity message: PNG "IDAT bytes differ from the source", JPEG "scan
+payload bytes differ from the source", WebP "image payload chunk bytes differ from the source".
+HEIC and AVIF compare surviving item payload digests through `survivingPayloadDigests` in `tests/isobmff-support/corpus-tracer.ts`.
 
 ## 6. Fault injection
 

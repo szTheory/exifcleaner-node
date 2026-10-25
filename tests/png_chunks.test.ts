@@ -12,7 +12,7 @@ import * as zlib from "node:zlib";
 import { deflateSync } from "node:zlib";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { sanitizeFile } from "../dist/index.js";
+import { sanitizeFile } from "../src/index.js";
 import {
   InflateBudget,
   PNG_CHUNK_READ_WINDOW_BYTES,
@@ -89,6 +89,7 @@ describe("crc32", () => {
         const buffer = Buffer.from(bytes);
         expect(crc32(buffer)).toBe(zlibCrc32(buffer) >>> 0);
       }),
+      { seed: 460_046 },
     );
   });
 });

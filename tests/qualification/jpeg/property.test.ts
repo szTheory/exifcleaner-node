@@ -1,38 +1,63 @@
-import { createHash } from "node:crypto";
 import {
   access,
+  appendFile,
   copyFile,
-  mkdtemp,
   open,
   readFile,
-  rm,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { sanitizeFile } from "../../../dist/index.js";
+import { sanitizeFile } from "../../../src/index.js";
 import { createMinimalExif } from "../../../src/metadata/exif.js";
-import { parseJpeg } from "../../../src/jpeg/parser.js";
+import { JpegStructureError, parseJpeg } from "../../../src/jpeg/parser.js";
 import { ok } from "../../../src/result.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
-import { assertFloors, countSample, createCounters } from "../kit/floors.js";
 import {
+  assertFloors,
+  assertSlotRates,
+  countSample,
+  createCounters,
+  parseStatisticsRates,
+  slotRateFloors,
+} from "../kit/floors.js";
+import {
+  INVARIANT_MESSAGES,
+  assertAdmittedOutcome,
+  assertCanariesDistinct,
+  assertNonSuccessBlastRadius,
+  assertTotal,
+  withSampleWorkspace,
+} from "../kit/invariants.js";
+import {
+  bytesDigest,
+  checkWithReplay,
   formatReplayRecord,
+  parseReplayRecord,
+  resolveReplayConfig,
+} from "../kit/replay.js";
+import {
+  JPEG_HOSTILE_EXAMPLES,
+  JPEG_HOSTILE_REFUSALS,
+  jpegMetadataGenerator,
   jpegQualificationArbitrary,
   jpegQualificationArbitraryWithoutMetadataArm,
-  resolveReplayConfig,
   type QualificationSample,
 } from "./generators.js";
 
-function digest(value: Buffer): string {
-  return createHash("sha256").update(value).digest("hex");
-}
+const JPEG_GENERATOR_SOURCES = [
+  "tests/qualification/jpeg/generators.ts",
+  "tests/qualification/jpeg/fixtures.ts",
+  "tests/qualification/kit/generators.ts",
+  "tests/fixtures.ts",
+  "tests/isobmff-support/builder.ts",
+];
 
 interface JpegSegmentRecord {
   readonly marker: number;
   readonly payload: Buffer;
+  /** SOS only: the entropy-coded data after the scan header, up to the next real marker. */
+  readonly entropy?: Buffer;
 }
 
 /**
@@ -67,11 +92,11 @@ function readJpegSegmentRecords(bytes: Buffer): {
     if (cursor + 2 > bytes.length) break;
     const length = bytes.readUInt16BE(cursor);
     const payload = bytes.subarray(cursor + 2, cursor + length);
-    segments.push({ marker, payload });
     offset = cursor + length;
     if (marker === 0xda) {
       // SOS: skip entropy-coded data up to (not including) the next real
       // marker -- 0xFF00 stuffing and RSTn are part of the entropy stream.
+      const entropyStart = offset;
       let p = offset;
       while (p < bytes.length - 1) {
         if (bytes[p] === 0xff) {
@@ -85,6 +110,13 @@ function readJpegSegmentRecords(bytes: Buffer): {
           p += 1;
         }
       }
+      segments.push({
+        marker,
+        payload,
+        entropy: bytes.subarray(entropyStart, offset),
+      });
+    } else {
+      segments.push({ marker, payload });
     }
   }
   return { segments, trailerBytes };
@@ -198,7 +230,19 @@ const PRESERVATION_MESSAGES = Object.freeze({
   exifMissing: "checkSample: requested APP1 Exif is missing from the output",
   exifBytes:
     "checkSample: APP1 Exif TIFF bytes differ from the recomputed createMinimalExif bytes",
+  payloadIdentity: "checkSample: scan payload bytes differ from the source",
 } as const);
+
+/**
+ * The metadata kinds a sample contributes to the `kind:<K>` counters: its planted
+ * kinds when it is a success sample, none otherwise. checkSample's counter keys and
+ * the fc.statistics classifier both come from here, so the two cannot disagree.
+ */
+function countedKinds(sample: QualificationSample): readonly string[] {
+  return sample.expected === "success"
+    ? [...new Set(sample.planted.map((item) => item.kind))]
+    : [];
+}
 
 /**
  * Per-sample body of the fixed-seed property (extracted so Task 3 reuses it
@@ -214,189 +258,287 @@ const PRESERVATION_MESSAGES = Object.freeze({
 async function checkSample(
   sample: QualificationSample,
   sanitize: typeof sanitizeFile = sanitizeFile,
+  parse: typeof parseJpeg = parseJpeg,
 ): Promise<readonly string[]> {
-  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-jpeg-property-"));
-  const sourcePath = join(directory, "source.jpg");
-  const destinationPath = join(directory, "output.jpg");
   const counterKeys: string[] = [`arm:${sample.arm}`];
-  try {
-    await writeFile(sourcePath, sample.bytes);
-    if (sample.expected === "success") {
-      assertPlanted(sample.bytes, sample.planted);
-      const source = await open(sourcePath, "r");
+  await withSampleWorkspace(
+    "source.jpg",
+    "output.jpg",
+    sample.bytes,
+    async ({ directory, sourcePath, destinationPath }) => {
+      const totalityHandle = await open(sourcePath, "r");
       try {
-        await expect(
-          parseJpeg(source, sample.bytes.length),
-        ).resolves.toBeDefined();
-      } finally {
-        await source.close();
-      }
-      const plantedKinds = new Set(sample.planted.map((item) => item.kind));
-      for (const kind of plantedKinds) counterKeys.push(`kind:${kind}`);
-
-      const result = await sanitize({
-        sourcePath,
-        destinationPath,
-        ...sample.options,
-      });
-      expect(result.ok, JSON.stringify(result)).toBe(true);
-
-      const preserveColorProfile =
-        sample.options.preserveColorProfile && plantedKinds.has("ICC");
-      const preserveOrientation =
-        sample.options.preserveOrientation &&
-        sample.plantedOrientation !== undefined;
-      const preserveResolution =
-        sample.options.preserveResolution &&
-        sample.plantedResolution !== undefined;
-      const preservedKinds = preserveColorProfile ? ["ICC"] : [];
-
-      const output = await readFile(destinationPath);
-      assertCanariesAbsent(output, sample.planted, preservedKinds);
-
-      // Validity: the output re-parses structurally.
-      const destinationHandle = await open(destinationPath, "r");
-      try {
-        await expect(
-          parseJpeg(destinationHandle, output.length),
-        ).resolves.toBeDefined();
-      } finally {
-        await destinationHandle.close();
-      }
-
-      const sourceRecords = readJpegSegmentRecords(sample.bytes);
-      const outputRecords = readJpegSegmentRecords(output);
-
-      // Zero trailer bytes in the output, always.
-      expect(
-        outputRecords.trailerBytes,
-        PRESERVATION_MESSAGES.trailerPresent,
-      ).toBe(0);
-
-      // Every entropy-coded scan range is byte-identical (asserted via the
-      // independent walker's own segment list -- an SOS record's payload
-      // here is only the scan HEADER; entropy data itself is copied
-      // untouched by the native writer whenever the scan is kept at all, so
-      // this walker finding the same scan header for source and output is
-      // the byte-identity proof for the entropy data it brackets).
-      const sourceScans = sourceRecords.segments.filter(
-        (s) => s.marker === 0xda,
-      );
-      const outputScans = outputRecords.segments.filter(
-        (s) => s.marker === 0xda,
-      );
-      expect(outputScans.length).toBe(sourceScans.length);
-      outputScans.forEach((scan, index) => {
-        expect(scan.payload).toEqual(sourceScans[index]!.payload);
-      });
-
-      // APP14 Adobe is byte-identical when present in the source.
-      const sourceAdobe = findFirst(sourceRecords.segments, isAdobe);
-      if (sample.plantedAdobe) {
-        counterKeys.push("flag:adobe");
-        const outputAdobe = findFirst(outputRecords.segments, isAdobe);
-        expect(outputAdobe, PRESERVATION_MESSAGES.adobeMissing).toBeDefined();
-        expect(
-          outputAdobe!.payload.equals(sourceAdobe!.payload),
-          PRESERVATION_MESSAGES.adobeBytes,
-        ).toBe(true);
-      } else {
-        expect(findFirst(outputRecords.segments, isAdobe)).toBeUndefined();
-      }
-
-      // JFIF is present exactly when preserveResolution is true and no
-      // APP14 is planted (D-06).
-      if (sample.plantedJfif) {
-        const outputJfif = findFirst(outputRecords.segments, isJfif);
-        const expectJfif =
-          sample.options.preserveResolution && !sample.plantedAdobe;
-        if (expectJfif) {
-          counterKeys.push("flag:preserveResolutionJfif");
-          expect(outputJfif, PRESERVATION_MESSAGES.jfifMissing).toBeDefined();
-        } else {
-          expect(
-            outputJfif,
-            PRESERVATION_MESSAGES.jfifUnexpected,
-          ).toBeUndefined();
-        }
-      }
-
-      // ICC segments are present and byte-identical (in order) exactly when
-      // preserveColorProfile is true.
-      if (preserveColorProfile) {
-        counterKeys.push("flag:preserveColorProfile");
-        const sourceIcc = sourceRecords.segments.filter(isIcc);
-        const outputIcc = outputRecords.segments.filter(isIcc);
-        expect(outputIcc.length, PRESERVATION_MESSAGES.iccMissing).toBe(
-          sourceIcc.length,
+        await assertTotal(
+          () => parse(totalityHandle, sample.bytes.length),
+          (error) => error instanceof JpegStructureError,
         );
-        outputIcc.forEach((item, index) => {
-          expect(item.payload).toEqual(sourceIcc[index]!.payload);
-        });
-      } else {
-        expect(outputRecords.segments.filter(isIcc)).toHaveLength(0);
+      } finally {
+        await totalityHandle.close();
       }
+      if (sample.expected === "success") {
+        assertPlanted(sample.bytes, sample.planted);
+        assertCanariesDistinct(sample.planted);
+        const source = await open(sourcePath, "r");
+        try {
+          await expect(
+            parse(source, sample.bytes.length),
+          ).resolves.toBeDefined();
+        } finally {
+          await source.close();
+        }
+        const plantedKinds = new Set(countedKinds(sample));
+        for (const kind of plantedKinds) counterKeys.push(`kind:${kind}`);
 
-      // Any APP1 Exif in the output equals the recomputed
-      // createMinimalExif bytes.
-      const outputExif = findFirst(outputRecords.segments, isExif);
-      if (preserveOrientation || preserveResolution) {
-        if (preserveOrientation) counterKeys.push("flag:preserveOrientation");
-        if (preserveResolution) counterKeys.push("flag:preserveResolution");
-        expect(outputExif, PRESERVATION_MESSAGES.exifMissing).toBeDefined();
-        const expectedTiff = createMinimalExif({
-          ...(preserveOrientation
-            ? { orientation: sample.plantedOrientation! }
-            : {}),
-          ...(preserveResolution
-            ? {
-                resolution: {
-                  x: { numerator: sample.plantedResolution!.x, denominator: 1 },
-                  y: { numerator: sample.plantedResolution!.y, denominator: 1 },
-                  unit: sample.plantedResolution!.unit,
-                },
-              }
-            : {}),
+        const result = await sanitize({
+          sourcePath,
+          destinationPath,
+          ...sample.options,
         });
+        assertAdmittedOutcome(result);
+        expect(result.ok, JSON.stringify(result)).toBe(true);
+
+        const preserveColorProfile =
+          sample.options.preserveColorProfile && plantedKinds.has("ICC");
+        const preserveOrientation =
+          sample.options.preserveOrientation &&
+          sample.plantedOrientation !== undefined;
+        const preserveResolution =
+          sample.options.preserveResolution &&
+          sample.plantedResolution !== undefined;
+        const preservedKinds = preserveColorProfile ? ["ICC"] : [];
+
+        const output = await readFile(destinationPath);
+        assertCanariesAbsent(output, sample.planted, preservedKinds);
+
+        // Validity: the output re-parses structurally.
+        const destinationHandle = await open(destinationPath, "r");
+        try {
+          await expect(
+            parseJpeg(destinationHandle, output.length),
+          ).resolves.toBeDefined();
+        } finally {
+          await destinationHandle.close();
+        }
+
+        const sourceRecords = readJpegSegmentRecords(sample.bytes);
+        const outputRecords = readJpegSegmentRecords(output);
+
+        // Zero trailer bytes in the output, always.
         expect(
-          outputExif!.payload.subarray(6).equals(expectedTiff),
-          PRESERVATION_MESSAGES.exifBytes,
-        ).toBe(true);
+          outputRecords.trailerBytes,
+          PRESERVATION_MESSAGES.trailerPresent,
+        ).toBe(0);
+
+        // Every scan is byte-identical: the SOS header AND the entropy-coded
+        // data it brackets, both read by the independent walker.
+        const sourceScans = sourceRecords.segments.filter(
+          (s) => s.marker === 0xda,
+        );
+        const outputScans = outputRecords.segments.filter(
+          (s) => s.marker === 0xda,
+        );
+        expect(outputScans.length).toBe(sourceScans.length);
+        outputScans.forEach((scan, index) => {
+          const sourceScan = sourceScans[index]!;
+          expect(
+            scan.payload.equals(sourceScan.payload) &&
+              scan.entropy !== undefined &&
+              sourceScan.entropy !== undefined &&
+              scan.entropy.equals(sourceScan.entropy),
+            PRESERVATION_MESSAGES.payloadIdentity,
+          ).toBe(true);
+        });
+
+        // APP14 Adobe is byte-identical when present in the source.
+        const sourceAdobe = findFirst(sourceRecords.segments, isAdobe);
+        if (sample.plantedAdobe) {
+          counterKeys.push("flag:adobe");
+          const outputAdobe = findFirst(outputRecords.segments, isAdobe);
+          expect(outputAdobe, PRESERVATION_MESSAGES.adobeMissing).toBeDefined();
+          expect(
+            outputAdobe!.payload.equals(sourceAdobe!.payload),
+            PRESERVATION_MESSAGES.adobeBytes,
+          ).toBe(true);
+        } else {
+          expect(findFirst(outputRecords.segments, isAdobe)).toBeUndefined();
+        }
+
+        // JFIF is present exactly when preserveResolution is true and no
+        // APP14 is planted (D-06).
+        if (sample.plantedJfif) {
+          const outputJfif = findFirst(outputRecords.segments, isJfif);
+          const expectJfif =
+            sample.options.preserveResolution && !sample.plantedAdobe;
+          if (expectJfif) {
+            counterKeys.push("flag:preserveResolutionJfif");
+            expect(outputJfif, PRESERVATION_MESSAGES.jfifMissing).toBeDefined();
+          } else {
+            expect(
+              outputJfif,
+              PRESERVATION_MESSAGES.jfifUnexpected,
+            ).toBeUndefined();
+          }
+        }
+
+        // ICC segments are present and byte-identical (in order) exactly when
+        // preserveColorProfile is true.
+        if (preserveColorProfile) {
+          counterKeys.push("flag:preserveColorProfile");
+          const sourceIcc = sourceRecords.segments.filter(isIcc);
+          const outputIcc = outputRecords.segments.filter(isIcc);
+          expect(outputIcc.length, PRESERVATION_MESSAGES.iccMissing).toBe(
+            sourceIcc.length,
+          );
+          outputIcc.forEach((item, index) => {
+            expect(item.payload).toEqual(sourceIcc[index]!.payload);
+          });
+        } else {
+          expect(outputRecords.segments.filter(isIcc)).toHaveLength(0);
+        }
+
+        // Any APP1 Exif in the output equals the recomputed
+        // createMinimalExif bytes.
+        const outputExif = findFirst(outputRecords.segments, isExif);
+        if (preserveOrientation || preserveResolution) {
+          if (preserveOrientation) counterKeys.push("flag:preserveOrientation");
+          if (preserveResolution) counterKeys.push("flag:preserveResolution");
+          expect(outputExif, PRESERVATION_MESSAGES.exifMissing).toBeDefined();
+          const expectedTiff = createMinimalExif({
+            ...(preserveOrientation
+              ? { orientation: sample.plantedOrientation! }
+              : {}),
+            ...(preserveResolution
+              ? {
+                  resolution: {
+                    x: {
+                      numerator: sample.plantedResolution!.x,
+                      denominator: 1,
+                    },
+                    y: {
+                      numerator: sample.plantedResolution!.y,
+                      denominator: 1,
+                    },
+                    unit: sample.plantedResolution!.unit,
+                  },
+                }
+              : {}),
+          });
+          expect(
+            outputExif!.payload.subarray(6).equals(expectedTiff),
+            PRESERVATION_MESSAGES.exifBytes,
+          ).toBe(true);
+        } else {
+          expect(outputExif).toBeUndefined();
+        }
+
+        if (sample.options.preserveTimestamps) {
+          counterKeys.push("flag:preserveTimestamps");
+        }
+
+        expect(await readFile(sourcePath)).toEqual(sample.bytes);
+      } else if (sample.expected === "any") {
+        // Mutation arm and zero-byte example: success or any typed refusal is admitted.
+        const preservedKinds =
+          sample.options.preserveColorProfile &&
+          sample.planted.some((item) => item.kind === "ICC")
+            ? ["ICC"]
+            : [];
+        assertCanariesDistinct(sample.planted);
+        const result = await sanitize({
+          sourcePath,
+          destinationPath,
+          ...sample.options,
+        });
+        assertAdmittedOutcome(result);
+        if (result.ok) {
+          const output = await readFile(destinationPath);
+          assertCanariesAbsent(output, sample.planted, preservedKinds);
+          const destinationHandle = await open(destinationPath, "r");
+          try {
+            await expect(
+              parseJpeg(destinationHandle, output.length),
+            ).resolves.toBeDefined();
+          } finally {
+            await destinationHandle.close();
+          }
+          expect(await readFile(sourcePath)).toEqual(sample.bytes);
+        } else {
+          await assertNonSuccessBlastRadius({
+            directory,
+            sourcePath,
+            sourceBytes: sample.bytes,
+          });
+          await expect(access(destinationPath)).rejects.toBeDefined();
+        }
       } else {
-        expect(outputExif).toBeUndefined();
+        const result = await sanitize({
+          sourcePath,
+          destinationPath,
+          ...sample.options,
+        });
+        assertAdmittedOutcome(result);
+        await assertNonSuccessBlastRadius({
+          directory,
+          sourcePath,
+          sourceBytes: sample.bytes,
+        });
+        expect(result).toMatchObject({
+          ok: false,
+          error: {
+            code: sample.expected,
+            phase: "admission",
+            nativeWrite: "not-started",
+          },
+        });
+        await expect(access(destinationPath)).rejects.toBeDefined();
+        if (sample.hostileRefusal !== undefined)
+          counterKeys.push(`hostile:${sample.hostileRefusal}`);
       }
-
-      if (sample.options.preserveTimestamps) {
-        counterKeys.push("flag:preserveTimestamps");
-      }
-
-      expect(await readFile(sourcePath)).toEqual(sample.bytes);
-      expect(output).toBeInstanceOf(Buffer);
-    } else {
-      const result = await sanitize({
-        sourcePath,
-        destinationPath,
-        ...sample.options,
-      });
-      expect(result).toMatchObject({
-        ok: false,
-        error: {
-          code: sample.expected,
-          phase: "admission",
-          nativeWrite: "not-started",
-        },
-      });
-      await expect(access(destinationPath)).rejects.toBeDefined();
-      if (sample.hostileRefusal !== undefined)
-        counterKeys.push(`hostile:${sample.hostileRefusal}`);
-    }
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+    },
+  );
   return counterKeys;
 }
 
 /**
+ * 66-13 re-measurement after the generator change: the fixed hostile fixtures now
+ * run first as fast-check `examples` (26 buffered cases plus a zero-byte sample, all
+ * counted inside the 200 runs: 26 count as `hostile:<refusal>` and the zero-byte
+ * sample counts under `arm:hostile` only, so `arm:hostile` is 27) and a generated
+ * mutation arm (weight 3;
+ * metadata 10, no-metadata 2) replaced the random hostile arm. Each `hostile:*`
+ * counter is therefore the fixed number of fixtures in that refusal (the same at
+ * every seed); `arm:hostile` 32 -> 13 (rule: half of 27) and hostile:dnl-marker,
+ * hostile:hierarchical-frame, hostile:non-8-bit-precision (each 2 -> 1) and
+ * hostile:non-t81-frame (3 -> 1) follow the rule because the counter became a fixed
+ * fixture count of 1, not because a gate failed; hostile:malformed-container rose
+ * 1 -> 3. Every counter still drawn at random keeps `max(existing floor, rule
+ * value)`: none was lowered; arm:metadata, flag:preserveColorProfile,
+ * flag:preserveResolution, flag:preserveTimestamps and the kind floors that were
+ * below their rule value were raised. `arm:mutation` is new. Measured
+ * distributions at seeds 460046, 1, 2, 3 (rule value = max(1, floor(min / 2))):
+ *
+ *   seed 460046: metadata 117, no-metadata 27, mutation 29, hostile 27;
+ *     preserveOrientation 36, preserveColorProfile 36, preserveResolution 36,
+ *     preserveTimestamps 71; kind min 29 (APP12, APP2-FPXR), APP11-JUMBF 35, ICC 68
+ *   seed 1:      metadata 123, no-metadata 15, mutation 35, hostile 27;
+ *     preserveOrientation 24, preserveColorProfile 27, preserveResolution 22,
+ *     preserveTimestamps 68; kind min 29 (APP8), APP11-JUMBF 35, ICC 63
+ *   seed 2:      metadata 114, no-metadata 25, mutation 34, hostile 27;
+ *     preserveOrientation 19, preserveColorProfile 33, preserveResolution 31,
+ *     preserveTimestamps 78; kind min 27 (APP8, APP13-PHOTOSHOP, APP14-NON-ADOBE), APP11-JUMBF 30, ICC 53
+ *   seed 3:      metadata 119, no-metadata 17, mutation 37, hostile 27;
+ *     preserveOrientation 26, preserveColorProfile 35, preserveResolution 31,
+ *     preserveTimestamps 74; kind min 25 (APP0-JFXX, COM), APP11-JUMBF 33, ICC 66
+ *   hostile (all seeds): arithmetic-frame 1, dnl-marker 1, hierarchical-frame 1,
+ *     lossless-frame 1, malformed-container 7, mpf-secondary-image 1,
+ *     non-8-bit-precision 1, non-t81-frame 1, resource-limits 5, truncation 3,
+ *     undefined-table-reference 3, unsupported-component-count 1
+ *
+ * The statistics gate below derives each slot's minimum printed rate from these same
+ * kind floors (floor / 200), so a rate and its counter floor cannot drift apart.
+ *
+ * Earlier (Phase 57) record, before the generator change, for history:
+ *
  * Absolute per-arm/per-kind/per-flag/per-hostile-refusal floors, measured
  * over four seeds (460046, 1, 2, 3) at FC_RUNS=200. Each floor is
  * `max(1, floor(min-across-four-seeds / 2))` -- never lowered to fit a low
@@ -477,50 +619,80 @@ async function checkSample(
  * contract this floor table pins.
  */
 const JPEG_FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze({
-  "arm:metadata": 49,
+  "arm:metadata": 57,
   "arm:no-metadata": 9,
-  "arm:hostile": 32,
+  "arm:hostile": 13,
+  "arm:mutation": 14,
   "flag:preserveOrientation": 11,
-  "flag:preserveColorProfile": 9,
-  "flag:preserveResolution": 9,
-  "flag:preserveTimestamps": 25,
+  "flag:preserveColorProfile": 13,
+  "flag:preserveResolution": 11,
+  "flag:preserveTimestamps": 34,
   "kind:APP0-JFXX": 12,
-  "kind:APP0-OTHER": 13,
-  "kind:APP1-EXIF": 40,
-  "kind:APP1-EXTENDED-XMP": 13,
+  "kind:APP0-OTHER": 15,
+  "kind:APP1-EXIF": 44,
+  "kind:APP1-EXTENDED-XMP": 15,
   "kind:APP1-XMP": 15,
-  "kind:APP10": 16,
-  "kind:APP11-JUMBF": 11,
-  "kind:APP12": 12,
-  "kind:APP13-PHOTOSHOP": 12,
-  "kind:APP14-NON-ADOBE": 12,
+  "kind:APP10": 17,
+  "kind:APP11-JUMBF": 15,
+  "kind:APP12": 14,
+  "kind:APP13-PHOTOSHOP": 13,
+  "kind:APP14-NON-ADOBE": 13,
   "kind:APP15": 13,
   "kind:APP2-FPXR": 14,
-  "kind:APP2-MPF": 14,
-  "kind:APP2-OTHER": 13,
+  "kind:APP2-MPF": 16,
+  "kind:APP2-OTHER": 15,
   "kind:APP3": 15,
-  "kind:APP4": 13,
-  "kind:APP5": 14,
+  "kind:APP4": 17,
+  "kind:APP5": 15,
   "kind:APP6": 16,
-  "kind:APP7": 14,
+  "kind:APP7": 15,
   "kind:APP8": 14,
-  "kind:APP9": 12,
+  "kind:APP9": 16,
   "kind:COM": 15,
-  "kind:ICC": 22,
-  "kind:TRAILER": 25,
+  "kind:ICC": 26,
+  "kind:TRAILER": 29,
   "hostile:arithmetic-frame": 1,
-  "hostile:dnl-marker": 2,
-  "hostile:hierarchical-frame": 2,
+  "hostile:dnl-marker": 1,
+  "hostile:hierarchical-frame": 1,
   "hostile:lossless-frame": 1,
-  "hostile:malformed-container": 1,
+  "hostile:malformed-container": 3,
   "hostile:mpf-secondary-image": 1,
-  "hostile:non-8-bit-precision": 2,
-  "hostile:non-t81-frame": 3,
+  "hostile:non-8-bit-precision": 1,
+  "hostile:non-t81-frame": 1,
   "hostile:resource-limits": 2,
   "hostile:truncation": 2,
   "hostile:undefined-table-reference": 1,
   "hostile:unsupported-component-count": 1,
 });
+
+/** Minimum printed rate per slot, derived from the counter floors (PBT-01, D-09). */
+const JPEG_SLOT_LABELS: readonly string[] = jpegMetadataGenerator.metadataKinds;
+const JPEG_SLOT_RATE_FLOORS = slotRateFloors(
+  JPEG_FIXED_SEED_FLOORS,
+  JPEG_SLOT_LABELS,
+  (kind) => `kind:${kind}`,
+);
+
+/** Runs fc.statistics over `arbitrary` and returns the printed lines. */
+function captureStatistics(
+  arbitrary: ReturnType<typeof jpegQualificationArbitrary>,
+  classify: (sample: QualificationSample) => string[],
+  config: { readonly seed: number; readonly numRuns: number },
+): string[] {
+  const lines: string[] = [];
+  fc.statistics(arbitrary, classify, {
+    seed: config.seed,
+    numRuns: config.numRuns,
+    logger: (line) => lines.push(line),
+  });
+  return lines;
+}
+
+/** Label presence by set membership: order of printed rows never matters. */
+function missingSlotLabels(lines: readonly string[]): string[] {
+  const present = new Set(parseStatisticsRates(lines).keys());
+  return JPEG_SLOT_LABELS.filter((label) => !present.has(label));
+}
 
 describe("replayable JPEG qualification properties", () => {
   it("defaults focused runs to 200 and exact-path replay to one", () => {
@@ -529,6 +701,7 @@ describe("replayable JPEG qualification properties", () => {
       seed: 460_046,
       path: "0:1",
       numRuns: 1,
+      endOnFailure: true,
     });
     expect(() => resolveReplayConfig({ FC_PATH: "../../private" })).toThrow(
       "FC_PATH",
@@ -548,29 +721,80 @@ describe("replayable JPEG qualification properties", () => {
         countSample(counters, keys);
       },
     );
-    const result = await fc.check(property, config);
-    if (result.failed) {
-      throw new Error(
-        JSON.stringify(
-          formatReplayRecord({
-            seed: config.seed,
-            path: result.counterexamplePath,
-            fixtureSha256: digest(
-              Buffer.from(JSON.stringify(result.counterexample)),
-            ),
-            faultPlan: null,
-          }),
-        ),
-      );
-    }
+    // The fixed hostile fixtures run first as examples and count inside numRuns.
+    await checkWithReplay(
+      property,
+      Object.assign({}, config, {
+        examples: JPEG_HOSTILE_EXAMPLES.map((example) => [...example]),
+      }),
+      {
+        format: "jpeg",
+        toBytes: (sample) => sample.bytes,
+        generatorSources: JPEG_GENERATOR_SOURCES,
+      },
+    );
     expect(executed).toBe(config.numRuns);
+    console.info(`jpeg counters: ${JSON.stringify(counters)}`);
     if (
       config.path === undefined &&
       config.numRuns === 200 &&
       config.seed === 460_046
     ) {
       assertFloors(counters, JPEG_FIXED_SEED_FLOORS);
+      // WR-04: the hostile fixtures are fixed examples, so the full sweep counts exactly
+      // all of them; a deleted or generator-filtered fixture must fail here.
+      expect(counters["arm:hostile"]).toBe(JPEG_HOSTILE_EXAMPLES.length);
     }
+  }, 60_000);
+
+  it("pins the fixed hostile example count to 27 (WR-04)", () => {
+    expect(JPEG_HOSTILE_EXAMPLES.length).toBe(27);
+  });
+
+  it("slot distribution (fc.statistics, PBT-01)", () => {
+    const config = resolveReplayConfig(process.env);
+    const lines = captureStatistics(
+      jpegQualificationArbitrary(),
+      (sample) => [...countedKinds(sample)],
+      config,
+    );
+    console.info(lines.join("\n"));
+    // Every JpegMetadataKind label (APP11-JUMBF is the C2PA slot) appears in the table.
+    expect(missingSlotLabels(lines)).toEqual([]);
+    if (config.path === undefined && config.numRuns === 200) {
+      assertSlotRates(lines, JPEG_SLOT_RATE_FLOORS);
+    }
+  }, 60_000);
+
+  it("an empty classifier leaves every slot label absent (PBT-01 empty)", () => {
+    const lines = captureStatistics(jpegQualificationArbitrary(), () => [], {
+      seed: 460_046,
+      numRuns: 200,
+    });
+    expect(missingSlotLabels(lines)).toEqual([...JPEG_SLOT_LABELS]);
+  }, 60_000);
+
+  it("statistics gate goes red on a generator missing a slot", () => {
+    const config = { seed: 460_046, numRuns: 200 };
+    const dropJumbf = jpegQualificationArbitrary().map(
+      (sample): QualificationSample => ({
+        ...sample,
+        planted: sample.planted.filter((item) => item.kind !== "APP11-JUMBF"),
+      }),
+    );
+    const classify = (sample: QualificationSample) => [...countedKinds(sample)];
+    expect(() =>
+      assertSlotRates(
+        captureStatistics(jpegQualificationArbitrary(), classify, config),
+        JPEG_SLOT_RATE_FLOORS,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSlotRates(
+        captureStatistics(dropJumbf, classify, config),
+        JPEG_SLOT_RATE_FLOORS,
+      ),
+    ).toThrow(/slot APP11-JUMBF/);
   }, 60_000);
 
   it("replays the exact minimized path emitted for an injected failure", () => {
@@ -591,20 +815,310 @@ describe("replayable JPEG qualification properties", () => {
     expect(replay.counterexample).toEqual(first.counterexample);
     expect(
       formatReplayRecord({
+        format: "jpeg",
         seed: 460_046,
         path: replayPath,
-        fixtureSha256: "a".repeat(64),
+        bytes: Buffer.from("fixture"),
+        generatorSources: JPEG_GENERATOR_SOURCES,
         faultPlan: { operation: "stage-sync", occurrence: 1, error: "EIO" },
       }),
     ).toMatchObject({
-      version: 1,
+      version: 2,
+      format: "jpeg",
       seed: 460_046,
       path: replayPath,
       platform: process.platform,
       architecture: process.arch,
       nodeVersion: process.version,
-      fixtureSha256: "a".repeat(64),
+      fixtureSha256: bytesDigest(Buffer.from("fixture")),
       replayCommand: expect.stringContaining("FC_PATH="),
+    });
+  });
+
+  it("prints a record whose replay yields the same bytes on the real arbitrary", async () => {
+    const forced = () =>
+      fc.asyncProperty(jpegQualificationArbitrary(), async (sample) => {
+        if (sample.bytes.length >= 100) throw new Error("forced");
+      });
+    let message = "";
+    try {
+      await checkWithReplay(forced(), resolveReplayConfig({}), {
+        format: "jpeg",
+        toBytes: (sample) => sample.bytes,
+        generatorSources: JPEG_GENERATOR_SOURCES,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    const record = parseReplayRecord(message);
+    const replayed = await fc.check(
+      forced(),
+      resolveReplayConfig({
+        FC_SEED: String(record.seed),
+        FC_PATH: record.path,
+      }),
+    );
+    expect(replayed.failed).toBe(true);
+    const sample = replayed.counterexample?.[0] as QualificationSample;
+    expect(bytesDigest(sample.bytes)).toBe(record.fixtureSha256);
+    expect(bytesDigest(sample.bytes)).not.toBe(
+      `${record.fixtureSha256.startsWith("a") ? "b" : "a"}${record.fixtureSha256.slice(1)}`,
+    );
+  }, 60_000);
+
+  describe("PBT-03 non-success drills", () => {
+    const DRILL_PARAMS = {
+      seed: 460_046,
+      numRuns: 200,
+      endOnFailure: true,
+    } as const;
+
+    const drill = async (
+      label: string,
+      wrap: (
+        real: typeof sanitizeFile,
+        seen: { count: number },
+      ) => typeof sanitizeFile,
+    ) => {
+      const seen = { count: 0 };
+      const fake = wrap(sanitizeFile, seen);
+      const result = await fc.check(
+        fc.asyncProperty(
+          jpegQualificationArbitrary().filter(
+            (sample) => sample.expected !== "success",
+          ),
+          async (sample) => {
+            await checkSample(sample, fake);
+          },
+        ),
+        DRILL_PARAMS,
+      );
+      expect(seen.count).toBeGreaterThan(0);
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(label);
+    };
+
+    it("a refusal that leaves a stage file turns the suite red (residue)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.residue,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          await writeFile(`${options.destinationPath}.stage`, "x");
+          return outcome;
+        },
+      );
+    });
+
+    it("a refusal that changes the source turns the suite red (sourceChanged)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.sourceChanged,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          await appendFile(options.sourcePath, Buffer.from([0]));
+          return outcome;
+        },
+      );
+    });
+
+    it("a verification-failed result turns the suite red (verificationFailed)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.verificationFailed,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          if (outcome.ok) return outcome;
+          return {
+            ok: false,
+            error: { ...outcome.error, code: "verification-failed" },
+          } as typeof outcome;
+        },
+      );
+    });
+
+    it("a read-failed result on a readable source turns the suite red (untypedThrow)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.untypedThrow,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          if (outcome.ok) return outcome;
+          return {
+            ok: false,
+            error: { ...outcome.error, code: "read-failed" },
+          } as typeof outcome;
+        },
+      );
+    });
+  });
+
+  it("untyped parser throw turns the suite red (PBT-03 totality)", async () => {
+    let calls = 0;
+    const stub: typeof parseJpeg = async () => {
+      calls += 1;
+      throw new Error("untyped parser stub");
+    };
+    const result = await fc.check(
+      fc.asyncProperty(
+        jpegQualificationArbitrary().filter(
+          (sample) => sample.expected === "success",
+        ),
+        async (sample) => {
+          await checkSample(sample, sanitizeFile, stub);
+        },
+      ),
+      { seed: 460_046, numRuns: 200, endOnFailure: true },
+    );
+    expect(calls).toBeGreaterThan(0);
+    expect(result.failed).toBe(true);
+    expect(String(result.errorInstance)).toContain(
+      INVARIANT_MESSAGES.untypedParserThrow,
+    );
+  });
+
+  it("untyped parser throw on a mutation sample turns the suite red (PBT-03 totality)", async () => {
+    let calls = 0;
+    const stub: typeof parseJpeg = async () => {
+      calls += 1;
+      throw new Error("untyped parser stub");
+    };
+    const result = await fc.check(
+      fc.asyncProperty(
+        jpegQualificationArbitrary().filter(
+          (sample) => sample.arm === "mutation",
+        ),
+        async (sample) => {
+          await checkSample(sample, sanitizeFile, stub);
+        },
+      ),
+      { seed: 460_046, numRuns: 200, endOnFailure: true },
+    );
+    expect(calls).toBeGreaterThan(0);
+    expect(result.failed).toBe(true);
+    expect(String(result.errorInstance)).toContain(
+      INVARIANT_MESSAGES.untypedParserThrow,
+    );
+  });
+
+  it("JPEG_HOSTILE_EXAMPLES cover every sampled refusal", () => {
+    const refusalsOf = (
+      examples: readonly (readonly [QualificationSample])[],
+    ): Set<string> =>
+      new Set(
+        examples
+          .map(([sample]) => sample)
+          .filter((sample) => sample.id !== "zero-byte")
+          .map((sample) => sample.hostileRefusal as string),
+      );
+    expect(JPEG_HOSTILE_REFUSALS.length).toBeGreaterThan(0);
+    expect(refusalsOf(JPEG_HOSTILE_EXAMPLES)).toEqual(
+      new Set(JPEG_HOSTILE_REFUSALS),
+    );
+    // Dropping every example of one refusal makes the equality fail naming it.
+    const dropped = JPEG_HOSTILE_REFUSALS[0]!;
+    const withoutDropped = JPEG_HOSTILE_EXAMPLES.filter(
+      ([sample]) => sample.hostileRefusal !== dropped,
+    );
+    const missing = JPEG_HOSTILE_REFUSALS.filter(
+      (refusal) => !refusalsOf(withoutDropped).has(refusal),
+    );
+    expect(missing).toEqual([dropped]);
+  });
+
+  describe("strip-but-corrupt drill (PBT-02)", () => {
+    let corrupted = 0;
+    /**
+     * Real sanitizer, then one bit of one entropy-coded scan byte is flipped.
+     * The byte is the first at or after the middle of the first scan's entropy
+     * data that is not 0xFF, is not preceded by 0xFF and does not become 0xFF
+     * when its lowest bit is flipped, so no marker or stuffing byte is created
+     * and the corrupted file still parses. Deterministic per sample.
+     */
+    const corruptingSanitize: typeof sanitizeFile = async (options) => {
+      const outcome = await sanitizeFile(options);
+      if (!outcome.ok) return outcome;
+      const mutated = Buffer.from(await readFile(options.destinationPath));
+      const scan = readJpegSegmentRecords(mutated).segments.find(
+        (item) => item.marker === 0xda,
+      );
+      if (scan?.entropy === undefined) return outcome;
+      const start = scan.entropy.byteOffset - mutated.byteOffset;
+      const end = start + scan.entropy.length;
+      for (
+        let index = start + Math.floor((end - start) / 2);
+        index < end;
+        index += 1
+      ) {
+        const value = mutated[index]!;
+        if (value === 0xff || (value ^ 0x01) === 0xff) continue;
+        if (index > 0 && mutated[index - 1] === 0xff) continue;
+        mutated[index] = value ^ 0x01;
+        await writeFile(options.destinationPath, mutated);
+        corrupted += 1;
+        return outcome;
+      }
+      return outcome;
+    };
+
+    it("strip-but-corrupt sanitizer turns the suite red (PBT-02)", async () => {
+      const before = corrupted;
+      const result = await fc.check(
+        fc.asyncProperty(
+          jpegQualificationArbitrary().filter(
+            (sample) => sample.expected === "success",
+          ),
+          async (sample) => {
+            await checkSample(sample, corruptingSanitize);
+          },
+        ),
+        { seed: 460_046, numRuns: 200, endOnFailure: true },
+      );
+      expect(corrupted).toBeGreaterThan(before);
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(
+        PRESERVATION_MESSAGES.payloadIdentity,
+      );
+      expect(String(result.errorInstance)).not.toContain("EXIFCLEANER-CANARY-");
+    });
+
+    it("the corrupted destination still parses, so red can only be payload identity", async () => {
+      const [sample] = fc.sample(
+        jpegQualificationArbitrary().filter(
+          (candidate) => candidate.expected === "success",
+        ),
+        { seed: 460_046, numRuns: 1 },
+      );
+      await withSampleWorkspace(
+        "source.jpg",
+        "output.jpg",
+        sample!.bytes,
+        async ({ sourcePath, destinationPath }) => {
+          const before = corrupted;
+          await corruptingSanitize({
+            sourcePath,
+            destinationPath,
+            ...sample!.options,
+          });
+          expect(corrupted).toBe(before + 1);
+          const output = await readFile(destinationPath);
+          const sourceScan = readJpegSegmentRecords(
+            sample!.bytes,
+          ).segments.find((item) => item.marker === 0xda);
+          const outputScan = readJpegSegmentRecords(output).segments.find(
+            (item) => item.marker === 0xda,
+          );
+          expect(outputScan!.entropy!.equals(sourceScan!.entropy!)).toBe(false);
+          const handle = await open(destinationPath, "r");
+          try {
+            await expect(
+              parseJpeg(handle, output.length),
+            ).resolves.toBeDefined();
+          } finally {
+            await handle.close();
+          }
+        },
+      );
     });
   });
 
@@ -837,10 +1351,10 @@ describe("replayable JPEG qualification properties", () => {
         await copyFile(options.sourcePath, options.destinationPath);
         return successBytesResult(options.destinationPath);
       };
-      const arbitrary = jpegQualificationArbitrary().filter(
-        (sample) =>
-          sample.arm === "hostile" &&
-          sample.hostileRefusal === "arithmetic-frame",
+      const arbitrary = fc.constantFrom(
+        ...JPEG_HOSTILE_EXAMPLES.map(([sample]) => sample).filter(
+          (sample) => sample.hostileRefusal === "arithmetic-frame",
+        ),
       );
       const result = await fc.check(
         fc.asyncProperty(arbitrary, async (sample) => {

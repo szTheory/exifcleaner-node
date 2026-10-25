@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { classifyFallback, sanitizeFile } from "../dist/index.js";
+import { classifyFallback, sanitizeFile } from "../src/index.js";
 import { createMinimalExif, parseExif } from "../src/metadata/exif.js";
 import {
   iccProfileV4,
@@ -140,11 +140,6 @@ function firstByMarker(
   marker: number,
 ): MarkerRange | undefined {
   return ranges.find((range) => range.marker === marker);
-}
-
-interface Rational {
-  readonly numerator: number;
-  readonly denominator: number;
 }
 
 /**

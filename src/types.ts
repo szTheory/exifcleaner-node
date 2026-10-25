@@ -445,24 +445,12 @@ export type PreCreateMetadataErrorDetails =
       readonly cause?: JsonSafeCause;
     };
 
-export type PostCreateMetadataErrorDetails =
-  | {
-      readonly code: "destination-changed";
-      readonly detail: string;
-      readonly path: string;
-    }
-  | {
-      readonly code: "read-failed" | "write-failed" | "verification-failed";
-      readonly detail: string;
-      readonly path: string;
-      readonly cause?: JsonSafeCause;
-    }
-  | {
-      readonly code: "cleanup-failed";
-      readonly detail: string;
-      readonly path: string;
-      readonly cause?: JsonSafeCause;
-    };
+export type PostCreateMetadataErrorDetails = {
+  readonly code: "read-failed" | "write-failed" | "verification-failed";
+  readonly detail: string;
+  readonly path: string;
+  readonly cause?: JsonSafeCause;
+};
 
 export type MetadataErrorDetails =
   PreCreateMetadataErrorDetails | PostCreateMetadataErrorDetails;

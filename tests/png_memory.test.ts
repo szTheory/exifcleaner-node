@@ -1,10 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { sanitizeFile } from "../dist/index.js";
+import { sanitizeFile } from "../src/index.js";
 import {
   BufferedBudget,
   PNG_SIGNATURE,
@@ -244,7 +244,11 @@ interface ChildResult {
   kind?: string;
   limit?: { chunkType: string; size: number; limit: number };
   maxRssBytes: number;
+  peakSource: "VmHWM" | "resourceUsage.maxRSS";
 }
+
+const EXPECTED_PEAK_SOURCE =
+  process.platform === "linux" ? "VmHWM" : "resourceUsage.maxRSS";
 
 // PNG-05 / D-28: spawns the real measurement harness (tests/png_memory_child.mjs) and
 // parses its single JSON stdout line. `fixture` is a real path or the literal `--idle`.
@@ -271,23 +275,48 @@ function runChild(
   if (lastLine === undefined) {
     throw new Error(`png_memory_child produced no output: ${result.stderr}`);
   }
-  return JSON.parse(lastLine) as ChildResult;
+  const parsed = JSON.parse(lastLine) as ChildResult;
+  // Machine-readable sample for hosted logs (D-29: the figure lives in the log, not in test text).
+  console.log(
+    `rss-measure file=png fixture=${fixture === "--idle" ? "--idle" : basename(fixture)} mode=${budgetMode}/${retainMode} outcome=${parsed.outcome} peakSource=${parsed.peakSource} node=${process.version} host=${process.platform}-${process.arch} bytes=${parsed.maxRssBytes}`,
+  );
+  return parsed;
 }
 
-// PNG-05 / D-29: chosen from local measurement (node v24.19.0, Darwin arm64; see
-// 60-EVIDENCE.md "## PNG-05 RSS measurement (local)"). The highest measured capped peak
-// (flood, default budget) was ~85.9 MiB; the lowest measured uncapped peak (flood,
-// budget infinity) was ~567.2 MiB. 256 MiB sits at >= 1.5x the capped peak (~128.8 MiB
-// floor) and <= 0.6x the uncapped peak (~340.3 MiB ceiling), satisfying D-29's
-// discrimination rule with headroom on both sides.
+// PNG-05 / D-29: the ceiling sits at or above 1.5x the highest measured capped-run peak and at
+// or below 0.6x the lowest measured uncapped-run peak among the RSS-discriminating controls,
+// with headroom on both sides. Figures live only in 60-EVIDENCE.md "## PNG-05 RSS measurement
+// (local)" (the original darwin derivation) and in
+// `.planning/phases/66-measurable-node-suite/66-EVIDENCE.md` `## 66-17` (the cross-platform
+// measurement with the child's own peak); this file states the rule, never a number.
 export const PNG_MEMORY_RSS_CEILING_BYTES = 256 * 1024 * 1024;
 
 describe("child RSS harness unit sanity", () => {
   it("an idle child (no fixture) reports maxRssBytes between 16 MiB and 256 MiB", () => {
     const result = runChild("--idle", "default", "default");
     expect(result.outcome).toBe("parsed");
+    expect(result.peakSource).toBe(EXPECTED_PEAK_SOURCE);
     expect(result.maxRssBytes).toBeGreaterThanOrEqual(16 * 1024 * 1024);
     expect(result.maxRssBytes).toBeLessThanOrEqual(256 * 1024 * 1024);
+  });
+
+  it("an idle child spawned while the parent holds 384 MiB of touched ballast reports its own peak (inheritance excluded)", () => {
+    let ballast: Buffer | undefined = Buffer.alloc(384 * 1024 * 1024, 1);
+    // Armed check: the control only means something while the worker really is that large.
+    expect(process.memoryUsage().rss).toBeGreaterThanOrEqual(384 * 1024 * 1024);
+    const result = runChild("--idle", "default", "default");
+    // Keep the ballast live across the spawn (freed ballast does not inherit), then drop it.
+    const live = ballast[0];
+    ballast = undefined;
+    expect(live).toBe(1);
+    expect(result.outcome).toBe("parsed");
+    expect(result.peakSource).toBe(EXPECTED_PEAK_SOURCE);
+    const measuredMiB = result.maxRssBytes / (1024 * 1024);
+    expect(
+      result.maxRssBytes,
+      `measured ${measuredMiB.toFixed(2)} MiB, idle band max ${(256).toFixed(2)} MiB`,
+    ).toBeLessThanOrEqual(256 * 1024 * 1024);
+    expect(result.maxRssBytes).toBeGreaterThanOrEqual(16 * 1024 * 1024);
   });
 });
 
@@ -726,7 +755,30 @@ describe("PNG aggregate memory bound (PNG-05, D-28)", () => {
 // length is <= the window size -- under the default copy policy, versus 52 unique backing buffers -- one
 // per entry, zero sharing -- under identity retain, for this fixture). Counting distinct backing-buffer
 // references is robust to whatever `Buffer.poolSize` happens to be on the host Node version.
+// Measured, not assumed: the backing ArrayBuffer size of a small Buffer.from copy is the
+// runtime's pool slab (8192 on Node 22, 65536 on Node 24, 65600 on Node 26 per 66-RESEARCH F2).
+// Buffer.poolSize is not the slab on Node 26, so the per-entry bound reads this value.
+const POOL_SLAB_BYTES = Buffer.from(Buffer.alloc(1)).buffer.byteLength;
+
 describe("copy-on-buffer for windowed reads (D-23)", () => {
+  it("pool slab probe (TEST-11)", () => {
+    console.info(
+      `POOL_SLAB_BYTES=${POOL_SLAB_BYTES} Buffer.poolSize=${Buffer.poolSize} node=${process.version}`,
+    );
+    expect(
+      Number.isSafeInteger(POOL_SLAB_BYTES),
+      `POOL_SLAB_BYTES=${POOL_SLAB_BYTES} Buffer.poolSize=${Buffer.poolSize}`,
+    ).toBe(true);
+    expect(
+      POOL_SLAB_BYTES,
+      `POOL_SLAB_BYTES=${POOL_SLAB_BYTES} Buffer.poolSize=${Buffer.poolSize}`,
+    ).toBeGreaterThanOrEqual(Buffer.poolSize);
+    expect(
+      POOL_SLAB_BYTES - Buffer.poolSize,
+      `POOL_SLAB_BYTES=${POOL_SLAB_BYTES} Buffer.poolSize=${Buffer.poolSize}`,
+    ).toBeLessThan(1024);
+  });
+
   function windowedEntries(parsed: {
     buffered: ReadonlyMap<number, Buffer>;
   }): Buffer[] {
@@ -750,7 +802,7 @@ describe("copy-on-buffer for windowed reads (D-23)", () => {
 
     for (const entry of parsed.buffered.values()) {
       expect(entry.buffer.byteLength).toBeLessThanOrEqual(
-        Math.max(entry.length, Buffer.poolSize),
+        Math.max(entry.length, POOL_SLAB_BYTES),
       );
     }
 

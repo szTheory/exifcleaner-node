@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+The `MetadataError` codes `destination-changed` and `cleanup-failed` were removed from the public
+type. No code path ever produced either of them, so a consumer that switched on them was handling
+an error the library cannot return. `finalization` and `DestinationFinalization` are unchanged.
+TypeScript consumers that name either code in a `case` or a comparison now get TS2678 and should
+delete that branch. This ships in 0.5.0.
+
 ## 0.4.0
 
 ### Added (HEIC and AVIF)

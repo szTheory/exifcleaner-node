@@ -28,8 +28,6 @@ import type {
 import {
   APP0,
   APP1,
-  APP2,
-  APP14,
   classifyAppPayload,
   COM,
   DHT,
@@ -209,14 +207,7 @@ function classifySegments(parsed: ParsedJpeg): readonly JpegSegmentClass[] {
  * carrying that narrowing past `collectMetadata`'s `parsed.segments.forEach`
  * closure, where every reassignment happens (mirrors png-handler.ts's
  * `validOrientationValue` precedent for the same TS control-flow limitation).
- */
-function isValidOrientation(state: OrientationState): boolean {
-  return state.status === "valid";
-}
-
-/** Same function-boundary widening as `isValidOrientation` (both exist for the
- * same TS control-flow limitation): returns the EXIF Orientation value when
- * `state` is valid, else `undefined`. */
+ * Returns the EXIF Orientation value when `state` is valid, else `undefined`. */
 function validOrientationValue(state: OrientationState): number | undefined {
   return state.status === "valid" ? state.value : undefined;
 }

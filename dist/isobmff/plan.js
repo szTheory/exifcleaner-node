@@ -282,7 +282,6 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
     const { layout } = model;
     const removedIds = new Set(classification.removableItemIds);
     const survivingItems = model.items.filter((item) => !removedIds.has(item.id));
-    const survivingItemIds = survivingItems.map((item) => item.id);
     // D-13: the minimal Exif item. `tags` is undefined when neither preservation flag applies (or
     // k's own payload held neither a valid Orientation nor a resolution); `keepExifItemId` is
     // additionally undefined when there is no k at all (no Exif item describes the primary, or the

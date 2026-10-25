@@ -4,7 +4,7 @@ import { parseXmp, xmpOrientation } from "../metadata/xmp.js";
 import { parseIcc } from "../metadata/icc.js";
 import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
-import { APP0, APP1, APP2, APP14, classifyAppPayload, COM, DHT, DQT, DRI, EOI, JPEG_MAX_EXTENDED_XMP_BYTES, JPEG_MAX_FILE_BYTES, JPEG_MAX_ICC_SEGMENTS, JPEG_MAX_SCAN_COUNT, JPEG_MAX_SEGMENT_COUNT, JPEG_MAX_TABLE_SEGMENT_COUNT, JPEG_ADMITTED_SOF_MARKERS, JPEG_REFUSAL_DETAILS, SOI, SOS, isAppMarker, } from "../jpeg/markers.js";
+import { APP0, APP1, classifyAppPayload, COM, DHT, DQT, DRI, EOI, JPEG_MAX_EXTENDED_XMP_BYTES, JPEG_MAX_FILE_BYTES, JPEG_MAX_ICC_SEGMENTS, JPEG_MAX_SCAN_COUNT, JPEG_MAX_SEGMENT_COUNT, JPEG_MAX_TABLE_SEGMENT_COUNT, JPEG_ADMITTED_SOF_MARKERS, JPEG_REFUSAL_DETAILS, SOI, SOS, isAppMarker, } from "../jpeg/markers.js";
 import { JpegStructureError, isJpegSignature, parseJpeg, } from "../jpeg/parser.js";
 import { ICC_SEGMENT_IDENTIFIER, reassembleIccSegments } from "../jpeg/icc.js";
 import { STANDARD_XMP_IDENTIFIER, reassembleExtendedXmp } from "../jpeg/xmp.js";
@@ -80,13 +80,7 @@ function classifySegments(parsed) {
  * carrying that narrowing past `collectMetadata`'s `parsed.segments.forEach`
  * closure, where every reassignment happens (mirrors png-handler.ts's
  * `validOrientationValue` precedent for the same TS control-flow limitation).
- */
-function isValidOrientation(state) {
-    return state.status === "valid";
-}
-/** Same function-boundary widening as `isValidOrientation` (both exist for the
- * same TS control-flow limitation): returns the EXIF Orientation value when
- * `state` is valid, else `undefined`. */
+ * Returns the EXIF Orientation value when `state` is valid, else `undefined`. */
 function validOrientationValue(state) {
     return state.status === "valid" ? state.value : undefined;
 }

@@ -39,7 +39,6 @@ import {
   capturePrivateStageCleanup,
   consumePrivateStageCleanup,
   disposePrivateStageDirectory,
-  removePrivateStageFile,
   publishNoReplace,
   takeTerminalCleanupRecord,
   type NativeStageFileIdentity,
@@ -108,10 +107,8 @@ interface PostPublicationResources {
   readonly sourceHandle: FileHandle;
   readonly directoryCapability: NativeStageDirectoryCapability | undefined;
   readonly cleanupCapability: NativeStageCleanupCapability | undefined;
-  readonly stagePath: string;
   readonly stageDirectoryPath: string;
   readonly stageDirectoryIdentity: FileIdentity | undefined;
-  readonly platform: NodeJS.Platform;
 }
 
 async function closePostPublicationResources({
@@ -122,10 +119,8 @@ async function closePostPublicationResources({
   sourceHandle,
   directoryCapability,
   cleanupCapability,
-  stagePath,
   stageDirectoryPath,
   stageDirectoryIdentity,
-  platform,
 }: PostPublicationResources): Promise<PostCommitResidue> {
   const close = async (handle: FileHandle | undefined) => {
     if (handle === undefined) return;
@@ -548,10 +543,8 @@ export async function runSafeTransaction<
       sourceHandle,
       directoryCapability,
       cleanupCapability,
-      stagePath,
       stageDirectoryPath,
       stageDirectoryIdentity,
-      platform,
     };
     stageDirectory = undefined;
     destinationDirectory = undefined;

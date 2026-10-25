@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { inspectFile, sanitizeFile } from "../dist/index.js";
+import { inspectFile, sanitizeFile } from "../src/index.js";
 import { parseExif } from "../src/metadata/exif.js";
 import { parseIcc } from "../src/metadata/icc.js";
 import { parseXmp } from "../src/metadata/xmp.js";

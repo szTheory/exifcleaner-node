@@ -39,20 +39,17 @@ import {
   box,
   colrNclx,
   hvcC,
-  idatBox,
   iinfBox,
   ilocBox,
   imir,
   infeBox,
   ipmaBox,
-  irefBox,
   irot,
   ispe,
   pixi,
   type IlocExtent,
   type IlocItem,
   type IpmaEntry,
-  type IrefRef,
 } from "./isobmff-support/builder.js";
 
 const directories: string[] = [];
@@ -940,7 +937,7 @@ describe("D-18 identity proof (62-09)", () => {
     },
     {
       name: "an idat byte changed",
-      tamper: (good, inv) => {
+      tamper: (good) => {
         const layout = parseTamperLayout(good);
         if (layout.idat === undefined)
           throw new Error("tamper fixture has no idat box.");

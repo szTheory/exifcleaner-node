@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { sanitizeFile } from "../../../dist/index.js";
+import { sanitizeFile } from "../../../src/index.js";
 import { parseWebp, WebpStructureError } from "../../../src/webp/riff.js";
 import {
   hostileMutationCases,
@@ -46,7 +46,7 @@ async function parsePath(path: string, fileSize: number) {
 describe("grammar-aware WebP qualification cases", () => {
   it.each(validGrammarCases)(
     "parses $id with distinct ordered chunk boundaries",
-    async ({ id, bytes }) => {
+    async ({ bytes }) => {
       const directory = await mkdtemp(join(tmpdir(), "webp-valid-case-"));
       const path = join(directory, "source.webp");
       try {

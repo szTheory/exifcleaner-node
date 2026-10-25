@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { getCapabilities, sanitizeFile } from "../../../dist/index.js";
+import { getCapabilities, sanitizeFile } from "../../../src/index.js";
 import { parseJpeg } from "../../../src/jpeg/parser.js";
 import {
   JPEG_REFUSAL_KIND,

@@ -987,9 +987,25 @@ describe("sanitizeFile", () => {
         preserveResolution: false,
       });
       expect(result).toMatchObject({ ok: true });
-      await expect(
-        readFile(join(directory, "relative-clean.webp")),
-      ).resolves.toBeInstanceOf(Buffer);
+      const cleanDirectory = await workspace();
+      const cleanSourcePath = join(cleanDirectory, "source.webp");
+      const cleanDestinationPath = join(cleanDirectory, "clean.webp");
+      await writeFile(cleanSourcePath, metadataWebp());
+      expect(
+        await sanitizeFile({
+          sourcePath: cleanSourcePath,
+          destinationPath: cleanDestinationPath,
+          preserveOrientation: false,
+          preserveColorProfile: false,
+          preserveTimestamps: false,
+          preserveResolution: false,
+        }),
+      ).toMatchObject({ ok: true });
+      const relativeOutput = await readFile(
+        join(directory, "relative-clean.webp"),
+      );
+      expect(relativeOutput).toEqual(await readFile(cleanDestinationPath));
+      expect(relativeOutput).not.toEqual(metadataWebp());
       await expect(readFile(sourcePath)).resolves.toEqual(metadataWebp());
     } finally {
       process.chdir(previousDirectory);
@@ -1306,7 +1322,7 @@ describe("sanitizeFile", () => {
           expect(outputPayload).toEqual(payload);
         },
       ),
-      { numRuns: 40 },
+      { numRuns: 40, seed: 460_046 },
     );
   });
 
@@ -1372,7 +1388,7 @@ describe("sanitizeFile", () => {
           ).toEqual(payload);
         },
       ),
-      { numRuns: 30 },
+      { numRuns: 30, seed: 460_046 },
     );
   });
 });

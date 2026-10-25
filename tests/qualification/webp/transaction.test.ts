@@ -9,7 +9,6 @@ import {
   readFile,
   rename,
   rm,
-  stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -392,7 +391,9 @@ describe("deterministic transaction qualification", () => {
         openHandles: 0,
         writerAttempts: 1,
       });
-      expect(await readFile(prepared.destinationPath)).toBeInstanceOf(Buffer);
+      const published = await readFile(prepared.destinationPath);
+      expect(published).toEqual(await expectedOutput(prepared));
+      expect(published).not.toEqual(prepared.sourceBytes);
       expect(await readFile(prepared.sourcePath)).toEqual(prepared.sourceBytes);
     } finally {
       restore();

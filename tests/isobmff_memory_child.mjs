@@ -1,8 +1,11 @@
 // ISOBMFF-05 / D-23: a real, measured RSS harness, mirroring `tests/png_memory_child.mjs`
 // (PNG D-28). Runs as a standalone child process (never imported by a test file directly) so
-// `process.resourceUsage().maxRSS` reflects only this process's own peak, not the vitest worker
-// that spawned it. Not collected by vitest.config.ts's `tests/**/*.test.ts` include, but is
-// still formatted by `npm run lint` (prettier globs all of `tests/`).
+// the peak it reports is the admission's own, not the vitest worker's. A separate process is
+// necessary but not sufficient: on linux `ru_maxrss` (process.resourceUsage().maxRSS) folds in
+// the parent's resident set at fork/exec, so a large vitest worker inflates it. Linux therefore
+// reads VmHWM from /proc/self/status (a fresh mm at exec, not inherited); darwin and win32
+// report per-process maxRSS. Not collected by vitest.config.ts's `tests/**/*.test.ts` include,
+// but is still formatted by `npm run lint` (prettier globs all of `tests/`).
 //
 // argv: <fixturePath|--idle> <capMode: default|no-meta|no-count|no-depth|no-buffered>
 //
@@ -19,10 +22,12 @@
 //     no-buffered -> maxBufferedBytesTotal: Infinity
 //
 // Prints exactly one JSON line to stdout:
-//   { outcome: "admitted" | "error" | "crash", declineClass, kind, errorName, maxRssBytes }
-// maxRssBytes = process.resourceUsage().maxRSS * 1024 -- Node documents maxRSS in kilobytes,
-// confirmed (not assumed) by the idle sanity test in isobmff_memory.test.ts, which asserts the
-// reported value falls in a wide, units-mistake-revealing 16 MiB-256 MiB band.
+//   { outcome: "admitted" | "error" | "crash", declineClass, kind, errorName, maxRssBytes, peakSource }
+// maxRssBytes is this process's own peak in bytes and peakSource names where it came from:
+// "VmHWM" (linux, /proc/self/status kB * 1024; the harness fails with exit 2 if it cannot be
+// read, never falling back to maxRSS) or "resourceUsage.maxRSS" (every other platform; Node
+// documents maxRSS in kilobytes). The idle sanity tests in isobmff_memory.test.ts assert the
+// source for the platform and a wide, units-mistake-revealing 16 MiB-256 MiB band.
 //
 // "error" means `admitIsobmff` rejected with a real `IsobmffStructureError` (`declineClass`/
 // `kind` recorded, matching the thrown error's own fields). "crash" means it rejected with any
@@ -36,6 +41,7 @@
 // could measure anything (bad argv, unreadable fixture) -- distinct from a successful "crash"
 // outcome so a test failure is never confused with a harness bug.
 
+import { readFileSync } from "node:fs";
 import { open } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
@@ -145,9 +151,38 @@ if (fixtureArg !== "--idle") {
   }
 }
 
-const maxRssBytes = process.resourceUsage().maxRSS * 1024;
+function ownPeak() {
+  if (process.platform === "linux") {
+    let status;
+    try {
+      status = readFileSync("/proc/self/status", "utf8");
+    } catch (error) {
+      fail(
+        `cannot read /proc/self/status: ${error && error.message ? error.message : String(error)}`,
+      );
+    }
+    const match = /^VmHWM:\s+(\d+)\s+kB\s*$/m.exec(status);
+    const kilobytes = match === null ? Number.NaN : Number(match[1]);
+    if (!Number.isFinite(kilobytes) || kilobytes <= 0) {
+      fail("VmHWM missing or unparseable in /proc/self/status");
+    }
+    return { bytes: kilobytes * 1024, source: "VmHWM" };
+  }
+  return {
+    bytes: process.resourceUsage().maxRSS * 1024,
+    source: "resourceUsage.maxRSS",
+  };
+}
+
+const { bytes: maxRssBytes, source: peakSource } = ownPeak();
 
 process.stdout.write(
-  JSON.stringify({ outcome, declineClass, kind, errorName, maxRssBytes }) +
-    "\n",
+  JSON.stringify({
+    outcome,
+    declineClass,
+    kind,
+    errorName,
+    maxRssBytes,
+    peakSource,
+  }) + "\n",
 );

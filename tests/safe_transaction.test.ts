@@ -21,6 +21,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { webpHandler } from "../src/admission/webp-handler.js";
+import { sanitizeFile } from "../src/engine.js";
 import { NODE_FILE_OPS, type FileOps } from "../src/transaction/file-ops.js";
 import {
   identitiesDistinct,
@@ -63,6 +64,25 @@ describe("safe transaction file operations", () => {
       false,
       undefined,
     );
+    // A clean run of the same source and options is the deterministic expected output.
+    const cleanDirectory = await mkdtemp(
+      join(tmpdir(), "exifcleaner-transaction-clean-"),
+    );
+    directories.push(cleanDirectory);
+    const cleanSourcePath = join(cleanDirectory, "source.webp");
+    const cleanDestinationPath = join(cleanDirectory, "clean.webp");
+    await writeFile(cleanSourcePath, metadataWebp());
+    expect(
+      await sanitizeFile({
+        sourcePath: cleanSourcePath,
+        destinationPath: cleanDestinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: false,
+      }),
+    ).toMatchObject({ ok: true });
+    const cleanOutput = await readFile(cleanDestinationPath);
     const capability: { path?: string } = {};
     let reopenedStageDescriptor: number | undefined;
     const restore = setNativePublicationBindingForTests({
@@ -148,7 +168,9 @@ describe("safe transaction file operations", () => {
         value: { postCommitResidue: { state: "none" } },
       });
       expect(reopenedStageDescriptor).toBeTypeOf("number");
-      await expect(readFile(destinationPath)).resolves.toBeInstanceOf(Buffer);
+      const published = await readFile(destinationPath);
+      expect(published).toEqual(cleanOutput);
+      expect(published).not.toEqual(metadataWebp());
       await expect(stat(capability.path!)).rejects.toMatchObject({
         code: "ENOENT",
       });

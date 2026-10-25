@@ -70,19 +70,13 @@ export interface WebpSampleOptions {
 export interface QualificationSample {
   readonly id: string;
   readonly bytes: Buffer;
-  readonly expected: "success" | WebpStructureError["kind"];
-  readonly arm: "metadata" | "no-metadata" | "hostile";
+  /** "any" (mutation arm, zero-byte example): success or any typed refusal is admitted. */
+  readonly expected: "success" | "any" | WebpStructureError["kind"];
+  readonly arm: "metadata" | "no-metadata" | "hostile" | "mutation";
   readonly planted: readonly PlantedCanary<WebpMetadataKind>[];
   readonly options: WebpSampleOptions;
   /** The EXIF orientation value planted alongside an EXIF canary, when any. */
   readonly plantedOrientation?: number;
-}
-
-export interface ReplayRecordInput {
-  readonly seed: number;
-  readonly path: string | null;
-  readonly fixtureSha256: string;
-  readonly faultPlan: unknown;
 }
 
 const BASE_SEED = 460046;
@@ -517,30 +511,110 @@ function buildNoMetadataArm(): fc.Arbitrary<QualificationSample> {
     }));
 }
 
-function buildHostileArm(): fc.Arbitrary<QualificationSample> {
-  const bufferedHostile = hostileMutationCases.flatMap((item) => {
+/**
+ * The fixed hostile fixtures, replayed first by every property run as fast-check
+ * `examples` (they count inside numRuns), plus one zero-byte sample whose
+ * outcome is any typed refusal (G2, PBT-03 totality).
+ */
+export const WEBP_HOSTILE_EXAMPLES: readonly (readonly [
+  QualificationSample,
+])[] = Object.freeze([
+  ...hostileMutationCases.flatMap((item) => {
     const materialized = item.materialize();
     return materialized.fileSize === materialized.prefix.length
       ? [
-          {
-            id: item.id,
-            bytes: materialized.prefix,
-            expected: item.expectedKind,
-            arm: "hostile" as const,
-            planted: [] as PlantedCanary<WebpMetadataKind>[],
-            options: NO_PRESERVATION,
-          } satisfies QualificationSample,
+          [
+            {
+              id: item.id,
+              bytes: materialized.prefix,
+              expected: item.expectedKind,
+              arm: "hostile" as const,
+              planted: [] as PlantedCanary<WebpMetadataKind>[],
+              options: NO_PRESERVATION,
+            } satisfies QualificationSample,
+          ] as const,
         ]
       : [];
-  });
-  return fc.constantFrom(...bufferedHostile);
+  }),
+  [
+    {
+      id: "zero-byte",
+      bytes: Buffer.alloc(0),
+      expected: "any",
+      arm: "hostile",
+      planted: [],
+      options: NO_PRESERVATION,
+    },
+  ] as const,
+]);
+
+type MutationOperation =
+  | {
+      readonly kind: "flip";
+      readonly edits: readonly (readonly [number, number])[];
+    }
+  | { readonly kind: "truncate"; readonly at: number }
+  | { readonly kind: "append"; readonly bytes: Uint8Array };
+
+const mutationOperationArbitrary: fc.Arbitrary<MutationOperation> = fc.oneof(
+  fc.record({
+    kind: fc.constant("flip" as const),
+    edits: fc.array(fc.tuple(fc.nat(), fc.integer({ min: 1, max: 255 })), {
+      minLength: 1,
+      maxLength: 4,
+    }),
+  }),
+  fc.record({ kind: fc.constant("truncate" as const), at: fc.nat() }),
+  fc.record({
+    kind: fc.constant("append" as const),
+    bytes: fc.uint8Array({ minLength: 1, maxLength: 64 }),
+  }),
+);
+
+function applyMutation(source: Buffer, operation: MutationOperation): Buffer {
+  if (operation.kind === "truncate") {
+    return Buffer.from(source.subarray(0, operation.at % source.length));
+  }
+  if (operation.kind === "append") {
+    return Buffer.concat([source, Buffer.from(operation.bytes)]);
+  }
+  const mutated = Buffer.from(source);
+  for (const [offset, mask] of operation.edits) {
+    const index = offset % mutated.length;
+    mutated[index] = (mutated[index] ?? 0) ^ mask;
+  }
+  return mutated;
+}
+
+/**
+ * The mutation arm (PBT-03, G2): a valid metadata sample with 1-4 byte flips, a
+ * truncation to any length 0..n-1, or 1-64 appended trailer bytes. `planted` holds
+ * only the canaries still present verbatim in the mutated bytes, so the absence check
+ * cannot demand the removal of a canary the mutation already destroyed.
+ */
+function buildMutationArm(): fc.Arbitrary<QualificationSample> {
+  return fc
+    .tuple(webpMetadataArbitrary(), mutationOperationArbitrary)
+    .map(([base, operation]): QualificationSample => {
+      const bytes = applyMutation(base.bytes, operation);
+      return {
+        id: `mutation-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}`,
+        bytes,
+        expected: "any",
+        arm: "mutation",
+        planted: base.planted.filter((item) =>
+          bytes.includes(Buffer.from(item.canary, "ascii")),
+        ),
+        options: base.options,
+      };
+    });
 }
 
 export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 6, arbitrary: buildMetadataArm() },
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 2, arbitrary: buildHostileArm() },
+    { weight: 2, arbitrary: buildMutationArm() },
   );
 }
 
@@ -552,68 +626,6 @@ export function qualificationArbitrary(): fc.Arbitrary<QualificationSample> {
 export function qualificationArbitraryWithoutMetadataArm(): fc.Arbitrary<QualificationSample> {
   return fc.oneof(
     { weight: 2, arbitrary: buildNoMetadataArm() },
-    { weight: 2, arbitrary: buildHostileArm() },
+    { weight: 2, arbitrary: buildMutationArm() },
   );
-}
-
-function boundedInteger(
-  value: string | undefined,
-  fallback: number,
-  minimum: number,
-  maximum: number,
-  label: string,
-): number {
-  if (value === undefined) return fallback;
-  if (!/^\d+$/.test(value)) throw new Error(`${label} must be an integer`);
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum)
-    throw new Error(`${label} is outside its admitted range`);
-  return parsed;
-}
-
-export function resolveReplayConfig(environment: NodeJS.ProcessEnv): {
-  readonly seed: number;
-  readonly path?: string;
-  readonly numRuns: number;
-} {
-  const seed = boundedInteger(
-    environment.FC_SEED,
-    BASE_SEED,
-    0,
-    0x7fff_ffff,
-    "FC_SEED",
-  );
-  const numRuns = boundedInteger(
-    environment.FC_RUNS,
-    environment.FC_PATH === undefined ? 200 : 1,
-    1,
-    200,
-    "FC_RUNS",
-  );
-  const path = environment.FC_PATH;
-  if (path !== undefined && !/^\d+(?::\d+)*$/.test(path))
-    throw new Error("FC_PATH is not a bounded fast-check replay path");
-  return { seed, numRuns, ...(path === undefined ? {} : { path }) };
-}
-
-export function formatReplayRecord(input: ReplayRecordInput) {
-  if (
-    !Number.isSafeInteger(input.seed) ||
-    input.seed < 0 ||
-    input.path === null ||
-    !/^\d+(?::\d+)*$/.test(input.path) ||
-    !/^[a-f0-9]{64}$/.test(input.fixtureSha256)
-  )
-    throw new Error("Replay identity is incomplete");
-  return {
-    version: 1 as const,
-    seed: input.seed,
-    path: input.path,
-    nodeVersion: process.version,
-    platform: process.platform,
-    architecture: process.arch,
-    fixtureSha256: input.fixtureSha256,
-    faultPlan: input.faultPlan,
-    replayCommand: `FC_SEED=${input.seed} FC_PATH=${input.path} npm test -- tests/qualification/webp/property.test.ts`,
-  };
 }

@@ -69,9 +69,35 @@ jobs:
         run: |
           echo "EXIFCLEANER_CORPUS_CACHE_DIR=$RUNNER_TEMP/exifcleaner-corpus-cache" >> "$GITHUB_ENV"
           node scripts/qualification/fetch-corpus.cjs --cache "$RUNNER_TEMP/exifcleaner-corpus-cache"
-      - run: npm run lint && npm run typecheck && npm run check:cycles && npm run build && npm run build:native && npm test && npm run check:runtime && npm run check:release
+      - run: npm run lint && npm run typecheck && npm run check:cycles && npm run build && npm run check:dist && npm run build:native && npm test && npm run check:runtime && npm run check:release
       - name: Assert the oracle authorities were built exactly once (KIT-09)
         run: node scripts/qualification/build-oracles.cjs --assert-built-once "$EXIFCLEANER_ORACLE_DIR"
+
+  # M6: the one Node 26 npm test leg; engines stays >=22; not a required context until the
+  # maintainer adds it. Not a matrix: that would rename the required `quality` context.
+  test-node26:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: "${{ github.sha }}"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - name: Prepare pinned oracle authorities for this job (KIT-09)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"
+          node scripts/qualification/build-oracles.cjs --prepare "$RUNNER_TEMP/exifcleaner-oracles"
+      - name: Fetch download-only corpus records into the runner cache (KIT-10/D-14)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_CORPUS_CACHE_DIR=$RUNNER_TEMP/exifcleaner-corpus-cache" >> "$GITHUB_ENV"
+          node scripts/qualification/fetch-corpus.cjs --cache "$RUNNER_TEMP/exifcleaner-corpus-cache"
+      - run: npm run build:native
+      - run: npm test
 
   qualification-linux:
     # D-17 (56-12): the sole always-run job allowed to depend on `classify`,
@@ -87,7 +113,7 @@ jobs:
     env:
       FC_SEED: "460046"
       FC_RUNS: "200"
-      QUAL_KIT: "tests/qualification/kit/build_oracles.test.ts tests/qualification/kit/corpus.test.ts tests/qualification/kit/fetch_corpus.test.ts tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts"
+      QUAL_KIT: "tests/qualification/kit/build_oracles.test.ts tests/qualification/kit/corpus.test.ts tests/qualification/kit/fetch_corpus.test.ts tests/qualification/kit/floors.test.ts tests/qualification/kit/oracles.test.ts tests/qualification/kit/rollback.test.ts tests/qualification/kit/replay.test.ts tests/qualification/kit/invariants.test.ts"
       QUAL_WEBP: "tests/qualification/webp/tracer.test.ts tests/qualification/webp/parser.test.ts tests/qualification/webp/property.test.ts tests/qualification/webp/transaction.test.ts tests/qualification/webp/oracles.test.ts tests/qualification/webp/golden.test.ts"
       QUAL_PNG: "tests/qualification/png/oracles.test.ts tests/qualification/png/tracer.test.ts tests/qualification/png/property.test.ts tests/qualification/png/parser.test.ts tests/qualification/png/transaction.test.ts tests/qualification/png/golden.test.ts"
       # 57-07: the JPEG qualification suite's first file (tracer.test.ts)
@@ -149,6 +175,8 @@ jobs:
                 ;;
             esac
           done
+          # $files is a deliberate space-separated word list of test paths.
+          # shellcheck disable=SC2086
           npm test -- $files
       - name: Assert the oracle authorities were built exactly once (KIT-09)
         run: node scripts/qualification/build-oracles.cjs --assert-built-once "$EXIFCLEANER_ORACLE_DIR"

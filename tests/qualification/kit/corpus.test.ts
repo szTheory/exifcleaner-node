@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { getCapabilities } from "../../../dist/index.js";
+import { getCapabilities } from "../../../src/index.js";
 import {
   APPROVED_CORPUS_LICENSES,
   assertCorpusRecord,

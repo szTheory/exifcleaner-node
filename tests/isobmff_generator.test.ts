@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import { admitIsobmff } from "../src/isobmff/admission.js";
+import { C2PA_UUID_USERTYPE } from "../src/isobmff/boxes.js";
 import {
   DECLINE_CLASS_TO_KIND,
   ISOBMFF_DECLINE_CLASSES,
@@ -23,6 +24,8 @@ import {
 } from "./qualification/kit/floors.js";
 import { assertPlanted } from "./qualification/kit/generators.js";
 import {
+  GENERATOR_C2PA_USERTYPE,
+  isMetadataSample,
   isobmffArmSampleArbitrary,
   isobmffArmSampleArbitraryWithoutMetadataArm,
   isobmffMetadataGenerator,
@@ -70,9 +73,20 @@ async function withTempFile<T>(
 describe("tests/isobmff-support/generator.ts exports", () => {
   it("exports isobmffMetadataGenerator, isobmffArmSampleArbitrary, ISOBMFF_ARM_FLOORS", () => {
     expect(isobmffMetadataGenerator.format).toBe("isobmff");
-    expect(isobmffMetadataGenerator.metadataKinds).toEqual(["EXIF", "XMP"]);
+    expect(isobmffMetadataGenerator.metadataKinds).toEqual([
+      "EXIF",
+      "XMP",
+      "ICC",
+      "C2PA",
+    ]);
     expect(typeof isobmffArmSampleArbitrary).toBe("function");
     expect(typeof ISOBMFF_ARM_FLOORS).toBe("object");
+  });
+
+  it("the generator's C2PA uuid usertype literal equals C2PA_UUID_USERTYPE from src/isobmff/boxes.ts", () => {
+    // The generator cannot import src/isobmff/ (isolation rule): this unrestricted test is the
+    // equality check that keeps its duplicated literal honest.
+    expect(GENERATOR_C2PA_USERTYPE).toBe(C2PA_UUID_USERTYPE);
   });
 
   it("every IsobmffHazardClass literal the generator uses is a real IsobmffDeclineClass", () => {
@@ -124,7 +138,7 @@ describe("isobmffArmSampleArbitrary meets ISOBMFF_ARM_FLOORS and agrees with adm
     }
   });
 
-  it("every non-hazard sample admits with its canaries present and Exif/XMP removable; every hazard sample declines with its own class", async () => {
+  it("every non-hazard sample admits with its canaries present (a mutation sample keeps its surviving canaries verbatim) and Exif/XMP removable; every hazard sample declines with its own class", async () => {
     for (const brand of ["heic", "avif"] as const) {
       await fc.assert(
         fc.asyncProperty(
@@ -155,6 +169,8 @@ describe("isobmffArmSampleArbitrary meets ISOBMFF_ARM_FLOORS and agrees with adm
             }
 
             assertPlanted(sample.bytes, sample.planted);
+            // A mutation sample is admitted or refused: only its planted canaries are checked.
+            if (arms.includes("mutation")) return;
             const admission = await withTempFile(sample.bytes, (handle, size) =>
               admitIsobmff(handle, size),
             );
@@ -224,9 +240,7 @@ describe("isobmffArmSampleArbitrary(brand) emits only that brand (IN-01)", () =>
   for (const brand of ["heic", "avif"] as const) {
     it(`every non-hazard sample from isobmffArmSampleArbitrary("${brand}") classifies as ${brand} (seed ${FC_SEED}, ${FC_RUNS} samples)`, () => {
       const samples = fc.sample(
-        isobmffArmSampleArbitrary(brand).filter(
-          (armSample) => !armSample.arms.includes("hazard"),
-        ),
+        isobmffArmSampleArbitrary(brand).filter(isMetadataSample),
         { seed: FC_SEED, numRuns: FC_RUNS },
       );
       expect(samples).toHaveLength(FC_RUNS);
@@ -243,9 +257,9 @@ describe("heicMetadataGenerator and avifMetadataGenerator (QUA-03, one generator
     ["heic", heicMetadataGenerator],
     ["avif", avifMetadataGenerator],
   ] as const) {
-    it(`${brand}MetadataGenerator names ${brand}, plants EXIF and XMP, and emits only ${brand} files`, () => {
+    it(`${brand}MetadataGenerator names ${brand}, plants EXIF and XMP (plus ICC and C2PA where the file carries them), and emits only ${brand} files`, () => {
       expect(generator.format).toBe(brand);
-      expect(generator.metadataKinds).toEqual(["EXIF", "XMP"]);
+      expect(generator.metadataKinds).toEqual(["EXIF", "XMP", "ICC", "C2PA"]);
       const samples = fc.sample(generator.arbitrary(), {
         seed: FC_SEED,
         numRuns: FC_RUNS,
@@ -253,10 +267,12 @@ describe("heicMetadataGenerator and avifMetadataGenerator (QUA-03, one generator
       expect(samples).toHaveLength(FC_RUNS);
       for (const sample of samples) {
         expect(ftypBrandOf(sample.bytes)).toBe(brand);
-        expect(sample.planted.map((item) => item.kind)).toEqual([
-          "EXIF",
-          "XMP",
-        ]);
+        const kinds = sample.planted.map((item) => item.kind);
+        expect(kinds.slice(0, 2)).toEqual(["EXIF", "XMP"]);
+        expect(
+          kinds.slice(2).every((kind) => kind === "ICC" || kind === "C2PA"),
+        ).toBe(true);
+        expect(new Set(kinds).size).toBe(kinds.length);
         assertPlanted(sample.bytes, sample.planted);
       }
     });
@@ -287,7 +303,7 @@ describe("ISOBMFF_ARM_FLOORS edges (QUA-03)", () => {
       }
       expect(counters["hazard"]).toBe(FC_RUNS);
       expect(() => assertFloors(counters, ISOBMFF_ARM_FLOORS)).toThrow(
-        "xmp: measured 0, required at least 50",
+        `xmp: measured 0, required at least ${ISOBMFF_ARM_FLOORS.xmp}`,
       );
     }
   });

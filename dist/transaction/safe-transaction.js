@@ -4,7 +4,7 @@ import { executionError, jsonSafeCause, withDestinationFinalization, } from "../
 import { err, ok } from "../result.js";
 import { DIRECT_FINAL_FLAGS, DESTINATION_DIRECTORY_FLAGS, REOPEN_FLAGS, STAGE_DIRECTORY_FLAGS, WINDOWS_REOPEN_FLAGS, } from "./file-ops.js";
 import { identitiesDistinct, identityMatches, identityOf, sourcePathMatchesSnapshot, timestampsMatchAtMillisecondPrecision, } from "./identity.js";
-import { createPrivateStageDirectory, capturePrivateStageCleanup, consumePrivateStageCleanup, disposePrivateStageDirectory, removePrivateStageFile, publishNoReplace, takeTerminalCleanupRecord, } from "./native-publication.js";
+import { createPrivateStageDirectory, capturePrivateStageCleanup, consumePrivateStageCleanup, disposePrivateStageDirectory, publishNoReplace, takeTerminalCleanupRecord, } from "./native-publication.js";
 function aborted(signal) {
     return signal?.aborted ?? false;
 }
@@ -47,7 +47,7 @@ function isVerifiedPosixStageDirectory(stats) {
         stats.uid === euid &&
         (stats.mode & 0o077) === 0);
 }
-async function closePostPublicationResources({ fileOps, stageDirectory, destinationDirectory, stageFile, sourceHandle, directoryCapability, cleanupCapability, stagePath, stageDirectoryPath, stageDirectoryIdentity, platform, }) {
+async function closePostPublicationResources({ fileOps, stageDirectory, destinationDirectory, stageFile, sourceHandle, directoryCapability, cleanupCapability, stageDirectoryPath, stageDirectoryIdentity, }) {
     const close = async (handle) => {
         if (handle === undefined)
             return;
@@ -279,10 +279,8 @@ export async function runSafeTransaction(input) {
             sourceHandle,
             directoryCapability,
             cleanupCapability,
-            stagePath,
             stageDirectoryPath,
             stageDirectoryIdentity,
-            platform,
         };
         stageDirectory = undefined;
         destinationDirectory = undefined;

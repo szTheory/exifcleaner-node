@@ -2,14 +2,9 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { classifyFallback, sanitizeFile } from "../dist/index.js";
+import { classifyFallback, sanitizeFile } from "../src/index.js";
 import { parseExif } from "../src/metadata/exif.js";
-import {
-  exifWithOrientation,
-  jpegExif,
-  minimalJpeg,
-  xmpWithOrientation,
-} from "./fixtures.js";
+import { exifWithOrientation, jpegExif, minimalJpeg } from "./fixtures.js";
 import { appSegment, spliceSegments } from "./qualification/jpeg/fixtures.js";
 
 /**
@@ -25,7 +20,6 @@ import { appSegment, spliceSegments } from "./qualification/jpeg/fixtures.js";
  * fallback, which reproduces the correct (order-dependent) result for free.
  */
 
-const APP0 = 0xe0;
 const APP1 = 0xe1;
 
 const directories: string[] = [];

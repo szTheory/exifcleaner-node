@@ -23,7 +23,10 @@ import {
   mdatBox,
   metaBox,
 } from "./isobmff-support/builder.js";
-import { isobmffArmSampleArbitrary } from "./isobmff-support/generator.js";
+import {
+  isMetadataSample,
+  isobmffArmSampleArbitrary,
+} from "./isobmff-support/generator.js";
 import {
   inventoryIsobmff,
   type IsobmffInventory,
@@ -261,9 +264,7 @@ describe("real sources classify with zero unlisted types (QUA-02)", () => {
   for (const brand of ["heic", "avif"] as const) {
     it(`${FC_RUNS} ${brand} generator sources (seed ${FC_SEED}) have no unlisted type`, () => {
       const samples = fc.sample(
-        isobmffArmSampleArbitrary(brand).filter(
-          (armSample) => !armSample.arms.includes("hazard"),
-        ),
+        isobmffArmSampleArbitrary(brand).filter(isMetadataSample),
         { seed: FC_SEED, numRuns: FC_RUNS },
       );
       expect(samples).toHaveLength(FC_RUNS);

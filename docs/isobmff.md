@@ -502,9 +502,13 @@ each fixture re-run with that one cap alone raised to `Number.POSITIVE_INFINITY`
 left at its real default) measuring strictly above the ceiling -- except the box-depth negative
 control, which may instead exhaust the JS call stack (a "crash" outcome) rather than grow RSS,
 since `walkContainer` recurses once per nesting level; both outcomes prove the depth cap is
-load-bearing. No measured RSS figure is published here or in any test/CHANGELOG text (60-CONTEXT
-D-29); the recorded figures and the exact ceiling derivation live in
-`.planning/phases/61-isobmff-reader-and-admission-classifier/61-11-SUMMARY.md`.
+load-bearing. The harness reports the child's own peak (`VmHWM` from `/proc/self/status` on
+linux, per-process `maxRSS` on darwin and win32), because linux `maxRSS` inherits the spawning
+worker's resident set. No measured RSS figure is published here or in any test/CHANGELOG text
+(60-CONTEXT D-29); the recorded figures live in
+`.planning/phases/61-isobmff-reader-and-admission-classifier/61-11-SUMMARY.md` and, for the
+cross-platform re-derivation of the ceiling, in
+`.planning/phases/66-measurable-node-suite/66-EVIDENCE.md` `## 66-17`.
 
 ## Advertised limits
 

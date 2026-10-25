@@ -49,7 +49,7 @@
     "benchmark:qualify": "node scripts/qualification/benchmark.cjs",
     "test:watch": "vitest",
     "check:cycles": "madge --circular --extensions ts src/index.ts",
-    "check:dist": "git diff --exit-code -- dist",
+    "check:dist": "git diff --exit-code -- dist && node -e \"const o=require('node:child_process').execFileSync('git',['status','--porcelain','--untracked-files=all','--','dist'],{encoding:'utf8'});if(o){console.error('untracked or changed dist files:\\n'+o);process.exit(1)}\"",
     "check:runtime": "node scripts/runtime_surface_gate.mjs .",
     "check:release": "node scripts/release_workflow_gate.cjs .github/workflows/release.yml",
     "check:windows-host": "node scripts/check_windows_host_independence.cjs .",
