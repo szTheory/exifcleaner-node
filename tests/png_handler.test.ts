@@ -6,7 +6,7 @@ import {
   classifyFallback,
   getCapabilities,
   sanitizeFile,
-} from "../dist/index.js";
+} from "../src/index.js";
 import {
   PNG_MAX_BUFFERED_METADATA_BYTES_TOTAL,
   PNG_MAX_IDAT_CHUNKS,
@@ -29,8 +29,7 @@ import {
  * architectural tracer): magic selection, admission through the Plan 02
  * codec, D-05 closed-list classification, output plan, write, re-parse
  * verification, and publication -- through the public API, against the
- * built `dist/index.js` (mirrors tests/qualification/webp/golden.test.ts's
- * dist-import convention).
+ * `src/index.js` (the same src-import convention as the other top-level suites).
  */
 
 const directories: string[] = [];

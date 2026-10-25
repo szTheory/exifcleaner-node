@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
-import { classifyFallback, sanitizeFile } from "../dist/index.js";
+import { classifyFallback, sanitizeFile } from "../src/index.js";
 import {
   COLOUR_FIXTURES,
   iccProfile,

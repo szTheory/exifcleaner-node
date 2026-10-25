@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { classifyFallback, sanitizeFile } from "../dist/index.js";
+import { classifyFallback, sanitizeFile } from "../src/index.js";
 import { createOrientationExif, parseExif } from "../src/metadata/exif.js";
 import { PNG_MAX_INFLATED_TEXT_BYTES } from "../src/png/chunks.js";
 import {
