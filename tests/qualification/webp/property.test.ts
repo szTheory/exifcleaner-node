@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { webpHandler } from "../../../src/admission/webp-handler.js";
 import { sanitizeFile } from "../../../src/index.js";
 import { parseExif } from "../../../src/metadata/exif.js";
 import { validateIccForPreservation } from "../../../src/metadata/icc_admission.js";
@@ -22,7 +23,14 @@ import {
   type FixtureChunk,
 } from "../../fixtures.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
-import { assertFloors, countSample, createCounters } from "../kit/floors.js";
+import {
+  assertFloors,
+  assertSlotRates,
+  countSample,
+  createCounters,
+  parseStatisticsRates,
+  slotRateFloors,
+} from "../kit/floors.js";
 import {
   INVARIANT_MESSAGES,
   assertAdmittedOutcome,
@@ -85,6 +93,17 @@ function payloadChunks(file: Buffer): readonly FixtureChunk[] {
   return readChunks(file).filter((chunk) => PAYLOAD_FOURCCS.has(chunk.fourCc));
 }
 
+/**
+ * The metadata kinds a sample contributes to the `kind:<K>` counters: its planted
+ * kinds when it is a success sample, none otherwise. checkSample's counter keys and
+ * the fc.statistics classifier both come from here, so the two cannot disagree.
+ */
+function countedKinds(sample: QualificationSample): readonly string[] {
+  return sample.expected === "success"
+    ? [...new Set(sample.planted.map((item) => item.kind))]
+    : [];
+}
+
 /** Source mtime/atime seeded before every success sample sanitizes (D-20 timestamps). */
 const SEEDED_SOURCE_TIME = new Date("2001-02-03T04:05:06.789Z");
 
@@ -129,7 +148,7 @@ async function checkSample(
         } finally {
           await source.close();
         }
-        const plantedKinds = new Set(sample.planted.map((item) => item.kind));
+        const plantedKinds = new Set(countedKinds(sample));
         for (const kind of plantedKinds) counterKeys.push(`kind:${kind}`);
         await utimes(sourcePath, SEEDED_SOURCE_TIME, SEEDED_SOURCE_TIME);
 
@@ -336,6 +355,44 @@ const FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze({
   "flag:preserveTimestamps": 37,
 });
 
+/** Minimum printed rate per slot, derived from the counter floors (PBT-01, D-09). */
+const WEBP_SLOT_LABELS = ["EXIF", "XMP", "ICCP"] as const;
+const WEBP_SLOT_RATE_FLOORS = slotRateFloors(
+  FIXED_SEED_FLOORS,
+  WEBP_SLOT_LABELS,
+  (kind) => `kind:${kind}`,
+);
+
+/** Runs fc.statistics over `arbitrary` and returns the printed lines. */
+function captureStatistics(
+  arbitrary: ReturnType<typeof qualificationArbitrary>,
+  classify: (sample: QualificationSample) => string[],
+  config: { readonly seed: number; readonly numRuns: number },
+): string[] {
+  const lines: string[] = [];
+  fc.statistics(arbitrary, classify, {
+    seed: config.seed,
+    numRuns: config.numRuns,
+    logger: (line) => lines.push(line),
+  });
+  return lines;
+}
+
+/** Label presence by set membership: order of printed rows never matters. */
+function missingSlotLabels(lines: readonly string[]): string[] {
+  const present = new Set(parseStatisticsRates(lines).keys());
+  return WEBP_SLOT_LABELS.filter((label) => !present.has(label));
+}
+
+/** C2PA is not applicable to WebP: no C2PA generator slot exists (PBT-01). */
+function assertNoC2paRemoval(capability: {
+  readonly removes: readonly string[];
+}): void {
+  if (capability.removes.includes("C2PA")) {
+    throw new Error("WebP gained C2PA: add a C2PA generator slot (PBT-01)");
+  }
+}
+
 describe("replayable WebP qualification properties", () => {
   it("defaults focused runs to 200 and exact-path replay to one", () => {
     expect(resolveReplayConfig({})).toEqual({ seed: 460_046, numRuns: 200 });
@@ -383,6 +440,64 @@ describe("replayable WebP qualification properties", () => {
       assertFloors(counters, FIXED_SEED_FLOORS);
     }
   }, 30_000);
+
+  it("slot distribution (fc.statistics, PBT-01)", () => {
+    const config = resolveReplayConfig(process.env);
+    const lines = captureStatistics(
+      qualificationArbitrary(),
+      (sample) => [...countedKinds(sample)],
+      config,
+    );
+    console.info(lines.join("\n"));
+    expect(missingSlotLabels(lines)).toEqual([]);
+    if (config.path === undefined && config.numRuns === 200) {
+      assertSlotRates(lines, WEBP_SLOT_RATE_FLOORS);
+    }
+  });
+
+  it("an empty classifier leaves every slot label absent (PBT-01 empty)", () => {
+    const lines = captureStatistics(qualificationArbitrary(), () => [], {
+      seed: 460_046,
+      numRuns: 200,
+    });
+    expect(missingSlotLabels(lines)).toEqual([...WEBP_SLOT_LABELS]);
+  });
+
+  it("statistics gate goes red on a generator missing a slot", () => {
+    const config = { seed: 460_046, numRuns: 200 };
+    const dropXmp = qualificationArbitrary().map(
+      (sample): QualificationSample => ({
+        ...sample,
+        planted: sample.planted.filter((item) => item.kind !== "XMP"),
+      }),
+    );
+    const classify = (sample: QualificationSample) => [...countedKinds(sample)];
+    expect(() =>
+      assertSlotRates(
+        captureStatistics(qualificationArbitrary(), classify, config),
+        WEBP_SLOT_RATE_FLOORS,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSlotRates(
+        captureStatistics(dropXmp, classify, config),
+        WEBP_SLOT_RATE_FLOORS,
+      ),
+    ).toThrow(/slot XMP/);
+  });
+
+  it("WebP declares no C2PA removal (C2PA not applicable)", () => {
+    expect(() => assertNoC2paRemoval(webpHandler.capability)).not.toThrow();
+  });
+
+  it("the C2PA gate goes red on a capability that gained C2PA", () => {
+    const real = webpHandler.capability;
+    const mutated = { ...real, removes: [...real.removes, "C2PA"] };
+    expect(mutated.removes).not.toEqual(real.removes);
+    expect(() => assertNoC2paRemoval(mutated)).toThrow(
+      "WebP gained C2PA: add a C2PA generator slot (PBT-01)",
+    );
+  });
 
   it("accepts a generated ICC canary profile for color-profile preservation", () => {
     fc.assert(
