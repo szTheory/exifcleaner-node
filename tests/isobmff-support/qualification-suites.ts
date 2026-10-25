@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { inspectFile, sanitizeFile } from "../../dist/index.js";
+import { inspectFile, sanitizeFile } from "../../src/index.js";
 import type { SanitizeOptions } from "../../src/types.js";
 import { createMinimalExif } from "../../src/metadata/exif.js";
 import { ok } from "../../src/result.js";

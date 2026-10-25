@@ -10,7 +10,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sanitizeFile } from "../../dist/index.js";
+import { sanitizeFile } from "../../src/index.js";
 import type { SanitizeResult } from "../../src/types.js";
 import {
   ilocItemOrder,

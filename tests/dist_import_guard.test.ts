@@ -150,8 +150,6 @@ export const ALLOWLIST: Readonly<
 
 /** Offenders not yet repointed to src. This list can only shrink. */
 export const PENDING_REPOINT: readonly string[] = Object.freeze([
-  "tests/isobmff-support/corpus-tracer.ts",
-  "tests/isobmff-support/qualification-suites.ts",
   "tests/qualification/webp/golden.test.ts",
   "tests/qualification/webp/oracles.test.ts",
   "tests/qualification/webp/parser.test.ts",
