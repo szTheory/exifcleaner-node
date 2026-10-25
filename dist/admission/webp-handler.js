@@ -3,7 +3,7 @@ import { parseIcc } from "../metadata/icc.js";
 import { parseXmp } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
 import { executionError } from "../errors.js";
-import { COPY_BLOCK_BYTES, MAX_BUFFERED_METADATA_BYTES, MAX_CHUNK_COUNT, MAX_RIFF_BYTES, encodeChunkHeader, encodeRiffHeader, parseWebp, readExactly, WebpStructureError, } from "../webp/riff.js";
+import { COPY_BLOCK_BYTES, MAX_BUFFERED_METADATA_BYTES, MAX_CHUNK_COUNT, MAX_RIFF_BYTES, encodeChunkHeader, encodeRiffHeader, parseWebp, WebpStructureError, } from "../webp/riff.js";
 import { ICC_PRESERVATION_POLICY_ID } from "../metadata/icc_admission.js";
 function isAborted(signal) {
     return signal?.aborted ?? false;

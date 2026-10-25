@@ -26,7 +26,6 @@ import {
   encodeChunkHeader,
   encodeRiffHeader,
   parseWebp,
-  readExactly,
   WebpStructureError,
   type ParsedWebp,
   type WebpChunk,
