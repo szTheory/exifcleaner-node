@@ -121,10 +121,7 @@ function minimalHeif(mdatSize?: BoxSizeOverride["size"]): Buffer {
   const pitmSize = 14; // 8 + 4 (version/flags) + 2 item_ID (v0)
   const infeSize = 21; // 8 + 4 (version/flags) + 2 item_ID (v2) + 2 protection_index + 4 item_type + 1 name
   const iinfSize = 35; // 8 + 4 (version/flags) + 2 entry_count (v0) + 21 infe
-  const ispeSize = 20; // 8 + 4 (version/flags) + 4 width + 4 height
-  const hvcCSize = 31; // 8 + 23-byte HEVCDecoderConfigurationRecord
   const ipcoSize = 59; // 8 + 20 ispe + 31 hvcC
-  const ipmaSize = 21; // 8 + 4 (version/flags) + 4 entry_count + 2 item_ID (v0) + 1 association_count + 2*1 associations
   const iprpSize = 88; // 8 + 59 ipco + 21 ipma
   const ilocSize = 32; // 8 + 4 (version/flags) + 2 size-nibbles + 2 item_count (v1) + 2 item_ID + 2 construction_method + 2 data_reference_index + 2 extent_count + 4 offset + 4 length
   const metaPayloadSize = hdlrSize + pitmSize + iinfSize + iprpSize + ilocSize; // 202

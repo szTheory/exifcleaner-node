@@ -142,11 +142,6 @@ function firstByMarker(
   return ranges.find((range) => range.marker === marker);
 }
 
-interface Rational {
-  readonly numerator: number;
-  readonly denominator: number;
-}
-
 /**
  * Hand-built little-endian TIFF/EXIF body: IFD0 (Make, Orientation,
  * X/YResolution, ResolutionUnit, Artist, a GPS IFD pointer) chained to an

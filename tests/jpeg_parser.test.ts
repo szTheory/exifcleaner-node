@@ -3,11 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { minimalJpeg } from "./fixtures.js";
-import {
-  isJpegSignature,
-  JpegStructureError,
-  parseJpeg,
-} from "../src/jpeg/parser.js";
+import { isJpegSignature, parseJpeg } from "../src/jpeg/parser.js";
 import {
   JPEG_MAX_EXTENDED_XMP_BYTES,
   JPEG_MAX_FILE_BYTES,
