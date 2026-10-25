@@ -2,6 +2,7 @@
 // TypeScript checker (no hand-written code list is the source of truth), and each derived kind is
 // reached by a real input asserted by code, feature and reason. Never by detail or message text.
 import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -9,8 +10,14 @@ import { fileURLToPath } from "node:url";
 // Held on TypeScript 6.x: TS 7.0 drops the JS Compiler API (see public_contract.test.ts).
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { inspectFile, sanitizeFile } from "../src/index.js";
-import type { MetadataError } from "../src/index.js";
+import { getCapabilities, inspectFile, sanitizeFile } from "../src/index.js";
+import type {
+  MetadataError,
+  PngCapabilities,
+  WebpCapabilities,
+} from "../src/index.js";
+import { parsePng, PngStructureError } from "../src/png/chunks.js";
+import { parseWebp, WebpStructureError } from "../src/webp/riff.js";
 import { setRegisteredHandlersForTests } from "../src/admission/registry.js";
 import type { RegisteredHandler } from "../src/admission/registry.js";
 import { webpHandler } from "../src/admission/webp-handler.js";
@@ -23,6 +30,11 @@ import {
   webp,
 } from "./fixtures.js";
 import { materializeMutationCase } from "./qualification/webp/generators.js";
+import {
+  hostileMutationCases as pngHostileCases,
+  materializeMutationCase as materializePngCase,
+} from "./qualification/png/generators.js";
+import { hostileMutationCases as webpHostileCases } from "./qualification/webp/generators.js";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const entryFile = join(packageRoot, "src", "index.ts");
@@ -661,5 +673,282 @@ describe("derivation and table controls (TEST-12)", () => {
       (key) => (REACHING as Record<string, ReachingCase>)[key]!.expect.reason,
     );
     expect(reasons.sort()).toEqual(["invalid", "policy-limit", "unsupported"]);
+  });
+});
+
+// --- Tier 2: every declared WebP and PNG refusal is reached by a hostile input -----------------
+
+type WebpRefusal = WebpCapabilities["refuses"][number];
+type PngRefusal = PngCapabilities["refuses"][number];
+
+interface RefusalCase {
+  /** Id of a hostile case in the format's qualification generators. */
+  readonly caseId: string;
+  /** Public MetadataError code sanitizeFile must return. */
+  readonly expectedCode:
+    "malformed-file" | "unsafe-structure" | "unsupported-format";
+  /** The parser's thrown error kind, or "admission-layer" when parsing succeeds. */
+  readonly expectedParserKind:
+    | "malformed-file"
+    | "unsafe-structure"
+    | "unsupported-format"
+    | "admission-layer";
+}
+
+const WEBP_REFUSALS = {
+  "unknown-chunks": {
+    caseId: "private-top-level-chunk",
+    expectedCode: "unsafe-structure",
+    expectedParserKind: "unsafe-structure",
+  },
+  "malformed-container": {
+    caseId: "declared-size-plus-one",
+    expectedCode: "malformed-file",
+    expectedParserKind: "malformed-file",
+  },
+  "unsupported-features": {
+    caseId: "exif-flag-without-chunk",
+    expectedCode: "malformed-file",
+    expectedParserKind: "malformed-file",
+  },
+  "resource-limits": {
+    caseId: "iccp-limit-plus-one",
+    expectedCode: "unsafe-structure",
+    expectedParserKind: "unsafe-structure",
+  },
+  "trailing-data": {
+    caseId: "trailer-after-declared-boundary",
+    expectedCode: "malformed-file",
+    expectedParserKind: "malformed-file",
+  },
+} as const satisfies Record<WebpRefusal, RefusalCase>;
+
+const PNG_REFUSALS = {
+  "unknown-critical-chunks": {
+    caseId: "unknown-critical-cgbi",
+    expectedCode: "unsafe-structure",
+    expectedParserKind: "unsafe-structure",
+  },
+  "malformed-container": {
+    caseId: "length-overflow",
+    expectedCode: "malformed-file",
+    expectedParserKind: "malformed-file",
+  },
+  "crc-mismatch": {
+    caseId: "crc-idat",
+    expectedCode: "malformed-file",
+    expectedParserKind: "malformed-file",
+  },
+  "chunk-order": {
+    caseId: "chunk-order-noncontiguous-idat",
+    expectedCode: "unsafe-structure",
+    expectedParserKind: "unsafe-structure",
+  },
+  truncation: {
+    caseId: "truncated-iend",
+    expectedCode: "malformed-file",
+    expectedParserKind: "malformed-file",
+  },
+  "trailing-data": {
+    caseId: "trailing-byte-after-iend",
+    expectedCode: "malformed-file",
+    expectedParserKind: "malformed-file",
+  },
+  animation: {
+    caseId: "apng-actl",
+    expectedCode: "unsafe-structure",
+    expectedParserKind: "unsafe-structure",
+  },
+  "resource-limits": {
+    caseId: "chunk-count-idat-flood",
+    expectedCode: "unsafe-structure",
+    expectedParserKind: "unsafe-structure",
+  },
+  "unmeasured-registered-chunks": {
+    caseId: "registered-unmeasured-gifg",
+    expectedCode: "unsafe-structure",
+    expectedParserKind: "admission-layer",
+  },
+  "unsafe-chunk-adjacency": {
+    caseId: "idot-adjacency-text-between",
+    expectedCode: "unsafe-structure",
+    expectedParserKind: "admission-layer",
+  },
+} as const satisfies Record<PngRefusal, RefusalCase>;
+
+/** Literals in exactly one of the table keys and the declared refuses list. */
+function compareRefusalKeys(
+  tableKeys: readonly string[],
+  declaredRefuses: readonly string[],
+): { readonly missing: string[]; readonly extra: string[] } {
+  const table = new Set(tableKeys);
+  const declared = new Set(declaredRefuses);
+  return {
+    missing: declaredRefuses.filter((key) => !table.has(key)).sort(compareKeys),
+    extra: tableKeys.filter((key) => !declared.has(key)).sort(compareKeys),
+  };
+}
+
+function declaredRefuses(format: "webp" | "png"): readonly string[] {
+  const entry = getCapabilities().formats.find(
+    (item) => item.format === format,
+  );
+  if (entry === undefined) throw new Error(`no ${format} capability`);
+  return entry.refuses;
+}
+
+async function withHostileFile(
+  extension: "webp" | "png",
+  materialize: () => { prefix: Buffer; fileSize: number },
+  callback: (
+    sourcePath: string,
+    fileSize: number,
+    directory: string,
+  ) => Promise<void>,
+): Promise<void> {
+  const { prefix, fileSize } = materialize();
+  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-refusal-"));
+  const sourcePath = join(directory, `source.${extension}`);
+  try {
+    await writeFile(sourcePath, prefix);
+    if (fileSize !== prefix.length) {
+      const handle = await open(sourcePath, "r+");
+      try {
+        await handle.truncate(fileSize);
+      } finally {
+        await handle.close();
+      }
+    }
+    await callback(sourcePath, fileSize, directory);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function withReadHandle<T>(
+  path: string,
+  callback: (handle: FileHandle) => Promise<T>,
+): Promise<T> {
+  const handle = await open(path, "r");
+  try {
+    return await callback(handle);
+  } finally {
+    await handle.close();
+  }
+}
+
+async function expectPublicRefusal(
+  sourcePath: string,
+  directory: string,
+  extension: string,
+  expectedCode: string,
+): Promise<void> {
+  const destinationPath = join(directory, `clean.${extension}`);
+  const result = await sanitizeFile({
+    sourcePath,
+    destinationPath,
+    ...NO_PRESERVATION,
+  });
+  expect(result.ok).toBe(false);
+  expect(result).toMatchObject({ error: { code: expectedCode } });
+  expect(existsSync(destinationPath)).toBe(false);
+}
+
+describe("declared refusals (TEST-12 Tier 2)", () => {
+  it("the WebP and PNG tables equal getCapabilities() refuses exactly", () => {
+    expect(
+      compareRefusalKeys(Object.keys(WEBP_REFUSALS), declaredRefuses("webp")),
+    ).toEqual({ missing: [], extra: [] });
+    expect(
+      compareRefusalKeys(Object.keys(PNG_REFUSALS), declaredRefuses("png")),
+    ).toEqual({ missing: [], extra: [] });
+    expect(Object.keys(WEBP_REFUSALS)).toHaveLength(5);
+    expect(Object.keys(PNG_REFUSALS)).toHaveLength(10);
+  });
+
+  it.each(Object.entries(WEBP_REFUSALS))(
+    "webp refuses %s by a hostile input",
+    async (_literal, refusal: RefusalCase) => {
+      const generated = webpHostileCases.find(
+        (item) => item.id === refusal.caseId,
+      );
+      expect(generated?.expectedKind).toBe(refusal.expectedCode);
+      await withHostileFile(
+        "webp",
+        () => materializeMutationCase(refusal.caseId),
+        async (sourcePath, fileSize, directory) => {
+          await expectPublicRefusal(
+            sourcePath,
+            directory,
+            "webp",
+            refusal.expectedCode,
+          );
+          const parsed = withReadHandle(sourcePath, (handle) =>
+            parseWebp(handle, fileSize),
+          );
+          await expect(parsed).rejects.toBeInstanceOf(WebpStructureError);
+          await expect(parsed).rejects.toMatchObject({
+            kind: refusal.expectedParserKind,
+          });
+        },
+      );
+    },
+    30_000,
+  );
+
+  it.each(Object.entries(PNG_REFUSALS))(
+    "png refuses %s by a hostile input",
+    async (_literal, refusal: RefusalCase) => {
+      const generated = pngHostileCases.find(
+        (item) => item.id === refusal.caseId,
+      );
+      expect(generated?.expectedKind).toBe(refusal.expectedCode);
+      expect(generated?.options).toBeUndefined();
+      await withHostileFile(
+        "png",
+        () => materializePngCase(refusal.caseId),
+        async (sourcePath, fileSize, directory) => {
+          await expectPublicRefusal(
+            sourcePath,
+            directory,
+            "png",
+            refusal.expectedCode,
+          );
+          const parsed = withReadHandle(sourcePath, (handle) =>
+            parsePng(handle, fileSize),
+          );
+          if (refusal.expectedParserKind === "admission-layer") {
+            await expect(parsed).resolves.toBeDefined();
+            return;
+          }
+          await expect(parsed).rejects.toBeInstanceOf(PngStructureError);
+          await expect(parsed).rejects.toMatchObject({
+            kind: refusal.expectedParserKind,
+          });
+        },
+      );
+    },
+    30_000,
+  );
+
+  it("Tier 2 equality control: a dropped or phantom literal is reported", () => {
+    for (const [format, table] of [
+      ["webp", Object.keys(WEBP_REFUSALS)],
+      ["png", Object.keys(PNG_REFUSALS)],
+    ] as const) {
+      const declared = declaredRefuses(format);
+      const dropped = table.slice(1);
+      expect(dropped).not.toEqual(table);
+      const missingReport = compareRefusalKeys(dropped, declared);
+      expect(missingReport).toEqual({ missing: [table[0]!], extra: [] });
+
+      const phantom = [...table, "phantom-refusal"];
+      expect(phantom).not.toEqual(table);
+      const extraReport = compareRefusalKeys(phantom, declared);
+      expect(extraReport).toEqual({ missing: [], extra: ["phantom-refusal"] });
+      console.info(
+        `Tier 2 control ${format}: dropped ${table[0]} -> ${JSON.stringify(missingReport)}; phantom -> ${JSON.stringify(extraReport)}`,
+      );
+    }
   });
 });
