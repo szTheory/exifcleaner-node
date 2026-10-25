@@ -86,6 +86,16 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      - name: Prepare pinned oracle authorities for this job (KIT-09)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_ORACLE_DIR=$RUNNER_TEMP/exifcleaner-oracles" >> "$GITHUB_ENV"
+          node scripts/qualification/build-oracles.cjs --prepare "$RUNNER_TEMP/exifcleaner-oracles"
+      - name: Fetch download-only corpus records into the runner cache (KIT-10/D-14)
+        shell: bash
+        run: |
+          echo "EXIFCLEANER_CORPUS_CACHE_DIR=$RUNNER_TEMP/exifcleaner-corpus-cache" >> "$GITHUB_ENV"
+          node scripts/qualification/fetch-corpus.cjs --cache "$RUNNER_TEMP/exifcleaner-corpus-cache"
       - run: npm run build:native
       - run: npm test
 
