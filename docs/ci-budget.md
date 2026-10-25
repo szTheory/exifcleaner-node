@@ -238,7 +238,9 @@ failures without them, because `npm test` under CI refuses to skip oracle-backed
 `engines.node` stays `>=22`.
 Local runtime basis: the full suite takes about 55 s and `build:native` about 1.3 s. It is not a
 required context until the maintainer adds it. `quality` also runs `npm run check:dist` right after
-`npm run build`, so CI fails when committed `dist` differs from a fresh build.
+`npm run build`, so CI fails when a fresh build changes a tracked `dist` file or leaves a new,
+untracked file under `dist`. It does not detect a stale `dist` file whose `src/` module was deleted:
+`tsc` never removes outputs, so that case relies on review (66-REVIEW WR-02, deferred half).
 
 Measured hosted minutes: test-node26 minutes at 66-08: 4.1 (run 40227776761, the first green run).
 
