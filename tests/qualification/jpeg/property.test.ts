@@ -1,22 +1,27 @@
 import {
   access,
+  appendFile,
   copyFile,
-  mkdtemp,
   open,
   readFile,
-  rm,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { sanitizeFile } from "../../../src/index.js";
 import { createMinimalExif } from "../../../src/metadata/exif.js";
-import { parseJpeg } from "../../../src/jpeg/parser.js";
+import { JpegStructureError, parseJpeg } from "../../../src/jpeg/parser.js";
 import { ok } from "../../../src/result.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
 import { assertFloors, countSample, createCounters } from "../kit/floors.js";
+import {
+  INVARIANT_MESSAGES,
+  assertAdmittedOutcome,
+  assertCanariesDistinct,
+  assertNonSuccessBlastRadius,
+  assertTotal,
+  withSampleWorkspace,
+} from "../kit/invariants.js";
 import {
   bytesDigest,
   checkWithReplay,
@@ -222,185 +227,207 @@ const PRESERVATION_MESSAGES = Object.freeze({
 async function checkSample(
   sample: QualificationSample,
   sanitize: typeof sanitizeFile = sanitizeFile,
+  parse: typeof parseJpeg = parseJpeg,
 ): Promise<readonly string[]> {
-  const directory = await mkdtemp(join(tmpdir(), "exifcleaner-jpeg-property-"));
-  const sourcePath = join(directory, "source.jpg");
-  const destinationPath = join(directory, "output.jpg");
   const counterKeys: string[] = [`arm:${sample.arm}`];
-  try {
-    await writeFile(sourcePath, sample.bytes);
-    if (sample.expected === "success") {
-      assertPlanted(sample.bytes, sample.planted);
-      const source = await open(sourcePath, "r");
+  await withSampleWorkspace(
+    "source.jpg",
+    "output.jpg",
+    sample.bytes,
+    async ({ directory, sourcePath, destinationPath }) => {
+      const totalityHandle = await open(sourcePath, "r");
       try {
-        await expect(
-          parseJpeg(source, sample.bytes.length),
-        ).resolves.toBeDefined();
-      } finally {
-        await source.close();
-      }
-      const plantedKinds = new Set(sample.planted.map((item) => item.kind));
-      for (const kind of plantedKinds) counterKeys.push(`kind:${kind}`);
-
-      const result = await sanitize({
-        sourcePath,
-        destinationPath,
-        ...sample.options,
-      });
-      expect(result.ok, JSON.stringify(result)).toBe(true);
-
-      const preserveColorProfile =
-        sample.options.preserveColorProfile && plantedKinds.has("ICC");
-      const preserveOrientation =
-        sample.options.preserveOrientation &&
-        sample.plantedOrientation !== undefined;
-      const preserveResolution =
-        sample.options.preserveResolution &&
-        sample.plantedResolution !== undefined;
-      const preservedKinds = preserveColorProfile ? ["ICC"] : [];
-
-      const output = await readFile(destinationPath);
-      assertCanariesAbsent(output, sample.planted, preservedKinds);
-
-      // Validity: the output re-parses structurally.
-      const destinationHandle = await open(destinationPath, "r");
-      try {
-        await expect(
-          parseJpeg(destinationHandle, output.length),
-        ).resolves.toBeDefined();
-      } finally {
-        await destinationHandle.close();
-      }
-
-      const sourceRecords = readJpegSegmentRecords(sample.bytes);
-      const outputRecords = readJpegSegmentRecords(output);
-
-      // Zero trailer bytes in the output, always.
-      expect(
-        outputRecords.trailerBytes,
-        PRESERVATION_MESSAGES.trailerPresent,
-      ).toBe(0);
-
-      // Every entropy-coded scan range is byte-identical (asserted via the
-      // independent walker's own segment list -- an SOS record's payload
-      // here is only the scan HEADER; entropy data itself is copied
-      // untouched by the native writer whenever the scan is kept at all, so
-      // this walker finding the same scan header for source and output is
-      // the byte-identity proof for the entropy data it brackets).
-      const sourceScans = sourceRecords.segments.filter(
-        (s) => s.marker === 0xda,
-      );
-      const outputScans = outputRecords.segments.filter(
-        (s) => s.marker === 0xda,
-      );
-      expect(outputScans.length).toBe(sourceScans.length);
-      outputScans.forEach((scan, index) => {
-        expect(scan.payload).toEqual(sourceScans[index]!.payload);
-      });
-
-      // APP14 Adobe is byte-identical when present in the source.
-      const sourceAdobe = findFirst(sourceRecords.segments, isAdobe);
-      if (sample.plantedAdobe) {
-        counterKeys.push("flag:adobe");
-        const outputAdobe = findFirst(outputRecords.segments, isAdobe);
-        expect(outputAdobe, PRESERVATION_MESSAGES.adobeMissing).toBeDefined();
-        expect(
-          outputAdobe!.payload.equals(sourceAdobe!.payload),
-          PRESERVATION_MESSAGES.adobeBytes,
-        ).toBe(true);
-      } else {
-        expect(findFirst(outputRecords.segments, isAdobe)).toBeUndefined();
-      }
-
-      // JFIF is present exactly when preserveResolution is true and no
-      // APP14 is planted (D-06).
-      if (sample.plantedJfif) {
-        const outputJfif = findFirst(outputRecords.segments, isJfif);
-        const expectJfif =
-          sample.options.preserveResolution && !sample.plantedAdobe;
-        if (expectJfif) {
-          counterKeys.push("flag:preserveResolutionJfif");
-          expect(outputJfif, PRESERVATION_MESSAGES.jfifMissing).toBeDefined();
-        } else {
-          expect(
-            outputJfif,
-            PRESERVATION_MESSAGES.jfifUnexpected,
-          ).toBeUndefined();
-        }
-      }
-
-      // ICC segments are present and byte-identical (in order) exactly when
-      // preserveColorProfile is true.
-      if (preserveColorProfile) {
-        counterKeys.push("flag:preserveColorProfile");
-        const sourceIcc = sourceRecords.segments.filter(isIcc);
-        const outputIcc = outputRecords.segments.filter(isIcc);
-        expect(outputIcc.length, PRESERVATION_MESSAGES.iccMissing).toBe(
-          sourceIcc.length,
+        await assertTotal(
+          () => parse(totalityHandle, sample.bytes.length),
+          (error) => error instanceof JpegStructureError,
         );
-        outputIcc.forEach((item, index) => {
-          expect(item.payload).toEqual(sourceIcc[index]!.payload);
-        });
-      } else {
-        expect(outputRecords.segments.filter(isIcc)).toHaveLength(0);
+      } finally {
+        await totalityHandle.close();
       }
+      if (sample.expected === "success") {
+        assertPlanted(sample.bytes, sample.planted);
+        assertCanariesDistinct(sample.planted);
+        const source = await open(sourcePath, "r");
+        try {
+          await expect(
+            parse(source, sample.bytes.length),
+          ).resolves.toBeDefined();
+        } finally {
+          await source.close();
+        }
+        const plantedKinds = new Set(sample.planted.map((item) => item.kind));
+        for (const kind of plantedKinds) counterKeys.push(`kind:${kind}`);
 
-      // Any APP1 Exif in the output equals the recomputed
-      // createMinimalExif bytes.
-      const outputExif = findFirst(outputRecords.segments, isExif);
-      if (preserveOrientation || preserveResolution) {
-        if (preserveOrientation) counterKeys.push("flag:preserveOrientation");
-        if (preserveResolution) counterKeys.push("flag:preserveResolution");
-        expect(outputExif, PRESERVATION_MESSAGES.exifMissing).toBeDefined();
-        const expectedTiff = createMinimalExif({
-          ...(preserveOrientation
-            ? { orientation: sample.plantedOrientation! }
-            : {}),
-          ...(preserveResolution
-            ? {
-                resolution: {
-                  x: { numerator: sample.plantedResolution!.x, denominator: 1 },
-                  y: { numerator: sample.plantedResolution!.y, denominator: 1 },
-                  unit: sample.plantedResolution!.unit,
-                },
-              }
-            : {}),
+        const result = await sanitize({
+          sourcePath,
+          destinationPath,
+          ...sample.options,
         });
+        assertAdmittedOutcome(result);
+        expect(result.ok, JSON.stringify(result)).toBe(true);
+
+        const preserveColorProfile =
+          sample.options.preserveColorProfile && plantedKinds.has("ICC");
+        const preserveOrientation =
+          sample.options.preserveOrientation &&
+          sample.plantedOrientation !== undefined;
+        const preserveResolution =
+          sample.options.preserveResolution &&
+          sample.plantedResolution !== undefined;
+        const preservedKinds = preserveColorProfile ? ["ICC"] : [];
+
+        const output = await readFile(destinationPath);
+        assertCanariesAbsent(output, sample.planted, preservedKinds);
+
+        // Validity: the output re-parses structurally.
+        const destinationHandle = await open(destinationPath, "r");
+        try {
+          await expect(
+            parseJpeg(destinationHandle, output.length),
+          ).resolves.toBeDefined();
+        } finally {
+          await destinationHandle.close();
+        }
+
+        const sourceRecords = readJpegSegmentRecords(sample.bytes);
+        const outputRecords = readJpegSegmentRecords(output);
+
+        // Zero trailer bytes in the output, always.
         expect(
-          outputExif!.payload.subarray(6).equals(expectedTiff),
-          PRESERVATION_MESSAGES.exifBytes,
-        ).toBe(true);
+          outputRecords.trailerBytes,
+          PRESERVATION_MESSAGES.trailerPresent,
+        ).toBe(0);
+
+        // Every entropy-coded scan range is byte-identical (asserted via the
+        // independent walker's own segment list -- an SOS record's payload
+        // here is only the scan HEADER; entropy data itself is copied
+        // untouched by the native writer whenever the scan is kept at all, so
+        // this walker finding the same scan header for source and output is
+        // the byte-identity proof for the entropy data it brackets).
+        const sourceScans = sourceRecords.segments.filter(
+          (s) => s.marker === 0xda,
+        );
+        const outputScans = outputRecords.segments.filter(
+          (s) => s.marker === 0xda,
+        );
+        expect(outputScans.length).toBe(sourceScans.length);
+        outputScans.forEach((scan, index) => {
+          expect(scan.payload).toEqual(sourceScans[index]!.payload);
+        });
+
+        // APP14 Adobe is byte-identical when present in the source.
+        const sourceAdobe = findFirst(sourceRecords.segments, isAdobe);
+        if (sample.plantedAdobe) {
+          counterKeys.push("flag:adobe");
+          const outputAdobe = findFirst(outputRecords.segments, isAdobe);
+          expect(outputAdobe, PRESERVATION_MESSAGES.adobeMissing).toBeDefined();
+          expect(
+            outputAdobe!.payload.equals(sourceAdobe!.payload),
+            PRESERVATION_MESSAGES.adobeBytes,
+          ).toBe(true);
+        } else {
+          expect(findFirst(outputRecords.segments, isAdobe)).toBeUndefined();
+        }
+
+        // JFIF is present exactly when preserveResolution is true and no
+        // APP14 is planted (D-06).
+        if (sample.plantedJfif) {
+          const outputJfif = findFirst(outputRecords.segments, isJfif);
+          const expectJfif =
+            sample.options.preserveResolution && !sample.plantedAdobe;
+          if (expectJfif) {
+            counterKeys.push("flag:preserveResolutionJfif");
+            expect(outputJfif, PRESERVATION_MESSAGES.jfifMissing).toBeDefined();
+          } else {
+            expect(
+              outputJfif,
+              PRESERVATION_MESSAGES.jfifUnexpected,
+            ).toBeUndefined();
+          }
+        }
+
+        // ICC segments are present and byte-identical (in order) exactly when
+        // preserveColorProfile is true.
+        if (preserveColorProfile) {
+          counterKeys.push("flag:preserveColorProfile");
+          const sourceIcc = sourceRecords.segments.filter(isIcc);
+          const outputIcc = outputRecords.segments.filter(isIcc);
+          expect(outputIcc.length, PRESERVATION_MESSAGES.iccMissing).toBe(
+            sourceIcc.length,
+          );
+          outputIcc.forEach((item, index) => {
+            expect(item.payload).toEqual(sourceIcc[index]!.payload);
+          });
+        } else {
+          expect(outputRecords.segments.filter(isIcc)).toHaveLength(0);
+        }
+
+        // Any APP1 Exif in the output equals the recomputed
+        // createMinimalExif bytes.
+        const outputExif = findFirst(outputRecords.segments, isExif);
+        if (preserveOrientation || preserveResolution) {
+          if (preserveOrientation) counterKeys.push("flag:preserveOrientation");
+          if (preserveResolution) counterKeys.push("flag:preserveResolution");
+          expect(outputExif, PRESERVATION_MESSAGES.exifMissing).toBeDefined();
+          const expectedTiff = createMinimalExif({
+            ...(preserveOrientation
+              ? { orientation: sample.plantedOrientation! }
+              : {}),
+            ...(preserveResolution
+              ? {
+                  resolution: {
+                    x: {
+                      numerator: sample.plantedResolution!.x,
+                      denominator: 1,
+                    },
+                    y: {
+                      numerator: sample.plantedResolution!.y,
+                      denominator: 1,
+                    },
+                    unit: sample.plantedResolution!.unit,
+                  },
+                }
+              : {}),
+          });
+          expect(
+            outputExif!.payload.subarray(6).equals(expectedTiff),
+            PRESERVATION_MESSAGES.exifBytes,
+          ).toBe(true);
+        } else {
+          expect(outputExif).toBeUndefined();
+        }
+
+        if (sample.options.preserveTimestamps) {
+          counterKeys.push("flag:preserveTimestamps");
+        }
+
+        expect(await readFile(sourcePath)).toEqual(sample.bytes);
       } else {
-        expect(outputExif).toBeUndefined();
+        const result = await sanitize({
+          sourcePath,
+          destinationPath,
+          ...sample.options,
+        });
+        assertAdmittedOutcome(result);
+        await assertNonSuccessBlastRadius({
+          directory,
+          sourcePath,
+          sourceBytes: sample.bytes,
+        });
+        expect(result).toMatchObject({
+          ok: false,
+          error: {
+            code: sample.expected,
+            phase: "admission",
+            nativeWrite: "not-started",
+          },
+        });
+        await expect(access(destinationPath)).rejects.toBeDefined();
+        if (sample.hostileRefusal !== undefined)
+          counterKeys.push(`hostile:${sample.hostileRefusal}`);
       }
-
-      if (sample.options.preserveTimestamps) {
-        counterKeys.push("flag:preserveTimestamps");
-      }
-
-      expect(await readFile(sourcePath)).toEqual(sample.bytes);
-      expect(output).toBeInstanceOf(Buffer);
-    } else {
-      const result = await sanitize({
-        sourcePath,
-        destinationPath,
-        ...sample.options,
-      });
-      expect(result).toMatchObject({
-        ok: false,
-        error: {
-          code: sample.expected,
-          phase: "admission",
-          nativeWrite: "not-started",
-        },
-      });
-      await expect(access(destinationPath)).rejects.toBeDefined();
-      if (sample.hostileRefusal !== undefined)
-        counterKeys.push(`hostile:${sample.hostileRefusal}`);
-    }
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+    },
+  );
   return counterKeys;
 }
 
@@ -640,6 +667,117 @@ describe("replayable JPEG qualification properties", () => {
       `${record.fixtureSha256.startsWith("a") ? "b" : "a"}${record.fixtureSha256.slice(1)}`,
     );
   }, 60_000);
+
+  describe("PBT-03 non-success drills", () => {
+    const DRILL_PARAMS = {
+      seed: 460_046,
+      numRuns: 200,
+      endOnFailure: true,
+    } as const;
+
+    const drill = async (
+      label: string,
+      wrap: (
+        real: typeof sanitizeFile,
+        seen: { count: number },
+      ) => typeof sanitizeFile,
+    ) => {
+      const seen = { count: 0 };
+      const fake = wrap(sanitizeFile, seen);
+      const result = await fc.check(
+        fc.asyncProperty(
+          jpegQualificationArbitrary().filter(
+            (sample) => sample.expected !== "success",
+          ),
+          async (sample) => {
+            await checkSample(sample, fake);
+          },
+        ),
+        DRILL_PARAMS,
+      );
+      expect(seen.count).toBeGreaterThan(0);
+      expect(result.failed).toBe(true);
+      expect(String(result.errorInstance)).toContain(label);
+    };
+
+    it("a refusal that leaves a stage file turns the suite red (residue)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.residue,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          await writeFile(`${options.destinationPath}.stage`, "x");
+          return outcome;
+        },
+      );
+    });
+
+    it("a refusal that changes the source turns the suite red (sourceChanged)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.sourceChanged,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          await appendFile(options.sourcePath, Buffer.from([0]));
+          return outcome;
+        },
+      );
+    });
+
+    it("a verification-failed result turns the suite red (verificationFailed)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.verificationFailed,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          if (outcome.ok) return outcome;
+          return {
+            ok: false,
+            error: { ...outcome.error, code: "verification-failed" },
+          } as typeof outcome;
+        },
+      );
+    });
+
+    it("a read-failed result on a readable source turns the suite red (untypedThrow)", async () => {
+      await drill(
+        INVARIANT_MESSAGES.untypedThrow,
+        (real, seen) => async (options) => {
+          seen.count += 1;
+          const outcome = await real(options);
+          if (outcome.ok) return outcome;
+          return {
+            ok: false,
+            error: { ...outcome.error, code: "read-failed" },
+          } as typeof outcome;
+        },
+      );
+    });
+  });
+
+  it("untyped parser throw turns the suite red (PBT-03 totality)", async () => {
+    let calls = 0;
+    const stub: typeof parseJpeg = async () => {
+      calls += 1;
+      throw new Error("untyped parser stub");
+    };
+    const result = await fc.check(
+      fc.asyncProperty(
+        jpegQualificationArbitrary().filter(
+          (sample) => sample.expected === "success",
+        ),
+        async (sample) => {
+          await checkSample(sample, sanitizeFile, stub);
+        },
+      ),
+      { seed: 460_046, numRuns: 200, endOnFailure: true },
+    );
+    expect(calls).toBeGreaterThan(0);
+    expect(result.failed).toBe(true);
+    expect(String(result.errorInstance)).toContain(
+      INVARIANT_MESSAGES.untypedParserThrow,
+    );
+  });
 
   describe("negative controls (JPEG)", () => {
     const REPLAY_PARAMS = {

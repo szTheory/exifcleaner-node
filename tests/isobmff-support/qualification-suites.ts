@@ -5,13 +5,25 @@
 //
 // Independence: every structural fact comes from the independent inventory walker
 // (`inventory.ts`) and the closed lists in `docs/isobmff.md` (`spec-lists.ts`). This file never
-// imports `src/isobmff/` (the engine under test); `tests/isobmff_isolation.test.ts` enforces it.
-import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+// imports `src/isobmff/` for engine facts, with one narrow exception: the PBT-03 parser-totality
+// check (`checkIsobmffArmSample`'s `parse` parameter) must call the engine's own `parseIsobmff`
+// and name `IsobmffStructureError`, because totality is a property of that parser alone.
+import {
+  appendFile,
+  copyFile,
+  mkdtemp,
+  open,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { inspectFile, sanitizeFile } from "../../src/index.js";
+import { IsobmffStructureError } from "../../src/isobmff/errors.js";
+import { parseIsobmff } from "../../src/isobmff/parse.js";
 import type { SanitizeOptions } from "../../src/types.js";
 import { createMinimalExif } from "../../src/metadata/exif.js";
 import { ok } from "../../src/result.js";
@@ -36,6 +48,14 @@ import {
   parseReplayRecord,
   resolveReplayConfig,
 } from "../qualification/kit/replay.js";
+import {
+  INVARIANT_MESSAGES,
+  assertAdmittedOutcome,
+  assertCanariesDistinct,
+  assertNonSuccessBlastRadius,
+  assertTotal,
+  withSampleWorkspace,
+} from "../qualification/kit/invariants.js";
 import { heifFile } from "./builder.js";
 import {
   downloadGate,
@@ -787,8 +807,40 @@ export async function checkIsobmffArmSample(
   extension: string,
   sanitize: typeof sanitizeFile,
   properties: ReadonlySet<IsobmffProperty> = ALL_ISOBMFF_PROPERTIES,
+  parse: typeof parseIsobmff = parseIsobmff,
 ): Promise<readonly string[]> {
   const { sample, arms } = armSample;
+  // Parser totality for every sample (PBT-03): resolve, or throw the typed error.
+  await withSampleWorkspace(
+    `source${extension}`,
+    `sanitized${extension}`,
+    sample.bytes,
+    async ({ sourcePath }) => {
+      const handle = await open(sourcePath, "r");
+      try {
+        await assertTotal(
+          () => parse(handle, sample.bytes.length),
+          (error) => error instanceof IsobmffStructureError,
+        );
+      } finally {
+        await handle.close();
+      }
+    },
+  );
+  // Every outcome is checked as admitted; every non-success leaves the source and its
+  // directory exactly as they were (PBT-03, G10).
+  const rawSanitize = sanitize;
+  sanitize = async (options) => {
+    const result = await rawSanitize(options);
+    assertAdmittedOutcome(result);
+    if (!result.ok)
+      await assertNonSuccessBlastRadius({
+        directory: dirname(options.sourcePath),
+        sourcePath: options.sourcePath,
+        sourceBytes: sample.bytes,
+      });
+    return result;
+  };
   if (arms.includes("hazard")) {
     for (const [setting, preservation] of PROPERTY_SETTINGS) {
       const outcome = await sanitizeBytes(
@@ -805,6 +857,7 @@ export async function checkIsobmffArmSample(
     return arms;
   }
   assertPlanted(sample.bytes, sample.planted);
+  assertCanariesDistinct(sample.planted);
   const sourceProfile = isobmffRawColorProfileSha256(sample.bytes);
   const sourcePayloads = JSON.stringify(survivingPayloadDigests(sample.bytes));
   for (const [setting, preservation] of PROPERTY_SETTINGS) {
@@ -1082,6 +1135,126 @@ export function defineIsobmffPropertySuite(
         expect(wellFormed.ok).toBe(true);
       }
     });
+
+    describe("PBT-03 non-success drills", () => {
+      const hazard = isobmffArmSampleArbitrary(config.format).filter(
+        (armSample) => armSample.arms.includes("hazard"),
+      );
+      const failDrill = async (
+        label: string,
+        wrap: (
+          real: typeof sanitizeFile,
+          seen: { count: number },
+        ) => typeof sanitizeFile,
+      ): Promise<void> => {
+        const seen = { count: 0 };
+        const fake = wrap(sanitizeFile, seen);
+        const result = await fc.check(
+          fc.asyncProperty(hazard, async (armSample) => {
+            await checkIsobmffArmSample(armSample, config.extension, fake);
+          }),
+          DRILL_PARAMS,
+        );
+        expect(seen.count).toBeGreaterThan(0);
+        expect(result.failed).toBe(true);
+        expect(String(result.errorInstance)).toContain(label);
+      };
+
+      it(
+        "a refusal that leaves a stage file turns the suite red (residue)",
+        () =>
+          failDrill(
+            INVARIANT_MESSAGES.residue,
+            (real, seen) => async (options) => {
+              seen.count += 1;
+              const outcome = await real(options);
+              await writeFile(`${options.destinationPath}.stage`, "x");
+              return outcome;
+            },
+          ),
+        DRILL_TIMEOUT_MS,
+      );
+      it(
+        "a refusal that changes the source turns the suite red (sourceChanged)",
+        () =>
+          failDrill(
+            INVARIANT_MESSAGES.sourceChanged,
+            (real, seen) => async (options) => {
+              seen.count += 1;
+              const outcome = await real(options);
+              await appendFile(options.sourcePath, Buffer.from([0]));
+              return outcome;
+            },
+          ),
+        DRILL_TIMEOUT_MS,
+      );
+      it(
+        "a verification-failed result turns the suite red (verificationFailed)",
+        () =>
+          failDrill(
+            INVARIANT_MESSAGES.verificationFailed,
+            (real, seen) => async (options) => {
+              seen.count += 1;
+              const outcome = await real(options);
+              if (outcome.ok) return outcome;
+              return {
+                ok: false,
+                error: { ...outcome.error, code: "verification-failed" },
+              } as typeof outcome;
+            },
+          ),
+        DRILL_TIMEOUT_MS,
+      );
+      it(
+        "a read-failed result on a readable source turns the suite red (untypedThrow)",
+        () =>
+          failDrill(
+            INVARIANT_MESSAGES.untypedThrow,
+            (real, seen) => async (options) => {
+              seen.count += 1;
+              const outcome = await real(options);
+              if (outcome.ok) return outcome;
+              return {
+                ok: false,
+                error: { ...outcome.error, code: "read-failed" },
+              } as typeof outcome;
+            },
+          ),
+        DRILL_TIMEOUT_MS,
+      );
+    });
+
+    it(
+      "untyped parser throw turns the suite red (PBT-03 totality)",
+      async () => {
+        let calls = 0;
+        const stub: typeof parseIsobmff = async () => {
+          calls += 1;
+          throw new Error("untyped parser stub");
+        };
+        const nonHazard = isobmffArmSampleArbitrary(config.format).filter(
+          (armSample) => !armSample.arms.includes("hazard"),
+        );
+        const result = await fc.check(
+          fc.asyncProperty(nonHazard, async (armSample) => {
+            await checkIsobmffArmSample(
+              armSample,
+              config.extension,
+              sanitizeFile,
+              ALL_ISOBMFF_PROPERTIES,
+              stub,
+            );
+          }),
+          DRILL_PARAMS,
+        );
+        expect(calls).toBeGreaterThan(0);
+        expect(result.failed).toBe(true);
+        expect(String(result.errorInstance)).toContain(
+          INVARIANT_MESSAGES.untypedParserThrow,
+        );
+      },
+      DRILL_TIMEOUT_MS,
+    );
 
     describe("pure-copy drill: each metadata property turns red on its own", () => {
       const standIn = pureCopySanitize(config.format);
