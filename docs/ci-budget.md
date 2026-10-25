@@ -240,7 +240,7 @@ Local runtime basis: the full suite takes about 55 s and `build:native` about 1.
 required context until the maintainer adds it. `quality` also runs `npm run check:dist` right after
 `npm run build`, so CI fails when committed `dist` differs from a fresh build.
 
-Measured hosted minutes: recorded at 66-08.
+Measured hosted minutes: test-node26 minutes at 66-08: 4.1 (run 40227776761, the first green run).
 
 ## Measured minutes
 
