@@ -20,7 +20,14 @@ import { PngStructureError, crc32, parsePng } from "../../../src/png/chunks.js";
 import { ok } from "../../../src/result.js";
 import { png, pngChunk } from "../../fixtures.js";
 import { assertCanariesAbsent, assertPlanted } from "../kit/generators.js";
-import { assertFloors, countSample, createCounters } from "../kit/floors.js";
+import {
+  assertFloors,
+  assertSlotRates,
+  countSample,
+  createCounters,
+  parseStatisticsRates,
+  slotRateFloors,
+} from "../kit/floors.js";
 import {
   INVARIANT_MESSAGES,
   assertAdmittedOutcome,
@@ -39,6 +46,7 @@ import {
 } from "../kit/replay.js";
 import {
   PNG_HOSTILE_EXAMPLES,
+  pngMetadataGenerator,
   pngQualificationArbitrary,
   pngQualificationArbitraryWithoutMetadataArm,
   type QualificationSample,
@@ -611,6 +619,35 @@ const PNG_FIXED_SEED_FLOORS: Readonly<Record<string, number>> = Object.freeze({
   "hostile:chunk-count": 1,
 });
 
+/** Minimum printed rate per slot, derived from the counter floors (PBT-01, D-09). */
+const PNG_SLOT_LABELS: readonly string[] = pngMetadataGenerator.metadataKinds;
+const PNG_SLOT_RATE_FLOORS = slotRateFloors(
+  PNG_FIXED_SEED_FLOORS,
+  PNG_SLOT_LABELS,
+  (kind) => `kind:${kind}`,
+);
+
+/** Runs fc.statistics over `arbitrary` and returns the printed lines. */
+function captureStatistics(
+  arbitrary: ReturnType<typeof pngQualificationArbitrary>,
+  classify: (sample: QualificationSample) => string[],
+  config: { readonly seed: number; readonly numRuns: number },
+): string[] {
+  const lines: string[] = [];
+  fc.statistics(arbitrary, classify, {
+    seed: config.seed,
+    numRuns: config.numRuns,
+    logger: (line) => lines.push(line),
+  });
+  return lines;
+}
+
+/** Label presence by set membership: order of printed rows never matters. */
+function missingSlotLabels(lines: readonly string[]): string[] {
+  const present = new Set(parseStatisticsRates(lines).keys());
+  return PNG_SLOT_LABELS.filter((label) => !present.has(label));
+}
+
 describe("replayable PNG qualification properties", () => {
   it("defaults focused runs to 200 and exact-path replay to one", () => {
     expect(resolveReplayConfig({})).toEqual({ seed: 460_046, numRuns: 200 });
@@ -662,6 +699,52 @@ describe("replayable PNG qualification properties", () => {
     ) {
       assertFloors(counters, PNG_FIXED_SEED_FLOORS);
     }
+  }, 30_000);
+
+  it("slot distribution (fc.statistics, PBT-01)", () => {
+    const config = resolveReplayConfig(process.env);
+    const lines = captureStatistics(
+      pngQualificationArbitrary(),
+      (sample) => [...countedKinds(sample)],
+      config,
+    );
+    console.info(lines.join("\n"));
+    // Every PngMetadataKind label (caBX is the C2PA slot) appears in the table.
+    expect(missingSlotLabels(lines)).toEqual([]);
+    if (config.path === undefined && config.numRuns === 200) {
+      assertSlotRates(lines, PNG_SLOT_RATE_FLOORS);
+    }
+  }, 30_000);
+
+  it("an empty classifier leaves every slot label absent (PBT-01 empty)", () => {
+    const lines = captureStatistics(pngQualificationArbitrary(), () => [], {
+      seed: 460_046,
+      numRuns: 200,
+    });
+    expect(missingSlotLabels(lines)).toEqual([...PNG_SLOT_LABELS]);
+  }, 30_000);
+
+  it("statistics gate goes red on a generator missing a slot", () => {
+    const config = { seed: 460_046, numRuns: 200 };
+    const dropCaBX = pngQualificationArbitrary().map(
+      (sample): QualificationSample => ({
+        ...sample,
+        planted: sample.planted.filter((item) => item.kind !== "caBX"),
+      }),
+    );
+    const classify = (sample: QualificationSample) => [...countedKinds(sample)];
+    expect(() =>
+      assertSlotRates(
+        captureStatistics(pngQualificationArbitrary(), classify, config),
+        PNG_SLOT_RATE_FLOORS,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSlotRates(
+        captureStatistics(dropCaBX, classify, config),
+        PNG_SLOT_RATE_FLOORS,
+      ),
+    ).toThrow(/slot caBX/);
   }, 30_000);
 
   it("replays the exact minimized path emitted for an injected failure", () => {
