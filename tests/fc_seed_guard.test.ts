@@ -15,17 +15,20 @@ import { describe, expect, it } from "vitest";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
-/** fc.assert and fc.check take (property, parameters); fc.statistics takes (arbitrary, classify, parameters). */
+/** fc.assert and fc.check take (property, parameters); fc.sample takes (generator, parameters); fc.statistics takes (arbitrary, classify, parameters). */
 const PARAMETER_INDEX: Readonly<Record<string, number>> = Object.freeze({
   assert: 1,
   check: 1,
   statistics: 2,
+  sample: 1,
 });
 
 /**
- * Sorted 1-based line numbers of every `fc.assert`, `fc.check` or
- * `fc.statistics` call whose parameters argument is absent or is an object
- * literal with neither a `seed` property nor a spread element. Identifiers and
+ * Sorted 1-based line numbers of every `fc.assert`, `fc.check`,
+ * `fc.sample` or `fc.statistics` call whose parameters argument is absent, a
+ * numeric literal (numRuns with a random seed), or an object literal with
+ * neither a usable `seed` property (not `seed: undefined`) nor a spread
+ * element. Identifiers and
  * call expressions (shared config from kit/replay.ts) are accepted: the guard
  * cannot see through them and they are the seeded-config pattern.
  */
@@ -53,16 +56,23 @@ export function findUnseededFastCheckCalls(
       let seeded: boolean;
       if (parameters === undefined) {
         seeded = false;
+      } else if (ts.isNumericLiteral(parameters)) {
+        seeded = false;
       } else if (ts.isObjectLiteralExpression(parameters)) {
-        seeded = parameters.properties.some(
-          (property) =>
-            ts.isSpreadAssignment(property) ||
-            (property.name !== undefined &&
-              ((ts.isIdentifier(property.name) &&
-                property.name.text === "seed") ||
-                (ts.isStringLiteral(property.name) &&
-                  property.name.text === "seed"))),
-        );
+        seeded = parameters.properties.some((property) => {
+          if (ts.isSpreadAssignment(property)) return true;
+          if (property.name === undefined) return false;
+          const isSeedKey =
+            (ts.isIdentifier(property.name) && property.name.text === "seed") ||
+            (ts.isStringLiteral(property.name) &&
+              property.name.text === "seed");
+          if (!isSeedKey) return false;
+          return !(
+            ts.isPropertyAssignment(property) &&
+            ts.isIdentifier(property.initializer) &&
+            property.initializer.text === "undefined"
+          );
+        });
       } else {
         seeded = true;
       }
@@ -112,7 +122,7 @@ export function scanTestsForUnseeded(root: string): string[] {
 }
 
 describe("every fast-check run is seeded (G7)", () => {
-  it("finds no unseeded fc.assert, fc.check or fc.statistics under tests/", () => {
+  it("finds no unseeded fc.assert, fc.check, fc.sample or fc.statistics under tests/", () => {
     expect(scanTestsForUnseeded(packageRoot)).toEqual([]);
   });
 
@@ -133,6 +143,25 @@ describe("every fast-check run is seeded (G7)", () => {
       ),
     ).toEqual([1]);
     expect(findUnseededFastCheckCalls("fc.check(p);", "a.ts")).toEqual([1]);
+  });
+
+  it("flags a numeric parameters argument, fc.sample and seed: undefined (WR-05)", () => {
+    expect(
+      findUnseededFastCheckCalls("fc.statistics(a, c, 100);", "a.ts"),
+    ).toEqual([1]);
+    expect(findUnseededFastCheckCalls("fc.sample(arb, 50);", "a.ts")).toEqual([
+      1,
+    ]);
+    expect(findUnseededFastCheckCalls("fc.sample(arb);", "a.ts")).toEqual([1]);
+    expect(
+      findUnseededFastCheckCalls("fc.assert(p, { seed: undefined });", "a.ts"),
+    ).toEqual([1]);
+    expect(
+      findUnseededFastCheckCalls(
+        "fc.sample(arb, { numRuns: 3, seed: 7 });",
+        "a.ts",
+      ),
+    ).toEqual([]);
   });
 
   it("accepts a seed property, a spread and a shared config", () => {
