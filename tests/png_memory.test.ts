@@ -726,7 +726,30 @@ describe("PNG aggregate memory bound (PNG-05, D-28)", () => {
 // length is <= the window size -- under the default copy policy, versus 52 unique backing buffers -- one
 // per entry, zero sharing -- under identity retain, for this fixture). Counting distinct backing-buffer
 // references is robust to whatever `Buffer.poolSize` happens to be on the host Node version.
+// Measured, not assumed: the backing ArrayBuffer size of a small Buffer.from copy is the
+// runtime's pool slab (8192 on Node 22, 65536 on Node 24, 65600 on Node 26 per 66-RESEARCH F2).
+// Buffer.poolSize is not the slab on Node 26, so the per-entry bound reads this value.
+const POOL_SLAB_BYTES = Buffer.from(Buffer.alloc(1)).buffer.byteLength;
+
 describe("copy-on-buffer for windowed reads (D-23)", () => {
+  it("pool slab probe (TEST-11)", () => {
+    console.info(
+      `POOL_SLAB_BYTES=${POOL_SLAB_BYTES} Buffer.poolSize=${Buffer.poolSize} node=${process.version}`,
+    );
+    expect(
+      Number.isSafeInteger(POOL_SLAB_BYTES),
+      `POOL_SLAB_BYTES=${POOL_SLAB_BYTES} Buffer.poolSize=${Buffer.poolSize}`,
+    ).toBe(true);
+    expect(
+      POOL_SLAB_BYTES,
+      `POOL_SLAB_BYTES=${POOL_SLAB_BYTES} Buffer.poolSize=${Buffer.poolSize}`,
+    ).toBeGreaterThanOrEqual(Buffer.poolSize);
+    expect(
+      POOL_SLAB_BYTES - Buffer.poolSize,
+      `POOL_SLAB_BYTES=${POOL_SLAB_BYTES} Buffer.poolSize=${Buffer.poolSize}`,
+    ).toBeLessThan(1024);
+  });
+
   function windowedEntries(parsed: {
     buffered: ReadonlyMap<number, Buffer>;
   }): Buffer[] {
@@ -750,7 +773,7 @@ describe("copy-on-buffer for windowed reads (D-23)", () => {
 
     for (const entry of parsed.buffered.values()) {
       expect(entry.buffer.byteLength).toBeLessThanOrEqual(
-        Math.max(entry.length, Buffer.poolSize),
+        Math.max(entry.length, POOL_SLAB_BYTES),
       );
     }
 
