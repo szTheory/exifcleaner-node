@@ -190,7 +190,9 @@ export function classifyIsobmffModel(
       }
       throw new IsobmffStructureError(
         "unknown-item-type",
+        // Stryker disable next-line StringLiteral: unobservable-message — MIME description flows only to StructureError message; kind and declineClass are separate.
         `mime item ${item.id} (content_type ${JSON.stringify(item.contentType)}` +
+          // Stryker disable next-line StringLiteral: unobservable-message — MIME description flows only to StructureError message; kind and declineClass are separate.
           `${hasEncoding ? ", content_encoding present" : ""}) is not an admitted XMP shape.`,
       );
     }
@@ -305,11 +307,13 @@ export function classifyIsobmffModel(
         const start = addSafeOffsets(
           item.baseOffset,
           extent.offset,
+          // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
           `Item ${item.id}'s idat extent start`,
         );
         const end = addSafeOffsets(
           start,
           extent.length,
+          // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
           `Item ${item.id}'s idat extent end`,
         );
         if (start < 0 || end > idat.length) {
@@ -324,6 +328,7 @@ export function classifyIsobmffModel(
       const start = addSafeOffsets(
         item.baseOffset,
         extent.offset,
+        // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
         `Item ${item.id}'s extent start`,
       );
       if (extent.length === 0) {
@@ -342,6 +347,7 @@ export function classifyIsobmffModel(
       const end = addSafeOffsets(
         start,
         extent.length,
+        // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
         `Item ${item.id}'s extent end`,
       );
       if (mdat === undefined || start < mdat.start || end > mdat.end) {
@@ -370,6 +376,7 @@ export function classifyIsobmffModel(
       const start = addSafeOffsets(
         item.baseOffset,
         extent.offset,
+        // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
         `Item ${item.id}'s surviving extent start`,
       );
       survivingRanges.push({
@@ -377,6 +384,7 @@ export function classifyIsobmffModel(
         end: addSafeOffsets(
           start,
           extent.length,
+          // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
           `Item ${item.id}'s surviving extent end`,
         ),
         itemId: item.id,
@@ -390,18 +398,22 @@ export function classifyIsobmffModel(
       const start = addSafeOffsets(
         item.baseOffset,
         extent.offset,
+        // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
         `Item ${item.id}'s removable extent start`,
       );
       const end = addSafeOffsets(
         start,
         extent.length,
+        // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
         `Item ${item.id}'s removable extent end`,
       );
       for (const surviving of survivingRanges) {
         if (start < surviving.end && surviving.start < end) {
           throw new IsobmffStructureError(
             "removable-extent-overlap",
+            // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
             `Removable item ${item.id}'s extent [${start}, ${end}) overlaps surviving item ` +
+              // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
               `${surviving.itemId}'s extent [${surviving.start}, ${surviving.end}).`,
           );
         }

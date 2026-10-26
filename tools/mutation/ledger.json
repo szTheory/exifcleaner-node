@@ -264,7 +264,7 @@
       "file": "src/isobmff/admission.ts",
       "function": "classifyIsobmffModel",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 14,
       "keys": [
         "src/isobmff/admission.ts\u0000StringLiteral\u0000``\u0000193\u00009\u0000193\u000081",
@@ -298,7 +298,8 @@
         "src/isobmff/admission.ts\u0000StringLiteral\u0000``\u0000`Removable item ${item.id}'s extent [${start}, ${end}) overlaps surviving item `\u00000",
         "src/isobmff/admission.ts\u0000StringLiteral\u0000``\u0000`${surviving.itemId}'s extent [${surviving.start}, ${surviving.end}).`\u00000"
       ],
-      "note": ""
+      "note": "MIME descriptions reach only IsobmffStructureError.message; addSafeOffsets context is interpolated only on unsafe-sum throw. errors.ts maps declineClass to kind independently and passes message as diagnostic detail; handler and engine do not use wording for admission or output.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/admission.ts:findExifSourceItemId:ConditionalExpression",
