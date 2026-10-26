@@ -432,7 +432,7 @@ export function classifyIsobmffModel(
       ) {
         emptiedItemIds.push(item.id);
       }
-    } else if (kind === "surviving") {
+    } else {
       survivingItemIds.push(item.id);
     }
   }
