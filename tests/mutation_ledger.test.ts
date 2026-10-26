@@ -119,15 +119,17 @@ interface DeletionProof {
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const workspaceRoot = dirname(packageRoot);
+const builtRoot = dirname(resolve(packageRoot,
+  JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")).exports["."].import));
 const liveInputPaths = [
   join(packageRoot, "tools", "mutation", "ledger.json"),
   join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
   join(workspaceRoot, ".planning", "phases", "67-mutation-baseline", "67-SURVIVOR-LEDGER.md"),
   join(packageRoot, "src", "isobmff", "admission.ts"),
-  join(packageRoot, "dist", "isobmff", "admission.js"),
-  join(packageRoot, "dist", "isobmff", "admission.js.map"),
-  join(packageRoot, "dist", "isobmff", "admission.d.ts"),
-  join(packageRoot, "dist", "isobmff", "admission.d.ts.map"),
+  join(builtRoot, "isobmff", "admission.js"),
+  join(builtRoot, "isobmff", "admission.js.map"),
+  join(builtRoot, "isobmff", "admission.d.ts"),
+  join(builtRoot, "isobmff", "admission.d.ts.map"),
   join(packageRoot, "package.json"),
   join(packageRoot, "package-lock.json"),
   join(packageRoot, "tests", "fixtures", "mutation", "admission-deletion-reports.json.gz"),
