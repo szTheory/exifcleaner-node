@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "metric": "floor(1000*(Killed+Timeout)/(Killed+Timeout+Survived+NoCoverage)) tenths of a percent; CompileError, RuntimeError and Ignored excluded; floor = floor(min of three CI runs), raised only by a manual edit",
+  "groups": {
+    "webp": {
+      "tier": "trust",
+      "targetTenths": 900,
+      "globs": ["src/webp/**", "src/admission/webp-handler.ts"],
+      "floorTenths": 0,
+      "measured": null
+    },
+    "png": {
+      "tier": "trust",
+      "targetTenths": 900,
+      "globs": ["src/png/**", "src/admission/png-handler.ts"],
+      "floorTenths": 0,
+      "measured": null
+    },
+    "jpeg": {
+      "tier": "trust",
+      "targetTenths": 900,
+      "globs": ["src/jpeg/**", "src/admission/jpeg-handler.ts"],
+      "floorTenths": 0,
+      "measured": null
+    },
+    "isobmff": {
+      "tier": "trust",
+      "targetTenths": 900,
+      "globs": [
+        "src/isobmff/**",
+        "src/admission/{isobmff,heic,avif}-handler.ts"
+      ],
+      "floorTenths": 0,
+      "measured": null
+    },
+    "metadata": {
+      "tier": "trust",
+      "targetTenths": 900,
+      "globs": ["src/metadata/**"],
+      "floorTenths": 0,
+      "measured": null
+    },
+    "engine": {
+      "tier": "orchestration",
+      "targetTenths": 800,
+      "globs": ["src/{engine,fallback,result,errors,types,index}.ts"],
+      "floorTenths": 0,
+      "measured": null
+    },
+    "transaction": {
+      "tier": "orchestration",
+      "targetTenths": 800,
+      "globs": ["src/transaction/**"],
+      "floorTenths": 0,
+      "measured": null
+    },
+    "io": {
+      "tier": "orchestration",
+      "targetTenths": 800,
+      "globs": ["src/io/**"],
+      "floorTenths": 0,
+      "measured": null
+    },
+    "admission-core": {
+      "tier": "orchestration",
+      "targetTenths": 800,
+      "globs": ["src/admission/{handler,registry}.ts"],
+      "floorTenths": 0,
+      "measured": null
+    }
+  }
+}

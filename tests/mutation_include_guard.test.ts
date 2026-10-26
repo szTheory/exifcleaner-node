@@ -585,6 +585,10 @@ export const EXCLUSIONS: Readonly<
     reason:
       "Isolation guard for the Stryker package; spawns git and tests no src.",
   },
+  "tests/mutation_report.test.ts": {
+    class: "repo-tooling",
+    reason: "Tests the mutation scripts, not src.",
+  },
   "tests/native_artifact_audit.test.ts": {
     class: "repo-tooling",
     reason: "Audits native artifacts; tests no src.",
