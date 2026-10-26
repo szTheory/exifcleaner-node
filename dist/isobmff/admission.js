@@ -354,13 +354,11 @@ export async function admitIsobmff(handle, size, signal, caps = DEFAULT_ISOBMFF_
             }
             continue;
         }
-        if (item.type === "mime") {
-            namespaces.add("XMP");
-            const found = parseXmp(payload);
-            entries.push(...found.entries);
-            warnings.push(...found.warnings);
-            continue;
-        }
+        namespaces.add("XMP");
+        const found = parseXmp(payload);
+        entries.push(...found.entries);
+        warnings.push(...found.warnings);
+        continue;
     }
     return {
         entries,
