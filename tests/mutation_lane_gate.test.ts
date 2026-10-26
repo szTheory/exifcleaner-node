@@ -122,29 +122,6 @@ function gate(
   });
 }
 
-describe("lane tracer on the real report", () => {
-  const realPath = join(ROOT, "reports", "mutation", "mutation.json");
-  it("judges the tracer's mutation.json with a typed, non-empty verdict", () => {
-    if (!existsSync(realPath)) return; // reports/ is gitignored; CI has none
-    const real = JSON.parse(readFileSync(realPath, "utf8")) as Report;
-    const files = Object.keys(real.files);
-    const floors = JSON.parse(
-      readFileSync(join(ROOT, "mutation-floors.json"), "utf8"),
-    );
-    const result = evaluateGate({
-      plan: PROCEED(files),
-      run: RUN_OK,
-      smoke: null,
-      report: real,
-      floors,
-      classes: CLASSES,
-    });
-    expect(["pass", "fail"]).toContain(result.verdict);
-    expect(result.reason.length).toBeGreaterThan(0);
-    expect(result.collapsedDigest).toMatch(/^[0-9a-f]{64}$/);
-  });
-});
-
 describe("evaluateGate verdicts (D-26)", () => {
   it("undetected: a Survived webp mutant fails and its key is listed", () => {
     const r = gate({

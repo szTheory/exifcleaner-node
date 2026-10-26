@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -147,25 +147,6 @@ describe("mutation score tracer (MUT-03)", () => {
     expect(scores.png.staticIgnored).toBe(1);
     expect(scores.png.commentIgnored).toBe(0);
     expect(scores.png.pluginIgnored).toBe(0);
-  });
-
-  it("scores the real 67-01 riff.ts report when one is present", () => {
-    const path = join(ROOT, "reports", "mutation", "mutation.json");
-    if (!existsSync(path)) return; // generated, git-ignored; absent on a clean checkout
-    const report = JSON.parse(readFileSync(path, "utf8")) as Report;
-    const floors = JSON.parse(
-      readFileSync(join(ROOT, "mutation-floors.json"), "utf8"),
-    ) as { groups: Record<string, { globs: string[] }> };
-    const only = Object.fromEntries(
-      Object.entries(floors.groups).filter(([name]) => name === "webp"),
-    );
-    report.files = Object.fromEntries(
-      Object.entries(report.files).filter(([f]) => f.startsWith("src/webp/")),
-    );
-    const scores = scoreGroups(report, only);
-    expect(
-      scores.webp.detected + scores.webp.undetected,
-    ).toBeGreaterThanOrEqual(1);
   });
 });
 

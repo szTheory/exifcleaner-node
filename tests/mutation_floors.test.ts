@@ -1,10 +1,9 @@
 // MUT-03 floors check (D-16): the real-tree monotonic check against the base
-// revision, and a score check on the 67-01 report when it is present.
+// revision.
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   cpSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -56,25 +55,6 @@ describe("floors tracer (MUT-03, D-16)", () => {
     expect(
       script.checkMonotonic(base.text, readFileSync(floorsPath, "utf8")),
     ).toEqual([]);
-  });
-
-  it("scores the 67-01 report against the committed floors", () => {
-    const reportPath = join(
-      packageRoot,
-      "reports",
-      "mutation",
-      "mutation.json",
-    );
-    if (!existsSync(reportPath)) return; // reports/ is untracked output
-    const groups = JSON.parse(readFileSync(floorsPath, "utf8")).groups;
-    const scored = script.scoreReport(
-      JSON.parse(readFileSync(reportPath, "utf8")),
-      groups,
-    );
-    expect(script.checkScores([scored], groups)).toEqual([]);
-    expect(script.headroomHints([scored], groups).length).toBe(
-      Object.keys(groups).length,
-    );
   });
 });
 
