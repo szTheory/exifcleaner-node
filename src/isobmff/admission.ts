@@ -372,7 +372,6 @@ export function classifyIsobmffModel(
       continue;
     }
     for (const extent of item.extents) {
-      if (extent.length === 0) continue;
       const start = addSafeOffsets(
         item.baseOffset,
         extent.offset,

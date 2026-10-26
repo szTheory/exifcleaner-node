@@ -227,8 +227,6 @@ export function classifyIsobmffModel(model, fileSize) {
             continue;
         }
         for (const extent of item.extents) {
-            if (extent.length === 0)
-                continue;
             const start = addSafeOffsets(item.baseOffset, extent.offset, 
             // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
             `Item ${item.id}'s surviving extent start`);
