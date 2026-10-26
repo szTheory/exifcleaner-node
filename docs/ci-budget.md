@@ -21,6 +21,7 @@ default-open branch in the classifier.
 - `dist-format-handler` — the compiled output of a format handler (`.js`, `.js.map`, `.d.ts`, `.d.ts.map`)
 - `format-unit-tests` — `tests/riff.test.ts`, `tests/icc_admission.test.ts`, and per-format test files
 - `format-qualification-tests` — `tests/qualification/<format>/*.test.ts` (webp, png, jpeg)
+- `mutation-tooling` — `tools/mutation/**` (never ships, never touches native code; the mutation lane's smoke leg covers it)
 - `docs` — `docs/**`
 - `root-markdown` — any top-level `*.md`
 - `planning-markdown` — `.planning/**/*.md`
@@ -42,6 +43,23 @@ default-open branch in the classifier.
 
 Every rule id above is named literally in `scripts/classify_ci_scope.cjs`; this document mirrors
 the source rather than restating logic that could drift from it.
+
+### Mutation lane outputs (Phase 67)
+
+`selectMutationLane(changedPaths)` adds two `GITHUB_OUTPUT` lines after `scope=` and `formats=`:
+
+- `mutate` — the sorted, de-duplicated changed `src/**/*.ts` files (no `.d.ts`), comma-joined.
+- `mutate_mode` — the lane to take:
+  - `run` — changed source files to mutate.
+  - `run+smoke` — changed source files plus a change under `tools/mutation/` or to `package.json`, `package-lock.json`, `tsconfig.json` or `vitest.config.ts` (the Stryker dry-run smoke).
+  - `smoke` — only tooling or dependency changes, no source files.
+  - `tests-only` — only `tests/**` changed.
+  - `none` — nothing mutation-relevant (or an empty diff).
+  - `error` — the changed-path list is unavailable (git error) or a path is malformed or contains a comma or newline.
+
+The rule is fail-closed: a git error means `error` with an empty `mutate` list, never "mutate everything".
+Both outputs are computed independently of `scope` and `formats`, so no mutation rule can widen the
+native matrix.
 
 ## Events
 
