@@ -5,3 +5,9 @@ coverage/
 .DS_Store
 # Native prebuilds are built locally or assembled and attested in CI; none are committed (docs/prebuild-policy.md).
 prebuilds/
+
+# Phase 67 (D-06): StrykerJS sandbox, reports and the isolated tooling install
+.stryker-tmp/
+reports/
+stryker.log
+tools/mutation/node_modules/
