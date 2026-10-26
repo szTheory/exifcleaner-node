@@ -35,7 +35,6 @@ export const STRYKER_TEST_ALLOWLIST: readonly string[] = Object.freeze([
   "tests/jpeg_preservation.test.ts",
   "tests/jpeg_reassembly.test.ts",
   "tests/jpeg_trailer.test.ts",
-  "tests/native_publication.test.ts",
   "tests/png_chunks.test.ts",
   "tests/png_classification.test.ts",
   "tests/png_handler.test.ts",

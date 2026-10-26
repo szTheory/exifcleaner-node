@@ -158,7 +158,7 @@ export const ALLOWLIST: Readonly<
   // Mutation include guard: its negative-control fixtures carry dist imports.
   "tests/mutation_include_guard.test.ts": {
     class: "guard-self",
-    expectedLiteralCount: 1,
+    expectedLiteralCount: 2,
   },
 });
 

@@ -1,4 +1,13 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 // Held on TypeScript 6.x: TS 7.0 drops the JS Compiler API (see public_contract.test.ts).
@@ -60,7 +69,7 @@ export function findForbiddenReferences(
   const hits: ReferenceHit[] = [];
   const visit = (node: ts.Node): void => {
     if (isLiteralLike(node)) {
-      const found = FORBIDDEN_REFERENCE.exec(node.text);
+      const found = FORBIDDEN_REFERENCE.exec(node.getText(sourceFile));
       if (found !== null) {
         const { line } = sourceFile.getLineAndCharacterOfPosition(
           node.getStart(sourceFile),
@@ -304,6 +313,7 @@ export type ExclusionClass =
   | "corpus-network"
   | "repo-tooling"
   | "no-src-under-test"
+  | "native-addon"
   | "sandbox-incompatible";
 
 /**
@@ -618,6 +628,11 @@ export const EXCLUSIONS: Readonly<
     class: "no-src-under-test",
     reason: "Tests the replay kit; no src import.",
   },
+  "tests/native_publication.test.ts": {
+    class: "native-addon",
+    reason:
+      "Loads the prebuilt publication.node addon (tests/native_publication.test.ts:35), which is not instrumented.",
+  },
   "tests/error_kinds.test.ts": {
     class: "sandbox-incompatible",
     reason:
@@ -687,5 +702,173 @@ describe("whole-tree include set", () => {
     expect(EXCLUSIONS["tests/error_kinds.test.ts"]?.class).toBe(
       "sandbox-incompatible",
     );
+  });
+});
+
+function withTempRoot(run: (root: string) => void): void {
+  const root = mkdtempSync(join(tmpdir(), "mutation-include-guard-"));
+  try {
+    mkdirSync(join(root, "tests"), { recursive: true });
+    run(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function writeIn(root: string, relativePath: string, text: string): void {
+  const full = join(root, relativePath);
+  mkdirSync(dirname(full), { recursive: true });
+  writeFileSync(full, text);
+}
+
+describe("negative controls", () => {
+  it("control 1: an allowlisted test importing child_process is red", () => {
+    withTempRoot((root) => {
+      writeIn(
+        root,
+        "tests/a.test.ts",
+        `import { spawn } from "node:child_process";\nspawn("x");\n`,
+      );
+      const { problems } = classifyTests(root, ["tests/a.test.ts"], {});
+      expect(problems).toEqual([
+        "tests/a.test.ts:1:child_process (via tests/a.test.ts)",
+      ]);
+    });
+  });
+
+  it("control 2: an allowlisted test importing the built dist is red", () => {
+    withTempRoot((root) => {
+      writeIn(
+        root,
+        "tests/a.test.ts",
+        `import { x } from "../dist/index.js";\nvoid x;\n`,
+      );
+      const { problems } = classifyTests(root, ["tests/a.test.ts"], {});
+      expect(problems).toEqual([
+        "tests/a.test.ts:1:dist (via tests/a.test.ts)",
+      ]);
+    });
+  });
+
+  it("control 3: a support module two hops away that spawns is red", () => {
+    withTempRoot((root) => {
+      writeIn(root, "tests/a.test.ts", `import "./support/a.js";\n`);
+      writeIn(root, "tests/support/a.ts", `import "./b.js";\n`);
+      writeIn(
+        root,
+        "tests/support/b.ts",
+        `import { spawn } from "node:child_process";\nspawn("x");\n`,
+      );
+      const { problems } = classifyTests(root, ["tests/a.test.ts"], {});
+      expect(problems).toEqual([
+        "tests/support/b.ts:1:child_process (via tests/a.test.ts)",
+      ]);
+    });
+  });
+
+  it("control 4: an unclassified new test file is red", () => {
+    withTempRoot((root) => {
+      writeIn(root, "tests/a.test.ts", `export {};\n`);
+      writeIn(root, "tests/new.test.ts", `export {};\n`);
+      const { problems } = classifyTests(root, ["tests/a.test.ts"], {});
+      expect(problems).toEqual(["tests/new.test.ts: unclassified test file"]);
+    });
+  });
+
+  it("control 5: an allowlist with no jpeg test reports the missing group", () => {
+    expect(
+      checkFormatCoverage([
+        "tests/webp.test.ts",
+        "tests/png.test.ts",
+        "tests/isobmff.test.ts",
+        "tests/exif.test.ts",
+      ]),
+    ).toEqual(["format group jpeg has no allowlisted test"]);
+  });
+
+  it("control 6: an empty allowlist is reported, not passed vacuously", () => {
+    expect(checkFormatCoverage([])).toEqual(["allowlist is empty"]);
+  });
+
+  it("does not count a comment mentioning child_process", () => {
+    expect(
+      findForbiddenReferences(
+        `// child_process spawn exiftool\n/** oracle benchmark */\nconst a = 1;\n`,
+        "c.ts",
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags every forbidden class on a literal", () => {
+    for (const literal of [
+      "spawn",
+      "execFile",
+      "fork(",
+      "exiftool",
+      "oracle",
+      "benchmark",
+      "tests/corpus",
+      "addon.node",
+    ]) {
+      expect(
+        findForbiddenReferences(`const a = "${literal}";\n`, "c.ts"),
+      ).toHaveLength(1);
+    }
+  });
+
+  it("reports a doubly classified and a stale entry", () => {
+    withTempRoot((root) => {
+      writeIn(root, "tests/a.test.ts", `export {};\n`);
+      const { problems } = classifyTests(
+        root,
+        ["tests/a.test.ts", "tests/gone.test.ts"],
+        {
+          "tests/a.test.ts": { class: "oracle", reason: "r" },
+          "tests/old.test.ts": { class: "oracle", reason: "r" },
+        },
+      );
+      expect(problems).toEqual([
+        "tests/a.test.ts: classified twice",
+        "tests/gone.test.ts: stale allowlist entry",
+        "tests/old.test.ts: stale exclusion entry",
+      ]);
+    });
+  });
+
+  it("reports a fixed tmpdir name and accepts mkdtemp", () => {
+    withTempRoot((root) => {
+      writeIn(
+        root,
+        "tests/fixed.test.ts",
+        `import { tmpdir } from "node:os";\nconst p = tmpdir();\nvoid p;\n`,
+      );
+      writeIn(
+        root,
+        "tests/unique.test.ts",
+        `import { mkdtempSync } from "node:fs";\nimport { tmpdir } from "node:os";\nmkdtempSync(tmpdir());\n`,
+      );
+      const { problems } = classifyTests(
+        root,
+        ["tests/fixed.test.ts", "tests/unique.test.ts"],
+        {},
+      );
+      expect(problems).toEqual([
+        "tests/fixed.test.ts:2:tmpdir-without-mkdtemp (via tests/fixed.test.ts)",
+      ]);
+    });
+  });
+
+  it("stays inside tests/: a ../src import is not followed", () => {
+    withTempRoot((root) => {
+      writeIn(root, "tests/a.test.ts", `import "../src/x.js";\n`);
+      writeIn(
+        root,
+        "src/x.ts",
+        `import { spawn } from "node:child_process";\n`,
+      );
+      expect(importClosure(root, "tests/a.test.ts")).toEqual([
+        "tests/a.test.ts",
+      ]);
+    });
   });
 });
