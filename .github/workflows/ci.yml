@@ -29,6 +29,8 @@ jobs:
     outputs:
       scope: ${{ steps.scope.outputs.scope }}
       formats: ${{ steps.scope.outputs.formats }}
+      mutate: ${{ steps.scope.outputs.mutate }}
+      mutate_mode: ${{ steps.scope.outputs.mutate_mode }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,10 +52,14 @@ jobs:
 
   quality:
     runs-on: ubuntu-24.04
+    env:
+      # D-16/D-01: the floors-monotonic and manifest-coupling tests read the base side of the merge commit.
+      MUTATION_BASE_REV: HEAD^1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
+          fetch-depth: 2
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -77,10 +83,14 @@ jobs:
   # maintainer adds it. Not a matrix: that would rename the required `quality` context.
   test-node26:
     runs-on: ubuntu-24.04
+    env:
+      # D-16/D-01: the floors-monotonic and manifest-coupling tests read the base side of the merge commit.
+      MUTATION_BASE_REV: HEAD^1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: "${{ github.sha }}"
+          fetch-depth: 2
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 26
@@ -98,6 +108,63 @@ jobs:
           node scripts/qualification/fetch-corpus.cjs --cache "$RUNNER_TEMP/exifcleaner-corpus-cache"
       - run: npm run build:native
       - run: npm test
+
+  # MUT-04 (D-25, D-26): advisory mutation lane. Never a required check until v4.13 and never gated
+  # on scope: it runs on every pull_request and writes verdict noop when nothing is mutation-relevant.
+  # `!cancelled()` keeps it running when classify fails (the plan step then reports error). Cold runs,
+  # no cache. Classifier outputs reach the scripts only through env (no expression in any run line).
+  mutation-pr:
+    needs: classify
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MUTATION_BASE_REV: HEAD^1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: "${{ github.sha }}"
+          fetch-depth: 2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - id: plan
+        name: Plan the mutation lane leg (D-25)
+        env:
+          LANE_EVENT_NAME: ${{ github.event_name }}
+          MUTATE_LIST: ${{ needs.classify.outputs.mutate }}
+          MUTATE_MODE: ${{ needs.classify.outputs.mutate_mode }}
+        run: node tools/mutation/lane.mjs plan
+      - if: steps.plan.outputs.install == 'true'
+        run: npm ci
+      - if: steps.plan.outputs.install == 'true'
+        run: npm run build:native
+      - if: steps.plan.outputs.install == 'true'
+        run: npm ci --prefix tools/mutation
+      - if: steps.plan.outputs.install == 'true'
+        run: node tools/mutation/check-isolation.mjs
+      - if: steps.plan.outputs.smoke == 'true'
+        run: node tools/mutation/lane.mjs smoke
+      - if: steps.plan.outputs.run == 'true'
+        name: Run Stryker on the changed files
+        env:
+          MUTATE_LIST: ${{ needs.classify.outputs.mutate }}
+        run: node tools/mutation/lane.mjs run
+      - if: always()
+        name: Gate the mutation verdict (advisory)
+        env:
+          LANE_EVENT_NAME: ${{ github.event_name }}
+          LANE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          LANE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          LANE_MERGE_SHA: ${{ github.sha }}
+        run: node tools/mutation/lane.mjs gate
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-pr-attempt-${{ github.run_attempt }}
+          path: reports/mutation/
+          if-no-files-found: error
 
   qualification-linux:
     # D-17 (56-12): the sole always-run job allowed to depend on `classify`,
