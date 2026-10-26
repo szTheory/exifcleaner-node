@@ -555,6 +555,89 @@ describe("classifyQualificationFormats (D-17 per-format CI scoping)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Mutation lane scoping (Phase 67, D-24/D-25/D-07)
+// ---------------------------------------------------------------------------
+
+describe("mutation-tooling rule (D-24)", () => {
+  it.each(MUTATION_TOOLING_LINUX_FIXTURES)(
+    "classifies %s as linux alone",
+    (path) => {
+      expect(classify.isLinuxSafePath(path)).toBe(true);
+    },
+  );
+
+  it.each(["tools/other/x", "package.json"])("keeps %s full alone", (path) => {
+    expect(classify.isLinuxSafePath(path)).toBe(false);
+  });
+});
+
+describe("selectMutationLane", () => {
+  const distDir = ["di", "st"].join("");
+  const rows: [string, unknown, string, string[]][] = [
+    ["empty list", [], "none", []],
+    ["null (git error)", null, "error", []],
+    ["undefined", undefined, "error", []],
+    ["src file plus .d.ts", ["src/a.ts", "src/a.d.ts"], "run", ["src/a.ts"]],
+    ["nested src file", ["src/png/chunks.ts"], "run", ["src/png/chunks.ts"]],
+    ["srcx prefix", ["srcx/a.ts"], "none", []],
+    ["tests/src nesting", ["tests/src/a.ts"], "tests-only", []],
+    ["source map", ["src/a.ts.map"], "none", []],
+    ["built output", [`${distDir}/png/chunks.js`], "none", []],
+    ["comma in path", ["src/a,b.ts"], "error", []],
+    ["newline in path", ["src/a\nb.ts"], "error", []],
+    ["malformed absolute path", ["/src/a.ts"], "error", []],
+    ["malformed traversal", ["src/../a.ts"], "error", []],
+    ["tooling only", ["tools/mutation/x"], "smoke", []],
+    ["root package.json", ["package.json"], "smoke", []],
+    ["root vitest config", ["vitest.config.ts"], "smoke", []],
+    [
+      "src plus tooling",
+      ["src/a.ts", "tools/mutation/x"],
+      "run+smoke",
+      ["src/a.ts"],
+    ],
+    ["tests only", ["tests/x.test.ts"], "tests-only", []],
+    ["docs only", ["docs/x.md"], "none", []],
+    ["tests plus docs", ["tests/x.test.ts", "docs/x.md"], "none", []],
+  ];
+
+  it.each(rows)("%s", (_name, input, mode, files) => {
+    const result = classify.selectMutationLane(input);
+    expect(result.mode).toBe(mode);
+    expect([...result.files]).toEqual(files);
+    expect(result.reason.length).toBeGreaterThan(0);
+    expect(Object.isFrozen(result)).toBe(true);
+  });
+
+  it("is order- and duplicate-insensitive", () => {
+    const expected = classify.selectMutationLane(["src/a.ts", "src/b.ts"]);
+    for (const permutation of [
+      ["src/b.ts", "src/a.ts", "src/a.ts"],
+      ["src/a.ts", "src/b.ts"],
+      ["src/a.ts", "src/b.ts", "src/b.ts", "src/a.ts"],
+    ]) {
+      const result = classify.selectMutationLane(permutation);
+      expect(result.mode).toBe(expected.mode);
+      expect([...result.files]).toEqual(["src/a.ts", "src/b.ts"]);
+    }
+  });
+
+  it("does not change scope or formats for a mutation-relevant path", () => {
+    const input = {
+      eventName: "pull_request",
+      workflowName: "CI",
+      ref: "refs/pull/1/merge",
+      changedPaths: ["src/png/chunks.ts"],
+    };
+    expect(classify.classifyCiScope(input).scope).toBe("linux");
+    expect(
+      classify.classifyCiScope({ ...input, changedPaths: ["package.json"] })
+        .scope,
+    ).toBe("full");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // CLI end-to-end (temp git repo)
 // ---------------------------------------------------------------------------
 
@@ -754,6 +837,50 @@ describe("CLI end-to-end", () => {
       expect(outputFileContents).toBe(
         "scope=full\nformats=avif,heic,jpeg,png,webp\nmutate=\nmutate_mode=error\n",
       );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("pull_request mode: a non-merge HEAD (git error) writes mutate_mode=error", () => {
+    const dir = createBaseRepo();
+    try {
+      const { status, outputFileContents } = runCli(dir, {
+        CLASSIFY_EVENT_NAME: "pull_request",
+        CLASSIFY_WORKFLOW: "CI",
+        CLASSIFY_REF: "refs/pull/1/merge",
+      });
+
+      expect(status).toBe(0);
+      expect(outputFileContents.endsWith("mutate=\nmutate_mode=error\n")).toBe(
+        true,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("pull_request mode: a tests-only merge writes mutate_mode=tests-only", () => {
+    const dir = createBaseRepo();
+    try {
+      git(dir, ["checkout", "-q", "-b", "feature"]);
+      mkdirSync(join(dir, "tests"), { recursive: true });
+      writeFileSync(join(dir, "tests", "x.test.ts"), "export {};\n");
+      git(dir, ["add", "."]);
+      git(dir, ["commit", "-q", "-m", "tests change"]);
+      git(dir, ["checkout", "-q", "main"]);
+      git(dir, ["merge", "--no-ff", "-m", "merge", "feature"]);
+
+      const { status, outputFileContents } = runCli(dir, {
+        CLASSIFY_EVENT_NAME: "pull_request",
+        CLASSIFY_WORKFLOW: "CI",
+        CLASSIFY_REF: "refs/pull/1/merge",
+      });
+
+      expect(status).toBe(0);
+      expect(
+        outputFileContents.endsWith("mutate=\nmutate_mode=tests-only\n"),
+      ).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
