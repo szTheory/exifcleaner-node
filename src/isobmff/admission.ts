@@ -531,11 +531,11 @@ export async function admitIsobmff(
       continue;
     }
 
-    namespaces.add("XMP");
-    const found = parseXmp(payload);
-    entries.push(...found.entries);
-    warnings.push(...found.warnings);
-    continue;
+      namespaces.add("XMP");
+      const found = parseXmp(payload);
+      entries.push(...found.entries);
+      warnings.push(...found.warnings);
+      continue;
   }
 
   return {
