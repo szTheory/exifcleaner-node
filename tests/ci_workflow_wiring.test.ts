@@ -119,8 +119,8 @@ export function checkMutationLaneWiring(text: string): string[] {
     if (job === undefined) continue;
     if (!/^ {4}env:\n(?: {6}.*\n)*? {6}MUTATION_BASE_REV: HEAD\^1$/mu.test(job))
       problems.push(`${name} must set MUTATION_BASE_REV: HEAD^1`);
-    if (!/^ {10}fetch-depth: 2$/mu.test(job))
-      problems.push(`${name} checkout must use fetch-depth: 2`);
+    if (!/^ {10}fetch-depth: 0$/mu.test(job))
+      problems.push(`${name} checkout must use fetch-depth: 0`);
   }
 
   const classify = jobs["classify"] ?? "";
@@ -461,7 +461,7 @@ describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-
     );
   });
 
-  it("mutation 14: MUTATION_BASE_REV pointed at HEAD, or no fetch-depth 2, is rejected", () => {
+  it("mutation 14: MUTATION_BASE_REV pointed at HEAD or incomplete full history is rejected", () => {
     expectProblem(
       mutateJob(
         "quality",
@@ -470,14 +470,15 @@ describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-
       ),
       "quality must set MUTATION_BASE_REV: HEAD^1",
     );
-    expectProblem(
-      mutateJob("quality", "          fetch-depth: 2\n", ""),
-      "quality checkout must use fetch-depth: 2",
-    );
-    expectProblem(
-      mutateJob("test-node26", "          fetch-depth: 2\n", ""),
-      "test-node26 checkout must use fetch-depth: 2",
-    );
+    for (const name of ["quality", "test-node26"]) {
+      for (const depth of ["", "1", "2"]) {
+        const replacement = depth === "" ? "" : `          fetch-depth: ${depth}\n`;
+        expectProblem(
+          mutateJob(name, "          fetch-depth: 0\n", replacement),
+          `${name} checkout must use fetch-depth: 0`,
+        );
+      }
+    }
     expectProblem(
       mutateJob(
         "mutation-pr",

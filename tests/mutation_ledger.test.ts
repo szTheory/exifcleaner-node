@@ -2,6 +2,8 @@
 // asserts a specific problem; the passing cases prove the fixtures are valid.
 import { spawnSync } from "node:child_process";
 import {
+  copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -10,9 +12,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 
 interface Mutant {
   id: string;
@@ -88,6 +90,29 @@ interface Checker {
 }
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+const liveInputPaths = [
+  join(packageRoot, "tools", "mutation", "ledger.json"),
+  join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+];
+const liveInputBytes = liveInputPaths.map((path) => readFileSync(path));
+function expectLiveInputsUnchanged(): void {
+  liveInputPaths.forEach((path, index) =>
+    expect(
+      readFileSync(path).equals(liveInputBytes[index]!),
+      `${path}: live bytes changed`,
+    ).toBe(true),
+  );
+}
+
+const cliFiles = [
+  "cluster.mjs",
+  "groups.mjs",
+  "identity.mjs",
+  "ledger-check.mjs",
+  "disable-lint.mjs",
+  "classes.json",
+  "deletion-proof.mjs",
+];
 const load = async <T>(name: string) =>
   (await import(
     pathToFileURL(join(packageRoot, "tools", "mutation", name)).href
@@ -157,9 +182,14 @@ const pre = reportOf([m1, m2, m3, m4]);
 
 const temporaryRoots: string[] = [];
 afterEach(() => {
-  for (const root of temporaryRoots.splice(0))
-    rmSync(root, { recursive: true, force: true });
+  try {
+    expectLiveInputsUnchanged();
+  } finally {
+    for (const root of temporaryRoots.splice(0))
+      rmSync(root, { recursive: true, force: true });
+  }
 });
+afterAll(expectLiveInputsUnchanged);
 function tempRoot(files: Record<string, string>): string {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "mut-ledger-")));
   temporaryRoots.push(root);
@@ -168,6 +198,31 @@ function tempRoot(files: Record<string, string>): string {
     writeFileSync(join(root, rel), content);
   }
   return root;
+}
+
+function cliFixture(files: Record<string, string>): string {
+  const root = tempRoot(files);
+  const mutationDir = join(root, "tools", "mutation");
+  mkdirSync(mutationDir, { recursive: true });
+  for (const name of cliFiles) {
+    const source = join(packageRoot, "tools", "mutation", name);
+    if (existsSync(source)) copyFileSync(source, join(mutationDir, name));
+  }
+  for (const name of ["cluster.mjs", "ledger-check.mjs"]) {
+    const copiedScript = realpathSync(join(mutationDir, name));
+    expect(copiedScript.startsWith(`${root}${sep}`)).toBe(true);
+    expect(realpathSync(join(dirname(copiedScript), "..", ".."))).toBe(root);
+  }
+  return root;
+}
+
+function runFixture(root: string, script: string, ...args: string[]) {
+  const path = realpathSync(join(root, "tools", "mutation", script));
+  expect(path.startsWith(`${root}${sep}`)).toBe(true);
+  return spawnSync(process.execPath, [path, ...args], {
+    cwd: root,
+    encoding: "utf8",
+  });
 }
 const covering: [Cluster, Cluster] = [
   cluster("c1", { count: 2, keys: [keyOf(m1), keyOf(m2)] }),
@@ -462,29 +517,69 @@ describe("final mode (D-18)", () => {
 
 describe("committed ledger", () => {
   const ledgerPath = join(packageRoot, "tools", "mutation", "ledger.json");
-  const run = (...args: string[]) =>
+  const prePath = join(
+    packageRoot,
+    "tools",
+    "mutation",
+    "pre-triage-survivors.json",
+  );
+  const runLiveReadOnly = (...args: string[]) =>
     spawnSync(
       process.execPath,
       [join(packageRoot, "tools", "mutation", "ledger-check.mjs"), ...args],
       { cwd: packageRoot, encoding: "utf8" },
     );
 
-  it("holds only pending clusters and passes in pre mode against the compact survivors", () => {
+  it("preserves mixed dispositions and exact immutable membership", () => {
     const ledger = JSON.parse(readFileSync(ledgerPath, "utf8")) as {
-      preTriage: { runId: string; survivorCount: number };
+      preTriage: { runId: string; sha: string; survivorCount: number };
       clusters: Cluster[];
     };
+    const pre = JSON.parse(readFileSync(prePath, "utf8")) as {
+      runId: string;
+      sha: string;
+      survivorCount: number;
+      survivors: Survivor[];
+    };
     expect(ledger.preTriage.runId).toMatch(/^\d+$/);
-    expect(ledger.clusters.every((c) => c.disposition === "pending")).toBe(
-      true,
-    );
+    expect(ledger.preTriage.runId).toBe(pre.runId);
+    expect(ledger.preTriage.sha).toBe(pre.sha);
+    expect(ledger.preTriage.survivorCount).toBe(pre.survivorCount);
     expect(ledger.clusters.every((c) => c.count === c.keys.length)).toBe(true);
-    expect(ledger.clusters.reduce((n, c) => n + c.count, 0)).toBe(
-      ledger.preTriage.survivorCount,
-    );
-    const result = run(
+    expect(
+      ledger.clusters.every((c) =>
+        ["pending", "gap", "equivalent", "dead"].includes(c.disposition),
+      ),
+    ).toBe(true);
+    expect(new Set(ledger.clusters.map((c) => c.disposition)).size).toBeGreaterThan(1);
+
+    const survivorByKey = new Map(pre.survivors.map((s) => [s.key, s]));
+    const allKeys = ledger.clusters.flatMap((c) => c.keys);
+    const origin = (c: Cluster) => c.originClusterId ?? c.id;
+    const expectedOrigin = (s: Survivor) =>
+      `${s.group}:${s.file}:${s.function}:${s.mutatorName}`;
+    expect(pre.survivors).toHaveLength(1919);
+    expect(survivorByKey.size).toBe(1919);
+    expect(allKeys).toHaveLength(1919);
+    expect(new Set(allKeys).size).toBe(1919);
+    expect(new Set(ledger.clusters.map(origin)).size).toBe(586);
+    expect(new Set(pre.survivors.map(expectedOrigin)).size).toBe(586);
+    for (const row of ledger.clusters) {
+      expect(new Set(row.keys).size).toBe(row.keys.length);
+      for (const key of row.keys) {
+        const survivor = survivorByKey.get(key);
+        expect(survivor, `${row.id}: foreign member`).toBeDefined();
+        expect(origin(row)).toBe(expectedOrigin(survivor!));
+        expect(row.group).toBe(survivor!.group);
+        expect(row.file).toBe(survivor!.file);
+        expect(row.function).toBe(survivor!.function);
+        expect(row.mutatorName).toBe(survivor!.mutatorName);
+      }
+    }
+
+    const result = runLiveReadOnly(
       "--pre",
-      join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+      prePath,
     );
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
@@ -525,14 +620,84 @@ describe("committed ledger", () => {
   });
 
   it("is red against a non-empty pre-report (empty ledger, non-empty report)", () => {
-    const dir = tempRoot({
+    const dir = cliFixture({
+      "tools/mutation/ledger.json": JSON.stringify(ledgerOf([])),
+      "tools/mutation/pre-triage-survivors.json": JSON.stringify({
+        survivors: [],
+      }),
+      "mutation-floors.json": JSON.stringify({
+        groups: { g: { tier: "trust", globs: ["src/webp/**"] } },
+      }),
       "pre.json": JSON.stringify(
         reportOf([mutant("1", 1, 11, "Survived")], "src/webp/x.ts"),
       ),
     });
-    const result = run("--pre", join(dir, "pre.json"));
+    const result = runFixture(dir, "ledger-check.mjs", "--pre", "pre.json");
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/in no cluster/);
+  });
+
+  it("keeps the real --pre integration read-only", () => {
+    const result = runLiveReadOnly("--pre", prePath);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("ledger: ok");
+  });
+
+  it("regenerates a triaged fixture twice and after a genuine input permutation", () => {
+    const survivors = [m1, m2, m3].map((entry) => ({
+      group: "g",
+      key: keyOf(entry),
+      anchorKey: identity.anchorKey("src/a/x.ts", entry, SOURCE),
+      file: "src/a/x.ts",
+      mutatorName: entry.mutatorName,
+      function: "f",
+      location: entry.location,
+    }));
+    const initialLedger = JSON.stringify({
+      schemaVersion: 1,
+      preTriage: { runId: "1", sha: "a".repeat(40), survivorCount: 3 },
+      clusters: [
+        cluster("already-triaged", {
+          disposition: "gap",
+          count: 1,
+          keys: [survivors[0]!.key],
+        }),
+      ],
+    });
+    const root = cliFixture({
+      "tools/mutation/ledger.json": initialLedger,
+      "tools/mutation/pre-triage-survivors.json": JSON.stringify({
+        runId: "1",
+        sha: "a".repeat(40),
+        survivorCount: survivors.length,
+        survivors,
+      }),
+      "mutation-floors.json": JSON.stringify({
+        groups: { g: { tier: "trust", globs: ["src/a/**"] } },
+      }),
+    });
+    const run = () => runFixture(root, "cluster.mjs", "cluster");
+    const first = run();
+    expect(first.status).toBe(0);
+    const output = readFileSync(join(root, "tools/mutation/ledger.json"));
+    expect(JSON.parse(output.toString()).clusters.every((c) => c.disposition === "pending")).toBe(true);
+    expect(output.equals(Buffer.from(initialLedger))).toBe(false);
+
+    const second = run();
+    expect(second.status).toBe(0);
+    expect(readFileSync(join(root, "tools/mutation/ledger.json"))).toEqual(output);
+
+    const prePath = join(root, "tools/mutation/pre-triage-survivors.json");
+    const permuted = JSON.parse(readFileSync(prePath, "utf8")) as {
+      survivors: Survivor[];
+    };
+    permuted.survivors.reverse();
+    writeFileSync(prePath, `${JSON.stringify(permuted, null, 2)}\n`);
+    expect(permuted.survivors).not.toEqual(survivors);
+    const afterPermutation = run();
+    expect(afterPermutation.status).toBe(0);
+    expect(readFileSync(join(root, "tools/mutation/ledger.json"))).toEqual(output);
   });
 });
 
@@ -592,18 +757,11 @@ describe("determinism and partition (D-22)", () => {
     );
   });
 
-  it("writes byte-identical ledger.json on two runs", () => {
-    const ledgerPath = join(packageRoot, "tools", "mutation", "ledger.json");
-    const before = readFileSync(ledgerPath, "utf8");
-    for (let i = 0; i < 2; i++) {
-      const r = spawnSync(
-        process.execPath,
-        [join(packageRoot, "tools", "mutation", "cluster.mjs"), "cluster"],
-        { cwd: packageRoot, encoding: "utf8" },
-      );
-      expect(r.status).toBe(0);
-      expect(readFileSync(ledgerPath, "utf8")).toBe(before);
-    }
+  it("keeps pure clustering and partitioning deterministic", () => {
+    const clustered = clusterTools.clusterSurvivors(pre.survivors);
+    expect(clusterTools.clusterSurvivors(pre.survivors)).toEqual(clustered);
+    const batches = clusterTools.partitionBatches(clustered);
+    expect(clusterTools.partitionBatches([...clustered].reverse())).toEqual(batches);
   });
 
   const fake = (file: string, fn: string, n: number, group = "g"): Cluster => ({
