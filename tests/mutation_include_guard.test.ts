@@ -704,7 +704,9 @@ describe("whole-tree include set", () => {
       walked.length,
     );
     expect(walked.length).toBeGreaterThanOrEqual(100);
-  });
+    // Reads every test file synchronously; the 5 s default timed out on the hosted runner under
+    // a full parallel run (CI run 40263163727), so the budget is explicit.
+  }, 30_000);
 
   it("keeps the allowlist sorted and unique", () => {
     expect([...STRYKER_TEST_ALLOWLIST]).toEqual(
