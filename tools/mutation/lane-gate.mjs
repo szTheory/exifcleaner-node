@@ -23,6 +23,7 @@ const PLUGIN_PREFIX = "error-message:";
 function base(plan, ctx) {
   return {
     headSha: ctx.headSha ?? "unknown",
+    mergeSha: ctx.mergeSha ?? "unknown",
     baseSha: ctx.baseSha ?? "unknown",
     strykerVersion: ctx.strykerVersion ?? "unknown",
     mutatedFiles: [...(plan?.files ?? [])],

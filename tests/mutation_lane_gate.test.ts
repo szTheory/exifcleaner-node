@@ -521,12 +521,14 @@ describe("lane.mjs as a child process", () => {
       const g = lane(cwd, "gate", {
         LANE_HEAD_SHA: "abc",
         LANE_BASE_SHA: "def",
+        LANE_MERGE_SHA: "mrg",
       });
       expect(g.status).toBe(status);
       expect(g.result.verdict).toBe(verdict);
       for (const k of need) expect(g.result).toHaveProperty(k);
       expect(g.result.headSha).toBe("abc");
       expect(g.result.baseSha).toBe("def");
+      expect(g.result.mergeSha).toBe("mrg");
       expect(g.summary).toContain(`advisory): ${verdict}`);
     }
   });

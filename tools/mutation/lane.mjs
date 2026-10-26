@@ -157,6 +157,14 @@ function strykerVersion() {
   return pkg.value?.version ?? "unknown";
 }
 
+/** PR head from LANE_HEAD_SHA; the merge SHA stands in only for non-PR events. */
+function laneHeadSha(env) {
+  if (env.LANE_HEAD_SHA) return env.LANE_HEAD_SHA;
+  return env.LANE_EVENT_NAME === "pull_request"
+    ? undefined
+    : env.LANE_MERGE_SHA;
+}
+
 function gate(env) {
   const orMissing = (name) => readJson(join(REPORTS, name)).value ?? null;
   const report = readJson(join(REPORTS, "mutation.json"));
@@ -166,7 +174,8 @@ function gate(env) {
   if (floors.error || classes.error) {
     result = evaluateGate({
       plan: null,
-      headSha: env.LANE_HEAD_SHA,
+      headSha: laneHeadSha(env),
+      mergeSha: env.LANE_MERGE_SHA,
       baseSha: env.LANE_BASE_SHA,
       strykerVersion: strykerVersion(),
     });
@@ -180,7 +189,8 @@ function gate(env) {
       reportError: report.error,
       floors: floors.value,
       classes: classes.value,
-      headSha: env.LANE_HEAD_SHA,
+      headSha: laneHeadSha(env),
+      mergeSha: env.LANE_MERGE_SHA,
       baseSha: env.LANE_BASE_SHA,
       strykerVersion: strykerVersion(),
     });

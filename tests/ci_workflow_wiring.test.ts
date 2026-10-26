@@ -96,9 +96,117 @@ export function checkCiWiring(
   return problems;
 }
 
+const UPLOAD_PIN =
+  "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1";
+const MUTATION_IF =
+  "if: ${{ !cancelled() && github.event_name == 'pull_request' }}";
+
+/** Split a job body into its top-level steps (each begins at `      - `). */
+function sliceSteps(job: string): string[] {
+  return job
+    .split(/^(?= {6}- )/mu)
+    .filter((step) => step.startsWith("      - "));
+}
+
+// MUT-04 (D-25, D-26, D-16, D-01): the advisory PR mutation lane wiring, and the base revision the
+// static ratchet checks read in quality and test-node26.
+export function checkMutationLaneWiring(text: string): string[] {
+  const problems: string[] = [];
+  const jobs = sliceJobs(text);
+
+  for (const name of ["quality", "test-node26"]) {
+    const job = jobs[name];
+    if (job === undefined) continue;
+    if (!/^ {4}env:\n(?: {6}.*\n)*? {6}MUTATION_BASE_REV: HEAD\^1$/mu.test(job))
+      problems.push(`${name} must set MUTATION_BASE_REV: HEAD^1`);
+    if (!/^ {10}fetch-depth: 2$/mu.test(job))
+      problems.push(`${name} checkout must use fetch-depth: 2`);
+  }
+
+  const classify = jobs["classify"] ?? "";
+  for (const output of ["mutate", "mutate_mode"]) {
+    if (
+      !new RegExp(
+        `^ {6}${output}: \\$\\{\\{ steps\\.scope\\.outputs\\.${output} \\}\\}$`,
+        "mu",
+      ).test(classify)
+    )
+      problems.push(`classify is missing the ${output} output`);
+  }
+
+  const job = jobs["mutation-pr"];
+  if (job === undefined) return [...problems, "job mutation-pr is missing"];
+  if (!/^ {4}needs: classify$/mu.test(job))
+    problems.push("mutation-pr must have needs: classify");
+  const jobIfs = [...job.matchAll(/^ {4}if: .*$/gmu)].map((m) => m[0].trim());
+  if (jobIfs.length !== 1 || jobIfs[0] !== MUTATION_IF)
+    problems.push(
+      `mutation-pr job-level if must be exactly ${MUTATION_IF}, found ${JSON.stringify(jobIfs)}`,
+    );
+  if (!/^ {4}runs-on: ubuntu-24\.04$/mu.test(job))
+    problems.push("mutation-pr must run on ubuntu-24.04");
+  if (!/^ {4}timeout-minutes: 15$/mu.test(job))
+    problems.push("mutation-pr must set timeout-minutes: 15");
+  if (!/^ {6}MUTATION_BASE_REV: HEAD\^1$/mu.test(job))
+    problems.push("mutation-pr must set MUTATION_BASE_REV: HEAD^1");
+  if (!job.includes(`- uses: ${CHECKOUT_PIN}`))
+    problems.push("mutation-pr checkout is not the pinned SHA");
+  if (!job.includes(`- uses: ${SETUP_NODE_PIN}`))
+    problems.push("mutation-pr setup-node is not the pinned SHA");
+  if (!/^ {10}node-version: 24$/mu.test(job))
+    problems.push("mutation-pr must use node-version: 24");
+  if (!/^ {10}fetch-depth: 2$/mu.test(job))
+    problems.push("mutation-pr checkout must use fetch-depth: 2");
+  if (!job.includes("MUTATE_LIST: ${{ needs.classify.outputs.mutate }}"))
+    problems.push("mutation-pr plan step does not read classify mutate");
+  if (!job.includes("MUTATE_MODE: ${{ needs.classify.outputs.mutate_mode }}"))
+    problems.push("mutation-pr plan step does not read classify mutate_mode");
+  const interpolatedRuns = job
+    .split("\n")
+    .filter((line) => /^ +(- )?run: .*\$\{\{/u.test(line));
+  if (interpolatedRuns.length > 0)
+    problems.push(
+      `mutation-pr has an expression inside a run line: ${interpolatedRuns.join(" | ")}`,
+    );
+  if (/actions\/cache@/u.test(job))
+    problems.push("mutation-pr must not use actions/cache");
+  if (/continue-on-error/u.test(job))
+    problems.push("mutation-pr must not use continue-on-error");
+
+  const steps = sliceSteps(job);
+  const gateStep = steps.find((step) => step.includes("lane.mjs gate"));
+  if (
+    gateStep === undefined ||
+    !/^(?: {6}- | {8})if: always\(\)$/mu.test(gateStep)
+  )
+    problems.push("mutation-pr gate step must carry if: always()");
+  const uploadStep = steps.find((step) => step.includes("upload-artifact"));
+  if (uploadStep === undefined) {
+    problems.push("mutation-pr has no upload step");
+  } else {
+    if (!uploadStep.includes(`uses: ${UPLOAD_PIN}`))
+      problems.push("mutation-pr upload-artifact is not the pinned SHA");
+    if (!/^ {6}- if: always\(\)$/mu.test(uploadStep))
+      problems.push("mutation-pr upload step must carry if: always()");
+    if (
+      !uploadStep.includes(
+        "name: mutation-pr-attempt-${{ github.run_attempt }}",
+      )
+    )
+      problems.push("mutation-pr artifact name must be per run attempt");
+    if (!uploadStep.includes("path: reports/mutation/"))
+      problems.push("mutation-pr must upload reports/mutation/");
+  }
+  return problems;
+}
+
 describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-05)", () => {
   it("has no wiring problems on the real files", () => {
     expect(checkCiWiring(workflowText, packageJson)).toEqual([]);
+  });
+
+  it("has no mutation lane wiring problems on the real file", () => {
+    expect(checkMutationLaneWiring(workflowText)).toEqual([]);
   });
 
   it("has no schedule trigger (no cron lanes)", () => {
