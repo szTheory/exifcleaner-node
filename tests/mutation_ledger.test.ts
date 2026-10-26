@@ -501,7 +501,7 @@ describe("committed ledger", () => {
       schemaVersion: 1,
       preTriage: null,
       clusters: ledger.clusters.map((c) =>
-        c.id === victim.id
+        c.id === victim?.id
           ? { ...c, count: c.count - 1, keys: c.keys.slice(1) }
           : c,
       ),
@@ -639,7 +639,7 @@ describe("determinism and partition (D-22)", () => {
   it("splits a single over-limit file at function boundaries", () => {
     const batches = clusterTools.partitionBatches(many("src/big.ts", 40, 10));
     expect(batches.map((b) => b.clusters.length)).toEqual([20, 20]);
-    expect(batches[0].clusters.every((id) => /f00[01]/.test(id))).toBe(true);
+    expect(batches[0]?.clusters.every((id) => /f00[01]/.test(id))).toBe(true);
   });
 
   it("caps a batch at four src files", () => {
