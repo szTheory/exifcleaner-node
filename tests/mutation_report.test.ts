@@ -1,7 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  allowlistFromConfig,
+  compareDryRuns,
+  normalizeDryRun,
+  waitForEventFile,
+  // @ts-expect-error plain .mjs tooling scripts without type declarations
+} from "../tools/mutation/dryrun-compare.mjs";
 // @ts-expect-error plain .mjs tooling scripts without type declarations
 import { checkGroupCoverage, globToRegExp } from "../tools/mutation/groups.mjs";
 import {
@@ -354,5 +362,163 @@ describe("identity and score edge controls (D-13, D-15)", () => {
     expect(w.pluginIgnored).toBe(1);
     expect(w.staticIgnored).toBe(0);
     expect(w.scoreTenths).toBe(666);
+  });
+});
+
+describe("dry-run comparator (D-11)", () => {
+  const ALLOW = ["tests/a.test.ts", "tests/b.test.ts"];
+  function event(): {
+    result: {
+      status: string;
+      tests: {
+        id: string;
+        name: string;
+        timeSpentMs: number;
+        fileName: string;
+      }[];
+      mutantCoverage: {
+        perTest: Record<string, Record<string, number>>;
+        static: Record<string, number>;
+      };
+    };
+    timing: { net: number };
+  } {
+    return {
+      result: {
+        status: "complete",
+        tests: [
+          {
+            id: "tests/b.test.ts#two",
+            name: "two",
+            timeSpentMs: 3,
+            fileName: "/x/b",
+          },
+          {
+            id: "tests/a.test.ts#one",
+            name: "one",
+            timeSpentMs: 5,
+            fileName: "/x/a",
+          },
+        ],
+        mutantCoverage: {
+          perTest: { "tests/a.test.ts#one": { "0": 1, "1": 2 } },
+          static: { "9": 1 },
+        },
+      },
+      timing: { net: 10 },
+    };
+  }
+
+  it("passes three identical runs and ignores timing and absolute paths", () => {
+    const b = event();
+    b.timing.net = 99;
+    for (const t of b.result.tests) {
+      t.timeSpentMs = 500;
+      t.fileName = "/elsewhere/file";
+    }
+    const { problems, digests } = compareDryRuns([event(), b, event()], ALLOW);
+    expect(problems).toEqual([]);
+    expect(new Set(digests).size).toBe(1);
+  });
+
+  it("control 1: one extra coverage entry fails naming the differing digests", () => {
+    const b = event();
+    b.result.mutantCoverage.perTest["tests/b.test.ts#two"] = { "2": 1 };
+    const { problems } = compareDryRuns([event(), event(), b], ALLOW);
+    expect(
+      problems.some((p: string) => p.startsWith("digest mismatch: ")),
+    ).toBe(true);
+  });
+
+  it("control 2: reordered keys and reordered tests pass", () => {
+    const b = event();
+    b.result.tests.reverse();
+    b.result.mutantCoverage = {
+      static: { "9": 1 },
+      perTest: { "tests/a.test.ts#one": { "1": 2, "0": 1 } },
+    };
+    expect(compareDryRuns([event(), b, event()], ALLOW).problems).toEqual([]);
+    expect(normalizeDryRun(b)).toEqual(normalizeDryRun(event()));
+  });
+
+  it("control 3: an empty fixture fails, and three identical empty fixtures fail", () => {
+    const empty = {
+      result: {
+        status: "complete",
+        tests: [],
+        mutantCoverage: { perTest: {}, static: {} },
+      },
+    };
+    expect(compareDryRuns([event(), event(), empty], ALLOW).problems).toContain(
+      "run 3: non-empty check failed: zero tests",
+    );
+    const same = compareDryRuns([empty, empty, empty], ALLOW);
+    expect(same.problems).toEqual([
+      "run 1: non-empty check failed: zero tests",
+      "run 2: non-empty check failed: zero tests",
+      "run 3: non-empty check failed: zero tests",
+    ]);
+  });
+
+  it("control 4: fewer tests than the allowlist, or a missing allowlisted file, fails naming it", () => {
+    const missing = event();
+    missing.result.tests = [
+      missing.result.tests[1]!,
+      { ...missing.result.tests[1]!, id: "tests/a.test.ts#again" },
+    ];
+    const { problems } = compareDryRuns([missing, missing, missing], ALLOW);
+    expect(problems).toContain(
+      "run 1: allowlisted file tests/b.test.ts contributed no test",
+    );
+    const few = compareDryRuns(
+      [event(), event(), event()],
+      ["tests/a.test.ts", "tests/b.test.ts", "tests/c.test.ts"],
+    );
+    expect(few.problems).toContain(
+      "run 1: non-empty check failed: 2 tests is fewer than the allowlist size 3",
+    );
+    expect(few.problems).toContain(
+      "run 1: allowlisted file tests/c.test.ts contributed no test",
+    );
+  });
+
+  it("refuses differing config hashes", () => {
+    const { problems } = compareDryRuns([event(), event(), event()], ALLOW, [
+      "h1",
+      "h1",
+      "h2",
+    ]);
+    expect(
+      problems.some((p: string) => p.startsWith("config hashes differ")),
+    ).toBe(true);
+  });
+
+  it("reads the allowlist out of the real Stryker vitest config", () => {
+    const list = allowlistFromConfig(
+      readFileSync(
+        join(ROOT, "tools", "mutation", "vitest.stryker.config.ts"),
+        "utf8",
+      ),
+    );
+    expect(list.length).toBe(46);
+    expect(
+      list.every(
+        (p: string) => p.startsWith("tests/") && p.endsWith(".test.ts"),
+      ),
+    ).toBe(true);
+  });
+
+  it("waitForEventFile finds a written file and times out on an empty directory", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "dryrun-wait-"));
+    await expect(waitForEventFile(dir, 600)).rejects.toThrow(
+      "no parseable onDryRunCompleted event",
+    );
+    writeFileSync(
+      join(dir, "00000-onDryRunCompleted.json"),
+      JSON.stringify(event()),
+    );
+    expect(await waitForEventFile(dir, 600)).toBe(
+      join(dir, "00000-onDryRunCompleted.json"),
+    );
   });
 });
