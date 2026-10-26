@@ -274,4 +274,147 @@ describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-
     expect(mutated).not.toBe(workflowText);
     expect(checkCiWiring(mutated, packageJson)).not.toEqual([]);
   });
+
+  // Mutations 7-15 operate on text confined to one job so a hit elsewhere cannot mask a miss.
+  function mutateJob(job: string, from: string | RegExp, to: string): string {
+    const start = workflowText.indexOf(`\n  ${job}:\n`);
+    expect(start).toBeGreaterThan(-1);
+    const next = workflowText
+      .slice(start + 1)
+      .search(/\n {2}[a-z][a-z0-9-]+:\n/u);
+    const end = next < 0 ? workflowText.length : start + 1 + next;
+    const body = workflowText.slice(start, end);
+    const mutatedBody = body.replace(from, to);
+    expect(mutatedBody).not.toBe(body);
+    return workflowText.slice(0, start) + mutatedBody + workflowText.slice(end);
+  }
+
+  function expectProblem(text: string, fragment: string): void {
+    const problems = checkMutationLaneWiring(text);
+    expect(problems.some((p) => p.includes(fragment))).toBe(true);
+  }
+
+  it("mutation 7: needs: classify removed from mutation-pr is rejected", () => {
+    expectProblem(
+      mutateJob("mutation-pr", "    needs: classify\n", ""),
+      "mutation-pr must have needs: classify",
+    );
+  });
+
+  it("mutation 8: any other job-level if on mutation-pr is rejected", () => {
+    const cond =
+      "if: ${{ !cancelled() && github.event_name == 'pull_request' }}";
+    const variants = [
+      "if: needs.classify.outputs.scope != 'linux'",
+      "if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.classify.outputs.scope != 'linux' }}",
+      "if: ${{ !cancelled() }}",
+      "",
+    ];
+    for (const variant of variants) {
+      const text = mutateJob(
+        "mutation-pr",
+        `    ${cond}\n`,
+        variant === "" ? "" : `    ${variant}\n`,
+      );
+      expectProblem(text, "mutation-pr job-level if must be exactly");
+    }
+  });
+
+  it("mutation 9: a checkout tag instead of the SHA pin in mutation-pr is rejected", () => {
+    expectProblem(
+      mutateJob("mutation-pr", CHECKOUT_PIN, "actions/checkout@v7"),
+      "mutation-pr checkout is not the pinned SHA",
+    );
+  });
+
+  it("mutation 10: an expression inside a run line of mutation-pr is rejected", () => {
+    expectProblem(
+      mutateJob(
+        "mutation-pr",
+        "run: node tools/mutation/lane.mjs run",
+        "run: node tools/mutation/lane.mjs run ${{ needs.classify.outputs.mutate }}",
+      ),
+      "mutation-pr has an expression inside a run line",
+    );
+  });
+
+  it("mutation 11: actions/cache in mutation-pr is rejected", () => {
+    expectProblem(
+      mutateJob(
+        "mutation-pr",
+        "      - id: plan\n",
+        "      - uses: actions/cache@v4\n      - id: plan\n",
+      ),
+      "mutation-pr must not use actions/cache",
+    );
+  });
+
+  it("mutation 12: continue-on-error in mutation-pr is rejected", () => {
+    expectProblem(
+      mutateJob(
+        "mutation-pr",
+        "    timeout-minutes: 15\n",
+        "    timeout-minutes: 15\n    continue-on-error: true\n",
+      ),
+      "mutation-pr must not use continue-on-error",
+    );
+  });
+
+  it("mutation 13: timeout-minutes removed from mutation-pr is rejected", () => {
+    expectProblem(
+      mutateJob("mutation-pr", "    timeout-minutes: 15\n", ""),
+      "mutation-pr must set timeout-minutes: 15",
+    );
+  });
+
+  it("mutation 14: MUTATION_BASE_REV pointed at HEAD, or no fetch-depth 2, is rejected", () => {
+    expectProblem(
+      mutateJob(
+        "quality",
+        "MUTATION_BASE_REV: HEAD^1",
+        "MUTATION_BASE_REV: HEAD",
+      ),
+      "quality must set MUTATION_BASE_REV: HEAD^1",
+    );
+    expectProblem(
+      mutateJob("quality", "          fetch-depth: 2\n", ""),
+      "quality checkout must use fetch-depth: 2",
+    );
+    expectProblem(
+      mutateJob("test-node26", "          fetch-depth: 2\n", ""),
+      "test-node26 checkout must use fetch-depth: 2",
+    );
+    expectProblem(
+      mutateJob(
+        "mutation-pr",
+        "MUTATION_BASE_REV: HEAD^1",
+        "MUTATION_BASE_REV: HEAD",
+      ),
+      "mutation-pr must set MUTATION_BASE_REV: HEAD^1",
+    );
+  });
+
+  it("mutation 15: the classify mutate_mode output removed is rejected", () => {
+    expectProblem(
+      mutateJob(
+        "classify",
+        "      mutate_mode: ${{ steps.scope.outputs.mutate_mode }}\n",
+        "",
+      ),
+      "classify is missing the mutate_mode output",
+    );
+  });
+
+  it("mutation-pr is not in any classifier job list (advisory until v4.13)", () => {
+    const text = readFileSync(
+      join(packageRoot, "scripts", "classify_ci_scope.cjs"),
+      "utf8",
+    );
+    const lists =
+      text.match(
+        /(ALWAYS_RUN_JOBS|SKIP_GATED_JOBS|NOOP_MATRIX_JOBS)[^;]*;/gu,
+      ) ?? [];
+    expect(lists.length).toBeGreaterThanOrEqual(3);
+    for (const list of lists) expect(list).not.toContain("mutation-pr");
+  });
 });
