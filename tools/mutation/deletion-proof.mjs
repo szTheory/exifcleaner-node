@@ -88,35 +88,76 @@ function matching(mask, open, left = "{", right = "}") {
   return -1;
 }
 
-function functionBounds(source, name) {
+export function functionBounds(source, name) {
   if (!/^[A-Za-z_$][\w$]*$/.test(name)) throw new Error(`invalid function name ${JSON.stringify(name)}`);
   const mask = maskNonCode(source);
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const token = new RegExp(`\\b${escaped}\\b`, "g");
+  const containers = [];
+  const stack = [];
+  for (let at = 0; at < mask.length; at++) {
+    if (mask[at] === "{") {
+      const boundary = Math.max(mask.lastIndexOf("}", at - 1), mask.lastIndexOf(";", at - 1));
+      const prefix = mask.slice(boundary + 1, at);
+      const kind = /\bclass\s+[A-Za-z_$][\w$]*(?:\s+extends\b[\s\S]*)?\s*$/.test(prefix)
+        ? "class"
+        : /(?:=|:|\breturn|\(|,)\s*$/.test(prefix) ? "object" : "block";
+      stack.push(kind);
+      containers[at] = stack.at(-1);
+    } else if (mask[at] === "}") {
+      stack.pop();
+    }
+  }
+
+  const bodyAfterParameters = (at) => {
+    const suffix = mask.slice(at + name.length);
+    if (!/^\s*\(/.test(suffix)) return -1;
+    const paren = suffix.indexOf("(");
+    const close = matching(suffix, paren, "(", ")");
+    if (close < 0) return -1;
+    const rest = suffix.slice(close + 1);
+    const body = /^(?:\s*)(?::[^{}]*?)?\s*\{/.exec(rest);
+    return body ? at + name.length + close + 1 + body[0].lastIndexOf("{") : -1;
+  };
+
+  const arrowBody = (at) => {
+    const prefix = mask.slice(Math.max(0, at - 120), at);
+    if (!/\b(?:const|let|var)\s+$/.test(prefix)) return -1;
+    let rest = mask.slice(at + name.length);
+    const assignment = /^\s*=\s*(?:async\s+)?/.exec(rest);
+    if (!assignment) return -1;
+    rest = rest.slice(assignment[0].length);
+    let afterParameters;
+    if (rest.startsWith("(")) {
+      const close = matching(rest, 0, "(", ")");
+      if (close < 0) return -1;
+      afterParameters = rest.slice(close + 1);
+    } else {
+      const parameter = /^[A-Za-z_$][\w$]*/.exec(rest);
+      if (!parameter) return -1;
+      afterParameters = rest.slice(parameter[0].length);
+    }
+    const body = /^\s*=>\s*\{/.exec(afterParameters);
+    if (!body) return -1;
+    return at + name.length + assignment[0].length + rest.length - afterParameters.length + body[0].lastIndexOf("{");
+  };
+
   const bodies = [];
   for (const m of mask.matchAll(token)) {
     const at = m.index;
     const prefix = mask.slice(Math.max(0, at - 80), at);
-    const suffix = mask.slice(at + name.length);
     let body = -1;
-    if (/\bfunction\s*\*?\s*$/.test(prefix)) {
-      const paren = suffix.indexOf("(");
-      if (paren !== -1) {
-        const close = matching(suffix, paren, "(", ")");
-        if (close !== -1) { const rest = suffix.slice(close + 1); const brace = rest.indexOf("{"); if (brace !== -1) body = at + name.length + close + 1 + brace; }
+    if (/\bfunction\s*\*?\s*$/.test(prefix)) body = bodyAfterParameters(at);
+    else {
+      body = arrowBody(at);
+      if (body < 0 && containers[mask.lastIndexOf("{", at - 1)] &&
+          ["class", "object"].includes(containers[mask.lastIndexOf("{", at - 1)])) {
+        const boundary = Math.max(mask.lastIndexOf("{", at - 1), mask.lastIndexOf("}", at - 1),
+          mask.lastIndexOf(",", at - 1), mask.lastIndexOf(";", at - 1));
+        const memberPrefix = mask.slice(boundary + 1, at);
+        if (/^\s*(?:(?:async|static|public|private|protected|readonly|override|abstract|get|set)\s+)*\*?\s*$/.test(memberPrefix))
+          body = bodyAfterParameters(at);
       }
-    } else if (/^\s*\(/.test(suffix)) {
-      const paren = suffix.indexOf("(");
-      const close = matching(suffix, paren, "(", ")");
-      if (close !== -1) {
-        const rest = suffix.slice(close + 1);
-        const brace = rest.indexOf("{");
-        const arrow = rest.indexOf("=>");
-        if (brace !== -1 && (arrow === -1 || brace < arrow)) body = at + name.length + close + 1 + brace;
-      }
-    } else if (/^\s*=/.test(suffix)) {
-      const arrow = suffix.indexOf("=>");
-      if (arrow !== -1) { const brace = suffix.indexOf("{", arrow + 2); if (brace !== -1) body = at + name.length + brace; }
     }
     if (body < 0 || mask[body] !== "{") continue;
     const end = matching(mask, body);
@@ -127,7 +168,7 @@ function functionBounds(source, name) {
   return bodies[0];
 }
 
-function applyEdits(source, edits) {
+export function applyEdits(source, edits) {
   let current = source;
   const validated = [];
   for (let index = 0; index < edits.length; index++) {
@@ -146,9 +187,11 @@ function applyEdits(source, edits) {
     if (positions.length <= edit.occurrence) throw new Error(`edit ${index}: exact expression occurrence ${edit.occurrence} is missing`);
     const selected = positions[edit.occurrence];
     const lexical = maskNonCode(current).slice(selected, selected + edit.before.length);
-    if (lexical.replace(/\s/g, "") !== edit.before.replace(/\s/g, ""))
+    const lexicalPattern = maskNonCode(edit.before);
+    if (!/\S/.test(lexicalPattern) ||
+        lexical.replace(/\s/g, "") !== lexicalPattern.replace(/\s/g, ""))
       throw new Error(`edit ${index}: selected occurrence is not an exact lexical source expression`);
-    const originalStart = mapOffsetToOriginal(selected, validated);
+    const originalStart = mapOffsetToOriginal(selected, validated, "start");
     if (originalStart === null) throw new Error(`edit ${index}: overlaps or edits previously inserted text`);
     if (source.slice(originalStart, originalStart + edit.before.length) !== edit.before)
       throw new Error(`edit ${index}: exact text does not correspond to the pinned before source`);
@@ -168,7 +211,7 @@ function applyEdits(source, edits) {
   return { source: current, edits: validated };
 }
 
-function mapOffsetToOriginal(offset, priorEdits) {
+function mapOffsetToOriginal(offset, priorEdits, boundary = "start") {
   let at = offset;
   for (let i = priorEdits.length - 1; i >= 0; i--) {
     const edit = priorEdits[i];
@@ -176,7 +219,10 @@ function mapOffsetToOriginal(offset, priorEdits) {
     const afterEnd = afterStart + edit.after.length;
     if (at < afterStart) continue;
     if (at <= afterEnd) {
-      if (edit.after === "") return at === afterStart ? edit.start : null;
+      if (edit.after === "") {
+        if (at !== afterStart) return null;
+        return boundary === "start" ? edit.end : edit.start;
+      }
       const index = edit.before.indexOf(edit.after);
       if (index === -1 || edit.before.indexOf(edit.after, index + 1) !== -1) return null;
       return edit.originalStart + index + Math.min(at - afterStart, edit.after.length);
@@ -238,13 +284,14 @@ function referencedTests(report, mutants) {
 }
 
 function rawRecord(file, mutant, source, report) {
-  return { anchor: anchorKey(file, mutant, source), mutatorName: mutant.mutatorName,
+  const normalizedLocation = toNormalizedLocation(source, mutant.location);
+  return { anchor: anchorKey(file, { ...mutant, location: normalizedLocation }, normalizeDirectives(source)), mutatorName: mutant.mutatorName,
     replacement: mutant.replacement ?? "", location: mutant.location, status: mutant.status,
     ...(mutant.statusReason === undefined ? {} : { statusReason: mutant.statusReason }),
     killedBy: resolvedTests(report, mutant) };
 }
 
-function affectedBy(mutant, source, edits) {
+export function affectedBy(mutant, source, edits) {
   let start, end;
   try {
     const location = toNormalizedLocation(source, mutant.location);
@@ -252,11 +299,11 @@ function affectedBy(mutant, source, edits) {
     end = offsetAt(normalizeDirectives(source), location.end);
   }
   catch { return false; }
-  return edits.some((edit) => start <= edit.end && end >= edit.start);
+  return edits.some((edit) => start < edit.end && end > edit.start);
 }
 
-function mapFinalOffsetToBefore(offset, edits) {
-  return mapOffsetToOriginal(offset, edits);
+function mapFinalOffsetToBefore(offset, edits, boundary) {
+  return mapOffsetToOriginal(offset, edits, boundary);
 }
 
 /** Validate one `row.deletion`; no writes, fetches or network operations occur. */
@@ -322,57 +369,105 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
     const claimed = [...receipt.removedMutants].sort((a, b) => String(a.anchor).localeCompare(String(b.anchor)) || String(a.status).localeCompare(String(b.status)));
     const owned = new Set(row.keys ?? []);
     if (owned.size !== (row.keys ?? []).length) throw new Error("duplicate owned key");
+    const ownedEvidence = new Map();
     if (survivors) {
-      const snapshot = new Map(survivors.map((member) => [member.key, member]));
       for (const key of owned) {
-        const member = snapshot.get(key);
-        if (!member || member.file !== row.file || member.function !== row.function || member.mutatorName !== row.mutatorName || member.group !== row.group)
+        const members = survivors.filter((candidate) => candidate.key === key);
+        const member = members[0];
+        if (members.length !== 1 || !member || member.file !== row.file || member.function !== row.function ||
+            member.mutatorName !== row.mutatorName || member.group !== row.group)
           throw new Error(`owned key ${show(key)} is absent from its immutable origin`);
+        const rowOrigin = row.originClusterId;
+        const memberOrigin = [member.group, member.file, member.function, member.mutatorName].join(":");
+        if (rowOrigin !== undefined && rowOrigin !== memberOrigin)
+          throw new Error(`owned key ${show(key)} has different immutable origin metadata`);
+        const candidates = evidence.mutants.filter((mutant) =>
+          mutantKey(row.file, { ...mutant, location: toNormalizedLocation(evidence.source, mutant.location) }) === key);
+        if (candidates.length !== 1)
+          throw new Error(`owned key ${show(key)} has ${candidates.length} directive-normalized report matches`);
+        const old = candidates[0];
+        const normalizedAnchor = anchorKey(row.file,
+          { ...old, location: toNormalizedLocation(evidence.source, old.location) },
+          normalizeDirectives(evidence.source));
+        if (normalizedAnchor !== member.anchorKey)
+          throw new Error(`owned key ${show(key)} has a different immutable anchor`);
+        if (member.status !== undefined && member.status !== old.status)
+          throw new Error(`owned key ${show(key)} has a different immutable status`);
+        if (member.replacement !== undefined && member.replacement !== (old.replacement ?? ""))
+          throw new Error(`owned key ${show(key)} has a different immutable replacement`);
+        ownedEvidence.set(key, { member, mutant: old });
       }
     }
     for (const key of owned) {
-      const member = survivors?.find((candidate) => candidate.key === key);
-      const old = evidence.mutants.find((mutant) => mutantKey(row.file, mutant) === key);
+      const resolved = ownedEvidence.get(key);
+      const old = resolved?.mutant ?? evidence.mutants.find((mutant) =>
+        mutantKey(row.file, { ...mutant, location: toNormalizedLocation(evidence.source, mutant.location) }) === key);
       if (!old || !["Survived", "NoCoverage"].includes(old.status) || !affected.includes(old))
         throw new Error(`owned key ${show(key)} is not a removed undetected member of the exact edit`);
-      if (member && member.anchorKey !== anchorKey(row.file, old, evidence.source))
-        throw new Error(`owned key ${show(key)} has a different immutable anchor`);
     }
     if (owned.size === 0) throw new Error("scoped dead row owns no members");
 
     if (finalReport && finalEntry) {
       const editMap = applied.edits;
+      const beforeNormalized = normalizeDirectives(beforeSource);
+      const finalNormalized = normalizeDirectives(finalEntry.source ?? "");
+      const originalRecords = evidence.mutants.map((old) => ({
+        anchor: anchorKey(row.file,
+          { ...old, location: toNormalizedLocation(evidence.source, old.location) }, beforeNormalized),
+        mutatorName: old.mutatorName,
+        replacement: old.replacement ?? "",
+      }));
       for (const mutant of finalEntry.mutants ?? []) {
         let from, to;
         try {
-          from = offsetAt(normalizeDirectives(finalEntry.source ?? ""), toNormalizedLocation(finalEntry.source ?? "", mutant.location).start);
-          to = offsetAt(normalizeDirectives(finalEntry.source ?? ""), toNormalizedLocation(finalEntry.source ?? "", mutant.location).end);
+          from = offsetAt(finalNormalized, toNormalizedLocation(finalEntry.source ?? "", mutant.location).start);
+          to = offsetAt(finalNormalized, toNormalizedLocation(finalEntry.source ?? "", mutant.location).end);
         } catch { throw new Error(`unexplained live anchor ${mutant.mutatorName}: location is outside current source`); }
-        const oldFrom = mapFinalOffsetToBefore(from, editMap), oldTo = mapFinalOffsetToBefore(to, editMap);
-        if (oldFrom === null || oldTo === null || oldFrom > oldTo)
+        const liveSpan = finalNormalized.slice(from, to);
+        const candidates = new Map();
+        for (const startBoundary of ["start", "end"]) for (const endBoundary of ["start", "end"]) {
+          const oldFrom = mapFinalOffsetToBefore(from, editMap, startBoundary);
+          const oldTo = mapFinalOffsetToBefore(to, editMap, endBoundary);
+          if (oldFrom === null || oldTo === null || oldFrom > oldTo) continue;
+          const oldSpan = beforeNormalized.slice(oldFrom, oldTo);
+          const deleted = editMap.some((edit) => edit.start >= oldFrom && edit.end <= oldTo);
+          if (oldSpan !== liveSpan && !deleted) continue;
+          const oldLocation = { start: pointAt(beforeNormalized, oldFrom), end: pointAt(beforeNormalized, oldTo) };
+          const original = anchorKey(row.file, { ...mutant, location: oldLocation }, beforeNormalized);
+          const exactMatches = originalRecords.filter((record) => record.anchor === original &&
+            record.mutatorName === mutant.mutatorName && record.replacement === (mutant.replacement ?? "")).length;
+          const previous = candidates.get(original);
+          candidates.set(original, { original, exactMatches: Math.max(previous?.exactMatches ?? 0, exactMatches) });
+        }
+        const possible = [...candidates.values()];
+        if (possible.some((candidate) => candidate.exactMatches > 1))
+          throw new Error(`unexplained live anchor ${mutant.mutatorName}: original report correspondence is ambiguous`);
+        const exact = possible.filter((candidate) => candidate.exactMatches === 1);
+        if (exact.length > 1 || (exact.length === 0 && possible.length !== 1))
           throw new Error(`unexplained live anchor ${mutant.mutatorName}: edited text has no unique original correspondence`);
-        const oldLocation = { start: pointAt(normalizeDirectives(beforeSource), oldFrom), end: pointAt(normalizeDirectives(beforeSource), oldTo) };
-        const oldSpan = normalizeDirectives(beforeSource).slice(oldFrom, oldTo);
-        const liveSpan = normalizeDirectives(finalEntry.source ?? "").slice(from, to);
-        const deleted = editMap.some((edit) => edit.start >= oldFrom && edit.end <= oldTo);
-        if (oldSpan !== liveSpan && !deleted)
+        if (possible.length === 0)
           throw new Error(`unexplained live anchor ${mutant.mutatorName}: source text does not map through the receipt`);
-        const original = anchorKey(row.file, { ...mutant, location: oldLocation }, normalizeDirectives(beforeSource));
+        const original = exact[0]?.original ?? possible[0].original;
         const normalizedLocation = toNormalizedLocation(finalEntry.source ?? "", mutant.location);
-        const current = anchorKey(row.file, { ...mutant, location: normalizedLocation }, normalizeDirectives(finalEntry.source ?? ""));
+        const current = anchorKey(row.file, { ...mutant, location: normalizedLocation }, finalNormalized);
         anchors.push({ current, original });
       }
-      const seen = new Set();
+      const seen = new Set(), seenCurrent = new Set();
       for (const pair of anchors) {
+        if (seenCurrent.has(pair.current)) throw new Error(`duplicate live anchor ${show(pair.current)}`);
+        seenCurrent.add(pair.current);
         if (seen.has(pair.original)) throw new Error(`two live mutants map to one original anchor ${show(pair.original)}`);
         seen.add(pair.original);
       }
       for (const key of owned) {
-        const member = survivors?.find((candidate) => candidate.key === key);
-        const old = evidence.mutants.find((mutant) => mutantKey(row.file, mutant) === key);
+        const resolved = ownedEvidence.get(key);
+        const old = resolved?.mutant ?? evidence.mutants.find((mutant) =>
+          mutantKey(row.file, { ...mutant, location: toNormalizedLocation(evidence.source, mutant.location) }) === key);
+        const member = resolved?.member;
         if (member && anchors.some((pair) => pair.original === member.anchorKey))
           throw new Error(`scoped dead member ${show(key)} is still generated in the final report`);
-        if (old && anchors.some((pair) => pair.original === anchorKey(row.file, old, evidence.source)))
+        if (old && anchors.some((pair) => pair.original === anchorKey(row.file,
+          { ...old, location: toNormalizedLocation(evidence.source, old.location) }, normalizeDirectives(evidence.source))))
           throw new Error(`scoped dead member ${show(key)} is still generated in the final report`);
       }
       const mapped = new Set(anchors.map((pair) => pair.original));
@@ -436,8 +531,11 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
       if (claimed.some((record) => canonical(candidates.get(record.anchor)) !== canonical(record)))
         throw new Error("removedMutants includes a record absent from embedded affected evidence");
       for (const key of owned) {
-        const old = evidence.mutants.find((mutant) => mutantKey(row.file, mutant) === key);
-        if (!old || !claimed.some((record) => record.anchor === anchorKey(row.file, old, evidence.source)))
+        const resolved = ownedEvidence.get(key);
+        const old = resolved?.mutant ?? evidence.mutants.find((mutant) =>
+          mutantKey(row.file, { ...mutant, location: toNormalizedLocation(evidence.source, mutant.location) }) === key);
+        if (!old || !claimed.some((record) => record.anchor === anchorKey(row.file,
+          { ...old, location: toNormalizedLocation(evidence.source, old.location) }, normalizeDirectives(evidence.source))))
           throw new Error(`owned dead key ${show(key)} is missing from removedMutants evidence`);
       }
       removedMutants.push(...claimed);
