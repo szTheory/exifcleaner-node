@@ -538,6 +538,10 @@ export const EXCLUSIONS: Readonly<
     reason:
       "Tests the advisory mutation lane scripts (spawns node); tests no src.",
   },
+  "tests/mutation_baseline.test.ts": {
+    class: "repo-tooling",
+    reason: "Tests the mutation baseline driver (spawns node); tests no src.",
+  },
   "tests/mutation_ledger.test.ts": {
     class: "repo-tooling",
     reason: "Tests the mutation ledger checker (spawns node); tests no src.",
