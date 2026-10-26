@@ -90,8 +90,34 @@ with no cache and no schedule, within a 15 minute timeout.
 
 ## The baseline workflow
 
-The per-group baseline is a separate, dispatch-only workflow added in plan 67-09. It is the only thing
-that measures floors.
+The per-group baseline is a separate, dispatch-only workflow
+(`.github/workflows/mutation-baseline.yml`, driver `tools/mutation/baseline.mjs`). It is the only thing
+that measures floors, and it runs on hosted `ubuntu-24.04`: a local macOS run records `platform: darwin`
+in `baseline-meta.json` and never sets a floor.
+
+Dispatch it with:
+
+```sh
+gh workflow run mutation-baseline.yml --ref <branch> -f mode=baseline -f attempts=3
+```
+
+GitHub only dispatches a workflow file that exists on the default branch, so the file must be on `main`
+before the command works.
+
+Inputs are choices only and reach the steps through `env`:
+
+- `mode=baseline`: three `--dryRunOnly` runs that must be identical, then the full run.
+- `mode=group`: the full run only, for the `group` input (`all` or one of the nine groups).
+- `mode=caps`: the D-14 caps run over the computed list of files declaring a `MAX_` constant plus
+  `src/isobmff/caps.ts`, with `ignoreStatic` off. It records its own numbers.
+- `attempts=3` runs three parallel attempts and an `aggregate` job that diffs them (any flaked mutant
+  fails) and reports the per-group minimum score with headroom against the floors.
+- `concurrency` is 4 or 6; the run records wall time and peak memory so the choice is measured.
+
+Artifacts: `mutation-baseline-attempt-<n>` holds `reports/mutation/` (including `mutation.json` and
+`baseline-meta.json` with sha, Stryker and Node versions, platform, concurrency, group, wall seconds,
+mutant count, peak used memory and peak process-tree RSS); `mutation-baseline-aggregate` holds
+`aggregate.json`. A `unavailable` memory value means the run was not on Linux.
 
 ## Current floors
 
