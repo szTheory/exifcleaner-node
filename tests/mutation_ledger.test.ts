@@ -1877,13 +1877,23 @@ describe("real admission batch CLI provenance", () => {
     expect(historicalRow?.test?.name).toBe("classifyIsobmffModel ConditionalExpression MethodExpression: a zero removable extent never overlaps and does not empty a mixed item");
 
     const preBaselineKiller = runRealBatchCli(fixture);
-    expect(preBaselineKiller.status, `actual CLI stderr:\n${preBaselineKiller.stderr}`).not.toBe(0);
-    expect(preBaselineKiller.stderr).toContain("named killing test was not added after the baseline");
+    expect(preBaselineKiller.status, `actual CLI stdout:\n${preBaselineKiller.stdout}\nactual CLI stderr:\n${preBaselineKiller.stderr}`).toBe(0);
+    const historicalProof = JSON.parse(preBaselineKiller.stdout ?? "{}") as {
+      proof: { key: string; killedBy: { file: string; name: string }[]; historicalAddedTest?: { file: string; name: string } }[];
+    };
+    const provenMember = historicalProof.proof.find((item) => item.key === selected!.key);
+    expect(provenMember?.killedBy.some((test) => test.file === "tests/isobmff_admission.test.ts" &&
+      test.name.endsWith(" > admits a removable item with extent_count 0 as emptied"))).toBe(true);
+    expect(provenMember?.historicalAddedTest).toMatchObject({
+      test: { file: historicalRow!.test!.file, name: historicalRow!.test!.name },
+      status: "Killed",
+      reportSha256: "1b664580b7c99f0391ac062d6fed903c919ef008a251e93c4d2b0fc191f88881",
+    });
 
     setCliGapTest(fixture, selected!.key, historicalRow!.test!.name);
     const provenancePathControl = runRealBatchCli(fixture);
     expect(provenancePathControl.status, `actual CLI stderr:\n${provenancePathControl.stderr}`).not.toBe(0);
-    expect(provenancePathControl.stderr).toContain("receipt source: path escapes root");
+    expect(provenancePathControl.stderr).toContain("does not name");
 
     setCliGapTest(fixture, selected!.key, currentRow!.test!.name);
     const positive = runRealBatchCli(fixture);
@@ -1899,5 +1909,7 @@ describe("real admission batch CLI provenance", () => {
     expect(proof.proof.filter((member) => member.status === "Ignored")).toHaveLength(15);
     expect(proof.proof.filter((member) => member.status === "deleted")).toHaveLength(4);
     expect(proof.proof.map((member) => member.status).sort()).toHaveLength(51);
+    expect(proof.proof.map((member) => member.key).sort())
+      .toEqual(fixture.bundle.selectedMembers.map((member) => member.key).sort());
   }, 60_000);
 });
