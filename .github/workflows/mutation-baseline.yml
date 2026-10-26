@@ -1,0 +1,115 @@
+name: Mutation baseline
+
+# Authoritative mutation baseline (MUT-02 D-11, MUT-03 D-14, D-23). Dispatch only:
+# no schedule, no push, no pull_request. Floors come only from the artifacts of a
+# run on this hosted ubuntu-24.04 job (baseline-meta.json platform is linux).
+# GitHub only dispatches a workflow file that exists on the default branch.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: baseline (3 dry runs then full), group (full only), caps (D-14 caps run)
+        type: choice
+        options: [baseline, group, caps]
+        default: baseline
+      group:
+        description: Group to mutate (all or one D-14 group)
+        type: choice
+        options:
+          - all
+          - webp
+          - png
+          - jpeg
+          - isobmff
+          - metadata
+          - engine
+          - transaction
+          - io
+          - admission-core
+        default: all
+      attempts:
+        description: Parallel attempts (3 enables the flake diff aggregate)
+        type: choice
+        options: ["1", "3"]
+        default: "1"
+      concurrency:
+        description: Stryker concurrency
+        type: choice
+        options: ["4", "6"]
+        default: "4"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-baseline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: ${{ fromJSON(inputs.attempts == '3' && '[1,2,3]' || '[1]') }}
+    env:
+      BASELINE_MODE: ${{ inputs.mode }}
+      BASELINE_GROUP: ${{ inputs.group }}
+      BASELINE_CONCURRENCY: ${{ inputs.concurrency }}
+      BASELINE_ATTEMPT: ${{ matrix.attempt }}
+      MUTATION_BASE_REV: HEAD^1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: "${{ github.sha }}"
+          fetch-depth: 2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:native
+      - name: Native addon must exist (a sandbox without it survives every transaction mutant)
+        run: test -f prebuilds/linux-x64/publication.node
+      - run: npm ci --prefix tools/mutation
+      - run: node tools/mutation/check-isolation.mjs
+      - name: Dry runs x3 must be identical (D-11)
+        if: env.BASELINE_MODE == 'baseline'
+        run: node tools/mutation/baseline.mjs dryruns 3
+      - name: Select the caps file list
+        if: env.BASELINE_MODE == 'caps'
+        run: echo "BASELINE_CAPS=true" >> "$GITHUB_ENV"
+      - name: Full run
+        run: node tools/mutation/baseline.mjs full
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-baseline-attempt-${{ matrix.attempt }}
+          path: reports/mutation/
+          if-no-files-found: warn
+
+  aggregate:
+    needs: baseline
+    if: ${{ !cancelled() && inputs.attempts == '3' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: "${{ github.sha }}"
+          fetch-depth: 2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: mutation-baseline-attempt-*
+          path: attempts
+      - run: node tools/mutation/baseline.mjs aggregate attempts
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-baseline-aggregate
+          path: attempts/aggregate.json
+          if-no-files-found: warn
