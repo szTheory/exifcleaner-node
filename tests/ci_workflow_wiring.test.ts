@@ -200,6 +200,100 @@ export function checkMutationLaneWiring(text: string): string[] {
   return problems;
 }
 
+const DOWNLOAD_PIN =
+  "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1";
+
+// MUT-02/MUT-03 (D-23): the dispatch-only authoritative baseline workflow.
+export function checkMutationBaselineWiring(text: string): string[] {
+  const problems: string[] = [];
+  const onBlock = /^on:\n((?: {2}.*\n|\n)*)/mu.exec(text)?.[1] ?? "";
+  if (!/^ {2}workflow_dispatch:$/mu.test(onBlock))
+    problems.push("trigger must be workflow_dispatch");
+  for (const trigger of ["schedule", "push", "pull_request"]) {
+    if (new RegExp(`^ {2}${trigger}:`, "mu").test(onBlock))
+      problems.push(`must not have a ${trigger} trigger`);
+  }
+  if (/^\s*- cron:/mu.test(text)) problems.push("must not contain a cron");
+  for (const input of ["mode", "group", "attempts", "concurrency"]) {
+    const block = new RegExp(`^ {6}${input}:\\n((?: {8}.*\\n)+)`, "mu").exec(
+      text,
+    )?.[1];
+    if (block === undefined) problems.push(`input ${input} is missing`);
+    else if (!/^ {8}type: choice$/mu.test(block))
+      problems.push(`input ${input} must be type: choice`);
+  }
+  if (/^ +type: (string|boolean|number)$/mu.test(text))
+    problems.push("free-text inputs are forbidden: only choice inputs");
+  if (!/^permissions:\n {2}contents: read$/mu.test(text))
+    problems.push("permissions must be contents: read");
+  if (!/^ {2}cancel-in-progress: false$/mu.test(text))
+    problems.push("concurrency must set cancel-in-progress: false");
+  for (const line of text.split("\n")) {
+    const m = /\buses: (\S+@\S+)(.*)$/u.exec(line);
+    if (m === null) continue;
+    if (!/@[0-9a-f]{40}$/u.test(m[1] ?? "") || !/^ # v\d/u.test(m[2] ?? ""))
+      problems.push(`unpinned action: ${line.trim()}`);
+  }
+  const interpolatedRuns = text
+    .split("\n")
+    .filter((line) => /^ +(- )?run: .*\$\{\{/u.test(line));
+  if (interpolatedRuns.length > 0)
+    problems.push(
+      `expression inside a run line: ${interpolatedRuns.join(" | ")}`,
+    );
+
+  const jobs = sliceJobs(text);
+  const job = jobs["baseline"];
+  if (job === undefined) return [...problems, "job baseline is missing"];
+  if (!/^ {4}runs-on: ubuntu-24\.04$/mu.test(job))
+    problems.push("baseline must run on ubuntu-24.04");
+  if (!/^ {4}timeout-minutes: 340$/mu.test(job))
+    problems.push("baseline must set timeout-minutes: 340");
+  if (!/^ {6}fail-fast: false$/mu.test(job))
+    problems.push("baseline must set fail-fast: false");
+  if (!job.includes("test -f prebuilds/linux-x64/publication.node"))
+    problems.push("baseline must check prebuilds/linux-x64/publication.node");
+  for (const needle of [
+    "npm run build:native",
+    "npm ci --prefix tools/mutation",
+    "node tools/mutation/check-isolation.mjs",
+    "node tools/mutation/baseline.mjs dryruns 3",
+    "node tools/mutation/baseline.mjs full",
+  ])
+    if (!job.includes(needle)) problems.push(`baseline is missing: ${needle}`);
+  if (!job.includes(`uses: ${CHECKOUT_PIN}`))
+    problems.push("baseline checkout is not the pinned SHA");
+  if (!job.includes(`uses: ${SETUP_NODE_PIN}`))
+    problems.push("baseline setup-node is not the pinned SHA");
+  if (!/^ {10}node-version: 24$/mu.test(job))
+    problems.push("baseline must use node-version: 24");
+  const upload = sliceSteps(job).find((step) =>
+    step.includes("upload-artifact"),
+  );
+  if (upload === undefined) problems.push("baseline has no upload step");
+  else {
+    if (!/^ {6}- if: always\(\)$/mu.test(upload))
+      problems.push("baseline upload step must carry if: always()");
+    if (
+      !upload.includes("name: mutation-baseline-attempt-${{ matrix.attempt }}")
+    )
+      problems.push("baseline artifact name must be per attempt");
+  }
+  const aggregate = jobs["aggregate"];
+  if (aggregate === undefined) problems.push("job aggregate is missing");
+  else {
+    if (!/^ {4}needs: baseline$/mu.test(aggregate))
+      problems.push("aggregate must have needs: baseline");
+    if (!aggregate.includes("inputs.attempts == '3'"))
+      problems.push("aggregate must run only when attempts is 3");
+    if (!aggregate.includes(`uses: ${DOWNLOAD_PIN}`))
+      problems.push("aggregate download-artifact is not the pinned SHA");
+    if (!aggregate.includes("node tools/mutation/baseline.mjs aggregate"))
+      problems.push("aggregate must run baseline.mjs aggregate");
+  }
+  return problems;
+}
+
 describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-05)", () => {
   it("has no wiring problems on the real files", () => {
     expect(checkCiWiring(workflowText, packageJson)).toEqual([]);
@@ -416,5 +510,96 @@ describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-
       ) ?? [];
     expect(lists.length).toBeGreaterThanOrEqual(3);
     for (const list of lists) expect(list).not.toContain("mutation-pr");
+  });
+});
+
+describe("mutation-baseline.yml wiring (D-23)", () => {
+  const baselineText = readFileSync(
+    join(packageRoot, ".github", "workflows", "mutation-baseline.yml"),
+    "utf8",
+  );
+
+  function expectBaselineProblem(text: string, fragment: string): void {
+    expect(text).not.toBe(baselineText);
+    const problems = checkMutationBaselineWiring(text);
+    expect(problems.some((p) => p.includes(fragment))).toBe(true);
+  }
+
+  it("has no wiring problems on the real file", () => {
+    expect(checkMutationBaselineWiring(baselineText)).toEqual([]);
+  });
+
+  it("control: a schedule trigger is rejected", () => {
+    expectBaselineProblem(
+      baselineText.replace(
+        "on:\n  workflow_dispatch:",
+        'on:\n  schedule:\n    - cron: "0 3 * * 1"\n  workflow_dispatch:',
+      ),
+      "must not have a schedule trigger",
+    );
+  });
+
+  it("control: a push trigger is rejected", () => {
+    expectBaselineProblem(
+      baselineText.replace(
+        "on:\n  workflow_dispatch:",
+        "on:\n  push:\n    branches: [main]\n  workflow_dispatch:",
+      ),
+      "must not have a push trigger",
+    );
+  });
+
+  it("control: a missing prebuilds check is rejected", () => {
+    expectBaselineProblem(
+      baselineText.replace(
+        "test -f prebuilds/linux-x64/publication.node",
+        "true",
+      ),
+      "prebuilds/linux-x64/publication.node",
+    );
+  });
+
+  it("control: timeout-minutes 360 is rejected", () => {
+    expectBaselineProblem(
+      baselineText.replace("timeout-minutes: 340", "timeout-minutes: 360"),
+      "timeout-minutes: 340",
+    );
+  });
+
+  it("control: a free-text string input is rejected", () => {
+    expectBaselineProblem(
+      baselineText.replace(
+        "      group:\n        description: Group to mutate (all or one D-14 group)\n        type: choice",
+        "      group:\n        description: Group to mutate (all or one D-14 group)\n        type: string",
+      ),
+      "must be type: choice",
+    );
+  });
+
+  it("control: an unpinned action is rejected", () => {
+    expectBaselineProblem(
+      baselineText.replace(CHECKOUT_PIN, "actions/checkout@v7"),
+      "unpinned action",
+    );
+  });
+
+  it("control: an expression inside a run line is rejected", () => {
+    expectBaselineProblem(
+      baselineText.replace(
+        "run: node tools/mutation/baseline.mjs full",
+        "run: node tools/mutation/baseline.mjs full ${{ inputs.group }}",
+      ),
+      "expression inside a run line",
+    );
+  });
+
+  it("control: an upload step without if: always() is rejected", () => {
+    expectBaselineProblem(
+      baselineText.replace(
+        "      - if: always()\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1\n        with:\n          name: mutation-baseline-attempt",
+        "      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1\n        with:\n          name: mutation-baseline-attempt",
+      ),
+      "must carry if: always()",
+    );
   });
 });
