@@ -155,6 +155,11 @@ export const ALLOWLIST: Readonly<
     class: "guard-self",
     expectedLiteralCount: 10,
   },
+  // Mutation include guard: its negative-control fixtures carry dist imports.
+  "tests/mutation_include_guard.test.ts": {
+    class: "guard-self",
+    expectedLiteralCount: 1,
+  },
 });
 
 export type AllowlistShape = Readonly<
@@ -248,7 +253,7 @@ describe("whole-tree dist guard", () => {
     expect(checkAllowlist(scan, ALLOWLIST)).toEqual([]);
   });
 
-  it("keeps the allowlist at ten classed entries (f)", () => {
+  it("keeps the allowlist at eleven classed entries (f)", () => {
     const classes = new Set([
       "public-contract",
       "runtime-surface",
@@ -258,7 +263,7 @@ describe("whole-tree dist guard", () => {
       "guard-self",
     ]);
     const entries = Object.values(ALLOWLIST);
-    expect(entries).toHaveLength(10);
+    expect(entries).toHaveLength(11);
     for (const entry of entries) expect(classes.has(entry.class)).toBe(true);
   });
 });
