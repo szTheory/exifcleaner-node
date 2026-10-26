@@ -2,6 +2,7 @@
 // asserts a specific problem; the passing cases prove the fixtures are valid.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { gunzipSync } from "node:zlib";
 import {
   copyFileSync,
   existsSync,
@@ -95,6 +96,9 @@ interface Checker {
   }): string[];
 }
 interface DeletionProof {
+  functionBounds(source: string, name: string): { start: number; end: number; function: string };
+  applyEdits(source: string, edits: { function: string; before: string; after: string; occurrence: number }[]): { source: string };
+  affectedBy(mutant: Mutant, source: string, edits: { start: number; end: number }[]): boolean;
   validateDeletion(input: {
     row: Cluster;
     root: string;
@@ -256,6 +260,8 @@ const phaseVerifierPath = join(
   "67-triage-verify.mjs",
 );
 const phaseVerifier = await import(pathToFileURL(phaseVerifierPath).href) as {
+  canonicalAnchor(file: string, mutant: Mutant, source: string): string;
+  reconcileAnchorMappings(proofs: { id: string; anchors: { current: string; original: string }[] }[]): Map<string, string>;
   evaluate(input: {
     clusters: Cluster[];
     survivors: Survivor[];
@@ -266,6 +272,116 @@ const phaseVerifier = await import(pathToFileURL(phaseVerifierPath).href) as {
     root: string;
   }): unknown[];
 };
+
+interface AdmissionReceiptBundle {
+  schema: string;
+  provenance: {
+    beforeReport: { path: string; sha256: string; bytes: number };
+    finalReport: { path: string; sha256: string; bytes: number };
+    sources: { finalSourceSha256: string };
+    tests: { finalTestSources: Record<string, string> };
+    originalBatch: { members: number; previouslyDisposed: number; pendingBefore: number };
+    impact: {
+      affected: number;
+      retained: number;
+      removed: number;
+      removedDetected: number;
+      retainedDetectedSuccessors: unknown[];
+    };
+  };
+  beforeReportRaw: string;
+  finalReportRaw: string;
+  selectedMembers: Survivor[];
+  originalBatchRows: Cluster[];
+  clusterRows: Cluster[];
+  receipts: Cluster[];
+  counterfactuals: {
+    executed: boolean;
+    exitCode: number;
+    unchangedExitCode: number;
+    alteredSha256: string;
+    expectedDiagnostic: string;
+    assertion: string;
+  }[];
+}
+
+function loadAdmissionReceiptBundle(): {
+  bundle: AdmissionReceiptBundle;
+  beforeReport: Report;
+  finalReport: Report & { testFiles: Record<string, { source: string; tests: { id: string; name: string }[] }> };
+} {
+  const fixturePath = join(packageRoot, "tests", "fixtures", "mutation", "admission-deletion-reports.json.gz");
+  const bundle = JSON.parse(gunzipSync(readFileSync(fixturePath)).toString("utf8")) as AdmissionReceiptBundle;
+  expect(bundle.schema).toBe("exifcleaner.admission-deletion-reports.v1");
+  expect(sha256(bundle.beforeReportRaw)).toBe(bundle.provenance.beforeReport.sha256);
+  expect(Buffer.byteLength(bundle.beforeReportRaw)).toBe(bundle.provenance.beforeReport.bytes);
+  expect(sha256(bundle.finalReportRaw)).toBe(bundle.provenance.finalReport.sha256);
+  expect(Buffer.byteLength(bundle.finalReportRaw)).toBe(bundle.provenance.finalReport.bytes);
+  expect(bundle.selectedMembers).toHaveLength(51);
+  expect(bundle.clusterRows.flatMap((row) => row.keys)).toHaveLength(51);
+  expect(bundle.receipts).toHaveLength(4);
+  expect(bundle.provenance.impact).toMatchObject({ affected: 27, retained: 10, removed: 17, removedDetected: 12 });
+  expect(bundle.provenance.impact.retainedDetectedSuccessors).toHaveLength(7);
+  expect(bundle.counterfactuals).toHaveLength(12);
+  for (const counterfactual of bundle.counterfactuals) {
+    expect(counterfactual.executed).toBe(true);
+    expect(counterfactual.unchangedExitCode).toBe(0);
+    expect(counterfactual.exitCode).toBeGreaterThan(0);
+    expect(counterfactual.alteredSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(counterfactual.expectedDiagnostic).not.toBe("");
+    expect(counterfactual.assertion).not.toBe("");
+  }
+  const rawRemoved = bundle.receipts[0]!.deletion!.removedMutants as { status: string }[];
+  expect(rawRemoved.reduce<Record<string, number>>((counts, mutant) => {
+    counts[mutant.status] = (counts[mutant.status] ?? 0) + 1;
+    return counts;
+  }, {})).toEqual({ CompileError: 1, Killed: 12, Survived: 4 });
+  for (const row of bundle.receipts) {
+    expect((row.deletion!.removedMutants as unknown[])).toHaveLength(17);
+    expect((row.deletion!.counterfactuals as unknown[])).toHaveLength(12);
+  }
+
+  const beforeReport = JSON.parse(bundle.beforeReportRaw) as Report;
+  const finalReport = JSON.parse(bundle.finalReportRaw) as Report & {
+    testFiles: Record<string, { source: string; tests: { id: string; name: string }[] }>;
+  };
+  expect(Object.keys(beforeReport.files).sort()).toEqual([
+    "src/admission/isobmff-handler.ts",
+    "src/isobmff/admission.ts",
+  ]);
+  expect(Object.keys(finalReport.files).sort()).toEqual(Object.keys(beforeReport.files).sort());
+  expect(Object.values(beforeReport.files).reduce((n, entry) => n + entry.mutants.length, 0)).toBe(426);
+  expect(Object.values(finalReport.files).reduce((n, entry) => n + entry.mutants.length, 0)).toBe(411);
+  expect(Object.keys(finalReport.testFiles)).toHaveLength(32);
+  expect(sha256(finalReport.files["src/isobmff/admission.ts"]!.source)).toBe(bundle.provenance.sources.finalSourceSha256);
+  for (const [file, expectedHash] of Object.entries(bundle.provenance.tests.finalTestSources))
+    expect(sha256(finalReport.testFiles[file]!.source), file).toBe(expectedHash);
+
+  return { bundle, beforeReport, finalReport };
+}
+
+function materializeAdmissionReceiptBundle(bundle: AdmissionReceiptBundle, finalReport: Report): string {
+  const root = tempRoot({});
+  const gitDir = execFileSync("git", ["rev-parse", "--absolute-git-dir"], {
+    cwd: packageRoot,
+    encoding: "utf8",
+  }).trim();
+  writeFileSync(join(root, ".git"), `gitdir: ${gitDir}\n`);
+  const writeText = (file: string, content: string) => {
+    const path = join(root, file);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, content);
+  };
+  for (const [file, entry] of Object.entries(finalReport.files)) writeText(file, entry.source);
+  for (const [file, entry] of Object.entries(finalReport.testFiles ?? {})) writeText(file, entry.source);
+  writeText(bundle.provenance.beforeReport.path, bundle.beforeReportRaw);
+  writeText(bundle.provenance.finalReport.path, bundle.finalReportRaw);
+  writeText("tools/mutation/pre-triage-survivors.json", `${JSON.stringify({ survivors: bundle.selectedMembers })}\n`);
+  writeText("tools/mutation/ledger.json", `${JSON.stringify({ schemaVersion: 1, preTriage: null, clusters: bundle.clusterRows })}\n`);
+  writeText("tools/mutation/classes.json", readFileSync(join(packageRoot, "tools", "mutation", "classes.json"), "utf8"));
+  writeText("mutation-floors.json", readFileSync(join(packageRoot, "mutation-floors.json"), "utf8"));
+  return root;
+}
 
 function deletionFixture(removeBeforeReport = false) {
   const file = "src/example.mjs";
@@ -1013,6 +1129,97 @@ describe("determinism and partition (D-22)", () => {
   });
 });
 
+describe("deletion proof lexical and interval controls", () => {
+  it("selects one named body across declarations, calls, arrows, generators and methods", () => {
+    const source = [
+      "export function inspect(flag) {",
+      '  if (flag) { return "mime"; }',
+      '  return "other";',
+      "}",
+      "inspect();",
+      "export async function load(flag: boolean): boolean { return flag; }",
+      "export function* values() { yield 1; }",
+      "export const arrow = async (flag) => { return flag; };",
+      "class Worker { run(flag) { return flag; } }",
+      "const toolbox = { work(flag) { return flag; } };",
+      "",
+    ].join("\n");
+    const inspect = deletionProof.functionBounds(source, "inspect");
+    expect(source.slice(inspect.start, inspect.end)).toBe('{\n  if (flag) { return "mime"; }\n  return "other";\n}');
+    const forms: [string, string][] = [
+      ["load", "{ return flag; }"],
+      ["values", "{ yield 1; }"],
+      ["arrow", "{ return flag; }"],
+      ["run", "{ return flag; }"],
+      ["work", "{ return flag; }"],
+    ];
+    for (const [name, body] of forms) {
+      const bounds = deletionProof.functionBounds(source, name);
+      expect(source.slice(bounds.start, bounds.end), name).toBe(body);
+    }
+    expect(() => deletionProof.functionBounds("function choose() {}\nfunction choose() {}", "choose"))
+      .toThrow(/function choose is ambiguous/);
+
+    const exact = '  if (flag) { return "mime"; }';
+    const edited = deletionProof.applyEdits(source, [{ function: "inspect", before: exact,
+      after: "", occurrence: 0 }]);
+    expect(edited.source).toContain('return "other";');
+    expect(edited.source).toContain("inspect();");
+  });
+
+  it("rejects comment/string-only matches and arbitrary substitutions", () => {
+    const comment = "function choose() {\n  // const flag = true;\n  const flag = true;\n}\n";
+    const string = 'function choose() {\n  const text = "const flag = true;";\n  return text;\n}\n';
+    for (const source of [comment, string])
+      expect(() => deletionProof.applyEdits(source, [{ function: "choose", before: "const flag = true;",
+        after: "", occurrence: 0 }])).toThrow(/not an exact lexical source expression/);
+
+    expect(() => deletionProof.applyEdits("function choose() { return true; }", [{
+      function: "choose", before: "return true;", after: "return false;", occurrence: 0,
+    }])).toThrow(/non-deletion edit/);
+  });
+
+  it("uses half-open overlap so touching deletion endpoints preserve adjacent mutants", () => {
+    const source = "abcdef";
+    const interval = (start: number, end: number): Mutant => ({
+      id: `${start}-${end}`,
+      mutatorName: "MethodExpression",
+      replacement: "void 0",
+      status: "Killed",
+      location: { start: { line: 1, column: start + 1 }, end: { line: 1, column: end + 1 } },
+    });
+    const edit = [{ start: 2, end: 4 }];
+    expect(deletionProof.affectedBy(interval(0, 2), source, edit)).toBe(false);
+    expect(deletionProof.affectedBy(interval(2, 4), source, edit)).toBe(true);
+    expect(deletionProof.affectedBy(interval(4, 6), source, edit)).toBe(false);
+  });
+
+  it("coalesces only identical anchor maps and rejects conflicting or non-injective maps", () => {
+    const shared = phaseVerifier.reconcileAnchorMappings([
+      { id: "receipt-a", anchors: [{ current: "current", original: "original" }] },
+      { id: "receipt-b", anchors: [{ current: "current", original: "original" }] },
+    ]);
+    expect([...shared]).toEqual([["current", "original"]]);
+    expect(() => phaseVerifier.reconcileAnchorMappings([
+      { id: "receipt-a", anchors: [{ current: "current", original: "original-a" }] },
+      { id: "receipt-b", anchors: [{ current: "current", original: "original-b" }] },
+    ])).toThrow(/conflicting current-to-original anchor mapping/);
+    expect(() => phaseVerifier.reconcileAnchorMappings([
+      { id: "receipt-a", anchors: [{ current: "current-a", original: "original" }] },
+      { id: "receipt-b", anchors: [{ current: "current-b", original: "original" }] },
+    ])).toThrow(/non-injective original anchor mapping/);
+    expect(() => phaseVerifier.evaluate({
+      clusters: [],
+      survivors: [],
+      report: { files: {}, testFiles: {} },
+      mode: "batch",
+      readTest: () => "",
+      symbolAbsent: () => false,
+      root: "/tmp/empty-mutation-report",
+    })).toThrow(/empty mutation report/);
+  });
+});
+
 describe("scoped deletion receipt proof (D-18, D-21)", () => {
   const gapRowFor = (fixture: ReturnType<typeof deletionFixture>) => {
     const sibling = fixture.survivors[1]!;
@@ -1047,6 +1254,16 @@ describe("scoped deletion receipt proof (D-18, D-21)", () => {
     finalReport: structuredClone(fixture.finalReport),
     survivors: structuredClone(fixture.survivors),
   });
+  const rejectBothConsumers = (fixture: ReturnType<typeof deletionFixture>, row: Cluster,
+    finalReport: Report & { testFiles: Record<string, { source: string; tests: { id: string; name: string }[] }> },
+    expected: RegExp) => {
+    const ledgerProblems = checkLedger({ ledger: ledgerFor(fixture, row), finalReport,
+      root: fixture.root, groups, mode: "final" });
+    expect(ledgerProblems.join("\n")).toMatch(expected);
+    expect(() => phaseVerifier.evaluate({ clusters: [row], survivors: fixture.survivors,
+      report: finalReport, mode: "batch", readTest: fixture.readTest,
+      symbolAbsent: () => false, root: fixture.root })).toThrow(expected);
+  };
 
   it("proves an exact function-local deletion in both consumers and preserves mapped siblings", () => {
     const fixture = deletionFixture();
@@ -1197,6 +1414,7 @@ describe("scoped deletion receipt proof (D-18, D-21)", () => {
     const inventory = cloneInput(fixture);
     inventory.row.deletion!.removedMutants = (inventory.row.deletion!.removedMutants as unknown[]).slice(1);
     expect(deletionProof.validateDeletion(inventory).problems.join("\n")).toMatch(/does not exactly account/);
+    rejectBothConsumers(fixture, inventory.row, inventory.finalReport, /does not exactly account/);
 
     const duplicate = cloneInput(fixture);
     duplicate.row.deletion!.edits = [
@@ -1204,23 +1422,47 @@ describe("scoped deletion receipt proof (D-18, D-21)", () => {
       ...(duplicate.row.deletion!.edits as unknown[]),
     ];
     expect(deletionProof.validateDeletion(duplicate).problems.join("\n")).toMatch(/occurrence 0 is missing|overlaps an earlier edit/);
+    rejectBothConsumers(fixture, duplicate.row, duplicate.finalReport,
+      /occurrence 0 is missing|overlaps an earlier edit/);
 
     const counterpart = cloneInput(fixture);
     counterpart.row.deletion!.detectedSuccessors = [];
     expect(deletionProof.validateDeletion(counterpart).problems.join("\n")).toMatch(/exactly one successor or counterfactual/);
+    rejectBothConsumers(fixture, counterpart.row, counterpart.finalReport,
+      /exactly one successor or counterfactual/);
 
     const emptyFinal = { ...cloneInput(fixture), finalEntry: null,
       finalReport: { files: {} as Report["files"], testFiles: fixture.finalReport.testFiles } };
     expect(deletionProof.validateDeletion(emptyFinal).problems.join("\n")).toMatch(/final report entry is required/);
+    const emptyReport = { files: {} as Report["files"], testFiles: fixture.finalReport.testFiles };
+    expect(checkLedger({ ledger: ledgerFor(fixture), finalReport: emptyReport,
+      root: fixture.root, groups, mode: "final" }).join("\n")).toMatch(/final report entry is required/);
+    expect(() => phaseVerifier.evaluate({ clusters: [fixture.row], survivors: fixture.survivors,
+      report: emptyReport, mode: "batch", readTest: fixture.readTest,
+      symbolAbsent: () => false, root: fixture.root })).toThrow(/final report entry is required/);
 
     for (const status of ["Survived", "NoCoverage", "Ignored"]) {
       const invalid = cloneInput(fixture);
       invalid.finalReport.files[fixture.file]!.mutants[0]!.status = status;
       expect(deletionProof.validateDeletion(invalid).problems.join("\n")).toMatch(new RegExp(`detected successor is ${status}`));
+      if (status === "Ignored") invalid.finalReport.files[fixture.file]!.mutants[0]!.statusReason = "Ignored using a comment";
+      rejectBothConsumers(fixture, invalid.row, invalid.finalReport,
+        new RegExp(`detected successor is ${status}`));
     }
     const noKilledBy = cloneInput(fixture);
     noKilledBy.finalReport.files[fixture.file]!.mutants[0]!.killedBy = [];
     expect(deletionProof.validateDeletion(noKilledBy).problems.join("\n")).toMatch(/killedBy does not name the real test/);
+    rejectBothConsumers(fixture, noKilledBy.row, noKilledBy.finalReport,
+      /killedBy does not name the real test/);
+
+    const staleTest = cloneInput(fixture);
+    staleTest.finalReport.testFiles![fixture.testFile]!.source += "// stale report test\n";
+    rejectBothConsumers(fixture, staleTest.row, staleTest.finalReport,
+      /detected successor test source is absent or stale/);
+    const wrongTest = cloneInput(fixture);
+    (wrongTest.row.deletion!.detectedSuccessors as { test: { name: string } }[])[0]!.test.name = "missing named assertion";
+    rejectBothConsumers(fixture, wrongTest.row, wrongTest.finalReport,
+      /detected successor test source is absent or stale/);
   });
 
   it("rejects altered embedded evidence, stale raw report, missing ownership and ignored opposite", () => {
@@ -1257,5 +1499,143 @@ describe("scoped deletion receipt proof (D-18, D-21)", () => {
     expect(() => phaseVerifier.evaluate({ clusters: [fixture.row], survivors: fixture.survivors,
       report: ignored, mode: "batch", readTest: fixture.readTest, symbolAbsent: () => false,
       root: fixture.root })).toThrow(/comment-Ignored mutant has no valid equivalent owner/);
+
+    const duplicateOwner = { ...structuredClone(fixture.row), id: "scoped-dead-duplicate-owner" };
+    const duplicateLedger = ledgerOf([fixture.row, duplicateOwner, gapRowFor(fixture)]);
+    expect(checkLedger({ ledger: duplicateLedger, finalReport: fixture.finalReport,
+      root: fixture.root, groups, mode: "final" }).join("\n")).toMatch(/in 2 clusters/);
+    expect(() => phaseVerifier.evaluate({ clusters: [fixture.row, duplicateOwner],
+      survivors: fixture.survivors, report: fixture.finalReport, mode: "batch",
+      readTest: fixture.readTest, symbolAbsent: () => false, root: fixture.root })).toThrow(/duplicate owned key/);
   });
+});
+
+describe("real admission scoped deletion receipt proof", () => {
+  it("validates the measured four-edit chain through both real consumers", () => {
+    const { bundle, finalReport } = loadAdmissionReceiptBundle();
+    const root = materializeAdmissionReceiptBundle(bundle, finalReport);
+    const groups = JSON.parse(readFileSync(join(root, "mutation-floors.json"), "utf8"))
+      .groups as Record<string, { tier: string; globs: string[] }>;
+    const receiptFile = "src/isobmff/admission.ts";
+    const entry = finalReport.files[receiptFile]!;
+    const readTest = (file: string) => readFileSync(join(root, file), "utf8");
+
+    const receiptProofs = bundle.receipts.map((row) => deletionProof.validateDeletion({
+      row,
+      root,
+      currentSource: entry.source,
+      finalEntry: entry,
+      finalReport,
+      readTest,
+      survivors: bundle.selectedMembers,
+      requireFinal: true,
+    }));
+    for (const [index, proof] of receiptProofs.entries()) {
+      expect(proof.problems, bundle.receipts[index]!.id).toEqual([]);
+      expect(proof.anchors).toHaveLength(entry.mutants.length);
+      expect(new Set(proof.anchors.map((pair) => pair.current)).size).toBe(proof.anchors.length);
+      expect(new Set(proof.anchors.map((pair) => pair.original)).size).toBe(proof.anchors.length);
+    }
+    const firstMapping = receiptProofs[0]!.anchors;
+    for (const proof of receiptProofs.slice(1)) expect(proof.anchors).toEqual(firstMapping);
+
+    const tests = new Map(Object.entries(finalReport.testFiles).flatMap(([file, testFile]) =>
+      testFile.tests.map((test) => [String(test.id), { file, name: test.name }] as const)));
+    for (const row of bundle.clusterRows.filter((candidate) =>
+      candidate.disposition === "gap" && candidate.file === receiptFile)) {
+      for (const key of row.keys) {
+        const member = bundle.selectedMembers.find((candidate) => candidate.key === key)!;
+        const pair = firstMapping.find((candidate) => candidate.original === member.anchorKey)!;
+        const current = entry.mutants.filter((mutant) =>
+          phaseVerifier.canonicalAnchor(receiptFile, mutant, entry.source) === pair.current);
+        expect(current, `${row.id}: mapped final anchor`).toHaveLength(1);
+        const killers = (current[0]!.killedBy ?? []).map((id) => tests.get(String(id))).filter(Boolean);
+        expect(killers.some((test) => test!.file === row.test?.file &&
+          (test!.name === row.test?.name || test!.name.endsWith(` > ${row.test?.name}`))),
+        `${row.id}: row test ${JSON.stringify(row.test)} does not name mapped report mutant ${current[0]!.id} killers ${JSON.stringify(killers)}`).toBe(true);
+      }
+    }
+
+    const ledgerProblems = checkLedger({
+      ledger: { schemaVersion: 1, preTriage: null, clusters: bundle.clusterRows },
+      finalReport,
+      root,
+      groups,
+      mode: "final",
+    });
+    expect(ledgerProblems).toEqual([]);
+
+    const proof = phaseVerifier.evaluate({
+      clusters: bundle.clusterRows,
+      survivors: bundle.selectedMembers,
+      report: finalReport,
+      mode: "batch",
+      readTest,
+      symbolAbsent: () => false,
+      root,
+    }) as { key: string; status: string }[];
+    expect(proof).toHaveLength(51);
+    expect(proof.map((item) => item.key).sort()).toEqual(bundle.selectedMembers.map((member) => member.key).sort());
+    expect(proof.filter((item) => item.status === "Killed")).toHaveLength(32);
+    expect(proof.filter((item) => item.status === "Ignored")).toHaveLength(15);
+    expect(proof.filter((item) => item.status === "deleted")).toHaveLength(4);
+
+    const prior = new Map(bundle.originalBatchRows.flatMap((row) =>
+      row.disposition === "pending" ? [] : row.keys.map((key) => [key, row.disposition] as const)));
+    expect(prior.size).toBe(bundle.provenance.originalBatch.previouslyDisposed);
+    const proofByKey = new Map(proof.map((item) => [item.key, item.status]));
+    for (const [key, disposition] of prior) {
+      expect(proofByKey.get(key), key).toBe(disposition === "gap" ? "Killed" : "Ignored");
+    }
+
+    const firstOwned = bundle.clusterRows.find((row) => row.disposition !== "dead")!;
+    const duplicateOwner = { ...structuredClone(firstOwned), id: `${firstOwned.id}:duplicate-owner` };
+    const duplicateRows = [firstOwned, duplicateOwner,
+      ...bundle.clusterRows.filter((row) => row.id !== firstOwned.id)];
+    expect(() => phaseVerifier.evaluate({
+      clusters: duplicateRows,
+      survivors: bundle.selectedMembers,
+      report: finalReport,
+      mode: "batch",
+      readTest,
+      symbolAbsent: () => false,
+      root,
+    })).toThrow(/duplicate owned key/);
+
+    const permutedRows = bundle.clusterRows.toReversed().map((row) => {
+      const copy = structuredClone(row);
+      copy.keys.reverse();
+      copy.anchors.reverse();
+      for (const field of ["removedMutants", "detectedSuccessors", "counterfactuals"]) {
+        const values = copy.deletion?.[field];
+        if (Array.isArray(values)) copy.deletion![field] = values.toReversed();
+      }
+      return copy;
+    });
+    const permutedReport = structuredClone(finalReport);
+    permutedReport.files = Object.fromEntries(Object.entries(permutedReport.files).toReversed().map(([file, value]) =>
+      [file, { ...value, mutants: value.mutants.toReversed() }]));
+    permutedReport.testFiles = Object.fromEntries(Object.entries(permutedReport.testFiles).toReversed().map(([file, value]) =>
+      [file, { ...value, tests: value.tests.toReversed() }]));
+    const reordered = phaseVerifier.evaluate({
+      clusters: permutedRows,
+      survivors: bundle.selectedMembers.toReversed(),
+      report: permutedReport,
+      mode: "batch",
+      readTest,
+      symbolAbsent: () => false,
+      root,
+    }) as { key: string; status: string }[];
+    expect(reordered.map((item) => [item.key, item.status]).sort(([a], [b]) => a!.localeCompare(b!)))
+      .toEqual(proof.map((item) => [item.key, item.status]).sort(([a], [b]) => a!.localeCompare(b!)));
+
+    const equivalentAnchors = new Set(bundle.clusterRows
+      .filter((row) => row.disposition === "equivalent")
+      .flatMap((row) => row.anchors));
+    const commentIgnored = entry.mutants.filter((mutant) => mutant.status === "Ignored" &&
+      mutant.static !== true && !String(mutant.statusReason ?? "").startsWith("error-message:"));
+    expect(commentIgnored).toHaveLength(15);
+    for (const mutant of commentIgnored)
+      expect(equivalentAnchors.has(identity.anchorKey(receiptFile, mutant, entry.source)), mutant.id).toBe(true);
+  }, 30_000);
 });
