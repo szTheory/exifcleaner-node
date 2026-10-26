@@ -76,8 +76,9 @@ interface ClusterTools {
   ): Batch[];
 }
 interface Checker {
+  asReport(parsed: unknown): Report;
   checkLedger(input: {
-    ledger: { schemaVersion: number; preTriage: null; clusters: Cluster[] };
+    ledger: { schemaVersion: number; preTriage: unknown; clusters: Cluster[] };
     preReport?: Report | null;
     finalReport?: Report | null;
     root: string;
@@ -93,7 +94,7 @@ const load = async <T>(name: string) =>
   )) as T;
 const identity = await load<Identity>("identity.mjs");
 const clusterTools = await load<ClusterTools>("cluster.mjs");
-const { checkLedger } = await load<Checker>("ledger-check.mjs");
+const { checkLedger, asReport } = await load<Checker>("ledger-check.mjs");
 
 const groups = {
   g: { tier: "trust", globs: ["src/a/**"] },
@@ -468,13 +469,59 @@ describe("committed ledger", () => {
       { cwd: packageRoot, encoding: "utf8" },
     );
 
-  it("starts empty and passes in pre mode without a report", () => {
-    expect(JSON.parse(readFileSync(ledgerPath, "utf8"))).toEqual({
+  it("holds only pending clusters and passes in pre mode against the compact survivors", () => {
+    const ledger = JSON.parse(readFileSync(ledgerPath, "utf8")) as {
+      preTriage: { runId: string; survivorCount: number };
+      clusters: Cluster[];
+    };
+    expect(ledger.preTriage.runId).toMatch(/^\d+$/);
+    expect(ledger.clusters.every((c) => c.disposition === "pending")).toBe(
+      true,
+    );
+    expect(ledger.clusters.every((c) => c.count === c.keys.length)).toBe(true);
+    expect(ledger.clusters.reduce((n, c) => n + c.count, 0)).toBe(
+      ledger.preTriage.survivorCount,
+    );
+    const result = run(
+      "--pre",
+      join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+    );
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+  });
+
+  it("fails when one survivor is removed from every cluster (negative control)", () => {
+    const ledger = JSON.parse(readFileSync(ledgerPath, "utf8")) as {
+      clusters: Cluster[];
+    };
+    const victim = ledger.clusters[0];
+    expect(victim).toBeDefined();
+    // Run the checker library directly on a ledger missing one key.
+    const mutated = {
       schemaVersion: 1,
       preTriage: null,
-      clusters: [],
+      clusters: ledger.clusters.map((c) =>
+        c.id === victim.id
+          ? { ...c, count: c.count - 1, keys: c.keys.slice(1) }
+          : c,
+      ),
+    };
+    const pre = JSON.parse(
+      readFileSync(
+        join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+        "utf8",
+      ),
+    ) as { survivors: Survivor[] };
+    const problems = checkLedger({
+      ledger: mutated,
+      preReport: asReport(pre),
+      root: packageRoot,
+      groups: JSON.parse(
+        readFileSync(join(packageRoot, "mutation-floors.json"), "utf8"),
+      ).groups,
+      mode: "pre",
     });
-    expect(run().status).toBe(0);
+    expect(problems.some((p) => /in no cluster/.test(p))).toBe(true);
   });
 
   it("is red against a non-empty pre-report (empty ledger, non-empty report)", () => {
@@ -517,5 +564,89 @@ describe("pre-triage survivors and clustering (D-17, D-18)", () => {
     const keys = clusters.flatMap((c) => c.keys);
     expect(keys.toSorted()).toEqual(webp.map((s) => s.key).toSorted());
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe("determinism and partition (D-22)", () => {
+  const pre = JSON.parse(
+    readFileSync(
+      join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+      "utf8",
+    ),
+  ) as { survivors: Survivor[] };
+  const shuffled = (list: Survivor[]) =>
+    [...list].sort((a, b) =>
+      a.anchorKey.split("").reverse().join("") <
+      b.anchorKey.split("").reverse().join("")
+        ? -1
+        : 1,
+    );
+
+  it("clusters a permuted survivor list to the same ledger", () => {
+    const a = clusterTools.clusterSurvivors(pre.survivors);
+    expect(clusterTools.clusterSurvivors(pre.survivors)).toEqual(a);
+    const permuted = shuffled(pre.survivors);
+    expect(permuted).not.toEqual(pre.survivors);
+    expect(JSON.stringify(clusterTools.clusterSurvivors(permuted))).toBe(
+      JSON.stringify(a),
+    );
+  });
+
+  it("writes byte-identical ledger.json on two runs", () => {
+    const ledgerPath = join(packageRoot, "tools", "mutation", "ledger.json");
+    const before = readFileSync(ledgerPath, "utf8");
+    for (let i = 0; i < 2; i++) {
+      const r = spawnSync(
+        process.execPath,
+        [join(packageRoot, "tools", "mutation", "cluster.mjs"), "cluster"],
+        { cwd: packageRoot, encoding: "utf8" },
+      );
+      expect(r.status).toBe(0);
+      expect(readFileSync(ledgerPath, "utf8")).toBe(before);
+    }
+  });
+
+  const fake = (file: string, fn: string, n: number, group = "g"): Cluster => ({
+    ...cluster(`${group}:${file}:${fn}:M`, {
+      group,
+      file,
+      function: fn,
+      count: 1,
+    }),
+    keys: Array.from(
+      { length: 1 },
+      (_, i) =>
+        `${file}\u0000M\u0000\u0000${n * 100 + i}\u00000\u0000${n * 100 + i}\u00001`,
+    ),
+  });
+  const many = (file: string, count: number, perFn = 1) =>
+    Array.from({ length: count }, (_, i) =>
+      fake(file, `f${String(Math.floor(i / perFn)).padStart(3, "0")}`, i),
+    ).map((c, i) => ({ ...c, id: `${c.id}${i}` }));
+
+  it("never splits a file below the limit across batches and caps at 25", () => {
+    const clusters = [
+      ...many("src/a.ts", 20),
+      ...many("src/b.ts", 20),
+      ...many("src/c.ts", 20),
+    ];
+    const batches = clusterTools.partitionBatches(clusters);
+    expect(batches.map((b) => b.clusters.length)).toEqual([20, 20, 20]);
+    expect(batches.map((b) => b.id)).toEqual(["g-1", "g-2", "g-3"]);
+    expect(batches.every((b) => b.files.length === 1)).toBe(true);
+  });
+
+  it("splits a single over-limit file at function boundaries", () => {
+    const batches = clusterTools.partitionBatches(many("src/big.ts", 40, 10));
+    expect(batches.map((b) => b.clusters.length)).toEqual([20, 20]);
+    expect(batches[0].clusters.every((id) => /f00[01]/.test(id))).toBe(true);
+  });
+
+  it("caps a batch at four src files", () => {
+    const clusters = ["a", "b", "c", "d", "e", "f"].flatMap((f) =>
+      many(`src/${f}.ts`, 1),
+    );
+    const batches = clusterTools.partitionBatches(clusters);
+    expect(batches.map((b) => b.files.length)).toEqual([4, 2]);
   });
 });

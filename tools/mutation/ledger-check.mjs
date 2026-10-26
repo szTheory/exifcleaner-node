@@ -178,6 +178,26 @@ function summary(ledger, groups) {
   return lines;
 }
 
+/**
+ * The compact pre-triage-survivors.json ({ survivors: [...] }) as a minimal
+ * report, so one checker serves the compact file and a full mutation.json.
+ */
+export function asReport(parsed) {
+  if (!Array.isArray(parsed?.survivors)) return parsed;
+  const files = {};
+  for (const s of parsed.survivors) {
+    files[s.file] ??= { language: "typescript", source: "", mutants: [] };
+    files[s.file].mutants.push({
+      id: String(files[s.file].mutants.length),
+      mutatorName: s.mutatorName,
+      replacement: s.replacement,
+      status: s.status,
+      location: s.location,
+    });
+  }
+  return { files };
+}
+
 /** CLI: ledger-check.mjs [--pre <mutation.json>] [--final <mutation.json>] */
 export function main(argv) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -195,7 +215,7 @@ export function main(argv) {
       readFileSync(join(root, "mutation-floors.json"), "utf8"),
     ).groups;
     const read = (p) =>
-      p === null ? null : JSON.parse(readFileSync(p, "utf8"));
+      p === null ? null : asReport(JSON.parse(readFileSync(p, "utf8")));
     const problems = checkLedger({
       ledger,
       preReport: read(prePath),
