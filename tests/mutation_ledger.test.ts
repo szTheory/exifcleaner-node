@@ -1994,6 +1994,31 @@ describe("real admission batch CLI provenance", () => {
       .toEqual(fixture.bundle.selectedMembers.map((member) => member.key).sort());
   }, 60_000);
 
+  it("accepts reordered current report data while archived historical bytes stay pinned", () => {
+    const fixture = createRealAdmissionCliFixture();
+    const reordered = withCliFileMutation(fixture, fixture.reportPath, (bytes) => {
+      const report = JSON.parse(bytes.toString("utf8")) as Report;
+      report.files = Object.fromEntries(Object.entries(report.files).toReversed().map(([file, entry]) =>
+        [file, { ...entry, mutants: entry.mutants.toReversed() }]));
+      report.testFiles = Object.fromEntries(Object.entries(report.testFiles ?? {}).toReversed().map(([file, entry]) =>
+        [file, { ...entry, tests: entry.tests.toReversed() }]));
+      return Buffer.from(`${JSON.stringify(report, null, 2)}\n`);
+    }, () => runRealBatchCli(fixture));
+
+    expect(reordered.error, `CLI spawn error: ${reordered.error?.message ?? "none"}`).toBeUndefined();
+    expect(reordered.status, `CLI stdout:\n${reordered.stdout}\nCLI stderr:\n${reordered.stderr}`).toBe(0);
+    const proof = JSON.parse(String(reordered.stdout ?? "{}")) as {
+      reportSha256: string;
+      members: number;
+      proof: { status: string }[];
+    };
+    expect(proof.members).toBe(51);
+    expect(proof.proof.filter((member) => member.status === "Killed")).toHaveLength(32);
+    expect(proof.proof.filter((member) => member.status === "Ignored")).toHaveLength(15);
+    expect(proof.proof.filter((member) => member.status === "deleted")).toHaveLength(4);
+    expect(proof.reportSha256).not.toBe(fixture.bundle.provenance.finalReport.sha256);
+  }, 60_000);
+
   it("rejects a product-root symlink that resolves outside the disposable workspace", () => {
     const fixture = createRealAdmissionCliFixture();
     const productPath = resolve(fixture.root, "exifcleaner-node");
