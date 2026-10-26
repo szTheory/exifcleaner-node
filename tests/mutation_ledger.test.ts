@@ -2,7 +2,7 @@
 // asserts a specific problem; the passing cases prove the fixtures are valid.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { gunzipSync } from "node:zlib";
+import { gzipSync, gunzipSync } from "node:zlib";
 import {
   chmodSync,
   copyFileSync,
@@ -11,8 +11,10 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -129,7 +131,12 @@ const liveInputPaths = [
   join(packageRoot, "package-lock.json"),
   join(packageRoot, "tests", "fixtures", "mutation", "admission-deletion-reports.json.gz"),
   join(packageRoot, "reports", "triage", "67-14", "node24-green.json"),
+  join(packageRoot, "reports", "triage", "67-14", "red.json"),
+  join(packageRoot, "reports", "triage", "67-14", "partial-proof.json"),
+  join(packageRoot, "reports", "triage", "67-14", "scope-probe.json"),
   join(packageRoot, "reports", "triage", "67-14", "resume", "batch.json"),
+  join(packageRoot, "reports", "triage", "67-14", "resume", "red.json"),
+  join(packageRoot, "reports", "triage", "67-14", "resume", "scope-probe.json"),
   join(packageRoot, "reports", "triage", "67-49", "admission-final.json"),
 ].filter(existsSync);
 const liveInputBytes = liveInputPaths.map((path) => readFileSync(path));
@@ -590,7 +597,6 @@ function runRealCli(fixture: RealCliFixture, args: string[]): ReturnType<typeof 
   const script = resolve(fixture.root, cliScriptPath);
   const actualRoot = realpathSync(fixture.root);
   assertContained(actualRoot, realpathSync(script), "CLI script must be inside mkdtemp");
-  assertContained(actualRoot, realpathSync(fixture.productRoot), "CLI product root must be inside mkdtemp");
   return spawnSync(process.execPath, [script, ...args], {
     cwd: actualRoot,
     encoding: "utf8",
@@ -600,6 +606,61 @@ function runRealCli(fixture: RealCliFixture, args: string[]): ReturnType<typeof 
 
 function runRealBatchCli(fixture: RealCliFixture): ReturnType<typeof spawnSync> {
   return runRealCli(fixture, ["--batch", "isobmff-1", "--mode", "batch", "--report", fixture.reportPath]);
+}
+
+function withCliLedgerMutation<T>(fixture: RealCliFixture, mutate: (ledger: CliLedger) => void, action: () => T): T {
+  const ledgerPath = resolve(fixture.root, fixture.ledgerPath);
+  const summaryPath = resolve(fixture.root, fixture.summaryPath);
+  const originalLedger = readFileSync(ledgerPath);
+  const originalSummary = readFileSync(summaryPath);
+  chmodSync(ledgerPath, 0o644);
+  chmodSync(summaryPath, 0o644);
+  try {
+    const ledger = JSON.parse(originalLedger.toString("utf8")) as CliLedger;
+    mutate(ledger);
+    writeFileSync(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`);
+    writeFileSync(summaryPath, renderLedger(ledger));
+    chmodSync(ledgerPath, 0o444);
+    chmodSync(summaryPath, 0o444);
+    return action();
+  } finally {
+    chmodSync(ledgerPath, 0o644);
+    chmodSync(summaryPath, 0o644);
+    writeFileSync(ledgerPath, originalLedger);
+    writeFileSync(summaryPath, originalSummary);
+    chmodSync(ledgerPath, 0o444);
+    chmodSync(summaryPath, 0o444);
+  }
+}
+
+function withCliFileMutation<T>(fixture: RealCliFixture, relativePath: string,
+  mutate: (original: Buffer) => Buffer, action: () => T): T {
+  const path = resolve(fixture.root, relativePath);
+  const original = readFileSync(path);
+  chmodSync(path, 0o644);
+  try {
+    writeFileSync(path, mutate(original));
+    chmodSync(path, 0o444);
+    return action();
+  } finally {
+    chmodSync(path, 0o644);
+    writeFileSync(path, original);
+    chmodSync(path, 0o444);
+  }
+}
+
+function withCliBundleMutation<T>(fixture: RealCliFixture, mutate: (bundle: CliBundle) => void, action: () => T): T {
+  return withCliFileMutation(fixture, admissionBundlePath, (original) => {
+    const bundle = JSON.parse(gunzipSync(original).toString("utf8")) as CliBundle;
+    mutate(bundle);
+    return gzipSync(Buffer.from(JSON.stringify(bundle)));
+  }, action);
+}
+
+function expectCliRejection(result: ReturnType<typeof spawnSync>, diagnostic: string): void {
+  expect(result.error, `CLI spawn error: ${result.error?.message ?? "none"}`).toBeUndefined();
+  expect(result.status, `CLI stdout:\n${result.stdout}\nCLI stderr:\n${result.stderr}`).not.toBe(0);
+  expect(result.stderr).toContain(diagnostic);
 }
 
 function deletionFixture(removeBeforeReport = false) {
@@ -1912,4 +1973,143 @@ describe("real admission batch CLI provenance", () => {
     expect(proof.proof.map((member) => member.key).sort())
       .toEqual(fixture.bundle.selectedMembers.map((member) => member.key).sort());
   }, 60_000);
+
+  it("rejects a product-root symlink that resolves outside the disposable workspace", () => {
+    const fixture = createRealAdmissionCliFixture();
+    const productPath = resolve(fixture.root, "exifcleaner-node");
+    const retainedCopy = resolve(fixture.root, "exifcleaner-node-copied-inputs");
+    const escapedRoot = realpathSync(mkdtempSync(join(tmpdir(), "phase-67-50-escaped-root-")));
+    temporaryRoots.push(escapedRoot);
+    const escapedMutationTools = join(escapedRoot, "tools", "mutation");
+    mkdirSync(escapedMutationTools, { recursive: true });
+    for (const file of [
+      "classes.json", "identity.mjs", "disable-lint.mjs", "ledger-summary.mjs",
+      "deletion-proof.mjs", "cluster.mjs", "groups.mjs",
+    ]) copyFileSync(join(packageRoot, "tools", "mutation", file), join(escapedMutationTools, file));
+    for (const file of ["ledger.json", "pre-triage-survivors.json"])
+      copyFileSync(join(packageRoot, "tools", "mutation", file), join(escapedMutationTools, file));
+    renameSync(productPath, retainedCopy);
+    symlinkSync(escapedRoot, productPath, "dir");
+
+    const result = runRealCli(fixture, ["--inventory"]);
+    expectCliRejection(result, "CLI product root symlink escapes workspace");
+  }, 60_000);
+
+  it("rejects single-change provenance, inventory, source and ownership failures through main", () => {
+    const fixture = createRealAdmissionCliFixture();
+    const member = fixture.bundle.selectedMembers.find((candidate) =>
+      candidate.file === "src/isobmff/admission.ts" && candidate.function === "classifyIsobmffModel" &&
+      candidate.mutatorName === "MethodExpression" && candidate.key.includes("item.extents.some"));
+    expect(member).toBeDefined();
+    const originalRow = fixture.bundle.originalBatchRows.find((row) => row.keys.includes(member!.key));
+    const selectedRow = fixture.bundle.clusterRows.find((row) => row.keys.includes(member!.key));
+    expect(originalRow?.test).toBeDefined();
+    expect(selectedRow?.test).toBeDefined();
+
+    const corruptions: { name: string; mutate(bundle: CliBundle): void }[] = [
+      { name: "wrong historical key", mutate: (bundle) => { bundle.originalBatchRows.find((row) => row.keys.includes(member!.key))!.keys[0] += ":forged"; } },
+      { name: "wrong historical origin", mutate: (bundle) => { bundle.originalBatchRows.find((row) => row.keys.includes(member!.key))!.originClusterId = "isobmff:forged-origin"; } },
+      { name: "wrong historical test", mutate: (bundle) => { bundle.originalBatchRows.find((row) => row.keys.includes(member!.key))!.test!.name = "forged historical test"; } },
+      { name: "baseline-present historical test", mutate: (bundle) => { bundle.originalBatchRows.find((row) => row.keys.includes(member!.key))!.test!.name = "admits a removable item with extent_count 0 as emptied"; } },
+      { name: "missing historical killedBy with coveredBy only", mutate: (bundle) => {
+        const report = JSON.parse(bundle.beforeReportRaw) as Report;
+        const entry = report.files[member!.file]!;
+        const matches = entry.mutants.filter((candidate) =>
+          phaseVerifier.canonicalAnchor(member!.file, candidate, entry.source) === member!.anchorKey);
+        expect(matches).toHaveLength(1);
+        const mutantRecord = matches[0]!;
+        mutantRecord.coveredBy = [...(mutantRecord.killedBy ?? [])];
+        mutantRecord.killedBy = [];
+        bundle.beforeReportRaw = JSON.stringify(report);
+      } },
+      { name: "changed historical raw digest", mutate: (bundle) => { bundle.beforeReportRaw += " "; } },
+    ];
+    for (const corruption of corruptions) {
+      const result = withCliBundleMutation(fixture, corruption.mutate, () => runRealBatchCli(fixture));
+      expectCliRejection(result, "historical bundle digest differs from the audited admission evidence");
+    }
+
+    const changedReport = withCliFileMutation(fixture, fixture.reportPath,
+      (bytes) => Buffer.concat([bytes, Buffer.from(" ")]), () => runRealBatchCli(fixture));
+    expectCliRejection(changedReport, "current report is not the digest-pinned measured final report");
+
+    const staleTest = withCliFileMutation(fixture, "exifcleaner-node/tests/isobmff_admission.test.ts",
+      (bytes) => Buffer.concat([bytes, Buffer.from("\n// fixture-only stale source\n")]), () => runRealBatchCli(fixture));
+    expectCliRejection(staleTest, "historical/current named test sources are stale or differ");
+
+    const staleSource = withCliFileMutation(fixture, "exifcleaner-node/src/isobmff/admission.ts",
+      (bytes) => Buffer.concat([bytes, Buffer.from("\n// fixture-only stale source\n")]), () => runRealBatchCli(fixture));
+    expectCliRejection(staleSource, "stale report source");
+
+    const wrongKey = withCliLedgerMutation(fixture, (ledger) => {
+      const row = ledger.clusters.find((candidate) => candidate.keys.includes(member!.key))!;
+      row.keys[row.keys.indexOf(member!.key)] = `${member!.key}:forged`;
+    }, () => runRealBatchCli(fixture));
+    expectCliRejection(wrongKey, "member moved to another measured origin");
+
+    const wrongOrigin = withCliLedgerMutation(fixture, (ledger) => {
+      const row = ledger.clusters.find((candidate) => candidate.keys.includes(member!.key))!;
+      row.originClusterId = "isobmff:forged-origin";
+    }, () => runRealBatchCli(fixture));
+    expectCliRejection(wrongOrigin, "isobmff-1: measured counts changed");
+
+    const missingMember = withCliLedgerMutation(fixture, (ledger) => {
+      const row = ledger.clusters.find((candidate) => candidate.keys.includes(member!.key))!;
+      row.keys.splice(row.keys.indexOf(member!.key), 1);
+    }, () => runRealBatchCli(fixture));
+    expectCliRejection(missingMember, "immutable membership changed");
+
+    const duplicateMember = withCliLedgerMutation(fixture, (ledger) => {
+      const row = ledger.clusters.find((candidate) => candidate.keys.includes(member!.key))!;
+      row.keys.push(row.keys[0]!);
+    }, () => runRealBatchCli(fixture));
+    expectCliRejection(duplicateMember, "immutable membership changed");
+
+    const wrongCurrentKiller = withCliLedgerMutation(fixture, (ledger) => {
+      const row = ledger.clusters.find((candidate) => candidate.keys.includes(member!.key))!;
+      row.test = { file: originalRow!.test!.file, name: originalRow!.test!.name };
+    }, () => runRealBatchCli(fixture));
+    expectCliRejection(wrongCurrentKiller, "does not name");
+
+    const escapingReceipt = withCliLedgerMutation(fixture, (ledger) => {
+      const row = ledger.clusters.find((candidate) => candidate.disposition === "dead")!;
+      row.deletion!["beforeReport"] = "../outside.json";
+    }, () => runRealBatchCli(fixture));
+    expectCliRejection(escapingReceipt, "beforeReport: unsafe relative path");
+  }, 120_000);
+
+  it("fails inventory on a missing non-target path and requires a fresh complete fixture", () => {
+    const missingFixture = createRealAdmissionCliFixture();
+    const requiredPath = "exifcleaner-node/src/webp/riff.ts";
+    const owner = missingFixture.manifest.batches.find((batch) => batch.filesModified.includes(requiredPath));
+    expect(owner, "the non-target riff source is manifest-derived inventory").toBeDefined();
+    const copiedPath = resolve(missingFixture.root, requiredPath);
+    expect(realpathSync(copiedPath).startsWith(`${realpathSync(missingFixture.root)}${sep}`)).toBe(true);
+    rmSync(copiedPath);
+    const missingResult = runRealBatchCli(missingFixture);
+    expectCliRejection(missingResult, `${owner!.id}: ungrounded file ${requiredPath}`);
+
+    const rebuiltFixture = createRealAdmissionCliFixture();
+    const rebuiltInventory = runRealCli(rebuiltFixture, ["--inventory"]);
+    expect(rebuiltInventory.error, `inventory spawn error: ${rebuiltInventory.error?.message ?? "none"}`).toBeUndefined();
+    expect(rebuiltInventory.status, `inventory stdout:\n${rebuiltInventory.stdout}\ninventory stderr:\n${rebuiltInventory.stderr}`).toBe(0);
+    expect(rebuiltInventory.stdout).toContain("32 batches, 586 clusters, 1919 members");
+  }, 120_000);
+
+  it("rejects a realpath symlink escape while allowing ordinary resolved fixture paths", () => {
+    const fixture = createRealAdmissionCliFixture();
+    const sourcePath = resolve(fixture.productRoot, "src/isobmff/admission.ts");
+    const retainedSource = resolve(fixture.productRoot, "src/isobmff/admission.fixture-copy.ts");
+    const outsideSource = resolve(fixture.root, "phase-67-50-outside-source.ts");
+    renameSync(sourcePath, retainedSource);
+    writeFileSync(outsideSource, "fixture-only path target\n");
+    symlinkSync(outsideSource, sourcePath);
+    const escaped = runRealBatchCli(fixture);
+    expectCliRejection(escaped, "symlink or path escapes root");
+
+    const ordinary = createRealAdmissionCliFixture();
+    const accepted = runRealBatchCli(ordinary);
+    expect(accepted.error, `ordinary CLI spawn error: ${accepted.error?.message ?? "none"}`).toBeUndefined();
+    expect(accepted.status, `ordinary CLI stdout:\n${accepted.stdout}\nordinary CLI stderr:\n${accepted.stderr}`).toBe(0);
+  }, 120_000);
 });
