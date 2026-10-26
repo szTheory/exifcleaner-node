@@ -498,6 +498,7 @@ export async function admitIsobmff(
       const absoluteOffset = addSafeOffsets(
         item.baseOffset,
         extent.offset,
+        // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
         `Item ${item.id}'s read extent start`,
       );
       budget.consumeBuffered(extent.length);

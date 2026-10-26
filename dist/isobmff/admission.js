@@ -324,7 +324,9 @@ export async function admitIsobmff(handle, size, signal, caps = DEFAULT_ISOBMFF_
             continue; // unreachable: classification is derived from model.items
         const parts = [];
         for (const extent of item.extents) {
-            const absoluteOffset = addSafeOffsets(item.baseOffset, extent.offset, `Item ${item.id}'s read extent start`);
+            const absoluteOffset = addSafeOffsets(item.baseOffset, extent.offset, 
+            // Stryker disable next-line StringLiteral: unobservable-message — Offset context flows only through addSafeOffsets to StructureError message; numeric checks are unchanged.
+            `Item ${item.id}'s read extent start`);
             budget.consumeBuffered(extent.length);
             parts.push(await readExactly(handle, extent.length, absoluteOffset));
         }
