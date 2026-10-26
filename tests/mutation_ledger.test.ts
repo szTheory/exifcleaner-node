@@ -2074,9 +2074,16 @@ describe("real admission batch CLI provenance", () => {
       expectCliRejection(result, "historical bundle digest differs from the audited admission evidence");
     }
 
-    const changedReport = withCliFileMutation(fixture, fixture.reportPath,
-      (bytes) => Buffer.concat([bytes, Buffer.from(" ")]), () => runRealBatchCli(fixture));
-    expectCliRejection(changedReport, "current report is not the digest-pinned measured final report");
+    const currentReportWithoutKiller = withCliFileMutation(fixture, fixture.reportPath, (bytes) => {
+      const report = JSON.parse(bytes.toString("utf8")) as Report;
+      const entry = report.files[member!.file]!;
+      const matches = entry.mutants.filter((candidate) =>
+        phaseVerifier.canonicalAnchor(member!.file, candidate, entry.source) === member!.anchorKey);
+      expect(matches).toHaveLength(1);
+      matches[0]!.killedBy = [];
+      return Buffer.from(`${JSON.stringify(report, null, 2)}\n`);
+    }, () => runRealBatchCli(fixture));
+    expectCliRejection(currentReportWithoutKiller, "does not name");
 
     const staleTest = withCliFileMutation(fixture, "exifcleaner-node/tests/isobmff_admission.test.ts",
       (bytes) => Buffer.concat([bytes, Buffer.from("\n// fixture-only stale source\n")]), () => runRealBatchCli(fixture));
