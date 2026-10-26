@@ -533,6 +533,10 @@ export const EXCLUSIONS: Readonly<
     reason:
       "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
   },
+  "tests/mutation_ledger.test.ts": {
+    class: "repo-tooling",
+    reason: "Tests the mutation ledger checker (spawns node); tests no src.",
+  },
   "tests/mutation_floors.test.ts": {
     class: "repo-tooling",
     reason: "Tests the mutation floors script (spawns node); tests no src.",

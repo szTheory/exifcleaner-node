@@ -17,6 +17,39 @@ export function mutantKey(file, mutant) {
   ].join("\u0000");
 }
 
+/**
+ * Line-shift-proof identity for a ledger anchor (D-13, D-18): file, mutator,
+ * replacement, the mutated source text and the 0-based ordinal of that text
+ * among its occurrences earlier in the file. Inserting or deleting lines
+ * elsewhere keeps it; mutantKey (which holds coordinates) does not. Report
+ * lines and columns are both 1-based (measured on the 67-01 report: the
+ * riff.ts:90 message literal starts at column 54, its quote's 1-based index).
+ */
+export function anchorKey(file, mutant, source) {
+  const lineStarts = [0];
+  for (let i = 0; i < source.length; i++)
+    if (source[i] === "\n") lineStarts.push(i + 1);
+  const { start, end } = mutant.location;
+  const from = lineStarts[start.line - 1] + start.column - 1;
+  const to = lineStarts[end.line - 1] + end.column - 1;
+  const span = source.slice(from, to);
+  let ordinal = 0;
+  if (span !== "") {
+    let at = source.indexOf(span);
+    while (at !== -1 && at < from) {
+      ordinal++;
+      at = source.indexOf(span, at + span.length);
+    }
+  }
+  return [
+    file,
+    mutant.mutatorName,
+    mutant.replacement ?? "",
+    span,
+    ordinal,
+  ].join("\u0000");
+}
+
 /** Map key -> { file, mutant }. Throws on a duplicate key or zero mutants. */
 export function keyedMutants(report) {
   const files = report?.files;
