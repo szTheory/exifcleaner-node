@@ -428,7 +428,6 @@ export function classifyIsobmffModel(
     if (kind === "removable") {
       removableItemIds.push(item.id);
       if (
-        item.extents.length === 0 ||
         item.extents.every((extent) => extent.length === 0)
       ) {
         emptiedItemIds.push(item.id);
