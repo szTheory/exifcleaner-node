@@ -47,6 +47,11 @@ const classify = require("../scripts/classify_ci_scope.cjs") as {
   ALWAYS_RUN_JOBS: readonly string[];
   isLinuxSafePath(path: unknown): boolean;
   classifyCiScope(input: ClassifyInput): ClassifyResult;
+  selectMutationLane(changedPaths: unknown): {
+    mode: string;
+    files: readonly string[];
+    reason: string;
+  };
   classifyQualificationFormats(
     input: QualificationFormatsInput,
     rules?: Readonly<Record<string, readonly RegExp[]>>,
@@ -91,6 +96,11 @@ const ISOBMFF_LINUX_FIXTURES = [
   "tests/isobmff_brand.test.ts",
   "tests/isobmff-support/builder.ts",
   "tests/isobmff-support/inventory.ts",
+];
+
+const MUTATION_TOOLING_LINUX_FIXTURES = [
+  "tools/mutation/package-lock.json",
+  "tools/mutation/stryker.config.json",
 ];
 
 const DOCS_ONLY_LINUX_FIXTURES = [
@@ -298,6 +308,7 @@ describe("dead-rule coverage (no rule is unreachable)", () => {
     ...PER_FORMAT_QUALIFICATION_LINUX_FIXTURES,
     ...DOCS_ONLY_LINUX_FIXTURES,
     ...ISOBMFF_LINUX_FIXTURES,
+    ...MUTATION_TOOLING_LINUX_FIXTURES,
   ];
 
   it("every LINUX_SAFE_PATH_RULES entry is matched by at least one linux fixture", () => {
@@ -617,8 +628,38 @@ describe("CLI end-to-end", () => {
 
       expect(status).toBe(0);
       expect(outputFileContents).toBe(
-        "scope=linux\nformats=avif,heic,jpeg,png,webp\n",
+        "scope=linux\nformats=avif,heic,jpeg,png,webp\nmutate=\nmutate_mode=none\n",
       );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("pull_request mode: a src and test change merged with --no-ff writes mutate=<src file> and mutate_mode=run", () => {
+    const dir = createBaseRepo();
+    try {
+      git(dir, ["checkout", "-q", "-b", "feature"]);
+      mkdirSync(join(dir, "src", "png"), { recursive: true });
+      mkdirSync(join(dir, "tests"), { recursive: true });
+      writeFileSync(join(dir, "src", "png", "chunks.ts"), "export {};\n");
+      writeFileSync(join(dir, "tests", "png_chunks.test.ts"), "export {};\n");
+      git(dir, ["add", "."]);
+      git(dir, ["commit", "-q", "-m", "src change"]);
+      git(dir, ["checkout", "-q", "main"]);
+      git(dir, ["merge", "--no-ff", "-m", "merge", "feature"]);
+
+      const { status, outputFileContents } = runCli(dir, {
+        CLASSIFY_EVENT_NAME: "pull_request",
+        CLASSIFY_WORKFLOW: "CI",
+        CLASSIFY_REF: "refs/pull/1/merge",
+      });
+
+      expect(status).toBe(0);
+      expect(
+        outputFileContents.endsWith(
+          "mutate=src/png/chunks.ts\nmutate_mode=run\n",
+        ),
+      ).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -643,7 +684,7 @@ describe("CLI end-to-end", () => {
 
       expect(status).toBe(0);
       expect(outputFileContents).toBe(
-        "scope=full\nformats=avif,heic,jpeg,png,webp\n",
+        "scope=full\nformats=avif,heic,jpeg,png,webp\nmutate=\nmutate_mode=none\n",
       );
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -667,7 +708,7 @@ describe("CLI end-to-end", () => {
 
       expect(status).toBe(0);
       expect(outputFileContents).toBe(
-        "scope=linux\nformats=avif,heic,jpeg,png,webp\n",
+        "scope=linux\nformats=avif,heic,jpeg,png,webp\nmutate=\nmutate_mode=none\n",
       );
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -686,7 +727,7 @@ describe("CLI end-to-end", () => {
 
       expect(status).toBe(0);
       expect(outputFileContents).toBe(
-        "scope=full\nformats=avif,heic,jpeg,png,webp\n",
+        "scope=full\nformats=avif,heic,jpeg,png,webp\nmutate=\nmutate_mode=error\n",
       );
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -711,7 +752,7 @@ describe("CLI end-to-end", () => {
 
       expect(status).toBe(0);
       expect(outputFileContents).toBe(
-        "scope=full\nformats=avif,heic,jpeg,png,webp\n",
+        "scope=full\nformats=avif,heic,jpeg,png,webp\nmutate=\nmutate_mode=error\n",
       );
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -730,7 +771,7 @@ describe("CLI end-to-end", () => {
 
       expect(status).toBe(0);
       expect(outputFileContents).toBe(
-        "scope=full\nformats=avif,heic,jpeg,png,webp\n",
+        "scope=full\nformats=avif,heic,jpeg,png,webp\nmutate=\nmutate_mode=error\n",
       );
     } finally {
       rmSync(dir, { recursive: true, force: true });
