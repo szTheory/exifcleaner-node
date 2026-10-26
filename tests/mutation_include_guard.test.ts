@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { findDistReferences } from "./dist_import_guard.test.js";
+import config, {
+  STRYKER_TEST_ALLOWLIST,
+} from "../tools/mutation/vitest.stryker.config.js";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -200,7 +203,10 @@ export function closureHits(root: string, testFile: string): ClosureHit[] {
   return hits;
 }
 
-/** Line of a tmpdir() call in a file that never calls mkdtemp*, else undefined. */
+/**
+ * Line of a tmpdir() call in a file that neither calls mkdtemp* nor builds a
+ * per-call unique name (randomUUID, Math.random); fixed names collide across forks.
+ */
 function fixedTmpdirLine(
   sourceText: string,
   fileName: string,
@@ -217,11 +223,20 @@ function fixedTmpdirLine(
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
       const name = node.expression.text;
       if (name === "mkdtemp" || name === "mkdtempSync") mkdtemp = true;
+      if (name === "randomUUID") mkdtemp = true;
       if (name === "tmpdir" && tmpdirLine === undefined) {
         tmpdirLine =
           sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile))
             .line + 1;
       }
+    }
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "Math" &&
+      node.name.text === "random"
+    ) {
+      mkdtemp = true;
     }
     ts.forEachChild(node, visit);
   };
@@ -281,27 +296,396 @@ export function classifyTests(
   };
 }
 
-describe("tracer: whole-tree partition", () => {
-  it("scans every test file transitively and prints the partition", () => {
-    const walked = walkTests(packageRoot);
-    const clean: string[] = [];
-    const dirty: Array<{ file: string; first: ClosureHit }> = [];
-    for (const file of walked) {
-      const hits = closureHits(packageRoot, file);
-      if (hits.length === 0) clean.push(file);
-      else dirty.push({ file, first: hits[0]! });
-    }
-    console.info(`include-guard: walked ${walked.length}`);
-    console.info(`include-guard: clean ${clean.length}`);
-    console.info(`include-guard: hit ${dirty.length}`);
-    for (const f of clean) console.info(`include-guard: clean-file ${f}`);
-    for (const { file, first } of dirty) {
-      console.info(
-        `include-guard: hit-file ${file} <- ${first.file}:${first.line}:${first.match}`,
-      );
-    }
+export type ExclusionClass =
+  | "child-process"
+  | "dist-importer"
+  | "oracle"
+  | "benchmark"
+  | "corpus-network"
+  | "repo-tooling"
+  | "no-src-under-test"
+  | "sandbox-incompatible";
+
+/**
+ * Every test file Stryker must not run, with the reason. The complement of
+ * STRYKER_TEST_ALLOWLIST over tests/**\/*.test.ts (corpus excluded); the
+ * whole-tree test below fails on any file in neither or both.
+ */
+export const EXCLUSIONS: Readonly<
+  Record<string, { class: ExclusionClass; reason: string }>
+> = Object.freeze({
+  "tests/isobmff_decode_oracle.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/isobmff-support/decode-oracle.ts:23); instrumented sources are not loaded by a child.",
+  },
+  "tests/isobmff_idempotence.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/isobmff_idempotence.test.ts:9); instrumented sources are not loaded by a child.",
+  },
+  "tests/isobmff_memory.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/isobmff_memory.test.ts:11); instrumented sources are not loaded by a child.",
+  },
+  "tests/native_bridge_harness.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/native_bridge_harness.test.ts:1); instrumented sources are not loaded by a child.",
+  },
+  "tests/native_vs_exiftool.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/native_vs_exiftool.test.ts:6); instrumented sources are not loaded by a child.",
+  },
+  "tests/package_smoke.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/package_smoke.test.ts:13); instrumented sources are not loaded by a child.",
+  },
+  "tests/png_memory.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/png_memory.test.ts:1); instrumented sources are not loaded by a child.",
+  },
+  "tests/qualification/avif/decode.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/isobmff-support/decode-oracle.ts:23); instrumented sources are not loaded by a child.",
+  },
+  "tests/qualification/heic/decode.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/isobmff-support/decode-oracle.ts:23); instrumented sources are not loaded by a child.",
+  },
+  "tests/qualification/jpeg/golden.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/qualification/jpeg/golden.test.ts:1); instrumented sources are not loaded by a child.",
+  },
+  "tests/qualification/jpeg/tracer.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/qualification/jpeg/oracles.ts:2); instrumented sources are not loaded by a child.",
+  },
+  "tests/qualification/kit/build_oracles.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/qualification/kit/build_oracles.test.ts:17); instrumented sources are not loaded by a child.",
+  },
+  "tests/runtime_surface_gate.test.ts": {
+    class: "child-process",
+    reason:
+      "Spawns subprocesses (tests/runtime_surface_gate.test.ts:8); instrumented sources are not loaded by a child.",
+  },
+  "tests/fallback.test.ts": {
+    class: "dist-importer",
+    reason:
+      "Imports the built dist (tests/fallback.test.ts:340), which Stryker does not instrument.",
+  },
+  "tests/isobmff_surface.test.ts": {
+    class: "dist-importer",
+    reason:
+      "Imports the built dist (tests/isobmff_surface.test.ts:21), which Stryker does not instrument.",
+  },
+  "tests/public_contract.test.ts": {
+    class: "dist-importer",
+    reason:
+      "Imports the built dist (tests/public_contract.test.ts:12), which Stryker does not instrument.",
+  },
+  "tests/isobmff_registration.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/isobmff_spec_doc.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/avif/oracles.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/avif/parser.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/avif/property.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/avif/tracer.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/heic/oracles.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/heic/parser.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/heic/property.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/heic/tracer.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/jpeg/oracles.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/qualification/jpeg/oracles.test.ts:21); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/kit/oracles.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/qualification/kit/oracles.test.ts:14); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/kit/rollback.test.ts": {
+    class: "oracle",
+    reason:
+      "Closure reaches an oracle reference (tests/isobmff-support/differential.ts:19); oracle runs need external tools and are slow.",
+  },
+  "tests/qualification/webp/benchmark.test.ts": {
+    class: "benchmark",
+    reason: "WebP benchmark harness; spawns a child process and times it.",
+  },
+  "tests/qualification/avif/transaction.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/heic/transaction.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/jpeg/transaction.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/kit/corpus.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/kit/fetch_corpus.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/png/golden.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/png/oracles.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/png/property.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/png/tracer.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/webp/golden.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/webp/oracles.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/qualification/webp/tracer.test.ts": {
+    class: "corpus-network",
+    reason:
+      "Closure reaches tests/qualification/kit/corpus.ts (tests/qualification/kit/corpus.ts:84 names the benchmark corpus kind); corpus and fetch tooling.",
+  },
+  "tests/build_native.test.ts": {
+    class: "repo-tooling",
+    reason: "Tests the native build script; tests no src.",
+  },
+  "tests/check_evidence_present.test.ts": {
+    class: "repo-tooling",
+    reason: "Tests the evidence-presence script (spawns node); tests no src.",
+  },
+  "tests/ci_workflow_wiring.test.ts": {
+    class: "repo-tooling",
+    reason: "Asserts CI workflow wiring; tests no src.",
+  },
+  "tests/classify_ci_scope.test.ts": {
+    class: "repo-tooling",
+    reason: "Tests the CI scope classifier script (spawns node); tests no src.",
+  },
+  "tests/dispatch_native_matrix.test.ts": {
+    class: "repo-tooling",
+    reason: "Tests the native dispatch matrix script; tests no src.",
+  },
+  "tests/dist_import_guard.test.ts": {
+    class: "repo-tooling",
+    reason: "Scans the test tree for dist literals; tests no src.",
+  },
+  "tests/fc_seed_guard.test.ts": {
+    class: "repo-tooling",
+    reason:
+      "Guards FC seed and run settings in tests; tests no src. Not changed (D-10).",
+  },
+  "tests/format_admission_doc.test.ts": {
+    class: "repo-tooling",
+    reason:
+      "Checks the format admission document against the tree; tests no src.",
+  },
+  "tests/format_neutral_source.test.ts": {
+    class: "repo-tooling",
+    reason: "Source-shape guard over the tree; tests no src behavior.",
+  },
+  "tests/isobmff_isolation.test.ts": {
+    class: "repo-tooling",
+    reason:
+      "Asserts the oracle support code never imports src/isobmff; tests no src.",
+  },
+  "tests/mutation_include_guard.test.ts": {
+    class: "repo-tooling",
+    reason: "This guard; scans the test tree and tests no src.",
+  },
+  "tests/mutation_isolation.test.ts": {
+    class: "repo-tooling",
+    reason:
+      "Isolation guard for the Stryker package; spawns git and tests no src.",
+  },
+  "tests/native_artifact_audit.test.ts": {
+    class: "repo-tooling",
+    reason: "Audits native artifacts; tests no src.",
+  },
+  "tests/native_source_audit.test.ts": {
+    class: "repo-tooling",
+    reason: "Audits native sources through a subprocess; tests no src.",
+  },
+  "tests/qualification_layout.test.ts": {
+    class: "repo-tooling",
+    reason: "Asserts the qualification directory layout; tests no src.",
+  },
+  "tests/release_workflow_gate.test.ts": {
+    class: "repo-tooling",
+    reason:
+      "Tests the release workflow gate script (spawns node); tests no src.",
+  },
+  "tests/tsconfig_strictness.test.ts": {
+    class: "repo-tooling",
+    reason: "Asserts tsconfig strictness; tests no src.",
+  },
+  "tests/windows_host_independence.test.ts": {
+    class: "repo-tooling",
+    reason: "Asserts host independence of scripts; tests no src.",
+  },
+  "tests/isobmff_builder.test.ts": {
+    class: "no-src-under-test",
+    reason:
+      "Tests the independent ISOBMFF builder support code, which imports nothing from src.",
+  },
+  "tests/isobmff_inventory.test.ts": {
+    class: "no-src-under-test",
+    reason:
+      "Tests the independent ISOBMFF inventory support code, which imports nothing from src.",
+  },
+  "tests/qualification/kit/floors.test.ts": {
+    class: "no-src-under-test",
+    reason: "Tests the qualification floors kit; no src import.",
+  },
+  "tests/qualification/kit/replay.test.ts": {
+    class: "no-src-under-test",
+    reason: "Tests the replay kit; no src import.",
+  },
+  "tests/error_kinds.test.ts": {
+    class: "sandbox-incompatible",
+    reason:
+      "Control A text-replaces src/types.ts, which Stryker instrumentation rewrites; fails the dry run (67-01).",
+  },
+});
+
+/** Each trust format must keep at least one allowlisted test (matched on the path). */
+export const FORMAT_GROUP_PATTERNS: Readonly<Record<string, RegExp>> =
+  Object.freeze({
+    webp: /webp|riff/u,
+    png: /png/u,
+    jpeg: /jpeg/u,
+    isobmff: /isobmff|heic|avif/u,
+    metadata: /exif|icc|xmp/u,
+  });
+
+/** One problem per format group without an allowlisted test, plus one for an empty allowlist. */
+export function checkFormatCoverage(allowlist: readonly string[]): string[] {
+  if (allowlist.length === 0) return ["allowlist is empty"];
+  return Object.entries(FORMAT_GROUP_PATTERNS)
+    .filter(([, pattern]) => !allowlist.some((file) => pattern.test(file)))
+    .map(([group]) => `format group ${group} has no allowlisted test`);
+}
+
+describe("whole-tree include set", () => {
+  const walked = walkTests(packageRoot);
+
+  it("classifies every test file exactly once and finds no forbidden reference", () => {
+    const result = classifyTests(
+      packageRoot,
+      STRYKER_TEST_ALLOWLIST,
+      EXCLUSIONS,
+    );
+    console.info(`include-guard: clean ${result.allowlisted.length}`);
+    console.info(`include-guard: excluded ${result.excluded.length}`);
+    expect(result.problems).toEqual([]);
+    expect(result.walked).toBe(walked.length);
+    expect(result.allowlisted.length + result.excluded.length).toBe(
+      walked.length,
+    );
     expect(walked.length).toBeGreaterThanOrEqual(100);
-    expect(clean).toContain("tests/riff.test.ts");
-    expect(clean).toContain("tests/error_kinds.test.ts");
+  });
+
+  it("keeps the allowlist sorted and unique", () => {
+    expect([...STRYKER_TEST_ALLOWLIST]).toEqual(
+      [...new Set(STRYKER_TEST_ALLOWLIST)].sort(),
+    );
+  });
+
+  it("covers every format group", () => {
+    expect(checkFormatCoverage(STRYKER_TEST_ALLOWLIST)).toEqual([]);
+  });
+
+  it("makes the vitest include list equal the allowlist, with no second copy", () => {
+    expect(config.test?.include).toEqual([...STRYKER_TEST_ALLOWLIST]);
+    const strykerConfig = JSON.parse(
+      readFileSync(
+        join(packageRoot, "tools", "mutation", "stryker.config.json"),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
+    expect("testFiles" in strykerConfig).toBe(false);
+  });
+
+  it("keeps the known sandbox-incompatible test excluded", () => {
+    expect(EXCLUSIONS["tests/error_kinds.test.ts"]?.class).toBe(
+      "sandbox-incompatible",
+    );
   });
 });

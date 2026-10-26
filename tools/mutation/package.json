@@ -1,6 +1,7 @@
 {
   "name": "exifcleaner-node-mutation-tooling",
   "private": true,
+  "type": "module",
   "description": "Isolated dev-only StrykerJS package (M5); never published. Installed separately so the library's own manifests stay untouched.",
   "engines": {
     "node": ">=22"
