@@ -119,6 +119,8 @@ Artifacts: `mutation-baseline-attempt-<n>` holds `reports/mutation/` (including 
 mutant count, peak used memory and peak process-tree RSS); `mutation-baseline-aggregate` holds
 `aggregate.json`. A `unavailable` memory value means the run was not on Linux.
 
+Measured settings (2026-10-26, hosted ubuntu-24.04, webp group, runs 40329815032 and 40329892718): `concurrency` 4 (6 was slower, 847 s against 616 s), `timeoutMS` 15000 and `timeoutFactor` 2.5 (all 10 Timeout mutants stay Timeout at factor 5, so they are non-terminating, not slow).
+
 ## Current floors
 
 The floors are measured in Phase 67; plan 67-14 records the measured values here.
