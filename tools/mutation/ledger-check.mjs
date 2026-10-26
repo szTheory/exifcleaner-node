@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadClasses, parseDisableReason } from "./disable-lint.mjs";
 import { groupsFor } from "./groups.mjs";
 import { anchorKey, mutantKey } from "./identity.mjs";
+import { validateDeletion } from "./deletion-proof.mjs";
 
 const show = (key) => key.replaceAll("\u0000", "|");
 const UNDETECTED = new Set(["Survived", "NoCoverage"]);
@@ -92,6 +93,50 @@ export function checkLedger({
     }
   }
 
+  // A scoped dead claim is statically proven on every checker invocation,
+  // including --pre (which has no final report). The immutable compact snapshot
+  // supplies the original owner metadata; missing membership fails closed.
+  let immutableSurvivors = null;
+  try {
+    const snapshot = JSON.parse(readFileSync(join(root, "tools", "mutation", "pre-triage-survivors.json"), "utf8"));
+    if (Array.isArray(snapshot.survivors)) immutableSurvivors = snapshot.survivors;
+  } catch { /* fixture callers may intentionally omit a snapshot */ }
+  if (immutableSurvivors !== null) {
+    const original = new Map();
+    for (const member of immutableSurvivors) {
+      if (original.has(member.key)) problems.push(`${show(member.key)}: duplicate immutable pre-triage key`);
+      original.set(member.key, member);
+      const owners = membership.get(member.key) ?? [];
+      if (owners.length === 0 && preReport === null) problems.push(`${show(member.key)}: in no cluster`);
+      for (const id of owners) {
+        const owner = clusters.find((c) => c.id === id);
+        if (owner && (owner.group !== member.group || owner.file !== member.file ||
+            owner.function !== member.function || owner.mutatorName !== member.mutatorName))
+          problems.push(`${show(member.key)}: cluster ${id} differs from immutable origin`);
+      }
+    }
+    for (const [key, owners] of membership) {
+      if (!original.has(key) && preReport === null) problems.push(`${show(key)}: not a member of the immutable pre-triage snapshot`);
+      if (owners.length > 1 && preReport === null)
+        problems.push(`${show(key)}: in ${owners.length} clusters (${owners.join(", ")})`);
+    }
+  }
+  for (const c of clusters) {
+    if (c.disposition !== "dead" || !c.deletion) continue;
+    const finalEntry = finalReport?.files?.[c.file] ?? null;
+    const proof = validateDeletion({
+      row: c,
+      root,
+      currentSource: null,
+      finalEntry,
+      finalReport,
+      readTest: (file) => readFileSync(join(root, file), "utf8"),
+      survivors: immutableSurvivors,
+      requireFinal: finalReport !== null,
+    });
+    problems.push(...proof.problems);
+  }
+
   if (mode === "final") {
     for (const c of clusters) {
       if (c.disposition === "pending")
@@ -113,7 +158,7 @@ export function checkLedger({
       } else if (c.disposition === "dead") {
         if (typeof c.symbol !== "string" || c.symbol === "")
           problems.push(`${c.id}: dead row has no symbol`);
-        else if (symbolInSrc(c.symbol, root))
+        else if (!c.deletion && symbolInSrc(c.symbol, root))
           problems.push(
             `${c.id}: dead symbol ${c.symbol} still appears in src/`,
           );

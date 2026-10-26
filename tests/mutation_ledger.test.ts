@@ -1,6 +1,7 @@
 // MUT-03 survivor ledger checker (D-13, D-18) with fixtures. Every red case
 // asserts a specific problem; the passing cases prove the fixtures are valid.
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
@@ -23,6 +24,7 @@ interface Mutant {
   status: string;
   statusReason?: string;
   static?: boolean;
+  killedBy?: string[];
   location: {
     start: { line: number; column: number };
     end: { line: number; column: number };
@@ -33,9 +35,11 @@ interface Report {
     string,
     { language: string; source: string; mutants: Mutant[] }
   >;
+  testFiles?: Record<string, { source: string; tests: { id: string; name: string }[] }>;
 }
 interface Cluster {
   id: string;
+  originClusterId?: string;
   group: string;
   file: string;
   mutatorName: string;
@@ -47,6 +51,7 @@ interface Cluster {
   test?: { file: string; name: string };
   symbol?: string;
   equivalenceClass?: string;
+  deletion?: Record<string, unknown>;
   note: string;
 }
 interface Identity {
@@ -60,6 +65,7 @@ interface Survivor {
   file: string;
   mutatorName: string;
   function: string;
+  status?: string;
 }
 interface Batch {
   id: string;
@@ -87,6 +93,19 @@ interface Checker {
     groups: Record<string, { tier: string; globs: string[] }>;
     mode: "pre" | "final";
   }): string[];
+}
+interface DeletionProof {
+  validateDeletion(input: {
+    row: Cluster;
+    root: string;
+    currentSource: string;
+    finalEntry: { source: string; mutants: Mutant[] } | null;
+    finalReport: Report & { testFiles?: Record<string, { source: string; tests: { id: string; name: string }[] }> };
+    readTest(file: string): string;
+    survivors: Survivor[];
+    requireFinal: boolean;
+  }): { problems: string[]; anchors: { current: string; original: string }[] };
+  canonicalReceiptJson(value: unknown): string;
 }
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -120,6 +139,7 @@ const load = async <T>(name: string) =>
 const identity = await load<Identity>("identity.mjs");
 const clusterTools = await load<ClusterTools>("cluster.mjs");
 const { checkLedger, asReport } = await load<Checker>("ledger-check.mjs");
+const deletionProof = await load<DeletionProof>("deletion-proof.mjs");
 
 const groups = {
   g: { tier: "trust", globs: ["src/a/**"] },
@@ -223,6 +243,190 @@ function runFixture(root: string, script: string, ...args: string[]) {
     cwd: root,
     encoding: "utf8",
   });
+}
+
+const sha256 = (bytes: string | Buffer) =>
+  createHash("sha256").update(bytes).digest("hex");
+const phaseVerifierPath = join(
+  packageRoot,
+  "..",
+  ".planning",
+  "phases",
+  "67-mutation-baseline",
+  "67-triage-verify.mjs",
+);
+const phaseVerifier = await import(pathToFileURL(phaseVerifierPath).href) as {
+  evaluate(input: {
+    clusters: Cluster[];
+    survivors: Survivor[];
+    report: Report & { testFiles: Record<string, { source: string; tests: { id: string; name: string }[] }> };
+    mode: "batch";
+    readTest(file: string): string;
+    symbolAbsent(symbol: string): boolean;
+    root: string;
+  }): unknown[];
+};
+
+function deletionFixture(removeBeforeReport = false) {
+  const file = "src/example.mjs";
+  const testFile = "tests/rejects-false.mjs";
+  const testName = "rejects false input";
+  const beforeSource = [
+    'export function f(flag) {',
+    '  const out = [];',
+    '  if (flag) {',
+    '    out.push("hit");',
+    '  }',
+    '  return out;',
+    '}',
+    'export function other(flag) {',
+    '  const out = [];',
+    '  if (flag) {',
+    '    out.push("other");',
+    '  }',
+    '  return out;',
+    '}',
+    '',
+  ].join("\n");
+  const afterSource = beforeSource.replace("  if (flag) {", "  {");
+  const testSource = [
+    'import assert from "node:assert/strict";',
+    'import { f } from "../src/example.mjs";',
+    `// ${testName}`,
+    'assert.deepEqual(f(false), []);',
+    '',
+  ].join("\n");
+  const root = tempRoot({
+    [file]: beforeSource,
+    [testFile]: testSource,
+    "tools/mutation/pre-triage-survivors.json": "{}\n",
+  });
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  execFileSync("git", ["config", "user.email", "fixture@example.invalid"], { cwd: root });
+  execFileSync("git", ["config", "user.name", "Mutation Fixture"], { cwd: root });
+  execFileSync("git", ["add", file], { cwd: root });
+  execFileSync("git", ["commit", "-q", "-m", "fixture before source"], { cwd: root });
+
+  const at = (text: string, needle: string, start = 0) => {
+    const index = text.indexOf(needle, start);
+    if (index === -1) throw new Error(`fixture text missing: ${needle}`);
+    const prefix = text.slice(0, index);
+    const lines = prefix.split("\n");
+    return { line: lines.length, column: lines.at(-1)!.length + 1 };
+  };
+  const span = (text: string, needle: string, start = 0) => {
+    const point = at(text, needle, start);
+    return { start: point, end: { line: point.line, column: point.column + needle.length } };
+  };
+  const guardStart = beforeSource.indexOf("if (flag)");
+  const guardLineStart = beforeSource.indexOf("  if (flag)");
+  const guardTrue = mutant("before-true", 3, 7, "Survived", {
+    mutatorName: "ConditionalExpression",
+    replacement: "true",
+  });
+  const guardFalse = mutant("before-false", 3, 7, "Killed", {
+    mutatorName: "ConditionalExpression",
+    replacement: "false",
+    killedBy: ["t1"],
+  });
+  const ancestor = mutant("before-block", 3, 3, "NoCoverage", {
+    mutatorName: "BlockStatement",
+    replacement: "{}",
+    location: { start: at(beforeSource, "if (flag)"), end: { ...at(beforeSource, '  }\n  return', beforeSource.indexOf("if (flag)") + 1), column: 4 } },
+  });
+  const sibling = mutant("before-push", 4, 5, "Survived", {
+    mutatorName: "MethodExpression",
+    replacement: "void 0",
+    location: span(beforeSource, 'out.push("hit")'),
+  });
+  // Keep the original condition at a distinct occurrence in another function.
+  expect(guardStart).toBeGreaterThanOrEqual(0);
+  expect(guardLineStart).toBeGreaterThanOrEqual(0);
+  const beforeMutants = [guardTrue, guardFalse, ancestor, sibling];
+  const reportTestFiles = {
+    [testFile]: { source: testSource, tests: [{ id: "t1", name: testName }] },
+  };
+  const evidence = { source: beforeSource, mutants: beforeMutants, testFiles: reportTestFiles };
+  const beforeReport = { files: { [file]: { language: "javascript", source: beforeSource, mutants: beforeMutants } }, testFiles: reportTestFiles };
+  const reportBytes = `${JSON.stringify(beforeReport, null, 2)}\n`;
+  mkdirSync(join(root, "reports"), { recursive: true });
+  writeFileSync(join(root, "reports", "before.json"), reportBytes);
+  if (removeBeforeReport) rmSync(join(root, "reports", "before.json"));
+
+  const survivors = [guardTrue, sibling].map((entry) => ({
+    key: identity.mutantKey(file, entry),
+    anchorKey: identity.anchorKey(file, entry, beforeSource),
+    file,
+    function: "f",
+    group: "g",
+    mutatorName: entry.mutatorName,
+    status: entry.status,
+  }));
+  writeFileSync(join(root, "tools/mutation/pre-triage-survivors.json"), JSON.stringify({ survivors }, null, 2));
+  const owned = survivors[0]!;
+  const testResolved = [{ file: testFile, name: testName }];
+  const removedMutants = beforeMutants.slice(0, 2).map((entry) => ({
+    anchor: identity.anchorKey(file, entry, beforeSource),
+    mutatorName: entry.mutatorName,
+    replacement: entry.replacement ?? "",
+    location: entry.location,
+    status: entry.status,
+    killedBy: entry.status === "Killed" ? testResolved : [],
+  }));
+  const beforeRef = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const receipt = {
+    version: 1,
+    beforeRef,
+    beforeSourceSha256: sha256(beforeSource),
+    function: "f",
+    edits: [{ function: "f", before: "if (flag) ", after: "", occurrence: 0 }],
+    beforeReport: "reports/before.json",
+    beforeReportSha256: sha256(reportBytes),
+    beforeEvidence: evidence,
+    beforeEvidenceSha256: sha256(deletionProof.canonicalReceiptJson(evidence)),
+    removedMutants,
+    detectedSuccessors: [{
+      oldAnchor: identity.anchorKey(file, guardFalse, beforeSource),
+      finalAnchor: identity.anchorKey(file, { ...sibling, id: "successor", status: "Killed", killedBy: ["t1"] }, afterSource),
+      test: { file: testFile, name: testName },
+      semanticTrace: "f(false) remains empty after removing the guard",
+    }],
+    referenceTrace: "f writes only within its local branch; the assertion and all callers were checked",
+  };
+  const row = cluster("scoped-dead", {
+    file,
+    function: "f",
+    mutatorName: "ConditionalExpression",
+    disposition: "dead",
+    count: 1,
+    keys: [owned.key],
+    anchors: [owned.anchorKey],
+    symbol: "if (flag)",
+    deletion: receipt,
+  });
+  const successor = {
+    ...sibling,
+    id: "successor",
+    status: "Killed",
+    killedBy: ["t1"],
+  };
+  const liveAncestor = {
+    ...ancestor,
+    id: "live-ancestor",
+    status: "Killed",
+    location: { start: { ...at(afterSource, "  {", afterSource.indexOf("  const out") + 1), column: 3 }, end: { ...at(afterSource, '  }\n  return', afterSource.indexOf("  {")), column: 4 } },
+  };
+  const finalReport: Report & { testFiles: Record<string, { source: string; tests: { id: string; name: string }[] }> } = {
+    files: { [file]: { language: "javascript", source: afterSource, mutants: [successor, liveAncestor] } },
+    testFiles: reportTestFiles,
+  };
+  writeFileSync(join(root, "tools/mutation/pre-triage-survivors.json"), JSON.stringify({ survivors }, null, 2));
+  writeFileSync(join(root, file), afterSource);
+  const reportPath = join(root, "reports", "final.json");
+  writeFileSync(reportPath, `${JSON.stringify(finalReport, null, 2)}\n`);
+  return { root, file, testFile, testSource, beforeSource, afterSource, beforeMutants,
+    evidence, reportBytes, receipt, row, survivors, finalReport, successor, reportPath,
+    readTest: (path: string) => readFileSync(join(root, path), "utf8") };
 }
 const covering: [Cluster, Cluster] = [
   cluster("c1", { count: 2, keys: [keyOf(m1), keyOf(m2)] }),
@@ -681,7 +885,7 @@ describe("committed ledger", () => {
     const first = run();
     expect(first.status).toBe(0);
     const output = readFileSync(join(root, "tools/mutation/ledger.json"));
-    expect(JSON.parse(output.toString()).clusters.every((c) => c.disposition === "pending")).toBe(true);
+    expect((JSON.parse(output.toString()) as { clusters: Cluster[] }).clusters.every((c) => c.disposition === "pending")).toBe(true);
     expect(output.equals(Buffer.from(initialLedger))).toBe(false);
 
     const second = run();
@@ -806,5 +1010,252 @@ describe("determinism and partition (D-22)", () => {
     );
     const batches = clusterTools.partitionBatches(clusters);
     expect(batches.map((b) => b.files.length)).toEqual([4, 2]);
+  });
+});
+
+describe("scoped deletion receipt proof (D-18, D-21)", () => {
+  const gapRowFor = (fixture: ReturnType<typeof deletionFixture>) => {
+    const sibling = fixture.survivors[1]!;
+    return cluster("independent-gap", {
+      group: "g",
+      file: fixture.file,
+      function: "f",
+      mutatorName: sibling.mutatorName,
+      disposition: "gap",
+      count: 1,
+      keys: [sibling.key],
+      anchors: [sibling.anchorKey],
+      test: { file: fixture.testFile, name: "rejects false input" },
+    });
+  };
+  const ledgerFor = (fixture: ReturnType<typeof deletionFixture>, row = fixture.row, reverse = false) =>
+    ledgerOf(reverse ? [gapRowFor(fixture), row] : [row, gapRowFor(fixture)]);
+  const inputFor = (fixture: ReturnType<typeof deletionFixture>) => ({
+    row: fixture.row,
+    root: fixture.root,
+    currentSource: fixture.afterSource,
+    finalEntry: fixture.finalReport.files[fixture.file]!,
+    finalReport: fixture.finalReport,
+    readTest: fixture.readTest,
+    survivors: fixture.survivors,
+    requireFinal: true,
+  });
+  const cloneInput = (fixture: ReturnType<typeof deletionFixture>) => ({
+    ...inputFor(fixture),
+    row: structuredClone(fixture.row),
+    finalEntry: structuredClone(fixture.finalReport.files[fixture.file]!),
+    finalReport: structuredClone(fixture.finalReport),
+    survivors: structuredClone(fixture.survivors),
+  });
+
+  it("proves an exact function-local deletion in both consumers and preserves mapped siblings", () => {
+    const fixture = deletionFixture();
+    const proof = deletionProof.validateDeletion(inputFor(fixture));
+    expect(proof.problems).toEqual([]);
+    expect(proof.anchors).toHaveLength(2);
+    expect(fixture.afterSource).toContain("export function other(flag)");
+    expect(fixture.afterSource).toContain("  if (flag) {");
+
+    const problems = checkLedger({
+      ledger: ledgerFor(fixture),
+      finalReport: fixture.finalReport,
+      root: fixture.root,
+      groups,
+      mode: "final",
+    });
+    expect(problems).toEqual([]);
+    expect(checkLedger({ ledger: ledgerFor(fixture), finalReport: fixture.finalReport,
+      root: fixture.root, groups, mode: "final" })).toEqual([]);
+    expect(checkLedger({ ledger: ledgerFor(fixture, fixture.row, true), finalReport: fixture.finalReport,
+      root: fixture.root, groups, mode: "final" })).toEqual([]);
+    expect(checkLedger({ ledger: ledgerFor(fixture), root: fixture.root,
+      groups, mode: "pre" })).toEqual([]);
+
+    const reordered = structuredClone(fixture.row);
+    reordered.deletion!.removedMutants = (reordered.deletion!.removedMutants as unknown[]).toReversed();
+    expect(deletionProof.validateDeletion({ ...inputFor(fixture), row: reordered }).problems).toEqual([]);
+
+    const result = phaseVerifier.evaluate({
+      clusters: [fixture.row],
+      survivors: fixture.survivors,
+      report: fixture.finalReport,
+      mode: "batch",
+      readTest: fixture.readTest,
+      symbolAbsent: () => false,
+      root: fixture.root,
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ key: fixture.row.keys[0], status: "deleted" });
+  });
+
+  it("validates embedded evidence when the ignored raw before report is absent", () => {
+    const fixture = deletionFixture(true);
+    expect(deletionProof.validateDeletion(inputFor(fixture)).problems).toEqual([]);
+    expect(checkLedger({ ledger: ledgerFor(fixture), finalReport: fixture.finalReport,
+      root: fixture.root, groups, mode: "final" })).toEqual([]);
+  });
+
+  it("executes the real false-opposite assertion: original passes and the deleted guard fails", () => {
+    const fixture = deletionFixture();
+    const assertion = join(fixture.root, fixture.testFile);
+    writeFileSync(join(fixture.root, fixture.file), fixture.beforeSource);
+    const original = spawnSync(process.execPath, [assertion], { cwd: fixture.root, encoding: "utf8" });
+    expect(original.status, original.stderr).toBe(0);
+    writeFileSync(join(fixture.root, fixture.file), fixture.afterSource);
+    const broken = spawnSync(process.execPath, [assertion], { cwd: fixture.root, encoding: "utf8" });
+    expect(broken.status).not.toBe(0);
+    expect(broken.stderr).toMatch(/AssertionError/);
+  });
+
+  it("fails closed on a shallow file clone, then passes full history after deleting phase-only refs and reports", () => {
+    const fixture = deletionFixture();
+    execFileSync("git", ["add", "src/example.mjs", "tests/rejects-false.mjs",
+      "tools/mutation/pre-triage-survivors.json", "reports/before.json", "reports/final.json"], { cwd: fixture.root });
+    execFileSync("git", ["commit", "-q", "-m", "squashed scoped edit"], { cwd: fixture.root });
+    execFileSync("git", ["tag", "phase-only-deletion"], { cwd: fixture.root });
+    writeFileSync(join(fixture.root, "audit.txt"), "unrelated later commit\n");
+    execFileSync("git", ["add", "audit.txt"], { cwd: fixture.root });
+    execFileSync("git", ["commit", "-q", "-m", "later audit"], { cwd: fixture.root });
+
+    const holder = tempRoot({});
+    const shallowRoot = join(holder, "shallow");
+    const fullRoot = join(holder, "full");
+    const url = pathToFileURL(fixture.root).href;
+    execFileSync("git", ["clone", "-q", "--depth=2", url, shallowRoot]);
+    execFileSync("git", ["clone", "-q", url, fullRoot]);
+    const withRoot = (root: string) => ({
+      ...inputFor(fixture),
+      root,
+      currentSource: readFileSync(join(root, fixture.file), "utf8"),
+      finalEntry: fixture.finalReport.files[fixture.file]!,
+      readTest: (path: string) => readFileSync(join(root, path), "utf8"),
+    });
+    const shallow = deletionProof.validateDeletion(withRoot(shallowRoot));
+    expect(shallow.problems.join("\n")).toMatch(/beforeRef source unavailable .* full history is required/);
+
+    execFileSync("git", ["tag", "-d", "phase-only-deletion"], { cwd: fullRoot, stdio: "ignore" });
+    rmSync(join(fullRoot, "reports", "before.json"));
+    expect(deletionProof.validateDeletion(withRoot(fullRoot)).problems).toEqual([]);
+  });
+
+  it("rejects a restored guard, a changed sibling, a wrong function and stale hashes", () => {
+    const fixture = deletionFixture();
+    writeFileSync(join(fixture.root, fixture.file), fixture.beforeSource);
+    const restored = { ...cloneInput(fixture), currentSource: fixture.beforeSource,
+      finalEntry: { ...fixture.finalReport.files[fixture.file]!, source: fixture.beforeSource } };
+    expect(deletionProof.validateDeletion(restored).problems.join("\n")).toMatch(/exact ordered edit chain/);
+
+    const changedSibling = fixture.afterSource.replace('out.push("other")', 'out.push("changed")');
+    writeFileSync(join(fixture.root, fixture.file), changedSibling);
+    const sibling = { ...cloneInput(fixture), currentSource: changedSibling };
+    expect(deletionProof.validateDeletion(sibling).problems.join("\n")).toMatch(/exact ordered edit chain/);
+    const changedReport = structuredClone(fixture.finalReport);
+    changedReport.files[fixture.file]!.source = changedSibling;
+    const ledgerRejected = checkLedger({ ledger: ledgerFor(fixture), finalReport: fixture.finalReport,
+      root: fixture.root, groups, mode: "final" });
+    expect(ledgerRejected.join("\n")).toMatch(/exact ordered edit chain/);
+    expect(() => phaseVerifier.evaluate({ clusters: [fixture.row], survivors: fixture.survivors,
+      report: changedReport, mode: "batch", readTest: fixture.readTest,
+      symbolAbsent: () => false, root: fixture.root })).toThrow(/exact ordered edit chain/);
+
+    writeFileSync(join(fixture.root, fixture.file), fixture.afterSource);
+
+    const wrongFunction = cloneInput(fixture);
+    wrongFunction.row.deletion!.function = "other";
+    expect(deletionProof.validateDeletion(wrongFunction).problems.join("\n")).toMatch(/does not match owned row/);
+
+    const wrongEditFunction = cloneInput(fixture);
+    (wrongEditFunction.row.deletion!.edits as { function: string }[])[0]!.function = "other";
+    expect(deletionProof.validateDeletion(wrongEditFunction).problems.join("\n")).toMatch(/required dead symbol/);
+
+    const wrongOccurrence = cloneInput(fixture);
+    (wrongOccurrence.row.deletion!.edits as { occurrence: number }[])[0]!.occurrence = 1;
+    expect(deletionProof.validateDeletion(wrongOccurrence).problems.join("\n")).toMatch(/occurrence 1 is missing/);
+
+    const otherOnly = fixture.beforeSource.replace(/(export function other[\s\S]*?)  if \(flag\) \{/, "$1  {");
+    writeFileSync(join(fixture.root, fixture.file), otherOnly);
+    expect(deletionProof.validateDeletion({ ...cloneInput(fixture), currentSource: otherOnly,
+      finalEntry: { ...fixture.finalReport.files[fixture.file]!, source: otherOnly } }).problems.join("\n"))
+      .toMatch(/exact ordered edit chain/);
+    writeFileSync(join(fixture.root, fixture.file), fixture.afterSource);
+
+    const stale = cloneInput(fixture);
+    stale.row.deletion!.beforeSourceSha256 = "0".repeat(64);
+    expect(deletionProof.validateDeletion(stale).problems.join("\n")).toMatch(/before source hash mismatch/);
+
+    const unavailable = cloneInput(fixture);
+    unavailable.row.deletion!.beforeRef = "0000000000000000000000000000000000000000";
+    expect(deletionProof.validateDeletion(unavailable).problems.join("\n")).toMatch(/beforeRef source unavailable/);
+
+    const noEdits = cloneInput(fixture);
+    noEdits.row.deletion!.edits = [];
+    expect(deletionProof.validateDeletion(noEdits).problems.join("\n")).toMatch(/required dead symbol/);
+  });
+
+  it("rejects incomplete affected inventory, duplicate edits and a missing detected successor", () => {
+    const fixture = deletionFixture();
+    const inventory = cloneInput(fixture);
+    inventory.row.deletion!.removedMutants = (inventory.row.deletion!.removedMutants as unknown[]).slice(1);
+    expect(deletionProof.validateDeletion(inventory).problems.join("\n")).toMatch(/does not exactly account/);
+
+    const duplicate = cloneInput(fixture);
+    duplicate.row.deletion!.edits = [
+      ...(duplicate.row.deletion!.edits as unknown[]),
+      ...(duplicate.row.deletion!.edits as unknown[]),
+    ];
+    expect(deletionProof.validateDeletion(duplicate).problems.join("\n")).toMatch(/occurrence 0 is missing|overlaps an earlier edit/);
+
+    const counterpart = cloneInput(fixture);
+    counterpart.row.deletion!.detectedSuccessors = [];
+    expect(deletionProof.validateDeletion(counterpart).problems.join("\n")).toMatch(/exactly one successor or counterfactual/);
+
+    const emptyFinal = { ...cloneInput(fixture), finalEntry: null,
+      finalReport: { files: {} as Report["files"], testFiles: fixture.finalReport.testFiles } };
+    expect(deletionProof.validateDeletion(emptyFinal).problems.join("\n")).toMatch(/final report entry is required/);
+
+    for (const status of ["Survived", "NoCoverage", "Ignored"]) {
+      const invalid = cloneInput(fixture);
+      invalid.finalReport.files[fixture.file]!.mutants[0]!.status = status;
+      expect(deletionProof.validateDeletion(invalid).problems.join("\n")).toMatch(new RegExp(`detected successor is ${status}`));
+    }
+    const noKilledBy = cloneInput(fixture);
+    noKilledBy.finalReport.files[fixture.file]!.mutants[0]!.killedBy = [];
+    expect(deletionProof.validateDeletion(noKilledBy).problems.join("\n")).toMatch(/killedBy does not name the real test/);
+  });
+
+  it("rejects altered embedded evidence, stale raw report, missing ownership and ignored opposite", () => {
+    const fixture = deletionFixture();
+    const evidence = cloneInput(fixture);
+    (evidence.row.deletion!.beforeEvidence as { source: string }).source += "// tampered\n";
+    expect(deletionProof.validateDeletion(evidence).problems.join("\n")).toMatch(/canonical digest mismatch/);
+
+    const reportHash = cloneInput(fixture);
+    reportHash.row.deletion!.beforeReportSha256 = "f".repeat(64);
+    expect(deletionProof.validateDeletion(reportHash).problems.join("\n")).toMatch(/retained before report hash mismatch/);
+
+    const changedSlice = cloneInput(fixture);
+    const rawPath = join(fixture.root, "reports/before.json");
+    const rawReport = JSON.parse(readFileSync(rawPath, "utf8"));
+    rawReport.files[fixture.file].source += "// raw-only change\n";
+    const changedBytes = `${JSON.stringify(rawReport, null, 2)}\n`;
+    writeFileSync(rawPath, changedBytes);
+    changedSlice.row.deletion!.beforeReportSha256 = sha256(changedBytes);
+    expect(deletionProof.validateDeletion(changedSlice).problems.join("\n")).toMatch(/slice differs from embedded evidence/);
+    writeFileSync(rawPath, fixture.reportBytes);
+
+    const membership = cloneInput(fixture);
+    membership.row.keys = ["foreign\u0000key"];
+    membership.row.count = 1;
+    expect(deletionProof.validateDeletion(membership).problems.join("\n")).toMatch(/absent from its immutable origin/);
+
+    const ignored = structuredClone(fixture.finalReport);
+    const opposite = ignored.files[fixture.file]!.mutants[1]!;
+    opposite.status = "Ignored";
+    opposite.statusReason = "Ignored using a comment";
+    expect(checkLedger({ ledger: ledgerFor(fixture), finalReport: ignored,
+      root: fixture.root, groups, mode: "final" }).join("\n")).toMatch(/comment-Ignored mutant matches no equivalent row/);
+    expect(() => phaseVerifier.evaluate({ clusters: [fixture.row], survivors: fixture.survivors,
+      report: ignored, mode: "batch", readTest: fixture.readTest, symbolAbsent: () => false,
+      root: fixture.root })).toThrow(/comment-Ignored mutant has no valid equivalent owner/);
   });
 });
