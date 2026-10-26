@@ -14,3 +14,7 @@ tests/corpus/tools/licenses/libjpeg-turbo-LICENSE.md
 # Phase 67 (D-06): StrykerJS sandbox and reports
 reports/
 .stryker-tmp/
+
+# Phase 67 (D-17, D-18): generated audit data, written by tools/mutation/cluster.mjs
+tools/mutation/ledger.json
+tools/mutation/pre-triage-survivors.json

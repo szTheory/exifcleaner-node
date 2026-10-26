@@ -51,6 +51,30 @@ interface Identity {
   mutantKey(file: string, mutant: Mutant): string;
   anchorKey(file: string, mutant: Mutant, source: string): string;
 }
+interface Survivor {
+  group: string;
+  key: string;
+  anchorKey: string;
+  file: string;
+  mutatorName: string;
+  function: string;
+}
+interface Batch {
+  id: string;
+  group: string;
+  clusters: string[];
+  mutants: number;
+  files: string[];
+}
+interface ClusterTools {
+  enclosingFunction(source: string, line: number): string;
+  clusterSurvivors(survivors: Survivor[]): Cluster[];
+  partitionBatches(
+    clusters: Cluster[],
+    limit?: number,
+    maxFiles?: number,
+  ): Batch[];
+}
 interface Checker {
   checkLedger(input: {
     ledger: { schemaVersion: number; preTriage: null; clusters: Cluster[] };
@@ -68,6 +92,7 @@ const load = async <T>(name: string) =>
     pathToFileURL(join(packageRoot, "tools", "mutation", name)).href
   )) as T;
 const identity = await load<Identity>("identity.mjs");
+const clusterTools = await load<ClusterTools>("cluster.mjs");
 const { checkLedger } = await load<Checker>("ledger-check.mjs");
 
 const groups = {
@@ -461,5 +486,36 @@ describe("committed ledger", () => {
     const result = run("--pre", join(dir, "pre.json"));
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/in no cluster/);
+  });
+});
+
+describe("pre-triage survivors and clustering (D-17, D-18)", () => {
+  const pre = JSON.parse(
+    readFileSync(
+      join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+      "utf8",
+    ),
+  ) as {
+    runId: string;
+    sha: string;
+    survivorCount: number;
+    survivors: Survivor[];
+  };
+
+  it("records the run, the SHA and a consistent count", () => {
+    expect(pre.runId).toMatch(/^\d+$/);
+    expect(pre.sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(pre.survivors).toHaveLength(pre.survivorCount);
+    expect(pre.survivors.every((s) => s.function !== "")).toBe(true);
+  });
+
+  it("puts every webp survivor in exactly one cluster (tracer)", () => {
+    const webp = pre.survivors.filter((s) => s.group === "webp");
+    expect(webp.length).toBeGreaterThan(0);
+    const clusters = clusterTools.clusterSurvivors(webp);
+    expect(clusters.length).toBeGreaterThan(0);
+    const keys = clusters.flatMap((c) => c.keys);
+    expect(keys.toSorted()).toEqual(webp.map((s) => s.key).toSorted());
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });
