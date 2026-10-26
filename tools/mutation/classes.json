@@ -1,0 +1,29 @@
+{
+  "extendOnlyWithAReason": "Add a class or mutator only with a written reason in the PR; the lint and the lane gate fail closed on anything not listed here.",
+  "equivalenceClasses": {
+    "unobservable-message": "Error message text; typed kinds, not message strings, are the asserted contract.",
+    "redundant-guard-after-typed-check": "A guard the type system or an earlier check already makes unreachable, so removing it changes no behavior.",
+    "defensive-unreachable-by-construction": "A defensive branch that cannot be reached through any public input by construction.",
+    "equivalent-arithmetic": "An arithmetic or comparison change that yields the same value for every reachable input.",
+    "platform-constant": "A value fixed by the platform or a format specification, not by this code."
+  },
+  "mutators": [
+    "ArithmeticOperator",
+    "ArrayDeclaration",
+    "ArrowFunction",
+    "AssignmentOperator",
+    "BlockStatement",
+    "BooleanLiteral",
+    "CallExpression",
+    "ConditionalExpression",
+    "EqualityOperator",
+    "LogicalOperator",
+    "MethodExpression",
+    "ObjectLiteral",
+    "OptionalChaining",
+    "Regex",
+    "StringLiteral",
+    "UnaryOperator",
+    "UpdateOperator"
+  ]
+}

@@ -589,6 +589,14 @@ export const EXCLUSIONS: Readonly<
     class: "repo-tooling",
     reason: "Tests the mutation scripts, not src.",
   },
+  "tests/mutation_ignorer.test.ts": {
+    class: "repo-tooling",
+    reason: "Tests mutation tooling (error-message ignorer rule), not src.",
+  },
+  "tests/mutation_disable_lint.test.ts": {
+    class: "repo-tooling",
+    reason: "Tests mutation tooling (disable-comment lint), not src.",
+  },
   "tests/native_artifact_audit.test.ts": {
     class: "repo-tooling",
     reason: "Audits native artifacts; tests no src.",
