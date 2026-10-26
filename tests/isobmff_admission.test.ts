@@ -18,6 +18,8 @@ import { C2PA_UUID_USERTYPE } from "../src/isobmff/boxes.js";
 import { IsobmffStructureError } from "../src/isobmff/errors.js";
 import { parseIsobmff } from "../src/isobmff/parse.js";
 import { createOrientationExif } from "../src/metadata/exif.js";
+import { heicHandler } from "../src/admission/heic-handler.js";
+import { avifHandler } from "../src/admission/avif-handler.js";
 import {
   auxC,
   colrProf,
@@ -120,6 +122,7 @@ interface ItemSpec {
    * sample's XMP item). */
   readonly omitContentEncoding?: boolean;
   readonly constructionMethod?: number;
+  readonly baseOffset?: number;
   readonly dataReferenceIndex?: number;
   /** cm=0: relative to the mdat payload's own start, resolved to an absolute `baseOffset` by the
    * builder (shared across every cm=0 item, mirroring the real `heif-enc` fixtures' own
@@ -132,6 +135,8 @@ interface ItemSpec {
 }
 
 interface FileSpec {
+  readonly offsetSize?: 0 | 4;
+  readonly mdatFirst?: boolean;
   readonly majorBrand?: string;
   readonly compatibleBrands?: readonly string[];
   readonly primaryItemId: number;
@@ -196,7 +201,7 @@ function buildFile(spec: FileSpec): Buffer {
       spec.idatPayload !== undefined ? idatBox(spec.idatPayload) : undefined;
     const iloc = ilocBox({
       version: 1,
-      offsetSize: 4,
+      offsetSize: spec.offsetSize ?? 4,
       lengthSize: 4,
       baseOffsetSize: 4,
       indexSize: 0,
@@ -204,7 +209,9 @@ function buildFile(spec: FileSpec): Buffer {
         itemId: item.itemId,
         constructionMethod: item.constructionMethod ?? 0,
         dataReferenceIndex: item.dataReferenceIndex ?? 0,
-        baseOffset: (item.constructionMethod ?? 0) === 0 ? mdatPayloadStart : 0,
+        baseOffset:
+          item.baseOffset ??
+          ((item.constructionMethod ?? 0) === 0 ? mdatPayloadStart : 0),
         extents: item.extents.map((extent) => ({
           offset: extent.relOffset,
           length: extent.length,
@@ -233,6 +240,7 @@ function buildFile(spec: FileSpec): Buffer {
     const meta = metaBox(metaChildren);
     const header = Buffer.concat([ftyp, meta, ...(spec.topLevelExtra ?? [])]);
     const mdat = mdatBox(spec.mdatPayload);
+    if (spec.mdatFirst) return Buffer.concat([ftyp, mdat, meta]);
     return Buffer.concat([header, mdat, ...(spec.trailingExtra ?? [])]);
   };
 
@@ -243,7 +251,13 @@ function buildFile(spec: FileSpec): Buffer {
     0,
   );
   const headerLength = pass1.length - mdatBoxTotal - trailingLength;
-  const mdatPayloadStart = headerLength + 8;
+  const mdatPayloadStart = spec.mdatFirst
+    ? ftypBox(
+        spec.majorBrand ?? "heic",
+        0,
+        spec.compatibleBrands ?? ["mif1", "heic"],
+      ).length + 8
+    : headerLength + 8;
   const final = assemble(mdatPayloadStart);
   if (final.length !== pass1.length) {
     throw new Error(
@@ -1098,5 +1112,384 @@ describe("WR-01: offset-sum precision guard in admission.ts", () => {
       admitIsobmff(handle, size),
     );
     expect(admission.classification.survivingItemIds).toEqual([1]);
+  });
+});
+
+describe("67-14 measured ISOBMFF admission survivors", () => {
+  const image: ItemSpec = {
+    itemId: 1,
+    itemType: "hvc1",
+    extents: [{ relOffset: 0, length: 4 }],
+  };
+  const exif = (extents: ItemSpec["extents"]): ItemSpec => ({
+    itemId: 2,
+    itemType: "Exif",
+    extents,
+  });
+  async function classify(spec: FileSpec) {
+    const { path, size } = await writeFixture(buildFile(spec));
+    return withHandle(path, async (handle) =>
+      classifyIsobmffModel(await parseIsobmff(handle, size), size),
+    );
+  }
+  async function admit(spec: FileSpec) {
+    const { path, size } = await writeFixture(buildFile(spec));
+    return withHandle(path, (handle) => admitIsobmff(handle, size));
+  }
+  it("reclassifyParsedBrands BlockStatement: compatible-only HEIC and AVIF retain their handler identity", async () => {
+    for (const [brand, handler] of [
+      ["heic", heicHandler],
+      ["avif", avifHandler],
+    ] as const) {
+      const { path, size } = await writeFixture(
+        buildFile({
+          majorBrand: "mif1",
+          compatibleBrands: ["mif1", brand],
+          primaryItemId: 1,
+          items: [image],
+          mdatPayload: Buffer.alloc(4),
+        }),
+      );
+      const result = await withHandle(path, (handle) =>
+        handler.admit(handle, size),
+      );
+      expect(result.classification.survivingItemIds).toEqual([1]);
+      expect(result.model.majorBrand).toBe("mif1");
+      expect(result.model.compatibleBrands).toContain(brand);
+    }
+  });
+  it("findExifSourceItemId ConditionalExpression: only Exif cdsc to the primary supplies orientation", async () => {
+    const first = Buffer.concat([Buffer.alloc(4), createOrientationExif(3)]);
+    const second = Buffer.concat([Buffer.alloc(4), createOrientationExif(6)]);
+    const xmp = minimalXmp("not an Exif source");
+    const result = await admit({
+      primaryItemId: 1,
+      items: [
+        image,
+        exif([{ relOffset: 4, length: first.length }]),
+        {
+          itemId: 3,
+          itemType: "mime",
+          contentType: "application/rdf+xml",
+          extents: [{ relOffset: 4 + first.length, length: xmp.length }],
+        },
+        {
+          itemId: 4,
+          itemType: "Exif",
+          extents: [
+            { relOffset: 4 + first.length + xmp.length, length: second.length },
+          ],
+        },
+      ],
+      refs: [
+        { type: "auxl", fromItemId: 2, toItemIds: [1] },
+        { type: "cdsc", fromItemId: 3, toItemIds: [1] },
+        { type: "cdsc", fromItemId: 4, toItemIds: [1] },
+      ],
+      mdatPayload: Buffer.concat([Buffer.alloc(4), first, xmp, second]),
+    });
+    expect(result.exifSourceItemId).toBe(4);
+    expect(result.orientation).toMatchObject({ status: "valid", value: 6 });
+  });
+  it("classifyIsobmffModel ConditionalExpression LogicalOperator: zero offset width admits idat images and empty removable items", async () => {
+    const result = await classify({
+      offsetSize: 0,
+      primaryItemId: 1,
+      items: [{ ...image, constructionMethod: 1 }, exif([])],
+      idatPayload: Buffer.alloc(4),
+      mdatPayload: Buffer.alloc(0),
+    });
+    expect(result).toMatchObject({
+      survivingItemIds: [1],
+      removableItemIds: [2],
+      emptiedItemIds: [2],
+    });
+  });
+  it("classifyIsobmffModel ConditionalExpression LogicalOperator BlockStatement: idat extent crossing its end declines", async () => {
+    await expect(
+      classify({
+        primaryItemId: 1,
+        items: [
+          {
+            ...image,
+            constructionMethod: 1,
+            extents: [{ relOffset: 1, length: 4 }],
+          },
+        ],
+        idatPayload: Buffer.alloc(4),
+        mdatPayload: Buffer.alloc(0),
+      }),
+    ).rejects.toMatchObject({
+      declineClass: "extent-outside-mdat",
+      kind: "malformed-file",
+    });
+  });
+  it("classifyIsobmffModel ConditionalExpression: negative start in a supplied parsed-model copy declines", async () => {
+    // The pure classifier is also exported internally. Keep its malformed-model boundary
+    // explicit instead of suppressing the neighboring, observable idat end check.
+    const { path, size } = await writeFixture(
+      buildFile({
+        primaryItemId: 1,
+        items: [{ ...image, constructionMethod: 1 }],
+        idatPayload: Buffer.alloc(4),
+        mdatPayload: Buffer.alloc(0),
+      }),
+    );
+    await withHandle(path, async (handle) => {
+      const model = await parseIsobmff(handle, size);
+      expect(() =>
+        classifyIsobmffModel(
+          {
+            ...model,
+            items: model.items.map((item) => ({ ...item, baseOffset: -1 })),
+          },
+          size,
+        ),
+      ).toThrowError(
+        expect.objectContaining({
+          declineClass: "extent-outside-mdat",
+          kind: "malformed-file",
+        }),
+      );
+    });
+  });
+  it("classifyIsobmffModel ConditionalExpression BlockStatement EqualityOperator: EOF after a trailing box admits an empty Exif extent", async () => {
+    const free = Buffer.from([0, 0, 0, 8, 102, 114, 101, 101]);
+    const result = await classify({
+      primaryItemId: 1,
+      items: [image, exif([{ relOffset: 12, length: 0 }])],
+      mdatPayload: Buffer.alloc(4),
+      trailingExtra: [free],
+    });
+    expect(result).toMatchObject({
+      survivingItemIds: [1],
+      removableItemIds: [2],
+      emptiedItemIds: [2],
+    });
+  });
+  it("classifyIsobmffModel ConditionalExpression: an empty extent before mdat declines", async () => {
+    await expect(
+      classify({
+        primaryItemId: 1,
+        items: [
+          image,
+          { ...exif([{ relOffset: 0, length: 0 }]), baseOffset: 0 },
+        ],
+        mdatPayload: Buffer.alloc(4),
+      }),
+    ).rejects.toMatchObject({
+      declineClass: "extent-outside-mdat",
+      kind: "malformed-file",
+    });
+  });
+  it("classifyIsobmffModel EqualityOperator: an empty extent at mdat start is admitted", async () => {
+    expect(
+      await classify({
+        primaryItemId: 1,
+        items: [image, exif([{ relOffset: 0, length: 0 }])],
+        mdatPayload: Buffer.alloc(4),
+      }),
+    ).toMatchObject({ emptiedItemIds: [2] });
+  });
+  it("classifyIsobmffModel ConditionalExpression: nonempty extent beyond mdat declines", async () => {
+    await expect(
+      classify({
+        primaryItemId: 1,
+        items: [{ ...image, extents: [{ relOffset: 0, length: 5 }] }],
+        mdatPayload: Buffer.alloc(4),
+      }),
+    ).rejects.toMatchObject({
+      declineClass: "extent-outside-mdat",
+      kind: "malformed-file",
+    });
+  });
+  it("classifyIsobmffModel MethodExpression: a mixed surviving extent list declines", async () => {
+    await expect(
+      classify({
+        primaryItemId: 1,
+        items: [
+          {
+            ...image,
+            extents: [
+              { relOffset: 0, length: 4 },
+              { relOffset: 4, length: 0 },
+            ],
+          },
+        ],
+        mdatPayload: Buffer.alloc(4),
+      }),
+    ).rejects.toMatchObject({
+      declineClass: "surviving-zero-length-extent",
+      kind: "unsafe-structure",
+    });
+  });
+  it("classifyIsobmffModel ConditionalExpression MethodExpression: a zero removable extent never overlaps and does not empty a mixed item", async () => {
+    const result = await classify({
+      primaryItemId: 1,
+      items: [
+        image,
+        exif([
+          { relOffset: 1, length: 0 },
+          { relOffset: 4, length: 4 },
+        ]),
+      ],
+      mdatPayload: Buffer.alloc(8),
+    });
+    expect(result).toMatchObject({
+      survivingItemIds: [1],
+      removableItemIds: [2],
+      emptiedItemIds: [],
+    });
+  });
+  it("classifyIsobmffModel ConditionalExpression: idat-relative coordinates never enter absolute mdat overlap ranges", async () => {
+    const ftypLength = ftypBox("heic", 0, ["mif1", "heic"]).length;
+    const result = await classify({
+      mdatFirst: true,
+      primaryItemId: 1,
+      items: [
+        {
+          ...image,
+          constructionMethod: 1,
+          extents: [{ relOffset: ftypLength + 8, length: 4 }],
+        },
+        exif([{ relOffset: 0, length: 4 }]),
+      ],
+      idatPayload: Buffer.alloc(128),
+      mdatPayload: Buffer.alloc(4),
+    });
+    expect(result).toMatchObject({
+      survivingItemIds: [1],
+      removableItemIds: [2],
+      emptiedItemIds: [],
+    });
+  });
+  it("admitIsobmff ConditionalExpression: emptied Exif contributes no namespace or warnings", async () => {
+    const result = await admit({
+      primaryItemId: 1,
+      items: [image, exif([])],
+      mdatPayload: Buffer.alloc(4),
+    });
+    expect(result.classification.emptiedItemIds).toEqual([2]);
+    expect(result.namespaces).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+  it("admitIsobmff CallExpression: ICC entries and invalid-profile warnings reach the result", async () => {
+    const result = await admit({
+      primaryItemId: 1,
+      items: [{ ...image, propertyIndices: [1] }],
+      properties: [colrProf(Buffer.from([1]))],
+      mdatPayload: Buffer.alloc(4),
+    });
+    expect(result.entries).toContainEqual({
+      namespace: "ICC",
+      name: "Size",
+      value: 1,
+    });
+    expect(result.warnings).toEqual([
+      expect.objectContaining({ code: "metadata-invalid" }),
+    ]);
+  });
+  it("admitIsobmff CallExpression: invalid Exif warnings reach the result", async () => {
+    const result = await admit({
+      primaryItemId: 1,
+      items: [image, exif([{ relOffset: 4, length: 5 }])],
+      mdatPayload: Buffer.alloc(9),
+    });
+    expect(result.warnings).toEqual([
+      expect.objectContaining({ code: "metadata-invalid" }),
+    ]);
+  });
+  it("admitIsobmff CallExpression: invalid XMP warnings reach the result", async () => {
+    const result = await admit({
+      primaryItemId: 1,
+      items: [
+        image,
+        {
+          itemId: 2,
+          itemType: "mime",
+          contentType: "application/rdf+xml",
+          extents: [{ relOffset: 4, length: 1 }],
+        },
+      ],
+      mdatPayload: Buffer.concat([Buffer.alloc(4), Buffer.from([255])]),
+    });
+    expect(result.warnings).toEqual([
+      expect.objectContaining({ code: "metadata-invalid" }),
+    ]);
+  });
+  it("admitIsobmff ConditionalExpression EqualityOperator: Exif lengths below and exactly at the four-byte prefix boundary differ", async () => {
+    for (const length of [3, 4]) {
+      const result = await admit({
+        primaryItemId: 1,
+        items: [image, exif([{ relOffset: 4, length }])],
+        mdatPayload: Buffer.alloc(4 + length),
+      });
+      expect(result.namespaces).toEqual(["EXIF"]);
+      expect(result.warnings.map((warning) => warning.code)).toEqual(
+        length === 3 ? [] : ["metadata-invalid"],
+      );
+    }
+  });
+  it("admitIsobmff ArithmeticOperator: nonzero TIFF padding preserves source orientation", async () => {
+    const payload = Buffer.concat([
+      Buffer.from([0, 0, 0, 8]),
+      Buffer.alloc(8),
+      createOrientationExif(8),
+    ]);
+    const result = await admit({
+      primaryItemId: 1,
+      items: [image, exif([{ relOffset: 4, length: payload.length }])],
+      refs: [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }],
+      mdatPayload: Buffer.concat([Buffer.alloc(4), payload]),
+    });
+    expect(result.exifSourceItemId).toBe(2);
+    expect(result.orientation).toEqual({ status: "valid", value: 8 });
+  });
+  it("admitIsobmff ConditionalExpression BlockStatement BooleanLiteral: abort between removable reads is a typed framing failure", async () => {
+    const payload = exifItemPayload();
+    const bytes = buildFile({
+      primaryItemId: 1,
+      items: [
+        image,
+        exif([{ relOffset: 4, length: payload.length }]),
+        {
+          itemId: 3,
+          itemType: "mime",
+          contentType: "application/rdf+xml",
+          extents: [{ relOffset: 4 + payload.length, length: 1 }],
+        },
+      ],
+      mdatPayload: Buffer.concat([
+        Buffer.alloc(4),
+        payload,
+        Buffer.from([255]),
+      ]),
+    });
+    const { path, size } = await writeFixture(bytes);
+    await withHandle(path, async (handle) => {
+      const model = await parseIsobmff(handle, size);
+      const item = model.itemsById.get(2)!;
+      const position = item.baseOffset + item.extents[0]!.offset;
+      const controller = new AbortController();
+      const intercepted = new Proxy(handle, {
+        get(target, key) {
+          if (key === "read")
+            return async (...args: [Buffer, number, number, number]) => {
+              const result = await target.read(...args);
+              if (args[3] === position) controller.abort();
+              return result;
+            };
+          const value: unknown = Reflect.get(target, key, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+      await expect(
+        admitIsobmff(intercepted, size, controller.signal),
+      ).rejects.toMatchObject({
+        declineClass: "box-framing",
+        kind: "malformed-file",
+      });
+      expect(controller.signal.aborted).toBe(true);
+    });
   });
 });

@@ -12,7 +12,7 @@
       "file": "src/admission/isobmff-handler.ts",
       "function": "reclassifyParsedBrands",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/isobmff-handler.ts\u0000BlockStatement\u0000{}\u000053\u000056\u000055\u00004"
@@ -20,7 +20,11 @@
       "anchors": [
         "src/admission/isobmff-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    bytes.write(compatibleBrand, 16 + index * 4, 4, \"ascii\");\n  }\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "reclassifyParsedBrands BlockStatement: compatible-only HEIC and AVIF retain their handler identity"
+      }
     },
     {
       "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:ArithmeticOperator",
@@ -28,7 +32,7 @@
       "file": "src/isobmff/admission.ts",
       "function": "admitIsobmff",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/admission.ts\u0000ArithmeticOperator\u00004 - tiffHeaderOffset\u0000504\u000037\u0000504\u000057"
@@ -36,7 +40,11 @@
       "anchors": [
         "src/isobmff/admission.ts\u0000ArithmeticOperator\u00004 - tiffHeaderOffset\u00004 + tiffHeaderOffset\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff ArithmeticOperator: nonzero TIFF padding preserves source orientation"
+      }
     },
     {
       "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:BlockStatement",
@@ -44,7 +52,7 @@
       "file": "src/isobmff/admission.ts",
       "function": "admitIsobmff",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/admission.ts\u0000BlockStatement\u0000{}\u0000479\u000035\u0000481\u00006"
@@ -52,7 +60,11 @@
       "anchors": [
         "src/isobmff/admission.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new IsobmffStructureError(\"box-framing\", \"Parsing aborted.\");\n    }\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff ConditionalExpression BlockStatement BooleanLiteral: abort between removable reads is a typed framing failure"
+      }
     },
     {
       "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:BooleanLiteral",
@@ -60,7 +72,7 @@
       "file": "src/isobmff/admission.ts",
       "function": "admitIsobmff",
       "mutatorName": "BooleanLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/admission.ts\u0000BooleanLiteral\u0000false\u0000479\u000029\u0000479\u000033"
@@ -68,51 +80,156 @@
       "anchors": [
         "src/isobmff/admission.ts\u0000BooleanLiteral\u0000false\u0000true\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff ConditionalExpression BlockStatement BooleanLiteral: abort between removable reads is a typed framing failure"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:CallExpression",
+      "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:CallExpression:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/admission.ts",
       "function": "admitIsobmff",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000466\u00005\u0000466\u000036",
-        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000467\u00005\u0000467\u000038",
-        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000507\u00007\u0000507\u000040",
-        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000527\u00007\u0000527\u000040"
+        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000467\u00005\u0000467\u000038"
       ],
       "anchors": [
         "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000entries.push(...found.entries);\u00000",
-        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00000",
-        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00001",
-        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00002"
+        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:admitIsobmff:CallExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff CallExpression: ICC entries and invalid-profile warnings reach the result"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression",
+      "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:CallExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "admitIsobmff",
+      "mutatorName": "CallExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000507\u00007\u0000507\u000040"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00001"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:admitIsobmff:CallExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff CallExpression: invalid Exif warnings reach the result"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:CallExpression:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "admitIsobmff",
+      "mutatorName": "CallExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000527\u00007\u0000527\u000040"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00002"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:admitIsobmff:CallExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff CallExpression: invalid XMP warnings reach the result"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression:gap-01",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "admitIsobmff",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000478\u00009\u0000478\u000028"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000emptied.has(itemId)\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff ConditionalExpression: emptied Exif contributes no namespace or warnings"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "admitIsobmff",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000479\u00009\u0000479\u000033"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000signal?.aborted === true\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff ConditionalExpression BlockStatement BooleanLiteral: abort between removable reads is a typed framing failure"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "admitIsobmff",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000500\u000011\u0000500\u000029"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000payload.length < 4\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff ConditionalExpression EqualityOperator: Exif lengths below and exactly at the four-byte prefix boundary differ"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression:pending",
       "group": "isobmff",
       "file": "src/isobmff/admission.ts",
       "function": "admitIsobmff",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 4,
+      "count": 1,
       "keys": [
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000478\u00009\u0000478\u000028",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000479\u00009\u0000479\u000033",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000500\u000011\u0000500\u000029",
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000523\u00009\u0000523\u000029"
       ],
       "anchors": [
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000emptied.has(itemId)\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000signal?.aborted === true\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000payload.length < 4\u00000",
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000item.type === \"mime\"\u00001"
       ],
-      "note": ""
+      "note": "Equivalent survivor awaits a disposition mechanism that does not suppress detected collateral mutations.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression"
     },
     {
       "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:EqualityOperator",
@@ -120,7 +237,7 @@
       "file": "src/isobmff/admission.ts",
       "function": "admitIsobmff",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/admission.ts\u0000EqualityOperator\u0000payload.length <= 4\u0000500\u000011\u0000500\u000029"
@@ -128,7 +245,11 @@
       "anchors": [
         "src/isobmff/admission.ts\u0000EqualityOperator\u0000payload.length <= 4\u0000payload.length < 4\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "admitIsobmff ConditionalExpression EqualityOperator: Exif lengths below and exactly at the four-byte prefix boundary differ"
+      }
     },
     {
       "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:StringLiteral",
@@ -144,119 +265,368 @@
       "anchors": [
         "src/isobmff/admission.ts\u0000StringLiteral\u0000``\u0000`Item ${item.id}'s read extent start`\u00000"
       ],
-      "note": ""
+      "note": "Equivalent survivor awaits a disposition mechanism that does not suppress detected collateral mutations."
     },
     {
-      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:BlockStatement",
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:BlockStatement:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/admission.ts",
       "function": "classifyIsobmffModel",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/admission.ts\u0000BlockStatement\u0000{}\u0000315\u000045\u0000320\u000010",
+        "src/isobmff/admission.ts\u0000BlockStatement\u0000{}\u0000315\u000045\u0000320\u000010"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000BlockStatement\u0000{}\u0000{\n          throw new IsobmffStructureError(\n            \"extent-outside-mdat\",\n            `Item ${item.id}'s idat extent [${start}, ${end}) is outside idat (length ${idat.length}).`,\n          );\n        }\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression LogicalOperator BlockStatement: idat extent crossing its end declines"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:BlockStatement:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/admission.ts\u0000BlockStatement\u0000{}\u0000329\u000032\u0000340\u00008"
       ],
       "anchors": [
-        "src/isobmff/admission.ts\u0000BlockStatement\u0000{}\u0000{\n          throw new IsobmffStructureError(\n            \"extent-outside-mdat\",\n            `Item ${item.id}'s idat extent [${start}, ${end}) is outside idat (length ${idat.length}).`,\n          );\n        }\u00000",
         "src/isobmff/admission.ts\u0000BlockStatement\u0000{}\u0000{\n        const insideMdat =\n          mdat !== undefined && start >= mdat.start && start <= mdat.end;\n        const atFileEnd = start === fileSize;\n        if (!insideMdat && !atFileEnd) {\n          throw new IsobmffStructureError(\n            \"extent-outside-mdat\",\n            `Item ${item.id}'s zero-length extent at offset ${start} is neither inside mdat nor at the file's end.`,\n          );\n        }\n        continue;\n      }\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression BlockStatement EqualityOperator: EOF after a trailing box admits an empty Exif extent"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression",
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression:gap-01",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000265\u00007\u0000265\u000041",
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000265\u00007\u0000266\u000036",
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000266\u00007\u0000266\u000036"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000kinds.get(item.id) === \"surviving\"\u00000",
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000kinds.get(item.id) === \"surviving\" &&\n      item.constructionMethod === 0\u00000",
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000item.constructionMethod === 0\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression LogicalOperator: zero offset width admits idat images and empty removable items"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000315\u000013\u0000315\u000022"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000start < 0\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression: negative start in a supplied parsed-model copy declines"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000315\u000026\u0000315\u000043"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000end > idat.length\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression LogicalOperator BlockStatement: idat extent crossing its end declines"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000331\u000033\u0000331\u000052"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000start >= mdat.start\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression: an empty extent before mdat declines"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression:gap-05",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000332\u000027\u0000332\u000045"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000start === fileSize\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression BlockStatement EqualityOperator: EOF after a trailing box admits an empty Exif extent"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression:gap-06",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000347\u000055\u0000347\u000069"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000end > mdat.end\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression: nonempty extent beyond mdat declines"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression:gap-07",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000365\u000047\u0000365\u000076"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000item.constructionMethod !== 0\u00001"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression: idat-relative coordinates never enter absolute mdat overlap ranges"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression:pending",
       "group": "isobmff",
       "file": "src/isobmff/admission.ts",
       "function": "classifyIsobmffModel",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 13,
+      "count": 3,
       "keys": [
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000265\u00007\u0000265\u000041",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000265\u00007\u0000266\u000036",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000266\u00007\u0000266\u000036",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000315\u000013\u0000315\u000022",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000315\u000026\u0000315\u000043",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000331\u000033\u0000331\u000052",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000332\u000027\u0000332\u000045",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000347\u000055\u0000347\u000069",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000365\u000047\u0000365\u000076",
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000369\u000011\u0000369\u000030",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000389\u000011\u0000389\u000030",
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000420\u00009\u0000420\u000034",
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000425\u000016\u0000425\u000036"
       ],
       "anchors": [
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000kinds.get(item.id) === \"surviving\"\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000kinds.get(item.id) === \"surviving\" &&\n      item.constructionMethod === 0\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000item.constructionMethod === 0\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000start < 0\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000end > idat.length\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000start >= mdat.start\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000start === fileSize\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000end > mdat.end\u00000",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000item.constructionMethod !== 0\u00001",
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000extent.length === 0\u00002",
-        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000extent.length === 0\u00003",
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000item.extents.length === 0\u00001",
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000kind === \"surviving\"\u00000"
       ],
-      "note": ""
+      "note": "Equivalent survivor awaits a disposition mechanism that does not suppress detected collateral mutations.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression"
     },
     {
-      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:EqualityOperator",
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression:gap-09",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000389\u000011\u0000389\u000030"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000extent.length === 0\u00003"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression MethodExpression: a zero removable extent never overlaps and does not empty a mixed item"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:EqualityOperator:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/admission.ts",
       "function": "classifyIsobmffModel",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/admission.ts\u0000EqualityOperator\u0000extent.length !== 0\u0000329\u000011\u0000329\u000030",
+        "src/isobmff/admission.ts\u0000EqualityOperator\u0000extent.length !== 0\u0000329\u000011\u0000329\u000030"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000EqualityOperator\u0000extent.length !== 0\u0000extent.length === 0\u00001"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression BlockStatement EqualityOperator: EOF after a trailing box admits an empty Exif extent"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:EqualityOperator:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/admission.ts\u0000EqualityOperator\u0000start > mdat.start\u0000331\u000033\u0000331\u000052"
       ],
       "anchors": [
-        "src/isobmff/admission.ts\u0000EqualityOperator\u0000extent.length !== 0\u0000extent.length === 0\u00001",
         "src/isobmff/admission.ts\u0000EqualityOperator\u0000start > mdat.start\u0000start >= mdat.start\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel EqualityOperator: an empty extent at mdat start is admitted"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:LogicalOperator",
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:LogicalOperator:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/admission.ts",
       "function": "classifyIsobmffModel",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/admission.ts\u0000LogicalOperator\u0000kinds.get(item.id) === \"surviving\" || item.constructionMethod === 0\u0000265\u00007\u0000266\u000036",
+        "src/isobmff/admission.ts\u0000LogicalOperator\u0000kinds.get(item.id) === \"surviving\" || item.constructionMethod === 0\u0000265\u00007\u0000266\u000036"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000LogicalOperator\u0000kinds.get(item.id) === \"surviving\" || item.constructionMethod === 0\u0000kinds.get(item.id) === \"surviving\" &&\n      item.constructionMethod === 0\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression LogicalOperator: zero offset width admits idat images and empty removable items"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:LogicalOperator:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/admission.ts\u0000LogicalOperator\u0000start < 0 && end > idat.length\u0000315\u000013\u0000315\u000043"
       ],
       "anchors": [
-        "src/isobmff/admission.ts\u0000LogicalOperator\u0000kinds.get(item.id) === \"surviving\" || item.constructionMethod === 0\u0000kinds.get(item.id) === \"surviving\" &&\n      item.constructionMethod === 0\u00000",
         "src/isobmff/admission.ts\u0000LogicalOperator\u0000start < 0 && end > idat.length\u0000start < 0 || end > idat.length\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression LogicalOperator BlockStatement: idat extent crossing its end declines"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:MethodExpression",
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:MethodExpression:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/admission.ts",
       "function": "classifyIsobmffModel",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/admission.ts\u0000MethodExpression\u0000item.extents.every(extent => extent.length === 0)\u0000281\u00007\u0000281\u000057",
+        "src/isobmff/admission.ts\u0000MethodExpression\u0000item.extents.every(extent => extent.length === 0)\u0000281\u00007\u0000281\u000057"
+      ],
+      "anchors": [
+        "src/isobmff/admission.ts\u0000MethodExpression\u0000item.extents.every(extent => extent.length === 0)\u0000item.extents.some((extent) => extent.length === 0)\u00000"
+      ],
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:MethodExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel MethodExpression: a mixed surviving extent list declines"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:MethodExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/admission.ts",
+      "function": "classifyIsobmffModel",
+      "mutatorName": "MethodExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/admission.ts\u0000MethodExpression\u0000item.extents.some(extent => extent.length === 0)\u0000421\u00009\u0000421\u000060"
       ],
       "anchors": [
-        "src/isobmff/admission.ts\u0000MethodExpression\u0000item.extents.every(extent => extent.length === 0)\u0000item.extents.some((extent) => extent.length === 0)\u00000",
         "src/isobmff/admission.ts\u0000MethodExpression\u0000item.extents.some(extent => extent.length === 0)\u0000item.extents.every((extent) => extent.length === 0)\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "originClusterId": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:MethodExpression",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "classifyIsobmffModel ConditionalExpression MethodExpression: a zero removable extent never overlaps and does not empty a mixed item"
+      }
     },
     {
       "id": "isobmff:src/isobmff/admission.ts:classifyIsobmffModel:StringLiteral",
@@ -307,7 +677,7 @@
       "file": "src/isobmff/admission.ts",
       "function": "findExifSourceItemId",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000110\u000011\u0000110\u000036",
@@ -317,7 +687,11 @@
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000true\u0000reference.type === \"cdsc\"\u00000",
         "src/isobmff/admission.ts\u0000ConditionalExpression\u0000false\u0000item.type !== \"Exif\"\u00000"
       ],
-      "note": ""
+      "note": "Red/green reports: reports/triage/67-14/remaining-red.json and node24-green.json; exact named test appears in killedBy.",
+      "test": {
+        "file": "tests/isobmff_admission.test.ts",
+        "name": "findExifSourceItemId ConditionalExpression: only Exif cdsc to the primary supplies orientation"
+      }
     },
     {
       "id": "isobmff:src/isobmff/boxes.ts:containerChildOffset:ConditionalExpression",
