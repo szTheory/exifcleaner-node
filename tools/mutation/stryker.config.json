@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "plugins": ["@stryker-mutator/*"],
+  "plugins": [
+    "@stryker-mutator/*",
+    "./tools/mutation/ignorers/error-message.mjs"
+  ],
+  "ignorers": ["error-message"],
   "testRunner": "vitest",
   "checkers": ["typescript"],
   "tsconfigFile": "tools/mutation/tsconfig.stryker.json",
