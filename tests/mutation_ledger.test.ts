@@ -30,6 +30,7 @@ interface Mutant {
   statusReason?: string;
   static?: boolean;
   killedBy?: string[];
+  coveredBy?: string[];
   location: {
     start: { line: number; column: number };
     end: { line: number; column: number };
@@ -646,6 +647,17 @@ function withCliFileMutation<T>(fixture: RealCliFixture, relativePath: string,
     chmodSync(path, 0o644);
     writeFileSync(path, original);
     chmodSync(path, 0o444);
+  }
+}
+
+function withCliFileRemoval<T>(fixture: RealCliFixture, relativePath: string, action: () => T): T {
+  const path = resolve(fixture.root, relativePath);
+  const retainedPath = `${path}.phase-67-50-removed`;
+  renameSync(path, retainedPath);
+  try {
+    return action();
+  } finally {
+    renameSync(retainedPath, path);
   }
 }
 
@@ -1939,7 +1951,7 @@ describe("real admission batch CLI provenance", () => {
 
     const preBaselineKiller = runRealBatchCli(fixture);
     expect(preBaselineKiller.status, `actual CLI stdout:\n${preBaselineKiller.stdout}\nactual CLI stderr:\n${preBaselineKiller.stderr}`).toBe(0);
-    const historicalProof = JSON.parse(preBaselineKiller.stdout ?? "{}") as {
+    const historicalProof = JSON.parse(String(preBaselineKiller.stdout ?? "{}")) as {
       proof: { key: string; killedBy: { file: string; name: string }[]; historicalAddedTest?: { file: string; name: string } }[];
     };
     const provenMember = historicalProof.proof.find((item) => item.key === selected!.key);
@@ -1950,6 +1962,14 @@ describe("real admission batch CLI provenance", () => {
       status: "Killed",
       reportSha256: "1b664580b7c99f0391ac062d6fed903c919ef008a251e93c4d2b0fc191f88881",
     });
+
+    const ordinaryGap = fixture.bundle.clusterRows.find((row) =>
+      row.disposition === "gap" && !row.keys.includes(selected!.key));
+    expect(ordinaryGap, "another gap retains the ordinary baseline-added current-killer route").toBeDefined();
+    const ordinaryProof = historicalProof.proof.find((item) => item.key === ordinaryGap!.keys[0]);
+    expect(ordinaryProof?.killedBy.some((test) => test.file === ordinaryGap!.test!.file &&
+      (test.name === ordinaryGap!.test!.name || test.name.endsWith(` > ${ordinaryGap!.test!.name}`)))).toBe(true);
+    expect(ordinaryProof?.historicalAddedTest).toBeUndefined();
 
     setCliGapTest(fixture, selected!.key, historicalRow!.test!.name);
     const provenancePathControl = runRealBatchCli(fixture);
@@ -1964,7 +1984,7 @@ describe("real admission batch CLI provenance", () => {
         signal: null,
         error: null,
       });
-    const proof = JSON.parse(positive.stdout ?? "{}") as { batch: string; mode: string; members: number; proof: { status: string }[] };
+    const proof = JSON.parse(String(positive.stdout ?? "{}")) as { batch: string; mode: string; members: number; proof: { key: string; status: string }[] };
     expect(proof).toMatchObject({ batch: "isobmff-1", mode: "batch", members: 51 });
     expect(proof.proof.filter((member) => member.status === "Killed")).toHaveLength(32);
     expect(proof.proof.filter((member) => member.status === "Ignored")).toHaveLength(15);
@@ -2041,6 +2061,14 @@ describe("real admission batch CLI provenance", () => {
       (bytes) => Buffer.concat([bytes, Buffer.from("\n// fixture-only stale source\n")]), () => runRealBatchCli(fixture));
     expectCliRejection(staleSource, "stale report source");
 
+    const missingHistoricalBundle = withCliFileRemoval(fixture, admissionBundlePath,
+      () => runRealBatchCli(fixture));
+    expectCliRejection(missingHistoricalBundle, "ENOENT");
+
+    const missingCurrentReport = withCliFileRemoval(fixture, fixture.reportPath,
+      () => runRealBatchCli(fixture));
+    expectCliRejection(missingCurrentReport, "ENOENT");
+
     const wrongKey = withCliLedgerMutation(fixture, (ledger) => {
       const row = ledger.clusters.find((candidate) => candidate.keys.includes(member!.key))!;
       row.keys[row.keys.indexOf(member!.key)] = `${member!.key}:forged`;
@@ -2051,7 +2079,7 @@ describe("real admission batch CLI provenance", () => {
       const row = ledger.clusters.find((candidate) => candidate.keys.includes(member!.key))!;
       row.originClusterId = "isobmff:forged-origin";
     }, () => runRealBatchCli(fixture));
-    expectCliRejection(wrongOrigin, "isobmff-1: measured counts changed");
+    expectCliRejection(wrongOrigin, "pre/ledger measured-origin totals drifted");
 
     const missingMember = withCliLedgerMutation(fixture, (ledger) => {
       const row = ledger.clusters.find((candidate) => candidate.keys.includes(member!.key))!;
@@ -2076,6 +2104,10 @@ describe("real admission batch CLI provenance", () => {
       row.deletion!["beforeReport"] = "../outside.json";
     }, () => runRealBatchCli(fixture));
     expectCliRejection(escapingReceipt, "beforeReport: unsafe relative path");
+
+    const summaryDrift = withCliFileMutation(fixture, fixture.summaryPath,
+      (bytes) => Buffer.concat([bytes, Buffer.from("\nfixture-only drift\n")]), () => runRealBatchCli(fixture));
+    expectCliRejection(summaryDrift, "generated summary drift");
   }, 120_000);
 
   it("fails inventory on a missing non-target path and requires a fresh complete fixture", () => {
