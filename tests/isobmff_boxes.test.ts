@@ -761,7 +761,7 @@ function memoryHandle(bytes: Buffer): {
 }
 
 describe("isobmff-2 top-level box header boundaries", () => {
-  it("readTopLevelBoxHeaderAt rejects an undersized UUID without reading into the next box", async () => {
+  it("readTopLevelBoxHeaderAt rejects an undersized UUID even when following bytes fill its usertype", async () => {
     const ftyp = Buffer.alloc(8);
     ftyp.writeUInt32BE(8, 0);
     ftyp.write("ftyp", 4, "ascii");
@@ -784,11 +784,15 @@ describe("isobmff-2 top-level box header boundaries", () => {
       kind: "malformed-file",
     });
 
-    expect(log).toHaveLength(2);
+    expect(log).toHaveLength(3);
     expect(log).toEqual([
       { position: 0, length: 8 },
       { position: 8, length: 8 },
+      { position: 16, length: 16 },
     ]);
+    expect(
+      log.every((entry) => entry.position + entry.length <= bytes.length),
+    ).toBe(true);
   });
 });
 
