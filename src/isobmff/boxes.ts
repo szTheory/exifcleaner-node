@@ -151,11 +151,6 @@ export function parseBoxHeader(
     }
     const largesize = buffer.readBigUInt64BE(offset + BASE_HEADER_BYTES);
     headerSize = BASE_HEADER_BYTES + LARGESIZE_BYTES;
-    if (largesize < BigInt(headerSize)) {
-      throw boxFramingError(
-        `Box "${type}" at offset ${offset} has a largesize smaller than its own header.`,
-      );
-    }
     if (largesize > BigInt(Number.MAX_SAFE_INTEGER)) {
       throw boxFramingError(
         `Box "${type}" at offset ${offset} has a largesize beyond safe integer precision.`,
