@@ -137,7 +137,7 @@ export function parseBoxHeader(
   let totalSize: number;
   let sizeForm: "normal" | "largesize" | "size-zero" = "normal";
 
-  // Stryker disable next-line ConditionalExpression: unobservable-message — size zero is also rejected by the next minimum-header check with the same box-framing kind.
+  // Stryker disable next-line ConditionalExpression: unobservable-message — size zero falls through to the later boxEnd < payloadStart check with the same box-framing kind.
   if (declaredSize === 0) {
     throw boxFramingError(
       `Box "${type}" at offset ${offset} declares size 0, which is only permitted for the top-level mdat box.`,
