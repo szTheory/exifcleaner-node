@@ -65010,7 +65010,7 @@
       "file": "src/isobmff/iloc.ts",
       "function": "parseIloc",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 9,
       "keys": [
         "src/isobmff/iloc.ts\u0000StringLiteral\u0000\"\"\u0000172\u000057\u0000172\u000069",
@@ -65034,7 +65034,8 @@
         "src/isobmff/iloc.ts\u0000StringLiteral\u0000\"\"\u0000\"extent_offset\"\u00000",
         "src/isobmff/iloc.ts\u0000StringLiteral\u0000\"\"\u0000\"extent_length\"\u00000"
       ],
-      "note": ""
+      "note": "",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/ipma.ts:parseIpma:StringLiteral",
