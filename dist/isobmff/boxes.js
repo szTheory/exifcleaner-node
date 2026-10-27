@@ -100,8 +100,8 @@ export function parseBoxHeader(buffer, offset, end) {
             throw boxFramingError(`Box "${type}" at offset ${offset} has a largesize beyond safe integer precision.`);
         }
         totalSize = Number(largesize);
-        // Stryker disable next-line ConditionalExpression: unobservable-message — sizes below 8 still fail the later payload extent check with the same box-framing kind.
     }
+    // Stryker disable next-line ConditionalExpression: unobservable-message — sizes below 8 still fail the later payload extent check with the same box-framing kind.
     else if (declaredSize < BASE_HEADER_BYTES) {
         throw boxFramingError(`Box "${type}" at offset ${offset} declares size ${declaredSize}, smaller than the 8-byte box header.`);
     }
