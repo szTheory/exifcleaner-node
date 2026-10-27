@@ -15,7 +15,7 @@ import {
 } from "../src/isobmff/errors.js";
 import { parseIsobmff, type IsobmffModel } from "../src/isobmff/parse.js";
 import { DEFAULT_ISOBMFF_CAPS, type IsobmffCaps } from "../src/isobmff/caps.js";
-import { C2PA_UUID_USERTYPE } from "../src/isobmff/boxes.js";
+import { C2PA_UUID_USERTYPE, parseBoxHeader } from "../src/isobmff/boxes.js";
 import {
   box,
   type BoxSizeOverride,
@@ -209,6 +209,123 @@ describe("parseIsobmff tracer: a builder HEIF file reads end to end", () => {
 function minimalFtyp(): Buffer {
   return ftypBox("heic", 0, ["mif1", "heic"]);
 }
+
+function expectBoxFramingFailure(action: () => unknown): void {
+  let error: unknown;
+  try {
+    action();
+  } catch (caught) {
+    error = caught;
+  }
+  expect(error).toBeInstanceOf(IsobmffStructureError);
+  expect(error).toMatchObject({
+    declineClass: "box-framing",
+    kind: "malformed-file",
+  });
+}
+
+describe("isobmff-2 parseBoxHeader ConditionalExpression", () => {
+  it("rejects a truncated base header and a zero-sized in-memory box", () => {
+    const truncatedBaseHeader = Buffer.alloc(7);
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(truncatedBaseHeader, 0, truncatedBaseHeader.length),
+    );
+
+    const zeroSizedBox = Buffer.alloc(8);
+    zeroSizedBox.write("free", 4, "ascii");
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(zeroSizedBox, 0, zeroSizedBox.length),
+    );
+  });
+
+  it("accepts a largesize equal to its header and rejects one byte below", () => {
+    const equalToHeader = Buffer.alloc(16);
+    equalToHeader.writeUInt32BE(1, 0);
+    equalToHeader.write("free", 4, "ascii");
+    equalToHeader.writeBigUInt64BE(16n, 8);
+
+    expect(
+      parseBoxHeader(equalToHeader, 0, equalToHeader.length),
+    ).toMatchObject({
+      type: "free",
+      start: 0,
+      headerSize: 16,
+      size: 16,
+      payloadStart: 16,
+      end: 16,
+      sizeForm: "largesize",
+    });
+
+    const belowHeader = Buffer.alloc(16);
+    belowHeader.writeUInt32BE(1, 0);
+    belowHeader.write("free", 4, "ascii");
+    belowHeader.writeBigUInt64BE(15n, 8);
+
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(belowHeader, 0, belowHeader.length),
+    );
+  });
+
+  it("rejects an incomplete largesize field and unsafe largesize values", () => {
+    const incompleteLargesize = Buffer.alloc(15);
+    incompleteLargesize.writeUInt32BE(1, 0);
+    incompleteLargesize.write("free", 4, "ascii");
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(incompleteLargesize, 0, incompleteLargesize.length),
+    );
+
+    const unsafeLargesize = Buffer.alloc(16);
+    unsafeLargesize.writeUInt32BE(1, 0);
+    unsafeLargesize.write("free", 4, "ascii");
+    unsafeLargesize.writeBigUInt64BE(BigInt(Number.MAX_SAFE_INTEGER) + 1n, 8);
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(unsafeLargesize, 0, unsafeLargesize.length),
+    );
+  });
+
+  it("rejects undersized normal boxes with the typed framing failure", () => {
+    const undersizedBox = Buffer.alloc(8);
+    undersizedBox.writeUInt32BE(7, 0);
+    undersizedBox.write("free", 4, "ascii");
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(undersizedBox, 0, undersizedBox.length),
+    );
+  });
+
+  it("uses UUID header extents and rejects missing or undersized UUID payloads", () => {
+    const uuidType = Buffer.from("uuid", "ascii");
+    const usertype = Buffer.from("d8fec3d61b0e483c92975828877ec481", "hex");
+    const validUuid = Buffer.alloc(24);
+    validUuid.writeUInt32BE(24, 0);
+    uuidType.copy(validUuid, 4);
+    usertype.copy(validUuid, 8);
+
+    expect(parseBoxHeader(validUuid, 0, validUuid.length)).toMatchObject({
+      type: "uuid",
+      start: 0,
+      headerSize: 24,
+      size: 24,
+      payloadStart: 24,
+      end: 24,
+      usertype: "d8fec3d61b0e483c92975828877ec481",
+    });
+
+    const missingUsertype = Buffer.alloc(8);
+    missingUsertype.writeUInt32BE(8, 0);
+    uuidType.copy(missingUsertype, 4);
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(missingUsertype, 0, missingUsertype.length),
+    );
+
+    const undersizedUuid = Buffer.alloc(24);
+    undersizedUuid.writeUInt32BE(8, 0);
+    uuidType.copy(undersizedUuid, 4);
+    usertype.copy(undersizedUuid, 8);
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(undersizedUuid, 0, undersizedUuid.length),
+    );
+  });
+});
 
 /**
  * A structurally-valid meta box, same content/size (214 bytes, see `META_SIZE`) as `minimalHeif`'s
