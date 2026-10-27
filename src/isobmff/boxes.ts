@@ -71,6 +71,7 @@ function containerChildOffset(
   if (type === "iinf") {
     if (payloadStart >= buffer.length) {
       throw boxFramingError(
+        // Stryker disable next-line StringLiteral: unobservable-message — callers observe box-framing for a missing version byte, not the offset wording.
         `iinf payload is too short to carry its version byte at offset ${payloadStart}.`,
       );
     }
@@ -108,6 +109,7 @@ export async function readExactly(
     );
     if (next.bytesRead === 0) {
       throw boxFramingError(
+        // Stryker disable next-line StringLiteral,ArithmeticOperator: unobservable-message — EOF is observed as box-framing; the interpolated offset is diagnostic text only.
         `Unexpected end of file at offset ${position + read}.`,
       );
     }
@@ -127,6 +129,7 @@ export function parseBoxHeader(
   end: number,
 ): BoxHeader {
   if (offset + BASE_HEADER_BYTES > end) {
+    // Stryker disable next-line StringLiteral: unobservable-message — callers observe box-framing and malformed-file, not the offset wording.
     throw boxFramingError(`Box header at offset ${offset} is truncated.`);
   }
 
@@ -140,12 +143,14 @@ export function parseBoxHeader(
   // Stryker disable next-line ConditionalExpression: unobservable-message — size zero falls through to the later boxEnd < payloadStart check with the same box-framing kind.
   if (declaredSize === 0) {
     throw boxFramingError(
+      // Stryker disable next-line StringLiteral: unobservable-message — callers observe the typed box-framing refusal, not this diagnostic wording.
       `Box "${type}" at offset ${offset} declares size 0, which is only permitted for the top-level mdat box.`,
     );
   } else if (declaredSize === 1) {
     sizeForm = "largesize";
     if (offset + BASE_HEADER_BYTES + LARGESIZE_BYTES > end) {
       throw boxFramingError(
+        // Stryker disable next-line StringLiteral: unobservable-message — callers observe the typed box-framing refusal, not this diagnostic wording.
         `Box "${type}" at offset ${offset} is missing its largesize field.`,
       );
     }
@@ -171,11 +176,13 @@ export function parseBoxHeader(
   const boxEnd = offset + totalSize;
   if (boxEnd > end) {
     throw boxFramingError(
+      // Stryker disable next-line StringLiteral: unobservable-message — callers observe the typed box-framing refusal, not this diagnostic wording.
       `Box "${type}" at offset ${offset} extends past its parent's end.`,
     );
   }
   if (boxEnd < payloadStart) {
     throw boxFramingError(
+      // Stryker disable next-line StringLiteral: unobservable-message — callers observe the typed box-framing refusal, not this diagnostic wording.
       `Box "${type}" at offset ${offset} declares a size smaller than its own header.`,
     );
   }
@@ -198,6 +205,7 @@ async function readTopLevelBoxHeaderAt(
   fileSize: number,
 ): Promise<BoxHeader> {
   if (position + BASE_HEADER_BYTES > fileSize) {
+    // Stryker disable next-line StringLiteral: unobservable-message — callers observe box-framing and malformed-file, not the offset wording.
     throw boxFramingError(`Box header at offset ${position} is truncated.`);
   }
 
@@ -212,6 +220,7 @@ async function readTopLevelBoxHeaderAt(
   if (declaredSize === 0) {
     if (type !== "mdat") {
       throw boxFramingError(
+        // Stryker disable next-line StringLiteral: unobservable-message — callers observe the typed box-framing refusal, not this diagnostic wording.
         `Box "${type}" at offset ${position} declares size 0, which is only permitted for the top-level mdat box.`,
       );
     }
@@ -221,6 +230,7 @@ async function readTopLevelBoxHeaderAt(
     sizeForm = "largesize";
     if (position + BASE_HEADER_BYTES + LARGESIZE_BYTES > fileSize) {
       throw boxFramingError(
+        // Stryker disable next-line StringLiteral: unobservable-message — callers observe the typed box-framing refusal, not this diagnostic wording.
         `Box "${type}" at offset ${position} is missing its largesize field.`,
       );
     }
@@ -233,17 +243,20 @@ async function readTopLevelBoxHeaderAt(
     headerSize = BASE_HEADER_BYTES + LARGESIZE_BYTES;
     if (largesize < BigInt(headerSize)) {
       throw boxFramingError(
+        // Stryker disable next-line StringLiteral: unobservable-message — callers observe box-framing, not this alternate diagnostic wording.
         `Box "${type}" at offset ${position} has a largesize smaller than its own header.`,
       );
     }
     if (largesize > BigInt(Number.MAX_SAFE_INTEGER)) {
       throw boxFramingError(
+        // Stryker disable next-line StringLiteral: unobservable-message — callers observe the typed box-framing refusal, not precision wording.
         `Box "${type}" at offset ${position} has a largesize beyond safe integer precision.`,
       );
     }
     totalSize = Number(largesize);
   } else if (declaredSize < BASE_HEADER_BYTES) {
     throw boxFramingError(
+      // Stryker disable next-line StringLiteral: unobservable-message — callers observe box-framing, not this header-size wording.
       `Box "${type}" at offset ${position} declares size ${declaredSize}, smaller than the 8-byte box header.`,
     );
   } else {
@@ -255,6 +268,7 @@ async function readTopLevelBoxHeaderAt(
   if (type === "uuid") {
     if (payloadStart + USERTYPE_BYTES > fileSize) {
       throw boxFramingError(
+        // Stryker disable next-line StringLiteral: unobservable-message — callers observe box-framing, not this usertype diagnostic wording.
         `uuid box at offset ${position} is missing its usertype field.`,
       );
     }
@@ -271,11 +285,13 @@ async function readTopLevelBoxHeaderAt(
   const end = position + totalSize;
   if (end > fileSize) {
     throw boxFramingError(
+      // Stryker disable next-line StringLiteral: unobservable-message — callers observe box-framing, not this file-boundary wording.
       `Box "${type}" at offset ${position} extends past the end of the file.`,
     );
   }
   if (end < payloadStart) {
     throw boxFramingError(
+      // Stryker disable next-line StringLiteral: unobservable-message — callers observe box-framing, not this header-size wording.
       `Box "${type}" at offset ${position} declares a size smaller than its own header.`,
     );
   }
@@ -312,6 +328,7 @@ export async function readTopLevelBoxes(
   }
   const first = boxes[0];
   if (first === undefined || first.type !== "ftyp") {
+    // Stryker disable next-line StringLiteral: unobservable-message — callers observe box-framing, not this first-box diagnostic wording.
     throw boxFramingError('The first top-level box is not "ftyp".');
   }
   return boxes;
