@@ -33,8 +33,6 @@ const BRAND_BYTES = 4;
  *    contains any sequence brand (`msf1`/`avis`).
  */
 export function classifyIsobmffBrand(bytes) {
-    if (bytes.length < FTYP_HEADER_BYTES)
-        return "decline";
     if (bytes.toString("ascii", 4, 8) !== "ftyp")
         return "decline";
     const declaredSize = bytes.readUInt32BE(0);
