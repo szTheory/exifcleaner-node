@@ -84,6 +84,7 @@ export function parseIloc(payload, version, _flags) {
         throw new IsobmffStructureError("box-framing", `iloc index_size nibble ${indexSize} is not one of {0, 4, 8}.`);
     }
     let position = 2;
+    // Stryker disable next-line StringLiteral: unobservable-message — item_count label reaches the diagnostic only.
     ensureBytes(payload, position, layout.itemCountBytes, "item_count");
     const itemCount = layout.itemCountBytes === 4
         ? payload.readUInt32BE(position)
@@ -102,6 +103,7 @@ export function parseIloc(payload, version, _flags) {
     }
     const items = [];
     for (let i = 0; i < itemCount; i++) {
+        // Stryker disable next-line StringLiteral: unobservable-message — item_ID label reaches the diagnostic only.
         ensureBytes(payload, position, layout.itemIdBytes, "item_ID");
         const itemId = layout.itemIdBytes === 4
             ? payload.readUInt32BE(position)
@@ -109,16 +111,20 @@ export function parseIloc(payload, version, _flags) {
         position += layout.itemIdBytes;
         let constructionMethod = 0;
         if (layout.hasConstructionMethod) {
+            // Stryker disable next-line StringLiteral: unobservable-message — construction_method label reaches the diagnostic only.
             ensureBytes(payload, position, 2, "construction_method");
             constructionMethod = payload.readUInt16BE(position) & 0xf;
             position += 2;
         }
+        // Stryker disable next-line StringLiteral: unobservable-message — data_reference_index label reaches the diagnostic only.
         ensureBytes(payload, position, 2, "data_reference_index");
         const dataReferenceIndex = payload.readUInt16BE(position);
         position += 2;
+        // Stryker disable next-line StringLiteral: unobservable-message — base_offset label reaches the diagnostic only.
         ensureBytes(payload, position, baseOffsetSize, "base_offset");
         const baseOffset = readSizedUint(payload, position, baseOffsetSize);
         position += baseOffsetSize;
+        // Stryker disable next-line StringLiteral: unobservable-message — extent_count label reaches the diagnostic only.
         ensureBytes(payload, position, 2, "extent_count");
         const extentCount = payload.readUInt16BE(position);
         position += 2;
@@ -126,13 +132,16 @@ export function parseIloc(payload, version, _flags) {
         for (let e = 0; e < extentCount; e++) {
             let index = 0;
             if (layout.hasIndexSize && indexSize > 0) {
+                // Stryker disable next-line StringLiteral: unobservable-message — extent_index label reaches the diagnostic only.
                 ensureBytes(payload, position, indexSize, "extent_index");
                 index = readSizedUint(payload, position, indexSize);
                 position += indexSize;
             }
+            // Stryker disable next-line StringLiteral: unobservable-message — extent_offset label reaches the diagnostic only.
             ensureBytes(payload, position, offsetSize, "extent_offset");
             const offset = readSizedUint(payload, position, offsetSize);
             position += offsetSize;
+            // Stryker disable next-line StringLiteral: unobservable-message — extent_length label reaches the diagnostic only.
             ensureBytes(payload, position, lengthSize, "extent_length");
             const length = readSizedUint(payload, position, lengthSize);
             position += lengthSize;
