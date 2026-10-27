@@ -101,9 +101,6 @@ export function parseBoxHeader(buffer, offset, end) {
     let usertype;
     let payloadStart = offset + headerSize;
     if (type === "uuid") {
-        if (payloadStart + USERTYPE_BYTES > end) {
-            throw boxFramingError(`uuid box at offset ${offset} is missing its usertype field.`);
-        }
         usertype = buffer.toString("hex", payloadStart, payloadStart + USERTYPE_BYTES);
         headerSize += USERTYPE_BYTES;
         payloadStart += USERTYPE_BYTES;
