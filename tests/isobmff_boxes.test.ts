@@ -14,8 +14,16 @@ import {
   IsobmffStructureError,
 } from "../src/isobmff/errors.js";
 import { parseIsobmff, type IsobmffModel } from "../src/isobmff/parse.js";
-import { DEFAULT_ISOBMFF_CAPS, type IsobmffCaps } from "../src/isobmff/caps.js";
-import { C2PA_UUID_USERTYPE, parseBoxHeader } from "../src/isobmff/boxes.js";
+import {
+  DEFAULT_ISOBMFF_CAPS,
+  IsobmffBudget,
+  type IsobmffCaps,
+} from "../src/isobmff/caps.js";
+import {
+  C2PA_UUID_USERTYPE,
+  parseBoxHeader,
+  readTopLevelBoxes,
+} from "../src/isobmff/boxes.js";
 import {
   box,
   type BoxSizeOverride,
@@ -730,6 +738,59 @@ function loggingHandle(real: FileHandle): {
   } as unknown as FileHandle;
   return { handle, log };
 }
+
+function memoryHandle(bytes: Buffer): {
+  handle: FileHandle;
+  log: ReadLogEntry[];
+} {
+  const log: ReadLogEntry[] = [];
+  const handle = {
+    read: async (
+      target: Buffer,
+      offset: number,
+      length: number,
+      position: number,
+    ) => {
+      log.push({ position, length });
+      const bytesRead = Math.max(0, Math.min(length, bytes.length - position));
+      bytes.copy(target, offset, position, position + bytesRead);
+      return { bytesRead, buffer: target };
+    },
+  } as unknown as FileHandle;
+  return { handle, log };
+}
+
+describe("isobmff-2 top-level box header boundaries", () => {
+  it("readTopLevelBoxHeaderAt rejects an undersized UUID without reading into the next box", async () => {
+    const ftyp = Buffer.alloc(8);
+    ftyp.writeUInt32BE(8, 0);
+    ftyp.write("ftyp", 4, "ascii");
+
+    const undersizedUuid = Buffer.alloc(20);
+    undersizedUuid.writeUInt32BE(20, 0);
+    undersizedUuid.write("uuid", 4, "ascii");
+
+    const nextBox = Buffer.alloc(8);
+    nextBox.writeUInt32BE(8, 0);
+    nextBox.write("free", 4, "ascii");
+
+    const bytes = Buffer.concat([ftyp, undersizedUuid, nextBox]);
+    const { handle, log } = memoryHandle(bytes);
+
+    await expect(
+      readTopLevelBoxes(handle, bytes.length, new IsobmffBudget()),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+
+    expect(log).toHaveLength(2);
+    expect(log).toEqual([
+      { position: 0, length: 8 },
+      { position: 8, length: 8 },
+    ]);
+  });
+});
 
 describe("Task 3: caps checked before reads (BMF-05)", () => {
   it("maxMetaBytes boundary: the meta payload's exact size parses; one less declines before reading it", async () => {
