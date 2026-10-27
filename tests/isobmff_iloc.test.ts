@@ -70,6 +70,29 @@ function writeWidthValue(value: number, width: Width): Buffer {
   return buffer;
 }
 
+function observeIlocReads(payload: Buffer): {
+  readonly payload: Buffer;
+  readonly reads: string[];
+} {
+  const reads: string[] = [];
+  const observed = new Proxy(payload, {
+    get(target, property) {
+      const value = Reflect.get(target, property, target);
+      if (
+        typeof value === "function" &&
+        ["readUInt8", "readUInt16BE", "readUInt32BE"].includes(String(property))
+      ) {
+        return (...args: number[]) => {
+          reads.push(String(property));
+          return Reflect.apply(value, target, args);
+        };
+      }
+      return value;
+    },
+  }) as Buffer;
+  return { payload: observed, reads };
+}
+
 /** The iloc payload *after* the FullBox version/flags (matches `parseIloc`'s own contract). */
 function encodeIlocForTest(config: EncodeIlocConfig): Buffer {
   const parts: Buffer[] = [];
@@ -759,6 +782,127 @@ describe("iloc precision edge (BMF-05)", () => {
 // --- Malformed widths, unsupported version, truncation, and the item_count floor check ---
 
 describe("iloc malformed inputs and version gate", () => {
+  it("isobmff-3 parseIloc ensureBytes ConditionalExpression permits the exact zero-item payload boundary", () => {
+    const payload = Buffer.from([0x44, 0x00, 0x00, 0x00]);
+
+    expect(parseIloc(payload, 0, 0)).toEqual({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [],
+    });
+  });
+
+  it("isobmff-3 parseIloc ConditionalExpression and BlockStatement reject short widths and invalid nibbles", () => {
+    const malformed = [
+      { payload: Buffer.from([0x00]), version: 0 },
+      { payload: Buffer.from([0x02, 0x00, 0x00, 0x00]), version: 0 },
+      { payload: Buffer.from([0x00, 0x20, 0x00, 0x00]), version: 0 },
+      { payload: Buffer.from([0x00, 0x02, 0x00, 0x00]), version: 1 },
+    ];
+
+    for (const { payload, version } of malformed) {
+      expect(() => parseIloc(payload, version, 0)).toThrowError(
+        expect.objectContaining({
+          declineClass: "box-framing",
+          kind: "malformed-file",
+        }),
+      );
+    }
+  });
+
+  it("isobmff-3 parseIloc ensureBytes ArithmeticOperator, BlockStatement, and ConditionalExpression keep a truncated two-byte item_count typed", () => {
+    expect(() => parseIloc(Buffer.from([0x00, 0x00]), 0, 0)).toThrowError(
+      expect.objectContaining({
+        declineClass: "box-framing",
+        kind: "malformed-file",
+      }),
+    );
+  });
+
+  it("isobmff-3 parseIloc ConditionalExpression and LogicalOperator ignore v0 index_size bytes", () => {
+    const payload = encodeIlocForTest({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 4,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          extents: [{ offset: 1000, length: 50 }],
+        },
+      ],
+    });
+
+    expect(parseIloc(payload, 0, 0)).toEqual({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 4,
+      items: [
+        {
+          itemId: 1,
+          constructionMethod: 0,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ index: 0, offset: 1000, length: 50 }],
+        },
+      ],
+    });
+  });
+
+  it("isobmff-3 parseIloc ArithmeticOperator and ConditionalExpression check the item floor before reading item fields", () => {
+    const cases = [
+      {
+        version: 0,
+        bytes: [0x00, 0x40, 0x00, 0x01, ...Array(9).fill(0)],
+      },
+      {
+        version: 0,
+        bytes: [0x00, 0x00, 0x00, 0x01, ...Array(5).fill(0)],
+      },
+      {
+        version: 2,
+        bytes: [0x00, 0x00, 0x00, 0x00, 0x00, 0x01, ...Array(9).fill(0)],
+      },
+    ];
+
+    for (const { version, bytes } of cases) {
+      const { payload, reads } = observeIlocReads(Buffer.from(bytes));
+      expect(() => parseIloc(payload, version, 0)).toThrowError(
+        expect.objectContaining({
+          declineClass: "box-framing",
+          kind: "malformed-file",
+        }),
+      );
+      expect(reads).toEqual([
+        "readUInt8",
+        "readUInt8",
+        version === 2 ? "readUInt32BE" : "readUInt16BE",
+      ]);
+    }
+  });
+
+  it("isobmff-3 parseIloc ensureBytes ArithmeticOperator, BlockStatement, and ConditionalExpression reject a truncated extent", () => {
+    // Header + item_count + item_ID + data_reference_index + extent_count; the extent_offset
+    // itself is absent, while the lower-bound floor is exactly met.
+    const payload = Buffer.from([
+      0x44, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    ]);
+    expect(payload.length).toBe(10);
+    expect(() => parseIloc(payload, 0, 0)).toThrowError(
+      expect.objectContaining({
+        declineClass: "box-framing",
+        kind: "malformed-file",
+      }),
+    );
+  });
+
   it("a width nibble of 2 (outside {0,4,8}) declines box-framing", () => {
     expect(ILOC_FIELD_WIDTHS.has(2)).toBe(false);
     const payload = Buffer.from([0x24, 0x00, 0x00, 0x00]); // offset_size nibble = 2

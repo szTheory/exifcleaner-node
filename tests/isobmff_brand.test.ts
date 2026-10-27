@@ -163,6 +163,13 @@ describe("classifyIsobmffBrand: matrix (D-18, D6)", () => {
     expect(classifyIsobmffBrand(ftypBytes("avif", []))).toBe("avif");
   });
 
+  it("isobmff-3 classifyIsobmffBrand ArithmeticOperator and EqualityOperator ignore bytes after the declared box", () => {
+    const bytes = ftypBytes("mif1", ["avif"], { trailingPadding: 4 });
+    bytes.write("heic", 20, "ascii");
+
+    expect(classifyIsobmffBrand(bytes)).toBe("avif");
+  });
+
   it("major mif1 with compatible avif -> avif", () => {
     expect(classifyIsobmffBrand(ftypBytes("mif1", ["miaf", "avif"]))).toBe(
       "avif",
@@ -191,6 +198,17 @@ describe("classifyIsobmffBrand: matrix (D-18, D6)", () => {
 describe("classifyIsobmffBrand: fail-closed framing (D-18)", () => {
   it("fewer than 16 bytes -> decline", () => {
     expect(classifyIsobmffBrand(Buffer.alloc(15))).toBe("decline");
+  });
+
+  it("isobmff-3 classifyIsobmffBrand ConditionalExpression rejects a short prefix and size 12", () => {
+    // Three bytes cannot contain a complete ftyp type field; classification still declines.
+    expect(classifyIsobmffBrand(Buffer.alloc(3))).toBe("decline");
+
+    // The later compatible-brand alignment check would also decline size 15, so use 12 to
+    // isolate the declared-size floor while keeping the actual bytes readable.
+    expect(
+      classifyIsobmffBrand(ftypBytes("heic", [], { declaredSize: 12 })),
+    ).toBe("decline");
   });
 
   it("type not ftyp -> decline", () => {

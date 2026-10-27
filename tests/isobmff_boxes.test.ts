@@ -1188,6 +1188,32 @@ describe("Task 3: caps checked before reads (BMF-05)", () => {
     });
   });
 
+  it("isobmff-3 consumeBuffered EqualityOperator and StringLiteral preserve exact cap metadata", () => {
+    const budget = new IsobmffBudget({
+      ...DEFAULT_ISOBMFF_CAPS,
+      maxBufferedBytesTotal: 4,
+    });
+
+    budget.consumeBuffered(3);
+    budget.consumeBuffered(1);
+    expect(budget.bufferedBytes()).toBe(4);
+
+    let error: unknown;
+    try {
+      budget.consumeBuffered(1);
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(IsobmffStructureError);
+    expect(error).toMatchObject({
+      declineClass: "cap-buffered-bytes",
+      kind: "unsafe-structure",
+      limit: { cap: "maxBufferedBytesTotal", size: 5, limit: 4 },
+    });
+    expect(budget.bufferedBytes()).toBe(4);
+  });
+
   it("a read log on a 1 GiB sparse mdat fixture shows parseIsobmff never reads bytes inside the mdat payload", async () => {
     const ftyp = minimalFtyp();
     const meta = minimalMeta();
