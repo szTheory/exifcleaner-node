@@ -74,12 +74,14 @@ export function parseIpma(
   }
 
   let position = 0;
+  // Stryker disable next-line StringLiteral: unobservable-message — `entry_count` is diagnostic text only; parsing, typed kind, and offsets are unchanged.
   ensureBytes(payload, position, 4, "entry_count");
   const entryCount = payload.readUInt32BE(position);
   position += 4;
 
   const entries: IpmaEntry[] = [];
   for (let i = 0; i < entryCount; i++) {
+    // Stryker disable next-line StringLiteral: unobservable-message — `item_ID` is diagnostic text only; parsed IDs and typed kind are unchanged.
     ensureBytes(payload, position, layout.itemIdBytes, "item_ID");
     const itemId =
       layout.itemIdBytes === 4
@@ -87,12 +89,14 @@ export function parseIpma(
         : payload.readUInt16BE(position);
     position += layout.itemIdBytes;
 
+    // Stryker disable next-line StringLiteral: unobservable-message — `association_count` is diagnostic text only; parsed associations and typed kind are unchanged.
     ensureBytes(payload, position, 1, "association_count");
     const associationCount = payload.readUInt8(position);
     position += 1;
 
     const associations: IpmaAssociation[] = [];
     for (let a = 0; a < associationCount; a++) {
+      // Stryker disable next-line StringLiteral: unobservable-message — `association` is diagnostic text only; property values and typed kind are unchanged.
       ensureBytes(payload, position, layout.associationBytes, "association");
       if (layout.associationBytes === 2) {
         const value = payload.readUInt16BE(position);
