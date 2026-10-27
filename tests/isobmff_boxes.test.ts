@@ -226,7 +226,7 @@ function expectBoxFramingFailure(action: () => unknown): void {
 
 describe("isobmff-2 parseBoxHeader ConditionalExpression", () => {
   it("rejects a truncated base header and a zero-sized in-memory box", () => {
-    const truncatedBaseHeader = Buffer.alloc(7);
+    const truncatedBaseHeader = Buffer.alloc(3);
     expectBoxFramingFailure(() =>
       parseBoxHeader(truncatedBaseHeader, 0, truncatedBaseHeader.length),
     );
