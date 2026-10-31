@@ -22,7 +22,7 @@ jobs:
     needs: [native-admission]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: final-native-admission
           path: admitted
@@ -33,7 +33,7 @@ jobs:
     needs: [native-admission]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: final-native-admission
           path: admitted
@@ -42,7 +42,7 @@ jobs:
     needs: [native-admission]
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: final-native-admission
           path: admitted
@@ -51,7 +51,7 @@ jobs:
     needs: [native-admission]
     runs-on: macos-15-intel
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: final-native-admission
           path: admitted
@@ -60,7 +60,7 @@ jobs:
     needs: [native-admission]
     runs-on: macos-15
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: final-native-admission
           path: admitted
@@ -69,7 +69,7 @@ jobs:
     needs: [native-admission]
     runs-on: windows-2025
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: final-native-admission
           path: admitted
@@ -78,7 +78,7 @@ jobs:
     needs: [native-admission]
     runs-on: windows-11-arm
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: final-native-admission
           path: admitted
@@ -105,7 +105,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           package-manager-cache: false
@@ -118,7 +118,7 @@ jobs:
           REF_PROTECTED: ${{ github.ref_protected }}
         run: node scripts/release_guard.cjs
       - run: npm audit --omit=dev
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: admitted-native-tarball
           path: admitted
@@ -127,7 +127,7 @@ jobs:
       - name: Generate checksum and CycloneDX SBOM
         run: npm sbom --sbom-format cyclonedx > package.cdx.json
       - name: Retain CycloneDX SBOM
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sbom-cyclonedx
           path: package.cdx.json
