@@ -102,7 +102,7 @@ interface Checker {
 }
 interface DeletionProof {
   functionBounds(source: string, name: string): { start: number; end: number; function: string };
-  applyEdits(source: string, edits: { function: string; before: string; after: string; occurrence: number }[]): { source: string };
+  applyEdits(source: string, edits: { operation?: string; function: string; before: string; after: string; occurrence: number }[]): { source: string };
   affectedBy(mutant: Mutant, source: string, edits: { start: number; end: number }[]): boolean;
   validateDeletion(input: {
     row: Cluster;
@@ -1801,6 +1801,31 @@ describe("scoped deletion receipt proof (D-18, D-21)", () => {
     expect(() => phaseVerifier.evaluate({ clusters: [fixture.row, duplicateOwner],
       survivors: fixture.survivors, report: fixture.finalReport, mode: "batch",
       readTest: fixture.readTest, symbolAbsent: () => false, root: fixture.root })).toThrow(/duplicate owned key/);
+  });
+});
+
+describe("real iloc boundary receipt", () => {
+  it("admits the exact typed header integer-boundary operation", () => {
+    const source = [
+      "function parseIloc(payload) {",
+      "  if (payload.length < 2) {",
+      "    throw new Error('too short');",
+      "  }",
+      "  return payload.length;",
+      "}",
+      "",
+    ].join("\n");
+    const edit = {
+      operation: "iloc-header-integer-boundary",
+      function: "parseIloc",
+      before: "payload.length < 2",
+      after: "payload.length <= 1",
+      occurrence: 0,
+    };
+
+    expect(() => deletionProof.applyEdits(source, [edit])).not.toThrow();
+    expect(deletionProof.applyEdits(source, [edit]).source)
+      .toContain("payload.length <= 1");
   });
 });
 
