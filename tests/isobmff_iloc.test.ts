@@ -14,6 +14,7 @@ import { open } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { IsobmffStructureError } from "../src/isobmff/errors.js";
 import {
   ILOC_FIELD_WIDTHS,
   ILOC_LAYOUTS,
@@ -163,6 +164,95 @@ function expectedIlocLength(config: EncodeIlocConfig): number {
   }
   return total;
 }
+
+function expectBoxFramingFailure(payload: Buffer, version: 0 | 1 | 2): void {
+  let actual: unknown;
+  try {
+    parseIloc(payload, version, 0);
+  } catch (error) {
+    actual = error;
+  }
+
+  expect(actual).toBeInstanceOf(IsobmffStructureError);
+  expect(actual).toMatchObject({
+    name: "IsobmffStructureError",
+    declineClass: "box-framing",
+    kind: "malformed-file",
+  });
+}
+
+describe("iloc boundary preservation", () => {
+  for (const version of [0, 1, 2] as const) {
+    for (const length of [0, 1, 2] as const) {
+      it(`v${version} payload length ${length} keeps the typed framing refusal`, () => {
+        const payload = Buffer.alloc(length);
+        expectBoxFramingFailure(payload, version);
+      });
+    }
+
+    it(`v${version} zero-item payload returns the exact empty table`, () => {
+      const indexSize = version === 0 ? 7 : 0;
+      const itemCount = Buffer.alloc(version === 2 ? 4 : 2);
+      const payload = Buffer.concat([
+        Buffer.from([0x00, indexSize]),
+        itemCount,
+      ]);
+
+      expect(payload.length).toBe(version === 2 ? 6 : 4);
+      expect(parseIloc(payload, version, 0)).toEqual({
+        version,
+        offsetSize: 0,
+        lengthSize: 0,
+        baseOffsetSize: 0,
+        indexSize,
+        items: [],
+      });
+    });
+  }
+
+  for (const version of [1, 2] as const) {
+    it(`v${version} zero-width extent indexes preserve exact nonempty tables`, () => {
+      const config: EncodeIlocConfig = {
+        version,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 0,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 9,
+            constructionMethod: 1,
+            dataReferenceIndex: 42,
+            extents: [
+              { offset: 0x01020304, length: 0x11121314 },
+              { offset: 0xa1a2a3a4, length: 0xb1b2b3b4 },
+            ],
+          },
+        ],
+      };
+
+      expect(parseIloc(encodeIlocForTest(config), version, 0)).toEqual({
+        version,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 0,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 9,
+            constructionMethod: 1,
+            dataReferenceIndex: 42,
+            baseOffset: 0,
+            extents: [
+              { index: 0, offset: 0x01020304, length: 0x11121314 },
+              { index: 0, offset: 0xa1a2a3a4, length: 0xb1b2b3b4 },
+            ],
+          },
+        ],
+      });
+    });
+  }
+});
 
 // --- Task 1: literal v1 payload, hand-written values ---
 
