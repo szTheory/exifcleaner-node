@@ -229,7 +229,11 @@ export function parseIloc(
     const extents: IlocExtent[] = [];
     for (let e = 0; e < extentCount; e++) {
       let index = 0;
-      if (layout.hasIndexSize && indexSize > 0) {
+      if (
+        layout.hasIndexSize &&
+        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — validated nibble width is nonnegative; zero-width reads consume no bytes and preserve position.
+        indexSize !== 0
+      ) {
         // Stryker disable next-line StringLiteral: unobservable-message — extent_index label reaches the diagnostic only.
         ensureBytes(payload, position, indexSize, "extent_index");
         index = readSizedUint(payload, position, indexSize);
