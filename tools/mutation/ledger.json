@@ -127336,8 +127336,8 @@
             "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length >= 2\u0000payload.length < 2\u00000",
             "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length > 1\u0000payload.length <= 1\u00000",
             "test": {
-              "file": "tests/isobmff_iloc.test.ts",
-              "name": "iloc boundary preservation > v0 payload length 0 keeps the typed framing refusal"
+              "file": "tests/isobmff_writer.test.ts",
+              "name": "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits"
             },
             "semanticTrace": "The measured Stryker report detected payload.length > 1; for nonnegative byte length/nibble values it is the boundary counterpart of payload.length >= 2."
           },
@@ -178095,8 +178095,8 @@
             "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length >= 2\u0000payload.length < 2\u00000",
             "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length > 1\u0000payload.length <= 1\u00000",
             "test": {
-              "file": "tests/isobmff_iloc.test.ts",
-              "name": "iloc boundary preservation > v0 payload length 0 keeps the typed framing refusal"
+              "file": "tests/isobmff_writer.test.ts",
+              "name": "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits"
             },
             "semanticTrace": "The measured Stryker report detected payload.length > 1; for nonnegative byte length/nibble values it is the boundary counterpart of payload.length >= 2."
           },
