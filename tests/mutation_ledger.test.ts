@@ -404,6 +404,29 @@ function loadIlocBoundaryBundle(): {
   return { bundle, beforeReport, headerReport, finalReport };
 }
 
+function loadIsobmff3BatchReport(): { bytes: Buffer; report: Report } {
+  const fixturePath = join(packageRoot, "tests", "fixtures", "mutation",
+    "isobmff-3-multisource-final.json.gz");
+  const bytes = readFileSync(fixturePath);
+  expect(sha256(bytes)).toBe("75acf56c7337c99043dde6c56903dcd3240998bc0ab33a32ced4442da4a4903c");
+  const raw = gunzipSync(bytes);
+  expect(sha256(raw)).toBe("1175d7ceeb2aae69d6e375e1b02793cb10c3a91f249d261c6ad98c424a1fe0c6");
+  const report = JSON.parse(raw.toString("utf8")) as Report;
+  expect(Object.keys(report.files).sort()).toEqual([
+    "src/isobmff/brand.ts",
+    "src/isobmff/caps.ts",
+    "src/isobmff/iloc.ts",
+    "src/isobmff/ipma.ts",
+  ]);
+  expect(sha256(report.files["src/isobmff/iloc.ts"]!.source))
+    .toBe("7201af97a6ec2780dec9d1161f6a3be57ce61b36cead4ec1dfe89c1120069d19");
+  expect(report.files["src/isobmff/iloc.ts"]!.mutants).toHaveLength(157);
+  expect(Object.values(report.files).reduce((n, entry) => n + entry.mutants.length, 0)).toBe(349);
+  expect(Object.keys(report.testFiles ?? {})).toHaveLength(36);
+  expect(Object.values(report.testFiles ?? {}).reduce((n, entry) => n + entry.tests.length, 0)).toBe(1177);
+  return { bytes, report };
+}
+
 function materializeIlocBoundaryBundle(bundle: IlocBoundaryBundle,
   finalReport: Report & { testFiles: NonNullable<Report["testFiles"]> }): string {
   const root = tempRoot({});
@@ -724,6 +747,45 @@ function createRealAdmissionCliFixture(): RealCliFixture {
   assertContained(fixtureRoot, realpathSync(scriptPath), "copied verifier escaped fixture");
   assertContained(fixtureRoot, productRoot, "CLI product root escaped fixture");
   return { root, productRoot, manifest, bundle, ledgerPath, summaryPath, reportPath: admissionReportPath };
+}
+
+function createRealIsobmff3BatchCliFixture(reportBytes: Buffer): RealCliFixture {
+  const fixture = createRealAdmissionCliFixture();
+  const report = JSON.parse(gunzipSync(reportBytes).toString("utf8")) as Report;
+  for (const file of Object.keys(report.testFiles ?? {})) {
+    const relativePath = `exifcleaner-node/${file}`;
+    if (!existsSync(resolve(fixture.root, relativePath))) copyWorkspaceRegularFile(fixture.root, relativePath);
+  }
+  const liveLedger = readFileSync(join(packageRoot, "tools", "mutation", "ledger.json"));
+  const liveSummary = readFileSync(join(workspaceRoot, phaseDir, "67-SURVIVOR-LEDGER.md"));
+  for (const [relativePath, contents] of [
+    [fixture.ledgerPath, liveLedger],
+    [fixture.summaryPath, liveSummary],
+  ] as const) {
+    const path = resolve(fixture.root, relativePath);
+    chmodSync(path, 0o644);
+    writeFileSync(path, contents);
+    chmodSync(path, 0o444);
+  }
+  // The phase inventory still expects pre-67-54 waves/dependency. Normalize only its
+  // disposable plan copies so this regression reaches batch evidence validation.
+  for (const batch of fixture.manifest.batches) {
+    const planPath = `${phaseDir}/67-${batch.plan}-PLAN.md`;
+    const sourcePlan = readFileSync(resolve(fixture.root, planPath), "utf8");
+    const planNumber = Number(batch.plan);
+    const expectedWave = planNumber + (planNumber >= 16 ? 6 : 3);
+    const expectedDependency = batch.plan === "14" ? "50" : batch.plan === "16" ? "53" :
+      String(planNumber - 1).padStart(2, "0");
+    const inventoryPlan = sourcePlan.replace(/^wave: \d+$/m, `wave: ${expectedWave}`)
+      .replace(/^depends_on: \["67-\d+"\]$/m, `depends_on: ["67-${expectedDependency}"]`);
+    const copiedPlanPath = resolve(fixture.root, planPath);
+    chmodSync(copiedPlanPath, 0o644);
+    writeFileSync(copiedPlanPath, inventoryPlan);
+    chmodSync(copiedPlanPath, 0o444);
+  }
+  fixture.reportPath = "exifcleaner-node/reports/triage/67-16/batch.json";
+  writeFixtureFile(fixture.root, fixture.reportPath, gunzipSync(reportBytes));
+  return fixture;
 }
 
 function setCliGapTest(fixture: RealCliFixture, key: string, testName: string): void {
@@ -2317,6 +2379,153 @@ describe("real iloc boundary receipt", () => {
         .map((pair) => `${pair.current}\n${pair.original}`).sort());
     expect(finalEntry.mutants).toHaveLength(157);
   }, 30_000);
+});
+
+describe("real isobmff-3 multi-source final report", () => {
+  it("accepts the retained four-source report through the copied batch CLI", () => {
+    const { bytes, report } = loadIsobmff3BatchReport();
+    const fixture = createRealIsobmff3BatchCliFixture(bytes);
+    const result = runRealCli(fixture, ["--batch", "isobmff-3", "--mode", "batch",
+      "--report", fixture.reportPath]);
+    expect(result.error, `CLI spawn error: ${result.error?.message ?? "none"}`).toBeUndefined();
+    expect(result.status, `CLI stdout:\n${result.stdout}\nCLI stderr:\n${result.stderr}`).toBe(0);
+    const output = JSON.parse(String(result.stdout)) as {
+      batch: string;
+      mode: string;
+      reportSha256: string;
+      clusters: number;
+      members: number;
+      proof: { key: string; status: string }[];
+    };
+    const batch = fixture.manifest.batches.find((candidate) => candidate.id === "isobmff-3")!;
+    const ledger = JSON.parse(readFileSync(resolve(fixture.root, fixture.ledgerPath), "utf8")) as CliLedger;
+    const expectedKeys = ledger.clusters.filter((row) => batch.clusterIds.includes(row.originClusterId ?? row.id))
+      .flatMap((row) => row.keys).sort();
+    expect(Object.keys(report.files).sort()).toEqual(batch.sourceFiles.slice().sort());
+    expect(output).toMatchObject({
+      batch: "isobmff-3",
+      mode: "batch",
+      reportSha256: "1175d7ceeb2aae69d6e375e1b02793cb10c3a91f249d261c6ad98c424a1fe0c6",
+      clusters: 15,
+      members: 45,
+    });
+    expect(output.proof).toHaveLength(45);
+    expect(output.proof.map((member) => member.key).sort()).toEqual(expectedKeys);
+    expect(sha256(readFileSync(join(packageRoot, "tests", "fixtures", "mutation",
+      "isobmff-3-multisource-final.json.gz")))).toBe("75acf56c7337c99043dde6c56903dcd3240998bc0ab33a32ced4442da4a4903c");
+  }, 30_000);
+});
+
+describe("first isobmff-3 successor attribution (D-13)", () => {
+  type SuccessorReceipt = Cluster & {
+    deletion?: {
+      detectedSuccessors?: {
+        finalAnchor?: string;
+        test?: { file?: string; name?: string };
+      }[];
+    };
+  };
+
+  const identity = {
+    file: "src/isobmff/iloc.ts",
+    mutatorName: "EqualityOperator",
+    replacement: "payload.length > 1",
+    location: {
+      start: { line: 133, column: 7 },
+      end: { line: 133, column: 26 },
+    },
+  };
+  const expectedKiller = {
+    file: "tests/isobmff_writer.test.ts",
+    name: "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits",
+  };
+  const previousWrongKiller = {
+    file: "tests/isobmff_iloc.test.ts",
+    name: "iloc boundary preservation > v0 payload length 0 keeps the typed framing refusal",
+  };
+
+  function loadAttributionEvidence() {
+    const { report } = loadIsobmff3BatchReport();
+    const ilocEntry = report.files[identity.file]!;
+    const selectedMutants = ilocEntry.mutants.filter((mutant) =>
+      mutant.mutatorName === identity.mutatorName &&
+      mutant.replacement === identity.replacement &&
+      mutant.location.start.line === identity.location.start.line &&
+      mutant.location.start.column === identity.location.start.column &&
+      mutant.location.end.line === identity.location.end.line &&
+      mutant.location.end.column === identity.location.end.column);
+    expect(selectedMutants).toHaveLength(1);
+    const selectedMutant = selectedMutants[0]!;
+    const killedBy = new Set((selectedMutant.killedBy ?? []).map(String));
+    const resolvedKills = Object.entries(report.testFiles ?? {}).flatMap(([file, entry]) =>
+      entry.tests.filter((test) => killedBy.has(String(test.id)))
+        .map((test) => ({ file, name: test.name })));
+    expect(resolvedKills).toEqual([expectedKiller]);
+
+    const finalAnchor = phaseVerifier.canonicalAnchor(identity.file, selectedMutant, ilocEntry.source);
+    const ledgerPath = join(packageRoot, "tools", "mutation", "ledger.json");
+    const ledger = JSON.parse(readFileSync(ledgerPath, "utf8")) as { clusters: SuccessorReceipt[] };
+    const receipts = ledger.clusters.filter((row) => row.deletion?.detectedSuccessors?.some(
+      (successor) => successor.finalAnchor === finalAnchor)).sort((left, right) => left.id.localeCompare(right.id));
+    expect(receipts).toHaveLength(2);
+    const survivors = JSON.parse(readFileSync(join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"), "utf8"))
+      .survivors as Survivor[];
+    const readTest = (file: string) => readFileSync(join(packageRoot, file), "utf8");
+    return { report, ilocEntry, finalAnchor, receipts, survivors, readTest };
+  }
+
+  function validateReceipt(receipt: SuccessorReceipt, input: ReturnType<typeof loadAttributionEvidence>) {
+    return deletionProof.validateDeletion({
+      row: receipt,
+      root: packageRoot,
+      currentSource: input.ilocEntry.source,
+      finalEntry: input.ilocEntry,
+      finalReport: input.report as Report & { testFiles: NonNullable<Report["testFiles"]> },
+      readTest: input.readTest,
+      survivors: input.survivors,
+      requireFinal: true,
+    });
+  }
+
+  it("binds both first-successor receipts to the report's direct named killer", () => {
+    const input = loadAttributionEvidence();
+    const firstSuccessors = input.receipts.map((receipt) => receipt.deletion!.detectedSuccessors!
+      .find((successor) => successor.finalAnchor === input.finalAnchor)!);
+    expect(firstSuccessors.every((successor) => successor.test?.file === expectedKiller.file &&
+      successor.test.name === expectedKiller.name)).toBe(true);
+
+    for (const receipt of input.receipts) {
+      const successors = receipt.deletion!.detectedSuccessors!;
+      expect(successors).toHaveLength(2);
+      const second = successors.find((successor) => successor.finalAnchor !== input.finalAnchor)!;
+      const [file, mutatorName, replacement, ...location] = second.finalAnchor!.split("\0");
+      const entry = input.report.files[file!]!;
+      const secondMatches = entry.mutants.filter((mutant) =>
+        mutant.mutatorName === mutatorName &&
+        mutant.replacement === replacement &&
+        phaseVerifier.canonicalAnchor(file!, mutant, entry.source) === second.finalAnchor &&
+        location.length > 0);
+      expect(secondMatches).toHaveLength(1);
+      const secondIds = new Set((secondMatches[0]!.killedBy ?? []).map(String));
+      const secondKills = Object.entries(input.report.testFiles ?? {}).flatMap(([testFile, testEntry]) =>
+        testEntry.tests.filter((test) => secondIds.has(String(test.id)))
+          .map((test) => ({ file: testFile, name: test.name })));
+      expect(second.test).toEqual(secondKills[0]);
+      expect(secondKills.length).toBeGreaterThan(0);
+      expect(validateReceipt(receipt, input).problems).toEqual([]);
+    }
+  });
+
+  it("rejects the previous iloc boundary receipt name by direct killedBy validation", () => {
+    const input = loadAttributionEvidence();
+    for (const receipt of structuredClone(input.receipts)) {
+      const first = receipt.deletion!.detectedSuccessors!
+        .find((successor) => successor.finalAnchor === input.finalAnchor)!;
+      first.test = previousWrongKiller;
+      expect(validateReceipt(receipt, input).problems.join("\n"))
+        .toMatch(/detected successor killedBy does not name the real test/);
+    }
+  });
 });
 
 describe("real admission scoped deletion receipt proof", () => {
