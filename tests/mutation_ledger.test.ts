@@ -702,8 +702,13 @@ function createRealAdmissionCliFixture(): RealCliFixture {
   copyWorkspaceRegularFile(root, "exifcleaner-node/tools/mutation/pre-triage-survivors.json");
   copyWorkspaceRegularFile(root, "exifcleaner-node/tools/mutation/ledger.json");
   const planPaths = manifest.batches.map((batch) => `${phaseDir}/67-${String(batch.plan).padStart(2, "0")}-PLAN.md`);
-  for (const path of [...planPaths, ...cliHistoryFiles.map((file) => `${phaseDir}/${file}`),
-    `${phaseDir}/67-TRIAGE-BATCHES.json`, `${phaseDir}/67-GAP-REPAIR-CONTRACT.md`, `${phaseDir}/67-CONTEXT.md`]) {
+  const schedulePlanPaths = [
+    ...Array.from({ length: 32 }, (_, index) => index + 16),
+    52, 53, 54, 55,
+  ].map((plan) => `${phaseDir}/67-${String(plan).padStart(2, "0")}-PLAN.md`);
+  for (const path of new Set([...planPaths, ...schedulePlanPaths,
+    ...cliHistoryFiles.map((file) => `${phaseDir}/${file}`),
+    `${phaseDir}/67-TRIAGE-BATCHES.json`, `${phaseDir}/67-GAP-REPAIR-CONTRACT.md`, `${phaseDir}/67-CONTEXT.md`])) {
     if (!existsSync(resolve(workspaceRoot, path))) continue;
     copyWorkspaceRegularFile(root, path);
   }
@@ -766,22 +771,6 @@ function createRealIsobmff3BatchCliFixture(reportBytes: Buffer): RealCliFixture 
     chmodSync(path, 0o644);
     writeFileSync(path, contents);
     chmodSync(path, 0o444);
-  }
-  // The phase inventory still expects pre-67-54 waves/dependency. Normalize only its
-  // disposable plan copies so this regression reaches batch evidence validation.
-  for (const batch of fixture.manifest.batches) {
-    const planPath = `${phaseDir}/67-${batch.plan}-PLAN.md`;
-    const sourcePlan = readFileSync(resolve(fixture.root, planPath), "utf8");
-    const planNumber = Number(batch.plan);
-    const expectedWave = planNumber + (planNumber >= 16 ? 6 : 3);
-    const expectedDependency = batch.plan === "14" ? "50" : batch.plan === "16" ? "53" :
-      String(planNumber - 1).padStart(2, "0");
-    const inventoryPlan = sourcePlan.replace(/^wave: \d+$/m, `wave: ${expectedWave}`)
-      .replace(/^depends_on: \["67-\d+"\]$/m, `depends_on: ["67-${expectedDependency}"]`);
-    const copiedPlanPath = resolve(fixture.root, planPath);
-    chmodSync(copiedPlanPath, 0o644);
-    writeFileSync(copiedPlanPath, inventoryPlan);
-    chmodSync(copiedPlanPath, 0o444);
   }
   fixture.reportPath = "exifcleaner-node/reports/triage/67-16/batch.json";
   writeFixtureFile(fixture.root, fixture.reportPath, gunzipSync(reportBytes));
@@ -2379,6 +2368,57 @@ describe("real iloc boundary receipt", () => {
         .map((pair) => `${pair.current}\n${pair.original}`).sort());
     expect(finalEntry.mutants).toHaveLength(157);
   }, 30_000);
+});
+
+describe("copied Phase 67 schedule inventory controls", () => {
+  it("accepts the exact live prerequisite schedule without plan metadata normalization", () => {
+    const fixture = createRealAdmissionCliFixture();
+    const schedulePlanPaths = [
+      ...Array.from({ length: 32 }, (_, index) => index + 16),
+      52, 53, 54, 55,
+    ].map((plan) => `${phaseDir}/67-${String(plan).padStart(2, "0")}-PLAN.md`);
+    for (const path of schedulePlanPaths) {
+      expect(readFileSync(resolve(fixture.root, path)))
+        .toEqual(readFileSync(resolve(workspaceRoot, path)));
+    }
+
+    const result = runRealCli(fixture, ["--inventory"]);
+    expect(result.error, `CLI spawn error: ${result.error?.message ?? "none"}`).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("triage inventory: 32 batches, 586 clusters, 1919 members");
+  }, 30_000);
+
+  it("rejects copied wave and predecessor drift for Plans53, 54, 55, 16 and 17", () => {
+    const fixture = createRealAdmissionCliFixture();
+    const controls = [
+      { plan: 53, field: "wave", diagnostic: "67-53: wrong wave" },
+      { plan: 53, field: "dependency", diagnostic: "67-53: wrong predecessor" },
+      { plan: 54, field: "wave", diagnostic: "67-54: wrong wave" },
+      { plan: 54, field: "dependency", diagnostic: "67-54: wrong predecessor" },
+      { plan: 55, field: "wave", diagnostic: "67-55: wrong wave" },
+      { plan: 55, field: "dependency", diagnostic: "67-55: wrong predecessor" },
+      { plan: 16, field: "wave", diagnostic: "67-16: wrong wave" },
+      { plan: 16, field: "dependency", diagnostic: "67-16: wrong predecessor" },
+      { plan: 17, field: "wave", diagnostic: "67-17: wrong wave" },
+      { plan: 17, field: "dependency", diagnostic: "67-17: wrong predecessor" },
+    ] as const;
+
+    for (const control of controls) {
+      const relativePath = `${phaseDir}/67-${String(control.plan).padStart(2, "0")}-PLAN.md`;
+      const liveBytes = readFileSync(resolve(workspaceRoot, relativePath));
+      const copiedPath = resolve(fixture.root, relativePath);
+      const result = withCliFileMutation(fixture, relativePath, (original) => {
+        const source = original.toString("utf8");
+        const matcher = control.field === "wave" ? /^wave: \d+$/m : /^depends_on: \["67-\d+"\]$/m;
+        const changed = source.replace(matcher, control.field === "wave" ? "wave: 999" : 'depends_on: ["67-99"]');
+        expect(changed).not.toBe(source);
+        return Buffer.from(changed);
+      }, () => runRealCli(fixture, ["--inventory"]));
+      expectCliRejection(result, control.diagnostic);
+      expect(readFileSync(copiedPath)).toEqual(liveBytes);
+      expect(readFileSync(resolve(workspaceRoot, relativePath))).toEqual(liveBytes);
+    }
+  }, 60_000);
 });
 
 describe("real isobmff-3 multi-source final report", () => {
