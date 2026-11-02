@@ -2125,10 +2125,16 @@ describe("real iloc boundary receipt", () => {
     expect(String(final.error?.message ?? final.stderr)).toBe("");
     expect(final.status, String(final.stdout)).toBe(0);
     const finalProof = JSON.parse(String(final.stdout)) as {
+      mode: string;
       stage: string;
+      reportSha256: string;
+      sourceSha256: string;
       mappedPerReceipt: number;
-      receipts: { removed: unknown[]; auxiliary: { status: string; killedBy: unknown[] }[] }[];
-      batchProof: { status: string }[];
+      originalKeys: string[];
+      receipts: { id: string; keys: string[]; mapped: number;
+        removed: { anchor: string; status: string }[];
+        auxiliary: { anchor: string; replacement: string; status: string; killedBy: unknown[] }[] }[];
+      batchProof: Record<string, unknown>[];
     };
     expect(finalProof.stage).toBe("final");
     expect(finalProof.mappedPerReceipt).toBe(154);
@@ -2139,6 +2145,38 @@ describe("real iloc boundary receipt", () => {
     expect(finalProof.batchProof).toHaveLength(12);
     expect(finalProof.batchProof.filter((member) => member.status === "deleted")).toHaveLength(2);
     expect(finalProof.batchProof.filter((member) => member.status === "Ignored")).toHaveLength(10);
+
+    const permuted = withCliFileMutation(finalFixture, packetPath, (original) => {
+      const packet = JSON.parse(gunzipSync(original).toString("utf8")) as IlocBoundaryBundle;
+      packet.candidateRows = [...packet.candidateRows].reverse().map((row) => {
+        const anchors = row.anchors ?? [];
+        if (anchors.length === 0) return { ...row, keys: [...row.keys].reverse() };
+        const pairs = row.keys.map((key, index) => ({ key, anchor: anchors[index]! })).reverse();
+        return { ...row, keys: pairs.map((pair) => pair.key), anchors: pairs.map((pair) => pair.anchor) };
+      });
+      packet.selectedMembers.reverse();
+      return gzipSync(Buffer.from(JSON.stringify(packet)));
+    }, () => runRealCli(finalFixture, finalArgs));
+    expect(String(permuted.error?.message ?? permuted.stderr)).toBe("");
+    expect(permuted.status, String(permuted.stdout)).toBe(0);
+    const permutedProof = JSON.parse(String(permuted.stdout)) as typeof finalProof;
+    const compareText = (left: string, right: string) => left < right ? -1 : left > right ? 1 : 0;
+    const normalizeProof = (proof: typeof finalProof) => ({
+      mode: proof.mode,
+      stage: proof.stage,
+      reportSha256: proof.reportSha256,
+      sourceSha256: proof.sourceSha256,
+      mappedPerReceipt: proof.mappedPerReceipt,
+      originalKeys: [...proof.originalKeys].sort(),
+      receipts: proof.receipts.map((receipt) => ({
+        ...receipt,
+        keys: [...receipt.keys].sort(),
+        removed: [...receipt.removed].sort((left, right) => compareText(left.anchor, right.anchor)),
+        auxiliary: [...receipt.auxiliary].sort((left, right) => compareText(left.anchor, right.anchor)),
+      })).sort((left, right) => compareText(left.id, right.id)),
+      batchProof: proof.batchProof.map((member) => JSON.stringify(member)).sort(),
+    });
+    expect(normalizeProof(permutedProof)).toEqual(normalizeProof(finalProof));
 
     expectCliRejection(runRealCli(finalFixture, ["--iloc-candidate", "--report", finalReportPath,
       "--stage", "other", "--packet", packetPath]), "stage must be header or final");
