@@ -16,6 +16,22 @@ import { enclosingFunction } from "./cluster.mjs";
 const DIRECTIVE = /^\s*\/\/ Stryker (?:disable|restore)\b/;
 const DETECTED = new Set(["Killed", "Timeout"]);
 const ISOBMFF_ADMISSION_BASE = "cb8eedde27eaa6b2a54cb9f2008d91292a8b3bba";
+const ILOC_BOUNDARY_BASE = "cb8eedde27eaa6b2a54cb9f2008d91292a8b3bba";
+const ILOC_BOUNDARY_SOURCE_SHA256 = "3771d0e23a5f8c1b5dc3859ec5024b205366752f170858e362744e586e8aa338";
+const ILOC_BOUNDARY_BEFORE_REPORT_SHA256 = "62cd1c66845a7707d5cca3c4484fc161139b26daa64875c5bba72ec3582ac502";
+const ILOC_BOUNDARY_BEFORE_EVIDENCE_SHA256 = "66ab13e3ea1ae914d86e03c841a7a16ce371266e4b7fe5c884383d90a8d691c4";
+const ILOC_BOUNDARY_FINAL_SOURCE_SHA256 = "7201af97a6ec2780dec9d1161f6a3be57ce61b36cead4ec1dfe89c1120069d19";
+const ILOC_BOUNDARY_DIRECTIVE = "// Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — validated nibble width is nonnegative; zero-width reads consume no bytes and preserve position.";
+const ILOC_HEADER_KEY = ["src/isobmff/iloc.ts", "EqualityOperator", "payload.length <= 2", 133, 7, 133, 25].join("\0");
+const ILOC_INDEX_KEY = ["src/isobmff/iloc.ts", "EqualityOperator", "indexSize >= 0", 226, 34, 226, 47].join("\0");
+const ILOC_INDEX_TRUE_KEY = ["src/isobmff/iloc.ts", "ConditionalExpression", "true", 226, 34, 226, 47].join("\0");
+const ILOC_BOUNDARY_EDITS = Object.freeze([
+  Object.freeze({ operation: "iloc-header-integer-boundary", function: "parseIloc",
+    before: "payload.length < 2", after: "payload.length <= 1", occurrence: 0 }),
+  Object.freeze({ operation: "iloc-index-nonzero-boundary", function: "parseIloc",
+    before: "if (layout.hasIndexSize && indexSize > 0)",
+    after: "if (\n        layout.hasIndexSize &&\n        indexSize !== 0\n      )", occurrence: 0 }),
+]);
 const hex256 = /^[a-f0-9]{64}$/;
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const canonical = (value) => {
@@ -173,11 +189,18 @@ export function applyEdits(source, edits) {
   const validated = [];
   for (let index = 0; index < edits.length; index++) {
     const edit = edits[index];
+    const operationIndex = ILOC_BOUNDARY_EDITS.findIndex((allowed) =>
+      allowed.operation === edit?.operation && allowed.function === edit?.function &&
+      allowed.before === edit?.before && allowed.after === edit?.after &&
+      allowed.occurrence === edit?.occurrence);
+    const closedIlocEdit = operationIndex !== -1;
+    const deleteOnly = edit?.operation === undefined && typeof edit?.before === "string" &&
+      typeof edit?.after === "string" &&
+      (edit.after === "" || (edit.before.includes(edit.after) &&
+        edit.before.indexOf(edit.after) === edit.before.lastIndexOf(edit.after)));
     if (!edit || typeof edit.function !== "string" || typeof edit.before !== "string" ||
         edit.before === "" || typeof edit.after !== "string" || edit.before === edit.after ||
-        (edit.after !== "" && (!edit.before.includes(edit.after) ||
-          edit.before.indexOf(edit.after) !== edit.before.lastIndexOf(edit.after))) ||
-        !Number.isInteger(edit.occurrence) || edit.occurrence < 0)
+        !(deleteOnly || closedIlocEdit) || !Number.isInteger(edit.occurrence) || edit.occurrence < 0)
       throw new Error(`edit ${index}: empty, ambiguous or non-deletion edit`);
     const bounds = functionBounds(current, edit.function);
     const body = current.slice(bounds.start, bounds.end);
@@ -219,6 +242,11 @@ function mapOffsetToOriginal(offset, priorEdits, boundary = "start") {
     const afterEnd = afterStart + edit.after.length;
     if (at < afterStart) continue;
     if (at <= afterEnd) {
+      if (edit.operation !== undefined) {
+        if (at === afterStart) return edit.originalStart;
+        if (at === afterEnd) return edit.originalEnd;
+        return null;
+      }
       if (edit.after === "") {
         if (at !== afterStart) return null;
         return boundary === "start" ? edit.end : edit.start;
@@ -291,6 +319,81 @@ function rawRecord(file, mutant, source, report) {
     killedBy: resolvedTests(report, mutant) };
 }
 
+function assertIlocBeforeEvidence(evidence, survivors) {
+  const file = "src/isobmff/iloc.ts";
+  if (!Array.isArray(survivors) || evidence.mutants.length !== 158)
+    throw new Error("iloc before evidence is not the complete 158-mutant file report");
+  const normalizedSource = normalizeDirectives(evidence.source);
+  const records = evidence.mutants.map((mutant) => {
+    const location = toNormalizedLocation(evidence.source, mutant.location);
+    return { mutant, key: mutantKey(file, { ...mutant, location }),
+      anchor: anchorKey(file, { ...mutant, location }, normalizedSource) };
+  });
+  const unique = (predicate, label) => {
+    const found = records.filter(predicate);
+    if (found.length !== 1) throw new Error(`iloc before evidence has ${found.length} ${label} records`);
+    return found[0];
+  };
+  const requireSnapshotMember = (key, anchor, label) => {
+    const matches = survivors.filter((member) => member.key === key);
+    if (matches.length !== 1 || matches[0].anchorKey !== anchor || matches[0].status !== "Survived")
+      throw new Error(`iloc ${label} does not match its immutable original survivor`);
+  };
+  const headerSurvivor = unique((record) => record.key === ILOC_HEADER_KEY &&
+    record.mutant.status === "Survived", "header equality survivor");
+  const indexSurvivor = unique((record) => record.key === ILOC_INDEX_KEY &&
+    record.mutant.status === "Survived", "index equality survivor");
+  requireSnapshotMember(ILOC_HEADER_KEY, headerSurvivor.anchor, "header equality key");
+  requireSnapshotMember(ILOC_INDEX_KEY, indexSurvivor.anchor, "index equality key");
+  const indexTrue = unique((record) => record.key === ILOC_INDEX_TRUE_KEY &&
+    record.anchor === [file, "ConditionalExpression", "true", "indexSize > 0", 0].join("\0") &&
+    record.mutant.status === "Survived", "inner ConditionalExpression survivor");
+  requireSnapshotMember(ILOC_INDEX_TRUE_KEY, indexTrue.anchor, "inner ConditionalExpression key");
+  unique((record) => record.mutant.mutatorName === "EqualityOperator" &&
+    record.mutant.replacement === "payload.length >= 2" && record.mutant.status === "Killed",
+  "detected header opposite");
+  unique((record) => record.mutant.mutatorName === "EqualityOperator" &&
+    record.mutant.replacement === "indexSize <= 0" && record.mutant.status === "Killed",
+  "detected index opposite");
+  for (const replacement of ["true", "false"])
+    unique((record) => record.mutant.mutatorName === "ConditionalExpression" &&
+      record.mutant.replacement === replacement && record.anchor ===
+      [file, "ConditionalExpression", replacement, "layout.hasIndexSize && indexSize > 0", 0].join("\0") &&
+      record.mutant.status === "Killed", `detected outer ${replacement} condition`);
+  unique((record) => record.mutant.mutatorName === "LogicalOperator" &&
+    record.mutant.replacement === "layout.hasIndexSize || indexSize > 0" &&
+    record.mutant.status === "Killed", "detected outer logical operator");
+}
+
+function assertIlocFinalEvidence(finalEntry, finalReport, root, readTest) {
+  if (Object.keys(finalReport.files ?? {}).length !== 1 ||
+      hash(finalEntry.source ?? "") !== ILOC_BOUNDARY_FINAL_SOURCE_SHA256 ||
+      (finalEntry.mutants ?? []).length !== 157)
+    throw new Error("iloc final evidence differs from the measured 157-mutant source stage");
+  const lines = String(finalEntry.source ?? "").split("\n");
+  const directiveLines = lines.flatMap((line, index) => line.trim() === ILOC_BOUNDARY_DIRECTIVE ? [index] : []);
+  if (directiveLines.length !== 1 || lines[directiveLines[0] + 1]?.trim() !== "indexSize !== 0")
+    throw new Error("iloc final evidence lacks the exact next-line ConditionalExpression directive");
+  const testIds = new Map();
+  for (const [file, entry] of Object.entries(finalReport.testFiles ?? {})) {
+    if (typeof entry.source !== "string" || entry.source.length === 0 || !Array.isArray(entry.tests))
+      throw new Error(`iloc final test evidence is incomplete for ${file}`);
+    const path = safeRelative(root, file, "iloc final test");
+    const source = readTest ? readTest(file) : readFileSync(path, "utf8");
+    if (source !== entry.source) throw new Error(`iloc final test source is absent or stale for ${file}`);
+    for (const test of entry.tests) {
+      if (!test?.id || typeof test.name !== "string" || test.name.trim() === "" || testIds.has(String(test.id)))
+        throw new Error(`iloc final test table has an empty, unnamed or duplicate row in ${file}`);
+      testIds.set(String(test.id), { file, name: test.name });
+    }
+  }
+  for (const mutant of finalEntry.mutants ?? []) if (DETECTED.has(mutant.status)) {
+    const killedBy = (mutant.killedBy ?? []).map((id) => testIds.get(String(id))).filter(Boolean);
+    if (killedBy.length === 0 || killedBy.length !== (mutant.killedBy ?? []).length)
+      throw new Error(`iloc final ${mutant.status} mutant ${mutant.id} has unresolved killedBy test evidence`);
+  }
+}
+
 export function affectedBy(mutant, source, edits) {
   let start, end;
   try {
@@ -306,10 +409,159 @@ function mapFinalOffsetToBefore(offset, edits, boundary) {
   return mapOffsetToOriginal(offset, edits, boundary);
 }
 
+function validateIlocOperationChain(row, receipt, beforeSource) {
+  const usesIlocOperation = (receipt.edits ?? []).some((edit) =>
+    typeof edit?.operation === "string" && edit.operation.startsWith("iloc-"));
+  if (!usesIlocOperation) return false;
+  if (row.file !== "src/isobmff/iloc.ts" || row.function !== "parseIloc" ||
+      row.mutatorName !== "EqualityOperator" || row.disposition !== "dead")
+    throw new Error("iloc boundary operations are restricted to parseIloc EqualityOperator dead rows");
+  if (receipt.beforeRef !== ILOC_BOUNDARY_BASE)
+    throw new Error(`iloc boundary receipts must use permanent beforeRef ${ILOC_BOUNDARY_BASE}`);
+  if (hash(normalizeDirectives(beforeSource)) !== ILOC_BOUNDARY_SOURCE_SHA256)
+    throw new Error("iloc boundary source differs from the pinned ancestor after directive normalization");
+  if (receipt.beforeReportSha256 !== ILOC_BOUNDARY_BEFORE_REPORT_SHA256)
+    throw new Error("iloc boundary before report digest is not the retained full-file Stryker report");
+  if (!Array.isArray(receipt.edits) || receipt.edits.length !== ILOC_BOUNDARY_EDITS.length ||
+      receipt.edits.some((edit, index) => canonical(edit) !== canonical(ILOC_BOUNDARY_EDITS[index])))
+    throw new Error("iloc boundary receipt must contain the exact ordered two-operation chain");
+  if (row.count !== 1 || row.keys?.length !== 1 || row.originClusterId !==
+      [row.group, row.file, row.function, row.mutatorName].join(":" ) ||
+      row.id === row.originClusterId)
+    throw new Error("iloc boundary dead rows must be single-key children of the immutable origin");
+  const keyBySymbol = {
+    "payload.length < 2": ILOC_HEADER_KEY,
+    "indexSize > 0": ILOC_INDEX_KEY,
+  };
+  if (keyBySymbol[row.symbol] !== row.keys[0])
+    throw new Error("iloc boundary dead row does not own its exact frozen comparison key");
+  return true;
+}
+
+function currentTestEvidence({ mutant, report, root, readTest, label }) {
+  if (!DETECTED.has(mutant.status)) return;
+  const resolved = resolvedTests(report, mutant);
+  if (resolved.length === 0 || resolved.length !== (mutant.killedBy ?? []).length)
+    throw new Error(`${label} has unresolved killedBy test evidence`);
+  for (const test of resolved) {
+    const path = safeRelative(root, test.file, `${label} test`);
+    const source = readTest ? readTest(test.file) : readFileSync(path, "utf8");
+    if (typeof source !== "string" || source.length === 0 || test.name.trim() === "" ||
+        report.testFiles?.[test.file]?.source !== source)
+      throw new Error(`${label} killedBy test source is absent or stale`);
+  }
+}
+
+function sourceSpan(source, mutant) {
+  const location = toNormalizedLocation(source, mutant.location);
+  const normalizedSource = normalizeDirectives(source);
+  return normalizedSource.slice(offsetAt(normalizedSource, location.start), offsetAt(normalizedSource, location.end));
+}
+
+function ilocAuxiliaryMutants({ file, finalEntry, finalReport, edits, root, readTest }) {
+  const source = finalEntry.source ?? "";
+  const normalized = normalizeDirectives(source);
+  const sites = edits.map((edit) => {
+    if (edit.operation === "iloc-header-integer-boundary")
+      return { operation: edit.operation, start: edit.currentStart,
+        end: edit.currentStart + edit.after.length, expression: edit.after,
+        replacements: new Set(["payload.length < 1", "payload.length > 1"]), expectedCount: 2 };
+    const expression = "indexSize !== 0";
+    const relativeStart = edit.after.indexOf(expression);
+    if (relativeStart < 0 || edit.after.indexOf(expression, relativeStart + 1) !== -1)
+      throw new Error("iloc index operation no longer contains one exact nonzero comparison");
+    return { operation: edit.operation, start: edit.currentStart + relativeStart,
+      end: edit.currentStart + relativeStart + expression.length, expression,
+      replacements: new Set(["indexSize === 0"]), expectedCount: 1 };
+  });
+  const found = sites.map(() => []);
+  for (const mutant of finalEntry.mutants ?? []) {
+    if (mutant.mutatorName !== "EqualityOperator") continue;
+    const location = toNormalizedLocation(source, mutant.location);
+    const start = offsetAt(normalized, location.start), end = offsetAt(normalized, location.end);
+    for (let index = 0; index < sites.length; index++) {
+      const site = sites[index];
+      if (start >= site.start && end <= site.end) {
+        const replacement = normalizeDirectives(mutant.replacement ?? "");
+        if (start !== site.start || end !== site.end || !site.replacements.has(replacement))
+          throw new Error(`unexpected iloc auxiliary EqualityOperator at ${site.operation}`);
+        currentTestEvidence({ mutant, report: finalReport, root, readTest,
+          label: `${site.operation} auxiliary EqualityOperator` });
+        if (!DETECTED.has(mutant.status))
+          throw new Error(`${site.operation} auxiliary EqualityOperator is ${mutant.status}`);
+        found[index].push(rawRecord(file, mutant, source, finalReport));
+      }
+    }
+  }
+  for (let index = 0; index < sites.length; index++)
+    if (found[index].length !== sites[index].expectedCount)
+      throw new Error(`${sites[index].operation} emitted ${found[index].length} auxiliary EqualityOperators; expected ${sites[index].expectedCount}`);
+  const records = found.flat().sort((a, b) => a.anchor.localeCompare(b.anchor));
+  if (new Set(records.map((record) => record.anchor)).size !== records.length)
+    throw new Error("duplicate iloc auxiliary current mutant");
+  return records;
+}
+
+function mapIlocSemanticCounterpart({ mutant, finalEntry, finalReport, evidence, edits, root, readTest }) {
+  const source = finalEntry.source ?? "";
+  const normalizedSource = normalizeDirectives(source);
+  const currentSpan = sourceSpan(source, mutant);
+  const sites = [
+    { operation: "iloc-header-integer-boundary", currentSpan: "payload.length <= 1",
+      oldSpan: "payload.length < 2", oldReplacement: (replacement) => replacement },
+    { operation: "iloc-index-nonzero-boundary", currentSpan: "indexSize !== 0",
+      oldSpan: "indexSize > 0", oldReplacement: (replacement) => replacement },
+    { operation: "iloc-index-nonzero-boundary", currentSpan: "layout.hasIndexSize &&\n        indexSize !== 0",
+      oldSpan: "layout.hasIndexSize && indexSize > 0",
+      oldReplacement: () => "layout.hasIndexSize || indexSize > 0" },
+  ];
+  const location = toNormalizedLocation(source, mutant.location);
+  const from = offsetAt(normalizedSource, location.start), to = offsetAt(normalizedSource, location.end);
+  const intersectsEdit = edits.some((edit) => from < edit.currentAfterEnd && to > edit.currentStart);
+  const site = sites.find((candidate) => edits.some((edit) => edit.operation === candidate.operation &&
+    edit.after.includes(candidate.currentSpan) && from >= edit.currentStart && to <= edit.currentAfterEnd) &&
+    currentSpan === candidate.currentSpan);
+  if (!site) {
+    if (intersectsEdit && ["ConditionalExpression", "LogicalOperator"].includes(mutant.mutatorName))
+      throw new Error(`iloc ${mutant.mutatorName} has no explicit closed-site semantic counterpart`);
+    return null;
+  }
+  const logical = mutant.mutatorName === "LogicalOperator" && site.operation === "iloc-index-nonzero-boundary" &&
+    site.currentSpan === "layout.hasIndexSize &&\n        indexSize !== 0";
+  const conditional = mutant.mutatorName === "ConditionalExpression" &&
+    ["true", "false"].includes(mutant.replacement);
+  if (!logical && !conditional) return null;
+  if (logical && normalizeDirectives(mutant.replacement ?? "") !== "layout.hasIndexSize ||\nindexSize !== 0")
+    throw new Error("iloc logical-or candidate differs from the exact nonzero-index counterpart");
+  const expectedOldReplacement = logical
+    ? site.oldReplacement(mutant.replacement)
+    : mutant.replacement ?? "";
+  const beforeSource = normalizeDirectives(evidence.source);
+  const oldMatches = evidence.mutants.filter((old) => old.mutatorName === mutant.mutatorName &&
+    (old.replacement ?? "") === expectedOldReplacement && sourceSpan(evidence.source, old) === site.oldSpan);
+  if (oldMatches.length !== 1)
+    throw new Error(`iloc ${mutant.mutatorName} ${JSON.stringify(currentSpan)} counterpart to ${JSON.stringify(site.oldSpan)} has ${oldMatches.length} exact pinned originals`);
+  const old = oldMatches[0];
+  const oldLocation = toNormalizedLocation(evidence.source, old.location);
+  const original = anchorKey("src/isobmff/iloc.ts", { ...old, location: oldLocation }, beforeSource);
+  const current = rawRecord("src/isobmff/iloc.ts", mutant, source, finalEntry).anchor;
+  currentTestEvidence({ mutant, report: finalReport, root, readTest,
+    label: `iloc ${mutant.mutatorName} semantic counterpart` });
+  const isSuppressedInnerTrue = site.currentSpan === "indexSize !== 0" && mutant.mutatorName === "ConditionalExpression" &&
+    mutant.replacement === "true" && old.status === "Survived" && mutant.status === "Ignored" &&
+    /^redundant-guard-after-typed-check — \S/.test(String(mutant.statusReason ?? ""));
+  if (isSuppressedInnerTrue) return { current, original, semanticPair: "index-size-nonnegative-conditional-true" };
+  if (mutant.status === "Ignored")
+    throw new Error("only the inner index-size ConditionalExpression true may be comment-Ignored");
+  if (old.status !== mutant.status)
+    throw new Error(`iloc ${mutant.mutatorName} exact counterpart status changed from ${old.status} to ${mutant.status}`);
+  return { current, original, semanticPair: logical ? "index-size-nonnegative-logical-or" : site.operation };
+}
+
 /** Validate one `row.deletion`; no writes, fetches or network operations occur. */
 export function validateDeletion({ row, root, currentSource = null, finalEntry = null,
   finalReport = null, readTest = null, survivors = null, requireFinal = false }) {
-  const problems = [], anchors = [], validatedEdits = [], removedMutants = [];
+  const problems = [], anchors = [], validatedEdits = [], removedMutants = [], auxiliaryMutants = [];
   const fail = (message) => problems.push(`${row?.id ?? "dead row"}: ${message}`);
   try {
     const receipt = row?.deletion;
@@ -320,14 +572,24 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
     if (typeof row.symbol !== "string" || row.symbol === "" ||
         !receipt.edits?.some((edit) => edit.function === row.function && edit.before.includes(row.symbol)))
       throw new Error("required dead symbol is not named by its scoped function edit");
+    const usesIlocOperation = (receipt.edits ?? []).some((edit) =>
+      typeof edit?.operation === "string" && edit.operation.startsWith("iloc-"));
+    if (usesIlocOperation && row.file !== "src/isobmff/iloc.ts")
+      throw new Error("iloc boundary operations are restricted to src/isobmff/iloc.ts");
     const trackedPath = safeRelative(root, row.file, "receipt source");
     const beforeSource = gitSource(root, receipt.beforeRef, row.file);
+    const ilocBoundary = validateIlocOperationChain(row, receipt, beforeSource);
     if (!hex256.test(receipt.beforeSourceSha256 ?? "") || hash(beforeSource) !== receipt.beforeSourceSha256)
       throw new Error("before source hash mismatch");
     const evidence = evidenceParts(receipt.beforeEvidence, row.file);
     const evidenceDigest = hash(canonical(receipt.beforeEvidence));
     if (!hex256.test(receipt.beforeEvidenceSha256 ?? "") || evidenceDigest !== receipt.beforeEvidenceSha256)
       throw new Error("beforeEvidence canonical digest mismatch");
+    if (ilocBoundary) {
+      if (receipt.beforeEvidenceSha256 !== ILOC_BOUNDARY_BEFORE_EVIDENCE_SHA256)
+        throw new Error("iloc boundary embedded evidence digest is not the retained full-file Stryker evidence");
+      assertIlocBeforeEvidence(evidence, survivors);
+    }
     if (normalizeDirectives(evidence.source) !== normalizeDirectives(beforeSource))
       throw new Error("embedded source differs from authoritative git source");
     if (hash(normalizeDirectives(beforeSource)) !== hash(normalizeDirectives(evidence.source)))
@@ -408,9 +670,14 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
     if (owned.size === 0) throw new Error("scoped dead row owns no members");
 
     if (finalReport && finalEntry) {
+      if (ilocBoundary) assertIlocFinalEvidence(finalEntry, finalReport, root, readTest);
       const editMap = applied.edits;
       const beforeNormalized = normalizeDirectives(beforeSource);
       const finalNormalized = normalizeDirectives(finalEntry.source ?? "");
+      const ilocAuxiliary = ilocBoundary
+        ? ilocAuxiliaryMutants({ file: row.file, finalEntry, finalReport, edits: editMap, root, readTest })
+        : [];
+      const auxiliaryAnchors = new Set(ilocAuxiliary.map((record) => record.anchor));
       const originalRecords = evidence.mutants.map((old) => ({
         anchor: anchorKey(row.file,
           { ...old, location: toNormalizedLocation(evidence.source, old.location) }, beforeNormalized),
@@ -423,6 +690,17 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
           from = offsetAt(finalNormalized, toNormalizedLocation(finalEntry.source ?? "", mutant.location).start);
           to = offsetAt(finalNormalized, toNormalizedLocation(finalEntry.source ?? "", mutant.location).end);
         } catch { throw new Error(`unexplained live anchor ${mutant.mutatorName}: location is outside current source`); }
+        const normalizedLocation = toNormalizedLocation(finalEntry.source ?? "", mutant.location);
+        const current = anchorKey(row.file, { ...mutant, location: normalizedLocation }, finalNormalized);
+        if (auxiliaryAnchors.has(current)) continue;
+        const semantic = ilocBoundary
+          ? mapIlocSemanticCounterpart({ mutant, finalEntry, finalReport, evidence,
+            edits: editMap, root, readTest })
+          : null;
+        if (semantic) {
+          anchors.push({ current: semantic.current, original: semantic.original });
+          continue;
+        }
         const liveSpan = finalNormalized.slice(from, to);
         const candidates = new Map();
         for (const startBoundary of ["start", "end"]) for (const endBoundary of ["start", "end"]) {
@@ -447,9 +725,9 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
           throw new Error(`unexplained live anchor ${mutant.mutatorName}: edited text has no unique original correspondence`);
         if (possible.length === 0)
           throw new Error(`unexplained live anchor ${mutant.mutatorName}: source text does not map through the receipt`);
+        if (ilocBoundary && exact.length !== 1)
+          throw new Error(`iloc ${mutant.mutatorName} has no exact pinned token/coordinate counterpart`);
         const original = exact[0]?.original ?? possible[0].original;
-        const normalizedLocation = toNormalizedLocation(finalEntry.source ?? "", mutant.location);
-        const current = anchorKey(row.file, { ...mutant, location: normalizedLocation }, finalNormalized);
         anchors.push({ current, original });
       }
       const seen = new Set(), seenCurrent = new Set();
@@ -458,6 +736,23 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
         seenCurrent.add(pair.current);
         if (seen.has(pair.original)) throw new Error(`two live mutants map to one original anchor ${show(pair.original)}`);
         seen.add(pair.original);
+      }
+      if (ilocBoundary) {
+        for (const pair of anchors) {
+          const oldMatches = evidence.mutants.filter((old) => anchorKey(row.file,
+            { ...old, location: toNormalizedLocation(evidence.source, old.location) }, beforeNormalized) === pair.original);
+          const currentMatches = (finalEntry.mutants ?? []).filter((mutant) =>
+            anchorKey(row.file, { ...mutant, location: toNormalizedLocation(finalEntry.source ?? "", mutant.location) }, finalNormalized) === pair.current);
+          if (oldMatches.length !== 1 || currentMatches.length !== 1)
+            throw new Error("iloc exact counterpart is missing or ambiguous in the complete report tables");
+          const old = oldMatches[0], current = currentMatches[0];
+          const oldKey = mutantKey(row.file, { ...old, location: toNormalizedLocation(evidence.source, old.location) });
+          const oneOwnedInnerTrue = oldKey === ILOC_INDEX_TRUE_KEY && old.status === "Survived" &&
+            current.mutatorName === "ConditionalExpression" && current.replacement === "true" &&
+            current.status === "Ignored" && /^redundant-guard-after-typed-check — \S/.test(String(current.statusReason ?? ""));
+          if (old.status !== current.status && !oneOwnedInnerTrue)
+            throw new Error(`iloc exact counterpart status changed from ${old.status} to ${current.status}`);
+        }
       }
       for (const key of owned) {
         const resolved = ownedEvidence.get(key);
@@ -475,6 +770,9 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
       if (canonical(actualRecords) !== canonical(claimed))
         throw new Error(`removedMutants does not exactly account for invalidated report mutants (computed ${actualRecords.map((record) => show(record.anchor)).join(", ")}; claimed ${claimed.map((record) => show(record.anchor)).join(", ")})`);
       removedMutants.push(...actualRecords);
+      auxiliaryMutants.push(...ilocAuxiliary);
+      if (ilocBoundary && (anchors.length !== 154 || actualRecords.length !== 4 || ilocAuxiliary.length !== 3))
+        throw new Error(`iloc complete correspondence differs from the retained inventory (mapped ${anchors.length}, removed ${actualRecords.length}, auxiliary ${ilocAuxiliary.length})`);
 
       const successorByOld = new Map((receipt.detectedSuccessors ?? []).map((item) => [item.oldAnchor, item]));
       const counterfactualByOld = new Map((receipt.counterfactuals ?? []).map((item) => [item.oldAnchor, item]));
@@ -505,7 +803,11 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
             throw new Error("detected successor has no named test");
           safeRelative(root, expectedTest.file, "successor test");
           const text = readTest ? readTest(expectedTest.file) : readFileSync(safeRelative(root, expectedTest.file, "successor test"), "utf8");
-          if (typeof text !== "string" || !text.includes(expectedTest.name) || finalReport.testFiles?.[expectedTest.file]?.source !== text)
+          const reportedTest = finalReport.testFiles?.[expectedTest.file];
+          const namedTestPresent = reportedTest?.tests?.some((test) => test.name === expectedTest.name);
+          if (typeof text !== "string" || text.length === 0 ||
+              (!ilocBoundary && !text.includes(expectedTest.name)) ||
+              reportedTest?.source !== text || !namedTestPresent)
             throw new Error("detected successor test source is absent or stale");
           const killedBy = resolvedTests(finalReport, mutant);
           if (!killedBy.some((test) => test.file === expectedTest.file && (test.name === expectedTest.name || test.name.endsWith(` > ${expectedTest.name}`))))
@@ -543,7 +845,7 @@ export function validateDeletion({ row, root, currentSource = null, finalEntry =
   } catch (error) {
     fail(error.message);
   }
-  return { problems, edits: validatedEdits, anchors, removedMutants };
+  return { problems, edits: validatedEdits, anchors, removedMutants, auxiliaryMutants };
 }
 
 export { canonical as canonicalReceiptJson, normalizeDirectives as normalizeReceiptSource };

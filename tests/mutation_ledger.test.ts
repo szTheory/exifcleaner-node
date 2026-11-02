@@ -113,8 +113,14 @@ interface DeletionProof {
     readTest(file: string): string;
     survivors: Survivor[];
     requireFinal: boolean;
-  }): { problems: string[]; anchors: { current: string; original: string }[] };
+  }): {
+    problems: string[];
+    anchors: { current: string; original: string }[];
+    removedMutants: { anchor: string; replacement: string; status: string }[];
+    auxiliaryMutants: { anchor: string; replacement: string; status: string; killedBy: { file: string; name: string }[] }[];
+  };
   canonicalReceiptJson(value: unknown): string;
+  normalizeReceiptSource(source: string): string;
 }
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -133,6 +139,7 @@ const liveInputPaths = [
   join(packageRoot, "package.json"),
   join(packageRoot, "package-lock.json"),
   join(packageRoot, "tests", "fixtures", "mutation", "admission-deletion-reports.json.gz"),
+  join(packageRoot, "tests", "fixtures", "mutation", "iloc-boundary-reports.json.gz"),
   join(packageRoot, "reports", "triage", "67-14", "node24-green.json"),
   join(packageRoot, "reports", "triage", "67-14", "red.json"),
   join(packageRoot, "reports", "triage", "67-14", "partial-proof.json"),
@@ -296,7 +303,9 @@ const phaseVerifier = await import(pathToFileURL(phaseVerifierPath).href) as {
     readTest(file: string): string;
     symbolAbsent(symbol: string): boolean;
     root: string;
-  }): unknown[];
+    ledgerClusters?: Cluster[];
+    selectedFiles?: string[];
+  }): { key: string; status: string }[];
 };
 
 interface AdmissionReceiptBundle {
@@ -329,6 +338,139 @@ interface AdmissionReceiptBundle {
     expectedDiagnostic: string;
     assertion: string;
   }[];
+}
+
+interface IlocBoundaryBundle {
+  schema: string;
+  provenance: {
+    sourceRef: string;
+    node: string;
+    stryker: string;
+    beforeReportSha256: string;
+    beforeEvidenceSha256: string;
+    stageReports: Record<"header" | "final", {
+      reportSha256: string;
+      sourceSha256: string;
+      normalizedSourceSha256: string;
+    }>;
+    counts: { before: number; header: number; final: number };
+  };
+  beforeReportRaw: string;
+  headerReportRaw: string;
+  finalReportRaw: string;
+  beforeEvidence: { source: string; mutants: Mutant[]; testFiles: Report["testFiles"] };
+  candidateRows: Cluster[];
+  selectedMembers: Survivor[];
+}
+
+function loadIlocBoundaryBundle(): {
+  bundle: IlocBoundaryBundle;
+  beforeReport: Report;
+  headerReport: Report;
+  finalReport: Report & { testFiles: NonNullable<Report["testFiles"]> };
+} {
+  const fixturePath = join(packageRoot, "tests", "fixtures", "mutation", "iloc-boundary-reports.json.gz");
+  const bytes = readFileSync(fixturePath);
+  expect(sha256(bytes)).toBe("2b8f6a73dec47a5e79e279219b5b6a4d00c2cc0101963f40200649ff93a113a4");
+  const bundle = JSON.parse(gunzipSync(bytes).toString("utf8")) as IlocBoundaryBundle;
+  expect(bundle.schema).toBe("exifcleaner.iloc-boundary-reports.v1");
+  expect(bundle.provenance).toMatchObject({
+    sourceRef: "cb8eedde27eaa6b2a54cb9f2008d91292a8b3bba",
+    node: "24.21.0",
+    stryker: "10.1.1",
+    beforeReportSha256: "62cd1c66845a7707d5cca3c4484fc161139b26daa64875c5bba72ec3582ac502",
+    beforeEvidenceSha256: "66ab13e3ea1ae914d86e03c841a7a16ce371266e4b7fe5c884383d90a8d691c4",
+    counts: { before: 158, header: 158, final: 157 },
+  });
+  expect(sha256(bundle.beforeReportRaw)).toBe(bundle.provenance.beforeReportSha256);
+  expect(sha256(deletionProof.canonicalReceiptJson(bundle.beforeEvidence)))
+    .toBe(bundle.provenance.beforeEvidenceSha256);
+  const beforeReport = JSON.parse(bundle.beforeReportRaw) as Report;
+  const headerReport = JSON.parse(bundle.headerReportRaw) as Report;
+  const finalReport = JSON.parse(bundle.finalReportRaw) as Report & {
+    testFiles: NonNullable<Report["testFiles"]>;
+  };
+  expect(Object.keys(beforeReport.files)).toEqual(["src/isobmff/iloc.ts"]);
+  expect(Object.keys(headerReport.files)).toEqual(["src/isobmff/iloc.ts"]);
+  expect(Object.keys(finalReport.files)).toEqual(["src/isobmff/iloc.ts"]);
+  expect(beforeReport.files["src/isobmff/iloc.ts"]!.mutants).toHaveLength(158);
+  expect(headerReport.files["src/isobmff/iloc.ts"]!.mutants).toHaveLength(158);
+  expect(finalReport.files["src/isobmff/iloc.ts"]!.mutants).toHaveLength(157);
+  expect(bundle.candidateRows).toHaveLength(4);
+  expect(bundle.candidateRows.flatMap((row) => row.keys)).toHaveLength(12);
+  expect(bundle.selectedMembers).toHaveLength(12);
+  return { bundle, beforeReport, headerReport, finalReport };
+}
+
+function materializeIlocBoundaryBundle(bundle: IlocBoundaryBundle,
+  finalReport: Report & { testFiles: NonNullable<Report["testFiles"]> }): string {
+  const root = tempRoot({});
+  const gitDir = execFileSync("git", ["rev-parse", "--absolute-git-dir"], {
+    cwd: packageRoot,
+    encoding: "utf8",
+  }).trim();
+  const writeText = (file: string, content: string | Buffer) => {
+    const path = join(root, file);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, content);
+  };
+  writeText(".git", `gitdir: ${gitDir}\n`);
+  writeText("src/isobmff/iloc.ts", finalReport.files["src/isobmff/iloc.ts"]!.source);
+  for (const [file, entry] of Object.entries(finalReport.testFiles)) writeText(file, entry.source);
+  writeText("reports/mutation/before.json", bundle.beforeReportRaw);
+  writeText("reports/mutation/final.json", bundle.finalReportRaw);
+  writeText("tools/mutation/pre-triage-survivors.json", `${JSON.stringify({ survivors: bundle.selectedMembers })}\n`);
+  writeText("tools/mutation/ledger.json", `${JSON.stringify({
+    schemaVersion: 1,
+    preTriage: null,
+    clusters: bundle.candidateRows,
+  })}\n`);
+  writeText("tools/mutation/classes.json", readFileSync(join(packageRoot, "tools", "mutation", "classes.json"), "utf8"));
+  writeText("mutation-floors.json", readFileSync(join(packageRoot, "mutation-floors.json"), "utf8"));
+  return root;
+}
+
+function writeIlocCliStage(fixture: RealCliFixture, bundle: IlocBoundaryBundle,
+  stage: "header" | "final"): string {
+  const reportRaw = stage === "header" ? bundle.headerReportRaw : bundle.finalReportRaw;
+  const report = JSON.parse(reportRaw) as Report & { testFiles: NonNullable<Report["testFiles"]> };
+  const beforeReportPath = "exifcleaner-node/reports/mutation/before.json";
+  const reportPath = `exifcleaner-node/reports/mutation/iloc-${stage}.json`;
+  const sourcePath = "exifcleaner-node/src/isobmff/iloc.ts";
+  const write = (relativePath: string, content: string | Buffer) => {
+    const path = resolve(fixture.root, relativePath);
+    assertContained(realpathSync(fixture.root), path, `${relativePath} escaped CLI fixture`);
+    mkdirSync(dirname(path), { recursive: true });
+    if (existsSync(path)) chmodSync(path, 0o644);
+    writeFileSync(path, content);
+    expect(lstatSync(path).isFile()).toBe(true);
+    expect(realpathSync(path).startsWith(`${realpathSync(fixture.root)}${sep}`)).toBe(true);
+  };
+  write(sourcePath, report.files["src/isobmff/iloc.ts"]!.source);
+  for (const [file, entry] of Object.entries(report.testFiles)) write(`exifcleaner-node/${file}`, entry.source);
+  write(beforeReportPath, bundle.beforeReportRaw);
+  write(reportPath, reportRaw);
+  copyWorkspaceRegularFile(fixture.root, "exifcleaner-node/tests/fixtures/mutation/iloc-boundary-reports.json.gz");
+  return reportPath;
+}
+
+function overlayIlocCandidateRows(ledger: CliLedger, candidateRows: Cluster[]): CliLedger {
+  const replacedKeys = new Set(candidateRows.flatMap((row) => row.keys));
+  const clusters = ledger.clusters.flatMap((row) => {
+    const retained = row.keys.map((key, index) => ({ key, anchor: row.anchors?.[index] }))
+      .filter(({ key }) => !replacedKeys.has(key));
+    if (retained.length === row.keys.length) return [row];
+    if (retained.length === 0) return [];
+    if (retained.some(({ anchor }) => typeof anchor !== "string"))
+      throw new Error(`${row.id}: partial candidate overlay cannot retain a key without its frozen anchor`);
+    return [{ ...row, keys: retained.map(({ key }) => key),
+      anchors: retained.map(({ anchor }) => anchor as string), count: retained.length }];
+  });
+  clusters.push(...candidateRows);
+  const keys = clusters.flatMap((row) => row.keys);
+  if (keys.length !== 1919 || new Set(keys).size !== 1919)
+    throw new Error("iloc candidate overlay changed the immutable 1,919-key membership");
+  return { ...ledger, clusters };
 }
 
 function loadAdmissionReceiptBundle(): {
@@ -423,6 +565,7 @@ const cliImportFiles = [
   "exifcleaner-node/tools/mutation/groups.mjs",
 ];
 const cliHistoryFiles = [
+  "67-16-HALTED.md",
   "67-14-HALTED.md",
   "67-14-RESUME-HALTED.md",
   "67-14-CLI-HALTED.md",
@@ -1471,6 +1614,15 @@ describe("deletion proof lexical and interval controls", () => {
     expect(() => deletionProof.applyEdits("function choose() { return true; }", [{
       function: "choose", before: "return true;", after: "return false;", occurrence: 0,
     }])).toThrow(/non-deletion edit/);
+
+    const conditional = "function parse() {\n  if (kind) {\n    keep();\n  }\n}\n";
+    const retainedBody = deletionProof.applyEdits(conditional, [{
+      function: "parse",
+      before: "if (kind) {\n    keep();\n  }",
+      after: "    keep();",
+      occurrence: 0,
+    }]);
+    expect(retainedBody.source).toContain("keep();");
   });
 
   it("uses half-open overlap so touching deletion endpoints preserve adjacent mutants", () => {
@@ -1826,7 +1978,273 @@ describe("real iloc boundary receipt", () => {
     expect(() => deletionProof.applyEdits(source, [edit])).not.toThrow();
     expect(deletionProof.applyEdits(source, [edit]).source)
       .toContain("payload.length <= 1");
+    expect(() => deletionProof.applyEdits(source, [{ ...edit, after: "payload.length <= 0" }]))
+      .toThrow(/non-deletion edit/);
   });
+
+  it("proves both real receipts through validation, evaluate, and ledger checks without claiming a global final pass", () => {
+    const { bundle, finalReport } = loadIlocBoundaryBundle();
+    const root = materializeIlocBoundaryBundle(bundle, finalReport);
+    const finalEntry = finalReport.files["src/isobmff/iloc.ts"]!;
+    const readTest = (file: string) => readFileSync(join(root, file), "utf8");
+    const deadRows = bundle.candidateRows.filter((row) => row.disposition === "dead");
+    const proofs = deadRows.map((row) => deletionProof.validateDeletion({
+      row,
+      root,
+      currentSource: finalEntry.source,
+      finalEntry,
+      finalReport,
+      readTest,
+      survivors: bundle.selectedMembers,
+      requireFinal: true,
+    }));
+
+    expect(deadRows).toHaveLength(2);
+    for (const [index, proof] of proofs.entries()) {
+      expect(proof.problems, deadRows[index]!.id).toEqual([]);
+      expect(proof.anchors).toHaveLength(154);
+      expect(proof.removedMutants).toHaveLength(4);
+      expect(proof.auxiliaryMutants).toHaveLength(3);
+      expect(proof.anchors.some((pair) => pair.original.includes("payload.length <= 2"))).toBe(false);
+      expect(proof.anchors.some((pair) => pair.original.includes("indexSize >= 0"))).toBe(false);
+      expect(proof.auxiliaryMutants.every((mutant) =>
+        mutant.status === "Killed" && mutant.killedBy.length > 0)).toBe(true);
+      expect(proof.auxiliaryMutants.map((mutant) => deletionProof.normalizeReceiptSource(mutant.replacement)).sort()).toEqual([
+        "indexSize === 0", "payload.length < 1", "payload.length > 1",
+      ]);
+      expect(proof.removedMutants.filter((mutant) => mutant.status === "Killed")
+        .map((mutant) => mutant.replacement).sort()).toEqual([
+        "indexSize <= 0", "payload.length >= 2",
+      ]);
+    }
+    expect(proofs[0]!.anchors).toEqual(proofs[1]!.anchors);
+    expect(proofs[0]!.removedMutants.filter((mutant) => mutant.status === "Killed")).toHaveLength(2);
+
+    const scopedLedger = { schemaVersion: 1, preTriage: null, clusters: bundle.candidateRows };
+    const scopedGroups = { isobmff: { tier: "trust", globs: ["src/isobmff/**"] } };
+    expect(checkLedger({ ledger: scopedLedger, finalReport, root, groups: scopedGroups, mode: "pre" })).toEqual([]);
+
+    const evaluated = phaseVerifier.evaluate({
+      clusters: bundle.candidateRows,
+      survivors: bundle.selectedMembers,
+      report: finalReport,
+      mode: "batch",
+      readTest,
+      symbolAbsent: () => true,
+      root,
+      ledgerClusters: bundle.candidateRows,
+      selectedFiles: ["src/isobmff/iloc.ts"],
+    });
+    expect(evaluated).toHaveLength(12);
+    expect(evaluated.filter((member) => member.status === "deleted")).toHaveLength(2);
+    expect(evaluated.filter((member) => member.status === "Ignored")).toHaveLength(10);
+    const outerConditionals = finalEntry.mutants.filter((mutant) =>
+      mutant.mutatorName === "ConditionalExpression" &&
+      ["true", "false"].includes(mutant.replacement ?? "") && mutant.status === "Killed" &&
+      mutant.location.start.line === 233);
+    const outerLogical = finalEntry.mutants.filter((mutant) => mutant.mutatorName === "LogicalOperator" &&
+      deletionProof.normalizeReceiptSource(mutant.replacement ?? "") === "layout.hasIndexSize ||\nindexSize !== 0" &&
+      mutant.status === "Killed");
+    expect(outerConditionals).toHaveLength(2);
+    expect(outerLogical).toHaveLength(1);
+    expect([...outerConditionals, ...outerLogical].every((mutant) => (mutant.killedBy ?? []).length > 0)).toBe(true);
+
+    const fullFixture = createRealAdmissionCliFixture();
+    writeIlocCliStage(fullFixture, bundle, "final");
+    const fullLedger = JSON.parse(readFileSync(join(packageRoot, "tools", "mutation", "ledger.json"), "utf8")) as CliLedger;
+    const candidateOverlay = overlayIlocCandidateRows(fullLedger, bundle.candidateRows);
+    const floors = JSON.parse(readFileSync(join(packageRoot, "mutation-floors.json"), "utf8")) as {
+      groups: Record<string, { tier: string; globs: string[] }>;
+    };
+    expect(candidateOverlay.clusters.flatMap((row) => row.keys)).toHaveLength(1919);
+    const fullFinalProblems = checkLedger({ ledger: candidateOverlay, finalReport,
+      root: fullFixture.productRoot, groups: floors.groups, mode: "final" });
+    const targetReceiptIds = new Set(deadRows.map((row) => row.id));
+    expect(fullFinalProblems.filter((problem) => [...targetReceiptIds].some((id) => problem.startsWith(`${id}:`))))
+      .toEqual([]);
+    expect(fullFinalProblems.filter((problem) =>
+      problem.endsWith(": Survived in a trust group in the final report"))).toHaveLength(7);
+    expect(fullFinalProblems.some((problem) => problem.includes("final report entry is required"))).toBe(true);
+  }, 30_000);
+
+  it("accepts the real header and final candidate stages through the copied read-only CLI", () => {
+    const { bundle } = loadIlocBoundaryBundle();
+    const packetPath = "exifcleaner-node/tests/fixtures/mutation/iloc-boundary-reports.json.gz";
+
+    const headerFixture = createRealAdmissionCliFixture();
+    const headerReportPath = writeIlocCliStage(headerFixture, bundle, "header");
+    const header = runRealCli(headerFixture, ["--iloc-candidate", "--report", headerReportPath,
+      "--stage", "header", "--packet", packetPath]);
+    expect(String(header.error?.message ?? header.stderr)).toBe("");
+    expect(header.status, String(header.stdout)).toBe(0);
+    const headerProof = JSON.parse(String(header.stdout)) as {
+      mode: string;
+      stage: string;
+      originalKeys: string[];
+      auxiliary: { replacement: string; status: string; killedBy: unknown[] }[];
+    };
+    expect(headerProof).toMatchObject({ mode: "candidate-only", stage: "header" });
+    expect(headerProof.originalKeys.some((key) => key.includes("payload.length <= 2"))).toBe(true);
+    expect(headerProof.originalKeys.some((key) => key.includes("indexSize >= 0"))).toBe(true);
+    expect(headerProof.auxiliary.map(({ replacement, status }) => ({ replacement, status })))
+      .toEqual(expect.arrayContaining([
+        { replacement: "payload.length < 1", status: "Killed" },
+        { replacement: "payload.length > 1", status: "Killed" },
+      ]));
+    expect(headerProof.auxiliary.every((mutant) => mutant.killedBy.length > 0)).toBe(true);
+
+    const finalFixture = createRealAdmissionCliFixture();
+    const finalReportPath = writeIlocCliStage(finalFixture, bundle, "final");
+    const finalArgs = ["--iloc-candidate", "--report", finalReportPath,
+      "--stage", "final", "--packet", packetPath];
+    const final = runRealCli(finalFixture, finalArgs);
+    expect(String(final.error?.message ?? final.stderr)).toBe("");
+    expect(final.status, String(final.stdout)).toBe(0);
+    const finalProof = JSON.parse(String(final.stdout)) as {
+      stage: string;
+      mappedPerReceipt: number;
+      receipts: { removed: unknown[]; auxiliary: { status: string; killedBy: unknown[] }[] }[];
+      batchProof: { status: string }[];
+    };
+    expect(finalProof.stage).toBe("final");
+    expect(finalProof.mappedPerReceipt).toBe(154);
+    expect(finalProof.receipts).toHaveLength(2);
+    expect(finalProof.receipts.every((receipt) => receipt.removed.length === 4 &&
+      receipt.auxiliary.length === 3 && receipt.auxiliary.every((mutant) =>
+        mutant.status === "Killed" && mutant.killedBy.length > 0))).toBe(true);
+    expect(finalProof.batchProof).toHaveLength(12);
+    expect(finalProof.batchProof.filter((member) => member.status === "deleted")).toHaveLength(2);
+    expect(finalProof.batchProof.filter((member) => member.status === "Ignored")).toHaveLength(10);
+
+    expectCliRejection(runRealCli(finalFixture, ["--iloc-candidate", "--report", finalReportPath,
+      "--stage", "other", "--packet", packetPath]), "stage must be header or final");
+    expectCliRejection(withCliFileRemoval(finalFixture, packetPath,
+      () => runRealCli(finalFixture, finalArgs)), "ENOENT");
+    expectCliRejection(withCliFileMutation(finalFixture, finalReportPath,
+      (original) => Buffer.concat([original, Buffer.from("\n")]),
+      () => runRealCli(finalFixture, finalArgs)), "report bytes differ from the retained actual Stryker report");
+    expectCliRejection(withCliFileRemoval(finalFixture, finalReportPath,
+      () => runRealCli(finalFixture, finalArgs)), "ENOENT");
+    expectCliRejection(withCliFileMutation(finalFixture, "exifcleaner-node/src/isobmff/iloc.ts",
+      (original) => Buffer.concat([original, Buffer.from("\n")]),
+      () => runRealCli(finalFixture, finalArgs)), "report source differs from the contained candidate copy");
+    expectCliRejection(withCliFileMutation(finalFixture, packetPath, (original) => {
+      const packet = JSON.parse(gunzipSync(original).toString("utf8")) as IlocBoundaryBundle;
+      packet.provenance.stageReports.final.sourceSha256 = "0".repeat(64);
+      return gzipSync(Buffer.from(JSON.stringify(packet)));
+    }, () => runRealCli(finalFixture, finalArgs)), "packet bindings differ from actual Stryker evidence");
+  }, 30_000);
+
+  it("rejects widened or stale receipts through both consumers and preserves order-independent proof", () => {
+    const { bundle, finalReport } = loadIlocBoundaryBundle();
+    const root = materializeIlocBoundaryBundle(bundle, finalReport);
+    const finalEntry = finalReport.files["src/isobmff/iloc.ts"]!;
+    const readTest = (file: string) => readFileSync(join(root, file), "utf8");
+    const deadIndex = bundle.candidateRows.findIndex((row) => row.disposition === "dead");
+    const makeInput = (row: Cluster, report = finalReport) => ({
+      row,
+      root,
+      currentSource: report.files["src/isobmff/iloc.ts"]!.source,
+      finalEntry: report.files["src/isobmff/iloc.ts"]!,
+      finalReport: report,
+      readTest,
+      survivors: bundle.selectedMembers,
+      requireFinal: true,
+    });
+    const rejectThroughConsumers = (row: Cluster, report: typeof finalReport, pattern: RegExp) => {
+      const rows = structuredClone(bundle.candidateRows);
+      rows[deadIndex] = row;
+      const groups = { isobmff: { tier: "trust", globs: ["src/isobmff/**"] } };
+      expect(checkLedger({ ledger: { schemaVersion: 1, preTriage: null, clusters: rows },
+        finalReport: report, root, groups, mode: "pre" }).join("\n")).toMatch(pattern);
+      expect(() => phaseVerifier.evaluate({ clusters: rows, survivors: bundle.selectedMembers,
+        report, mode: "batch", readTest, symbolAbsent: () => true, root,
+        ledgerClusters: rows, selectedFiles: ["src/isobmff/iloc.ts"] })).toThrow(pattern);
+    };
+    const base = bundle.candidateRows[deadIndex]!;
+
+    const widened = structuredClone(base);
+    const widenedEdit = (widened.deletion!.edits as { after: string }[])[0]!;
+    widenedEdit.after = "payload.length <= 0";
+    expect(deletionProof.validateDeletion(makeInput(widened)).problems.join("\n"))
+      .toMatch(/exact ordered two-operation chain/);
+    rejectThroughConsumers(widened, finalReport, /exact ordered two-operation chain/);
+
+    const wrongFile = structuredClone(base);
+    wrongFile.file = "src/isobmff/admission.ts";
+    expect(deletionProof.validateDeletion(makeInput(wrongFile)).problems.join("\n"))
+      .toMatch(/restricted to src\/isobmff\/iloc\.ts/);
+
+    const wrongFunction = structuredClone(base);
+    wrongFunction.function = "classifyIloc";
+    expect(deletionProof.validateDeletion(makeInput(wrongFunction)).problems.join("\n"))
+      .toMatch(/receipt function does not match owned row/);
+
+    const wrongOccurrence = structuredClone(base);
+    (wrongOccurrence.deletion!.edits as { occurrence: number }[])[0]!.occurrence = 1;
+    expect(deletionProof.validateDeletion(makeInput(wrongOccurrence)).problems.join("\n"))
+      .toMatch(/exact ordered two-operation chain/);
+
+    const wrongLayoutToken = structuredClone(base);
+    (wrongLayoutToken.deletion!.edits as { before: string }[])[1]!.before =
+      "if (layout.hasIndexSize || indexSize > 0)";
+    expect(deletionProof.validateDeletion(makeInput(wrongLayoutToken)).problems.join("\n"))
+      .toMatch(/exact ordered two-operation chain/);
+
+    const emptyOwner = structuredClone(base);
+    emptyOwner.keys = [];
+    emptyOwner.count = 0;
+    expect(deletionProof.validateDeletion(makeInput(emptyOwner)).problems.join("\n"))
+      .toMatch(/single-key children of the immutable origin/);
+
+    const duplicateOwner = structuredClone(base);
+    duplicateOwner.keys = [base.keys[0]!, base.keys[0]!];
+    duplicateOwner.count = 2;
+    expect(deletionProof.validateDeletion(makeInput(duplicateOwner)).problems.join("\n"))
+      .toMatch(/single-key children of the immutable origin/);
+
+    const wrongOrigin = structuredClone(base);
+    wrongOrigin.originClusterId = "forged-origin";
+    expect(deletionProof.validateDeletion(makeInput(wrongOrigin)).problems.join("\n"))
+      .toMatch(/single-key children of the immutable origin/);
+
+    const staleSource = structuredClone(base);
+    staleSource.deletion!.beforeSourceSha256 = "0".repeat(64);
+    expect(deletionProof.validateDeletion(makeInput(staleSource)).problems.join("\n"))
+      .toMatch(/before source hash mismatch/);
+
+    const missingAffected = structuredClone(base);
+    (missingAffected.deletion!.removedMutants as unknown[]).pop();
+    expect(deletionProof.validateDeletion(makeInput(missingAffected)).problems.join("\n"))
+      .toMatch(/removedMutants does not exactly account/);
+
+    const missingSuccessor = structuredClone(base);
+    missingSuccessor.deletion!.detectedSuccessors = [];
+    expect(deletionProof.validateDeletion(makeInput(missingSuccessor)).problems.join("\n"))
+      .toMatch(/exactly one successor or counterfactual/);
+
+    const missingKiller = structuredClone(finalReport);
+    const headerOpposite = missingKiller.files["src/isobmff/iloc.ts"]!.mutants
+      .find((mutant) => mutant.replacement === "payload.length > 1")!;
+    headerOpposite.killedBy = [];
+    expect(deletionProof.validateDeletion(makeInput(base, missingKiller)).problems.join("\n"))
+      .toMatch(/unresolved killedBy test evidence/);
+
+    const staleTest = structuredClone(finalReport);
+    staleTest.testFiles["tests/isobmff_writer.test.ts"]!.source += "// stale candidate source\n";
+    expect(deletionProof.validateDeletion(makeInput(base, staleTest)).problems.join("\n"))
+      .toMatch(/final test source is absent or stale/);
+
+    const permuted = structuredClone(finalReport);
+    permuted.files["src/isobmff/iloc.ts"]!.mutants.reverse();
+    for (const entry of Object.values(permuted.testFiles)) entry.tests.reverse();
+    const proof = deletionProof.validateDeletion(makeInput(base, permuted));
+    expect(proof.problems).toEqual([]);
+    expect(proof.anchors.map((pair) => `${pair.current}\n${pair.original}`).sort())
+      .toEqual(deletionProof.validateDeletion(makeInput(base)).anchors
+        .map((pair) => `${pair.current}\n${pair.original}`).sort());
+    expect(finalEntry.mutants).toHaveLength(157);
+  }, 30_000);
 });
 
 describe("real admission scoped deletion receipt proof", () => {
