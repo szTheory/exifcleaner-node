@@ -344,6 +344,7 @@ interface IlocBoundaryBundle {
   schema: string;
   provenance: {
     sourceRef: string;
+    licenseStatus: string;
     node: string;
     stryker: string;
     beforeReportSha256: string;
@@ -371,11 +372,12 @@ function loadIlocBoundaryBundle(): {
 } {
   const fixturePath = join(packageRoot, "tests", "fixtures", "mutation", "iloc-boundary-reports.json.gz");
   const bytes = readFileSync(fixturePath);
-  expect(sha256(bytes)).toBe("2b8f6a73dec47a5e79e279219b5b6a4d00c2cc0101963f40200649ff93a113a4");
+  expect(sha256(bytes)).toBe("ae6a914a13c299698af479e7ce2c6335db8f7f94f1835d15056a197d5929f401");
   const bundle = JSON.parse(gunzipSync(bytes).toString("utf8")) as IlocBoundaryBundle;
   expect(bundle.schema).toBe("exifcleaner.iloc-boundary-reports.v1");
   expect(bundle.provenance).toMatchObject({
     sourceRef: "cb8eedde27eaa6b2a54cb9f2008d91292a8b3bba",
+    licenseStatus: "MIT for embedded project source and test excerpts; generated Stryker evidence contains no third-party fixture material",
     node: "24.21.0",
     stryker: "10.1.1",
     beforeReportSha256: "62cd1c66845a7707d5cca3c4484fc161139b26daa64875c5bba72ec3582ac502",
@@ -2062,9 +2064,31 @@ describe("real iloc boundary receipt", () => {
     const targetReceiptIds = new Set(deadRows.map((row) => row.id));
     expect(fullFinalProblems.filter((problem) => [...targetReceiptIds].some((id) => problem.startsWith(`${id}:`))))
       .toEqual([]);
-    expect(fullFinalProblems.filter((problem) =>
-      problem.endsWith(": Survived in a trust group in the final report"))).toHaveLength(7);
-    expect(fullFinalProblems.some((problem) => problem.includes("final report entry is required"))).toBe(true);
+    const survivorSuffix = ": Survived in a trust group in the final report";
+    const actualSurvivors = fullFinalProblems.filter((problem) => problem.endsWith(survivorSuffix)).sort();
+    const expectedSurvivors = finalEntry.mutants.filter((mutant) =>
+      ["Survived", "NoCoverage"].includes(mutant.status))
+      .map((mutant) => `${identity.mutantKey("src/isobmff/iloc.ts", mutant).replaceAll("\u0000", "|")}${survivorSuffix}`).sort();
+    expect(expectedSurvivors).toHaveLength(7);
+    expect(actualSurvivors).toEqual(expectedSurvivors);
+
+    const expectedPreexistingIncomplete = candidateOverlay.clusters.flatMap((row) => {
+      if (row.disposition === "pending") return [`${row.id}: cluster is pending`];
+      if (row.disposition === "dead" && row.file !== "src/isobmff/iloc.ts")
+        return [`${row.id}: final report entry is required for scoped deletion proof`];
+      if (row.disposition === "gap") {
+        const file = row.test?.file;
+        const name = row.test?.name;
+        const path = typeof file === "string" ? join(fullFixture.productRoot, file) : null;
+        if (path === null || !existsSync(path))
+          return [`${row.id}: gap test file ${file} is missing`];
+        if (typeof name !== "string" || name === "" || !readFileSync(path, "utf8").includes(name))
+          return [`${row.id}: gap test ${file} does not contain test name ${JSON.stringify(name)}`];
+      }
+      return [];
+    }).sort();
+    expect(fullFinalProblems.filter((problem) => !actualSurvivors.includes(problem)).sort())
+      .toEqual(expectedPreexistingIncomplete);
   }, 30_000);
 
   it("accepts the real header and final candidate stages through the copied read-only CLI", () => {
@@ -2133,6 +2157,16 @@ describe("real iloc boundary receipt", () => {
       packet.provenance.stageReports.final.sourceSha256 = "0".repeat(64);
       return gzipSync(Buffer.from(JSON.stringify(packet)));
     }, () => runRealCli(finalFixture, finalArgs)), "packet bindings differ from actual Stryker evidence");
+    expectCliRejection(withCliFileMutation(finalFixture, packetPath, (original) => {
+      const packet = JSON.parse(gunzipSync(original).toString("utf8")) as IlocBoundaryBundle;
+      packet.candidateRows[0]!.keys[0] = "forged original key";
+      return gzipSync(Buffer.from(JSON.stringify(packet)));
+    }, () => runRealCli(finalFixture, finalArgs)), "row inventory differs from the pinned four-row, 12-key candidate");
+    expectCliRejection(withCliFileMutation(finalFixture, packetPath, (original) => {
+      const packet = JSON.parse(gunzipSync(original).toString("utf8")) as IlocBoundaryBundle;
+      packet.selectedMembers[0]!.key = "forged immutable key";
+      return gzipSync(Buffer.from(JSON.stringify(packet)));
+    }, () => runRealCli(finalFixture, finalArgs)), "immutable member inventory differs from the pinned 12 original keys");
   }, 30_000);
 
   it("rejects widened or stale receipts through both consumers and preserves order-independent proof", () => {
