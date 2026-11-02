@@ -130,7 +130,7 @@ export function parseIloc(
   }
   const layout = ILOC_LAYOUTS[version];
 
-  if (payload.length < 2) {
+  if (payload.length <= 1) {
     throw new IsobmffStructureError(
       "box-framing",
       "iloc payload is too short for its field-width byte pair.",

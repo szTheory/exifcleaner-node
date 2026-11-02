@@ -62,7 +62,7 @@ export function parseIloc(payload, version, _flags) {
         throw new IsobmffStructureError("unsupported-box-version", `iloc version ${version} is not supported (only 0, 1, 2 are admitted).`);
     }
     const layout = ILOC_LAYOUTS[version];
-    if (payload.length < 2) {
+    if (payload.length <= 1) {
         throw new IsobmffStructureError("box-framing", "iloc payload is too short for its field-width byte pair.");
     }
     const widthByte1 = payload.readUInt8(0);
