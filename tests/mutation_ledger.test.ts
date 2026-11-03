@@ -2486,6 +2486,76 @@ describe("real isobmff-3 multi-source final report", () => {
     expect(sha256(readFileSync(join(packageRoot, "tests", "fixtures", "mutation",
       "isobmff-3-multisource-final.json.gz")))).toBe("75acf56c7337c99043dde6c56903dcd3240998bc0ab33a32ced4442da4a4903c");
   }, 30_000);
+
+  it("rejects stale and malformed evidence independently through the copied batch CLI", () => {
+    const { bytes } = loadIsobmff3BatchReport();
+    const fixture = createRealIsobmff3BatchCliFixture(bytes);
+    const runReportMutation = (mutate: (report: Report) => void) =>
+      withCliFileMutation(fixture, fixture.reportPath, (original) => {
+        const report = JSON.parse(original.toString("utf8")) as Report;
+        mutate(report);
+        return Buffer.from(JSON.stringify(report));
+      }, () => runRealCli(fixture, ["--batch", "isobmff-3", "--mode", "batch",
+        "--report", fixture.reportPath]));
+
+    const sourcePath = "exifcleaner-node/src/isobmff/iloc.ts";
+    const oldExplanation = "validated nibble width is nonnegative";
+    const newExplanation = "the validated nibble width cannot be negative";
+    const updateExplanation = (source: string) => {
+      expect(source).toContain("// Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check");
+      expect(source).toContain(oldExplanation);
+      const updated = source.replace(oldExplanation, newExplanation);
+      expect(updated).not.toBe(source);
+      return updated;
+    };
+    let changedSource = "";
+    const equivalentCommentOnly = withCliFileMutation(fixture, sourcePath, (original) => {
+      changedSource = updateExplanation(original.toString("utf8"));
+      return Buffer.from(changedSource);
+    }, () => runReportMutation((report) => {
+      const entry = report.files["src/isobmff/iloc.ts"]!;
+      const updated = updateExplanation(entry.source);
+      expect(updated).toBe(changedSource);
+      entry.source = updated;
+    }));
+    expectCliRejection(equivalentCommentOnly,
+      "iloc final evidence differs from the measured 157-mutant source stage");
+
+    expectCliRejection(runReportMutation((report) => {
+      report.files["src/isobmff/iloc.ts"]!.source += "\n// stale report source\n";
+    }), "src/isobmff/iloc.ts: stale report source");
+
+    expectCliRejection(runReportMutation((report) => {
+      const removed = report.files["src/isobmff/iloc.ts"]!.mutants.pop();
+      expect(removed).toBeDefined();
+    }), "iloc final evidence differs from the measured 157-mutant source stage");
+
+    expectCliRejection(runReportMutation((report) => {
+      const testFile = report.testFiles?.["tests/isobmff_writer.test.ts"];
+      expect(testFile).toBeDefined();
+      testFile!.source += "\n// stale current test source\n";
+    }), "iloc final test source is absent or stale");
+
+    expectCliRejection(runReportMutation((report) => {
+      const tests = report.testFiles?.["tests/isobmff_writer.test.ts"]?.tests;
+      expect(tests && tests.length).toBeGreaterThan(1);
+      tests![1]!.id = tests![0]!.id;
+    }), "iloc final test table has an empty, unnamed or duplicate row");
+
+    expectCliRejection(runReportMutation((report) => {
+      const mutants = report.files["src/isobmff/iloc.ts"]!.mutants;
+      const detected = mutants.find((mutant) => mutant.status === "Killed" && (mutant.killedBy?.length ?? 0) > 0);
+      expect(detected).toBeDefined();
+      detected!.killedBy = [];
+    }), "has unresolved killedBy test evidence");
+
+    expect(readFileSync(join(fixture.root, fixture.reportPath)))
+      .toEqual(gunzipSync(bytes));
+    const fixturePath = join(packageRoot, "tests", "fixtures", "mutation",
+      "isobmff-3-multisource-final.json.gz");
+    expect(sha256(readFileSync(fixturePath)))
+      .toBe("75acf56c7337c99043dde6c56903dcd3240998bc0ab33a32ced4442da4a4903c");
+  }, 120_000);
 });
 
 describe("phase verifier Vitest declaration paths", () => {
