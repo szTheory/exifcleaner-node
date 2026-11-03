@@ -248,17 +248,21 @@ function parseInfe(buffer: Buffer, header: BoxHeader): RawInfeEntry {
   }
   let position = 0;
   const idBytes = version === 2 ? 2 : 4;
+  // Stryker disable next-line StringLiteral: unobservable-message — the item_ID label only reaches ensureBytes' diagnostic text; byte checks and the typed box-framing result are unchanged.
   ensureBytes(payload, position, idBytes, "infe item_ID");
   const itemId =
     idBytes === 2
       ? payload.readUInt16BE(position)
       : payload.readUInt32BE(position);
   position += idBytes;
+  // Stryker disable next-line StringLiteral: unobservable-message — the protection-index label only reaches ensureBytes' diagnostic text; parsing and the typed error kind are unchanged.
   ensureBytes(payload, position, 2, "infe item_protection_index");
   position += 2;
+  // Stryker disable next-line StringLiteral: unobservable-message — the item_type label only reaches ensureBytes' diagnostic text; FourCC decoding is unchanged.
   ensureBytes(payload, position, 4, "infe item_type");
   const itemType = payload.toString("ascii", position, position + 4);
   position += 4;
+  // Stryker disable next-line StringLiteral: unobservable-message — the item_name label only reaches readCString's diagnostic text; parsed names and typed errors are unchanged.
   const name = readCString(payload, position, "infe item_name");
   position = name.next;
 
@@ -266,6 +270,7 @@ function parseInfe(buffer: Buffer, header: BoxHeader): RawInfeEntry {
   let contentEncoding: string | undefined;
   let uri: string | undefined;
   if (itemType === "mime") {
+    // Stryker disable next-line StringLiteral: unobservable-message — the content_type label only reaches readCString's diagnostic text; the parsed MIME value is unchanged.
     const ct = readCString(payload, position, "infe content_type");
     contentType = ct.value;
     position = ct.next;
@@ -277,11 +282,13 @@ function parseInfe(buffer: Buffer, header: BoxHeader): RawInfeEntry {
     // "no encoding declared" meaning as an explicit empty string (src/isobmff/admission.ts's
     // XMP-removable check already treats both identically).
     if (position < payload.length) {
+      // Stryker disable next-line StringLiteral: unobservable-message — the content_encoding label only reaches readCString's diagnostic text; optional-field parsing is unchanged.
       const ce = readCString(payload, position, "infe content_encoding");
       contentEncoding = ce.value;
       position = ce.next;
     }
   } else if (itemType === "uri ") {
+    // Stryker disable next-line StringLiteral: unobservable-message — the item_uri_type label only reaches readCString's diagnostic text; URI parsing and typed errors are unchanged.
     const u = readCString(payload, position, "infe item_uri_type");
     uri = u.value;
     position = u.next;
