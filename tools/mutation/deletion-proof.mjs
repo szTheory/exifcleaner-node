@@ -366,7 +366,8 @@ function assertIlocBeforeEvidence(evidence, survivors) {
 }
 
 function assertIlocFinalEvidence(finalEntry, finalReport, root, readTest) {
-  if (Object.keys(finalReport.files ?? {}).length !== 1 ||
+  if (!finalReport.files?.["src/isobmff/iloc.ts"] ||
+      finalReport.files["src/isobmff/iloc.ts"] !== finalEntry ||
       hash(finalEntry.source ?? "") !== ILOC_BOUNDARY_FINAL_SOURCE_SHA256 ||
       (finalEntry.mutants ?? []).length !== 157)
     throw new Error("iloc final evidence differs from the measured 157-mutant source stage");
