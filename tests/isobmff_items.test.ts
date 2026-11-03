@@ -219,6 +219,9 @@ function buildMinimalFile(options: {
   readonly extraMetaChildren?: readonly Buffer[];
   readonly hdlrType?: string;
   readonly hdlrChild?: Buffer;
+  readonly iinfChild?: Buffer;
+  readonly itemName?: string;
+  readonly uriType?: string;
   readonly pitmVersion?: 0 | 1;
   readonly pitmItemId?: number;
   readonly infeVersion?: 0 | 1 | 2 | 3;
@@ -236,8 +239,10 @@ function buildMinimalFile(options: {
     version: options.infeVersion ?? 2,
     itemId: 1,
     itemType: options.itemType ?? "hvc1",
+    name: options.itemName,
+    uriType: options.uriType,
   });
-  const iinf = iinfBox(options.iinfVersion ?? 0, [infe]);
+  const iinf = options.iinfChild ?? iinfBox(options.iinfVersion ?? 0, [infe]);
   const ipco = ipcoBox(options.ipcoProperties ?? [ispe(32, 32), hvcC()]);
   const ipma = ipmaBox({
     version: 0,
@@ -301,6 +306,39 @@ describe("ensureBytes BlockStatement, ArithmeticOperator, and ConditionalExpress
       hdlrChild: fullBox("hdlr", 0, 0, Buffer.from([0, 0, 0, 0])),
     });
     await expectDecline(file, "box-framing", "malformed-file");
+  });
+});
+
+describe("readFullBoxChild BlockStatement and ConditionalExpression clusters", () => {
+  it("declines an hdlr without its version and flags as box-framing", async () => {
+    const file = buildMinimalFile({ hdlrChild: box("hdlr", Buffer.alloc(3)) });
+    await expectDecline(file, "box-framing", "malformed-file");
+  });
+});
+
+describe("readCString ConditionalExpression, EqualityOperator, and BlockStatement clusters", () => {
+  it("reads a terminated URI and declines a missing terminator", async () => {
+    const value = "urn:example:exifcleaner:terminated";
+    const valid = await parseFixtureBytes(
+      buildMinimalFile({ itemType: "uri ", uriType: value }),
+    );
+    expect(valid.itemsById.get(1)?.uri).toBe(value);
+
+    const unterminatedInfe = fullBox(
+      "infe",
+      2,
+      0,
+      Buffer.concat([
+        Buffer.from([0, 1, 0, 0]),
+        Buffer.from("uri ", "ascii"),
+        Buffer.from([0]),
+        Buffer.from("urn:example:exifcleaner:unterminated", "ascii"),
+      ]),
+    );
+    const invalid = buildMinimalFile({
+      iinfChild: iinfBox(0, [unterminatedInfe]),
+    });
+    await expectDecline(invalid, "box-framing", "malformed-file");
   });
 });
 
