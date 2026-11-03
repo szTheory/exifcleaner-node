@@ -74,6 +74,7 @@ interface Cluster {
   symbol?: string;
   equivalenceClass?: string;
   deletion?: Record<string, unknown>;
+  sourceOperation?: Record<string, unknown>;
   note: string;
 }
 interface Identity {
@@ -161,6 +162,12 @@ interface DeletionProof {
       killedBy: { file: string; name: string }[];
     }[];
   };
+  validateReadCStringBoundary(input: unknown): {
+    problems: string[];
+    anchors: { current: string; original: string }[];
+    equivalentPair: { current: string; original: string } | null;
+    counterpartProofs: unknown[];
+  };
   canonicalReceiptJson(value: unknown): string;
   normalizeReceiptSource(source: string): string;
 }
@@ -205,6 +212,13 @@ const liveInputPaths = [
     "fixtures",
     "mutation",
     "iloc-boundary-reports.json.gz",
+  ),
+  join(
+    packageRoot,
+    "tests",
+    "fixtures",
+    "mutation",
+    "isobmff-4-cstring-boundary.json.gz",
   ),
   join(packageRoot, "reports", "triage", "67-14", "node24-green.json"),
   join(packageRoot, "reports", "triage", "67-14", "red.json"),
@@ -467,6 +481,37 @@ interface IlocBoundaryBundle {
   selectedMembers: Survivor[];
 }
 
+interface CStringBoundaryBundle {
+  schema: string;
+  provenance: {
+    sourceRef: string;
+    node: string;
+    stryker: string;
+    seed: number;
+    runs: number;
+    commands: Record<string, string>;
+    exitCodes: Record<string, unknown>;
+    dryRunGreen: number;
+    reportSha256: Record<string, string>;
+    logSha256: Record<string, string>;
+    counterfactuals: Record<string, unknown>[];
+    campaigns: Record<string, Record<string, unknown>>;
+    campaignStreams: Record<string, Record<string, unknown>>;
+    testSources: Record<string, string>;
+  };
+  batch: {
+    id: string;
+    plan: number;
+    memberCount: number;
+    clusterIds: string[];
+    sourceFiles: string[];
+    testFiles: string[];
+  };
+  reports: { before: string; unannotated: string; final: string };
+  candidateRows: Cluster[];
+  selectedMembers: Survivor[];
+}
+
 function loadIlocBoundaryBundle(): {
   bundle: IlocBoundaryBundle;
   beforeReport: Report;
@@ -521,6 +566,79 @@ function loadIlocBoundaryBundle(): {
   expect(bundle.candidateRows.flatMap((row) => row.keys)).toHaveLength(12);
   expect(bundle.selectedMembers).toHaveLength(12);
   return { bundle, beforeReport, headerReport, finalReport };
+}
+
+function loadCStringBoundaryBundle(): {
+  bundle: CStringBoundaryBundle;
+  beforeReport: Report;
+  unannotatedReport: Report;
+  finalReport: Report & {
+    testFiles: NonNullable<Report["testFiles"]>;
+  };
+} {
+  const fixturePath = join(
+    packageRoot,
+    "tests",
+    "fixtures",
+    "mutation",
+    "isobmff-4-cstring-boundary.json.gz",
+  );
+  const bytes = readFileSync(fixturePath);
+  expect(sha256(bytes)).toBe(
+    "cc8f534957e0cf3f752017e06290c36116692d1c1ade1169f01a3549d60d1471",
+  );
+  const bundle = JSON.parse(
+    gunzipSync(bytes).toString("utf8"),
+  ) as CStringBoundaryBundle;
+  expect(bundle.schema).toBe("exifcleaner.readcstring-boundary-reports.v1");
+  expect(bundle.provenance).toMatchObject({
+    sourceRef: "cb8eedde27eaa6b2a54cb9f2008d91292a8b3bba",
+    node: "24.21.0",
+    stryker: "10.1.1",
+    seed: 460046,
+    runs: 200,
+    dryRunGreen: 1187,
+    reportSha256: {
+      before: "73b82763e0e80396487069cefcc3f8030a0e9c2dbc0d9d7899a17999dfd88320",
+      unannotated: "e03499dd017450ce973aa882d5ab29104275fb26bd42bccb44b1e84b46ee2b65",
+      final: "9c6a4c48736b9af456323423563899de89c2826473dd5a3b8f08dab183bbaa75",
+    },
+  });
+  expect(bundle.batch).toMatchObject({ id: "isobmff-4", plan: 17, memberCount: 43 });
+  expect(bundle.candidateRows).toHaveLength(26);
+  expect(bundle.selectedMembers).toHaveLength(43);
+  for (const [name, raw] of Object.entries(bundle.reports))
+    expect(sha256(raw)).toBe(bundle.provenance.reportSha256[name]);
+  const beforeReport = JSON.parse(bundle.reports.before) as Report;
+  const unannotatedReport = JSON.parse(bundle.reports.unannotated) as Report;
+  const finalReport = JSON.parse(bundle.reports.final) as Report & {
+    testFiles: NonNullable<Report["testFiles"]>;
+  };
+  for (const report of [beforeReport, unannotatedReport, finalReport])
+    expect(Object.keys(report.files)).toEqual(["src/isobmff/items.ts"]);
+  expect(beforeReport.files["src/isobmff/items.ts"]!.mutants).toHaveLength(593);
+  expect(unannotatedReport.files["src/isobmff/items.ts"]!.mutants).toHaveLength(594);
+  expect(finalReport.files["src/isobmff/items.ts"]!.mutants).toHaveLength(594);
+  for (const name of ["before", "unannotated", "final"]) {
+    const campaign = bundle.provenance.campaigns[name]!;
+    const streams = bundle.provenance.campaignStreams[name]!;
+    expect(campaign).toMatchObject({
+      node: "24.21.0",
+      stryker: "10.1.1",
+      seed: 460046,
+      runs: 200,
+      exitCode: 0,
+      reportSha256: bundle.provenance.reportSha256[name],
+    });
+    expect(typeof campaign.cwd).toBe("string");
+    expect(typeof campaign.command).toBe("string");
+    expect(sha256(String(streams.stdout))).toBe(campaign.stdoutSha256);
+    expect(sha256(String(streams.stderr))).toBe(campaign.stderrSha256);
+  }
+  expect(Object.keys(bundle.provenance.testSources).length).toBeGreaterThan(0);
+  for (const [file, digest] of Object.entries(bundle.provenance.testSources))
+    expect(sha256(finalReport.testFiles?.[file]?.source ?? "")).toBe(digest);
+  return { bundle, beforeReport, unannotatedReport, finalReport };
 }
 
 function loadIsobmff3BatchReport(): { bytes: Buffer; report: Report } {
@@ -1007,6 +1125,7 @@ const cliImportFiles = [
   "exifcleaner-node/tools/mutation/groups.mjs",
 ];
 const cliHistoryFiles = [
+  "67-PLAN-CHECK.md",
   "67-16-HALTED.md",
   "67-14-HALTED.md",
   "67-14-RESUME-HALTED.md",
@@ -1173,7 +1292,9 @@ function writeFixtureFile(
   ).toBe(true);
 }
 
-function createRealAdmissionCliFixture(): RealCliFixture {
+function createRealAdmissionCliFixture(
+  { independentHistory = false }: { independentHistory?: boolean } = {},
+): RealCliFixture {
   const { bundle: loadedBundle } = loadAdmissionReceiptBundle();
   const bundle = loadedBundle as CliBundle;
   const manifest = JSON.parse(
@@ -1210,6 +1331,18 @@ function createRealAdmissionCliFixture(): RealCliFixture {
 
   const root = realpathSync(mkdtempSync(join(tmpdir(), "phase-67-50-cli-")));
   temporaryRoots.push(root);
+  if (independentHistory) {
+    const isolatedProductRoot = join(root, "exifcleaner-node");
+    execFileSync(
+      "git",
+      ["clone", "--no-checkout", "--no-hardlinks", packageRoot, isolatedProductRoot],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    execFileSync("git", ["remote", "remove", "origin"], {
+      cwd: isolatedProductRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  }
   for (const path of inventoryPaths) copyWorkspaceRegularFile(root, path);
   for (const path of evidenceSourcePaths) copyWorkspaceRegularFile(root, path);
   copyWorkspaceRegularFile(
@@ -1226,6 +1359,9 @@ function createRealAdmissionCliFixture(): RealCliFixture {
     53,
     54,
     55,
+    56,
+    57,
+    58,
   ].map((plan) => `${phaseDir}/67-${String(plan).padStart(2, "0")}-PLAN.md`);
   for (const path of new Set([
     ...planPaths,
@@ -1282,11 +1418,13 @@ function createRealAdmissionCliFixture(): RealCliFixture {
   );
   writeFixtureFile(root, admissionReportPath, bundle.finalReportRaw);
 
-  const liveGitDir = execFileSync("git", ["rev-parse", "--absolute-git-dir"], {
-    cwd: packageRoot,
-    encoding: "utf8",
-  }).trim();
-  writeFixtureFile(root, "exifcleaner-node/.git", `gitdir: ${liveGitDir}\n`);
+  if (!independentHistory) {
+    const liveGitDir = execFileSync("git", ["rev-parse", "--absolute-git-dir"], {
+      cwd: packageRoot,
+      encoding: "utf8",
+    }).trim();
+    writeFixtureFile(root, "exifcleaner-node/.git", `gitdir: ${liveGitDir}\n`);
+  }
 
   const fixtureRoot = realpathSync(root);
   const productRoot = realpathSync(resolve(root, "exifcleaner-node"));
@@ -1395,7 +1533,8 @@ function runRealCli(
   fixture: RealCliFixture,
   args: string[],
 ): ReturnType<typeof spawnSync> {
-  if (args.includes("--batch")) provisionPinnedTypeScriptParser(fixture.root);
+  if (args.includes("--batch") || args.includes("--cstring-candidate"))
+    provisionPinnedTypeScriptParser(fixture.root);
   const script = resolve(fixture.root, cliScriptPath);
   const actualRoot = realpathSync(fixture.root);
   assertContained(
@@ -3737,6 +3876,534 @@ describe("real iloc boundary receipt", () => {
   }, 30_000);
 });
 
+describe("real readCString boundary receipt", () => {
+  const loadInput = () => {
+    const { bundle, finalReport } = loadCStringBoundaryBundle();
+    const row = bundle.candidateRows.find((candidate) => candidate.sourceOperation);
+    expect(row).toBeDefined();
+    const survivors = JSON.parse(
+      readFileSync(
+        join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+        "utf8",
+      ),
+    ).survivors as Survivor[];
+    return { bundle, row: row!, survivors, finalReport };
+  };
+  const validate = (
+    row: Cluster,
+    survivors: Survivor[],
+    readTest: (file: string) => string = (file) =>
+      readFileSync(join(packageRoot, file), "utf8"),
+    root = packageRoot,
+  ) =>
+    deletionProof.validateReadCStringBoundary({
+      row,
+      root,
+      readTest,
+      survivors,
+    });
+
+  it("validates complete real evidence and one injective cross-mutator pair", () => {
+    const { row, survivors } = loadInput();
+    const proof = validate(row, survivors);
+    expect(proof.problems).toEqual([]);
+    expect(proof.anchors).toHaveLength(593);
+    expect(proof.equivalentPair).toEqual({
+      current: [
+        "src/isobmff/items.ts",
+        "ArithmeticOperator",
+        "buffer.length + 1",
+        "buffer.length - 1",
+        0,
+      ].join("\0"),
+      original: [
+        "src/isobmff/items.ts",
+        "EqualityOperator",
+        "end <= buffer.length",
+        "end < buffer.length",
+        0,
+      ].join("\0"),
+    });
+    expect(proof.counterpartProofs).toHaveLength(2);
+  });
+
+  it("fails closed on altered site, origin, ownership, report, mapping and counterpart evidence", () => {
+    const { row, survivors } = loadInput();
+    const cases: {
+      name: string;
+      mutate(row: Cluster): void;
+      diagnostic: RegExp;
+    }[] = [
+      {
+        name: "operation substitution",
+        mutate: (candidate) => {
+          candidate.sourceOperation!.after = "end < buffer.length";
+        },
+        diagnostic: /site, original key or permanent source binding/,
+      },
+      {
+        name: "wrong source function",
+        mutate: (candidate) => {
+          candidate.function = "parseInfe";
+        },
+        diagnostic: /immutable EOF-only owner/,
+      },
+      {
+        name: "wrong operation occurrence",
+        mutate: (candidate) => {
+          candidate.sourceOperation!.occurrence = 1;
+        },
+        diagnostic: /site, original key or permanent source binding/,
+      },
+      {
+        name: "wrong original operator and bound",
+        mutate: (candidate) => {
+          candidate.sourceOperation!.before = "end <= buffer.length";
+        },
+        diagnostic: /site, original key or permanent source binding/,
+      },
+      {
+        name: "forged caller and integer trace",
+        mutate: (candidate) => {
+          candidate.sourceOperation!.referenceTrace = "every caller is bounded";
+        },
+        diagnostic: /caller and integer-bound reference trace differs/,
+      },
+      {
+        name: "wrong NUL predicate body",
+        mutate: (candidate) => {
+          candidate.sourceOperation!.after =
+            "end <= buffer.length - 1 && buffer[end] === 0";
+        },
+        diagnostic: /site, original key or permanent source binding/,
+      },
+      {
+        name: "missing original key",
+        mutate: (candidate) => {
+          candidate.keys = [];
+        },
+        diagnostic: /immutable EOF-only owner/,
+      },
+      {
+        name: "duplicate original key",
+        mutate: (candidate) => {
+          candidate.keys.push(candidate.keys[0]!);
+        },
+        diagnostic: /immutable EOF-only owner/,
+      },
+      {
+        name: "foreign origin",
+        mutate: (candidate) => {
+          candidate.originClusterId = "forged-origin";
+        },
+        diagnostic: /immutable EOF-only owner/,
+      },
+      {
+        name: "missing current comment anchor",
+        mutate: (candidate) => {
+          candidate.anchors = [];
+        },
+        diagnostic: /actual current raw comment anchor/,
+      },
+      {
+        name: "omitted mapping",
+        mutate: (candidate) => {
+          candidate.sourceOperation!.anchorMappings = [];
+        },
+        diagnostic: /mapping is incomplete, non-injective or forged/,
+      },
+      {
+        name: "non-injective mapping",
+        mutate: (candidate) => {
+          const mappings = candidate.sourceOperation!.anchorMappings as {
+            current: string;
+            original: string;
+          }[];
+          mappings[1]!.current = mappings[0]!.current;
+        },
+        diagnostic: /mapping is incomplete, non-injective or forged/,
+      },
+      {
+        name: "mutation-number substituted for a stable anchor",
+        mutate: (candidate) => {
+          const mappings = candidate.sourceOperation!.anchorMappings as {
+            current: string;
+            original: string;
+          }[];
+          mappings[0]!.current = "734";
+        },
+        diagnostic: /mapping is incomplete, non-injective or forged/,
+      },
+      {
+        name: "omitted adjacent or enclosing mutant",
+        mutate: (candidate) => {
+          (candidate.sourceOperation!.beforeAffected as unknown[]).pop();
+        },
+        diagnostic: /complete affected inventories differ/,
+      },
+      {
+        name: "omitted candidate affected mutant",
+        mutate: (candidate) => {
+          (candidate.sourceOperation!.candidateAffected as unknown[]).pop();
+        },
+        diagnostic: /complete affected inventories differ/,
+      },
+      {
+        name: "forged cross-mutator pair",
+        mutate: (candidate) => {
+          candidate.sourceOperation!.equivalentPair.current = "arbitrary-anchor";
+        },
+        diagnostic: /cross-mutator pair differs from the measured unique EOF survivor/,
+      },
+      {
+        name: "stale report bytes",
+        mutate: (candidate) => {
+          candidate.sourceOperation!.reports.final.raw += " ";
+        },
+        diagnostic: /report bytes differ from the retained real report/,
+      },
+      {
+        name: "wrong suppression class",
+        mutate: (candidate) => {
+          const final = candidate.sourceOperation!.reports.final as {
+            raw: string;
+          };
+          final.raw = final.raw.replace(
+            "Stryker disable next-line ArithmeticOperator",
+            "Stryker disable next-line EqualityOperator",
+          );
+        },
+        diagnostic: /report bytes differ from the retained real report/,
+      },
+      {
+        name: "changed EOF guard in candidate source",
+        mutate: (candidate) => {
+          const final = candidate.sourceOperation!.reports.final as {
+            raw: string;
+          };
+          final.raw = final.raw.replace(
+            "if (end >= buffer.length)",
+            "if (end > buffer.length)",
+          );
+        },
+        diagnostic: /report bytes differ from the retained real report/,
+      },
+      {
+        name: "borrowed counterpart proof",
+        mutate: (candidate) => {
+          candidate.sourceOperation!.counterpartProofs = [];
+        },
+        diagnostic: /direct real killedBy evidence/,
+      },
+      {
+        name: "borrowed current killer identity",
+        mutate: (candidate) => {
+          const proofs = candidate.sourceOperation!.counterpartProofs as {
+            current: { test: { name: string } };
+          }[];
+          proofs[0]!.current.test.name = "a different test";
+        },
+        diagnostic: /direct real killedBy evidence/,
+      },
+      {
+        name: "counterfactual without failed execution",
+        mutate: (candidate) => {
+          (candidate.sourceOperation!.counterfactuals as { exitCode: number }[])[0]!.exitCode = 0;
+        },
+        diagnostic: /executed counterfactual evidence is missing or stale/,
+      },
+    ];
+    for (const testCase of cases) {
+      const candidate = structuredClone(row);
+      testCase.mutate(candidate);
+      expect(
+        validate(candidate, survivors).problems.join("\n"),
+        testCase.name,
+      ).toMatch(testCase.diagnostic);
+    }
+    expect(
+      validate(row, survivors, (file) =>
+        file === "tests/isobmff_items.test.ts" ? "stale test source" :
+          readFileSync(join(packageRoot, file), "utf8"),
+      ).problems.join("\n"),
+    ).toMatch(/named killer source is stale/);
+  });
+
+  it("is enforced by checkLedger during precheck without changing frozen membership", () => {
+    const { row, survivors } = loadInput();
+    const ledger = JSON.parse(
+      readFileSync(join(packageRoot, "tools", "mutation", "ledger.json"), "utf8"),
+    ) as CliLedger;
+    const projected = {
+      ...ledger,
+      clusters: ledger.clusters.map((candidate) =>
+        candidate.id === row.id ? structuredClone(row) : candidate,
+      ),
+    };
+    const floors = JSON.parse(
+      readFileSync(join(packageRoot, "mutation-floors.json"), "utf8"),
+    ).groups;
+    const problems = checkLedger({
+      ledger: projected,
+      root: packageRoot,
+      groups: floors,
+      mode: "pre",
+    });
+    expect(problems.filter((problem) => problem.includes(row.id))).toEqual([]);
+
+    const rejectedCases = [
+      {
+        mutate: (candidate: Cluster) => {
+          candidate.sourceOperation!.anchorMappings = [];
+        },
+        diagnostic: /mapping is incomplete, non-injective or forged/,
+      },
+      {
+        mutate: (candidate: Cluster) => {
+          (candidate.sourceOperation!.beforeAffected as unknown[]).pop();
+        },
+        diagnostic: /complete affected inventories differ/,
+      },
+      {
+        mutate: (candidate: Cluster) => {
+          candidate.sourceOperation!.occurrence = 1;
+        },
+        diagnostic: /site, original key or permanent source binding/,
+      },
+    ];
+    for (const testCase of rejectedCases) {
+      const rejected = structuredClone(projected);
+      testCase.mutate(
+        rejected.clusters.find((candidate) => candidate.id === row.id)!,
+      );
+      expect(
+        checkLedger({
+          ledger: rejected,
+          root: packageRoot,
+          groups: floors,
+          mode: "pre",
+        }).join("\n"),
+      ).toMatch(testCase.diagnostic);
+    }
+    expect(survivors.filter((member) => row.keys.includes(member.key))).toHaveLength(1);
+  });
+
+  it("accepts 43 members and rejects a forged receipt through phase evaluate", () => {
+    const { bundle } = loadCStringBoundaryBundle();
+    const report = JSON.parse(bundle.reports.final) as Report & {
+      testFiles: NonNullable<Report["testFiles"]>;
+    };
+    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
+    chmodSync(sourcePath, 0o644);
+    writeFileSync(sourcePath, report.files["src/isobmff/items.ts"]!.source);
+    chmodSync(sourcePath, 0o444);
+    for (const file of Object.keys(report.testFiles))
+      if (!existsSync(resolve(fixture.root, `exifcleaner-node/${file}`)))
+        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
+
+    const evaluate = (clusters: Cluster[]) =>
+      phaseVerifier.evaluate({
+        clusters,
+        survivors: bundle.selectedMembers,
+        report,
+        mode: "batch",
+        root: fixture.productRoot,
+        readTest: (file) =>
+          readFileSync(resolve(fixture.root, `exifcleaner-node/${file}`), "utf8"),
+        symbolAbsent: () => true,
+      });
+    expect(evaluate(bundle.candidateRows)).toHaveLength(43);
+
+    const forged = structuredClone(bundle.candidateRows);
+    const owner = forged.find((candidate) => candidate.sourceOperation)!;
+    owner.sourceOperation!.anchorMappings = [];
+    expect(() => evaluate(forged)).toThrow(
+      /mapping is incomplete, non-injective or forged/,
+    );
+    expectLiveInputsUnchanged();
+  }, 30_000);
+
+  it("rejects a forged receipt through the actual copied candidate CLI", () => {
+    const { bundle } = loadCStringBoundaryBundle();
+    const finalReport = JSON.parse(bundle.reports.final) as Report;
+    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
+    chmodSync(sourcePath, 0o644);
+    writeFileSync(
+      sourcePath,
+      finalReport.files["src/isobmff/items.ts"]!.source,
+    );
+    chmodSync(sourcePath, 0o444);
+    const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
+    const packetPath =
+      "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
+    writeFixtureFile(fixture.root, reportPath, bundle.reports.final);
+    for (const file of Object.keys(finalReport.testFiles ?? {}))
+      if (!existsSync(resolve(fixture.root, `exifcleaner-node/${file}`)))
+        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
+    const forged = structuredClone(bundle);
+    const owner = forged.candidateRows.find((candidate) => candidate.sourceOperation)!;
+    owner.sourceOperation!.anchorMappings = [];
+    writeFixtureFile(
+      fixture.root,
+      packetPath,
+      gzipSync(Buffer.from(JSON.stringify(forged)), { level: 9 }),
+    );
+
+    const result = runRealCli(fixture, [
+      "--cstring-candidate",
+      "--report",
+      reportPath,
+      "--packet",
+      packetPath,
+    ]);
+    expect(result.error?.message).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(
+      /mapping is incomplete, non-injective or forged/,
+    );
+    expectLiveInputsUnchanged();
+  }, 60_000);
+
+  it("accepts reordered independent rows, keys, mappings and test report tables", () => {
+    const { bundle, finalReport } = loadCStringBoundaryBundle();
+    const reordered = structuredClone(bundle);
+    const owner = reordered.candidateRows.find(
+      (candidate) => candidate.sourceOperation,
+    )!;
+    const receipt = owner.sourceOperation! as {
+      anchorMappings: { current: string; original: string }[];
+      reports: Record<string, { raw: string; sha256: string; canonicalSha256: string }>;
+    };
+    const parsedFinal = JSON.parse(reordered.reports.final) as Report;
+    parsedFinal.testFiles = Object.fromEntries(
+      Object.entries(parsedFinal.testFiles ?? {}).reverse(),
+    );
+    const reorderedRaw = JSON.stringify(parsedFinal);
+    const finalBinding = receipt.reports.final!;
+    finalBinding.raw = reorderedRaw;
+    finalBinding.sha256 = sha256(reorderedRaw);
+    reordered.reports.final = reorderedRaw;
+    reordered.provenance.reportSha256.final = finalBinding.sha256;
+    reordered.provenance.campaigns.final!.reportSha256 = finalBinding.sha256;
+    reordered.provenance.campaigns.final!.reportBytes = Buffer.byteLength(reorderedRaw);
+    reordered.provenance.campaignStreams.final!.reportSha256 = finalBinding.sha256;
+    reordered.provenance.campaignStreams.final!.reportBytes = Buffer.byteLength(reorderedRaw);
+    receipt.anchorMappings.reverse();
+    for (const candidate of reordered.candidateRows) candidate.keys.reverse();
+    reordered.candidateRows.reverse();
+    reordered.selectedMembers.reverse();
+
+    const survivors = JSON.parse(
+      readFileSync(
+        join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+        "utf8",
+      ),
+    ).survivors as Survivor[];
+    expect(validate(owner, survivors).problems).toEqual([]);
+
+    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
+    chmodSync(sourcePath, 0o644);
+    writeFileSync(
+      sourcePath,
+      finalReport.files["src/isobmff/items.ts"]!.source,
+    );
+    chmodSync(sourcePath, 0o444);
+    const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
+    const packetPath =
+      "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
+    writeFixtureFile(fixture.root, reportPath, reorderedRaw);
+    for (const file of Object.keys(finalReport.testFiles ?? {}))
+      if (!existsSync(resolve(fixture.root, `exifcleaner-node/${file}`)))
+        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
+    writeFixtureFile(
+      fixture.root,
+      packetPath,
+      gzipSync(Buffer.from(JSON.stringify(reordered)), { level: 9 }),
+    );
+    const result = runRealCli(fixture, [
+      "--cstring-candidate",
+      "--report",
+      reportPath,
+      "--packet",
+      packetPath,
+    ]);
+    expect(result.error?.message).toBeUndefined();
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(JSON.parse(result.stdout).proof).toHaveLength(43);
+    expectLiveInputsUnchanged();
+  }, 60_000);
+
+  it("passes the copied full-inventory batch CLI with independent Git history and no live writes", () => {
+    const { bundle } = loadCStringBoundaryBundle();
+    const finalReport = JSON.parse(bundle.reports.final) as Report;
+    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    const gitMetadata = lstatSync(join(fixture.productRoot, ".git"));
+    expect(gitMetadata.isDirectory()).toBe(true);
+    expect(
+      execFileSync("git", ["remote"], {
+        cwd: fixture.productRoot,
+        encoding: "utf8",
+      }).trim(),
+    ).toBe("");
+
+    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
+    chmodSync(sourcePath, 0o644);
+    writeFileSync(
+      sourcePath,
+      (JSON.parse(bundle.reports.final) as Report).files[
+        "src/isobmff/items.ts"
+      ]!.source,
+    );
+    chmodSync(sourcePath, 0o444);
+    const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
+    const packetPath =
+      "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
+    writeFixtureFile(
+      fixture.root,
+      reportPath,
+      bundle.reports.final,
+    );
+    writeFixtureFile(
+      fixture.root,
+      packetPath,
+      readFileSync(
+        join(
+          packageRoot,
+          "tests",
+          "fixtures",
+          "mutation",
+          "isobmff-4-cstring-boundary.json.gz",
+        ),
+      ),
+    );
+    for (const file of Object.keys(finalReport.testFiles ?? {}))
+      if (!existsSync(resolve(fixture.root, "exifcleaner-node", file)))
+        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
+    const result = runRealCli(fixture, [
+      "--cstring-candidate",
+      "--report",
+      reportPath,
+      "--packet",
+      packetPath,
+    ]);
+    expect(result.error?.message).toBeUndefined();
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    const proof = JSON.parse(result.stdout) as {
+      mode: string;
+      batch: string;
+      proof: unknown[];
+      originalKeys: string[];
+    };
+    expect(proof).toMatchObject({ mode: "candidate-only", batch: "isobmff-4" });
+    expect(proof.proof).toHaveLength(43);
+    expect(proof.originalKeys).toHaveLength(43);
+    expectLiveInputsUnchanged();
+  }, 60_000);
+});
+
 describe("copied Phase 67 schedule inventory controls", () => {
   it("accepts the exact live prerequisite schedule without plan metadata normalization", () => {
     const fixture = createRealAdmissionCliFixture();
@@ -3754,6 +4421,9 @@ describe("copied Phase 67 schedule inventory controls", () => {
       53,
       54,
       55,
+      56,
+      57,
+      58,
     ].map((plan) => `${phaseDir}/67-${String(plan).padStart(2, "0")}-PLAN.md`);
     for (const path of schedulePlanPaths) {
       expect(readFileSync(resolve(fixture.root, path))).toEqual(
@@ -3772,7 +4442,7 @@ describe("copied Phase 67 schedule inventory controls", () => {
     );
   }, 30_000);
 
-  it("rejects copied wave and predecessor drift for Plans53, 54, 55, 16 and 17", () => {
+  it("rejects copied wave and predecessor drift while preserving the earlier schedule", () => {
     const fixture = createRealAdmissionCliFixture();
     const controls = [
       { plan: 53, field: "wave", diagnostic: "67-53: wrong wave" },
@@ -3783,8 +4453,18 @@ describe("copied Phase 67 schedule inventory controls", () => {
       { plan: 55, field: "dependency", diagnostic: "67-55: wrong predecessor" },
       { plan: 16, field: "wave", diagnostic: "67-16: wrong wave" },
       { plan: 16, field: "dependency", diagnostic: "67-16: wrong predecessor" },
+      { plan: 58, field: "wave", diagnostic: "67-58: wrong wave" },
+      { plan: 58, field: "dependency", diagnostic: "67-58: wrong predecessor" },
+      { plan: 57, field: "wave", diagnostic: "67-57: wrong wave" },
+      { plan: 57, field: "dependency", diagnostic: "67-57: wrong predecessor" },
+      { plan: 56, field: "wave", diagnostic: "67-56: wrong wave" },
+      { plan: 56, field: "dependency", diagnostic: "67-56: wrong predecessor" },
       { plan: 17, field: "wave", diagnostic: "67-17: wrong wave" },
       { plan: 17, field: "dependency", diagnostic: "67-17: wrong predecessor" },
+      { plan: 18, field: "wave", diagnostic: "67-18: wrong wave" },
+      { plan: 18, field: "dependency", diagnostic: "67-18: wrong predecessor" },
+      { plan: 47, field: "wave", diagnostic: "67-47: wrong wave" },
+      { plan: 47, field: "dependency", diagnostic: "67-47: wrong predecessor" },
     ] as const;
 
     for (const control of controls) {
@@ -3814,6 +4494,101 @@ describe("copied Phase 67 schedule inventory controls", () => {
       expect(readFileSync(resolve(workspaceRoot, relativePath))).toEqual(
         liveBytes,
       );
+    }
+  }, 60_000);
+
+  it("requires Plan56-58 metadata and rejects duplicate or malformed dependencies", () => {
+    const fixture = createRealAdmissionCliFixture();
+    for (const plan of [56, 57, 58]) {
+      const relativePath = `${phaseDir}/67-${String(plan).padStart(2, "0")}-PLAN.md`;
+      const missing = withCliFileRemoval(fixture, relativePath, () =>
+        runRealCli(fixture, ["--inventory"]),
+      );
+      expect(missing.error).toBeUndefined();
+      expectCliRejection(
+        missing,
+        `67-${String(plan).padStart(2, "0")}-PLAN.md: missing schedule plan`,
+      );
+    }
+
+    for (const control of [
+      { plan: 58, field: "wave", diagnostic: "67-58: malformed wave" },
+      { plan: 58, field: "dependency", diagnostic: "67-58: malformed predecessor" },
+      { plan: 57, field: "wave", diagnostic: "67-57: malformed wave" },
+      { plan: 57, field: "dependency", diagnostic: "67-57: malformed predecessor" },
+    ] as const) {
+      const relativePath = `${phaseDir}/67-${String(control.plan).padStart(2, "0")}-PLAN.md`;
+      const result = withCliFileMutation(
+        fixture,
+        relativePath,
+        (original) => {
+          const matcher =
+            control.field === "wave"
+              ? /^wave: \d+\r?\n?/m
+              : /^depends_on: \["67-\d+"\]\r?\n?/m;
+          const changed = original.toString("utf8").replace(matcher, "");
+          expect(changed).not.toBe(original.toString("utf8"));
+          return Buffer.from(changed);
+        },
+        () => runRealCli(fixture, ["--inventory"]),
+      );
+      expectCliRejection(result, control.diagnostic);
+    }
+
+    const controls = [
+      {
+        plan: 58,
+        dependency: 'depends_on: ["67-16", "67-16"]',
+        diagnostic: "67-58: wrong predecessor",
+      },
+      {
+        plan: 58,
+        dependency: 'depends_on: ["67-16"',
+        diagnostic: "67-58: malformed predecessor",
+      },
+      {
+        plan: 57,
+        dependency: 'depends_on: ["67-58", "67-58"]',
+        diagnostic: "67-57: wrong predecessor",
+      },
+      {
+        plan: 57,
+        dependency: 'depends_on: ["67-58"',
+        diagnostic: "67-57: malformed predecessor",
+      },
+      {
+        plan: 56,
+        dependency: 'depends_on: ["67-57", "67-57"]',
+        diagnostic: "67-56: wrong predecessor",
+      },
+      {
+        plan: 56,
+        dependency: 'depends_on: ["67-57"',
+        diagnostic: "67-56: malformed predecessor",
+      },
+      {
+        plan: 17,
+        dependency: 'depends_on: ["67-16"]',
+        diagnostic: "67-17: wrong predecessor",
+      },
+    ] as const;
+    for (const control of controls) {
+      const relativePath = `${phaseDir}/67-${String(control.plan).padStart(2, "0")}-PLAN.md`;
+      const result = withCliFileMutation(
+        fixture,
+        relativePath,
+        (original) => {
+          const source = original.toString("utf8");
+          const changed = source.replace(
+            /^depends_on: \["67-\d+"\]$/m,
+            control.dependency,
+          );
+          expect(changed).not.toBe(source);
+          return Buffer.from(changed);
+        },
+        () => runRealCli(fixture, ["--inventory"]),
+      );
+      expectCliRejection(result, control.diagnostic);
     }
   }, 60_000);
 });

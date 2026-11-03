@@ -13,7 +13,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadClasses, parseDisableReason } from "./disable-lint.mjs";
 import { groupsFor } from "./groups.mjs";
 import { anchorKey, mutantKey } from "./identity.mjs";
-import { validateDeletion } from "./deletion-proof.mjs";
+import {
+  validateDeletion,
+  validateReadCStringBoundary,
+} from "./deletion-proof.mjs";
 
 const show = (key) => key.replaceAll("\u0000", "|");
 const UNDETECTED = new Set(["Survived", "NoCoverage"]);
@@ -122,6 +125,20 @@ export function checkLedger({
     }
   }
   for (const c of clusters) {
+    if (c.sourceOperation) {
+      const finalEntry = finalReport?.files?.[c.file] ?? null;
+      const proof = validateReadCStringBoundary({
+        row: c,
+        root,
+        currentSource: mode === "final" ? finalEntry?.source ?? null : null,
+        finalEntry,
+        finalReport,
+        readTest: (file) => readFileSync(join(root, file), "utf8"),
+        survivors: immutableSurvivors,
+        requireFinal: mode === "final" && finalReport !== null,
+      });
+      problems.push(...proof.problems);
+    }
     if (c.disposition !== "dead" || !c.deletion) continue;
     const finalEntry = finalReport?.files?.[c.file] ?? null;
     const proof = validateDeletion({

@@ -18,6 +18,78 @@ const DIRECTIVE = /^\s*\/\/ Stryker (?:disable|restore)\b/;
 const DETECTED = new Set(["Killed", "Timeout"]);
 const ISOBMFF_ADMISSION_BASE = "cb8eedde27eaa6b2a54cb9f2008d91292a8b3bba";
 const ILOC_BOUNDARY_BASE = "cb8eedde27eaa6b2a54cb9f2008d91292a8b3bba";
+const CSTRING_BOUNDARY_BASE = "cb8eedde27eaa6b2a54cb9f2008d91292a8b3bba";
+const CSTRING_BOUNDARY_SOURCE_SHA256 =
+  "048c8627199aa21976979317b6024f0928a42d376567279b660ed3e7dcf8363c";
+const CSTRING_BEFORE_REPORT_CANONICAL_SHA256 =
+  "f91da4980b29d64e22cd0f95f39d4ecc6ebb0d385436a51b35d8a9e0c6936558";
+const CSTRING_UNANNOTATED_REPORT_CANONICAL_SHA256 =
+  "ab337986324b6fb560436d665bbdf75d6885f435b7e853f3e9070c3a3f68b42e";
+const CSTRING_FINAL_REPORT_CANONICAL_SHA256 =
+  "68685e54ba6ba32c63b848f13215f2ec4ded2700c711dddedd9f36020fdef297";
+const CSTRING_CANDIDATE_SOURCE_SHA256 =
+  "be06b8a71401be7a6d54058f4af6699389a5b3ee6b150844805260da6541c2db";
+const CSTRING_FINAL_RAW_SOURCE_SHA256 =
+  "9a53dabcfe43d43311c17b17c2453dcc47e55b7cae2c193340c58d24cacc7c88";
+const CSTRING_OPERATION = Object.freeze({
+  operation: "cstring-integer-boundary",
+  file: "src/isobmff/items.ts",
+  function: "readCString",
+  occurrence: 0,
+  before: "end < buffer.length",
+  after: "end <= buffer.length - 1",
+});
+const CSTRING_EQUIVALENT_KEY = [
+  "src/isobmff/items.ts",
+  "EqualityOperator",
+  "end <= buffer.length",
+  184,
+  10,
+  184,
+  29,
+].join("\0");
+const CSTRING_EQUIVALENT_ORIGIN =
+  "isobmff:src/isobmff/items.ts:readCString:EqualityOperator";
+const CSTRING_EQUIVALENT_DIRECTIVE =
+  "// Stryker disable next-line ArithmeticOperator: equivalent-arithmetic — the sole measured +1 replacement probes undefined at EOF twice, then the existing end-of-buffer guard produces the same typed box-framing error; NUL-terminated values and returned bytes are unchanged.";
+const CSTRING_REFERENCE_TRACE = [
+  "readCString callers and integer bounds (current source, all call sites):",
+  "parseInfe passes the payload from readFullBoxChild. Its start position is 0; version 2/3 selects integer idBytes 2 or 4, ensureBytes validates each read, and position advances only by those byte counts (2, then 2, then 4) before item_name. A NUL-terminated name returns integer end+1. MIME content_type starts at that integer; optional content_encoding is called only when position < payload.length. URI item_uri_type starts at the same integer after item_name. Every position is an integer within [0,payload.length] because ensureBytes and each successful terminator bound the prior read.",
+  "parseIpco calls readCString for auxC with the FullBox payload and position 0. readFullBoxChild first requires its four-byte version/flags field, while the resulting string payload can be empty; at length 0 both original and candidate loop conditions are false and the unchanged end >= length guard emits the same typed box-framing refusal.",
+  "Buffer.length and all caller offsets are integers. For every integer end and length, end < length is equivalent to end <= length - 1, including zero-length and end-at-EOF cases. The valid NUL predicate, end += 1, post-loop guard/throw, decode range and return remain byte-identical. The sole measured ArithmeticOperator +1 mutant can read undefined at EOF and EOF+1; Buffer indexed reads have no side effects and the same existing guard then throws the same typed error. NUL-terminated values never reach those probes.",
+].join("\n");
+const CSTRING_COUNTERFACTUALS = Object.freeze([
+  Object.freeze({
+    id: "loop-op",
+    before: "end < buffer.length",
+    after: "end >= buffer.length",
+    sourceSha256:
+      "2a9cfb8d131bca528751b912ccded9ac8153b5bd2582fafe57dbe5543393240a",
+    testLogSha256:
+      "247864e69bdbf123349233b93d712a0b0b124464edaa6c17331ab78ea0e21749",
+    greenTestLogSha256:
+      "13efc34630f498a3f2dd686f5f20e599a66dfc7a2d7d996ca659dd7ce04f2667",
+    testFile: "tests/isobmff_writer.test.ts",
+    testName:
+      "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits",
+    assertion: "expect(sanitized.ok).toBe(true)",
+  }),
+  Object.freeze({
+    id: "nul-equality",
+    before: "buffer[end] !== 0",
+    after: "buffer[end] === 0",
+    sourceSha256:
+      "75834d915bfee6db75728dbbac5204245a18b2cc5b8c4974bfdd1623f829c8c2",
+    testLogSha256:
+      "aeac0b9a5b526de02658faa43f24999b71f690573e73cc434409dda2a464e937",
+    greenTestLogSha256:
+      "1eccf954170c7416d6125a2dc9a87d7c1eeb30b296e0dbcc40d1604292c7190c",
+    testFile: "tests/isobmff_writer.test.ts",
+    testName:
+      "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits",
+    assertion: "expect(sanitized.ok).toBe(true)",
+  }),
+]);
 const ILOC_BOUNDARY_SOURCE_SHA256 =
   "3771d0e23a5f8c1b5dc3859ec5024b205366752f170858e362744e586e8aa338";
 const ILOC_BOUNDARY_BEFORE_REPORT_SHA256 =
@@ -1990,6 +2062,545 @@ export function validateDeletion({
     removedMutants,
     auxiliaryMutants,
   };
+}
+
+function cstringRecords(report, label) {
+  const file = CSTRING_OPERATION.file;
+  const entry = report?.files?.[file];
+  if (
+    !entry ||
+    Object.keys(report.files).length !== 1 ||
+    typeof entry.source !== "string" ||
+    !Array.isArray(entry.mutants)
+  )
+    throw new Error(`${label} report is not a complete single-file items.ts report`);
+  const source = normalizeDirectives(entry.source);
+  const records = entry.mutants.map((mutant) => {
+    const location = toNormalizedLocation(entry.source, mutant.location);
+    const normalizedMutant = { ...mutant, location };
+    return {
+      mutant,
+      anchor: anchorKey(file, normalizedMutant, source),
+      rawAnchor: anchorKey(file, mutant, entry.source),
+      start: offsetAt(source, location.start),
+      end: offsetAt(source, location.end),
+      replacement: mutant.replacement ?? "",
+      mutatorName: mutant.mutatorName,
+      status: mutant.status,
+      killedBy: resolvedTests(report, mutant),
+    };
+  });
+  const anchors = new Set();
+  for (const record of records) {
+    if (anchors.has(record.anchor))
+      throw new Error(`${label} report has duplicate canonical mutant anchors`);
+    anchors.add(record.anchor);
+  }
+  return { entry, source, records };
+}
+
+function cstringUnique(records, predicate, label) {
+  const found = records.filter(predicate);
+  if (found.length !== 1)
+    throw new Error(`${label} has ${found.length} matching report records`);
+  return found[0];
+}
+
+function cstringStatusCounts(records) {
+  return records.reduce((counts, record) => {
+    counts[record.status] = (counts[record.status] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+function cstringExpressionOffset(source, expression) {
+  const declarations = [...source.matchAll(/\bfunction\s+readCString\s*\(/g)];
+  if (declarations.length !== 1)
+    throw new Error(`readCString declaration is ${declarations.length === 0 ? "missing" : "ambiguous"}`);
+  const start = declarations[0].index;
+  const nextDeclaration = source.indexOf("\nfunction ", start + 1);
+  const end = nextDeclaration < 0 ? source.length : nextDeclaration;
+  const positions = [];
+  let from = start;
+  while ((from = source.indexOf(expression, from)) !== -1 && from < end) {
+    positions.push(from);
+    from += expression.length;
+  }
+  if (positions.length !== 1)
+    throw new Error(`readCString expression ${JSON.stringify(expression)} is ${positions.length === 0 ? "missing" : "ambiguous"}`);
+  return positions[0];
+}
+
+function cstringDirectKill(report, record, expectedTest, readTest, label) {
+  if (record.status !== "Killed")
+    throw new Error(`${label} is ${record.status}, not Killed`);
+  const matching = record.killedBy.filter(
+    (test) =>
+      test.file === expectedTest.file && test.name === expectedTest.name,
+  );
+  if (matching.length !== 1)
+    throw new Error(`${label} is not directly killed by its named test`);
+  const tableEntry = report.testFiles?.[expectedTest.file];
+  if (
+    !tableEntry ||
+    typeof tableEntry.source !== "string" ||
+    !Array.isArray(tableEntry.tests) ||
+    !tableEntry.tests.some((test) => test.name === expectedTest.name)
+  )
+    throw new Error(`${label} named killer is absent from its report test table`);
+  if (readTest && readTest(expectedTest.file) !== tableEntry.source)
+    throw new Error(`${label} named killer source is stale`);
+  return { file: expectedTest.file, name: expectedTest.name };
+}
+
+/**
+ * Validate the one measured readCString source operation. Its receipt carries
+ * complete raw Stryker reports so --pre and copied candidate checks do not
+ * depend on ignored report files. The original frozen key remains unchanged;
+ * only its exact current equivalent is reconciled across mutator kinds.
+ */
+export function validateReadCStringBoundary({
+  row,
+  root,
+  currentSource = null,
+  finalEntry = null,
+  finalReport = null,
+  readTest = null,
+  survivors = null,
+  requireFinal = false,
+}) {
+  const problems = [];
+  const anchors = [];
+  let equivalentPair = null;
+  const counterpartProofs = [];
+  const fail = (message) => problems.push(`${row?.id ?? "source operation"}: ${message}`);
+  try {
+    const receipt = row?.sourceOperation;
+    if (!receipt || receipt.version !== 1)
+      throw new Error("missing version-1 sourceOperation receipt");
+    if (
+      row.id !== `${CSTRING_EQUIVALENT_ORIGIN}:equivalent-01` ||
+      row.originClusterId !== CSTRING_EQUIVALENT_ORIGIN ||
+      row.group !== "isobmff" ||
+      row.file !== CSTRING_OPERATION.file ||
+      row.function !== CSTRING_OPERATION.function ||
+      row.mutatorName !== "EqualityOperator" ||
+      row.disposition !== "equivalent" ||
+      row.equivalenceClass !== "equivalent-arithmetic" ||
+      row.count !== 1 ||
+      canonical(row.keys) !== canonical([CSTRING_EQUIVALENT_KEY])
+    )
+      throw new Error("sourceOperation row differs from the immutable EOF-only owner");
+    if (
+      receipt.operation !== CSTRING_OPERATION.operation ||
+      receipt.file !== CSTRING_OPERATION.file ||
+      receipt.function !== CSTRING_OPERATION.function ||
+      receipt.occurrence !== CSTRING_OPERATION.occurrence ||
+      receipt.before !== CSTRING_OPERATION.before ||
+      receipt.after !== CSTRING_OPERATION.after ||
+      receipt.beforeRef !== CSTRING_BOUNDARY_BASE ||
+      receipt.originalKey !== CSTRING_EQUIVALENT_KEY ||
+      receipt.originalOrigin !== CSTRING_EQUIVALENT_ORIGIN ||
+      receipt.beforeSourceSha256 !== CSTRING_BOUNDARY_SOURCE_SHA256
+    )
+      throw new Error("sourceOperation site, original key or permanent source binding differs");
+    const expectedReceiptFields = [
+      "version", "operation", "file", "function", "occurrence", "before", "after",
+      "beforeRef", "beforeSourceSha256", "originalKey", "originalOrigin",
+      "reports", "candidateSourceSha256", "candidateRawSourceSha256",
+      "anchorMappings", "beforeAffected", "candidateAffected", "equivalentPair",
+      "counterpartProofs", "counterfactuals", "campaignLogs", "referenceTrace",
+    ].sort();
+    if (canonical(Object.keys(receipt).sort()) !== canonical(expectedReceiptFields))
+      throw new Error("sourceOperation receipt has missing or unexpected fields");
+    if (receipt.referenceTrace !== CSTRING_REFERENCE_TRACE)
+      throw new Error("sourceOperation caller and integer-bound reference trace differs");
+
+    const trackedPath = safeRelative(root, CSTRING_OPERATION.file, "sourceOperation source");
+    const beforeSource = gitSource(root, receipt.beforeRef, CSTRING_OPERATION.file);
+    if (hash(normalizeDirectives(beforeSource)) !== CSTRING_BOUNDARY_SOURCE_SHA256)
+      throw new Error("sourceOperation permanent Git source differs from the measured ancestor");
+    const normalizedBefore = normalizeDirectives(beforeSource);
+    if (receipt.occurrence !== 0)
+      throw new Error("sourceOperation expression is missing or ambiguous in readCString");
+    const beforeExpression = cstringExpressionOffset(normalizedBefore, CSTRING_OPERATION.before);
+    const normalizedCandidate =
+      normalizedBefore.slice(0, beforeExpression) +
+      CSTRING_OPERATION.after +
+      normalizedBefore.slice(beforeExpression + CSTRING_OPERATION.before.length);
+
+    if (!receipt.reports || typeof receipt.reports !== "object")
+      throw new Error("sourceOperation report bindings are missing");
+    const expectedReportNames = ["before", "unannotated", "final"].sort();
+    if (canonical(Object.keys(receipt.reports).sort()) !== canonical(expectedReportNames))
+      throw new Error("sourceOperation report binding set differs from the measured campaigns");
+    const expectedCanonicalReportDigests = {
+      before: CSTRING_BEFORE_REPORT_CANONICAL_SHA256,
+      unannotated: CSTRING_UNANNOTATED_REPORT_CANONICAL_SHA256,
+      final: CSTRING_FINAL_REPORT_CANONICAL_SHA256,
+    };
+    const parsedReports = {};
+    for (const name of expectedReportNames) {
+      const binding = receipt.reports[name];
+      if (
+        !binding ||
+        canonical(Object.keys(binding).sort()) !==
+          canonical(["raw", "sha256", "canonicalSha256"].sort()) ||
+        typeof binding.raw !== "string" ||
+        hash(binding.raw) !== binding.sha256 ||
+        binding.canonicalSha256 !== expectedCanonicalReportDigests[name]
+      )
+        throw new Error(`${name} sourceOperation report bytes differ from the retained real report`);
+      let report;
+      try {
+        report = JSON.parse(binding.raw);
+      } catch (error) {
+        throw new Error(`${name} sourceOperation report is invalid JSON: ${error.message}`);
+      }
+      if (hash(canonical(report)) !== binding.canonicalSha256)
+        throw new Error(`${name} sourceOperation canonical report digest mismatch`);
+      parsedReports[name] = report;
+    }
+    const before = cstringRecords(parsedReports.before, "before");
+    const unannotated = cstringRecords(parsedReports.unannotated, "unannotated");
+    const candidate = cstringRecords(parsedReports.final, "final");
+    if (
+      hash(before.source) !== CSTRING_BOUNDARY_SOURCE_SHA256 ||
+      before.source !== normalizeDirectives(normalizeDirectives(before.entry.source)) ||
+      hash(unannotated.source) !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
+      hash(candidate.source) !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
+      receipt.candidateSourceSha256 !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
+      hash(candidate.entry.source) !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
+      receipt.candidateRawSourceSha256 !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
+      before.source !== normalizedBefore ||
+      unannotated.source !== normalizedCandidate ||
+      candidate.source !== normalizedCandidate
+    )
+      throw new Error("sourceOperation before/candidate source differs from the exact single-site edit");
+    if (
+      before.records.length !== 593 ||
+      unannotated.records.length !== 594 ||
+      candidate.records.length !== 594 ||
+      canonical(cstringStatusCounts(before.records)) !== canonical({
+        Ignored: 53, Killed: 319, CompileError: 193, Timeout: 3, Survived: 24, NoCoverage: 1,
+      }) ||
+      canonical(cstringStatusCounts(unannotated.records)) !== canonical({
+        Ignored: 53, Killed: 320, CompileError: 193, Timeout: 3, Survived: 24, NoCoverage: 1,
+      }) ||
+      canonical(cstringStatusCounts(candidate.records)) !== canonical({
+        Ignored: 54, Killed: 320, CompileError: 193, Timeout: 3, Survived: 23, NoCoverage: 1,
+      })
+    )
+      throw new Error("sourceOperation full-file mutant counts differ from the measured reports");
+    const directives = candidate.entry.source
+      .split("\n")
+      .flatMap((line, index) => line.trim() === CSTRING_EQUIVALENT_DIRECTIVE ? [index] : []);
+    if (
+      directives.length !== 1 ||
+      candidate.entry.source.split("\n")[directives[0] + 1]?.trim() !==
+        `while (${CSTRING_OPERATION.after} && buffer[end] !== 0) end += 1;` ||
+      candidate.entry.source.includes("Stryker disable next-line EqualityOperator")
+    )
+      throw new Error("candidate source lacks the exact ArithmeticOperator-only directive layout");
+
+    const mappings = [];
+    const currentByAnchor = new Map(candidate.records.map((record) => [record.anchor, record]));
+    for (const record of before.records)
+      if (currentByAnchor.has(record.anchor))
+        mappings.push({ current: record.anchor, original: record.anchor });
+    const oldEquivalent = cstringUnique(
+      before.records,
+      (record) => record.mutatorName === "EqualityOperator" &&
+        record.replacement === "end <= buffer.length" && record.status === "Survived",
+      "original EOF-only equality survivor",
+    );
+    const currentEquivalent = cstringUnique(
+      candidate.records,
+      (record) => record.mutatorName === "ArithmeticOperator" &&
+        record.replacement === "buffer.length + 1" && record.status === "Ignored" &&
+        /^equivalent-arithmetic — \S/.test(String(record.mutant.statusReason ?? "")),
+      "comment-owned current arithmetic equivalent",
+    );
+    const beforeEdit = cstringExpressionOffset(before.source, CSTRING_OPERATION.before);
+    const afterEdit = beforeEdit + CSTRING_OPERATION.before.length;
+    const candidateEdit = cstringExpressionOffset(candidate.source, CSTRING_OPERATION.after);
+    const candidateEnd = candidateEdit + CSTRING_OPERATION.after.length;
+    const impact = (records, start, end) => records
+      .filter((record) => (record.start <= start && record.end >= end) ||
+        (record.start < end && record.end > start))
+      .map((record) => ({
+        anchor: record.anchor,
+        mutatorName: record.mutatorName,
+        replacement: record.replacement,
+        status: record.status,
+        killedBy: record.killedBy,
+      }))
+      .sort((left, right) => left.anchor.localeCompare(right.anchor));
+    const beforeSite = before.records.filter((record) =>
+      (record.start <= beforeEdit && record.end >= afterEdit) ||
+      (record.start < afterEdit && record.end > beforeEdit),
+    );
+    const candidateSite = candidate.records.filter((record) =>
+      (record.start <= candidateEdit && record.end >= candidateEnd) ||
+      (record.start < candidateEnd && record.end > candidateEdit),
+    );
+    const sitePairs = [
+      {
+        old: (record) => record.mutatorName === "BlockStatement" && record.replacement === "{}" && record.status === "CompileError",
+        current: (record) => record.mutatorName === "BlockStatement" && record.replacement === "{}" && record.status === "CompileError",
+      },
+      {
+        old: (record) => record.mutatorName === "ConditionalExpression" && record.replacement === "false" && record.status === "Killed",
+        current: (record) => record.mutatorName === "ConditionalExpression" && record.replacement === "false" && record.status === "Killed",
+      },
+      {
+        old: (record) => record.mutatorName === "LogicalOperator" && record.replacement === "end < buffer.length || buffer[end] !== 0" && record.status === "Timeout",
+        current: (record) => record.mutatorName === "LogicalOperator" && record.replacement === "end <= buffer.length - 1 || buffer[end] !== 0" && record.status === "Timeout",
+      },
+      {
+        old: (record) => record.mutatorName === "ConditionalExpression" && record.replacement === "true" && record.status === "Timeout",
+        current: (record) => record.mutatorName === "ConditionalExpression" && record.replacement === "true" && record.status === "Timeout",
+      },
+      {
+        old: (record) => record.mutatorName === "EqualityOperator" && record.replacement === "end >= buffer.length" && record.status === "Killed",
+        current: (record) => record.mutatorName === "EqualityOperator" && record.replacement === "end > buffer.length - 1" && record.status === "Killed",
+      },
+    ];
+    for (const [index, pair] of sitePairs.entries()) {
+      const old = cstringUnique(beforeSite, pair.old, `site mapping ${index + 1} original`);
+      const current = cstringUnique(candidateSite, pair.current, `site mapping ${index + 1} current`);
+      if (
+        old.anchor === current.anchor ||
+        mappings.some((mapping) => mapping.original === old.anchor || mapping.current === current.anchor)
+      )
+        throw new Error(`site mapping ${index + 1} collides with another correspondence`);
+      mappings.push({ current: current.anchor, original: old.anchor });
+    }
+    const survivorMatches = Array.isArray(survivors)
+      ? survivors.filter((member) => member.key === CSTRING_EQUIVALENT_KEY)
+      : [];
+    if (
+      survivorMatches.length !== 1 ||
+      survivorMatches[0].file !== CSTRING_OPERATION.file ||
+      survivorMatches[0].function !== CSTRING_OPERATION.function ||
+      survivorMatches[0].mutatorName !== "EqualityOperator" ||
+      survivorMatches[0].anchorKey !== oldEquivalent.anchor ||
+      survivorMatches[0].status !== "Survived"
+    )
+      throw new Error("original EOF-only key differs from its immutable survivor snapshot");
+    if (row.anchors?.length !== 1 || row.anchors[0] !== currentEquivalent.rawAnchor)
+      throw new Error("equivalent owner does not name the one actual current raw comment anchor");
+    const currentCanonicalKeys = new Set(mappings.map((pair) => pair.current));
+    const originalCanonicalKeys = new Set(mappings.map((pair) => pair.original));
+    if (
+      currentCanonicalKeys.has(currentEquivalent.anchor) ||
+      originalCanonicalKeys.has(oldEquivalent.anchor)
+    )
+      throw new Error("cross-mutator equivalent pair collides with an exact anchor mapping");
+    mappings.push({ current: currentEquivalent.anchor, original: oldEquivalent.anchor });
+    mappings.sort((left, right) => left.current.localeCompare(right.current));
+    if (
+      canonical(
+        [...receipt.anchorMappings].sort((left, right) =>
+          String(left.current).localeCompare(String(right.current)),
+        ),
+      ) !== canonical(mappings) ||
+      new Set(mappings.map((pair) => pair.current)).size !== mappings.length ||
+      new Set(mappings.map((pair) => pair.original)).size !== mappings.length
+    )
+      throw new Error("sourceOperation anchor mapping is incomplete, non-injective or forged");
+    anchors.push(...mappings);
+    equivalentPair = {
+      current: currentEquivalent.anchor,
+      original: oldEquivalent.anchor,
+    };
+    if (
+      canonical(receipt.equivalentPair) !== canonical({
+        current: currentEquivalent.rawAnchor,
+        currentCanonical: currentEquivalent.anchor,
+        originalKey: CSTRING_EQUIVALENT_KEY,
+        original: oldEquivalent.anchor,
+      })
+    )
+      throw new Error("sourceOperation cross-mutator pair differs from the measured unique EOF survivor");
+
+    const beforeAffected = impact(before.records, beforeEdit, afterEdit);
+    const candidateAffected = impact(candidate.records, candidateEdit, candidateEnd);
+    if (
+      beforeAffected.length !== 6 || candidateAffected.length !== 7 ||
+      canonical(receipt.beforeAffected) !== canonical(beforeAffected) ||
+      canonical(receipt.candidateAffected) !== canonical(candidateAffected)
+    )
+      throw new Error("sourceOperation complete affected inventories differ from full reports");
+
+    const testBindings = [
+      {
+        label: "old loop opposite",
+        report: parsedReports.before,
+        records: before.records,
+        mutator: "EqualityOperator",
+        replacement: "end >= buffer.length",
+        test: {
+          file: "tests/isobmff_writer.test.ts",
+          name: "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits",
+        },
+      },
+      {
+        label: "old NUL-predicate opposite",
+        report: parsedReports.before,
+        records: before.records,
+        mutator: "EqualityOperator",
+        replacement: "buffer[end] === 0",
+        test: {
+          file: "tests/isobmff_writer.test.ts",
+          name: "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits",
+        },
+      },
+      {
+        label: "current loop opposite",
+        report: parsedReports.final,
+        records: candidate.records,
+        mutator: "EqualityOperator",
+        replacement: "end > buffer.length - 1",
+        test: {
+          file: "tests/isobmff_items.test.ts",
+          name: "parseIsobmff item graph on heif-enc-grid.heic > matches the independent inventory walker's items, references, properties and associations",
+        },
+      },
+      {
+        label: "current NUL-predicate opposite",
+        report: parsedReports.final,
+        records: candidate.records,
+        mutator: "EqualityOperator",
+        replacement: "buffer[end] === 0",
+        test: {
+          file: "tests/isobmff_items.test.ts",
+          name: "parseIsobmff item graph on heif-enc-grid.heic > matches the independent inventory walker's items, references, properties and associations",
+        },
+      },
+    ];
+    const expectedCounterparts = testBindings.map((binding) => {
+      const record = cstringUnique(
+        binding.records,
+        (candidateRecord) => candidateRecord.mutatorName === binding.mutator &&
+          candidateRecord.replacement === binding.replacement,
+        binding.label,
+      );
+      const killer = cstringDirectKill(
+        binding.report,
+        record,
+        binding.test,
+        readTest,
+        binding.label,
+      );
+      return {
+        label: binding.label,
+        anchor: record.anchor,
+        mutatorName: record.mutatorName,
+        replacement: record.replacement,
+        status: record.status,
+        test: killer,
+      };
+    });
+    const semanticCounterparts = [
+      {
+        old: expectedCounterparts[0],
+        current: expectedCounterparts[2],
+      },
+      {
+        old: expectedCounterparts[1],
+        current: expectedCounterparts[3],
+      },
+    ];
+    if (canonical(receipt.counterpartProofs) !== canonical(semanticCounterparts))
+      throw new Error("sourceOperation counterpart proofs do not match direct real killedBy evidence");
+    counterpartProofs.push(...semanticCounterparts);
+
+    if (!Array.isArray(receipt.counterfactuals) || receipt.counterfactuals.length !== CSTRING_COUNTERFACTUALS.length)
+      throw new Error("sourceOperation counterfactual inventory is incomplete");
+    const verifiedCounterfactuals = [];
+    for (let index = 0; index < CSTRING_COUNTERFACTUALS.length; index++) {
+      const expected = CSTRING_COUNTERFACTUALS[index];
+      const actual = receipt.counterfactuals[index];
+      if (
+        !actual ||
+        canonical(Object.keys(actual).sort()) !== canonical([
+          "id", "alteredSource", "sourceSha256", "greenTestLog", "greenTestLogSha256", "greenExitCode", "testLog", "testLogSha256", "exitCode", "testFile", "testName", "assertion",
+        ].sort()) ||
+        actual.id !== expected.id || actual.sourceSha256 !== expected.sourceSha256 ||
+        actual.testLogSha256 !== expected.testLogSha256 || hash(actual.testLog ?? "") !== expected.testLogSha256 ||
+        actual.greenTestLogSha256 !== expected.greenTestLogSha256 || hash(actual.greenTestLog ?? "") !== expected.greenTestLogSha256 ||
+        actual.greenExitCode !== 0 || !String(actual.greenTestLog).includes("Tests  1 passed") ||
+        actual.exitCode !== 1 || actual.testFile !== expected.testFile ||
+        actual.testName !== expected.testName || actual.assertion !== expected.assertion ||
+        !String(actual.testLog).includes(expected.assertion)
+      )
+        throw new Error(`${expected.id} executed counterfactual evidence is missing or stale`);
+      const alteredPositions = [];
+      let at = 0;
+      while ((at = before.entry.source.indexOf(expected.before, at)) !== -1) {
+        alteredPositions.push(at);
+        at += expected.before.length;
+      }
+      if (alteredPositions.length !== 1)
+        throw new Error(`${expected.id} counterfactual source site is ambiguous`);
+      const alteredSource = before.entry.source.slice(0, alteredPositions[0]) +
+        expected.after + before.entry.source.slice(alteredPositions[0] + expected.before.length);
+      if (
+        actual.alteredSource !== alteredSource ||
+        hash(actual.alteredSource) !== expected.sourceSha256 ||
+        !actual.testLog.includes(expected.testName)
+      )
+        throw new Error(`${expected.id} altered source bytes or named failing test differ from the executed counterfactual`);
+      verifiedCounterfactuals.push({
+        id: expected.id,
+        sourceSha256: expected.sourceSha256,
+        greenTestLogSha256: expected.greenTestLogSha256,
+        greenExitCode: 0,
+        testLogSha256: expected.testLogSha256,
+        exitCode: 1,
+      });
+    }
+    const expectedLogBindings = {
+      before: { sha256: "344a079d505629c126fdc892fc9da01de26ef924983ffd7732a82fe134ef5377" },
+      unannotated: { sha256: "84c3a37250ae62416191be2b3d7187112f74378f51a266f44148136a1cf6645c" },
+      final: { sha256: "8330735b0bca891e0dab0bb996ee1bdff9ac7db31f442e05dd05fbb41ad5159f" },
+    };
+    if (
+      !receipt.campaignLogs || canonical(Object.keys(receipt.campaignLogs).sort()) !== canonical(["before", "final", "unannotated"].sort()) ||
+      ["before", "unannotated", "final"].some((name) =>
+        receipt.campaignLogs[name]?.sha256 !== expectedLogBindings[name].sha256 ||
+        hash(receipt.campaignLogs[name]?.raw ?? "") !== expectedLogBindings[name].sha256 ||
+        !receipt.campaignLogs[name].raw.includes("Initial test run succeeded. Ran 1187 tests")
+      )
+    )
+      throw new Error("sourceOperation green full-suite campaign logs are absent or stale");
+    if (canonical(verifiedCounterfactuals) !== canonical(receipt.counterfactuals.map(({ id, sourceSha256, greenTestLogSha256, greenExitCode, testLogSha256, exitCode }) => ({ id, sourceSha256, greenTestLogSha256, greenExitCode, testLogSha256, exitCode }))))
+      throw new Error("sourceOperation counterfactual verification table differs");
+
+    if (requireFinal) {
+      const diskSource = readFileSync(trackedPath, "utf8");
+      const selectedSource = typeof currentSource === "string" ? currentSource : diskSource;
+      if (
+        selectedSource !== diskSource ||
+        hash(selectedSource) !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
+        hash(normalizeDirectives(selectedSource)) !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
+        !finalEntry || hash(finalEntry.source ?? "") !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
+        !finalReport || canonical(finalReport) !== canonical(parsedReports.final)
+      )
+        throw new Error("live sourceOperation source/report differs from the exact measured candidate");
+      for (const [file, entry] of Object.entries(finalReport.testFiles ?? {})) {
+        if (typeof entry.source !== "string" || !Array.isArray(entry.tests))
+          throw new Error(`final sourceOperation test table is incomplete for ${file}`);
+        if (readTest && readTest(file) !== entry.source)
+          throw new Error(`final sourceOperation test source is stale for ${file}`);
+      }
+    }
+    return { problems, anchors, equivalentPair, counterpartProofs };
+  } catch (error) {
+    fail(error.message);
+    return { problems, anchors: [], equivalentPair: null, counterpartProofs: [] };
+  }
 }
 
 export {
