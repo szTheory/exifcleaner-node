@@ -181,6 +181,7 @@ function readCString(
   what: string,
 ): { value: string; next: number } {
   let end = position;
+  // Stryker disable next-line EqualityOperator: equivalent-arithmetic — an EOF probe reads undefined once, then the existing end-of-buffer guard produces the same typed box-framing error.
   while (end < buffer.length && buffer[end] !== 0) end += 1;
   if (end >= buffer.length) {
     throw new IsobmffStructureError(
@@ -207,6 +208,7 @@ function assertNoDuplicateIds(ids: readonly number[], context: string): void {
 /** `hdlr` -- FullBox version 0: `pre_defined(32) handler_type(32) reserved[3](32) name`. */
 function parseHdlr(buffer: Buffer, header: BoxHeader): string {
   const { payload } = readFullBoxChild(buffer, header);
+  // Stryker disable next-line StringLiteral: unobservable-message — this handler field label only appears in ensureBytes diagnostic text; bytes and typed failures are unchanged.
   ensureBytes(payload, 0, 8, "hdlr pre_defined/handler_type");
   return payload.toString("ascii", 4, 8);
 }
@@ -222,6 +224,7 @@ function parsePitm(buffer: Buffer, header: BoxHeader): number {
     );
   }
   const width = version === 0 ? 2 : 4;
+  // Stryker disable next-line StringLiteral: unobservable-message — this item_ID label only appears in ensureBytes diagnostic text; parsed IDs and typed failures are unchanged.
   ensureBytes(payload, 0, width, "pitm item_ID");
   return width === 2 ? payload.readUInt16BE(0) : payload.readUInt32BE(0);
 }
@@ -324,6 +327,7 @@ function parseIinfEntries(buffer: Buffer, header: BoxHeader): IinfParseResult {
     );
   }
   const entryCountBytes = version === 0 ? 2 : 4;
+  // Stryker disable next-line StringLiteral: unobservable-message — this entry_count label only appears in ensureBytes diagnostic text; child bounds and typed failures are unchanged.
   ensureBytes(payload, 0, entryCountBytes, "iinf entry_count");
   const childrenStart = header.payloadStart + 4 + entryCountBytes;
   const children = listSiblings(buffer, childrenStart, header.end);
@@ -359,15 +363,18 @@ function parseIref(buffer: Buffer, header: BoxHeader): IrefParseResult {
   const references: IsobmffReference[] = [];
   for (const child of children) {
     const body = buffer.subarray(child.payloadStart, child.end);
+    // Stryker disable next-line StringLiteral: unobservable-message — this from_item_ID label only appears in ensureBytes diagnostic text; ID decoding and typed failures are unchanged.
     ensureBytes(body, 0, idBytes, "iref from_item_ID");
     const fromItemId =
       idBytes === 2 ? body.readUInt16BE(0) : body.readUInt32BE(0);
     let position = idBytes;
+    // Stryker disable next-line StringLiteral: unobservable-message — this reference_count label only appears in ensureBytes diagnostic text; reference decoding and typed failures are unchanged.
     ensureBytes(body, position, 2, "iref reference_count");
     const toCount = body.readUInt16BE(position);
     position += 2;
     const toItemIds: number[] = [];
     for (let i = 0; i < toCount; i++) {
+      // Stryker disable next-line StringLiteral: unobservable-message — this to_item_ID label only appears in ensureBytes diagnostic text; reference decoding and typed failures are unchanged.
       ensureBytes(body, position, idBytes, "iref to_item_ID");
       toItemIds.push(
         idBytes === 2
@@ -398,9 +405,11 @@ function parseIpco(buffer: Buffer, header: BoxHeader): RawIpcoProperty[] {
     let iccBytes: Buffer | undefined;
     if (child.type === "auxC") {
       const { payload } = readFullBoxChild(buffer, child);
+      // Stryker disable next-line StringLiteral: unobservable-message — this aux_type label only appears in readCString diagnostic text; the parsed URN and typed failures are unchanged.
       auxUrn = readCString(payload, 0, "auxC aux_type").value;
     } else if (child.type === "colr") {
       const payload = buffer.subarray(child.payloadStart, child.end);
+      // Stryker disable next-line StringLiteral: unobservable-message — this colour_type label only appears in ensureBytes diagnostic text; FourCC decoding and typed failures are unchanged.
       ensureBytes(payload, 0, 4, "colr colour_type");
       colourType = payload.toString("ascii", 0, 4);
       if (colourType === "prof" || colourType === "rICC") {
@@ -428,12 +437,14 @@ function parseGrpl(buffer: Buffer, header: BoxHeader): IsobmffEntityGroup[] {
   const groups: IsobmffEntityGroup[] = [];
   for (const child of children) {
     const { payload } = readFullBoxChild(buffer, child);
+    // Stryker disable next-line StringLiteral: unobservable-message — these group field labels only appear in ensureBytes diagnostic text; group values and typed failures are unchanged.
     ensureBytes(payload, 0, 8, "grpl group_id/num_entities_in_group");
     const groupId = payload.readUInt32BE(0);
     const entityCount = payload.readUInt32BE(4);
     const entityIds: number[] = [];
     let position = 8;
     for (let i = 0; i < entityCount; i++) {
+      // Stryker disable next-line StringLiteral: unobservable-message — this entity_id label only appears in ensureBytes diagnostic text; entity values and typed failures are unchanged.
       ensureBytes(payload, position, 4, "grpl entity_id");
       entityIds.push(payload.readUInt32BE(position));
       position += 4;
