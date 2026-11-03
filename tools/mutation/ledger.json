@@ -178697,13 +178697,31 @@
       "note": ""
     },
     {
-      "id": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral",
+      "id": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/items.ts",
       "function": "parseInfe",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
-      "count": 8,
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000284\u000027\u0000284\u000033"
+      ],
+      "note": "",
+      "originClusterId": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseInfe StringLiteral cluster > preserves URI item ID and URI metadata"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral:equivalent-01",
+      "group": "isobmff",
+      "file": "src/isobmff/items.ts",
+      "function": "parseInfe",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 7,
       "keys": [
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000251\u000043\u0000251\u000057",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000257\u000037\u0000257\u000065",
@@ -178711,9 +178729,10 @@
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000262\u000047\u0000262\u000063",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000269\u000047\u0000269\u000066",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000280\u000049\u0000280\u000072",
-        "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000284\u000027\u0000284\u000033",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000285\u000046\u0000285\u000066"
       ],
+      "note": "Each source label is passed only to ensureBytes or readCString and appears only in IsobmffStructureError.message; byte parsing, returned metadata, and the typed box-framing kind do not depend on its wording.",
+      "originClusterId": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral",
       "anchors": [
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe item_ID\"\u00000",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe item_protection_index\"\u00000",
@@ -178721,10 +178740,9 @@
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe item_name\"\u00000",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe content_type\"\u00000",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe content_encoding\"\u00000",
-        "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"uri \"\u00002",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe item_uri_type\"\u00000"
       ],
-      "note": ""
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/items.ts:parseIpco:ConditionalExpression",
