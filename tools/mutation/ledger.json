@@ -127352,7 +127352,85 @@
           }
         ],
         "counterfactuals": [],
-        "referenceTrace": "Full-file installed Stryker 10.1.1 before/header/final reports from a contained Node 24.21.0 copy prove both exact comparisons over nonnegative integers; no production source was rewritten."
+        "referenceTrace": "Full-file installed Stryker 10.1.1 before/header/final reports from a contained Node 24.21.0 copy prove both exact comparisons over nonnegative integers; no production source was rewritten.",
+        "reportBindings": [
+          {
+            "canonicalSha256": "24c801c53cf4ac68ba016eda7b953b94483a3ba1e9fa48f8d5b272895ddb3942",
+            "variants": [
+              {
+                "rawSha256": "1175d7ceeb2aae69d6e375e1b02793cb10c3a91f249d261c6ad98c424a1fe0c6",
+                "rawBytes": 1708315,
+                "fixtures": [
+                  {
+                    "path": "tests/fixtures/mutation/isobmff-3-multisource-final.json.gz",
+                    "gzipSha256": "75acf56c7337c99043dde6c56903dcd3240998bc0ab33a32ced4442da4a4903c",
+                    "gzipBytes": 230780
+                  }
+                ]
+              }
+            ],
+            "successors": [
+              {
+                "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length >= 2\u0000payload.length < 2\u00000",
+                "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length > 1\u0000payload.length <= 1\u00000",
+                "test": {
+                  "id": "1",
+                  "file": "tests/isobmff_writer.test.ts",
+                  "name": "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits",
+                  "sourceSha256": "cc9152762b7031137e55c1fa043805968b323a570314798695e3897d0fa63a43"
+                }
+              },
+              {
+                "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000indexSize <= 0\u0000indexSize > 0\u00000",
+                "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000// Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — validated nibble width is nonnegative; zero-width reads consume no bytes and preserve position.\nindexSize === 0\u0000indexSize !== 0\u00000",
+                "test": {
+                  "id": "8",
+                  "file": "tests/isobmff_writer.test.ts",
+                  "name": "D-11 iloc layout matrix (62-05) > v1 offsetSize=4 lengthSize=4 baseOffsetSize=0 indexSize=4",
+                  "sourceSha256": "cc9152762b7031137e55c1fa043805968b323a570314798695e3897d0fa63a43"
+                }
+              }
+            ]
+          },
+          {
+            "canonicalSha256": "b6a812a78e7ad55e9c1dbc7cab3d8d053dff1d765258a572ba2f0a60351880ea",
+            "variants": [
+              {
+                "rawSha256": "613d2994a2daa967523c2a30e54bccb010119497b9b143bc3b0751eee82eb831",
+                "rawBytes": 1703017,
+                "fixtures": [
+                  {
+                    "path": "tests/fixtures/mutation/isobmff-3-plan16-final.json.gz",
+                    "gzipSha256": "879f983adb615333a7012d77f660c7e2a7e7da744e51e8dd4e215f86e1860b47",
+                    "gzipBytes": 228357
+                  }
+                ]
+              }
+            ],
+            "successors": [
+              {
+                "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length >= 2\u0000payload.length < 2\u00000",
+                "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length > 1\u0000payload.length <= 1\u00000",
+                "test": {
+                  "id": "890",
+                  "file": "tests/isobmff_iloc.test.ts",
+                  "name": "iloc boundary preservation > v0 payload length 0 keeps the typed framing refusal",
+                  "sourceSha256": "10099bd54d8bfb6d08c35bfbb8093f512a7bfcfc20678801a95b032fb4a4d6a6"
+                }
+              },
+              {
+                "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000indexSize <= 0\u0000indexSize > 0\u00000",
+                "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000// Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — validated nibble width is nonnegative; zero-width reads consume no bytes and preserve position.\nindexSize === 0\u0000indexSize !== 0\u00000",
+                "test": {
+                  "id": "8",
+                  "file": "tests/isobmff_writer.test.ts",
+                  "name": "D-11 iloc layout matrix (62-05) > v1 offsetSize=4 lengthSize=4 baseOffsetSize=0 indexSize=4",
+                  "sourceSha256": "cc9152762b7031137e55c1fa043805968b323a570314798695e3897d0fa63a43"
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -178111,7 +178189,85 @@
           }
         ],
         "counterfactuals": [],
-        "referenceTrace": "Full-file installed Stryker 10.1.1 before/header/final reports from a contained Node 24.21.0 copy prove both exact comparisons over nonnegative integers; no production source was rewritten."
+        "referenceTrace": "Full-file installed Stryker 10.1.1 before/header/final reports from a contained Node 24.21.0 copy prove both exact comparisons over nonnegative integers; no production source was rewritten.",
+        "reportBindings": [
+          {
+            "canonicalSha256": "24c801c53cf4ac68ba016eda7b953b94483a3ba1e9fa48f8d5b272895ddb3942",
+            "variants": [
+              {
+                "rawSha256": "1175d7ceeb2aae69d6e375e1b02793cb10c3a91f249d261c6ad98c424a1fe0c6",
+                "rawBytes": 1708315,
+                "fixtures": [
+                  {
+                    "path": "tests/fixtures/mutation/isobmff-3-multisource-final.json.gz",
+                    "gzipSha256": "75acf56c7337c99043dde6c56903dcd3240998bc0ab33a32ced4442da4a4903c",
+                    "gzipBytes": 230780
+                  }
+                ]
+              }
+            ],
+            "successors": [
+              {
+                "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length >= 2\u0000payload.length < 2\u00000",
+                "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length > 1\u0000payload.length <= 1\u00000",
+                "test": {
+                  "id": "1",
+                  "file": "tests/isobmff_writer.test.ts",
+                  "name": "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits",
+                  "sourceSha256": "cc9152762b7031137e55c1fa043805968b323a570314798695e3897d0fa63a43"
+                }
+              },
+              {
+                "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000indexSize <= 0\u0000indexSize > 0\u00000",
+                "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000// Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — validated nibble width is nonnegative; zero-width reads consume no bytes and preserve position.\nindexSize === 0\u0000indexSize !== 0\u00000",
+                "test": {
+                  "id": "8",
+                  "file": "tests/isobmff_writer.test.ts",
+                  "name": "D-11 iloc layout matrix (62-05) > v1 offsetSize=4 lengthSize=4 baseOffsetSize=0 indexSize=4",
+                  "sourceSha256": "cc9152762b7031137e55c1fa043805968b323a570314798695e3897d0fa63a43"
+                }
+              }
+            ]
+          },
+          {
+            "canonicalSha256": "b6a812a78e7ad55e9c1dbc7cab3d8d053dff1d765258a572ba2f0a60351880ea",
+            "variants": [
+              {
+                "rawSha256": "613d2994a2daa967523c2a30e54bccb010119497b9b143bc3b0751eee82eb831",
+                "rawBytes": 1703017,
+                "fixtures": [
+                  {
+                    "path": "tests/fixtures/mutation/isobmff-3-plan16-final.json.gz",
+                    "gzipSha256": "879f983adb615333a7012d77f660c7e2a7e7da744e51e8dd4e215f86e1860b47",
+                    "gzipBytes": 228357
+                  }
+                ]
+              }
+            ],
+            "successors": [
+              {
+                "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length >= 2\u0000payload.length < 2\u00000",
+                "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000payload.length > 1\u0000payload.length <= 1\u00000",
+                "test": {
+                  "id": "890",
+                  "file": "tests/isobmff_iloc.test.ts",
+                  "name": "iloc boundary preservation > v0 payload length 0 keeps the typed framing refusal",
+                  "sourceSha256": "10099bd54d8bfb6d08c35bfbb8093f512a7bfcfc20678801a95b032fb4a4d6a6"
+                }
+              },
+              {
+                "oldAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000indexSize <= 0\u0000indexSize > 0\u00000",
+                "finalAnchor": "src/isobmff/iloc.ts\u0000EqualityOperator\u0000// Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — validated nibble width is nonnegative; zero-width reads consume no bytes and preserve position.\nindexSize === 0\u0000indexSize !== 0\u00000",
+                "test": {
+                  "id": "8",
+                  "file": "tests/isobmff_writer.test.ts",
+                  "name": "D-11 iloc layout matrix (62-05) > v1 offsetSize=4 lengthSize=4 baseOffsetSize=0 indexSize=4",
+                  "sourceSha256": "cc9152762b7031137e55c1fa043805968b323a570314798695e3897d0fa63a43"
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     {
