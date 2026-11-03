@@ -411,6 +411,7 @@ const phaseVerifier = (await import(pathToFileURL(phaseVerifierPath).href)) as {
     root: string;
     ledgerClusters?: Cluster[];
     selectedFiles?: string[];
+    allowLiveReport?: boolean;
   }): { key: string; status: string }[];
 };
 
@@ -664,6 +665,27 @@ function createCStringApprovalPacket(
   const finalReport = JSON.parse(
     (receiptRow.sourceOperation!.reports as Record<string, { raw: string }>).final!.raw,
   ) as Report;
+  const candidateSource = finalReport.files["src/isobmff/items.ts"]!.source;
+  const candidateLoop = [
+    "  // Stryker disable next-line ArithmeticOperator: equivalent-arithmetic — the sole measured +1 replacement probes undefined at EOF twice, then the existing end-of-buffer guard produces the same typed box-framing error; NUL-terminated values and returned bytes are unchanged.",
+    "  while (end <= buffer.length - 1 && buffer[end] !== 0) end += 1;",
+  ].join("\n");
+  const beforeLoop = [
+    "  // Stryker disable next-line EqualityOperator: equivalent-arithmetic — an EOF probe reads undefined once, then the existing end-of-buffer guard produces the same typed box-framing error.",
+    "  while (end < buffer.length && buffer[end] !== 0) end += 1;",
+  ].join("\n");
+  const beforeSource = candidateSource.replace(candidateLoop, beforeLoop);
+  expect(beforeSource).not.toBe(candidateSource);
+  expect(sha256(beforeSource)).toBe(
+    "6fd534b348080eac92a69944ea132b788adf0ff7748e9f51cc86e849cdbc4d7b",
+  );
+  const fixtureSourcePath = resolve(
+    fixture.productRoot,
+    "src/isobmff/items.ts",
+  );
+  chmodSync(fixtureSourcePath, 0o644);
+  writeFileSync(fixtureSourcePath, beforeSource);
+  chmodSync(fixtureSourcePath, 0o444);
   for (const file of Object.keys(finalReport.testFiles ?? {}))
     if (!existsSync(resolve(fixture.root, `exifcleaner-node/${file}`)))
       copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
@@ -680,9 +702,8 @@ function createCStringApprovalPacket(
     resolve(fixture.productRoot, "src/isobmff/items.ts"),
     "utf8",
   );
-  const candidateSource = finalReport.files["src/isobmff/items.ts"]!.source;
   const testSources = Object.fromEntries(
-    Object.entries(finalReport.testFiles ?? {}).map(([file, entry]) => [
+    Object.entries(finalReport.testFiles ?? {}).map(([file]) => [
       file,
       sha256(readFileSync(resolve(fixture.productRoot, file))),
     ]),
@@ -4020,6 +4041,112 @@ describe("real readCString boundary receipt", () => {
     expect(proof.counterpartProofs).toHaveLength(2);
   });
 
+  it("tolerates only nonlocal killed attribution drift while retaining boundary and 43-owner checks", () => {
+    const { bundle, row, survivors, finalReport } = loadInput();
+    const receipt = row.sourceOperation as {
+      anchorMappings: { current: string; original: string }[];
+      candidateAffected: { anchor: string }[];
+    };
+    const file = "src/isobmff/items.ts";
+    const report = structuredClone(finalReport);
+    const entry = report.files[file]!;
+    const selectedOriginalAnchors = new Set(
+      bundle.selectedMembers.map((member) => member.anchorKey),
+    );
+    const selectedCurrentAnchors = new Set(
+      receipt.anchorMappings
+        .filter((mapping) => selectedOriginalAnchors.has(mapping.original))
+        .map((mapping) => mapping.current),
+    );
+    const affectedAnchors = new Set(
+      receipt.candidateAffected.map((mutant) => mutant.anchor),
+    );
+    const anchorOf = (mutant: Mutant) =>
+      phaseVerifier.canonicalAnchor(file, mutant, entry.source);
+    const nonlocal = entry.mutants.find(
+      (mutant) =>
+        mutant.status === "Killed" &&
+        (mutant.killedBy?.length ?? 0) > 0 &&
+        mutant.coveredBy?.some((id) => !mutant.killedBy?.includes(id)) &&
+        !affectedAnchors.has(anchorOf(mutant)) &&
+        !selectedCurrentAnchors.has(anchorOf(mutant)),
+    );
+    expect(nonlocal).toBeDefined();
+    const nonlocalAnchor = anchorOf(nonlocal!);
+    const alternateCoveredTest = nonlocal!.coveredBy!.find(
+      (id) => !nonlocal!.killedBy!.includes(id),
+    );
+    expect(alternateCoveredTest).toBeDefined();
+    nonlocal!.killedBy = [alternateCoveredTest!];
+    nonlocal!.statusReason = "a different covered test failed first";
+
+    const evaluate = (candidateReport: typeof report) =>
+      phaseVerifier.evaluate({
+        clusters: bundle.candidateRows,
+        survivors,
+        report: candidateReport,
+        mode: "batch",
+        root: packageRoot,
+        readTest: (testFile) =>
+          readFileSync(join(packageRoot, testFile), "utf8"),
+        symbolAbsent: () => true,
+        allowLiveReport: true,
+      });
+
+    expect(evaluate(report)).toHaveLength(43);
+
+    const ownerRow = bundle.candidateRows.find(
+      (candidate) => candidate.disposition === "gap" && !candidate.sourceOperation,
+    )!;
+    const ownerMember = bundle.selectedMembers.find((member) =>
+      ownerRow.keys.includes(member.key),
+    )!;
+    const ownerVariant = structuredClone(report);
+    const ownerMutant = ownerVariant.files[file]!.mutants.find(
+      (mutant) => anchorOf(mutant) === ownerMember.anchorKey,
+    )!;
+    const alternateOwnerTest = ownerMutant.coveredBy!.find(
+      (id) => !ownerMutant.killedBy?.includes(id),
+    );
+    expect(alternateOwnerTest).toBeDefined();
+    ownerMutant.killedBy = [alternateOwnerTest!];
+    expect(() => evaluate(ownerVariant)).toThrow(/does not name/);
+
+    const localVariant = structuredClone(report);
+    const localOpposite = localVariant.files[file]!.mutants.find(
+      (mutant) =>
+        mutant.mutatorName === "EqualityOperator" &&
+        mutant.replacement === "end > buffer.length - 1",
+    )!;
+    const alternateLocalTest = localOpposite.coveredBy!.find(
+      (id) => !localOpposite.killedBy?.includes(id),
+    );
+    expect(alternateLocalTest).toBeDefined();
+    localOpposite.killedBy = [alternateLocalTest!];
+    expect(() => evaluate(localVariant)).toThrow(
+      /live sourceOperation source\/report differs from the exact measured candidate/,
+    );
+
+    const statusVariant = structuredClone(report);
+    const statusMutant = statusVariant.files[file]!.mutants.find(
+      (mutant) => anchorOf(mutant) === nonlocalAnchor,
+    )!;
+    statusMutant.status = "Survived";
+    statusMutant.killedBy = [];
+    expect(() => evaluate(statusVariant)).toThrow(
+      /live sourceOperation source\/report differs from the exact measured candidate/,
+    );
+
+    const coverageVariant = structuredClone(report);
+    const coverageMutant = coverageVariant.files[file]!.mutants.find(
+      (mutant) => anchorOf(mutant) === nonlocalAnchor,
+    )!;
+    coverageMutant.coveredBy = coverageMutant.coveredBy!.slice(1);
+    expect(() => evaluate(coverageVariant)).toThrow(
+      /live sourceOperation source\/report differs from the exact measured candidate/,
+    );
+  }, 30_000);
+
   it("fails closed on altered site, origin, ownership, report, mapping and counterpart evidence", () => {
     const { row, survivors } = loadInput();
     const cases: {
@@ -4144,23 +4271,27 @@ describe("real readCString boundary receipt", () => {
       {
         name: "forged cross-mutator pair",
         mutate: (candidate) => {
-          candidate.sourceOperation!.equivalentPair.current = "arbitrary-anchor";
+          (
+            candidate.sourceOperation!.equivalentPair as { current: string }
+          ).current = "arbitrary-anchor";
         },
         diagnostic: /cross-mutator pair differs from the measured unique EOF survivor/,
       },
       {
         name: "stale report bytes",
         mutate: (candidate) => {
-          candidate.sourceOperation!.reports.final.raw += " ";
+          (
+            candidate.sourceOperation!.reports as { final: { raw: string } }
+          ).final.raw += " ";
         },
         diagnostic: /report bytes differ from the retained real report/,
       },
       {
         name: "wrong suppression class",
         mutate: (candidate) => {
-          const final = candidate.sourceOperation!.reports.final as {
-            raw: string;
-          };
+          const final = (
+            candidate.sourceOperation!.reports as { final: { raw: string } }
+          ).final;
           final.raw = final.raw.replace(
             "Stryker disable next-line ArithmeticOperator",
             "Stryker disable next-line EqualityOperator",
@@ -4171,9 +4302,9 @@ describe("real readCString boundary receipt", () => {
       {
         name: "changed EOF guard in candidate source",
         mutate: (candidate) => {
-          const final = candidate.sourceOperation!.reports.final as {
-            raw: string;
-          };
+          const final = (
+            candidate.sourceOperation!.reports as { final: { raw: string } }
+          ).final;
           final.raw = final.raw.replace(
             "if (end >= buffer.length)",
             "if (end > buffer.length)",
@@ -4425,7 +4556,7 @@ describe("real readCString boundary receipt", () => {
     ]);
     expect(result.error?.message).toBeUndefined();
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    expect(JSON.parse(result.stdout).proof).toHaveLength(43);
+    expect(JSON.parse(String(result.stdout)).proof).toHaveLength(43);
     expectLiveInputsUnchanged();
   }, 60_000);
 
@@ -4484,7 +4615,7 @@ describe("real readCString boundary receipt", () => {
     ]);
     expect(result.error?.message).toBeUndefined();
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    const proof = JSON.parse(result.stdout) as {
+    const proof = JSON.parse(String(result.stdout)) as {
       mode: string;
       batch: string;
       proof: unknown[];
@@ -4505,7 +4636,7 @@ describe("real readCString boundary receipt", () => {
     ]);
     expect(batchResult.error?.message).toBeUndefined();
     expect(batchResult.status, `${batchResult.stdout}\n${batchResult.stderr}`).toBe(0);
-    expect(JSON.parse(batchResult.stdout).proof).toHaveLength(43);
+    expect(JSON.parse(String(batchResult.stdout)).proof).toHaveLength(43);
     expectLiveInputsUnchanged();
   }, 60_000);
 
@@ -4546,7 +4677,7 @@ describe("real readCString boundary receipt", () => {
     const accepted = runRealCli(fixture, args);
     expect(accepted.error?.message).toBeUndefined();
     expect(accepted.status, `${accepted.stdout}\n${accepted.stderr}`).toBe(0);
-    expect(JSON.parse(accepted.stdout)).toMatchObject({
+    expect(JSON.parse(String(accepted.stdout))).toMatchObject({
       mode: "pre-operation-approval",
       decision: "approved",
       operation: "cstring-integer-boundary",
@@ -4640,7 +4771,7 @@ describe("real readCString boundary receipt", () => {
       approvedLiveCandidate.status,
       `${approvedLiveCandidate.stdout}\n${approvedLiveCandidate.stderr}`,
     ).toBe(0);
-    expect(JSON.parse(approvedLiveCandidate.stdout).proof).toHaveLength(43);
+    expect(JSON.parse(String(approvedLiveCandidate.stdout)).proof).toHaveLength(43);
     const approvedBatchRoute = runRealCli(fixture, [
       "--batch",
       "isobmff-4",
@@ -4653,7 +4784,7 @@ describe("real readCString boundary receipt", () => {
     ]);
     expect(approvedBatchRoute.error?.message).toBeUndefined();
     expect(approvedBatchRoute.status, `${approvedBatchRoute.stdout}\n${approvedBatchRoute.stderr}`).toBe(0);
-    expect(JSON.parse(approvedBatchRoute.stdout).proof).toHaveLength(43);
+    expect(JSON.parse(String(approvedBatchRoute.stdout)).proof).toHaveLength(43);
     const staleSourceResult = runRealCli(fixture, args);
     expect(staleSourceResult.status).toBe(1);
     expect(`${staleSourceResult.stdout}\n${staleSourceResult.stderr}`).toMatch(

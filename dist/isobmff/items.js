@@ -53,8 +53,8 @@ function readFullBoxChild(buffer, header) {
 }
 function readCString(buffer, position, what) {
     let end = position;
-    // Stryker disable next-line EqualityOperator: equivalent-arithmetic — an EOF probe reads undefined once, then the existing end-of-buffer guard produces the same typed box-framing error.
-    while (end < buffer.length && buffer[end] !== 0)
+    // Stryker disable next-line ArithmeticOperator: equivalent-arithmetic — the sole measured +1 replacement probes undefined at EOF twice, then the existing end-of-buffer guard produces the same typed box-framing error; NUL-terminated values and returned bytes are unchanged.
+    while (end <= buffer.length - 1 && buffer[end] !== 0)
         end += 1;
     if (end >= buffer.length) {
         throw new IsobmffStructureError("box-framing", `${what} is not NUL-terminated.`);

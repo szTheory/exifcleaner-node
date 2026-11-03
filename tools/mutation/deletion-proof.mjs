@@ -2115,7 +2115,18 @@ function cstringStatusCounts(records) {
 
 function cstringEquivalentReport(actual, measured) {
   const evidence = (report, label) => {
-    const { entry, records } = cstringRecords(report, label);
+    const { entry, source, records } = cstringRecords(report, label);
+    const operationStart = cstringExpressionOffset(source, CSTRING_OPERATION.after);
+    const operationEnd = operationStart + CSTRING_OPERATION.after.length;
+    const operationAffected = new Set(
+      records
+        .filter(
+          (record) =>
+            (record.start <= operationStart && record.end >= operationEnd) ||
+            (record.start < operationEnd && record.end > operationStart),
+        )
+        .map((record) => record.anchor),
+    );
     const testsById = new Map();
     for (const [file, testFile] of Object.entries(report.testFiles ?? {}))
       for (const test of testFile.tests ?? [])
@@ -2127,15 +2138,26 @@ function cstringEquivalentReport(actual, measured) {
         return test;
       })
       .sort((left, right) => left.file.localeCompare(right.file) || left.name.localeCompare(right.name));
-    const mutants = records.map((record) => ({
-      anchor: record.anchor,
-      rawAnchor: record.rawAnchor,
-      status: record.status,
-      statusReason: record.mutant.statusReason ?? null,
-      static: record.mutant.static ?? null,
-      killedBy: references(record.mutant, "killedBy"),
-      coveredBy: references(record.mutant, "coveredBy"),
-    })).sort((left, right) => left.anchor.localeCompare(right.anchor));
+    const mutants = records.map((record) => {
+      const nonlocalKilled =
+        record.status === "Killed" && !operationAffected.has(record.anchor);
+      // Resolve every reference even when nonlocal first-failure attribution is omitted.
+      const killedBy = references(record.mutant, "killedBy");
+      const coveredBy = references(record.mutant, "coveredBy");
+      return {
+        anchor: record.anchor,
+        rawAnchor: record.rawAnchor,
+        status: record.status,
+        ...(nonlocalKilled
+          ? {}
+          : {
+              statusReason: record.mutant.statusReason ?? null,
+              killedBy,
+            }),
+        static: record.mutant.static ?? null,
+        coveredBy,
+      };
+    }).sort((left, right) => left.anchor.localeCompare(right.anchor));
     const tests = Object.entries(report.testFiles ?? {}).map(([file, testFile]) => ({
       file,
       source: testFile.source,
