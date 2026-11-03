@@ -289,6 +289,71 @@ function buildMinimalFile(options: {
   return Buffer.concat([ftyp, meta, mdat]);
 }
 
+const WIDE_PRIMARY_ITEM_ID = 0x01020304;
+const WIDE_SECONDARY_ITEM_ID = 0x05060708;
+
+function buildWideIdFile(extraMetaChildren: readonly Buffer[] = []): Buffer {
+  const hdlr = hdlrBox("pict");
+  const pitm = pitmBox(1, WIDE_PRIMARY_ITEM_ID);
+  const iinf = iinfBox(1, [
+    infeBox({ version: 3, itemId: WIDE_PRIMARY_ITEM_ID, itemType: "hvc1" }),
+    infeBox({ version: 3, itemId: WIDE_SECONDARY_ITEM_ID, itemType: "hvc1" }),
+  ]);
+  const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+  const ipma = ipmaBox({
+    version: 1,
+    flags: 0,
+    entries: [
+      {
+        itemId: WIDE_PRIMARY_ITEM_ID,
+        associations: [{ propertyIndex: 1, essential: false }],
+      },
+      { itemId: WIDE_SECONDARY_ITEM_ID, associations: [] },
+    ],
+  });
+  const iprp = iprpBox(ipco, ipma);
+  const iloc = ilocBox({
+    version: 2,
+    offsetSize: 4,
+    lengthSize: 4,
+    baseOffsetSize: 0,
+    indexSize: 0,
+    items: [
+      {
+        itemId: WIDE_PRIMARY_ITEM_ID,
+        dataReferenceIndex: 0,
+        baseOffset: 0,
+        extents: [{ offset: 0, length: 4 }],
+      },
+      {
+        itemId: WIDE_SECONDARY_ITEM_ID,
+        dataReferenceIndex: 0,
+        baseOffset: 0,
+        extents: [{ offset: 4, length: 4 }],
+      },
+    ],
+  });
+  const iref = irefBox(1, [
+    {
+      type: "dimg",
+      fromItemId: WIDE_PRIMARY_ITEM_ID,
+      toItemIds: [WIDE_SECONDARY_ITEM_ID],
+    },
+  ]);
+  const fileType = ftypBox("heic", 0, ["mif1", "heic"]);
+  const meta = metaBox([
+    hdlr,
+    pitm,
+    iinf,
+    iprp,
+    iloc,
+    iref,
+    ...extraMetaChildren,
+  ]);
+  const media = mdatBox(Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]));
+  return Buffer.concat([fileType, meta, media]);
+}
+
 async function expectDecline(
   file: Buffer,
   declineClass: string,
@@ -434,6 +499,51 @@ describe("parseInfe StringLiteral cluster", () => {
   });
 });
 
+describe("parsePitm ConditionalExpression cluster", () => {
+  it("preserves the complete version-1 primary item ID", async () => {
+    const model = await parseFixtureBytes(buildWideIdFile());
+    expect(model.primaryItemId).toBe(WIDE_PRIMARY_ITEM_ID);
+  });
+});
+
+describe("parseIref ConditionalExpression cluster", () => {
+  it("preserves version-1 from and to item IDs as complete 32-bit values", async () => {
+    const model = await parseFixtureBytes(buildWideIdFile());
+    expect(model.references).toEqual([
+      {
+        type: "dimg",
+        fromItemId: WIDE_PRIMARY_ITEM_ID,
+        toItemIds: [WIDE_SECONDARY_ITEM_ID],
+      },
+    ]);
+  });
+});
+
+describe("parseInfe BlockStatement, ConditionalExpression, and ObjectLiteral clusters", () => {
+  it("retains the URI item type and its empty URI metadata", async () => {
+    const model = await parseFixtureBytes(
+      buildMinimalFile({ itemType: "uri " }),
+    );
+    expect(model.itemsById.get(1)).toMatchObject({
+      id: 1,
+      type: "uri ",
+      uri: "",
+    });
+  });
+});
+
+describe("parseIinfEntries ConditionalExpression cluster", () => {
+  it("skips non-infe children while keeping declared items", async () => {
+    const validInfe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const model = await parseFixtureBytes(
+      buildMinimalFile({
+        iinfChild: iinfBox(0, [box("free", Buffer.alloc(0)), validInfe]),
+      }),
+    );
+    expect(model.items.map((item) => item.id)).toEqual([1]);
+  });
+});
+
 describe("auxC URN round-trip", () => {
   it("reads back urn:com:apple:photo:2020:aux:hdrgainmap exactly", async () => {
     const urn = "urn:com:apple:photo:2020:aux:hdrgainmap";
@@ -448,6 +558,29 @@ describe("auxC URN round-trip", () => {
   });
 });
 
+describe("parseIpco ConditionalExpression and StringLiteral clusters", () => {
+  it("returns the exact ICC bytes for an rICC color property", async () => {
+    const iccBytes = Buffer.from([0x12, 0x34, 0x56, 0x78]);
+    const rICC = box(
+      "colr",
+      Buffer.concat([Buffer.from("rICC", "ascii"), iccBytes]),
+    );
+    const model = await parseFixtureBytes(
+      buildMinimalFile({
+        ipcoProperties: [ispe(32, 32), hvcC(), rICC],
+        ipmaAssociations: [
+          { propertyIndex: 1, essential: false },
+          { propertyIndex: 3, essential: false },
+        ],
+      }),
+    );
+    expect(model.colorProfile).toEqual(iccBytes);
+    expect(
+      model.properties.find((property) => property.type === "colr")?.colourType,
+    ).toBe("rICC");
+  });
+});
+
 describe("grpl entity groups", () => {
   it("an altr group's members are recorded as { type, groupId, entityIds }", async () => {
     const file = buildMinimalFile({
@@ -459,6 +592,16 @@ describe("grpl entity groups", () => {
     expect(model.groups).toEqual([
       { type: "altr", groupId: 42, entityIds: [1] },
     ]);
+  });
+});
+
+describe("parseGrpl AssignmentOperator cluster", () => {
+  it("reads each 32-bit entity ID at its declared offset", async () => {
+    const entityIds = [WIDE_PRIMARY_ITEM_ID, WIDE_SECONDARY_ITEM_ID];
+    const model = await parseFixtureBytes(
+      buildWideIdFile([grplBox([{ type: "altr", groupId: 42, entityIds }])]),
+    );
+    expect(model.groups).toEqual([{ type: "altr", groupId: 42, entityIds }]);
   });
 });
 
