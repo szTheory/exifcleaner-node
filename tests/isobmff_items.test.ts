@@ -218,6 +218,7 @@ function buildMinimalFile(options: {
   }[];
   readonly extraMetaChildren?: readonly Buffer[];
   readonly hdlrType?: string;
+  readonly hdlrChild?: Buffer;
   readonly pitmVersion?: 0 | 1;
   readonly pitmItemId?: number;
   readonly infeVersion?: 0 | 1 | 2 | 3;
@@ -229,7 +230,7 @@ function buildMinimalFile(options: {
   readonly omitIloc?: boolean;
 }): Buffer {
   const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
-  const hdlr = hdlrBox(options.hdlrType ?? "pict");
+  const hdlr = options.hdlrChild ?? hdlrBox(options.hdlrType ?? "pict");
   const pitm = pitmBox(options.pitmVersion ?? 0, options.pitmItemId ?? 1);
   const infe = infeBox({
     version: options.infeVersion ?? 2,
@@ -293,6 +294,15 @@ async function expectDecline(
     kind,
   });
 }
+
+describe("ensureBytes BlockStatement, ArithmeticOperator, and ConditionalExpression clusters", () => {
+  it("declines a short hdlr field as box-framing", async () => {
+    const file = buildMinimalFile({
+      hdlrChild: fullBox("hdlr", 0, 0, Buffer.from([0, 0, 0, 0])),
+    });
+    await expectDecline(file, "box-framing", "malformed-file");
+  });
+});
 
 describe("colr extraction (D-12)", () => {
   it("colr prof on the primary item sets colorProfile to the exact ICC bytes", async () => {
