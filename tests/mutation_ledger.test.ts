@@ -5577,8 +5577,29 @@ describe("first isobmff-3 successor attribution (D-13)", () => {
           survivors,
           requireFinal: true,
         });
+        const wrongTestEntry = report.testFiles?.[first.test.file];
+        const wrongNamedTests =
+          wrongTestEntry?.tests.filter(
+            (test) =>
+              String(test.id) === first.test.id &&
+              test.name === first.test.name,
+          ) ?? [];
+        const wrongTestPath = join(
+          cliFixture.productRoot,
+          first.test.file,
+        );
+        const wrongTestSource = existsSync(wrongTestPath)
+          ? readFileSync(wrongTestPath, "utf8")
+          : null;
+        const wrongBindingReachesDirectKill =
+          wrongNamedTests.length === 1 &&
+          wrongTestSource !== null &&
+          wrongTestEntry?.source === wrongTestSource &&
+          sha256(wrongTestSource) === first.test.sourceSha256;
         expect(proof.problems.join("\n")).toMatch(
-          /detected successor killedBy does not name the real test/,
+          wrongBindingReachesDirectKill
+            ? /detected successor killedBy does not name the real test/
+            : /detected successor test source is absent or stale/,
         );
         rejectedCrossBindings++;
       }
