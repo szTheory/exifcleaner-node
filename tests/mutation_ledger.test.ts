@@ -294,6 +294,11 @@ const phaseVerifierPath = join(
 );
 const phaseVerifier = await import(pathToFileURL(phaseVerifierPath).href) as {
   canonicalAnchor(file: string, mutant: Mutant, source: string): string;
+  vitestDeclarationStatus(source: string, name: string): "declared" | "absent" | "unsupported" | "ambiguous";
+  historicalTestAbsentFromBaseline(name: string, source: string, testFile?: string,
+    root?: string, baselineSha?: string, readBaselineFile?: (file: string) => string): boolean;
+  verifyHistoricalTestImportClosure(testFile: string, source: string, root?: string,
+    baselineSha?: string, readBaselineFile?: (file: string) => string): boolean;
   reconcileAnchorMappings(proofs: { id: string; anchors: { current: string; original: string }[] }[]): Map<string, string>;
   evaluate(input: {
     clusters: Cluster[];
@@ -600,6 +605,28 @@ const cliHistoryFiles = [
   "67-49-SUMMARY.md",
 ];
 
+function provisionPinnedTypeScriptParser(root: string): void {
+  const packageRootPath = "exifcleaner-node/package.json";
+  const metadataPath = "exifcleaner-node/node_modules/typescript/package.json";
+  const runtimePath = "exifcleaner-node/node_modules/typescript/lib/typescript.js";
+  if ([packageRootPath, metadataPath, runtimePath]
+    .every((path) => existsSync(resolve(root, path)))) return;
+  const metadataBytes = readFileSync(resolve(workspaceRoot, metadataPath));
+  const runtimeBytes = readFileSync(resolve(workspaceRoot, runtimePath));
+  const metadata = JSON.parse(metadataBytes.toString("utf8")) as { version?: string; main?: string };
+  expect(metadata.version).toBe("6.0.3");
+  expect(metadata.main).toBe("./lib/typescript.js");
+  expect(sha256(metadataBytes)).toBe("9332e97c30d3e53ed54910b89207ed657fb444066484df6e5b6965bf130865e9");
+  expect(runtimeBytes).toHaveLength(9_144_216);
+  expect(sha256(runtimeBytes)).toBe("569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39");
+  for (const path of [packageRootPath, metadataPath, runtimePath]) {
+    const destination = resolve(root, path);
+    if (existsSync(destination)) {
+      expect(readFileSync(destination)).toEqual(readFileSync(resolve(workspaceRoot, path)));
+    } else copyWorkspaceRegularFile(root, path);
+  }
+}
+
 interface CliBatch {
   id: string;
   plan: string;
@@ -793,6 +820,7 @@ function setCliGapTest(fixture: RealCliFixture, key: string, testName: string): 
 }
 
 function runRealCli(fixture: RealCliFixture, args: string[]): ReturnType<typeof spawnSync> {
+  if (args.includes("--batch")) provisionPinnedTypeScriptParser(fixture.root);
   const script = resolve(fixture.root, cliScriptPath);
   const actualRoot = realpathSync(fixture.root);
   assertContained(actualRoot, realpathSync(script), "CLI script must be inside mkdtemp");
@@ -2256,7 +2284,7 @@ describe("real iloc boundary receipt", () => {
       packet.selectedMembers[0]!.key = "forged immutable key";
       return gzipSync(Buffer.from(JSON.stringify(packet)));
     }, () => runRealCli(finalFixture, finalArgs)), "immutable member inventory differs from the pinned 12 original keys");
-  }, 30_000);
+  }, 45_000);
 
   it("rejects widened or stale receipts through both consumers and preserves order-independent proof", () => {
     const { bundle, finalReport } = loadIlocBoundaryBundle();
@@ -2373,6 +2401,8 @@ describe("real iloc boundary receipt", () => {
 describe("copied Phase 67 schedule inventory controls", () => {
   it("accepts the exact live prerequisite schedule without plan metadata normalization", () => {
     const fixture = createRealAdmissionCliFixture();
+    expect(existsSync(resolve(fixture.root, "exifcleaner-node/node_modules/typescript/lib/typescript.js")))
+      .toBe(false);
     const schedulePlanPaths = [
       ...Array.from({ length: 32 }, (_, index) => index + 16),
       52, 53, 54, 55,
@@ -2439,14 +2469,16 @@ describe("real isobmff-3 multi-source final report", () => {
     };
     const batch = fixture.manifest.batches.find((candidate) => candidate.id === "isobmff-3")!;
     const ledger = JSON.parse(readFileSync(resolve(fixture.root, fixture.ledgerPath), "utf8")) as CliLedger;
-    const expectedKeys = ledger.clusters.filter((row) => batch.clusterIds.includes(row.originClusterId ?? row.id))
-      .flatMap((row) => row.keys).sort();
+    const selectedRows = ledger.clusters.filter((row) => batch.clusterIds.includes(row.originClusterId ?? row.id));
+    const expectedKeys = selectedRows.flatMap((row) => row.keys).sort();
+    expect(batch.clusterIds).toHaveLength(15);
+    expect(new Set(selectedRows.map((row) => row.originClusterId ?? row.id)).size).toBe(15);
     expect(Object.keys(report.files).sort()).toEqual(batch.sourceFiles.slice().sort());
     expect(output).toMatchObject({
       batch: "isobmff-3",
       mode: "batch",
       reportSha256: "1175d7ceeb2aae69d6e375e1b02793cb10c3a91f249d261c6ad98c424a1fe0c6",
-      clusters: 15,
+      clusters: selectedRows.length,
       members: 45,
     });
     expect(output.proof).toHaveLength(45);
@@ -2454,6 +2486,618 @@ describe("real isobmff-3 multi-source final report", () => {
     expect(sha256(readFileSync(join(packageRoot, "tests", "fixtures", "mutation",
       "isobmff-3-multisource-final.json.gz")))).toBe("75acf56c7337c99043dde6c56903dcd3240998bc0ab33a32ced4442da4a4903c");
   }, 30_000);
+});
+
+describe("phase verifier Vitest declaration paths", () => {
+  const withVitest = (source: string) => /^\s*import\b/m.test(source)
+    ? source
+    : `import { describe, it } from "vitest";\n${source}`;
+  const declarationStatus = (source: string, name: string) =>
+    phaseVerifier.vitestDeclarationStatus(withVitest(source), name);
+  const historicalTestAbsentFromBaseline = (name: string, source: string) =>
+    phaseVerifier.historicalTestAbsentFromBaseline(name, withVitest(source));
+
+  it("recognizes a fully qualified nested static suite and case path", () => {
+    const source = `describe("outer suite", () => {
+  describe("inner suite", () => {
+    it("case title", () => {});
+  });
+});
+`;
+    const name = "outer suite > inner suite > case title";
+    expect(declarationStatus(source, name)).toBe("declared");
+    expect(historicalTestAbsentFromBaseline(name, source)).toBe(false);
+  });
+
+  it("recognizes only imported Vitest registration aliases and namespace calls", () => {
+    const aliased = `import { describe as group, it as caseTest } from "vitest";
+group("suite", () => { caseTest("alias case", () => {}); });`;
+    expect(declarationStatus(aliased, "suite > alias case")).toBe("declared");
+    const namespaced = `import * as vitest from "vitest";
+vitest.describe("suite", () => { vitest.it("namespace case", () => {}); });`;
+    expect(declarationStatus(namespaced, "suite > namespace case")).toBe("declared");
+    const unbound = `describe("suite", () => { it("global case", () => {}); });`;
+    expect(phaseVerifier.vitestDeclarationStatus(unbound, "suite > global case")).toBe("unsupported");
+    const shadowed = withVitest(`describe("suite", (it) => { it("shadowed case", () => {}); });`);
+    expect(declarationStatus(shadowed, "suite > shadowed case")).toBe("unsupported");
+  });
+
+  it("does not match a case title under a different suite or a missing/renamed title", () => {
+    const source = `describe("right suite", () => { it("case title", () => {}); });`;
+    expect(declarationStatus(source, "wrong suite > case title")).toBe("absent");
+    expect(declarationStatus(source, "right suite > missing title")).toBe("absent");
+    expect(declarationStatus(source, "right suite > renamed title")).toBe("absent");
+  });
+
+  it("ignores labels that appear only in comments and string contents", () => {
+    const source = `// describe("suite", () => { it("case", () => {}); });
+const sample = 'describe("suite", () => { it("case", () => {}); });';`;
+    expect(declarationStatus(source, "suite > case")).toBe("absent");
+  });
+
+  it("does not treat regex contents after a closing parenthesis as declarations", () => {
+    const source = `describe("suite", () => {
+  if (true) /it("phantom case", () => {})/;
+});`;
+    expect(declarationStatus(source, "suite > phantom case")).toBe("absent");
+  });
+
+  it("ignores uncalled helper declarations and fails closed inside control flow", () => {
+    const source = `describe("suite", () => {
+  function unusedHelper() { it("helper-only case", () => {}); }
+  if (false) { it("conditional case", () => {}); }
+});`;
+    expect(declarationStatus(source, "suite > helper-only case")).toBe("absent");
+    expect(declarationStatus(source, "suite > conditional case")).toBe("unsupported");
+  });
+
+  it("fails closed when a called helper contains a suite registration", () => {
+    const source = `describe("suite", () => {
+  function registerHelper() { it("helper case", () => {}); }
+  registerHelper();
+});`;
+    expect(declarationStatus(source, "suite > helper case")).toBe("unsupported");
+  });
+
+  it("fails closed for getter-triggered registration and tagged-template calls", () => {
+    const getter = `describe("suite", () => {
+  const value = { get register() { it("getter case", () => {}); return true; } };
+  value.register;
+});`;
+    expect(declarationStatus(getter, "suite > getter case")).toBe("unsupported");
+
+    const setter = `describe("suite", () => {
+  const value = { set register(next) { it("setter case", () => {}); } };
+  value.register = true;
+});`;
+    expect(declarationStatus(setter, "suite > setter case")).toBe("unsupported");
+
+    const destructuredGetter = `describe("suite", () => {
+  const { register } = { get register() { it("destructured getter case", () => {}); return true; } };
+});`;
+    expect(declarationStatus(destructuredGetter, "suite > destructured getter case")).toBe("unsupported");
+
+    const assignedDestructuredGetter = `describe("suite", () => {
+  let register;
+  ({ register } = { get register() { it("assigned destructured getter case", () => {}); return true; } });
+});`;
+    expect(declarationStatus(assignedDestructuredGetter,
+      "suite > assigned destructured getter case")).toBe("unsupported");
+
+    const aliasedDestructuredGetter = `describe("suite", () => {
+  const value = { get register() { it("aliased destructured getter case", () => {}); return true; } };
+  const { register } = value;
+});`;
+    expect(declarationStatus(aliasedDestructuredGetter,
+      "suite > aliased destructured getter case")).toBe("unsupported");
+
+    const assignedAliasedDestructuredGetter = `describe("suite", () => {
+  const value = { get register() { it("assigned aliased getter case", () => {}); return true; } };
+  let register;
+  ({ register } = value);
+});`;
+    expect(declarationStatus(assignedAliasedDestructuredGetter,
+      "suite > assigned aliased getter case")).toBe("unsupported");
+
+    const dynamicAccessor = `describe("suite", () => {
+  const key = registrationKey;
+  const getter = { get register() { return true; } };
+  const setter = { set register(next) {} };
+  getter[key];
+  setter[key] = true;
+});`;
+    expect(declarationStatus(dynamicAccessor, "suite > possible accessor registration")).toBe("unsupported");
+
+    const computedAccessor = `describe("suite", () => {
+  const key = registrationKey;
+  const value = { get [key]() { return true; } };
+  value.register;
+});`;
+    expect(declarationStatus(computedAccessor, "suite > possible computed accessor registration")).toBe("unsupported");
+
+    const tagged = `function register(value) { it(value, () => {}); }
+describe("suite", () => { register\`tagged case\`; });`;
+    expect(declarationStatus(tagged, "suite > tagged case")).toBe("unsupported");
+  });
+
+  it("requires a statically recognized callback for a named case", () => {
+    const source = `describe("suite", () => { it("case title", caseBody); });`;
+    expect(declarationStatus(source, "suite > case title")).toBe("unsupported");
+  });
+
+  it("fails closed when an invoked inline callback contains a suite registration", () => {
+    const source = `describe("suite", () => {
+  cases.forEach(() => it("callback case", () => {}));
+});`;
+    expect(declarationStatus(source, "suite > callback case")).toBe("unsupported");
+  });
+
+  it("fails closed for unknown registration-time helpers and supports Vitest options overloads", () => {
+    const helper = withVitest(`describe("suite", () => { registrationHarness.registerTests(); });`);
+    expect(declarationStatus(helper, "suite > imported helper case")).toBe("unsupported");
+    const options = withVitest(`describe("suite", () => {
+  it("options before callback", { timeout: 100 }, () => {});
+  it("timeout after callback", () => {}, 200);
+});`);
+    expect(declarationStatus(options, "suite > options before callback")).toBe("declared");
+    expect(declarationStatus(options, "suite > timeout after callback")).toBe("declared");
+    const invalidCallback = withVitest(`describe("suite", () => { it("numeric callback", 42); });`);
+    expect(declarationStatus(invalidCallback, "suite > numeric callback")).toBe("unsupported");
+    const invalidOptionsOrder = withVitest(`describe("suite", () => {
+  it("deprecated options order", () => {}, { timeout: 100 });
+});`);
+    expect(declarationStatus(invalidOptionsOrder, "suite > deprecated options order")).toBe("unsupported");
+    const identifierOptions = withVitest(`describe("suite", () => {
+  it("identifier callback and inline callback", callbackIdentifier, () => {});
+});`);
+    expect(declarationStatus(identifierOptions, "suite > identifier callback and inline callback")).toBe("unsupported");
+
+    const computedOptions = withVitest(`describe("suite", () => {
+  const options = { [it("computed option registration", () => {})]: 1 };
+  it("outer options case", options, () => {});
+});`);
+    expect(declarationStatus(computedOptions, "suite > computed option registration")).toBe("unsupported");
+    expect(declarationStatus(computedOptions, "suite > outer options case")).toBe("unsupported");
+
+    const getterOptions = withVitest(`describe("suite", () => {
+  const options = { get timeout() { it("getter option registration", () => {}); return 100; } };
+  it("outer getter options case", options, () => {});
+});`);
+    expect(declarationStatus(getterOptions, "suite > getter option registration")).toBe("unsupported");
+  });
+
+  it("allows only unshadowed path and URL builtins in registration-time initializers", () => {
+    const namedImports = `import { describe, it } from "vitest";
+import { dirname as pathDirname, join as pathJoin } from "node:path";
+import { fileURLToPath as toPath } from "node:url";
+const fixturePath = pathJoin(pathDirname(toPath(import.meta.url)), "fixture");
+describe("suite", () => { it("present case", () => {}); });`;
+    expect(declarationStatus(namedImports, "suite > present case")).toBe("declared");
+    expect(declarationStatus(namedImports, "suite > absent case")).toBe("absent");
+
+    const namespaceImport = `import { describe, it } from "vitest";
+import * as path from "node:path";
+const fixturePath = path.join("fixtures", "heic");
+describe("suite", () => { it("present case", () => {}); });`;
+    expect(declarationStatus(namespaceImport, "suite > absent case")).toBe("absent");
+
+    const shadowed = `import { describe, it } from "vitest";
+import { join as pathJoin } from "node:path";
+describe("suite", () => {
+  const pathJoin = registrationHarness;
+  pathJoin("fixture");
+  it("present case", () => {});
+});`;
+    expect(declarationStatus(shadowed, "suite > present case")).toBe("unsupported");
+
+    const branchShadow = `import { describe, it } from "vitest";
+import { join as pathJoin } from "node:path";
+describe("suite", () => {
+  if (true) {
+    const pathJoin = registrationHarness;
+    pathJoin("fixture");
+  }
+  it("present case", () => {});
+});`;
+    expect(declarationStatus(branchShadow, "suite > absent case")).toBe("unsupported");
+
+    const hoistedPathAlias = `import { describe, it } from "vitest";
+import { join as pathJoin } from "node:path";
+describe("suite", () => {
+  if (true) { var pathJoin = registrationHarness; }
+  pathJoin("fixture");
+  it("present case", () => {});
+});`;
+    expect(declarationStatus(hoistedPathAlias, "suite > absent case")).toBe("unsupported");
+  });
+
+  it("fails closed for side-effect imports and registration-capable constructors", () => {
+    const sideEffectImport = `import { describe, it } from "vitest";
+import "./register-tests.js";
+describe("suite", () => { it("present case", () => {}); });`;
+    expect(declarationStatus(sideEffectImport, "suite > absent case")).toBe("unsupported");
+    expect(() => historicalTestAbsentFromBaseline("suite > absent case", sideEffectImport))
+      .toThrow(/historical test declaration path is unsupported/);
+    const constructor = withVitest(`describe("suite", () => {
+  new RegistrationHarness();
+  it("present case", () => {});
+});`);
+    expect(declarationStatus(constructor, "suite > absent case")).toBe("unsupported");
+  });
+
+  it("requires the pinned import closure before proving historical absence", () => {
+    const vitestOnly = `import { describe, it, expect } from "vitest";
+describe("suite", () => { it("present case", () => { expect(true).toBe(true); }); });`;
+    expect(historicalTestAbsentFromBaseline("suite > absent case", vitestOnly)).toBe(false);
+
+    const namedApplicationImport = `import { registerHarness } from "../src/test-support.js";
+import { describe, it } from "vitest";
+describe("suite", () => { it("present case", () => {}); });`;
+    expect(declarationStatus(namedApplicationImport, "suite > present case")).toBe("declared");
+    expect(historicalTestAbsentFromBaseline("suite > absent case", namedApplicationImport)).toBe(false);
+
+    const typeOnlyImport = `import type { TestSupport } from "../src/test-support.js";
+import { describe, it } from "vitest";
+describe("suite", () => { it("present case", () => {}); });`;
+    expect(historicalTestAbsentFromBaseline("suite > absent case", typeOnlyImport)).toBe(false);
+  });
+
+  it("checks pinned historical import source hashes and edge membership", () => {
+    const baselineSha = "b0158fcf775a29cfa61e4409495ae293d83b3a2f";
+    const testFile = "tests/isobmff_admission.test.ts";
+    const readBaselineFile = (file: string) => execFileSync("git", ["show", `${baselineSha}:${file}`], {
+      cwd: packageRoot,
+      encoding: "utf8",
+    });
+    const source = readBaselineFile(testFile);
+    expect(phaseVerifier.verifyHistoricalTestImportClosure(testFile, source, packageRoot, baselineSha,
+      readBaselineFile)).toBe(true);
+    expect(phaseVerifier.historicalTestAbsentFromBaseline(
+      "classifyIsobmffModel ConditionalExpression MethodExpression: a zero removable extent never overlaps and does not empty a mixed item",
+      source, testFile, packageRoot, baselineSha)).toBe(true);
+
+    expect(() => phaseVerifier.verifyHistoricalTestImportClosure(testFile,
+      `${source}\nimport \"./unlisted-registration-helper.js\";`, packageRoot, baselineSha,
+      readBaselineFile)).toThrow(/unlisted imported module/);
+
+    expect(() => phaseVerifier.verifyHistoricalTestImportClosure(testFile, source, packageRoot, baselineSha,
+      (file) => file === "src/isobmff/admission.ts"
+        ? `${readBaselineFile(file)}\n// changed historical import member\n`
+        : readBaselineFile(file))).toThrow(/pinned historical source SHA-256 differs/);
+  });
+
+  it("allows only unshadowed global Buffer.alloc in registration-time data initializers", () => {
+    const globalBuffer = withVitest(`const SIMPLE_PRIMARY = { payload: Buffer.alloc(4) };
+describe("suite", () => { it("present case", () => {}); });`);
+    expect(declarationStatus(globalBuffer, "suite > present case")).toBe("declared");
+    expect(declarationStatus(globalBuffer, "suite > absent case")).toBe("absent");
+
+    const shadowedBuffer = withVitest(`describe("suite", () => {
+  const Buffer = registrationHarness;
+  Buffer.alloc(4);
+  it("present case", () => {});
+});`);
+    expect(declarationStatus(shadowedBuffer, "suite > present case")).toBe("unsupported");
+    const importedBuffer = `import { describe, it } from "vitest";
+import { Buffer } from "node:buffer";
+const SIMPLE_PRIMARY = Buffer.alloc(4);
+describe("suite", () => { it("present case", () => {}); });`;
+    expect(declarationStatus(importedBuffer, "suite > present case")).toBe("unsupported");
+    const hoistedBuffer = withVitest(`if (true) { var Buffer = registrationHarness; }
+const SIMPLE_PRIMARY = Buffer.alloc(4);
+describe("suite", () => { it("present case", () => {}); });`);
+    expect(declarationStatus(hoistedBuffer, "suite > present case")).toBe("unsupported");
+
+    const reassignedAllocation = withVitest(`Buffer.alloc = () => {
+  it("registered from reassigned Buffer", () => {});
+  return Buffer.from([]);
+};
+describe("suite", () => { Buffer.alloc(4); });`);
+    expect(declarationStatus(reassignedAllocation, "suite > registered from reassigned Buffer")).toBe("unsupported");
+
+    const reassignedGlobal = withVitest(`Buffer = { alloc: () => it("registered from reassigned global", () => {}) };
+describe("suite", () => { Buffer.alloc(4); });`);
+    expect(declarationStatus(reassignedGlobal, "suite > registered from reassigned global")).toBe("unsupported");
+
+    const reassignedAlias = withVitest(`const B = Buffer;
+B.alloc = () => {
+  it("registered from Buffer alias", () => {});
+  return Buffer.from([]);
+};
+describe("suite", () => { Buffer.alloc(4); });`);
+    expect(declarationStatus(reassignedAlias, "suite > registered from Buffer alias")).toBe("unsupported");
+
+    const globalObjectAlias = withVitest(`const g = globalThis;
+g.Buffer = { alloc: () => it("registered from global alias", () => {}) };
+describe("suite", () => { Buffer.alloc(4); });`);
+    expect(declarationStatus(globalObjectAlias, "suite > registered from global alias")).toBe("unsupported");
+
+    const dynamicBufferMember = withVitest(`const method = "alloc";
+Buffer[method] = () => it("registered from dynamic Buffer member", () => {});
+describe("suite", () => { Buffer.alloc(4); });`);
+    expect(declarationStatus(dynamicBufferMember, "suite > registered from dynamic Buffer member")).toBe("unsupported");
+
+    const dynamicGlobalMember = withVitest(`const key = "Buffer";
+globalThis[key] = { alloc: () => it("registered from dynamic global member", () => {}) };
+describe("suite", () => { Buffer.alloc(4); });`);
+    expect(declarationStatus(dynamicGlobalMember, "suite > registered from dynamic global member")).toBe("unsupported");
+
+    const destructuredBufferAlias = withVitest(`const { Buffer: B } = globalThis;
+B.alloc = () => it("registered from destructured Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(destructuredBufferAlias, "suite > registered from destructured Buffer alias")).toBe("unsupported");
+
+    const destructuredBufferWrite = withVitest(`({ alloc: globalThis.Buffer.alloc } = {
+  alloc: () => it("registered from destructuring assignment", () => {}),
+});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(destructuredBufferWrite, "suite > registered from destructuring assignment")).toBe("unsupported");
+
+    const assignedBufferAlias = withVitest(`let B;
+B = Buffer;
+B.alloc = () => it("registered from assigned Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(assignedBufferAlias, "suite > registered from assigned Buffer alias")).toBe("unsupported");
+
+    const assignedGlobalAlias = withVitest(`let g;
+g = globalThis;
+g.Buffer = { alloc: () => it("registered from assigned global alias", () => {}) };
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(assignedGlobalAlias, "suite > registered from assigned global alias")).toBe("unsupported");
+
+    const assignedDestructuredBufferAlias = withVitest(`let B;
+({ Buffer: B } = globalThis);
+B.alloc = () => it("registered from assigned destructured Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(assignedDestructuredBufferAlias,
+      "suite > registered from assigned destructured Buffer alias")).toBe("unsupported");
+
+    const arrayBindingBufferAlias = withVitest(`const [B] = [Buffer];
+B.alloc = () => it("registered from array binding alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(arrayBindingBufferAlias, "suite > registered from array binding alias")).toBe("unsupported");
+
+    const arrayAssignmentBufferAlias = withVitest(`let B;
+[B] = [Buffer];
+B.alloc = () => it("registered from array assignment alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(arrayAssignmentBufferAlias,
+      "suite > registered from array assignment alias")).toBe("unsupported");
+
+    const conditionalArrayBindingAlias = withVitest(`const [B] = flag ? [Buffer] : [Buffer];
+B.alloc = () => it("registered from conditional array binding alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(conditionalArrayBindingAlias,
+      "suite > registered from conditional array binding alias")).toBe("unsupported");
+
+    const conditionalArrayAssignmentAlias = withVitest(`let B;
+[B] = flag ? [Buffer] : [Buffer];
+B.alloc = () => it("registered from conditional array assignment alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(conditionalArrayAssignmentAlias,
+      "suite > registered from conditional array assignment alias")).toBe("unsupported");
+
+    const conditionalBufferAlias = withVitest(`const B = flag ? Buffer : Buffer;
+B.alloc = () => it("registered from conditional alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(conditionalBufferAlias, "suite > registered from conditional alias")).toBe("unsupported");
+
+    const dynamicGlobalBufferAlias = withVitest(`const g = globalThis;
+const B = g[key];
+B.alloc = () => it("registered from dynamic global Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(dynamicGlobalBufferAlias,
+      "suite > registered from dynamic global Buffer alias")).toBe("unsupported");
+
+    const arrayDefaultBufferAlias = withVitest(`const [B = Buffer] = [];
+B.alloc = () => it("registered from array default alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(arrayDefaultBufferAlias, "suite > registered from array default alias")).toBe("unsupported");
+
+    const objectDefaultBufferAlias = withVitest(`const { B = Buffer } = {};
+B.alloc = () => it("registered from object default alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(objectDefaultBufferAlias, "suite > registered from object default alias")).toBe("unsupported");
+
+    const nestedObjectBufferAlias = withVitest(`const holder = { Buffer };
+holder.Buffer.alloc = () => it("registered from nested object alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(nestedObjectBufferAlias, "suite > registered from nested object alias")).toBe("unsupported");
+
+    const nestedArrayBufferAlias = withVitest(`const holder = [Buffer];
+holder[0].alloc = () => it("registered from nested array alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(nestedArrayBufferAlias, "suite > registered from nested array alias")).toBe("unsupported");
+
+    const restBufferAlias = withVitest(`const { ...holder } = globalThis;
+holder.Buffer.alloc = () => it("registered from rest Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(restBufferAlias, "suite > registered from rest Buffer alias")).toBe("unsupported");
+
+    const objectPropertyBufferAlias = withVitest(`const { Buffer: B } = { Buffer };
+B.alloc = () => it("registered from object property Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(objectPropertyBufferAlias,
+      "suite > registered from object property Buffer alias")).toBe("unsupported");
+
+    const renamedObjectPropertyBufferAlias = withVitest(`const { x: B } = { x: Buffer };
+B.alloc = () => it("registered from renamed object property alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(renamedObjectPropertyBufferAlias,
+      "suite > registered from renamed object property alias")).toBe("unsupported");
+
+    const unknownObjectBufferAlias = withVitest(`const { x: B } = importedObject;
+B.alloc = () => it("registered from unknown object alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(unknownObjectBufferAlias,
+      "suite > registered from unknown object alias")).toBe("unsupported");
+
+    for (const moduleName of ["node:buffer", "buffer"]) {
+      const importedBufferAlias = withVitest(`import { Buffer as B } from "${moduleName}";
+B.alloc = () => it("registered from imported Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+      expect(declarationStatus(importedBufferAlias, "suite > registered from imported Buffer alias")).toBe("unsupported");
+    }
+
+    const namespaceBufferAlias = withVitest(`import * as bufferModule from "node:buffer";
+bufferModule.Buffer.alloc = () => it("registered from namespace Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(namespaceBufferAlias,
+      "suite > registered from namespace Buffer alias")).toBe("unsupported");
+
+    for (const moduleName of ["node:buffer", "buffer"]) {
+      const defaultBufferModuleAlias = withVitest(`import bufferModule from "${moduleName}";
+bufferModule.Buffer.alloc = () => it("registered from default Buffer module alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+      expect(declarationStatus(defaultBufferModuleAlias,
+        "suite > registered from default Buffer module alias")).toBe("unsupported");
+
+      const chainedDefaultBufferModuleAlias = withVitest(`import bufferModule from "${moduleName}";
+const alias = bufferModule;
+alias.Buffer.alloc = () => it("registered from chained default Buffer module alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+      expect(declarationStatus(chainedDefaultBufferModuleAlias,
+        "suite > registered from chained default Buffer module alias")).toBe("unsupported");
+
+      const moduleBufferConstructorAlias = withVitest(`import bufferModule from "${moduleName}";
+const B = bufferModule.Buffer;
+B.alloc = () => it("registered from module Buffer constructor alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+      expect(declarationStatus(moduleBufferConstructorAlias,
+        "suite > registered from module Buffer constructor alias")).toBe("unsupported");
+
+      const destructuredModuleBufferAlias = withVitest(`import bufferModule from "${moduleName}";
+const { Buffer: B } = bufferModule;
+B.alloc = () => it("registered from destructured module Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+      expect(declarationStatus(destructuredModuleBufferAlias,
+        "suite > registered from destructured module Buffer alias")).toBe("unsupported");
+
+      const dynamicDefaultModuleWrite = withVitest(`import bufferModule from "${moduleName}";
+bufferModule[key].alloc = () => it("registered from dynamic default module path", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+      expect(declarationStatus(dynamicDefaultModuleWrite,
+        "suite > registered from dynamic default module path")).toBe("unsupported");
+
+      const dynamicDefaultModuleAlias = withVitest(`import bufferModule from "${moduleName}";
+const B = bufferModule[key];
+B.alloc = () => it("registered from dynamic default module alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+      expect(declarationStatus(dynamicDefaultModuleAlias,
+        "suite > registered from dynamic default module alias")).toBe("unsupported");
+    }
+
+    const namespaceModuleAlias = withVitest(`import * as nodeBuffer from "node:buffer";
+const alias = nodeBuffer;
+alias.Buffer.alloc = () => it("registered from chained namespace Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(namespaceModuleAlias,
+      "suite > registered from chained namespace Buffer alias")).toBe("unsupported");
+
+    const dynamicNamespaceModuleWrite = withVitest(`import * as nodeBuffer from "node:buffer";
+nodeBuffer[key].alloc = () => it("registered from dynamic namespace module path", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(dynamicNamespaceModuleWrite,
+      "suite > registered from dynamic namespace module path")).toBe("unsupported");
+
+    const dynamicAliasedNamespaceModuleWrite = withVitest(`import * as nodeBuffer from "node:buffer";
+const alias = nodeBuffer;
+alias[key].alloc = () => it("registered from dynamic aliased namespace path", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(dynamicAliasedNamespaceModuleWrite,
+      "suite > registered from dynamic aliased namespace path")).toBe("unsupported");
+
+    const dynamicNamespaceBufferAlias = withVitest(`import * as nodeBuffer from "node:buffer";
+const B = nodeBuffer[key];
+B.alloc = () => it("registered from dynamic namespace Buffer alias", () => {});
+describe("suite", () => { Buffer.alloc(1); });`);
+    expect(declarationStatus(dynamicNamespaceBufferAlias,
+      "suite > registered from dynamic namespace Buffer alias")).toBe("unsupported");
+
+    const bufferInstanceIsNotConstructor = withVitest(`function ignored() {
+  const B = Buffer.from([]);
+  B.alloc = () => {};
+}
+const payload = Buffer.alloc(4);
+describe("suite", () => { it("present case", () => {}); });`);
+    expect(declarationStatus(bufferInstanceIsNotConstructor, "suite > present case")).toBe("declared");
+  });
+
+  it("uses cooked template escapes and removes escaped line continuations", () => {
+    const source = [
+      'describe("suite", () => {',
+      '  it(`joined' + "\\" + "\n" + ' title`, () => {});',
+      '  it(`line' + "\\n" + 'feed`, () => {});',
+      '});',
+    ].join("\n");
+    expect(declarationStatus(source, "suite > joined title")).toBe("declared");
+    expect(declarationStatus(source, "suite > line\nfeed")).toBe("declared");
+    expect(declarationStatus(source, "suite > line feed")).toBe("absent");
+  });
+
+  it("uses cooked CRLF, U+2028, and U+2029 template line-ending semantics", () => {
+    const crlf = "  it(`crlf\\" + "\r\n" + "joined`, () => {});";
+    const lineSeparator = "  it(`line\\" + "\u2028" + "joined`, () => {});";
+    const paragraphSeparator = "  it(`paragraph\\" + "\u2029" + "joined`, () => {});";
+    const rawCrlf = "  it(`raw\r\nline`, () => {});";
+    const source = `describe("suite", () => {\n${crlf}\n${lineSeparator}\n${paragraphSeparator}\n${rawCrlf}\n});`;
+    expect(declarationStatus(source, "suite > crlfjoined")).toBe("declared");
+    expect(declarationStatus(source, "suite > linejoined")).toBe("declared");
+    expect(declarationStatus(source, "suite > paragraphjoined")).toBe("declared");
+    expect(declarationStatus(source, "suite > raw\nline")).toBe("declared");
+  });
+
+  it("fails closed when multiple unresolved template expressions could match", () => {
+    const source = 'describe("suite", () => { it(`prefix ${first} middle ${second} suffix`, () => {}); });';
+    expect(declarationStatus(source, "suite > prefix A middle B suffix")).toBe("unsupported");
+  });
+
+  it("fails closed when a static title contains the suite path delimiter", () => {
+    const source = 'describe("suite", () => { it("case > tail", () => {}); });';
+    expect(declarationStatus(source, "suite > case > tail")).toBe("unsupported");
+  });
+
+  it("fails closed for dynamic titles and duplicate fully qualified paths", () => {
+    const dynamic = `describe("suite", () => { it(caseName, () => {}); });`;
+    expect(declarationStatus(dynamic, "suite > case")).toBe("unsupported");
+    const tableDriven = `describe("suite", () => {
+  it.each(["a", "b"])("case %s", () => {});
+  it("unrelated static case", () => {});
+});`;
+    expect(declarationStatus(tableDriven, "suite > case a")).toBe("unsupported");
+    expect(declarationStatus(tableDriven, "suite > unrelated static case")).toBe("declared");
+    const dynamicSuite = 'describe(`suite ${suffix}`, () => { it("case", () => {}); });';
+    expect(declarationStatus(dynamicSuite, "suite named > case")).toBe("unsupported");
+    const staticLoop = [
+      'describe("suite", () => {',
+      '  for (const version of [0, 1, 2] as const) {',
+      '    it(`v${version} case`, () => {});',
+      '  }',
+      '});',
+    ].join("\n");
+    expect(declarationStatus(staticLoop, "suite > v1 case")).toBe("declared");
+    const duplicate = `describe("suite", () => {
+  it("case", () => {});
+  it("case", () => {});
+});`;
+    expect(declarationStatus(duplicate, "suite > case")).toBe("ambiguous");
+  });
+
+  it("does not treat skipped or todo registrations as named killers", () => {
+    const skippedCases = withVitest(`describe("suite", () => {
+  it.skip("skipped case", () => {});
+  it.todo("todo case");
+  it("runnable case", () => {});
+});`);
+    expect(declarationStatus(skippedCases, "suite > skipped case")).toBe("unsupported");
+    expect(declarationStatus(skippedCases, "suite > todo case")).toBe("unsupported");
+    expect(declarationStatus(skippedCases, "suite > runnable case")).toBe("declared");
+
+    const skippedSuite = withVitest(`describe.skip("skipped suite", () => {
+  it("descendant case", () => {});
+});`);
+    expect(declarationStatus(skippedSuite, "skipped suite > descendant case")).toBe("unsupported");
+  });
 });
 
 describe("first isobmff-3 successor attribution (D-13)", () => {
@@ -2565,7 +3209,7 @@ describe("first isobmff-3 successor attribution (D-13)", () => {
       expect(validateReceipt(receipt, input).problems.join("\n"))
         .toMatch(/detected successor killedBy does not name the real test/);
     }
-  });
+  }, 10_000);
 });
 
 describe("real admission scoped deletion receipt proof", () => {
