@@ -239,8 +239,8 @@ function buildMinimalFile(options: {
     version: options.infeVersion ?? 2,
     itemId: 1,
     itemType: options.itemType ?? "hvc1",
-    name: options.itemName,
-    uriType: options.uriType,
+    ...(options.itemName === undefined ? {} : { name: options.itemName }),
+    ...(options.uriType === undefined ? {} : { uriType: options.uriType }),
   });
   const iinf = options.iinfChild ?? iinfBox(options.iinfVersion ?? 0, [infe]);
   const ipco = ipcoBox(options.ipcoProperties ?? [ispe(32, 32), hvcC()]);
