@@ -665,7 +665,7 @@ function assertIlocBeforeEvidence(evidence, survivors) {
   );
 }
 
-function assertIlocFinalEvidence(finalEntry, finalReport, root, readTest) {
+function assertIlocFinalEvidence(finalEntry, finalReport, root, readTest, row) {
   if (
     !finalReport.files?.["src/isobmff/iloc.ts"] ||
     finalReport.files["src/isobmff/iloc.ts"] !== finalEntry ||
@@ -686,6 +686,14 @@ function assertIlocFinalEvidence(finalEntry, finalReport, root, readTest) {
     throw new Error(
       "iloc final evidence lacks the exact next-line ConditionalExpression directive",
     );
+  const currentTestFiles = new Set([
+    ...(row.deletion?.detectedSuccessors ?? []).map((successor) =>
+      successor.test?.file,
+    ),
+    ...(row.deletion?.reportBindings ?? []).flatMap((binding) =>
+      (binding.successors ?? []).map((successor) => successor.test?.file),
+    ),
+  ].filter((file) => typeof file === "string"));
   const testIds = new Map();
   for (const [file, entry] of Object.entries(finalReport.testFiles ?? {})) {
     if (
@@ -696,7 +704,11 @@ function assertIlocFinalEvidence(finalEntry, finalReport, root, readTest) {
       throw new Error(`iloc final test evidence is incomplete for ${file}`);
     const path = safeRelative(root, file, "iloc final test");
     const source = readTest ? readTest(file) : readFileSync(path, "utf8");
-    if (source !== entry.source)
+    // Historical report fixtures retain the exact source inventory from their
+    // measured run. Only files that own a receipt's named direct killer must
+    // still match the current checkout; unrelated report test files may have
+    // gained later tests without invalidating the immutable historical report.
+    if (currentTestFiles.has(file) && source !== entry.source)
       throw new Error(`iloc final test source is absent or stale for ${file}`);
     for (const test of entry.tests) {
       if (
@@ -1515,7 +1527,7 @@ export function validateDeletion({
         ? selectIlocReportBinding(receipt, finalReport, root)
         : null;
       if (ilocBoundary)
-        assertIlocFinalEvidence(finalEntry, finalReport, root, readTest);
+        assertIlocFinalEvidence(finalEntry, finalReport, root, readTest, row);
       const editMap = applied.edits;
       const beforeNormalized = normalizeDirectives(beforeSource);
       const finalNormalized = normalizeDirectives(finalEntry.source ?? "");
