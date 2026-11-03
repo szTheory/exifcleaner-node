@@ -2452,6 +2452,21 @@ describe("copied Phase 67 schedule inventory controls", () => {
 });
 
 describe("real isobmff-3 multi-source final report", () => {
+  it("registers report-specific successor evidence on both iloc receipts", () => {
+    const ledger = JSON.parse(readFileSync(join(packageRoot, "tools", "mutation", "ledger.json"), "utf8")) as {
+      clusters: Cluster[];
+    };
+    const receipts = ledger.clusters.filter((row) =>
+      (row.deletion?.edits as { operation?: string }[] | undefined)?.[0]?.operation ===
+        "iloc-header-integer-boundary");
+    expect(receipts).toHaveLength(2);
+    for (const row of receipts) {
+      const deletion = row.deletion as { reportBindings?: unknown[] };
+      expect(Array.isArray(deletion.reportBindings), `${row.id} reportBindings`).toBe(true);
+      expect(deletion.reportBindings).toHaveLength(2);
+    }
+  });
+
   it("accepts the retained four-source report through the copied batch CLI", () => {
     const { bytes, report } = loadIsobmff3BatchReport();
     const fixture = createRealIsobmff3BatchCliFixture(bytes);
