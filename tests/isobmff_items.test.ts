@@ -327,6 +327,65 @@ describe("colr extraction (D-12)", () => {
   });
 });
 
+describe("parseInfe StringLiteral cluster", () => {
+  it("preserves URI item ID and URI metadata", async () => {
+    const uriType = "urn:example:exifcleaner:item:42";
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const primary = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const uriItem = infeBox({
+      version: 2,
+      itemId: 2,
+      itemType: "uri ",
+      uriType,
+    });
+    const iinf = iinfBox(0, [primary, uriItem]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        {
+          itemId: 1,
+          associations: [{ propertyIndex: 1, essential: false }],
+        },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+        {
+          itemId: 2,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+
+    const model = await parseFixtureBytes(Buffer.concat([ftyp, meta, mdat]));
+    const uriItemModel = model.itemsById.get(2);
+    expect(uriItemModel).toBeDefined();
+    expect(uriItemModel?.id).toBe(2);
+    expect(uriItemModel?.type).toBe("uri ");
+    expect(uriItemModel?.uri).toBe(uriType);
+  });
+});
+
 describe("auxC URN round-trip", () => {
   it("reads back urn:com:apple:photo:2020:aux:hdrgainmap exactly", async () => {
     const urn = "urn:com:apple:photo:2020:aux:hdrgainmap";
