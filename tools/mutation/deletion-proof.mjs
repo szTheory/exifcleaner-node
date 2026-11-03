@@ -2113,6 +2113,45 @@ function cstringStatusCounts(records) {
   }, {});
 }
 
+function cstringEquivalentReport(actual, measured) {
+  const evidence = (report, label) => {
+    const { entry, records } = cstringRecords(report, label);
+    const testsById = new Map();
+    for (const [file, testFile] of Object.entries(report.testFiles ?? {}))
+      for (const test of testFile.tests ?? [])
+        testsById.set(String(test.id), { file, name: test.name });
+    const references = (mutant, field) => (mutant[field] ?? [])
+      .map((id) => testsById.get(String(id)))
+      .map((test) => {
+        if (!test) throw new Error(`${label} report has an unresolved ${field} test id`);
+        return test;
+      })
+      .sort((left, right) => left.file.localeCompare(right.file) || left.name.localeCompare(right.name));
+    const mutants = records.map((record) => ({
+      anchor: record.anchor,
+      rawAnchor: record.rawAnchor,
+      status: record.status,
+      statusReason: record.mutant.statusReason ?? null,
+      static: record.mutant.static ?? null,
+      killedBy: references(record.mutant, "killedBy"),
+      coveredBy: references(record.mutant, "coveredBy"),
+    })).sort((left, right) => left.anchor.localeCompare(right.anchor));
+    const tests = Object.entries(report.testFiles ?? {}).map(([file, testFile]) => ({
+      file,
+      source: testFile.source,
+      tests: (testFile.tests ?? []).map((test) => test.name).sort(),
+    })).sort((left, right) => left.file.localeCompare(right.file));
+    return {
+      file: CSTRING_OPERATION.file,
+      language: entry.language,
+      source: entry.source,
+      mutants,
+      tests,
+    };
+  };
+  return canonical(evidence(actual, "current")) === canonical(evidence(measured, "measured"));
+}
+
 function cstringExpressionOffset(source, expression) {
   const declarations = [...source.matchAll(/\bfunction\s+readCString\s*\(/g)];
   if (declarations.length !== 1)
@@ -2168,6 +2207,7 @@ export function validateReadCStringBoundary({
   readTest = null,
   survivors = null,
   requireFinal = false,
+  allowLiveReport = false,
 }) {
   const problems = [];
   const anchors = [];
@@ -2586,7 +2626,9 @@ export function validateReadCStringBoundary({
         hash(selectedSource) !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
         hash(normalizeDirectives(selectedSource)) !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
         !finalEntry || hash(finalEntry.source ?? "") !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
-        !finalReport || canonical(finalReport) !== canonical(parsedReports.final)
+        !finalReport || (allowLiveReport
+          ? !cstringEquivalentReport(finalReport, parsedReports.final)
+          : canonical(finalReport) !== canonical(parsedReports.final))
       )
         throw new Error("live sourceOperation source/report differs from the exact measured candidate");
       for (const [file, entry] of Object.entries(finalReport.testFiles ?? {})) {

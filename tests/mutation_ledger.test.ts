@@ -641,6 +641,99 @@ function loadCStringBoundaryBundle(): {
   return { bundle, beforeReport, unannotatedReport, finalReport };
 }
 
+const cstringFixtureRelativePath =
+  "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
+const cstringApprovalReviewedPaths = [
+  "exifcleaner-node/tools/mutation/deletion-proof.mjs",
+  "exifcleaner-node/tools/mutation/ledger-check.mjs",
+  "exifcleaner-node/tests/mutation_ledger.test.ts",
+  ".planning/phases/67-mutation-baseline/67-triage-verify.mjs",
+];
+
+function createCStringApprovalPacket(
+  fixture: RealCliFixture,
+  bundle: CStringBoundaryBundle,
+  decisionStatus: "approved" | "rejected" | "pending" = "approved",
+): { packetPath: string; record: Record<string, unknown> } {
+  writeFixtureFile(
+    fixture.root,
+    cstringFixtureRelativePath,
+    readFileSync(join(packageRoot, "tests", "fixtures", "mutation", "isobmff-4-cstring-boundary.json.gz")),
+  );
+  const receiptRow = bundle.candidateRows.find((row) => row.sourceOperation)!;
+  const finalReport = JSON.parse(
+    (receiptRow.sourceOperation!.reports as Record<string, { raw: string }>).final!.raw,
+  ) as Report;
+  for (const file of Object.keys(finalReport.testFiles ?? {}))
+    if (!existsSync(resolve(fixture.root, `exifcleaner-node/${file}`)))
+      copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
+  for (const file of cstringApprovalReviewedPaths)
+    if (!existsSync(resolve(fixture.root, file))) copyWorkspaceRegularFile(fixture.root, file);
+
+  const fileBindings = Object.fromEntries(
+    cstringApprovalReviewedPaths.map((file) => [
+      file,
+      sha256(readFileSync(resolve(fixture.root, file))),
+    ]),
+  );
+  const currentSource = readFileSync(
+    resolve(fixture.productRoot, "src/isobmff/items.ts"),
+    "utf8",
+  );
+  const candidateSource = finalReport.files["src/isobmff/items.ts"]!.source;
+  const testSources = Object.fromEntries(
+    Object.entries(finalReport.testFiles ?? {}).map(([file, entry]) => [
+      file,
+      sha256(readFileSync(resolve(fixture.productRoot, file))),
+    ]),
+  );
+  const fixtureSha256 = sha256(
+    readFileSync(resolve(fixture.root, cstringFixtureRelativePath)),
+  );
+  const bindings = {
+    fixturePath: cstringFixtureRelativePath,
+    fixtureSha256,
+    beforeSourceRawSha256: sha256(currentSource),
+    beforeSourceNormalizedSha256: sha256(
+      deletionProof.normalizeReceiptSource(currentSource),
+    ),
+    candidateSourceSha256: sha256(
+      deletionProof.normalizeReceiptSource(candidateSource),
+    ),
+    candidateRawSourceSha256: sha256(candidateSource),
+    testSources,
+    reviewedFiles: fileBindings,
+  };
+  const record = {
+    schema: "exifcleaner.readcstring-boundary-approval.v1",
+    decision: {
+      status: decisionStatus,
+      responseText:
+        "Test-only fixture: I authorize applying the exact measured readCString candidate.",
+      recordedAt: "2026-11-03T20:00:00.000Z",
+    },
+    review: {
+      verdict: "PASS",
+      blockingFindings: 0,
+      reviewer: "isolated approval gate test fixture",
+      reviewedAt: "2026-11-03T19:59:00.000Z",
+      reviewedFiles: fileBindings,
+    },
+    bindings,
+  };
+  const packetPath = ".planning/phases/67-mutation-baseline/67-56-REVIEW.md";
+  const packet = [
+    "# ReadCString approval CLI test packet",
+    "",
+    "<!-- readcstring-approval-v1",
+    JSON.stringify(record, null, 2),
+    "-->",
+    "",
+  ].join("\n");
+  writeFixtureFile(fixture.root, packetPath, packet);
+  return { packetPath, record };
+}
+
 function loadIsobmff3BatchReport(): { bytes: Buffer; report: Report } {
   const fixturePath = join(
     packageRoot,
@@ -4127,7 +4220,7 @@ describe("real readCString boundary receipt", () => {
           readFileSync(join(packageRoot, file), "utf8"),
       ).problems.join("\n"),
     ).toMatch(/named killer source is stale/);
-  });
+  }, 15_000);
 
   it("is enforced by checkLedger during precheck without changing frozen membership", () => {
     const { row, survivors } = loadInput();
@@ -4186,7 +4279,7 @@ describe("real readCString boundary receipt", () => {
       ).toMatch(testCase.diagnostic);
     }
     expect(survivors.filter((member) => row.keys.includes(member.key))).toHaveLength(1);
-  });
+  }, 15_000);
 
   it("accepts 43 members and rejects a forged receipt through phase evaluate", () => {
     const { bundle } = loadCStringBoundaryBundle();
@@ -4400,6 +4493,189 @@ describe("real readCString boundary receipt", () => {
     expect(proof).toMatchObject({ mode: "candidate-only", batch: "isobmff-4" });
     expect(proof.proof).toHaveLength(43);
     expect(proof.originalKeys).toHaveLength(43);
+    const batchResult = runRealCli(fixture, [
+      "--batch",
+      "isobmff-4",
+      "--mode",
+      "batch",
+      "--report",
+      reportPath,
+      "--source-operation-packet",
+      packetPath,
+    ]);
+    expect(batchResult.error?.message).toBeUndefined();
+    expect(batchResult.status, `${batchResult.stdout}\n${batchResult.stderr}`).toBe(0);
+    expect(JSON.parse(batchResult.stdout).proof).toHaveLength(43);
+    expectLiveInputsUnchanged();
+  }, 60_000);
+
+  it("gates the exact source decision through the copied approval CLI and rejects stale authority", () => {
+    const { bundle } = loadCStringBoundaryBundle();
+    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    const { packetPath, record: initialRecord } = createCStringApprovalPacket(
+      fixture,
+      bundle,
+    );
+    const record = structuredClone(initialRecord) as {
+      decision: { status: string; responseText: string; recordedAt: string };
+      review: {
+        verdict: string;
+        blockingFindings: number;
+        reviewer: string;
+        reviewedAt: string;
+        reviewedFiles: Record<string, string>;
+      };
+      bindings: {
+        fixtureSha256: string;
+        candidateSourceSha256: string;
+        reviewedFiles: Record<string, string>;
+      };
+    };
+    const renderRawPacket = (payload: string) =>
+      [
+        "# ReadCString approval CLI test packet",
+        "",
+        "<!-- readcstring-approval-v1",
+        payload,
+        "-->",
+        "",
+      ].join("\n");
+    const renderPacket = (value: typeof record) =>
+      renderRawPacket(JSON.stringify(value, null, 2));
+    const args = ["--cstring-approval", "--packet", packetPath];
+    const accepted = runRealCli(fixture, args);
+    expect(accepted.error?.message).toBeUndefined();
+    expect(accepted.status, `${accepted.stdout}\n${accepted.stderr}`).toBe(0);
+    expect(JSON.parse(accepted.stdout)).toMatchObject({
+      mode: "pre-operation-approval",
+      decision: "approved",
+      operation: "cstring-integer-boundary",
+      originalKeys: 43,
+      sourceBytesChanged: false,
+    });
+
+    const rejected = structuredClone(record);
+    rejected.decision.status = "rejected";
+    writeFixtureFile(fixture.root, packetPath, renderPacket(rejected));
+    const rejectedResult = runRealCli(fixture, args);
+    expect(rejectedResult.status).toBe(1);
+    expect(`${rejectedResult.stdout}\n${rejectedResult.stderr}`).toMatch(
+      /source decision is missing, rejected or unrecorded/,
+    );
+
+    const staleReview = structuredClone(record);
+    staleReview.review.verdict = "BLOCKED";
+    writeFixtureFile(fixture.root, packetPath, renderPacket(staleReview));
+    const staleReviewResult = runRealCli(fixture, args);
+    expect(staleReviewResult.status).toBe(1);
+    expect(`${staleReviewResult.stdout}\n${staleReviewResult.stderr}`).toMatch(
+      /independent review is not PASS/,
+    );
+
+    const staleFixture = structuredClone(record);
+    staleFixture.bindings.fixtureSha256 = "0".repeat(64);
+    writeFixtureFile(fixture.root, packetPath, renderPacket(staleFixture));
+    const staleFixtureResult = runRealCli(fixture, args);
+    expect(staleFixtureResult.status).toBe(1);
+    expect(`${staleFixtureResult.stdout}\n${staleFixtureResult.stderr}`).toMatch(
+      /fixture binding is stale/,
+    );
+
+    const duplicateDecisionStatus = JSON.stringify(record, null, 2).replace(
+      '"status": "approved",',
+      '"status": "rejected",\n      "status": "approved",',
+    );
+    writeFixtureFile(fixture.root, packetPath, renderRawPacket(duplicateDecisionStatus));
+    const duplicateStatusResult = runRealCli(fixture, args);
+    expect(duplicateStatusResult.status).toBe(1);
+    expect(`${duplicateStatusResult.stdout}\n${duplicateStatusResult.stderr}`).toMatch(
+      /duplicate property "decision.status"/,
+    );
+
+    const duplicateTopLevel = JSON.stringify(record, null, 2).replace(
+      '"schema": "exifcleaner.readcstring-boundary-approval.v1",',
+      `"decision": ${JSON.stringify(record.decision)},\n  "schema": "exifcleaner.readcstring-boundary-approval.v1",`,
+    );
+    writeFixtureFile(fixture.root, packetPath, renderRawPacket(duplicateTopLevel));
+    const duplicateTopLevelResult = runRealCli(fixture, args);
+    expect(duplicateTopLevelResult.status).toBe(1);
+    expect(`${duplicateTopLevelResult.stdout}\n${duplicateTopLevelResult.stderr}`).toMatch(
+      /duplicate property "decision"/,
+    );
+
+    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
+    const originalSource = readFileSync(sourcePath);
+    const finalReport = JSON.parse(bundle.reports.final) as Report;
+    const liveReportPath = "exifcleaner-node/reports/triage/67-56/live-candidate.json";
+    const relocatedReport = structuredClone(finalReport) as Report & {
+      projectRoot?: string;
+    };
+    relocatedReport.projectRoot = "/private/tmp/fresh-live-run";
+    writeFixtureFile(fixture.root, liveReportPath, JSON.stringify(relocatedReport));
+    chmodSync(sourcePath, 0o644);
+    writeFileSync(sourcePath, finalReport.files["src/isobmff/items.ts"]!.source);
+    chmodSync(sourcePath, 0o444);
+    writeFixtureFile(fixture.root, packetPath, renderPacket(record));
+    mkdirSync(join(fixture.root, ".git"), { recursive: true });
+    const liveWithoutApproval = runRealCli(fixture, [
+      "--cstring-candidate",
+      "--report",
+      liveReportPath,
+      "--packet",
+      cstringFixtureRelativePath,
+    ]);
+    expect(liveWithoutApproval.status).toBe(1);
+    expect(`${liveWithoutApproval.stdout}\n${liveWithoutApproval.stderr}`).toMatch(
+      /live workspace readCString candidate proof requires the reviewed approval packet/,
+    );
+    const approvedLiveCandidate = runRealCli(fixture, [
+      "--cstring-candidate",
+      "--report",
+      liveReportPath,
+      "--packet",
+      packetPath,
+    ]);
+    expect(approvedLiveCandidate.error?.message).toBeUndefined();
+    expect(
+      approvedLiveCandidate.status,
+      `${approvedLiveCandidate.stdout}\n${approvedLiveCandidate.stderr}`,
+    ).toBe(0);
+    expect(JSON.parse(approvedLiveCandidate.stdout).proof).toHaveLength(43);
+    const approvedBatchRoute = runRealCli(fixture, [
+      "--batch",
+      "isobmff-4",
+      "--mode",
+      "batch",
+      "--report",
+      liveReportPath,
+      "--source-operation-packet",
+      packetPath,
+    ]);
+    expect(approvedBatchRoute.error?.message).toBeUndefined();
+    expect(approvedBatchRoute.status, `${approvedBatchRoute.stdout}\n${approvedBatchRoute.stderr}`).toBe(0);
+    expect(JSON.parse(approvedBatchRoute.stdout).proof).toHaveLength(43);
+    const staleSourceResult = runRealCli(fixture, args);
+    expect(staleSourceResult.status).toBe(1);
+    expect(`${staleSourceResult.stdout}\n${staleSourceResult.stderr}`).toMatch(
+      /exact measured before-source stage/,
+    );
+    chmodSync(sourcePath, 0o644);
+    writeFileSync(sourcePath, originalSource);
+    chmodSync(sourcePath, 0o444);
+
+    const itemTestPath = join(fixture.productRoot, "tests", "isobmff_items.test.ts");
+    const originalTest = readFileSync(itemTestPath);
+    chmodSync(itemTestPath, 0o644);
+    writeFileSync(itemTestPath, Buffer.concat([originalTest, Buffer.from("\n// drift\n")]));
+    chmodSync(itemTestPath, 0o444);
+    const staleTestResult = runRealCli(fixture, args);
+    expect(staleTestResult.status).toBe(1);
+    expect(`${staleTestResult.stdout}\n${staleTestResult.stderr}`).toMatch(
+      /named killer source is stale|approval test binding is stale/,
+    );
+    chmodSync(itemTestPath, 0o644);
+    writeFileSync(itemTestPath, originalTest);
+    chmodSync(itemTestPath, 0o444);
     expectLiveInputsUnchanged();
   }, 60_000);
 });
