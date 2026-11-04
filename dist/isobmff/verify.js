@@ -93,9 +93,8 @@ function removedColrPropertyIndices(model, preserveColorProfile) {
     if (preserveColorProfile)
         return new Set();
     return new Set(model.properties
-        .filter((property) => 
-    // colourType is set only on colr properties (items.ts parseIpco).
-    property.colourType === "prof" || property.colourType === "rICC")
+        .filter((property) => property.type === "colr" &&
+        (property.colourType === "prof" || property.colourType === "rICC"))
         .map((property) => property.index));
 }
 /** D-18: one surviving item's associations, resolved to (property bytes, essential), in the
