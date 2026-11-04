@@ -23,7 +23,12 @@ function verificationError(detail, path) {
     return executionError({ code: "verification-failed", detail, path }, "started");
 }
 function verificationAborted(path) {
-    return executionError({ code: "aborted", detail: "Operation was aborted.", path }, "started");
+    return executionError({
+        code: "aborted",
+        // Stryker disable next-line StringLiteral: unobservable-message — the aborted result's detail is free-text diagnostic wording; the typed aborted code, the path and the started phase are unchanged.
+        detail: "Operation was aborted.",
+        path,
+    }, "started");
 }
 /** Resolve an item's extent to an absolute file offset, construction_method 0 (file-relative:
  * `item.baseOffset` is already an absolute file position, written that way by the source encoder
@@ -50,6 +55,7 @@ async function rangesEqual(sourceHandle, sourceOffset, destinationHandle, destin
     const destinationBuffer = Buffer.allocUnsafe(bufferSize);
     for (let offset = 0; offset < length;) {
         if (isAborted(signal))
+            // Stryker disable next-line LogicalOperator, StringLiteral: unobservable-message — this thrown value never leaves verifyIsobmffOutput: its catch block returns the typed aborted result whenever the signal is aborted, so neither the reason-or-DOMException choice nor the DOMException name or message reaches a caller.
             throw signal?.reason ?? new DOMException("Aborted", "AbortError");
         const take = Math.min(COPY_BLOCK_BYTES, length - offset);
         const left = await sourceHandle.read(sourceBuffer, 0, take, sourceOffset + offset);
@@ -87,8 +93,9 @@ function removedColrPropertyIndices(model, preserveColorProfile) {
     if (preserveColorProfile)
         return new Set();
     return new Set(model.properties
-        .filter((property) => property.type === "colr" &&
-        (property.colourType === "prof" || property.colourType === "rICC"))
+        .filter((property) => 
+    // colourType is set only on colr properties (items.ts parseIpco).
+    property.colourType === "prof" || property.colourType === "rICC")
         .map((property) => property.index));
 }
 /** D-18: one surviving item's associations, resolved to (property bytes, essential), in the
@@ -99,7 +106,10 @@ function resolvePropertyAssociationBytes(model, item, removedIndices) {
         .map((association) => {
         const property = model.properties.find((candidate) => candidate.index === association.index);
         if (property === undefined) {
-            throw new Error(`resolvePropertyAssociationBytes: item ${item.id} references undeclared property ` +
+            throw new Error(
+            // Stryker disable next-line StringLiteral: unobservable-message — this undeclared-property label only reaches the verification-failed detail text; the typed verification-failed code is unchanged.
+            `resolvePropertyAssociationBytes: item ${item.id} references undeclared property ` +
+                // Stryker disable next-line StringLiteral: unobservable-message — the property index label only reaches the verification-failed detail text; the typed verification-failed code is unchanged.
                 `index ${association.index}.`);
         }
         return {
