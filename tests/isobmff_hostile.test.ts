@@ -1647,3 +1647,17 @@ describe("buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOp
     expect(iso6MetaBytes(iso6PlanDrop(withFree)).equals(baseline)).toBe(true);
   });
 });
+
+describe("mapAbsoluteOffset EqualityOperator cluster (67-19)", () => {
+  it("mapAbsoluteOffset EqualityOperator: a zero-length extent maps to its own range end instead of falling outside every range", async () => {
+    // Admission refuses a surviving zero-length extent (rule 8), so this takes a real admission
+    // and replaces item 1's extent with an empty one: the planner's merged range [100, 100) must
+    // still contain its own start, because the range end is inclusive.
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const placed = iso6Place(admission, {
+      item1: [{ abs: 100, length: 0 }],
+      item3: [{ abs: 200, length: 6 }],
+    });
+    iso6ExpectPlanned(iso6PlanDrop(placed));
+  });
+});
