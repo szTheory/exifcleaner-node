@@ -1392,3 +1392,123 @@ describe("parseIsobmff never reads the mdat payload (BMF-05)", () => {
     }
   });
 });
+
+// --- 67-18 (isobmff-5): dref validation, item model keys, ftyp/meta framing and abort ---
+
+describe("buildItemModel BlockStatement and ConditionalExpression clusters", () => {
+  it("refuses an iref whose from-item is undeclared although every to-item is declared", async () => {
+    const file = buildMinimalFile({
+      extraMetaChildren: [
+        irefBox(0, [{ type: "cdsc", fromItemId: 99, toItemIds: [1] }]),
+      ],
+    });
+    await expectDecline(file, "item-graph-invalid", "malformed-file");
+  });
+
+  it("locates ipco and ipma among iprp children when another box comes first", async () => {
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        {
+          itemId: 1,
+          associations: [
+            { propertyIndex: 1, essential: false },
+            { propertyIndex: 2, essential: true },
+          ],
+        },
+      ],
+    });
+    const file = Buffer.concat([
+      ftypBox("heic", 0, ["mif1", "heic"]),
+      metaBox([
+        hdlrBox("pict"),
+        pitmBox(0, 1),
+        iinfBox(0, [infeBox({ version: 2, itemId: 1, itemType: "hvc1" })]),
+        box("iprp", Buffer.concat([box("free", Buffer.alloc(0)), ipco, ipma])),
+        ilocBox({
+          version: 0,
+          offsetSize: 4,
+          lengthSize: 4,
+          baseOffsetSize: 0,
+          indexSize: 0,
+          items: [
+            {
+              itemId: 1,
+              dataReferenceIndex: 0,
+              baseOffset: 0,
+              extents: [{ offset: 0, length: 4 }],
+            },
+          ],
+        }),
+      ]),
+      mdatBox(Buffer.from([1, 2, 3, 4])),
+    ]);
+    const model = await parseFixtureBytes(file);
+    expect(model.properties.map((property) => property.type)).toEqual([
+      "ispe",
+      "hvcC",
+    ]);
+    expect(model.itemsById.get(1)?.properties).toEqual([
+      { index: 1, essential: false },
+      { index: 2, essential: true },
+    ]);
+  });
+});
+
+describe("buildItemModel ConditionalExpression, EqualityOperator, and ObjectLiteral clusters", () => {
+  it("omits the optional contentType, contentEncoding and uri keys from an item that carries none", async () => {
+    const model = await parseFixtureBytes(buildMinimalFile({}));
+    const item = model.itemsById.get(1);
+    expect(item).toBeDefined();
+    expect(Object.keys(item ?? {}).sort()).toEqual([
+      "baseOffset",
+      "constructionMethod",
+      "dataReferenceIndex",
+      "extents",
+      "hidden",
+      "id",
+      "name",
+      "properties",
+      "type",
+    ]);
+  });
+
+  it("carries the uri key exactly on a uri item and keeps contentType and contentEncoding keys when declared", async () => {
+    const uriModel = await parseFixtureBytes(
+      buildMinimalFile({
+        itemType: "uri ",
+        uriType: "urn:example:exifcleaner:item:uri-key",
+      }),
+    );
+    const uriItem = uriModel.itemsById.get(1);
+    expect(uriItem).toBeDefined();
+    expect(Object.hasOwn(uriItem ?? {}, "uri")).toBe(true);
+    expect(uriItem?.uri).toBe("urn:example:exifcleaner:item:uri-key");
+    expect(Object.hasOwn(uriItem ?? {}, "contentType")).toBe(false);
+    expect(Object.hasOwn(uriItem ?? {}, "contentEncoding")).toBe(false);
+
+    const hvcModel = await parseFixtureBytes(buildMinimalFile({}));
+    expect(Object.hasOwn(hvcModel.itemsById.get(1) ?? {}, "uri")).toBe(false);
+
+    const mimeInfe = fullBox(
+      "infe",
+      2,
+      0,
+      Buffer.concat([
+        Buffer.from([0, 1, 0, 0]),
+        Buffer.from("mime", "ascii"),
+        Buffer.from([0]),
+        Buffer.from("text/plain\0gzip\0", "ascii"),
+      ]),
+    );
+    const mimeModel = await parseFixtureBytes(
+      buildMinimalFile({ iinfChild: iinfBox(0, [mimeInfe]) }),
+    );
+    const mimeItem = mimeModel.itemsById.get(1);
+    expect(mimeItem?.contentType).toBe("text/plain");
+    expect(mimeItem?.contentEncoding).toBe("gzip");
+    expect(Object.hasOwn(mimeItem ?? {}, "uri")).toBe(false);
+  });
+});
