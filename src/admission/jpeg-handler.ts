@@ -188,6 +188,7 @@ function classifySegments(parsed: ParsedJpeg): readonly JpegSegmentClass[] {
   return parsed.segments.map((segment, index) => {
     const { marker } = segment;
     if (isStructuralMarker(marker)) return "structural";
+    // Stryker disable next-line LogicalOperator: redundant-guard-after-typed-check — only the || to && replacement is ignored here: with && a COM marker still returns "remove" (COM is not an APPn marker) and every other non-APPn marker falls through to classifyAppPayload, which returns "other" for it because parseJpeg buffers payloads for APPn segments only, so the final return "remove" gives the same class for every segment parseJpeg admits.
     if (marker === COM || !isAppMarker(marker)) return "remove";
     const kind = classifyAppPayload(marker, parsed.buffered.get(index));
     if (kind === "adobe") return "keep";
@@ -330,6 +331,7 @@ function collectMetadata(
       return;
     }
     // cls === "remove"
+    // Stryker disable next-line ConditionalExpression, BlockStatement: redundant-guard-after-typed-check — a COM segment falls through to the generic JPEG entry below with the same namespace, the same markerLabel(marker, undefined) name (the parser sets an identifier for APPn segments only) and the same payloadLength value, so this branch changes nothing observable; its always-true sibling mutant is a compile error and is suppressed only as collateral.
     if (marker === COM) {
       namespaces.add("JPEG");
       entries.push({
@@ -548,7 +550,9 @@ function computeMinimalExifTags(
  * (`0xFF 0xE1`, big-endian length, `Exif\0\0`, the TIFF bytes). */
 function buildExifInsertSegment(tiff: Buffer): Buffer {
   const length = 2 + EXIF_PREFIX.length + tiff.length;
+  // Stryker disable next-line BlockStatement: defensive-unreachable-by-construction — the synthesized TIFF holds at most an Orientation entry and a resolution entry (createMinimalExif), far below 64 KiB, so length never exceeds the 16-bit segment length field and this body never executes.
   if (length > 0xffff) {
+    // Stryker disable next-line CallExpression: defensive-unreachable-by-construction — see the guard above: the synthesized Exif segment is a few dozen bytes, so this throw is never reached.
     throw new RangeError(
       "Synthesized EXIF segment exceeds the 16-bit segment length field.",
     );
