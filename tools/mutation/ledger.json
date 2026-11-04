@@ -182980,15 +182980,13 @@
       "file": "src/isobmff/rebuild.ts",
       "function": "hasIndexField",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/rebuild.ts\u0000EqualityOperator\u0000indexSize >= 0\u0000117\u000061\u0000117\u000074"
       ],
-      "anchors": [
-        "src/isobmff/rebuild.ts\u0000EqualityOperator\u0000indexSize >= 0\u0000indexSize > 0\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by the Plan 67-20 behavior-preserving rewrite (node 35902ec, dist 07d21be) recorded on the tracer row: hasIndexField is now hasConstructionMethod, the redundant `indexSize > 0` operand is gone (writeSizedUint(value, 0) emits no bytes), so no mutant is generated at this anchor in reports/triage/67-20/batch.json.",
+      "symbol": "(version === 1 || version === 2) && indexSize > 0"
     },
     {
       "id": "isobmff:src/isobmff/rebuild.ts:hasIndexField:LogicalOperator",
@@ -182996,15 +182994,13 @@
       "file": "src/isobmff/rebuild.ts",
       "function": "hasIndexField",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/rebuild.ts\u0000LogicalOperator\u0000version === 1 || version === 2 || indexSize > 0\u0000117\u000025\u0000117\u000074"
       ],
-      "anchors": [
-        "src/isobmff/rebuild.ts\u0000LogicalOperator\u0000version === 1 || version === 2 || indexSize > 0\u0000(version === 1 || version === 2) && indexSize > 0\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by the Plan 67-20 behavior-preserving rewrite (node 35902ec, dist 07d21be) recorded on the tracer row: hasIndexField is now hasConstructionMethod, the redundant `indexSize > 0` operand is gone (writeSizedUint(value, 0) emits no bytes), so no mutant is generated at this anchor in reports/triage/67-20/batch.json.",
+      "symbol": "(version === 1 || version === 2) && indexSize > 0"
     },
     {
       "id": "isobmff:src/isobmff/rebuild.ts:rebuildIinf:ConditionalExpression",
@@ -183012,15 +183008,16 @@
       "file": "src/isobmff/rebuild.ts",
       "function": "rebuildIinf",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u000074\u00007\u000074\u000028"
       ],
-      "anchors": [
-        "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000entryCountBytes === 2\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-20/batch.json (Killed); the exact named test appears in killedBy: rebuild.ts encoders (67-20, isobmff-7) > rebuildIinf ConditionalExpression: a version 1 iinf carries a 32-bit entry_count and version 0 a 16-bit one. Red: reports/triage/67-20/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "rebuild.ts encoders (67-20, isobmff-7) > rebuildIinf ConditionalExpression: a version 1 iinf carries a 32-bit entry_count and version 0 a 16-bit one"
+      }
     },
     {
       "id": "isobmff:src/isobmff/rebuild.ts:rebuildIloc:CallExpression",
@@ -183028,15 +183025,16 @@
       "file": "src/isobmff/rebuild.ts",
       "function": "rebuildIloc",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/rebuild.ts\u0000CallExpression\u0000;\u0000132\u00005\u0000132\u000055"
       ],
-      "anchors": [
-        "src/isobmff/rebuild.ts\u0000CallExpression\u0000;\u0000dataRef.writeUInt16BE(item.dataReferenceIndex, 0);\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-20/batch.json (Killed); the exact named test appears in killedBy: rebuild.ts encoders (67-20, isobmff-7) > rebuildIloc CallExpression: the data_reference_index of each item is copied into its entry. Red: reports/triage/67-20/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "rebuild.ts encoders (67-20, isobmff-7) > rebuildIloc CallExpression: the data_reference_index of each item is copied into its entry"
+      }
     },
     {
       "id": "isobmff:src/isobmff/rebuild.ts:rebuildIloc:ConditionalExpression",
@@ -183044,15 +183042,16 @@
       "file": "src/isobmff/rebuild.ts",
       "function": "rebuildIloc",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000145\u000011\u0000145\u000024"
       ],
-      "anchors": [
-        "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000hasIndexField\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-20/batch.json (Killed); the exact named test appears in killedBy: rebuild.ts encoders (67-20, isobmff-7) > hasIndexField ConditionalExpression: a version 0 iloc never carries the extent index field even when the reserved index nibble is set. Red: reports/triage/67-20/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "rebuild.ts encoders (67-20, isobmff-7) > hasIndexField ConditionalExpression: a version 0 iloc never carries the extent index field even when the reserved index nibble is set"
+      }
     },
     {
       "id": "isobmff:src/isobmff/rebuild.ts:rebuildIref:CallExpression",
@@ -183060,17 +183059,17 @@
       "file": "src/isobmff/rebuild.ts",
       "function": "rebuildIref",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/isobmff/rebuild.ts\u0000CallExpression\u0000;\u0000172\u000010\u0000172\u000060",
         "src/isobmff/rebuild.ts\u0000CallExpression\u0000;\u0000178\u000012\u0000178\u000040"
       ],
-      "anchors": [
-        "src/isobmff/rebuild.ts\u0000CallExpression\u0000;\u0000fromBuffer.writeUInt32BE(reference.fromItemId, 0);\u00000",
-        "src/isobmff/rebuild.ts\u0000CallExpression\u0000;\u0000buffer.writeUInt32BE(id, 0);\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-20/batch.json (Killed); the exact named test appears in killedBy: rebuild.ts encoders (67-20, isobmff-7) > rebuildIref ConditionalExpression and CallExpression: version 1 writes 32-bit item ids and version 0 writes 16-bit ones. Red: reports/triage/67-20/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "rebuild.ts encoders (67-20, isobmff-7) > rebuildIref ConditionalExpression and CallExpression: version 1 writes 32-bit item ids and version 0 writes 16-bit ones"
+      }
     },
     {
       "id": "isobmff:src/isobmff/rebuild.ts:rebuildIref:ConditionalExpression",
@@ -183078,19 +183077,18 @@
       "file": "src/isobmff/rebuild.ts",
       "function": "rebuildIref",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 3,
       "keys": [
         "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000165\u000019\u0000165\u000032",
         "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000171\u00009\u0000171\u000022",
         "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000177\u000011\u0000177\u000024"
       ],
-      "anchors": [
-        "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000version === 0\u00001",
-        "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000idBytes === 2\u00000",
-        "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000idBytes === 2\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-20/batch.json (Killed); the exact named test appears in killedBy: rebuild.ts encoders (67-20, isobmff-7) > rebuildIref ConditionalExpression and CallExpression: version 1 writes 32-bit item ids and version 0 writes 16-bit ones. Red: reports/triage/67-20/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "rebuild.ts encoders (67-20, isobmff-7) > rebuildIref ConditionalExpression and CallExpression: version 1 writes 32-bit item ids and version 0 writes 16-bit ones"
+      }
     },
     {
       "id": "isobmff:src/isobmff/rebuild.ts:writeSizedUint:ConditionalExpression",
@@ -183098,15 +183096,16 @@
       "file": "src/isobmff/rebuild.ts",
       "function": "writeSizedUint",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u000041\u00007\u000041\u000018"
       ],
-      "anchors": [
-        "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000width === 8\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-20/batch.json (Killed); the exact named test appears in killedBy: rebuild.ts encoders (67-20, isobmff-7) > writeSizedUint ConditionalExpression: an iloc field width other than 0, 4 or 8 is refused instead of written as 8 bytes. Red: reports/triage/67-20/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "rebuild.ts encoders (67-20, isobmff-7) > writeSizedUint ConditionalExpression: an iloc field width other than 0, 4 or 8 is refused instead of written as 8 bytes"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:colrIccPayloadBytes:ArithmeticOperator",
