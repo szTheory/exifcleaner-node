@@ -513,10 +513,9 @@ export function buildIsobmffOutputPlan(
   // field can carry an absolute position at all) or its length (length_size 0).
   if (keepExifItemId !== undefined) {
     const { ilocOffsetSize, ilocBaseOffsetSize, ilocLengthSize } = layout.item;
-    if (
-      (ilocOffsetSize === 0 && ilocBaseOffsetSize === 0) ||
-      ilocLengthSize === 0
-    ) {
+    // Offset_size and base_offset_size both 0 is declined later by checkIlocRewriteFit: the minimal
+    // Exif item's tail position cannot fit a field that carries only 0.
+    if (ilocLengthSize === 0) {
       return declined(
         classification.removableItemIds,
         "offset-rewrite-overflow: a minimal Exif item is required but the source iloc cannot " +
