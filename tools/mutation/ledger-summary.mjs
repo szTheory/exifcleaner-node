@@ -41,13 +41,15 @@ export function renderLedger(ledger) {
       .slice(0, 10);
     for (const c of top) {
       const detail =
-        c.disposition === "gap"
-          ? ` — test ${c.test?.file}: ${c.test?.name}`
-          : c.disposition === "dead"
-            ? ` — symbol ${c.symbol}`
-            : c.disposition === "equivalent"
-              ? ` — class ${c.equivalenceClass}`
-              : "";
+        c.disposition === "gap" && c.compilerKilled === true
+          ? " — compiler-killed"
+          : c.disposition === "gap"
+            ? ` — test ${c.test?.file}: ${c.test?.name}`
+            : c.disposition === "dead"
+              ? ` — symbol ${c.symbol}`
+              : c.disposition === "equivalent"
+                ? ` — class ${c.equivalenceClass}`
+                : "";
       out.push(`- ${c.id}: ${c.count} (${c.disposition})${detail}`);
     }
     out.push("");

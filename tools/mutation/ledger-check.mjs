@@ -16,6 +16,8 @@ import { anchorKey, mutantKey } from "./identity.mjs";
 import {
   validateDeletion,
   validateReadCStringBoundary,
+  containsWholeWord,
+  enclosingFunctionSpan,
 } from "./deletion-proof.mjs";
 
 const show = (key) => key.replaceAll("\u0000", "|");
@@ -139,6 +141,10 @@ export function checkLedger({
       });
       problems.push(...proof.problems);
     }
+    if (c.symbolScope !== undefined && (c.disposition !== "dead" || c.symbolScope !== "function"))
+      problems.push(`${c.id}: symbolScope is only valid as "function" on a dead row`);
+    if (c.compilerKilled !== undefined && (c.disposition !== "gap" || c.compilerKilled !== true))
+      problems.push(`${c.id}: compilerKilled is only valid as true on a gap row`);
     if (c.disposition !== "dead" || !c.deletion) continue;
     const finalEntry = finalReport?.files?.[c.file] ?? null;
     const proof = validateDeletion({
@@ -158,7 +164,11 @@ export function checkLedger({
     for (const c of clusters) {
       if (c.disposition === "pending")
         problems.push(`${c.id}: cluster is pending`);
-      else if (c.disposition === "gap") {
+      else if (c.disposition === "gap" && c.compilerKilled === true) {
+        // Plan 67-19 amendment 2: every member's mutant is a CompileError, so no test names it.
+        if (c.test !== undefined)
+          problems.push(`${c.id}: compiler-killed gap row must not name a test`);
+      } else if (c.disposition === "gap") {
         const file = c.test?.file;
         const name = c.test?.name;
         const path = typeof file === "string" ? join(root, file) : null;
@@ -175,7 +185,21 @@ export function checkLedger({
       } else if (c.disposition === "dead") {
         if (typeof c.symbol !== "string" || c.symbol === "")
           problems.push(`${c.id}: dead row has no symbol`);
-        else if (!c.deletion && symbolInSrc(c.symbol, root))
+        else if (c.symbolScope === "function") {
+          // Plan 67-19 amendment 2: the witness only has to be gone from the enclosing function.
+          try {
+            const span = enclosingFunctionSpan(
+              readFileSync(join(root, c.file), "utf8"),
+              c.function,
+            );
+            if (containsWholeWord(span.text, c.symbol))
+              problems.push(
+                `${c.id}: dead symbol ${c.symbol} still appears in function ${c.function}`,
+              );
+          } catch (error) {
+            problems.push(`${c.id}: scoped dead proof failed: ${error.message}`);
+          }
+        } else if (!c.deletion && symbolInSrc(c.symbol, root))
           problems.push(
             `${c.id}: dead symbol ${c.symbol} still appears in src/`,
           );

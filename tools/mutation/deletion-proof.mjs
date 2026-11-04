@@ -3158,3 +3158,53 @@ export {
   canonical as canonicalReceiptJson,
   normalizeDirectives as normalizeReceiptSource,
 };
+
+/**
+ * Plan 67-19 amendment 2 (maintainer reply "A2", 2026-11-04): helpers for a `dead` row whose
+ * witness is scoped to its enclosing function instead of all of `src/`.
+ *
+ * `containsWholeWord` mirrors `git grep -w -F`: a match counts only when it is preceded by a
+ * non-word character (or starts the text) and followed by one (or ends it). An empty or
+ * non-string symbol never matches, so callers still fail closed on a missing witness.
+ */
+export function containsWholeWord(text, symbol) {
+  if (typeof text !== "string" || typeof symbol !== "string" || symbol === "")
+    return false;
+  const word = /[A-Za-z0-9_]/;
+  for (
+    let at = text.indexOf(symbol);
+    at !== -1;
+    at = text.indexOf(symbol, at + 1)
+  ) {
+    const before = at === 0 ? "" : text[at - 1];
+    const after = text[at + symbol.length] ?? "";
+    if (!word.test(before) && !word.test(after)) return true;
+  }
+  return false;
+}
+
+/**
+ * The 1-based line span and text of the one top-level function declaration called `name` in
+ * `source`. Throws unless exactly one such declaration with a body exists (fail closed): a scoped
+ * witness cannot be proven against a function that is missing, renamed or declared twice.
+ */
+export function enclosingFunctionSpan(source, name) {
+  if (typeof source !== "string" || typeof name !== "string" || name === "")
+    throw new Error("scoped dead witness needs a source text and a function name");
+  const ts = loadTypeScriptForBinding();
+  const sf = ts.createSourceFile("scoped-dead.ts", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  if (sf.parseDiagnostics.length > 0)
+    throw new Error("scoped dead witness source has a syntax error");
+  const found = sf.statements.filter(
+    (statement) =>
+      ts.isFunctionDeclaration(statement) && statement.name?.text === name && statement.body,
+  );
+  if (found.length !== 1)
+    throw new Error(`scoped dead function ${name} is not declared exactly once at the top level`);
+  const node = found[0];
+  return {
+    startLine: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
+    endLine: sf.getLineAndCharacterOfPosition(node.end).line + 1,
+    text: source.slice(node.getStart(sf), node.end),
+  };
+}

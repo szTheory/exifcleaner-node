@@ -72,6 +72,8 @@ interface Cluster {
   anchors: string[];
   test?: { file: string; name: string };
   symbol?: string;
+  symbolScope?: string;
+  compilerKilled?: boolean;
   equivalenceClass?: string;
   deletion?: Record<string, unknown>;
   sourceOperation?: Record<string, unknown>;
@@ -2317,6 +2319,122 @@ describe("final mode (D-18)", () => {
     ]);
   });
 
+  // Plan 59 amendment 2 (Plan 67-19, maintainer reply "A2"): scoped dead witnesses and
+  // compiler-killed gap rows. The unscoped dead check above stays exactly as strict.
+  const scopedRoot = () =>
+    tempRoot({
+      "src/a/x.ts":
+        "export function f() { return 1; }\nexport function g() { legacyHelper(); }\n",
+    });
+
+  it("a scoped dead row passes when its symbol survives only outside the enclosing function", () => {
+    expect(
+      final(
+        [
+          cluster("c1", {
+            disposition: "dead",
+            symbol: "legacyHelper",
+            symbolScope: "function",
+          }),
+        ],
+        scopedRoot(),
+      ),
+    ).toEqual([]);
+  });
+
+  it("the same dead row without the scope opt-in still fails on the symbol in g", () => {
+    expect(
+      final(
+        [cluster("c1", { disposition: "dead", symbol: "legacyHelper" })],
+        scopedRoot(),
+      ),
+    ).toEqual(["c1: dead symbol legacyHelper still appears in src/"]);
+  });
+
+  it("a scoped dead row fails while its symbol remains inside the enclosing function", () => {
+    expect(
+      final(
+        [
+          cluster("c1", {
+            function: "g",
+            disposition: "dead",
+            symbol: "legacyHelper",
+            symbolScope: "function",
+          }),
+        ],
+        scopedRoot(),
+      ),
+    ).toEqual(["c1: dead symbol legacyHelper still appears in function g"]);
+  });
+
+  it("a scoped dead row fails closed for a missing or twice-declared function", () => {
+    for (const [name, source] of [
+      ["h", "export function f() {}\n"],
+      ["f", "export function f() {}\nexport function f() {}\n"],
+    ] as const) {
+      const problems = final(
+        [
+          cluster("c1", {
+            function: name,
+            disposition: "dead",
+            symbol: "legacyHelper",
+            symbolScope: "function",
+          }),
+        ],
+        tempRoot({ "src/a/x.ts": source }),
+      );
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toMatch(/^c1: scoped dead proof failed: /);
+    }
+  });
+
+  it("symbolScope is rejected on a non-function value or a non-dead row", () => {
+    for (const row of [
+      cluster("c1", { disposition: "dead", symbol: "x", symbolScope: "file" }),
+      cluster("c1", {
+        disposition: "gap",
+        test: { file: "tests/k.test.ts", name: "kills it" },
+        symbolScope: "function",
+      }),
+    ])
+      expect(
+        final(
+          [row],
+          tempRoot({ "tests/k.test.ts": 'it("kills it", () => {});\n' }),
+        ),
+      ).toContain('c1: symbolScope is only valid as "function" on a dead row');
+  });
+
+  it("a compiler-killed gap row needs no test, but may not name one or sit on another disposition", () => {
+    expect(
+      final([cluster("c1", { disposition: "gap", compilerKilled: true })]),
+    ).toEqual([]);
+    expect(
+      final([
+        cluster("c1", {
+          disposition: "gap",
+          compilerKilled: true,
+          test: { file: "tests/k.test.ts", name: "kills it" },
+        }),
+      ]),
+    ).toEqual(["c1: compiler-killed gap row must not name a test"]);
+    expect(
+      final(
+        [
+          cluster("c1", {
+            disposition: "dead",
+            symbol: "x",
+            compilerKilled: true,
+          }),
+        ],
+        tempRoot({ "src/a/x.ts": "export function f() {}\n" }),
+      ),
+    ).toContain("c1: compilerKilled is only valid as true on a gap row");
+    expect(
+      final([cluster("c1", { disposition: "gap", compilerKilled: false })]),
+    ).toContain("c1: compilerKilled is only valid as true on a gap row");
+  });
+
   it("a dead row whose symbol is still a word in src fails", () => {
     const root = tempRoot({
       "src/a/x.ts": "export function legacyHelper() {}\n",
@@ -3696,6 +3814,10 @@ describe("real iloc boundary receipt", () => {
           return [
             `${row.id}: final report entry is required for scoped deletion proof`,
           ];
+        if (row.disposition === "gap" && row.compilerKilled === true)
+          return row.test === undefined
+            ? []
+            : [`${row.id}: compiler-killed gap row must not name a test`];
         if (row.disposition === "gap") {
           const file = row.test?.file;
           const name = row.test?.name;
