@@ -183172,26 +183172,42 @@
       "note": ""
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:rangesEqual:ConditionalExpression",
+      "id": "isobmff:src/isobmff/verify.ts:rangesEqual:ConditionalExpression:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "rangesEqual",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u000082\u00009\u000082\u000026",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u000082\u00009\u000082\u000026"
+      ],
+      "note": "reports/triage/67-21/tracer-green.json (Killed); the exact named test appears in killedBy: verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression: an abort raised while a range is compared stops the next comparison with the aborted code. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:rangesEqual:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression: an abort raised while a range is compared stops the next comparison with the aborted code"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:rangesEqual:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "rangesEqual",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u000097\u00009\u000097\u000032",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u000097\u00009\u000097\u000060",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u000097\u000036\u000097\u000060"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000left.bytesRead !== take\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000left.bytesRead !== take || right.bytesRead !== take\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000right.bytesRead !== take\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/tracer-green.json (Killed); the exact named test appears in killedBy: verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression and LogicalOperator: a short read on the source side alone, and on the destination side alone, fails verification. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:rangesEqual:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression and LogicalOperator: a short read on the source side alone, and on the destination side alone, fails verification"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:rangesEqual:LogicalOperator",
