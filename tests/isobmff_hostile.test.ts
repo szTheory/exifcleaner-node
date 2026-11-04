@@ -2362,7 +2362,9 @@ describe("verify.ts verifyIsobmffOutput destination header checks (67-22, isobmf
 // after the unpatched control is shown to verify. `vxFile` is the source/destination assembler:
 // item 1 is the primary `hvc1` payload and item 2 is the Exif item `k` whose payload is `kPayload`.
 
-const VX_PRIMARY = Buffer.from([1, 2, 3, 4]);
+function vxPrimary(): Buffer {
+  return Buffer.from([1, 2, 3, 4]);
+}
 
 function vxMinimalExifPayload(orientation = 1): Buffer {
   return Buffer.concat([Buffer.alloc(4), createMinimalExif({ orientation })]);
@@ -2390,7 +2392,7 @@ function vxFile(
       },
     ],
     refs: [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }],
-    mdatPayload: Buffer.concat([VX_PRIMARY, kPayload]),
+    mdatPayload: Buffer.concat([vxPrimary(), kPayload]),
     ...over,
   });
 }
@@ -2546,7 +2548,11 @@ describe("verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9)
             propertyIndices: [1, 2],
           },
         ],
-        mdatPayload: Buffer.concat([VX_PRIMARY, kPayload, Buffer.from([7, 8])]),
+        mdatPayload: Buffer.concat([
+          vxPrimary(),
+          kPayload,
+          Buffer.from([7, 8]),
+        ]),
       },
       kOver,
     );
