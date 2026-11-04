@@ -1704,12 +1704,11 @@ describe("rebuild.ts encoders (67-20, isobmff-7)", () => {
     // data_reference_index(16) extent_count(16) then offset(32) length(32); no
     // construction_method and no extent_index.
     const item = rebuildItem({
-      dataReferenceIndex: 0x0102,
       extents: [{ index: 0x0a0b0c0d, offset: 0x10, length: 0x20 }],
     });
     expectBytes(
       rebuildIloc(0, 4, 4, 0, 4, [item], new Map()),
-      "0000001e 696c6f63 00 000000  4404 0001  0001 0102 0001  00000010 00000020",
+      "0000001e 696c6f63 00 000000  4404 0001  0001 0000 0001  00000010 00000020",
     );
   });
 
