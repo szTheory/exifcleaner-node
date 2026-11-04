@@ -182089,21 +182089,20 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:pending-06",
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:dead-06",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000617\u000015\u0000617\u000039"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000property.type === \"colr\"\u00000"
-      ],
-      "note": "Pending a maintainer decision recorded in 67-19-HALTED.md (Resolution section): the Gate 2 rewrite left this member without a representable disposition (its source text still appears elsewhere in src, so a symbol-only dead proof cannot hold, or its mutant became a CompileError).",
-      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression"
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"property.type === \\\"colr\\\"\" no longer appears in its enclosing function (Plan 59 amendment 2 scoped witness); the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "symbol": "property.type === \"colr\"",
+      "symbolScope": "function"
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-07",
@@ -182474,40 +182473,36 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression:pending-01",
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression:dead-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkIlocRewriteFit",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000198\u00009\u0000198\u000038",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000203\u000040\u0000203\u000067"
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000198\u00009\u0000198\u000038"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000item.constructionMethod !== 0\u00001",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000rewrite.newBaseOffset > max\u00000"
-      ],
-      "note": "Pending a maintainer decision recorded in 67-19-HALTED.md (Resolution section): the Gate 2 rewrite left this member without a representable disposition (its source text still appears elsewhere in src, so a symbol-only dead proof cannot hold, or its mutant became a CompileError).",
-      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression"
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"item.constructionMethod !== 0\" no longer appears in its enclosing function (Plan 59 amendment 2 scoped witness); the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression",
+      "symbol": "item.constructionMethod !== 0",
+      "symbolScope": "function"
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression:pending-02",
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression:dead-02",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkIlocRewriteFit",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000201\u00009\u0000201\u000027"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000baseOffsetSize > 0\u00000"
-      ],
-      "note": "Pending a maintainer decision recorded in 67-19-HALTED.md (Resolution section): the Gate 2 rewrite left this member without a representable disposition (its source text still appears elsewhere in src, so a symbol-only dead proof cannot hold, or its mutant became a CompileError).",
-      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression"
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"baseOffsetSize > 0\" no longer appears in its enclosing function (Plan 59 amendment 2 scoped witness); the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression",
+      "symbol": "baseOffsetSize > 0",
+      "symbolScope": "function"
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression:dead-03",
@@ -182533,6 +182528,21 @@
       "disposition": "gap",
       "count": 1,
       "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000203\u000040\u0000203\u000067"
+      ],
+      "note": "Every mutant of this member is a TypeScript CompileError in reports/triage/67-19/s10.json (the checker rejects it), accepted as compiler-killed under Plan 59 amendment 2; no test names it.",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression",
+      "compilerKilled": true
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression:gap-05",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkIlocRewriteFit",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000219\u000011\u0000219\u000023"
       ],
       "note": "reports/triage/67-19/s10.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
@@ -182543,23 +182553,21 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator:pending-01",
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator:dead-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkIlocRewriteFit",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000baseOffsetSize <= 0\u0000201\u00009\u0000201\u000027",
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000baseOffsetSize >= 0\u0000201\u00009\u0000201\u000027"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000baseOffsetSize <= 0\u0000baseOffsetSize > 0\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000baseOffsetSize >= 0\u0000baseOffsetSize > 0\u00000"
-      ],
-      "note": "Pending a maintainer decision recorded in 67-19-HALTED.md (Resolution section): the Gate 2 rewrite left this member without a representable disposition (its source text still appears elsewhere in src, so a symbol-only dead proof cannot hold, or its mutant became a CompileError).",
-      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator"
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"baseOffsetSize > 0\" no longer appears in its enclosing function (Plan 59 amendment 2 scoped witness); the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator",
+      "symbol": "baseOffsetSize > 0",
+      "symbolScope": "function"
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator:gap-02",
