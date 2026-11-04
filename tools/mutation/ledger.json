@@ -181945,7 +181945,7 @@
       ],
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan ArithmeticOperator: a ftyp that does not start at offset 0 contributes its size, not end plus start. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan ArithmeticOperator: a ftyp that does not start at offset 0 contributes its size, not end plus start"
       }
     },
@@ -181963,7 +181963,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset of exactly 0xffffffff fits, one more does not and is caught only by the final pass. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:BlockStatement",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset of exactly 0xffffffff fits, one more does not and is caught only by the final pass"
       }
     },
@@ -181981,7 +181981,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:BlockStatement",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
       }
     },
@@ -182019,7 +182019,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned"
       }
     },
@@ -182038,7 +182038,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept meta box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept meta box is declined before any part is planned"
       }
     },
@@ -182085,7 +182085,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0"
       }
     },
@@ -182104,7 +182104,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary"
       }
     },
@@ -182122,7 +182122,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression and EqualityOperator: an iprp with no recognised children is dropped from meta. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression and EqualityOperator: an iprp with no recognised children is dropped from meta"
       }
     },
@@ -182140,7 +182140,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression: an iprp child that is neither ipco nor ipma is not carried into the order. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression: an iprp child that is neither ipco nor ipma is not carried into the order"
       }
     },
@@ -182158,7 +182158,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned"
       }
     },
@@ -182176,7 +182176,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept meta box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept meta box is declined before any part is planned"
       }
     },
@@ -182194,7 +182194,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0"
       }
     },
@@ -182212,7 +182212,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression and EqualityOperator: an iprp with no recognised children is dropped from meta. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression and EqualityOperator: an iprp with no recognised children is dropped from meta"
       }
     },
@@ -182230,7 +182230,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipco keeps the rebuilt ipco. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipco keeps the rebuilt ipco"
       }
     },
@@ -182248,7 +182248,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipma keeps the rebuilt ipma. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipma keeps the rebuilt ipma"
       }
     },
@@ -182266,7 +182266,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:LogicalOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned"
       }
     },
@@ -182284,7 +182284,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:LogicalOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary"
       }
     },
@@ -182324,7 +182324,7 @@
       ],
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref UnaryOperator: with no minimal Exif item every iref record keeps its own targets. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref UnaryOperator: with no minimal Exif item every iref record keeps its own targets"
       }
     },
@@ -182341,7 +182341,7 @@
       ],
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildMergedMdatRanges EqualityOperator cluster (67-19) > buildMergedMdatRanges EqualityOperator: touching surviving extents are written as one copy of the union. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildMergedMdatRanges EqualityOperator cluster (67-19) > buildMergedMdatRanges EqualityOperator: touching surviving extents are written as one copy of the union"
       }
     },
@@ -182360,7 +182360,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined. Red: reports/triage/67-19/pre.json (Survived/NoCoverage; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:BlockStatement",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined"
       }
     },
@@ -182378,7 +182378,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:BlockStatement",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0"
       }
     },
@@ -182417,7 +182417,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined"
       }
     },
@@ -182435,7 +182435,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0"
       }
     },
@@ -182453,7 +182453,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined"
       }
     },
@@ -182490,7 +182490,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset of exactly 0xffffffff fits, one more does not and is caught only by the final pass. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset of exactly 0xffffffff fits, one more does not and is caught only by the final pass"
       }
     },
@@ -182508,7 +182508,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0"
       }
     },
@@ -182525,7 +182525,7 @@
       ],
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined"
       }
     },
@@ -182568,7 +182568,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ArithmeticOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined"
       }
     },
@@ -182586,7 +182586,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ArithmeticOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
       }
     },
@@ -182604,7 +182604,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header carries a payload of 0xfffffff8. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header carries a payload of 0xfffffff8"
       }
     },
@@ -182622,7 +182622,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined"
       }
     },
@@ -182640,7 +182640,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
       }
     },
@@ -182658,7 +182658,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header carries a payload of 0xfffffff8. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header carries a payload of 0xfffffff8"
       }
     },
@@ -182677,7 +182677,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
       }
     },
@@ -182695,7 +182695,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined"
       }
     },
@@ -182713,7 +182713,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
       }
     },
@@ -182731,7 +182731,7 @@
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header carries a payload of 0xfffffff7, the largest that fits. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:EqualityOperator",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header carries a payload of 0xfffffff7, the largest that fits"
       }
     },
@@ -182769,7 +182769,7 @@
       ],
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 8 with a base offset plans a minimal Exif item. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 8 with a base offset plans a minimal Exif item"
       }
     },
@@ -182819,7 +182819,7 @@
       ],
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0"
       }
     },
@@ -182852,7 +182852,7 @@
       ],
       "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan ipma MethodExpression: an ipma entry for a removed item is dropped from the output. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
       "test": {
-        "file": "tests/isobmff_writer.test.ts",
+        "file": "tests/isobmff_hostile.test.ts",
         "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan ipma MethodExpression: an ipma entry for a removed item is dropped from the output"
       }
     },
