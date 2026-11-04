@@ -181937,129 +181937,356 @@
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/isobmff/plan.ts\u0000ArithmeticOperator\u0000box.end + box.start\u0000733\u000029\u0000733\u000048",
         "src/isobmff/plan.ts\u0000ArithmeticOperator\u0000box.end + box.start\u0000796\u000017\u0000796\u000036"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000ArithmeticOperator\u0000box.end + box.start\u0000box.end - box.start\u00000",
-        "src/isobmff/plan.ts\u0000ArithmeticOperator\u0000box.end + box.start\u0000box.end - box.start\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan ArithmeticOperator: a ftyp that does not start at offset 0 contributes its size, not end plus start. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan ArithmeticOperator: a ftyp that does not start at offset 0 contributes its size, not end plus start"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:BlockStatement",
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:BlockStatement:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000755\u000036\u0000757\u00004",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000763\u000039\u0000765\u00004",
+        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000755\u000036\u0000757\u00004"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset of exactly 0xffffffff fits, one more does not and is caught only by the final pass. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset of exactly 0xffffffff fits, one more does not and is caught only by the final pass"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:BlockStatement:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000763\u000039\u0000765\u00004"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:BlockStatement:equivalent-03",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
         "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000776\u000051\u0000781\u00004"
       ],
       "anchors": [
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n    return declined(classification.removableItemIds, finalFitError);\n  }\u00000",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n    return declined(classification.removableItemIds, mdatSizeFitError);\n  }\u00000",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n    return declined(\n      classification.removableItemIds,\n      \"Rebuilt meta length changed between the probe and final passes.\",\n    );\n  }\u00000"
+        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n    return declined(\n      classification.removableItemIds,\n      // Stryker disable next-line StringLiteral: unobservable-message — the probe/final length label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.\n      \"Rebuilt meta length changed between the probe and final passes.\",\n    );\n  }\u00000"
       ],
-      "note": ""
+      "note": "The meta length guard after the final pass is never entered: D-11 keeps every iloc field width fixed, so the probe-pass and final-pass meta lengths are always equal. The BlockStatement directive sits on the only line whose start holds a BlockStatement mutant.",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:BlockStatement",
+      "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-01",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000483\u000051\u0000483\u000070",
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000487\u00005\u0000487\u000026",
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000487\u00005\u0000488\u000034"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000484\u000059\u0000484\u000078",
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000488\u00005\u0000488\u000034"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept meta box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept meta box is declined before any part is planned"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:pending-03",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 17,
+      "count": 7,
       "keys": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000483\u000051\u0000483\u000070",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000484\u000059\u0000484\u000078",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000487\u00005\u0000487\u000026",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000487\u00005\u0000488\u000034",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000488\u00005\u0000488\u000034",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000503\u00008\u0000503\u000056",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000503\u000032\u0000503\u000056",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000585\u000013\u0000585\u000046",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000586\u000013\u0000586\u000038",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000617\u000015\u0000617\u000039",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000639\u00007\u0000639\u000030",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000640\u000053\u0000640\u000074",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000641\u000053\u0000641\u000074",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000643\u00007\u0000643\u000031",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000653\u00009\u0000653\u000033",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000679\u000044\u0000679\u000078",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000776\u00007\u0000776\u000049"
       ],
       "anchors": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000box.type === \"ftyp\"\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000box.type === \"meta\"\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000ftypBox === undefined\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000ftypBox === undefined ||\n    metaTopLevelBox === undefined\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000metaTopLevelBox === undefined\u00000",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000ilocOffsetSize === 0 && ilocBaseOffsetSize === 0\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000ilocBaseOffsetSize === 0\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000reference.fromItemId === kItem.id\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000reference.type === \"cdsc\"\u00000",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000property.type === \"colr\"\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000iprpChildren.length > 0\u00000",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000child.type === \"ipco\"\u00000",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000child.type === \"ipma\"\u00000",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000ipcoHeader !== undefined\u00000",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000ipmaHeader !== undefined\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000type === \"ipco\" || type === \"ipma\"\u00000",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000metaBytes.length !== probeMetaBytes.length\u00000"
       ],
-      "note": ""
+      "note": "Pending the maintainer decision recorded in 67-19-HALTED.md: equivalent for every reachable input, but its line also carries killed or compile-error counterparts of the same mutator, so a next-line directive would hide them.",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression"
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000503\u000032\u0000503\u000056"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-05",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000585\u000013\u0000585\u000046",
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000586\u000013\u0000586\u000038"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-06",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000639\u00007\u0000639\u000030"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression and EqualityOperator: an iprp with no recognised children is dropped from meta. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression and EqualityOperator: an iprp with no recognised children is dropped from meta"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-07",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000679\u000044\u0000679\u000078"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression: an iprp child that is neither ipco nor ipma is not carried into the order. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression: an iprp child that is neither ipco nor ipma is not carried into the order"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 6,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000box.type !== \"ftyp\"\u0000483\u000051\u0000483\u000070",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000box.type !== \"meta\"\u0000484\u000059\u0000484\u000078",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000ilocBaseOffsetSize !== 0\u0000503\u000032\u0000503\u000056",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000iprpChildren.length >= 0\u0000639\u00007\u0000639\u000030",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000child.type !== \"ipco\"\u0000640\u000053\u0000640\u000074",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000child.type !== \"ipma\"\u0000641\u000053\u0000641\u000074"
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000box.type !== \"ftyp\"\u0000483\u000051\u0000483\u000070"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000box.type !== \"ftyp\"\u0000box.type === \"ftyp\"\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000box.type !== \"meta\"\u0000box.type === \"meta\"\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000ilocBaseOffsetSize !== 0\u0000ilocBaseOffsetSize === 0\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000iprpChildren.length >= 0\u0000iprpChildren.length > 0\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000child.type !== \"ipco\"\u0000child.type === \"ipco\"\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000child.type !== \"ipma\"\u0000child.type === \"ipma\"\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:LogicalOperator",
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000box.type !== \"meta\"\u0000484\u000059\u0000484\u000078"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept meta box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept meta box is declined before any part is planned"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000ilocBaseOffsetSize !== 0\u0000503\u000032\u0000503\u000056"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000iprpChildren.length >= 0\u0000639\u00007\u0000639\u000030"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression and EqualityOperator: an iprp with no recognised children is dropped from meta. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp ConditionalExpression and EqualityOperator: an iprp with no recognised children is dropped from meta"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator:gap-05",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000child.type !== \"ipco\"\u0000640\u000053\u0000640\u000074"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipco keeps the rebuilt ipco. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipco keeps the rebuilt ipco"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator:gap-06",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000child.type !== \"ipma\"\u0000641\u000053\u0000641\u000074"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipma keeps the rebuilt ipma. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipma keeps the rebuilt ipma"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:LogicalOperator:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000LogicalOperator\u0000ftypBox === undefined && metaTopLevelBox === undefined\u0000487\u00005\u0000488\u000034",
+        "src/isobmff/plan.ts\u0000LogicalOperator\u0000ftypBox === undefined && metaTopLevelBox === undefined\u0000487\u00005\u0000488\u000034"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19) > buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:LogicalOperator:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/plan.ts\u0000LogicalOperator\u0000reference.fromItemId === kItem.id || reference.type === \"cdsc\"\u0000585\u000013\u0000586\u000038"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000LogicalOperator\u0000ftypBox === undefined && metaTopLevelBox === undefined\u0000ftypBox === undefined ||\n    metaTopLevelBox === undefined\u00000",
-        "src/isobmff/plan.ts\u0000LogicalOperator\u0000reference.fromItemId === kItem.id || reference.type === \"cdsc\"\u0000reference.fromItemId === kItem.id &&\n            reference.type === \"cdsc\"\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary"
+      }
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:StringLiteral",
@@ -182067,7 +182294,7 @@
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 4,
       "keys": [
         "src/isobmff/plan.ts\u0000StringLiteral\u0000\"\"\u0000493\u00007\u0000493\u000062",
@@ -182081,7 +182308,8 @@
         "src/isobmff/plan.ts\u0000StringLiteral\u0000``\u0000`${ilocBaseOffsetSize}, length_size ${ilocLengthSize}).`\u00000",
         "src/isobmff/plan.ts\u0000StringLiteral\u0000\"\"\u0000\"Rebuilt meta length changed between the probe and final passes.\"\u00000"
       ],
-      "note": ""
+      "note": "The buildIsobmffOutputPlan decline detail strings only reach IsobmffOutputPlan.declineReason, which the engine forwards as the free-text detail of the typed unsafe-structure refusal; the refusal code, the empty plan parts and removedItemIds are unchanged. One next-line StringLiteral directive per literal; each target line holds exactly one mutant of that mutator.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:UnaryOperator",
@@ -182089,15 +182317,16 @@
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "UnaryOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/plan.ts\u0000UnaryOperator\u0000+1\u0000582\u00009\u0000582\u000011"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000UnaryOperator\u0000+1\u0000-1\u000031"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref UnaryOperator: with no minimal Exif item every iref record keeps its own targets. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref UnaryOperator: with no minimal Exif item every iref record keeps its own targets"
+      }
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:buildMergedMdatRanges:EqualityOperator",
@@ -182105,83 +182334,183 @@
       "file": "src/isobmff/plan.ts",
       "function": "buildMergedMdatRanges",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000start < last.end\u0000124\u000031\u0000124\u000048"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000start < last.end\u0000start <= last.end\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildMergedMdatRanges EqualityOperator cluster (67-19) > buildMergedMdatRanges EqualityOperator: touching surviving extents are written as one copy of the union. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildMergedMdatRanges EqualityOperator cluster (67-19) > buildMergedMdatRanges EqualityOperator: touching surviving extents are written as one copy of the union"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:BlockStatement",
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:BlockStatement:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkIlocRewriteFit",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000201\u000029\u0000209\u00006",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000203\u000069\u0000208\u00008",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000219\u000025\u0000224\u00008"
+        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000203\u000069\u0000208\u00008"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n      const max = maxValueForWidth(baseOffsetSize);\n      if (rewrite.newBaseOffset < 0 || rewrite.newBaseOffset > max) {\n        return (\n          `offset-rewrite-overflow: item ${item.id}'s rewritten base_offset ` +\n          `${rewrite.newBaseOffset} does not fit its declared width (${baseOffsetSize} bytes).`\n        );\n      }\n    }\u00000",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n        return (\n          `offset-rewrite-overflow: item ${item.id}'s rewritten base_offset ` +\n          `${rewrite.newBaseOffset} does not fit its declared width (${baseOffsetSize} bytes).`\n        );\n      }\u00000",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n        return (\n          `offset-rewrite-overflow: item ${item.id}'s rewritten extent ${index} offset ` +\n          `${offset} does not fit its declared width (${offsetSize} bytes).`\n        );\n      }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined. Red: reports/triage/67-19/pre.json (Survived/NoCoverage; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression",
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:BlockStatement:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkIlocRewriteFit",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000219\u000025\u0000224\u00008"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression:pending-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkIlocRewriteFit",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 5,
+      "count": 3,
       "keys": [
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000198\u00009\u0000198\u000038",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000201\u00009\u0000201\u000027",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000203\u000011\u0000203\u000036",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000203\u000040\u0000203\u000067",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000219\u000011\u0000219\u000023"
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000203\u000011\u0000203\u000036"
       ],
       "anchors": [
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000item.constructionMethod !== 0\u00001",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000baseOffsetSize > 0\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000rewrite.newBaseOffset < 0\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000rewrite.newBaseOffset > max\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000offset > max\u00000"
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000rewrite.newBaseOffset < 0\u00000"
       ],
-      "note": ""
+      "note": "Pending the maintainer decision recorded in 67-19-HALTED.md: equivalent for every reachable input, but its line also carries killed or compile-error counterparts of the same mutator, so a next-line directive would hide them.",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression"
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator",
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkIlocRewriteFit",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000203\u000040\u0000203\u000067"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkIlocRewriteFit",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000219\u000011\u0000219\u000023"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator:gap-01",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkIlocRewriteFit",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000baseOffsetSize <= 0\u0000201\u00009\u0000201\u000027"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator:pending-02",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkIlocRewriteFit",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 5,
+      "count": 2,
       "keys": [
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000baseOffsetSize <= 0\u0000201\u00009\u0000201\u000027",
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000baseOffsetSize >= 0\u0000201\u00009\u0000201\u000027",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000rewrite.newBaseOffset >= max\u0000203\u000040\u0000203\u000067",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000index <= rewrite.extentOffsets.length\u0000211\u000025\u0000211\u000061",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000offset >= max\u0000219\u000011\u0000219\u000023"
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000index <= rewrite.extentOffsets.length\u0000211\u000025\u0000211\u000061"
       ],
       "anchors": [
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000baseOffsetSize <= 0\u0000baseOffsetSize > 0\u00000",
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000baseOffsetSize >= 0\u0000baseOffsetSize > 0\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000rewrite.newBaseOffset >= max\u0000rewrite.newBaseOffset > max\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000index <= rewrite.extentOffsets.length\u0000index < rewrite.extentOffsets.length\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000offset >= max\u0000offset > max\u00000"
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000index <= rewrite.extentOffsets.length\u0000index < rewrite.extentOffsets.length\u00000"
       ],
-      "note": ""
+      "note": "Pending the maintainer decision recorded in 67-19-HALTED.md: equivalent for every reachable input, but its line also carries killed or compile-error counterparts of the same mutator, so a next-line directive would hide them.",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator"
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkIlocRewriteFit",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000rewrite.newBaseOffset >= max\u0000203\u000040\u0000203\u000067"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset of exactly 0xffffffff fits, one more does not and is caught only by the final pass. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset of exactly 0xffffffff fits, one more does not and is caught only by the final pass"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkIlocRewriteFit",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000offset >= max\u0000219\u000011\u0000219\u000023"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0"
+      }
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:LogicalOperator",
@@ -182189,15 +182518,16 @@
       "file": "src/isobmff/plan.ts",
       "function": "checkIlocRewriteFit",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/plan.ts\u0000LogicalOperator\u0000rewrite.newBaseOffset < 0 && rewrite.newBaseOffset > max\u0000203\u000011\u0000203\u000067"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000LogicalOperator\u0000rewrite.newBaseOffset < 0 && rewrite.newBaseOffset > max\u0000rewrite.newBaseOffset < 0 || rewrite.newBaseOffset > max\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19) > checkIlocRewriteFit: a rewritten base offset above 32 bits is declined"
+      }
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:checkIlocRewriteFit:StringLiteral",
@@ -182205,7 +182535,7 @@
       "file": "src/isobmff/plan.ts",
       "function": "checkIlocRewriteFit",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 5,
       "keys": [
         "src/isobmff/plan.ts\u0000StringLiteral\u0000``\u0000205\u000011\u0000205\u000078",
@@ -182221,85 +182551,189 @@
         "src/isobmff/plan.ts\u0000StringLiteral\u0000``\u0000`offset-rewrite-overflow: item ${item.id}'s rewritten extent ${index} offset `\u00001",
         "src/isobmff/plan.ts\u0000StringLiteral\u0000``\u0000`${offset} does not fit its declared width (${offsetSize} bytes).`\u00000"
       ],
-      "note": ""
+      "note": "The checkIlocRewriteFit decline detail strings only reach IsobmffOutputPlan.declineReason, which the engine forwards as the free-text detail of the typed unsafe-structure refusal; the refusal code, the empty plan parts and removedItemIds are unchanged. One next-line StringLiteral directive per literal; each target line holds exactly one mutant of that mutator.",
+      "equivalenceClass": "unobservable-message"
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ArithmeticOperator",
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ArithmeticOperator:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkMdatSizeFit",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000ArithmeticOperator\u000016 - payloadLength\u0000241\u000019\u0000241\u000037",
-        "src/isobmff/plan.ts\u0000ArithmeticOperator\u00008 - payloadLength\u0000247\u000017\u0000247\u000034"
+        "src/isobmff/plan.ts\u0000ArithmeticOperator\u000016 - payloadLength\u0000241\u000019\u0000241\u000037"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000ArithmeticOperator\u000016 - payloadLength\u000016 + payloadLength\u00000",
-        "src/isobmff/plan.ts\u0000ArithmeticOperator\u00008 - payloadLength\u00008 + payloadLength\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ArithmeticOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement",
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ArithmeticOperator:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkMdatSizeFit",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ArithmeticOperator\u00008 - payloadLength\u0000247\u000017\u0000247\u000034"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ArithmeticOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkMdatSizeFit",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000240\u000033\u0000246\u00004",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000242\u000039\u0000244\u00006",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000248\u000027\u0000253\u00004"
+        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000240\u000033\u0000246\u00004"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n    const total = 16 + payloadLength;\n    if (!Number.isSafeInteger(total)) {\n      return `offset-rewrite-overflow: rewritten mdat largesize ${total} exceeds safe integer precision.`;\n    }\n    return undefined;\n  }\u00000",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n      return `offset-rewrite-overflow: rewritten mdat largesize ${total} exceeds safe integer precision.`;\n    }\u00000",
-        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000{\n    return (\n      `offset-rewrite-overflow: rewritten mdat size ${total} does not fit a 32-bit header ` +\n      `(the source used a normal/size-zero header, never widened to largesize).`\n    );\n  }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header carries a payload of 0xfffffff8. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header carries a payload of 0xfffffff8"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression",
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkMdatSizeFit",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000242\u000039\u0000244\u00006"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkMdatSizeFit",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000BlockStatement\u0000{}\u0000248\u000027\u0000253\u00004"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (NoCoverage; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkMdatSizeFit",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000240\u00007\u0000240\u000031",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000240\u00007\u0000240\u000031",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000242\u00009\u0000242\u000037",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000248\u00007\u0000248\u000025"
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000240\u00007\u0000240\u000031"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000sizeForm === \"largesize\"\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000sizeForm === \"largesize\"\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000!Number.isSafeInteger(total)\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000total > MAX_UINT32\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header carries a payload of 0xfffffff8. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header carries a payload of 0xfffffff8"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:EqualityOperator",
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkMdatSizeFit",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000240\u00007\u0000240\u000031",
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000248\u00007\u0000248\u000025"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkMdatSizeFit",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000false\u0000242\u00009\u0000242\u000037"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:EqualityOperator:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "checkMdatSizeFit",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000sizeForm !== \"largesize\"\u0000240\u00007\u0000240\u000031",
+        "src/isobmff/plan.ts\u0000EqualityOperator\u0000sizeForm !== \"largesize\"\u0000240\u00007\u0000240\u000031"
+      ],
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:EqualityOperator:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "checkMdatSizeFit",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000total >= MAX_UINT32\u0000248\u00007\u0000248\u000025"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000sizeForm !== \"largesize\"\u0000sizeForm === \"largesize\"\u00000",
-        "src/isobmff/plan.ts\u0000EqualityOperator\u0000total >= MAX_UINT32\u0000total > MAX_UINT32\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header carries a payload of 0xfffffff7, the largest that fits. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "checkMdatSizeFit clusters on the rewritten mdat size (67-19) > checkMdatSizeFit: a normal header carries a payload of 0xfffffff7, the largest that fits"
+      }
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:checkMdatSizeFit:StringLiteral",
@@ -182307,7 +182741,7 @@
       "file": "src/isobmff/plan.ts",
       "function": "checkMdatSizeFit",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 3,
       "keys": [
         "src/isobmff/plan.ts\u0000StringLiteral\u0000``\u0000243\u000014\u0000243\u0000106",
@@ -182319,7 +182753,8 @@
         "src/isobmff/plan.ts\u0000StringLiteral\u0000``\u0000`offset-rewrite-overflow: rewritten mdat size ${total} does not fit a 32-bit header `\u00000",
         "src/isobmff/plan.ts\u0000StringLiteral\u0000``\u0000`(the source used a normal/size-zero header, never widened to largesize).`\u00000"
       ],
-      "note": ""
+      "note": "The checkMdatSizeFit decline detail strings only reach IsobmffOutputPlan.declineReason, which the engine forwards as the free-text detail of the typed unsafe-structure refusal; the refusal code, the empty plan parts and removedItemIds are unchanged. One next-line StringLiteral directive per literal; each target line holds exactly one mutant of that mutator.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:computeMinimalExifIlocRewrite:ArrayDeclaration",
@@ -182327,15 +182762,16 @@
       "file": "src/isobmff/plan.ts",
       "function": "computeMinimalExifIlocRewrite",
       "mutatorName": "ArrayDeclaration",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/plan.ts\u0000ArrayDeclaration\u0000[]\u0000359\u000066\u0000359\u000069"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000ArrayDeclaration\u0000[]\u0000[0]\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 8 with a base offset plans a minimal Exif item. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: offset_size 8 with a base offset plans a minimal Exif item"
+      }
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:mapAbsoluteOffset:ConditionalExpression",
@@ -182351,7 +182787,7 @@
       "anchors": [
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000abs >= range.start\u00000"
       ],
-      "note": ""
+      "note": "Pending the maintainer decision recorded in 67-19-HALTED.md: equivalent for every reachable input, but its line also carries killed or compile-error counterparts of the same mutator, so a next-line directive would hide them."
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:mapAbsoluteOffset:EqualityOperator",
@@ -182367,7 +182803,7 @@
       "anchors": [
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000abs < range.end\u0000abs <= range.end\u00000"
       ],
-      "note": ""
+      "note": "Pending the maintainer decision recorded in 67-19-HALTED.md: equivalent for every reachable input, but its line also carries killed or compile-error counterparts of the same mutator, so a next-line directive would hide them."
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:maxValueForWidth:ConditionalExpression",
@@ -182375,17 +182811,17 @@
       "file": "src/isobmff/plan.ts",
       "function": "maxValueForWidth",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000179\u00007\u0000179\u000018",
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000180\u00007\u0000180\u000018"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000width === 4\u00000",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000width === 8\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19) > buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0"
+      }
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:remapSurvivingPropertyIndex:EqualityOperator",
@@ -182401,7 +182837,7 @@
       "anchors": [
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000removed <= oldIndex\u0000removed < oldIndex\u00000"
       ],
-      "note": ""
+      "note": "Pending the maintainer decision recorded in 67-19-HALTED.md: equivalent for every reachable input, but its line also carries killed or compile-error counterparts of the same mutator, so a next-line directive would hide them."
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:survivingAssociations:MethodExpression",
@@ -182409,15 +182845,16 @@
       "file": "src/isobmff/plan.ts",
       "function": "survivingAssociations",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/plan.ts\u0000MethodExpression\u0000model.ipma ?? []\u0000654\u000037\u0000656\u00008"
       ],
-      "anchors": [
-        "src/isobmff/plan.ts\u0000MethodExpression\u0000model.ipma ?? []\u0000(model.ipma ?? []).filter(\n        (entry) => !removedIds.has(entry.itemId),\n      )\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-19/g2.json (Killed); the exact named test appears in killedBy: buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan ipma MethodExpression: an ipma entry for a removed item is dropped from the output. Red: reports/triage/67-19/pre.json (Survived; hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_writer.test.ts",
+        "name": "buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19) > buildIsobmffOutputPlan ipma MethodExpression: an ipma entry for a removed item is dropped from the output"
+      }
     },
     {
       "id": "isobmff:src/isobmff/rebuild.ts:hasIndexField:ConditionalExpression",
