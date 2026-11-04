@@ -356,7 +356,7 @@ export async function verifyIsobmffOutput(
         );
       }
       if (item.type === "Exif") {
-        // Stryker disable next-line AssignmentOperator: defensive-unreachable-by-construction — exifItemCount only feeds `exifItemCount > 1`, which no destination reaches (a second Exif item with the kept id would need a duplicate item_ID, and parseIsobmff declines that before this loop), and `exifItemCount === 0`, which is false for 1 and for -1 alike.
+        // Stryker disable next-line AssignmentOperator: defensive-unreachable-by-construction — exifItemCount only feeds `exifItemCount === 0`, which is false for 1 and for -1 alike; a second Exif item carrying the kept id would need a duplicate item_ID, and parseIsobmff declines that before this loop, so the count never exceeds 1.
         exifItemCount += 1;
         if (item.id !== keepExifItemId) {
           return err(
@@ -368,16 +368,6 @@ export async function verifyIsobmffOutput(
           );
         }
       }
-    }
-    // Stryker disable next-line BlockStatement: defensive-unreachable-by-construction — a second Exif item would have to carry the kept id too (any other id returns above), which needs a duplicate item_ID that parseIsobmff declines before verification runs, so this body never executes.
-    if (exifItemCount > 1) {
-      return err(
-        verificationError(
-          // Stryker disable next-line StringLiteral: unobservable-message — the More than one Exif item remained after wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
-          "More than one Exif item remained after sanitization.",
-          destinationPath,
-        ),
-      );
     }
     if (keepExifItemId !== undefined && exifItemCount === 0) {
       return err(
