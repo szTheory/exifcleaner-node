@@ -183409,13 +183409,13 @@
       "equivalenceClass": "unobservable-message"
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verificationError:StringLiteral",
+      "id": "isobmff:src/isobmff/verify.ts:verificationError:StringLiteral:equivalent-01",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verificationError",
       "mutatorName": "StringLiteral",
       "disposition": "equivalent",
-      "count": 39,
+      "count": 37,
       "keys": [
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000224\u000013\u0000224\u000059",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000254\u000011\u0000254\u000060",
@@ -183423,9 +183423,7 @@
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000321\u000011\u0000321\u000067",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000334\u000013\u0000334\u000053",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000344\u000015\u0000344\u000077",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000354\u000011\u0000354\u000065",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000362\u000011\u0000362\u000090",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000382\u000015\u0000382\u000086",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000390\u000015\u0000390\u000090",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000402\u000015\u0000402\u000090",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000403\u000017\u0000403\u000049",
@@ -183464,9 +183462,7 @@
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"Destination item set did not match the sanitized plan.\"\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"mime item remained after sanitization.\"\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000`Unexpected Exif item ${item.id} remained after sanitization.`\u00000",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"More than one Exif item remained after sanitization.\"\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000`Expected minimal Exif item ${keepExifItemId} is missing from the destination.`\u00000",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000`Minimal Exif item ${destinationItem.id} is not construction_method 0.`\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000`Minimal Exif item ${destinationItem.id} does not have exactly one extent.`\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000`Minimal Exif item ${destinationItem.id} payload length did not match the `\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"expected minimal Exif payload.\"\u00000",
@@ -183498,8 +183494,39 @@
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000`(covered ${coveredLength}, mdat payload length ${destinationMdat.length}).`\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"Could not verify the destination.\"\u00000"
       ],
-      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): 39 members, each with its own next-line directive in src/isobmff/verify.ts whose specifics name the literal; the Could not reopen and verify the destination. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.",
+      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): 37 members, each with its own next-line directive in src/isobmff/verify.ts whose specifics name the literal; the Could not reopen and verify the destination. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verificationError:StringLiteral",
       "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verificationError:StringLiteral:dead-02",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verificationError",
+      "mutatorName": "StringLiteral",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000354\u000011\u0000354\u000065"
+      ],
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the `More than one Exif item remained after sanitization.` detail literal inside the unreachable `exifItemCount > 1` block. node 4e2ed4e (exifItemCount > 1 block), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verificationError:StringLiteral",
+      "symbol": "More than one Exif item remained after sanitization."
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verificationError:StringLiteral:dead-03",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verificationError",
+      "mutatorName": "StringLiteral",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000382\u000015\u0000382\u000086"
+      ],
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the `Minimal Exif item N is not construction_method 0.` detail template inside the redundant construction_method block. node 1dc9cf3 (construction_method guard), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verificationError:StringLiteral",
+      "symbol": "Minimal Exif item ${destinationItem.id} is not construction_method 0."
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArithmeticOperator",
@@ -183622,7 +183649,7 @@
       "anchors": [
         "src/isobmff/verify.ts\u0000AssignmentOperator\u0000exifItemCount -= 1\u0000exifItemCount += 1\u00000"
       ],
-      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): exifItemCount only feeds `exifItemCount > 1`, which no destination reaches (a second Exif item with the kept id would need a duplicate item_ID, and parseIsobmff declines that before this loop), and `exifItemCount === 0`, which is false for 1 and for -1 alike.",
+      "note": "Traced equivalence (reports/triage/67-22/post.json, comment-Ignored): exifItemCount only feeds `exifItemCount === 0`, which is false for 1 and for -1 alike; a second Exif item carrying the kept id would need a duplicate item_ID, and parseIsobmff declines that before this loop, so the count never exceeds 1.",
       "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
@@ -184017,17 +184044,14 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "BlockStatement",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000351\u000028\u0000358\u00006"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(\n        verificationError(\n          // Stryker disable next-line StringLiteral: unobservable-message — the More than one Exif item remained after wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.\n          \"More than one Exif item remained after sanitization.\",\n          destinationPath,\n        ),\n      );\n    }\u00000"
-      ],
-      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): a second Exif item would have to carry the kept id too (any other id returns above), which needs a duplicate item_ID that parseIsobmff declines before verification runs, so this body never executes.",
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the unreachable `if (exifItemCount > 1)` block, whose body this BlockStatement emptied (a second Exif item carrying the kept id needs a duplicate item_ID, which parseIsobmff declines before the loop). node 4e2ed4e (exifItemCount > 1 block), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
       "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
-      "equivalenceClass": "defensive-unreachable-by-construction"
+      "symbol": "exifItemCount > 1"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:equivalent-23",
@@ -184035,17 +184059,14 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "BlockStatement",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000379\u000055\u0000386\u000010"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N is not construction_method wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.\n              `Minimal Exif item ${destinationItem.id} is not construction_method 0.`,\n              destinationPath,\n            ),\n          );\n        }\u00000"
-      ],
-      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): the kept item is an Exif item (checked above), every Exif item is removable, and the destination admission re-run at the top refuses a removable item whose construction_method is not 0, so this body never executes.",
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the redundant `destinationItem.constructionMethod !== 0` block, whose body this BlockStatement emptied (the destination admission refuses a removable Exif item whose construction_method is not 0). node 1dc9cf3 (construction_method guard), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
       "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
-      "equivalenceClass": "redundant-guard-after-typed-check"
+      "symbol": "destinationItem.constructionMethod !== 0"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:CallExpression",
@@ -184515,17 +184536,14 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000824\u000011\u0000824\u000037"
       ],
-      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, EqualityOperator and MethodExpression: nested and overlapping extents cover the mdat payload exactly once. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the `if (range.end > effectiveStart)` guard whose always-true replacement this was (the step is now `coveredLength += Math.max(0, range.end - effectiveStart)`; the retained test that killed it still covers the same nested and overlapping extents). node 9f6a33d (Math.max coverage step), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
       "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, EqualityOperator and MethodExpression: nested and overlapping extents cover the mdat payload exactly once"
-      }
+      "symbol": "range.end > effectiveStart"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-25",
@@ -184762,31 +184780,95 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:pending-99",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:dead-38",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 6,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000351\u00009\u0000351\u000026",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000379\u000013\u0000379\u000053",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000398\u000011\u0000398\u000062",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000588\u00007\u0000588\u000035",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000643\u000021\u0000643\u000045",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000351\u00009\u0000351\u000026"
+      ],
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the unreachable `if (exifItemCount > 1)` block (a second Exif item carrying the kept id needs a duplicate item_ID, which parseIsobmff declines before the loop). node 4e2ed4e (exifItemCount > 1 block), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "symbol": "exifItemCount > 1"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:dead-39",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000379\u000013\u0000379\u000053"
+      ],
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the redundant `destinationItem.constructionMethod !== 0` block (the destination admission refuses a removable Exif item whose construction_method is not 0; measured: Removable item 2 uses construction_method 1, not 0). node 1dc9cf3 (construction_method guard), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "symbol": "destinationItem.constructionMethod !== 0"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:dead-40",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000398\u000011\u0000398\u000062"
+      ],
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the length operand of the kept Exif payload check (any length difference also fails the byte comparison that follows with the same typed verification-failed outcome). node bde9015 (payload-length operand), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "symbol": "extent.length !== expectedMinimalExifPayload.length"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:dead-41",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000588\u00007\u0000588\u000035"
+      ],
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the `keepExifItemId === undefined ? -1 : ...` ternary guard (with no kept item findIndex over a numeric fromItemId is -1 for every reference). node db61b8a (keepExifItemId ternary), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "symbol": "keepExifItemId === undefined"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:dead-42",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000643\u000021\u0000643\u000045"
+      ],
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the destination `.filter((property) => property.type === \"colr\")` call (parseIpco sets colourType only on colr properties and every consumer reads colourType). node e7a2bd0 (destination colr filter), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "symbol": "destinationColrProperties"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:dead-43",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000811\u000013\u0000811\u000032"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000exifItemCount > 1\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000destinationItem.constructionMethod !== 0\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000extent.length !== expectedMinimalExifPayload.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000keepExifItemId === undefined\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000property.type === \"colr\"\u00002",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000extent.length === 0\u00000"
-      ],
-      "note": "isobmff-9 remainder, awaiting a maintainer source decision (see 67-EVIDENCE.md ## 67-22 checkpoint)",
-      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression"
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the `if (extent.length === 0) continue;` statement in the mdat coverage loop (a zero-length range sorts at its own start and changes neither effectiveStart nor coveredLength; a 400000-case differential of the old and new computations agreed). The same text still appears in src/isobmff/admission.ts, so the witness is scoped to verifyIsobmffOutput. node 90b92f5 (zero-length continue), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "symbol": "extent.length === 0",
+      "symbolScope": "function"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator:gap-01",
@@ -184844,21 +184926,19 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator:pending-99",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator:dead-04",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000EqualityOperator\u0000range.end >= effectiveStart\u0000824\u000011\u0000824\u000037"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000EqualityOperator\u0000range.end >= effectiveStart\u0000range.end > effectiveStart\u00000"
-      ],
-      "note": "isobmff-9 remainder, awaiting a maintainer source decision (see 67-EVIDENCE.md ## 67-22 checkpoint)",
-      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator"
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the `if (range.end > effectiveStart)` comparison whose `>=` replacement this was (equal bounds add end - effectiveStart = 0; the step is now `coveredLength += Math.max(0, range.end - effectiveStart)`, and the new Math.max mutants are all Killed or CompileError in the same report). node 9f6a33d (Math.max coverage step), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator",
+      "symbol": "range.end > effectiveStart"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator:gap-01",
@@ -184958,17 +185038,15 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "LogicalOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000LogicalOperator\u0000reference.fromItemId === keepExifItemId || reference.type === \"cdsc\"\u0000592\u000015\u0000593\u000040"
       ],
-      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "note": "Anchor relocated, not removed. Removing the `keepExifItemId === undefined ? -1 : ...` ternary (Plan 67-22 edit node db61b8a (keepExifItemId ternary), approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve)) dedented the findIndex callback by six columns, and the baseline anchor's mutated span contains the newline and indentation between its two operands. The expression and its `&&` -> `||` mutant still exist, now at src/isobmff/verify.ts 616:9-617:34 with 8-space indentation; reports/triage/67-22/post.json records it Killed by the retained test \"buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary\". No mutant remains at the old whitespace-bearing anchor, and the witness is the old indented text, scoped to verifyIsobmffOutput.",
       "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary"
-      }
+      "symbol": "reference.fromItemId === keepExifItemId &&\n              reference.type === \"cdsc\"",
+      "symbolScope": "function"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:gap-01",
@@ -185066,17 +185144,14 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "MethodExpression",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000MethodExpression\u0000destinationModel.properties\u0000642\u000039\u0000644\u00006"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000destinationModel.properties\u0000destinationModel.properties.filter(\n      (property) => property.type === \"colr\",\n    )\u00000"
-      ],
-      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): the parser sets colourType only on colr properties, and this list is consumed only through colourType (nclx, prof, rICC), so dropping the colr filter yields the same matches for every destination.",
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the destination `.filter((property) => property.type === \"colr\")` call that this MethodExpression dropped (parseIpco sets colourType only on colr properties and every consumer reads colourType). node e7a2bd0 (destination colr filter), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
       "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression",
-      "equivalenceClass": "redundant-guard-after-typed-check"
+      "symbol": "destinationColrProperties"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral:gap-01",
@@ -185189,16 +185264,13 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "UnaryOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000UnaryOperator\u0000+1\u0000589\u000011\u0000589\u000013"
       ],
-      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref UnaryOperator: with no minimal Exif item every iref record keeps its own targets. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref UnaryOperator: with no minimal Exif item every iref record keeps its own targets"
-      }
+      "note": "Deleted by the Plan 67-22 behavior-preserving source edit approved as maintainer decision \"What do you recommend? I approve your recommendations.\" (2026-11-04, option approve): the `keepExifItemId === undefined ? -1 : ...` ternary whose `-1` this UnaryOperator flipped (with no kept item findIndex over a numeric fromItemId is -1 for every reference). node db61b8a (keepExifItemId ternary), dist re-emitted in the same commit. The fresh unfiltered report reports/triage/67-22/post.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential, 67-EVIDENCE.md ## 67-22).",
+      "symbol": "keepExifItemId === undefined"
     },
     {
       "id": "isobmff:src/isobmff/writer.ts:writeAll:ArithmeticOperator",
