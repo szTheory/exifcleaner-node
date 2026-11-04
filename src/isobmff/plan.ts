@@ -629,9 +629,8 @@ export function buildIsobmffOutputPlan(
         model.properties
           .filter(
             (property): boolean =>
-              property.type === "colr" &&
-              (property.colourType === "prof" ||
-                property.colourType === "rICC"),
+              // colourType is set only on colr properties.
+              property.colourType === "prof" || property.colourType === "rICC",
           )
           .map((property) => property.index),
       );
