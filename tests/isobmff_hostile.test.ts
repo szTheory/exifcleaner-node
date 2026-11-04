@@ -25,12 +25,16 @@ import {
 import { COPY_BLOCK_BYTES } from "../src/io/copy-range.js";
 import { sanitizeFile } from "../src/engine.js";
 import { verifyIsobmffOutput } from "../src/isobmff/verify.js";
+import { writeIsobmffOutput } from "../src/isobmff/writer.js";
 import type { Result } from "../src/types.js";
 import {
   buildIsobmffOutputPlan,
   checkIsobmffOutputPlan,
 } from "../src/isobmff/plan.js";
-import { createOrientationExif } from "../src/metadata/exif.js";
+import {
+  createMinimalExif,
+  createOrientationExif,
+} from "../src/metadata/exif.js";
 import {
   registeredHandlersForTests,
   setRegisteredHandlersForTests,
@@ -43,6 +47,7 @@ import {
 import {
   assembleHeif,
   type AssembleHeifSpec,
+  type HostileItemSpec,
   box,
   fullBox,
   HOSTILE_FIXTURES,
@@ -60,6 +65,7 @@ import {
 } from "./isobmff-support/inventory.js";
 import { iccProfileV4 } from "./fixtures.js";
 import {
+  colrNclx,
   colrProf,
   ftypBox,
   grplBox,
@@ -1843,6 +1849,8 @@ function withReadHook(
 interface VerifyPairOptions {
   readonly signal?: AbortSignal;
   readonly preserveColorProfile?: boolean;
+  readonly preserveOrientation?: boolean;
+  readonly expectedOrientation?: number;
   readonly wrapSource?: (handle: FileHandle) => FileHandle;
   readonly wrapDestination?: (handle: FileHandle) => FileHandle;
   /** Hand-assembles the admission after it was read from the source, before it is verified. */
@@ -1869,10 +1877,10 @@ async function verifyPair(
       options.wrapDestination?.(destinationHandle) ?? destinationHandle,
       destinationBytes.length,
       destinationPath,
-      false,
+      options.preserveOrientation ?? false,
       options.preserveColorProfile ?? true,
       false,
-      undefined,
+      options.expectedOrientation,
       options.signal,
     );
   } finally {
@@ -2344,5 +2352,815 @@ describe("verify.ts verifyIsobmffOutput destination header checks (67-22, isobmf
       },
     });
     expect(control.ok).toBe(true);
+  });
+});
+
+// --- verify.ts item set and Exif item checks (67-22, isobmff-9) ---
+//
+// The source admission is hand-patched in exactly one expectation (the way `## 67-21` did for
+// `removedColrPropertyIndices`), or the destination differs from the source in exactly one record,
+// after the unpatched control is shown to verify. `vxFile` is the source/destination assembler:
+// item 1 is the primary `hvc1` payload and item 2 is the Exif item `k` whose payload is `kPayload`.
+
+const VX_PRIMARY = Buffer.from([1, 2, 3, 4]);
+
+function vxMinimalExifPayload(orientation = 1): Buffer {
+  return Buffer.concat([Buffer.alloc(4), createMinimalExif({ orientation })]);
+}
+
+function vxFile(
+  kPayload: Buffer = vxMinimalExifPayload(),
+  over: Partial<AssembleHeifSpec> = {},
+  kOver: Partial<HostileItemSpec> = {},
+): Buffer {
+  return assembleHeif({
+    twoPass: true,
+    items: [
+      {
+        itemId: 1,
+        itemType: "hvc1",
+        extents: [{ relOffset: 0, length: 4 }],
+        propertyIndices: [1, 2],
+      },
+      {
+        itemId: 2,
+        itemType: "Exif",
+        extents: [{ relOffset: 4, length: kPayload.length }],
+        ...kOver,
+      },
+    ],
+    refs: [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }],
+    mdatPayload: Buffer.concat([VX_PRIMARY, kPayload]),
+    ...over,
+  });
+}
+
+const VX_KEEP_K = {
+  preserveOrientation: true,
+  expectedOrientation: 1,
+} as const;
+
+/** Verifies the source against the byte-identical destination with the admission patched, and the
+ * unpatched admission against the same pair as the control. */
+async function expectPatchedAdmissionFails(
+  file: Buffer,
+  patch: (admission: IsobmffAdmission) => void,
+  options: VerifyPairOptions = {},
+): Promise<void> {
+  expect((await verifyPair(file, Buffer.from(file), options)).ok).toBe(true);
+  expectVerificationFailed(
+    await verifyPair(file, Buffer.from(file), {
+      ...options,
+      adjustAdmission: patch,
+    }),
+  );
+}
+
+describe("verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9)", () => {
+  const threeItems = (): Buffer =>
+    vwFile({
+      items: [
+        ...vwDefaultItems(),
+        { id: 3, payload: Buffer.from([10, 11, 12]) },
+      ],
+    });
+
+  it("verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification", async () => {
+    await expectPatchedAdmissionFails(threeItems(), (admission) => {
+      (admission.model.items as IsobmffItem[]).reverse();
+    });
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression: a destination item the plan removes fails verification", async () => {
+    await expectPatchedAdmissionFails(threeItems(), (admission) => {
+      (admission.classification.removableItemIds as number[]).push(3);
+    });
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a mime item that remains in the destination fails verification", async () => {
+    const mimeFile = (itemType: string): Buffer =>
+      assembleHeif({
+        twoPass: true,
+        items: [
+          {
+            itemId: 1,
+            itemType: "hvc1",
+            extents: [{ relOffset: 0, length: 4 }],
+            propertyIndices: [1, 2],
+          },
+          {
+            itemId: 2,
+            itemType,
+            ...(itemType === "mime"
+              ? { contentType: "application/rdf+xml" }
+              : {}),
+            extents: [{ relOffset: 4, length: 5 }],
+          },
+        ],
+        mdatPayload: Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+      });
+    // the plan keeps every item, so only the mime rule can refuse the file
+    const keepAll = (admission: IsobmffAdmission): void => {
+      (admission.classification.removableItemIds as number[]).length = 0;
+    };
+    const control = mimeFile("hvc1");
+    expect(
+      (
+        await verifyPair(control, Buffer.from(control), {
+          adjustAdmission: keepAll,
+        })
+      ).ok,
+    ).toBe(true);
+    const withMime = mimeFile("mime");
+    expectVerificationFailed(
+      await verifyPair(withMime, Buffer.from(withMime), {
+        adjustAdmission: keepAll,
+      }),
+    );
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression: an Exif item that is not the kept item fails verification", async () => {
+    const exifPayload = Buffer.concat([
+      Buffer.alloc(4),
+      createOrientationExif(1),
+    ]);
+    // the plan keeps every item and no minimal Exif item is wanted
+    const keepAll = (admission: IsobmffAdmission): void => {
+      (admission.classification.removableItemIds as number[]).length = 0;
+    };
+    const control = vxFile(exifPayload, { refs: [] }, { itemType: "hvc1" });
+    expect(
+      (
+        await verifyPair(control, Buffer.from(control), {
+          adjustAdmission: keepAll,
+        })
+      ).ok,
+    ).toBe(true);
+    const file = vxFile(exifPayload, { refs: [] });
+    expectVerificationFailed(
+      await verifyPair(file, Buffer.from(file), { adjustAdmission: keepAll }),
+    );
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept item id whose destination item is not an Exif item fails verification", async () => {
+    const source = vxFile(
+      Buffer.concat([Buffer.alloc(4), createOrientationExif(6)]),
+    );
+    const destination = (itemType: string): Buffer =>
+      vxFile(vxMinimalExifPayload(), {}, { itemType });
+    const control = await verifyPair(source, destination("Exif"), VX_KEEP_K);
+    expect(control.ok).toBe(true);
+    expectVerificationFailed(
+      await verifyPair(source, destination("hvc1"), VX_KEEP_K),
+    );
+  });
+});
+
+describe("verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9)", () => {
+  const withThirdItem = (
+    kPayload: Buffer,
+    refs: readonly IrefRef[],
+    kOver: Partial<HostileItemSpec> = {},
+  ): Buffer =>
+    vxFile(
+      kPayload,
+      {
+        refs,
+        items: [
+          {
+            itemId: 1,
+            itemType: "hvc1",
+            extents: [{ relOffset: 0, length: 4 }],
+            propertyIndices: [1, 2],
+          },
+          {
+            itemId: 2,
+            itemType: "Exif",
+            extents: [{ relOffset: 4, length: kPayload.length }],
+            ...kOver,
+          },
+          {
+            itemId: 3,
+            itemType: "hvc1",
+            extents: [{ relOffset: 4 + kPayload.length, length: 2 }],
+            propertyIndices: [1, 2],
+          },
+        ],
+        mdatPayload: Buffer.concat([VX_PRIMARY, kPayload, Buffer.from([7, 8])]),
+      },
+      kOver,
+    );
+
+  const verifyKept = async (file: Buffer): Promise<Result<void>> =>
+    verifyPair(file, Buffer.from(file), VX_KEEP_K);
+
+  it("verifyIsobmffOutput ConditionalExpression and LogicalOperator: only a cdsc record from the kept item that reduces to the primary item counts toward the single qualifying record", async () => {
+    // three decoys that each fail exactly one of the four qualifying conditions: another record
+    // type from k, a cdsc record from another item, and a cdsc record from k with two targets
+    const file = withThirdItem(vxMinimalExifPayload(), [
+      { type: "cdsc", fromItemId: 2, toItemIds: [1] },
+      { type: "auxl", fromItemId: 2, toItemIds: [1] },
+      { type: "cdsc", fromItemId: 3, toItemIds: [1] },
+      { type: "cdsc", fromItemId: 2, toItemIds: [1, 3] },
+    ]);
+    expect((await verifyKept(file)).ok).toBe(true);
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: two cdsc records from the kept item that reduce to the primary item fail verification", async () => {
+    const file = (refs: readonly IrefRef[]): Buffer =>
+      vxFile(vxMinimalExifPayload(), { refs });
+    const one: IrefRef = { type: "cdsc", fromItemId: 2, toItemIds: [1] };
+    expect((await verifyKept(file([one]))).ok).toBe(true);
+    expectVerificationFailed(await verifyKept(file([one, one])));
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item that carries an ipma entry fails verification", async () => {
+    expect((await verifyKept(vxFile())).ok).toBe(true);
+    expectVerificationFailed(
+      await verifyKept(
+        vxFile(vxMinimalExifPayload(), {}, { propertyIndices: [1] }),
+      ),
+    );
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item with a second extent fails verification", async () => {
+    const payload = vxMinimalExifPayload();
+    const file = vxFile(
+      payload,
+      {},
+      {
+        extents: [
+          { relOffset: 4, length: payload.length },
+          { relOffset: 4, length: 0 },
+        ],
+      },
+    );
+    expectVerificationFailed(await verifyKept(file));
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression, LogicalOperator and BlockStatement: a kept Exif payload that differs, or that is read short, fails verification", async () => {
+    const source = vxFile();
+    expect((await verifyPair(source, vxFile(), VX_KEEP_K)).ok).toBe(true);
+
+    // same length, other orientation: only the byte comparison can tell
+    expectVerificationFailed(
+      await verifyPair(source, vxFile(vxMinimalExifPayload(3)), VX_KEEP_K),
+    );
+
+    // right bytes, but the read reports one byte too few
+    const payloadLength = vxMinimalExifPayload().length;
+    expectVerificationFailed(
+      await verifyPair(source, vxFile(), {
+        ...VX_KEEP_K,
+        wrapDestination: (handle) =>
+          withReadHook(handle, (length) => (length === payloadLength ? 1 : 0)),
+      }),
+    );
+  });
+});
+
+describe("verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9)", () => {
+  it("verifyIsobmffOutput ConditionalExpression: a surviving item whose infe type, name, hidden flag, content type or content encoding differs fails verification", async () => {
+    const patches: Record<string, Partial<IsobmffItem>> = {
+      type: { type: "av01" },
+      name: { name: "other" },
+      hidden: { hidden: true },
+      contentType: { contentType: "text/plain" },
+      contentEncoding: { contentEncoding: "gzip" },
+    };
+    for (const patch of Object.values(patches)) {
+      await expectPatchedAdmissionFails(vwFile(), (admission) => {
+        Object.assign(admission.model.itemsById.get(1)!, patch);
+      });
+    }
+  });
+
+  const threeProps = [ispe(32, 32), hvcC(), ispe(16, 16)];
+  const assocFile = (spec: Partial<AssembleHeifSpec>): Buffer =>
+    assembleHeif({
+      twoPass: true,
+      properties: threeProps,
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 4 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "hvc1",
+          extents: [{ relOffset: 4, length: 5 }],
+          propertyIndices: [1, 2],
+        },
+      ],
+      mdatPayload: Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+      ...spec,
+    });
+
+  it("verifyIsobmffOutput ConditionalExpression: an item that gains a property association fails verification", async () => {
+    const source = assocFile({});
+    expect((await verifyPair(source, Buffer.from(source))).ok).toBe(true);
+    const destination = assocFile({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 4 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "hvc1",
+          extents: [{ relOffset: 4, length: 5 }],
+          propertyIndices: [1, 2, 3],
+        },
+      ],
+    });
+    expectVerificationFailed(await verifyPair(source, destination));
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression: an association whose essential bit differs fails verification", async () => {
+    const source = assocFile({});
+    const destination = assocFile({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 4 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "hvc1",
+          extents: [{ relOffset: 4, length: 5 }],
+        },
+      ],
+      extraIpmaEntries: [
+        {
+          itemId: 2,
+          associations: [
+            { propertyIndex: 1, essential: true },
+            { propertyIndex: 2, essential: false },
+          ],
+        },
+      ],
+    });
+    expectVerificationFailed(await verifyPair(source, destination));
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: an item that gains an extent fails verification", async () => {
+    const source = assocFile({});
+    // the second extent is the one byte mdat gains, so the covered length still matches
+    const destination = assocFile({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 4 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "hvc1",
+          extents: [
+            { relOffset: 4, length: 5 },
+            { relOffset: 9, length: 1 },
+          ],
+          propertyIndices: [1, 2],
+        },
+      ],
+      mdatPayload: Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+    });
+    expectVerificationFailed(await verifyPair(source, destination));
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: an item whose extent is longer than the source's fails verification", async () => {
+    const source = assocFile({});
+    // the last item grows by one byte and so does mdat, so the covered length still matches
+    const destination = assocFile({
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 4 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "hvc1",
+          extents: [{ relOffset: 4, length: 6 }],
+          propertyIndices: [1, 2],
+        },
+      ],
+      mdatPayload: Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+    });
+    expectVerificationFailed(await verifyPair(source, destination));
+  });
+});
+
+describe("verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9)", () => {
+  const refFile = (refs: readonly IrefRef[]): Buffer =>
+    assembleHeif({
+      twoPass: true,
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 4 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "hvc1",
+          extents: [{ relOffset: 4, length: 3 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 3,
+          itemType: "hvc1",
+          extents: [{ relOffset: 7, length: 2 }],
+          propertyIndices: [1, 2],
+        },
+      ],
+      refs,
+      mdatPayload: Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+    });
+
+  const base: IrefRef = { type: "auxl", fromItemId: 2, toItemIds: [1] };
+
+  it("verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification", async () => {
+    const withTarget: IrefRef = {
+      type: "auxl",
+      fromItemId: 3,
+      toItemIds: [1, 2],
+    };
+    const source = refFile([base, withTarget]);
+    expect((await verifyPair(source, Buffer.from(source))).ok).toBe(true);
+    const tampered: Record<string, readonly IrefRef[]> = {
+      type: [{ ...base, type: "thmb" }, withTarget],
+      from: [{ ...base, fromItemId: 3 }, withTarget],
+      targetCount: [{ ...base, toItemIds: [1, 3] }, withTarget],
+      targetId: [base, { ...withTarget, toItemIds: [1, 3] }],
+    };
+    for (const refs of Object.values(tampered)) {
+      expectVerificationFailed(await verifyPair(source, refFile(refs)));
+    }
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: an extra trailing iref record fails verification", async () => {
+    const source = refFile([base]);
+    expectVerificationFailed(
+      await verifyPair(
+        source,
+        refFile([base, { type: "thmb", fromItemId: 3, toItemIds: [1] }]),
+      ),
+    );
+  });
+});
+
+// --- verify.ts colour, ipco, mdat coverage and idat checks (67-22, isobmff-9) ---
+
+interface VpSpec {
+  readonly properties?: readonly Buffer[];
+  readonly omitIpco?: boolean;
+  readonly ipmaFirst?: boolean;
+  readonly ipmaFlags?: 0 | 1;
+  readonly propertyIndices?: readonly number[];
+}
+
+/** One `hvc1` item; `iprp` can list `ipma` before `ipco`, use wide association indices, or have no
+ * `ipco` at all. */
+function vpFile(spec: VpSpec = {}): Buffer {
+  const payload = Buffer.from([1, 2, 3, 4]);
+  const indices = spec.propertyIndices ?? [1, 2];
+  const build = (payloadStart: number): Buffer => {
+    const ipco = ipcoBox(spec.properties ?? [ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: spec.ipmaFlags ?? 0,
+      entries:
+        indices.length > 0
+          ? [
+              {
+                itemId: 1,
+                associations: indices.map((propertyIndex) => ({
+                  propertyIndex,
+                  essential: false,
+                })),
+              },
+            ]
+          : [],
+    });
+    const children =
+      spec.omitIpco === true
+        ? [ipma]
+        : spec.ipmaFirst === true
+          ? [ipma, ipco]
+          : [ipco, ipma];
+    const meta = metaBox([
+      hdlrBox("pict"),
+      pitmBox(0, 1),
+      ilocBox({
+        version: 1,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 4,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 1,
+            constructionMethod: 0,
+            dataReferenceIndex: 0,
+            baseOffset: payloadStart,
+            extents: [{ offset: 0, length: payload.length }],
+          },
+        ],
+      }),
+      iinfBox(0, [infeBox({ version: 2, itemId: 1, itemType: "hvc1" })]),
+      box("iprp", Buffer.concat(children)),
+    ]);
+    return Buffer.concat([
+      ftypBox("heic", 0, ["mif1", "heic"]),
+      meta,
+      mdatBox(payload),
+    ]);
+  };
+  return build(build(0).length - payload.length);
+}
+
+/** `iccSourceFile` with a chosen `colr` colour type; the `hdlr` name is filler of the ICC length. */
+function colrTypeFile(colourType: string, icc: Buffer): Buffer {
+  return assembleHeif({
+    twoPass: true,
+    properties: [
+      ispe(32, 32),
+      hvcC(),
+      box("colr", Buffer.concat([Buffer.from(colourType, "ascii"), icc])),
+    ],
+    items: [
+      {
+        itemId: 1,
+        itemType: "hvc1",
+        extents: [{ relOffset: 0, length: 4 }],
+        propertyIndices: [1, 2, 3],
+      },
+    ],
+    omitHdlr: true,
+    extraMetaChildren: [hdlrBox("pict", "x".repeat(icc.length))],
+  });
+}
+
+describe("verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9)", () => {
+  const nclxFile = (): Buffer =>
+    vpFile({ properties: [ispe(32, 32), hvcC(), colrNclx(1, 13, 6, true)] });
+
+  it("verifyIsobmffOutput ConditionalExpression, LogicalOperator, ArrowFunction and BlockStatement: a kept nclx colr property that is missing or changed fails verification", async () => {
+    // the nclx property is an orphan (no item is associated with it), so only the nclx rule sees it
+    await expectPatchedAdmissionFails(nclxFile(), (admission) => {
+      Object.assign(admission.model, {
+        properties: admission.model.properties.filter(
+          (property) => property.colourType !== "nclx",
+        ),
+      });
+    });
+    await expectPatchedAdmissionFails(nclxFile(), (admission) => {
+      const [first, , nclx] = admission.model.properties;
+      Object.assign(nclx!, { start: first!.start, end: first!.end });
+    });
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression: the ipco box is found by type, wherever it sits in iprp", async () => {
+    // ipma comes first in both files, and the two ipma boxes differ in encoding only
+    const source = vpFile({ ipmaFirst: true });
+    const destination = vpFile({ ipmaFirst: true, ipmaFlags: 1 });
+    expect((await verifyPair(source, destination)).ok).toBe(true);
+    expect(
+      (await verifyPair(source, destination, { preserveColorProfile: false }))
+        .ok,
+    ).toBe(true);
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: an ipco box that appears or disappears fails verification", async () => {
+    const withIpco = vpFile({ propertyIndices: [] });
+    const withoutIpco = vpFile({ propertyIndices: [], omitIpco: true });
+    expect((await verifyPair(withIpco, Buffer.from(withIpco))).ok).toBe(true);
+    expectVerificationFailed(await verifyPair(withIpco, withoutIpco));
+    expectVerificationFailed(await verifyPair(withoutIpco, withIpco));
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: ipco bytes that differ in a property no item uses fail verification while the colour profile is preserved", async () => {
+    const source = vpFile({ properties: [ispe(32, 32), hvcC(), ispe(8, 8)] });
+    const destination = vpFile({
+      properties: [ispe(32, 32), hvcC(), ispe(9, 9)],
+    });
+    expect((await verifyPair(source, Buffer.from(source))).ok).toBe(true);
+    expectVerificationFailed(await verifyPair(source, destination));
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a prof or rICC colr property that remains in the destination fails verification", async () => {
+    const icc = iccProfileV4();
+    const options = { preserveColorProfile: false } as const;
+    // the source admission is hand-patched so that it does not know the colr property is an ICC
+    // one; the byte-identical destination then differs from a correct output only in that rule
+    const unaware = (admission: IsobmffAdmission): void => {
+      Object.assign(admission.model.properties[2]!, { colourType: "xxxx" });
+    };
+    const control = colrTypeFile("xxxx", icc);
+    expect(
+      (
+        await verifyPair(control, Buffer.from(control), {
+          ...options,
+          adjustAdmission: unaware,
+        })
+      ).ok,
+    ).toBe(true);
+    for (const colourType of ["prof", "rICC"]) {
+      const file = colrTypeFile(colourType, icc);
+      expectVerificationFailed(
+        await verifyPair(file, Buffer.from(file), {
+          ...options,
+          adjustAdmission: unaware,
+        }),
+      );
+    }
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and StringLiteral: removed rICC payload bytes found anywhere in the destination fail verification", async () => {
+    const icc = iccProfileV4();
+    const source = colrTypeFile("rICC", icc);
+    const destination = await sanitizeBytesThroughWriter(source, false);
+    const options = { preserveColorProfile: false } as const;
+    expect((await verifyPair(source, destination, options)).ok).toBe(true);
+    const leaked = Buffer.from(destination);
+    icc.copy(leaked, destination.indexOf(Buffer.alloc(icc.length, 0x78)));
+    expectVerificationFailed(await verifyPair(source, leaked, options));
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and EqualityOperator: the whole destination is read only when an ICC property was removed, and an empty ICC payload is not searched for", async () => {
+    const options = { preserveColorProfile: false } as const;
+    // nothing was removed: a short read of the whole file must not matter, because it is not read
+    const plain = plainItemFile(smallPayload());
+    expect(
+      (
+        await verifyPair(plain, Buffer.from(plain), {
+          ...options,
+          wrapDestination: (handle) =>
+            withReadHook(handle, (length, position) =>
+              length === plain.length && position === 0 ? 1 : 0,
+            ),
+        })
+      ).ok,
+    ).toBe(true);
+
+    // an ICC property with no payload bytes: an empty buffer is "found" in every file
+    const source = colrTypeFile("prof", Buffer.alloc(0));
+    const destination = await sanitizeBytesThroughWriter(source, false);
+    expect((await verifyPair(source, destination, options)).ok).toBe(true);
+  });
+});
+
+describe("verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9)", () => {
+  it("verifyIsobmffOutput ConditionalExpression, EqualityOperator and MethodExpression: nested and overlapping extents cover the mdat payload exactly once", async () => {
+    // [0,20) contains [2,10); [15,25) overlaps the end of [0,20); the union is the 25 byte payload
+    const file = assembleHeif({
+      twoPass: true,
+      items: [
+        {
+          itemId: 1,
+          itemType: "hvc1",
+          extents: [{ relOffset: 0, length: 20 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 2,
+          itemType: "hvc1",
+          extents: [{ relOffset: 2, length: 8 }],
+          propertyIndices: [1, 2],
+        },
+        {
+          itemId: 3,
+          itemType: "hvc1",
+          extents: [{ relOffset: 15, length: 10 }],
+          propertyIndices: [1, 2],
+        },
+      ],
+      mdatPayload: Buffer.alloc(25, 7),
+    });
+    expect((await verifyPair(file, Buffer.from(file))).ok).toBe(true);
+  });
+
+  const idatFile = (idat?: Buffer): Buffer =>
+    assembleHeif({
+      twoPass: true,
+      ...(idat !== undefined ? { idatPayload: idat } : {}),
+    });
+
+  it("verifyIsobmffOutput ConditionalExpression, BlockStatement and StringLiteral: an idat box that appears, disappears, changes length or changes bytes fails verification", async () => {
+    const source = idatFile(Buffer.from([1, 2, 3, 4]));
+    expect((await verifyPair(source, Buffer.from(source))).ok).toBe(true);
+    expectVerificationFailed(await verifyPair(source, idatFile()));
+    expectVerificationFailed(await verifyPair(idatFile(), source));
+    expectVerificationFailed(
+      await verifyPair(source, idatFile(Buffer.from([1, 2, 3, 4, 5]))),
+    );
+    expectVerificationFailed(
+      await verifyPair(source, idatFile(Buffer.from([1, 2, 3, 5]))),
+    );
+  });
+});
+
+// --- writer.ts writeAll and writeIsobmffOutput (67-22, isobmff-9) ---
+//
+// The destination handle is a recording stand-in whose `write` reports whatever the scenario needs,
+// so the offsets, lengths and positions the writer asks for are asserted directly.
+
+function recordingHandle(progress: (length: number, call: number) => number): {
+  readonly handle: FileHandle;
+  readonly calls: [number, number, number][];
+} {
+  const calls: [number, number, number][] = [];
+  const handle = {
+    write: async (
+      data: Buffer,
+      offset: number,
+      length: number,
+      position: number,
+    ) => {
+      calls.push([offset, length, position]);
+      return { bytesWritten: progress(length, calls.length), buffer: data };
+    },
+  } as unknown as FileHandle;
+  return { handle, calls };
+}
+
+function bytesPlan(...parts: Buffer[]): IsobmffOutputPlan {
+  return {
+    parts: parts.map((data) => ({ kind: "bytes" as const, data })),
+    removedItemIds: [],
+  };
+}
+
+describe("writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9)", () => {
+  const unusedSource = {} as unknown as FileHandle;
+
+  it("writeAll ArithmeticOperator: a write that makes partial progress is continued at the next offset, length and file position", async () => {
+    // two bytes per call: the 5-byte part takes three calls, and the next part starts at 5
+    const { handle, calls } = recordingHandle((length) => Math.min(2, length));
+    await writeIsobmffOutput(
+      unusedSource,
+      handle,
+      bytesPlan(Buffer.from([1, 2, 3, 4, 5]), Buffer.from([6, 7])),
+    );
+    expect(calls).toEqual([
+      [0, 5, 0],
+      [2, 3, 2],
+      [4, 1, 4],
+      [0, 2, 5],
+    ]);
+  });
+
+  it("writeAll ConditionalExpression: a write that makes no progress fails instead of retrying", async () => {
+    // zero progress on the first call, full progress afterwards: only a writer that stops at the
+    // first stalled write rejects
+    const { handle, calls } = recordingHandle((length, call) =>
+      call === 1 ? 0 : length,
+    );
+    await expect(
+      writeIsobmffOutput(
+        unusedSource,
+        handle,
+        bytesPlan(Buffer.from([1, 2, 3])),
+      ),
+    ).rejects.toThrow();
+    expect(calls).toHaveLength(1);
+  });
+
+  it("writeIsobmffOutput ConditionalExpression, LogicalOperator and StringLiteral: an aborted signal stops before the next part is written, with the signal's own reason or an AbortError", async () => {
+    const reason = new Error("stopped by the caller");
+    const controller = new AbortController();
+    controller.abort(reason);
+    const first = recordingHandle((length) => length);
+    await expect(
+      writeIsobmffOutput(
+        unusedSource,
+        first.handle,
+        bytesPlan(Buffer.from([1, 2, 3])),
+        controller.signal,
+      ),
+    ).rejects.toBe(reason);
+    expect(first.calls).toHaveLength(0);
+
+    // a signal object that carries no reason
+    const second = recordingHandle((length) => length);
+    await expect(
+      writeIsobmffOutput(
+        unusedSource,
+        second.handle,
+        bytesPlan(Buffer.from([1, 2, 3])),
+        { aborted: true } as unknown as AbortSignal,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(second.calls).toHaveLength(0);
   });
 });
