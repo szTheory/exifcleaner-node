@@ -108,7 +108,8 @@ function checkIlocRewriteFit(survivingItems, rewrites, baseOffsetSize, offsetSiz
         // check below accepts it without a width guard.
         {
             const max = maxValueForWidth(baseOffsetSize);
-            if (rewrite.newBaseOffset < 0 || rewrite.newBaseOffset > max) {
+            // The base is a payload start plus a rank offset in the merged union, never negative.
+            if (rewrite.newBaseOffset > max) {
                 return (
                 // Stryker disable next-line StringLiteral: unobservable-message — this base_offset overflow label only reaches the decline detail text; the typed unsafe-structure refusal, the empty plan parts and removedItemIds are unchanged.
                 `offset-rewrite-overflow: item ${item.id}'s rewritten base_offset ` +
