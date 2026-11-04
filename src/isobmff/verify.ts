@@ -34,7 +34,12 @@ function verificationError(detail: string, path: string): MetadataError {
 
 function verificationAborted(path: string): MetadataError {
   return executionError(
-    { code: "aborted", detail: "Operation was aborted.", path },
+    {
+      code: "aborted",
+      // Stryker disable next-line StringLiteral: unobservable-message — the aborted result's detail is free-text diagnostic wording; the typed aborted code, the path and the started phase are unchanged.
+      detail: "Operation was aborted.",
+      path,
+    },
     "started",
   );
 }
@@ -80,6 +85,7 @@ async function rangesEqual(
   const destinationBuffer = Buffer.allocUnsafe(bufferSize);
   for (let offset = 0; offset < length;) {
     if (isAborted(signal))
+      // Stryker disable next-line LogicalOperator, StringLiteral: unobservable-message — this thrown value never leaves verifyIsobmffOutput: its catch block returns the typed aborted result whenever the signal is aborted, so neither the reason-or-DOMException choice nor the DOMException name or message reaches a caller.
       throw signal?.reason ?? new DOMException("Aborted", "AbortError");
     const take = Math.min(COPY_BLOCK_BYTES, length - offset);
     const left = await sourceHandle.read(
@@ -167,7 +173,9 @@ function resolvePropertyAssociationBytes(
       );
       if (property === undefined) {
         throw new Error(
+          // Stryker disable next-line StringLiteral: unobservable-message — this undeclared-property label only reaches the verification-failed detail text; the typed verification-failed code is unchanged.
           `resolvePropertyAssociationBytes: item ${item.id} references undeclared property ` +
+            // Stryker disable next-line StringLiteral: unobservable-message — the property index label only reaches the verification-failed detail text; the typed verification-failed code is unchanged.
             `index ${association.index}.`,
         );
       }
