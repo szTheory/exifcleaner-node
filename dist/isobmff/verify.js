@@ -504,9 +504,7 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
             const effectiveStart = previousEnd !== undefined
                 ? Math.max(range.start, previousEnd)
                 : range.start;
-            if (range.end > effectiveStart) {
-                coveredLength += range.end - effectiveStart;
-            }
+            coveredLength += Math.max(0, range.end - effectiveStart);
             previousEnd =
                 previousEnd !== undefined
                     ? Math.max(previousEnd, range.end)
