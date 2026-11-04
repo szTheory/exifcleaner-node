@@ -114,7 +114,8 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
             // free / skip: admitted, structurally inert.
             continue;
         }
-        if (header.type === "uuid" && header.usertype === C2PA_UUID_USERTYPE) {
+        // `usertype` is populated only for `uuid` boxes (boxes.ts), so matching it implies the type.
+        if (header.usertype === C2PA_UUID_USERTYPE) {
             removableTopLevel.push({
                 offset: header.start,
                 length: header.end - header.start,

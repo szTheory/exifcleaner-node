@@ -244,7 +244,8 @@ export async function parseIsobmff(
       continue;
     }
 
-    if (header.type === "uuid" && header.usertype === C2PA_UUID_USERTYPE) {
+    // `usertype` is populated only for `uuid` boxes (boxes.ts), so matching it implies the type.
+    if (header.usertype === C2PA_UUID_USERTYPE) {
       removableTopLevel.push({
         offset: header.start,
         length: header.end - header.start,
