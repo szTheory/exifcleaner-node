@@ -26,11 +26,7 @@ import {
 import { admitIsobmff } from "../src/isobmff/admission.js";
 import type { IsobmffAdmission } from "../src/isobmff/admission.js";
 import type { IsobmffItem } from "../src/isobmff/items.js";
-import {
-  buildIsobmffOutputPlan,
-  checkIsobmffOutputPlan,
-  type IsobmffOutputPlan,
-} from "../src/isobmff/plan.js";
+import type { IsobmffOutputPlan } from "../src/isobmff/plan.js";
 import {
   createIsobmffWriterHandlerForTests,
   createPlanMutantHandler,
@@ -74,10 +70,7 @@ import {
   HOSTILE_FIXTURES,
   type AssembleHeifSpec,
 } from "./isobmff-support/hostile.js";
-import {
-  createMinimalExif,
-  createOrientationExif,
-} from "../src/metadata/exif.js";
+import { createMinimalExif } from "../src/metadata/exif.js";
 import fc from "fast-check";
 import {
   isobmffArmSampleArbitrary,
@@ -2297,11 +2290,48 @@ type PlanLayoutItem = PlanLayout["item"];
 type PlanBoxHeader = PlanLayout["topLevelBoxes"][number];
 type PlanSpan = { readonly abs: number; readonly length: number };
 
-const ISO6_PRIMARY = Buffer.from("primary-bytes", "ascii");
-const ISO6_SECOND = Buffer.from("second", "ascii");
-const ISO6_THIRD = Buffer.from("third", "ascii");
-const ISO6_EXIF = Buffer.concat([Buffer.alloc(4), createOrientationExif(6)]);
+// Payloads are built lazily: a top-level initializer that calls code would join the named-killer
+// closure of the tracer test above (tools/mutation/deletion-proof.mjs, Plan 67-59).
+function iso6Primary(): Buffer {
+  return Buffer.from("primary-bytes", "ascii");
+}
+function iso6Second(): Buffer {
+  return Buffer.from("second", "ascii");
+}
+function iso6Third(): Buffer {
+  return Buffer.from("third", "ascii");
+}
+function iso6Exif(): Buffer {
+  return Buffer.concat([
+    Buffer.alloc(4),
+    createMinimalExif({ orientation: 6 }),
+  ]);
+}
 const UINT32_MAX = 0xffffffff;
+
+// The planner is reached through the writer handler's own buildOutputPlan/checkOutputPlan, the
+// exact functions the engine calls, so this file needs no new runtime import.
+function iso6Handler() {
+  return createIsobmffWriterHandlerForTests("heic");
+}
+function buildIsobmffOutputPlan(
+  admission: IsobmffAdmission,
+  preserveOrientation: boolean,
+  preserveColorProfile: boolean,
+  preserveResolution: boolean,
+  orientation: number | undefined,
+): IsobmffOutputPlan {
+  return iso6Handler().buildOutputPlan(
+    admission,
+    preserveOrientation,
+    preserveColorProfile,
+    preserveResolution,
+    orientation,
+  ) as IsobmffOutputPlan;
+}
+function checkIsobmffOutputPlan(plan: IsobmffOutputPlan): string | undefined {
+  return iso6Handler().checkOutputPlan(plan);
+}
 
 /** Primary 1, surviving 3 (and, unless `includeThird` is false, surviving 4), then Exif item 2
  * (the D-13 source item k, `cdsc` to the primary by default). All extents touch in that order. */
@@ -2314,10 +2344,10 @@ function iso6Fixture(
   } = {},
 ): Buffer {
   const includeThird = options.includeThird !== false;
-  const secondOffset = ISO6_PRIMARY.length;
-  const thirdOffset = secondOffset + ISO6_SECOND.length;
+  const secondOffset = iso6Primary().length;
+  const thirdOffset = secondOffset + iso6Second().length;
   const exifOffset = includeThird
-    ? thirdOffset + ISO6_THIRD.length
+    ? thirdOffset + iso6Third().length
     : thirdOffset;
   return assembleHeif({
     primaryItemId: 1,
@@ -2325,20 +2355,20 @@ function iso6Fixture(
       {
         itemId: 1,
         itemType: "hvc1",
-        extents: [{ relOffset: 0, length: ISO6_PRIMARY.length }],
+        extents: [{ relOffset: 0, length: iso6Primary().length }],
         propertyIndices: [1, 2],
       },
       {
         itemId: 3,
         itemType: "hvc1",
-        extents: [{ relOffset: secondOffset, length: ISO6_SECOND.length }],
+        extents: [{ relOffset: secondOffset, length: iso6Second().length }],
       },
       ...(includeThird
         ? [
             {
               itemId: 4,
               itemType: "hvc1",
-              extents: [{ relOffset: thirdOffset, length: ISO6_THIRD.length }],
+              extents: [{ relOffset: thirdOffset, length: iso6Third().length }],
             },
           ]
         : []),
@@ -2346,16 +2376,16 @@ function iso6Fixture(
         itemId: 2,
         itemType: "Exif",
         hidden: true,
-        extents: [{ relOffset: exifOffset, length: ISO6_EXIF.length }],
+        extents: [{ relOffset: exifOffset, length: iso6Exif().length }],
         ...(options.exifProperties === true ? { propertyIndices: [1] } : {}),
       },
     ],
     refs: options.refs ?? [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }],
     mdatPayload: Buffer.concat([
-      ISO6_PRIMARY,
-      ISO6_SECOND,
-      ...(includeThird ? [ISO6_THIRD] : []),
-      ISO6_EXIF,
+      iso6Primary(),
+      iso6Second(),
+      ...(includeThird ? [iso6Third()] : []),
+      iso6Exif(),
     ]),
     ...(options.widths !== undefined ? { ilocWidths: options.widths } : {}),
     twoPass: true,
@@ -2551,7 +2581,7 @@ describe("buildMergedMdatRanges EqualityOperator cluster (67-19)", () => {
     expect(copies).toHaveLength(2);
     const mdatCopy = copies[1]!;
     expect(mdatCopy.kind === "copy" && mdatCopy.length).toBe(
-      ISO6_PRIMARY.length + ISO6_SECOND.length + ISO6_THIRD.length,
+      iso6Primary().length + iso6Second().length + iso6Third().length,
     );
   });
 });
