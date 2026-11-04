@@ -151,8 +151,8 @@ function removedColrPropertyIndices(
     model.properties
       .filter(
         (property) =>
-          // colourType is set only on colr properties (items.ts parseIpco).
-          property.colourType === "prof" || property.colourType === "rICC",
+          property.type === "colr" &&
+          (property.colourType === "prof" || property.colourType === "rICC"),
       )
       .map((property) => property.index),
   );
