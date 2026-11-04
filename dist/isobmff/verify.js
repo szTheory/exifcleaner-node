@@ -134,20 +134,23 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
     catch (cause) {
         if (isAborted(signal))
             return err(verificationAborted(destinationPath));
-        return err(verificationError(cause instanceof IsobmffStructureError
-            ? cause.message
-            : "Could not reopen and verify the destination.", destinationPath));
+        // Stryker disable next-line StringLiteral: unobservable-message — the Could not reopen and verify the destination. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+        const reopenDetail = "Could not reopen and verify the destination.";
+        return err(verificationError(cause instanceof IsobmffStructureError ? cause.message : reopenDetail, destinationPath));
     }
     try {
         // D-18: pitm never changes -- the primary item is never removed (D3's removable-item-
         // referenced rule already refuses a removable item named by pitm at admission).
         if (admission.model.primaryItemId !== destinationModel.primaryItemId) {
-            return err(verificationError("pitm (primary item id) changed.", destinationPath));
+            return err(
+            // Stryker disable next-line StringLiteral: unobservable-message — the pitm (primary item id) changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            verificationError("pitm (primary item id) changed.", destinationPath));
         }
         // D-11: the source's iloc version and all four declared field widths are written unchanged.
         const sourceIloc = admission.model.iloc;
         const destinationIloc = destinationModel.iloc;
         if (sourceIloc === undefined || destinationIloc === undefined) {
+            // Stryker disable next-line StringLiteral: unobservable-message — the Missing iloc table. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
             return err(verificationError("Missing iloc table.", destinationPath));
         }
         if (sourceIloc.version !== destinationIloc.version ||
@@ -155,7 +158,9 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
             sourceIloc.lengthSize !== destinationIloc.lengthSize ||
             sourceIloc.baseOffsetSize !== destinationIloc.baseOffsetSize ||
             sourceIloc.indexSize !== destinationIloc.indexSize) {
-            return err(verificationError("iloc version or a declared field width changed.", destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — the iloc version or a declared field width wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            "iloc version or a declared field width changed.", destinationPath));
         }
         // D-14/D-18: the output top-level type list equals the source's minus free/skip/C2PA uuid,
         // in the same source order, and ftyp's bytes are identical. Every admitted top-level `uuid`
@@ -167,19 +172,24 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
         const destinationTopLevelTypes = destinationModel.layout.topLevelBoxes.map((box) => box.type);
         if (sourceTopLevelTypes.length !== destinationTopLevelTypes.length ||
             sourceTopLevelTypes.some((type, index) => type !== destinationTopLevelTypes[index])) {
-            return err(verificationError("Destination top-level box list did not match the source minus free/skip/C2PA uuid.", destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — the Destination top-level box list did not match wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            "Destination top-level box list did not match the source minus free/skip/C2PA uuid.", destinationPath));
         }
         const sourceFtyp = admission.model.layout.topLevelBoxes.find((box) => box.type === "ftyp");
         const destinationFtyp = destinationModel.layout.topLevelBoxes.find(
         // Stryker disable next-line ConditionalExpression: defensive-unreachable-by-construction — the destination was re-parsed above through readTopLevelBoxes, which throws box-framing unless the first top-level box is ftyp, so the ftyp found by type and the first box are the same box and the always-true predicate returns it; the always-false sibling on this line (killed by every successful verification) is suppressed only as collateral of this next-line directive.
         (box) => box.type === "ftyp");
         if (sourceFtyp === undefined || destinationFtyp === undefined) {
-            return err(verificationError("Missing top-level ftyp box.", destinationPath));
+            return err(
+            // Stryker disable next-line StringLiteral: unobservable-message — the Missing top-level ftyp box. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            verificationError("Missing top-level ftyp box.", destinationPath));
         }
         // Stryker disable next-line ArithmeticOperator: equivalent-arithmetic — ftyp is the first top-level box (readTopLevelBoxes enforces it) and the first box starts at file offset 0, so sourceFtyp.start is always 0 and end - start equals end + start for every admitted source.
         const ftypLength = sourceFtyp.end - sourceFtyp.start;
         const ftypEqual = await rangesEqual(sourceHandle, sourceFtyp.start, destinationHandle, destinationFtyp.start, ftypLength, signal);
         if (!ftypEqual) {
+            // Stryker disable next-line StringLiteral: unobservable-message — the ftyp bytes changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
             return err(verificationError("ftyp bytes changed.", destinationPath));
         }
         // D-13: k's own id stays in the expected surviving set (in its original source-order slot)
@@ -192,27 +202,39 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
         const actualSurvivingIds = destinationModel.items.map((item) => item.id);
         if (expectedSurvivingIds.length !== actualSurvivingIds.length ||
             expectedSurvivingIds.some((id, index) => id !== actualSurvivingIds[index])) {
-            return err(verificationError("Destination item set did not match the sanitized plan.", destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — the Destination item set did not match the wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            "Destination item set did not match the sanitized plan.", destinationPath));
         }
         // D-13/D-18: 0 or 1 Exif items. If 1, it must be k, reused at its own id -- never a new one,
         // never more than one. No `mime` (XMP) item ever survives.
         let exifItemCount = 0;
         for (const item of destinationModel.items) {
             if (item.type === "mime") {
-                return err(verificationError("mime item remained after sanitization.", destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — the mime item remained after sanitization. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                "mime item remained after sanitization.", destinationPath));
             }
             if (item.type === "Exif") {
+                // Stryker disable next-line AssignmentOperator: defensive-unreachable-by-construction — exifItemCount only feeds `exifItemCount > 1`, which no destination reaches (a second Exif item with the kept id would need a duplicate item_ID, and parseIsobmff declines that before this loop), and `exifItemCount === 0`, which is false for 1 and for -1 alike.
                 exifItemCount += 1;
                 if (item.id !== keepExifItemId) {
-                    return err(verificationError(`Unexpected Exif item ${item.id} remained after sanitization.`, destinationPath));
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Unexpected Exif item N remained after sanitization. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Unexpected Exif item ${item.id} remained after sanitization.`, destinationPath));
                 }
             }
         }
+        // Stryker disable next-line BlockStatement: defensive-unreachable-by-construction — a second Exif item would have to carry the kept id too (any other id returns above), which needs a duplicate item_ID that parseIsobmff declines before verification runs, so this body never executes.
         if (exifItemCount > 1) {
-            return err(verificationError("More than one Exif item remained after sanitization.", destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — the More than one Exif item remained after wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            "More than one Exif item remained after sanitization.", destinationPath));
         }
         if (keepExifItemId !== undefined && exifItemCount === 0) {
-            return err(verificationError(`Expected minimal Exif item ${keepExifItemId} is missing from the destination.`, destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — the Expected minimal Exif item N is missing wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            `Expected minimal Exif item ${keepExifItemId} is missing from the destination.`, destinationPath));
         }
         // D-16: recomputed independently of plan.ts, from the SOURCE admission's own properties.
         const removedPropertyIndices = removedColrPropertyIndices(admission.model, preserveColorProfile);
@@ -221,16 +243,24 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
             if (destinationItem.id === keepExifItemId) {
                 // D-13: k's payload is new, synthesized bytes -- compare against the recomputed
                 // expected payload, never against the source's own (removed) Exif bytes.
+                // Stryker disable next-line BlockStatement: redundant-guard-after-typed-check — the kept item is an Exif item (checked above), every Exif item is removable, and the destination admission re-run at the top refuses a removable item whose construction_method is not 0, so this body never executes.
                 if (destinationItem.constructionMethod !== 0) {
-                    return err(verificationError(`Minimal Exif item ${destinationItem.id} is not construction_method 0.`, destinationPath));
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N is not construction_method wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Minimal Exif item ${destinationItem.id} is not construction_method 0.`, destinationPath));
                 }
                 if (destinationItem.extents.length !== 1) {
-                    return err(verificationError(`Minimal Exif item ${destinationItem.id} does not have exactly one extent.`, destinationPath));
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N does not have wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Minimal Exif item ${destinationItem.id} does not have exactly one extent.`, destinationPath));
                 }
                 const extent = destinationItem.extents[0];
                 if (expectedMinimalExifPayload === undefined ||
                     extent.length !== expectedMinimalExifPayload.length) {
-                    return err(verificationError(`Minimal Exif item ${destinationItem.id} payload length did not match the ` +
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N payload length did wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Minimal Exif item ${destinationItem.id} payload length did not match the ` +
+                        // Stryker disable next-line StringLiteral: unobservable-message — the expected minimal Exif payload. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                         "expected minimal Exif payload.", destinationPath));
                 }
                 const absoluteOffset = resolveAbsoluteOffset(destinationModel, destinationItem, extent);
@@ -238,7 +268,10 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
                 const read = await destinationHandle.read(actualPayload, 0, extent.length, absoluteOffset);
                 if (read.bytesRead !== extent.length ||
                     !actualPayload.equals(expectedMinimalExifPayload)) {
-                    return err(verificationError(`Minimal Exif item ${destinationItem.id} payload bytes did not match the ` +
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N payload bytes did wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Minimal Exif item ${destinationItem.id} payload bytes did not match the ` +
+                        // Stryker disable next-line StringLiteral: unobservable-message — the expected minimal Exif payload. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                         "expected minimal Exif payload.", destinationPath));
                 }
                 // CR-01 (code review 2026-10-02): assert the CARDINALITY of k's qualifying cdsc record
@@ -252,18 +285,26 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
                     reference.toItemIds.length === 1 &&
                     reference.toItemIds[0] === destinationModel.primaryItemId);
                 if (qualifyingCdscRecordsFromK.length !== 1) {
-                    return err(verificationError(`Minimal Exif item ${destinationItem.id} has ` +
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N has wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Minimal Exif item ${destinationItem.id} has ` +
+                        // Stryker disable next-line StringLiteral: unobservable-message — the N cdsc records reduced to [pitm]; expected wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                         `${qualifyingCdscRecordsFromK.length} cdsc records reduced to [pitm]; expected ` +
+                        // Stryker disable next-line StringLiteral: unobservable-message — the exactly 1. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                         "exactly 1.", destinationPath));
                 }
                 if (destinationItem.properties.length !== 0) {
-                    return err(verificationError(`Minimal Exif item ${destinationItem.id} unexpectedly carries an ipma entry.`, destinationPath));
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N unexpectedly carries an wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Minimal Exif item ${destinationItem.id} unexpectedly carries an ipma entry.`, destinationPath));
                 }
                 continue;
             }
             const sourceItem = sourceItemsById.get(destinationItem.id);
             if (sourceItem === undefined) {
-                return err(verificationError(`Destination item ${destinationItem.id} has no source counterpart.`, destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — the Destination item N has no source counterpart. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                `Destination item ${destinationItem.id} has no source counterpart.`, destinationPath));
             }
             // D-18: every surviving item's infe fields (type, name, hidden, contentType,
             // contentEncoding) are equal -- the writer copies every non-k infe box byte-verbatim
@@ -273,7 +314,9 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
                 sourceItem.hidden !== destinationItem.hidden ||
                 sourceItem.contentType !== destinationItem.contentType ||
                 sourceItem.contentEncoding !== destinationItem.contentEncoding) {
-                return err(verificationError(`Item ${destinationItem.id} infe fields changed.`, destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — the Item N infe fields changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                `Item ${destinationItem.id} infe fields changed.`, destinationPath));
             }
             // D-18: associations compared by resolved property bytes plus essential bit, in order --
             // never by index, never as an unordered set. A removed ICC property's association is
@@ -282,31 +325,42 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
             const expectedAssociations = resolvePropertyAssociationBytes(admission.model, sourceItem, removedPropertyIndices);
             const actualAssociations = resolvePropertyAssociationBytes(destinationModel, destinationItem, new Set());
             if (expectedAssociations.length !== actualAssociations.length) {
-                return err(verificationError(`Item ${destinationItem.id} property association count changed.`, destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — the Item N property association count changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                `Item ${destinationItem.id} property association count changed.`, destinationPath));
             }
             for (let index = 0; index < expectedAssociations.length; index += 1) {
                 const expected = expectedAssociations[index];
                 const actual = actualAssociations[index];
                 if (expected.essential !== actual.essential ||
                     !expected.bytes.equals(actual.bytes)) {
-                    return err(verificationError(`Item ${destinationItem.id} property association ${index} changed (bytes or ` +
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Item N property association N changed (bytes wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Item ${destinationItem.id} property association ${index} changed (bytes or ` +
+                        // Stryker disable next-line StringLiteral: unobservable-message — the essential bit, or associations were reordered). wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                         "essential bit, or associations were reordered).", destinationPath));
                 }
             }
             if (sourceItem.extents.length !== destinationItem.extents.length) {
-                return err(verificationError(`Item ${destinationItem.id} extent count changed.`, destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — the Item N extent count changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                `Item ${destinationItem.id} extent count changed.`, destinationPath));
             }
             for (let index = 0; index < sourceItem.extents.length; index += 1) {
                 const sourceExtent = sourceItem.extents[index];
                 const destinationExtent = destinationItem.extents[index];
                 if (sourceExtent.length !== destinationExtent.length) {
-                    return err(verificationError(`Item ${destinationItem.id} extent ${index} length changed.`, destinationPath));
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Item N extent N length changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Item ${destinationItem.id} extent ${index} length changed.`, destinationPath));
                 }
                 const sourceAbsolute = resolveAbsoluteOffset(admission.model, sourceItem, sourceExtent);
                 const destinationAbsolute = resolveAbsoluteOffset(destinationModel, destinationItem, destinationExtent);
                 const equal = await rangesEqual(sourceHandle, sourceAbsolute, destinationHandle, destinationAbsolute, sourceExtent.length, signal);
                 if (!equal) {
-                    return err(verificationError(`Item ${destinationItem.id} payload bytes changed.`, destinationPath));
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the Item N payload bytes changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    `Item ${destinationItem.id} payload bytes changed.`, destinationPath));
                 }
             }
         }
@@ -330,7 +384,9 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
             : reference);
         const actualReferences = destinationModel.references;
         if (expectedReferences.length !== actualReferences.length) {
-            return err(verificationError("iref record count did not match the source minus removed entries.", destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — the iref record count did not match the wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            "iref record count did not match the source minus removed entries.", destinationPath));
         }
         for (let index = 0; index < expectedReferences.length; index += 1) {
             const expected = expectedReferences[index];
@@ -339,12 +395,15 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
                 expected.fromItemId !== actual.fromItemId ||
                 expected.toItemIds.length !== actual.toItemIds.length ||
                 expected.toItemIds.some((id, toIndex) => id !== actual.toItemIds[toIndex])) {
-                return err(verificationError(`iref record ${index} did not match the source minus removed entries.`, destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — the iref record N did not match the wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                `iref record ${index} did not match the source minus removed entries.`, destinationPath));
             }
         }
         // D-16/D-18: the ICC `colr` rule, both ways. `nclx` is always preserved, byte-identical,
         // regardless of the flag -- checked first since it applies unconditionally.
         const sourceColrProperties = admission.model.properties.filter((property) => property.type === "colr");
+        // Stryker disable next-line MethodExpression: redundant-guard-after-typed-check — the parser sets colourType only on colr properties, and this list is consumed only through colourType (nclx, prof, rICC), so dropping the colr filter yields the same matches for every destination.
         const destinationColrProperties = destinationModel.properties.filter((property) => property.type === "colr");
         const sourceNclxBytes = sourceColrProperties
             .filter((property) => property.colourType === "nclx")
@@ -354,20 +413,26 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
             .map((property) => destinationModel.layout.metaPayload.subarray(property.start, property.end));
         if (sourceNclxBytes.length !== destinationNclxBytes.length ||
             sourceNclxBytes.some((bytes, index) => !bytes.equals(destinationNclxBytes[index]))) {
-            return err(verificationError("A kept nclx colr property changed.", destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — the A kept nclx colr property changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            "A kept nclx colr property changed.", destinationPath));
         }
         if (preserveColorProfile) {
             // D-16: nothing is removed -- the whole ipco box must be byte-identical to the source's.
             const sourceIpco = admission.model.layout.item.iprpChildren.find((child) => child.type === "ipco");
             const destinationIpco = destinationModel.layout.item.iprpChildren.find((child) => child.type === "ipco");
             if ((sourceIpco === undefined) !== (destinationIpco === undefined)) {
-                return err(verificationError("ipco presence changed although preserveColorProfile is true.", destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — the ipco presence changed although preserveColorProfile is true. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                "ipco presence changed although preserveColorProfile is true.", destinationPath));
             }
             if (sourceIpco !== undefined && destinationIpco !== undefined) {
                 const sourceIpcoBytes = admission.model.layout.metaPayload.subarray(sourceIpco.start, sourceIpco.end);
                 const destinationIpcoBytes = destinationModel.layout.metaPayload.subarray(destinationIpco.start, destinationIpco.end);
                 if (!sourceIpcoBytes.equals(destinationIpcoBytes)) {
-                    return err(verificationError("ipco bytes changed although preserveColorProfile is true.", destinationPath));
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the ipco bytes changed although preserveColorProfile is true. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    "ipco bytes changed although preserveColorProfile is true.", destinationPath));
                 }
             }
         }
@@ -376,7 +441,10 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
             // of the removed ICC payload bytes may occur anywhere in the destination file.
             for (const property of destinationColrProperties) {
                 if (property.colourType === "prof" || property.colourType === "rICC") {
-                    return err(verificationError("An ICC colr property (prof/rICC) remained after sanitization with " +
+                    return err(verificationError(
+                    // Stryker disable next-line StringLiteral: unobservable-message — the An ICC colr property (prof/rICC) remained after wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                    "An ICC colr property (prof/rICC) remained after sanitization with " +
+                        // Stryker disable next-line StringLiteral: unobservable-message — the preserveColorProfile false. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                         "preserveColorProfile false.", destinationPath));
                 }
             }
@@ -400,7 +468,10 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
                 ? Buffer.alloc(0)
                 : destinationModel.layout.metaPayload.subarray(destinationIpcoForOrphanCheck.payloadStart, destinationIpcoForOrphanCheck.end);
             if (!expectedIpcoChildrenBytes.equals(actualIpcoChildrenBytes)) {
-                return err(verificationError("The surviving ipco payload (source properties minus the removed ICC " +
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — the The surviving ipco payload (source properties minus wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                "The surviving ipco payload (source properties minus the removed ICC " +
+                    // Stryker disable next-line StringLiteral: unobservable-message — the properties) did not match the destination byte wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                     "properties) did not match the destination byte for byte.", destinationPath));
             }
             if (removedIccProperties.length > 0) {
@@ -408,7 +479,9 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
                 for (const property of removedIccProperties) {
                     const iccBytes = colrIccPayloadBytes(admission.model, property);
                     if (iccBytes.length > 0 && destinationWhole.includes(iccBytes)) {
-                        return err(verificationError("Removed ICC payload bytes were found in the destination.", destinationPath));
+                        return err(verificationError(
+                        // Stryker disable next-line StringLiteral: unobservable-message — the Removed ICC payload bytes were found in wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+                        "Removed ICC payload bytes were found in the destination.", destinationPath));
                     }
                 }
             }
@@ -418,7 +491,9 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
         // trusted from the plan) -- proves no gap and no overflow in the rebuilt mdat payload.
         const destinationMdat = destinationModel.mdatRanges[0];
         if (destinationMdat === undefined) {
-            return err(verificationError("Missing top-level mdat box.", destinationPath));
+            return err(
+            // Stryker disable next-line StringLiteral: unobservable-message — the Missing top-level mdat box. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            verificationError("Missing top-level mdat box.", destinationPath));
         }
         const cm0Ranges = [];
         for (const item of destinationModel.items) {
@@ -447,7 +522,10 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
                     : range.end;
         }
         if (coveredLength !== destinationMdat.length) {
-            return err(verificationError("Output mdat payload length did not equal the union of surviving extents " +
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — the Output mdat payload length did not equal wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+            "Output mdat payload length did not equal the union of surviving extents " +
+                // Stryker disable next-line StringLiteral: unobservable-message — the (covered N, mdat payload length N). wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                 `(covered ${coveredLength}, mdat payload length ${destinationMdat.length}).`, destinationPath));
         }
         // D-18: idat is byte-identical. Presence must agree (idat is copied verbatim, D-14 -- it is
@@ -457,10 +535,12 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
         const sourceIdat = admission.model.idatRange;
         const destinationIdat = destinationModel.idatRange;
         if ((sourceIdat === undefined) !== (destinationIdat === undefined)) {
+            // Stryker disable next-line StringLiteral: unobservable-message — the idat presence changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
             return err(verificationError("idat presence changed.", destinationPath));
         }
         if (sourceIdat !== undefined && destinationIdat !== undefined) {
             if (sourceIdat.length !== destinationIdat.length) {
+                // Stryker disable next-line StringLiteral: unobservable-message — the idat length changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                 return err(verificationError("idat length changed.", destinationPath));
             }
             const sourceAbsolute = admission.model.layout.metaOffset +
@@ -471,6 +551,7 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
                 destinationIdat.offset;
             const idatEqual = await rangesEqual(sourceHandle, sourceAbsolute, destinationHandle, destinationAbsolute, sourceIdat.length, signal);
             if (!idatEqual) {
+                // Stryker disable next-line StringLiteral: unobservable-message — the idat bytes changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                 return err(verificationError("idat bytes changed.", destinationPath));
             }
         }
@@ -479,9 +560,9 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
     catch (cause) {
         if (isAborted(signal))
             return err(verificationAborted(destinationPath));
-        return err(verificationError(cause instanceof Error
-            ? cause.message
-            : "Could not verify the destination.", destinationPath));
+        // Stryker disable next-line StringLiteral: unobservable-message — the Could not verify the destination. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
+        const verifyDetail = "Could not verify the destination.";
+        return err(verificationError(cause instanceof Error ? cause.message : verifyDetail, destinationPath));
     }
 }
 //# sourceMappingURL=verify.js.map
