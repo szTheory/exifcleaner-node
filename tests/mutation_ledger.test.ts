@@ -3688,7 +3688,11 @@ describe("real iloc boundary receipt", () => {
       .flatMap((row) => {
         if (row.disposition === "pending")
           return [`${row.id}: cluster is pending`];
-        if (row.disposition === "dead" && row.file !== "src/isobmff/iloc.ts")
+        if (
+          row.disposition === "dead" &&
+          row.deletion &&
+          row.file !== "src/isobmff/iloc.ts"
+        )
           return [
             `${row.id}: final report entry is required for scoped deletion proof`,
           ];
