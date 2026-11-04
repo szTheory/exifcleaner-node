@@ -389,17 +389,9 @@ export async function verifyIsobmffOutput(
     for (const destinationItem of destinationModel.items) {
       if (destinationItem.id === keepExifItemId) {
         // D-13: k's payload is new, synthesized bytes -- compare against the recomputed
-        // expected payload, never against the source's own (removed) Exif bytes.
-        // Stryker disable next-line BlockStatement: redundant-guard-after-typed-check — the kept item is an Exif item (checked above), every Exif item is removable, and the destination admission re-run at the top refuses a removable item whose construction_method is not 0, so this body never executes.
-        if (destinationItem.constructionMethod !== 0) {
-          return err(
-            verificationError(
-              // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N is not construction_method wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
-              `Minimal Exif item ${destinationItem.id} is not construction_method 0.`,
-              destinationPath,
-            ),
-          );
-        }
+        // expected payload, never against the source's own (removed) Exif bytes. The destination
+        // admission above already refuses a removable (Exif) item whose construction_method is not
+        // 0, so the kept item's extent is always a file offset here.
         if (destinationItem.extents.length !== 1) {
           return err(
             verificationError(
