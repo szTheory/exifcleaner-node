@@ -178459,30 +178459,78 @@
       "note": ""
     },
     {
-      "id": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression",
+      "id": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/items.ts",
       "function": "buildItemModel",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 6,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000false\u0000619\u000011\u0000619\u000045",
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000667\u000049\u0000667\u000066",
+        "src/isobmff/items.ts\u0000ConditionalExpression\u0000false\u0000619\u000011\u0000619\u000045"
+      ],
+      "note": "reports/triage/67-18/tracer-green.json (Killed); the exact named test appears in killedBy: buildItemModel BlockStatement and ConditionalExpression clusters > refuses an iref whose from-item is undeclared although every to-item is declared. Red: reports/triage/67-18/red.json (Survived).",
+      "originClusterId": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "buildItemModel BlockStatement and ConditionalExpression clusters > refuses an iref whose from-item is undeclared although every to-item is declared"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/items.ts",
+      "function": "buildItemModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000667\u000049\u0000667\u000066"
+      ],
+      "note": "reports/triage/67-18/tracer-green.json (Killed); the exact named test appears in killedBy: buildItemModel BlockStatement and ConditionalExpression clusters > locates ipco and ipma among iprp children when another box comes first. Red: reports/triage/67-18/red.json (Survived).",
+      "originClusterId": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "buildItemModel BlockStatement and ConditionalExpression clusters > locates ipco and ipma among iprp children when another box comes first"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/items.ts",
+      "function": "buildItemModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
         "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000778\u000011\u0000778\u000042",
         "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000781\u000011\u0000781\u000046",
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000false\u0000784\u000011\u0000784\u000034",
         "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000784\u000011\u0000784\u000034"
       ],
-      "anchors": [
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000false\u0000!itemIds.has(reference.fromItemId)\u00000",
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000c.type === \"ipco\"\u00000",
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000entry.contentType !== undefined\u00000",
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000entry.contentEncoding !== undefined\u00000",
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000false\u0000entry.uri !== undefined\u00000",
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000entry.uri !== undefined\u00000"
+      "note": "reports/triage/67-18/tracer-green.json (Killed); the exact named test appears in killedBy: buildItemModel ConditionalExpression, EqualityOperator, and ObjectLiteral clusters > omits the optional contentType, contentEncoding and uri keys from an item that carries none. Red: reports/triage/67-18/red.json (Survived).",
+      "originClusterId": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "buildItemModel ConditionalExpression, EqualityOperator, and ObjectLiteral clusters > omits the optional contentType, contentEncoding and uri keys from an item that carries none"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/items.ts",
+      "function": "buildItemModel",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/items.ts\u0000ConditionalExpression\u0000false\u0000784\u000011\u0000784\u000034"
       ],
-      "note": ""
+      "note": "reports/triage/67-18/tracer-green.json (Killed); the direct killer is the earlier 67-17 test recorded in killedBy: readCString ConditionalExpression, EqualityOperator, and BlockStatement clusters > reads a terminated URI and declines a missing terminator. Hosted pre-triage status Survived; reports/triage/67-18/red.json (baseline-era tests) Survived; reports/triage/67-18/red.current-tests.json shows it already Killed by that 67-17 test.",
+      "originClusterId": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "readCString ConditionalExpression, EqualityOperator, and BlockStatement clusters > reads a terminated URI and declines a missing terminator"
+      }
     },
     {
       "id": "isobmff:src/isobmff/items.ts:buildItemModel:EqualityOperator",
