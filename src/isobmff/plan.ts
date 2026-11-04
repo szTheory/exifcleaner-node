@@ -140,13 +140,15 @@ function totalMergedLength(merged: readonly MergedMdatRange[]): number {
   return merged.reduce((total, range) => total + (range.end - range.start), 0);
 }
 
-/** Map one absolute source `mdat` offset to its new position in the output payload (D-15). */
+/** Map one absolute source `mdat` offset to its new position in the output payload (D-15). The
+ * merged ranges are ascending and disjoint, and every `abs` is the start of an extent that built a
+ * range, so the first range whose end reaches `abs` is the one that contains it. */
 function mapAbsoluteOffset(
   merged: readonly MergedMdatRange[],
   abs: number,
 ): number {
   for (const range of merged) {
-    if (abs >= range.start && abs <= range.end) {
+    if (abs <= range.end) {
       return range.newStart + (abs - range.start);
     }
   }
