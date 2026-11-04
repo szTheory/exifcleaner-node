@@ -2173,3 +2173,176 @@ describe("verify.ts resolveAbsoluteOffset ArithmeticOperator cluster (67-21, iso
     expectVerificationFailed(await verifyPair(source, idatOffsetFile(0, 3)));
   });
 });
+
+// --- verify.ts and writer.ts clusters (67-22, isobmff-9) ---
+//
+// `vwFile` assembles a small, structurally valid still-image file with the knobs these scenarios
+// vary one at a time (iloc version and field widths, item order, primary item, top-level order,
+// data reference). Every scenario hands `verifyPair` a source file and a destination that differs
+// from it in exactly one dimension, after proving the byte-identical control verifies, so a
+// verification failure is attributable to the one check under test.
+
+type VwWidth = 0 | 4 | 8;
+
+interface VwItem {
+  readonly id: number;
+  readonly payload: Buffer;
+  readonly dataReferenceIndex?: number;
+}
+
+interface VwSpec {
+  readonly primary?: number;
+  readonly ilocVersion?: 0 | 1 | 2;
+  readonly offsetSize?: VwWidth;
+  readonly lengthSize?: VwWidth;
+  readonly baseOffsetSize?: VwWidth;
+  readonly indexSize?: VwWidth;
+  readonly items?: readonly VwItem[];
+  readonly mdatFirst?: boolean;
+}
+
+function vwDefaultItems(): readonly VwItem[] {
+  return [
+    { id: 1, payload: Buffer.from([1, 2, 3, 4]) },
+    { id: 2, payload: Buffer.from([5, 6, 7, 8, 9]) },
+  ];
+}
+
+function vwFile(spec: VwSpec = {}): Buffer {
+  const items = spec.items ?? vwDefaultItems();
+  const baseOffsetSize = spec.baseOffsetSize ?? 4;
+  const payload = Buffer.concat(items.map((item) => item.payload));
+  const build = (payloadStart: number): Buffer => {
+    let relative = 0;
+    const ilocItems = items.map((item) => {
+      const rel = relative;
+      relative += item.payload.length;
+      return {
+        itemId: item.id,
+        constructionMethod: 0,
+        dataReferenceIndex: item.dataReferenceIndex ?? 0,
+        baseOffset: baseOffsetSize === 0 ? 0 : payloadStart,
+        extents: [
+          {
+            offset: baseOffsetSize === 0 ? payloadStart + rel : rel,
+            length: item.payload.length,
+          },
+        ],
+      };
+    });
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const meta = metaBox([
+      hdlrBox("pict"),
+      pitmBox(0, spec.primary ?? items[0]!.id),
+      ilocBox({
+        version: spec.ilocVersion ?? 1,
+        offsetSize: spec.offsetSize ?? 4,
+        lengthSize: spec.lengthSize ?? 4,
+        baseOffsetSize,
+        indexSize: spec.indexSize ?? 0,
+        items: ilocItems,
+      }),
+      iinfBox(
+        0,
+        items.map((item) =>
+          infeBox({ version: 2, itemId: item.id, itemType: "hvc1" }),
+        ),
+      ),
+      iprpBox(
+        ipcoBox([ispe(32, 32), hvcC()]),
+        ipmaBox({
+          version: 0,
+          flags: 0,
+          entries: items.map((item) => ({
+            itemId: item.id,
+            associations: [
+              { propertyIndex: 1, essential: false },
+              { propertyIndex: 2, essential: false },
+            ],
+          })),
+        }),
+      ),
+    ]);
+    const mdat = mdatBox(payload);
+    return spec.mdatFirst === true
+      ? Buffer.concat([ftyp, mdat, meta])
+      : Buffer.concat([ftyp, meta, mdat]);
+  };
+  const probe = build(0);
+  const payloadStart =
+    spec.mdatFirst === true
+      ? ftypBox("heic", 0, ["mif1", "heic"]).length + 8
+      : probe.length - payload.length;
+  return build(payloadStart);
+}
+
+async function expectVwTamperFails(
+  source: VwSpec,
+  destination: VwSpec,
+): Promise<void> {
+  // control: the byte-identical copy of the source is a correct output
+  expect((await verifyPair(vwFile(source), vwFile(source))).ok).toBe(true);
+  expectVerificationFailed(
+    await verifyPair(vwFile(source), vwFile(destination)),
+  );
+}
+
+describe("verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9)", () => {
+  it("verifyIsobmffOutput ConditionalExpression: a signal aborted before the destination is re-parsed is reported with the aborted code", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const file = vwFile();
+    const result = await verifyPair(file, Buffer.from(file), {
+      signal: controller.signal,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("aborted");
+  });
+
+  it("verifyIsobmffOutput CallExpression: a destination the admission rules decline fails verification", async () => {
+    // item 2 names an external data reference in the destination only; nothing else the verifier
+    // compares differs, so only the destination's own admission check can refuse it
+    const declined: VwSpec = {
+      items: [
+        vwDefaultItems()[0]!,
+        { ...vwDefaultItems()[1]!, dataReferenceIndex: 1 },
+      ],
+    };
+    await expectVwTamperFails({}, declined);
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression and BlockStatement: a destination whose primary item id differs fails verification", async () => {
+    await expectVwTamperFails({ primary: 1 }, { primary: 2 });
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression: an iloc version, length size, base offset size or index size that differs from the source's fails verification", async () => {
+    // each field changes alone; the offset size is pinned by an earlier suite
+    await expectVwTamperFails({ ilocVersion: 1 }, { ilocVersion: 0 });
+    await expectVwTamperFails({ lengthSize: 4 }, { lengthSize: 8 });
+    await expectVwTamperFails({ baseOffsetSize: 4 }, { baseOffsetSize: 0 });
+    await expectVwTamperFails({ indexSize: 0 }, { indexSize: 4 });
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression, MethodExpression and ArrowFunction: the same top-level boxes in another order fail verification", async () => {
+    // same box count, same ftyp bytes, same items and bytes: only the order of meta and mdat differs
+    await expectVwTamperFails({}, { mdatFirst: true });
+  });
+
+  it("verifyIsobmffOutput ConditionalExpression: the source's ftyp is the box found by type, not whichever box comes first", async () => {
+    // hand-assembled admission: a synthetic leading `free` header that the type filter drops, so
+    // the type lists still match and only the type lookup separates ftyp from the first box
+    const file = vwFile();
+    const control = await verifyPair(file, Buffer.from(file), {
+      adjustAdmission: (admission) => {
+        const boxes = admission.model.layout.topLevelBoxes as BoxHeader[];
+        boxes.unshift({
+          ...boxes[0]!,
+          type: "free",
+          start: boxes[0]!.start + 4,
+          end: boxes[0]!.end + 4,
+        });
+      },
+    });
+    expect(control.ok).toBe(true);
+  });
+});
