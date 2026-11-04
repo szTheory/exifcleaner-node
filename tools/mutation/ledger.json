@@ -183113,15 +183113,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "colrIccPayloadBytes",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000property.start - 12\u0000133\u000044\u0000133\u000063"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000property.start - 12\u0000property.start + 12\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > colrIccPayloadBytes ArithmeticOperator: removed ICC payload bytes found anywhere in the destination fail verification. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > colrIccPayloadBytes ArithmeticOperator: removed ICC payload bytes found anywhere in the destination fail verification"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:rangesEqual:ArithmeticOperator",
@@ -183129,15 +183130,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "rangesEqual",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000length + offset\u000084\u000045\u000084\u000060"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000length + offset\u0000length - offset\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ArithmeticOperator: an item longer than one copy window and not a multiple of it verifies without reading past its end. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ArithmeticOperator: an item longer than one copy window and not a multiple of it verifies without reading past its end"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:rangesEqual:BlockStatement",
@@ -183145,15 +183147,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "rangesEqual",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u000097\u000062\u0000101\u00006"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new Error(\n        \"Source or output changed or became truncated during verification.\",\n      );\n    }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression and LogicalOperator: a short read on the source side alone, and on the destination side alone, fails verification. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression and LogicalOperator: a short read on the source side alone, and on the destination side alone, fails verification"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:rangesEqual:CallExpression",
@@ -183161,15 +183164,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "rangesEqual",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000CallExpression\u0000;\u000098\u00007\u0000100\u00009"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000CallExpression\u0000;\u0000throw new Error(\n        \"Source or output changed or became truncated during verification.\",\n      );\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression and LogicalOperator: a short read on the source side alone, and on the destination side alone, fails verification. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression and LogicalOperator: a short read on the source side alone, and on the destination side alone, fails verification"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:rangesEqual:ConditionalExpression:gap-01",
@@ -183210,22 +183214,40 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:rangesEqual:LogicalOperator",
+      "id": "isobmff:src/isobmff/verify.ts:rangesEqual:LogicalOperator:equivalent-01",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "rangesEqual",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "equivalent",
+      "count": 1,
       "keys": [
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u000083\u000013\u000083\u000072",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000left.bytesRead !== take && right.bytesRead !== take\u000097\u00009\u000097\u000060"
+        "src/isobmff/verify.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u000083\u000013\u000083\u000072"
       ],
       "anchors": [
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00000",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000left.bytesRead !== take && right.bytesRead !== take\u0000left.bytesRead !== take || right.bytesRead !== take\u00000"
+        "src/isobmff/verify.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00000"
       ],
-      "note": ""
+      "note": "The thrown value of rangesEqual's abort guard (reason, a fresh DOMException, or undefined under the && mutant) is discarded: rangesEqual is module-private, every call site (ftyp, each surviving item extent, idat) sits inside the try block of verifyIsobmffOutput, and its catch block returns err(verificationAborted(path)) whenever isAborted(signal) is true, which it is because AbortSignal.aborted never reverts. No caller can read the thrown value, so the reason-or-DOMException choice is unobservable. One next-line directive (LogicalOperator, StringLiteral) covers the throw line.",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:rangesEqual:LogicalOperator",
+      "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:rangesEqual:LogicalOperator:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "rangesEqual",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000LogicalOperator\u0000left.bytesRead !== take && right.bytesRead !== take\u000097\u00009\u000097\u000060"
+      ],
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression and LogicalOperator: a short read on the source side alone, and on the destination side alone, fails verification. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:rangesEqual:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression and LogicalOperator: a short read on the source side alone, and on the destination side alone, fails verification"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:rangesEqual:MethodExpression",
@@ -183233,15 +183255,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "rangesEqual",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000MethodExpression\u0000Math.max(COPY_BLOCK_BYTES, Math.max(length, 1))\u000078\u000022\u000078\u000069"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000Math.max(COPY_BLOCK_BYTES, Math.max(length, 1))\u0000Math.min(COPY_BLOCK_BYTES, Math.max(length, 1))\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual MethodExpression: comparison windows never exceed the compared range or one copy window. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual MethodExpression: comparison windows never exceed the compared range or one copy window"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:rangesEqual:StringLiteral",
@@ -183249,15 +183272,18 @@
       "file": "src/isobmff/verify.ts",
       "function": "rangesEqual",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u000083\u000059\u000083\u000071"
       ],
       "anchors": [
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"AbortError\"\u00000"
+        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"AbortError\"\u00000",
+        "src/isobmff/verify.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00000",
+        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"Aborted\"\u00000"
       ],
-      "note": ""
+      "note": "The DOMException name \"AbortError\" is part of the value thrown by rangesEqual's abort guard, which verifyIsobmffOutput's catch block discards (it returns err(verificationAborted(path)) whenever isAborted(signal) is true); the name is never read. The same next-line StringLiteral directive also covers the sibling \"Aborted\" message literal on that line, which the error-message ignorer used to ignore; its live anchor is listed as a collateral anchor of this row so no comment suppression is unowned.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:readWholeFile:BlockStatement",
@@ -183265,15 +183291,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "readWholeFile",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000121\u000027\u0000123\u00004"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new Error(\"readWholeFile: short read.\");\n  }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:readWholeFile:CallExpression",
@@ -183281,15 +183308,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "readWholeFile",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000CallExpression\u0000;\u0000122\u00005\u0000122\u000051"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000CallExpression\u0000;\u0000throw new Error(\"readWholeFile: short read.\");\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:readWholeFile:ConditionalExpression",
@@ -183297,15 +183325,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "readWholeFile",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000121\u00007\u0000121\u000025"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000bytesRead !== size\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:removedColrPropertyIndices:ConditionalExpression",
@@ -183313,15 +183342,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "removedColrPropertyIndices",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000148\u000011\u0000148\u000035"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000property.type === \"colr\"\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts removedColrPropertyIndices cluster (67-21, isobmff-8) > removedColrPropertyIndices ConditionalExpression: a property that is not a colr box is never treated as a removed ICC property. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts removedColrPropertyIndices cluster (67-21, isobmff-8) > removedColrPropertyIndices ConditionalExpression: a property that is not a colr box is never treated as a removed ICC property"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:resolveAbsoluteOffset:ArithmeticOperator",
@@ -183329,19 +183359,18 @@
       "file": "src/isobmff/verify.ts",
       "function": "resolveAbsoluteOffset",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 3,
       "keys": [
         "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000model.layout.metaOffset + model.layout.metaHeaderSize + model.idatRange.offset + item.baseOffset - extent.offset\u000060\u00007\u000064\u000020",
         "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000model.layout.metaOffset + model.layout.metaHeaderSize + model.idatRange.offset - item.baseOffset\u000060\u00007\u000063\u000022",
         "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000model.layout.metaOffset - model.layout.metaHeaderSize\u000060\u00007\u000061\u000034"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000model.layout.metaOffset + model.layout.metaHeaderSize + model.idatRange.offset + item.baseOffset - extent.offset\u0000model.layout.metaOffset +\n      model.layout.metaHeaderSize +\n      model.idatRange.offset +\n      item.baseOffset +\n      extent.offset\u00000",
-        "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000model.layout.metaOffset + model.layout.metaHeaderSize + model.idatRange.offset - item.baseOffset\u0000model.layout.metaOffset +\n      model.layout.metaHeaderSize +\n      model.idatRange.offset +\n      item.baseOffset\u00000",
-        "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000model.layout.metaOffset - model.layout.metaHeaderSize\u0000model.layout.metaOffset +\n      model.layout.metaHeaderSize\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-21/b2.json (Killed); the exact named test appears in killedBy: verify.ts resolveAbsoluteOffset ArithmeticOperator cluster (67-21, isobmff-8) > resolveAbsoluteOffset ArithmeticOperator: an idat item is located by idat start plus base_offset plus extent_offset, however the destination splits them. Red: reports/triage/67-21/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts resolveAbsoluteOffset ArithmeticOperator cluster (67-21, isobmff-8) > resolveAbsoluteOffset ArithmeticOperator: an idat item is located by idat start plus base_offset plus extent_offset, however the destination splits them"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:resolvePropertyAssociationBytes:StringLiteral",
@@ -183349,7 +183378,7 @@
       "file": "src/isobmff/verify.ts",
       "function": "resolvePropertyAssociationBytes",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 2,
       "keys": [
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000170\u000011\u0000170\u000093",
@@ -183359,7 +183388,8 @@
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000`resolvePropertyAssociationBytes: item ${item.id} references undeclared property `\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000`index ${association.index}.`\u00000"
       ],
-      "note": ""
+      "note": "The two template literals are the message of a defensive throw for an ipma association naming an undeclared property index (the parser rejects such an index, so the throw is only reachable with a hand-assembled model). It is thrown inside verifyIsobmffOutput's try block and the catch maps it to verificationError(cause.message, path): the typed verification-failed code is unchanged and only the free-text detail differs. One next-line StringLiteral directive per template literal; each target line holds exactly one mutant of that mutator.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verificationAborted:StringLiteral",
@@ -183367,7 +183397,7 @@
       "file": "src/isobmff/verify.ts",
       "function": "verificationAborted",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u000037\u000032\u000037\u000056"
@@ -183375,7 +183405,8 @@
       "anchors": [
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"Operation was aborted.\"\u00000"
       ],
-      "note": ""
+      "note": "verificationAborted(path) is called only from the two catch paths of verifyIsobmffOutput, both guarded by isAborted(signal), and returns err(executionError({ code: \"aborted\", detail, path }, \"started\")). safe-transaction.ts:367-383 stores that error as the failure and stops; consumers branch on the typed code, phase and path, and detail is free-text diagnostic wording. The mutated literal changes only that wording; the aborted code is asserted by the rangesEqual abort test. The object literal is split over lines so the next-line StringLiteral directive covers the detail literal alone (the code literal sits on its own line).",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verificationError:StringLiteral",
