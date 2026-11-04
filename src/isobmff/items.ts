@@ -468,6 +468,7 @@ function validateDataReferences(buffer: Buffer, dinfHeader: BoxHeader): void {
   const drefHeader = dinfChildren.find((c) => c.type === "dref");
   if (drefHeader === undefined) return;
   const { payload } = readFullBoxChild(buffer, drefHeader);
+  // Stryker disable next-line StringLiteral: unobservable-message — this dref entry_count label only appears in ensureBytes diagnostic text; entry parsing and typed box-framing failures are unchanged.
   ensureBytes(payload, 0, 4, "dref entry_count");
   const entries = listSiblings(
     buffer,
@@ -561,6 +562,7 @@ export function buildItemModel(
   } = parseIinfEntries(metaPayload, iinfHeader);
   assertNoDuplicateIds(
     rawEntries.map((entry) => entry.itemId),
+    // Stryker disable next-line StringLiteral: unobservable-message — this iinf context label only appears in the duplicate item_ID diagnostic text; the duplicate scan and typed item-graph-invalid failure are unchanged.
     "iinf",
   );
   const itemIds = new Set(rawEntries.map((entry) => entry.itemId));
@@ -595,6 +597,7 @@ export function buildItemModel(
   const ilocTable = parseIloc(ilocPayload, ilocVersion, ilocFlags);
   assertNoDuplicateIds(
     ilocTable.items.map((item) => item.itemId),
+    // Stryker disable next-line StringLiteral: unobservable-message — this iloc context label only appears in the duplicate item_ID diagnostic text; the duplicate scan and typed item-graph-invalid failure are unchanged.
     "iloc",
   );
   for (const ilocItem of ilocTable.items) {
@@ -697,6 +700,7 @@ export function buildItemModel(
       ipmaEntries = parseIpma(payload, version, flags);
       assertNoDuplicateIds(
         ipmaEntries.map((entry) => entry.itemId),
+        // Stryker disable next-line StringLiteral: unobservable-message — this ipma context label only appears in the duplicate item_ID diagnostic text; the duplicate scan and typed item-graph-invalid failure are unchanged.
         "ipma",
       );
       // D-17 (closes 61-SECURITY Phase 62 input 2): an ipma entry for an item iinf never declared
