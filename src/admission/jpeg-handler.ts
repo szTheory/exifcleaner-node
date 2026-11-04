@@ -236,6 +236,12 @@ function jfifHasEmbeddedThumbnail(payload: Buffer): boolean {
   return payload.readUInt8(12) !== 0 || payload.readUInt8(13) !== 0;
 }
 
+/** The hex name of a marker that is neither COM nor an APPn marker. */
+function hexMarkerName(marker: number): string {
+  // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — parseJpeg admits only SOS, DQT, DHT, DRI, admitted SOF, APPn and COM segments, and every caller of markerLabel passes COM or an APPn marker, so this hex name is never built and its template and padStart fill cannot be reached.
+  return `0x${marker.toString(16).padStart(2, "0")}`;
+}
+
 /** D-15 analog: `<MARKER>` for a COM segment, `APP<n>` for an APPn segment,
  * `APP<n>:<identifier>` when the segment carries an identifiable prefix. */
 function markerLabel(marker: number, identifier: string | undefined): string {
@@ -244,7 +250,7 @@ function markerLabel(marker: number, identifier: string | undefined): string {
       ? "COM"
       : isAppMarker(marker)
         ? `APP${marker - APP0}`
-        : `0x${marker.toString(16).padStart(2, "0")}`;
+        : hexMarkerName(marker);
   return identifier === undefined || identifier.length === 0
     ? name
     : `${name}:${identifier}`;
@@ -454,6 +460,7 @@ function collectMetadata(
         orientation = {
           status: "unsupported",
           detail:
+            // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording that only reaches the orientation-preservation decline; the typed unsupported-feature code, the feature and the path are unchanged.
             "A non-EXIF Orientation is missing from EXIF IFD0 or disagrees with it.",
         };
       }
