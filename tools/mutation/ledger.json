@@ -183414,7 +183414,7 @@
       "file": "src/isobmff/verify.ts",
       "function": "verificationError",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 39,
       "keys": [
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000224\u000013\u0000224\u000059",
@@ -183498,7 +183498,8 @@
         "src/isobmff/verify.ts\u0000StringLiteral\u0000``\u0000`(covered ${coveredLength}, mdat payload length ${destinationMdat.length}).`\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"Could not verify the destination.\"\u00000"
       ],
-      "note": ""
+      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): 39 members, each with its own next-line directive in src/isobmff/verify.ts whose specifics name the literal; the Could not reopen and verify the destination. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArithmeticOperator",
@@ -183536,27 +183537,76 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction:pending-99",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction:gap-02",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "ArrowFunction",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000317\u000033\u0000317\u000080",
-        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000625\u000011\u0000625\u000060",
-        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000664\u00009\u0000664\u000070",
+        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000625\u000011\u0000625\u000060"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ArrowFunction",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000664\u00009\u0000664\u000070"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, ArrowFunction and BlockStatement: a kept nclx colr property that is missing or changed fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, ArrowFunction and BlockStatement: a kept nclx colr property that is missing or changed fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ArrowFunction",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000317\u000033\u0000317\u000080"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction:gap-05",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ArrowFunction",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000725\u00009\u0000726\u000075"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000(id, index) => id !== actualSurvivingIds[index]\u00000",
-        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000(id, toIndex) => id !== actual.toItemIds[toIndex]\u00000",
-        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000(bytes, index) => !bytes.equals(destinationNclxBytes[index]!)\u00000",
-        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000(property) =>\n          property.colourType === \"prof\" || property.colourType === \"rICC\"\u00000"
-      ],
-      "note": "isobmff-9 remainder, closed by a later group of Plan 67-22",
-      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction"
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:AssignmentOperator",
@@ -183564,7 +183614,7 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "AssignmentOperator",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000AssignmentOperator\u0000exifItemCount -= 1\u0000340\u00009\u0000340\u000027"
@@ -183572,7 +183622,8 @@
       "anchors": [
         "src/isobmff/verify.ts\u0000AssignmentOperator\u0000exifItemCount -= 1\u0000exifItemCount += 1\u00000"
       ],
-      "note": ""
+      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): exifItemCount only feeds `exifItemCount > 1`, which no destination reaches (a second Exif item with the kept id would need a duplicate item_ID, and parseIsobmff declines that before this loop), and `exifItemCount === 0`, which is false for 1 and for -1 alike.",
+      "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-01",
@@ -183593,79 +183644,408 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:pending-99",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-02",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 30,
+      "disposition": "gap",
+      "count": 4,
       "keys": [
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000318\u00007\u0000325\u00006",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000331\u000033\u0000338\u00008",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000341\u000041\u0000348\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000351\u000028\u0000358\u00006",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000359\u000062\u0000366\u00006",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000379\u000055\u0000386\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000387\u000051\u0000394\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000423\u000011\u0000431\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000445\u000054\u0000454\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000455\u000054\u0000462\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000508\u000070\u0000515\u00008",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000533\u000073\u0000540\u00008",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000544\u000063\u0000551\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000609\u000064\u0000616\u00006",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000617\u000072\u0000635\u00006",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000627\u00009\u0000634\u00008",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000666\u00007\u0000673\u00006",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000675\u000031\u0000710\u00006",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000683\u000075\u0000690\u00008",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000691\u000070\u0000709\u00008",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000701\u000060\u0000708\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000713\u000057\u0000723\u00008",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000714\u000079\u0000722\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000775\u000044\u0000791\u00008",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000780\u000054\u0000790\u000010",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000782\u000075\u0000789\u000012",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000848\u000073\u0000850\u00006",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000851\u000068\u0000874\u00006",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000852\u000057\u0000854\u00008",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000871\u000023\u0000873\u00008"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(\n        verificationError(\n          \"Destination item set did not match the sanitized plan.\",\n          destinationPath,\n        ),\n      );\n    }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(\n          verificationError(\n            \"mime item remained after sanitization.\",\n            destinationPath,\n          ),\n        );\n      }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              `Unexpected Exif item ${item.id} remained after sanitization.`,\n              destinationPath,\n            ),\n          );\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(\n        verificationError(\n          \"More than one Exif item remained after sanitization.\",\n          destinationPath,\n        ),\n      );\n    }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(\n        verificationError(\n          `Expected minimal Exif item ${keepExifItemId} is missing from the destination.`,\n          destinationPath,\n        ),\n      );\n    }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              `Minimal Exif item ${destinationItem.id} is not construction_method 0.`,\n              destinationPath,\n            ),\n          );\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              `Minimal Exif item ${destinationItem.id} does not have exactly one extent.`,\n              destinationPath,\n            ),\n          );\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              `Minimal Exif item ${destinationItem.id} payload bytes did not match the ` +\n                \"expected minimal Exif payload.\",\n              destinationPath,\n            ),\n          );\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              `Minimal Exif item ${destinationItem.id} has ` +\n                `${qualifyingCdscRecordsFromK.length} cdsc records reduced to [pitm]; expected ` +\n                \"exactly 1.\",\n              destinationPath,\n            ),\n          );\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              `Minimal Exif item ${destinationItem.id} unexpectedly carries an ipma entry.`,\n              destinationPath,\n            ),\n          );\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(\n          verificationError(\n            `Item ${destinationItem.id} property association count changed.`,\n            destinationPath,\n          ),\n        );\n      }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(\n          verificationError(\n            `Item ${destinationItem.id} extent count changed.`,\n            destinationPath,\n          ),\n        );\n      }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              `Item ${destinationItem.id} extent ${index} length changed.`,\n              destinationPath,\n            ),\n          );\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(\n        verificationError(\n          \"iref record count did not match the source minus removed entries.\",\n          destinationPath,\n        ),\n      );\n    }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      const expected = expectedReferences[index]!;\n      const actual = actualReferences[index]!;\n      if (\n        expected.type !== actual.type ||\n        expected.fromItemId !== actual.fromItemId ||\n        expected.toItemIds.length !== actual.toItemIds.length ||\n        expected.toItemIds.some(\n          (id, toIndex) => id !== actual.toItemIds[toIndex],\n        )\n      ) {\n        return err(\n          verificationError(\n            `iref record ${index} did not match the source minus removed entries.`,\n            destinationPath,\n          ),\n        );\n      }\n    }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(\n          verificationError(\n            `iref record ${index} did not match the source minus removed entries.`,\n            destinationPath,\n          ),\n        );\n      }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(\n        verificationError(\n          \"A kept nclx colr property changed.\",\n          destinationPath,\n        ),\n      );\n    }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      // D-16: nothing is removed -- the whole ipco box must be byte-identical to the source's.\n      const sourceIpco = admission.model.layout.item.iprpChildren.find(\n        (child) => child.type === \"ipco\",\n      );\n      const destinationIpco = destinationModel.layout.item.iprpChildren.find(\n        (child) => child.type === \"ipco\",\n      );\n      if ((sourceIpco === undefined) !== (destinationIpco === undefined)) {\n        return err(\n          verificationError(\n            \"ipco presence changed although preserveColorProfile is true.\",\n            destinationPath,\n          ),\n        );\n      }\n      if (sourceIpco !== undefined && destinationIpco !== undefined) {\n        const sourceIpcoBytes = admission.model.layout.metaPayload.subarray(\n          sourceIpco.start,\n          sourceIpco.end,\n        );\n        const destinationIpcoBytes =\n          destinationModel.layout.metaPayload.subarray(\n            destinationIpco.start,\n            destinationIpco.end,\n          );\n        if (!sourceIpcoBytes.equals(destinationIpcoBytes)) {\n          return err(\n            verificationError(\n              \"ipco bytes changed although preserveColorProfile is true.\",\n              destinationPath,\n            ),\n          );\n        }\n      }\n    }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(\n          verificationError(\n            \"ipco presence changed although preserveColorProfile is true.\",\n            destinationPath,\n          ),\n        );\n      }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        const sourceIpcoBytes = admission.model.layout.metaPayload.subarray(\n          sourceIpco.start,\n          sourceIpco.end,\n        );\n        const destinationIpcoBytes =\n          destinationModel.layout.metaPayload.subarray(\n            destinationIpco.start,\n            destinationIpco.end,\n          );\n        if (!sourceIpcoBytes.equals(destinationIpcoBytes)) {\n          return err(\n            verificationError(\n              \"ipco bytes changed although preserveColorProfile is true.\",\n              destinationPath,\n            ),\n          );\n        }\n      }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              \"ipco bytes changed although preserveColorProfile is true.\",\n              destinationPath,\n            ),\n          );\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        if (property.colourType === \"prof\" || property.colourType === \"rICC\") {\n          return err(\n            verificationError(\n              \"An ICC colr property (prof/rICC) remained after sanitization with \" +\n                \"preserveColorProfile false.\",\n              destinationPath,\n            ),\n          );\n        }\n      }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              \"An ICC colr property (prof/rICC) remained after sanitization with \" +\n                \"preserveColorProfile false.\",\n              destinationPath,\n            ),\n          );\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        const destinationWhole = await readWholeFile(\n          destinationHandle,\n          destinationSize,\n        );\n        for (const property of removedIccProperties) {\n          const iccBytes = colrIccPayloadBytes(admission.model, property);\n          if (iccBytes.length > 0 && destinationWhole.includes(iccBytes)) {\n            return err(\n              verificationError(\n                \"Removed ICC payload bytes were found in the destination.\",\n                destinationPath,\n              ),\n            );\n          }\n        }\n      }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          const iccBytes = colrIccPayloadBytes(admission.model, property);\n          if (iccBytes.length > 0 && destinationWhole.includes(iccBytes)) {\n            return err(\n              verificationError(\n                \"Removed ICC payload bytes were found in the destination.\",\n                destinationPath,\n              ),\n            );\n          }\n        }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n            return err(\n              verificationError(\n                \"Removed ICC payload bytes were found in the destination.\",\n                destinationPath,\n              ),\n            );\n          }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(verificationError(\"idat presence changed.\", destinationPath));\n    }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      if (sourceIdat.length !== destinationIdat.length) {\n        return err(verificationError(\"idat length changed.\", destinationPath));\n      }\n      const sourceAbsolute =\n        admission.model.layout.metaOffset +\n        admission.model.layout.metaHeaderSize +\n        sourceIdat.offset;\n      const destinationAbsolute =\n        destinationModel.layout.metaOffset +\n        destinationModel.layout.metaHeaderSize +\n        destinationIdat.offset;\n      const idatEqual = await rangesEqual(\n        sourceHandle,\n        sourceAbsolute,\n        destinationHandle,\n        destinationAbsolute,\n        sourceIdat.length,\n        signal,\n      );\n      if (!idatEqual) {\n        return err(verificationError(\"idat bytes changed.\", destinationPath));\n      }\n    }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(verificationError(\"idat length changed.\", destinationPath));\n      }\u00000",
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(verificationError(\"idat bytes changed.\", destinationPath));\n      }\u00000"
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, BlockStatement and StringLiteral: an idat box that appears, disappears, changes length or changes bytes fails verification. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage, Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, BlockStatement and StringLiteral: an idat box that appears, disappears, changes length or changes bytes fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000617\u000072\u0000635\u00006",
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000627\u00009\u0000634\u00008"
       ],
-      "note": "isobmff-9 remainder, closed by a later group of Plan 67-22",
-      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement"
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived, NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000675\u000031\u0000710\u00006",
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000683\u000075\u0000690\u00008"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an ipco box that appears or disappears fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived, NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an ipco box that appears or disappears fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-05",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000691\u000070\u0000709\u00008",
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000701\u000060\u0000708\u000010"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: ipco bytes that differ in a property no item uses fail verification while the colour profile is preserved. Red: reports/triage/67-22/pre.json (pre-edit status Survived, NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: ipco bytes that differ in a property no item uses fail verification while the colour profile is preserved"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-06",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000713\u000057\u0000723\u00008",
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000714\u000079\u0000722\u000010"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a prof or rICC colr property that remains in the destination fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived, NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a prof or rICC colr property that remains in the destination fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-07",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000780\u000054\u0000790\u000010",
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000782\u000075\u0000789\u000012"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > colrIccPayloadBytes ArithmeticOperator: removed ICC payload bytes found anywhere in the destination fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > colrIccPayloadBytes ArithmeticOperator: removed ICC payload bytes found anywhere in the destination fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-08",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000609\u000064\u0000616\u00006"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an extra trailing iref record fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an extra trailing iref record fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-09",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000455\u000054\u0000462\u000010"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item that carries an ipma entry fails verification. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item that carries an ipma entry fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-10",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000387\u000051\u0000394\u000010"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item with a second extent fails verification. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item with a second extent fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-11",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000445\u000054\u0000454\u000010"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: two cdsc records from the kept item that reduce to the primary item fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: two cdsc records from the kept item that reduce to the primary item fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-12",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000423\u000011\u0000431\u000010"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator and BlockStatement: a kept Exif payload that differs, or that is read short, fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator and BlockStatement: a kept Exif payload that differs, or that is read short, fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-13",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000666\u00007\u0000673\u00006"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, ArrowFunction and BlockStatement: a kept nclx colr property that is missing or changed fails verification. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, ArrowFunction and BlockStatement: a kept nclx colr property that is missing or changed fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-14",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000533\u000073\u0000540\u00008"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an item that gains an extent fails verification. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an item that gains an extent fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-15",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000544\u000063\u0000551\u000010"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an item whose extent is longer than the source's fails verification. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an item whose extent is longer than the source's fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-16",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000508\u000070\u0000515\u00008"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an item that gains a property association fails verification. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an item that gains a property association fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-17",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000359\u000062\u0000366\u00006"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept item id whose destination item is not an Exif item fails verification. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept item id whose destination item is not an Exif item fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-18",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000318\u00007\u0000325\u00006"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-19",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000331\u000033\u0000338\u00008"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a mime item that remains in the destination fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a mime item that remains in the destination fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-20",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000341\u000041\u0000348\u000010"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an Exif item that is not the kept item fails verification. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an Exif item that is not the kept item fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-21",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000775\u000044\u0000791\u00008"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:equivalent-22",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000351\u000028\u0000358\u00006"
+      ],
+      "anchors": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(\n        verificationError(\n          // Stryker disable next-line StringLiteral: unobservable-message — the More than one Exif item remained after wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.\n          \"More than one Exif item remained after sanitization.\",\n          destinationPath,\n        ),\n      );\n    }\u00000"
+      ],
+      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): a second Exif item would have to carry the kept id too (any other id returns above), which needs a duplicate item_ID that parseIsobmff declines before verification runs, so this body never executes.",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "equivalenceClass": "defensive-unreachable-by-construction"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:equivalent-23",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000379\u000055\u0000386\u000010"
+      ],
+      "anchors": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N is not construction_method wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.\n              `Minimal Exif item ${destinationItem.id} is not construction_method 0.`,\n              destinationPath,\n            ),\n          );\n        }\u00000"
+      ],
+      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): the kept item is an Exif item (checked above), every Exif item is removable, and the destination admission re-run at the top refuses a removable item whose construction_method is not 0, so this body never executes.",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "equivalenceClass": "redundant-guard-after-typed-check"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:CallExpression",
@@ -183797,43 +184177,14 @@
       "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:pending-99",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-07",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 64,
+      "disposition": "gap",
+      "count": 8,
       "keys": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000316\u00007\u0000316\u000064",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000316\u00007\u0000317\u000081",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000317\u000048\u0000317\u000080",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000331\u000011\u0000331\u000031",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000341\u000013\u0000341\u000039",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000351\u00009\u0000351\u000026",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000359\u00009\u0000359\u000060",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000379\u000013\u0000379\u000053",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000387\u000013\u0000387\u000049",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000398\u000011\u0000398\u000062",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000421\u000011\u0000421\u000043",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000421\u000011\u0000422\u000060",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000440\u000013\u0000440\u000038",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000441\u000013\u0000441\u000056",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000442\u000013\u0000442\u000045",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000445\u000013\u0000445\u000052",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000455\u000013\u0000455\u000052",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000480\u00009\u0000480\u000049",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000482\u00009\u0000482\u000053",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000483\u00009\u0000483\u000063",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000484\u00009\u0000484\u000071",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000508\u000011\u0000508\u000068",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000520\u000011\u0000520\u000050",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000533\u000011\u0000533\u000071",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000544\u000013\u0000544\u000061",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000588\u00007\u0000588\u000035",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000592\u000015\u0000592\u000054",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000593\u000015\u0000593\u000040",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000609\u00009\u0000609\u000062",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000617\u000025\u0000617\u000058",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000621\u00009\u0000621\u000038",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000621\u00009\u0000622\u000050",
@@ -183841,157 +184192,783 @@
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000621\u00009\u0000626\u000010",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000622\u00009\u0000622\u000050",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000623\u00009\u0000623\u000062",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000625\u000028\u0000625\u000060",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000640\u000021\u0000640\u000045",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000643\u000021\u0000643\u000045",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000662\u00007\u0000662\u000061",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000662\u00007\u0000665\u00008",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000678\u000020\u0000678\u000041",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000681\u000020\u0000681\u000041",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000683\u000011\u0000683\u000073",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000683\u000012\u0000683\u000036",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000683\u000043\u0000683\u000072",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000701\u000013\u0000701\u000058",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000714\u000013\u0000714\u000043",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000714\u000013\u0000714\u000077",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000714\u000047\u0000714\u000077",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000726\u000011\u0000726\u000041",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000726\u000011\u0000726\u000075",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000726\u000045\u0000726\u000075",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000756\u000022\u0000756\u000043",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000775\u000011\u0000775\u000042",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000775\u000011\u0000775\u000042",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000782\u000015\u0000782\u000073",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000782\u000015\u0000782\u000034",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000811\u000013\u0000811\u000032",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000824\u000011\u0000824\u000037",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000625\u000028\u0000625\u000060"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-08",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 4,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000480\u00009\u0000480\u000049",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000482\u00009\u0000482\u000053",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000483\u00009\u0000483\u000063",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000484\u00009\u0000484\u000071"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: a surviving item whose infe type, name, hidden flag, content type or content encoding differs fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: a surviving item whose infe type, name, hidden flag, content type or content encoding differs fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-09",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000440\u000013\u0000440\u000038",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000441\u000013\u0000441\u000056",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000442\u000013\u0000442\u000045"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and LogicalOperator: only a cdsc record from the kept item that reduces to the primary item counts toward the single qualifying record. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and LogicalOperator: only a cdsc record from the kept item that reduces to the primary item counts toward the single qualifying record"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-10",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000848\u00009\u0000848\u000071",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000852\u000011\u0000852\u000055",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000871\u000011\u0000871\u000021",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000871\u000011\u0000871\u000021"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, BlockStatement and StringLiteral: an idat box that appears, disappears, changes length or changes bytes fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, BlockStatement and StringLiteral: an idat box that appears, disappears, changes length or changes bytes fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-11",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000683\u000011\u0000683\u000073",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000683\u000012\u0000683\u000036",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000683\u000043\u0000683\u000072"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an ipco box that appears or disappears fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an ipco box that appears or disappears fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-12",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000714\u000013\u0000714\u000043",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000714\u000013\u0000714\u000077",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000714\u000047\u0000714\u000077"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a prof or rICC colr property that remains in the destination fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a prof or rICC colr property that remains in the destination fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-13",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000678\u000020\u0000678\u000041",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000681\u000020\u0000681\u000041",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000756\u000022\u0000756\u000043"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: the ipco box is found by type, wherever it sits in iprp. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: the ipco box is found by type, wherever it sits in iprp"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-14",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000726\u000011\u0000726\u000041",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000726\u000011\u0000726\u000075",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000775\u000011\u0000775\u000042"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-15",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000421\u000011\u0000421\u000043",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000421\u000011\u0000422\u000060"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator and BlockStatement: a kept Exif payload that differs, or that is read short, fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator and BlockStatement: a kept Exif payload that differs, or that is read short, fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-16",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000775\u000011\u0000775\u000042",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000782\u000015\u0000782\u000034"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and EqualityOperator: the whole destination is read only when an ICC property was removed, and an empty ICC payload is not searched for. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and EqualityOperator: the whole destination is read only when an ICC property was removed, and an empty ICC payload is not searched for"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-17",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000662\u00007\u0000662\u000061",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000662\u00007\u0000665\u00008"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, ArrowFunction and BlockStatement: a kept nclx colr property that is missing or changed fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, ArrowFunction and BlockStatement: a kept nclx colr property that is missing or changed fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-18",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000316\u00007\u0000317\u000081",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000317\u000048\u0000317\u000080"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-19",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000592\u000015\u0000592\u000054",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000593\u000015\u0000593\u000040"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-20",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000609\u00009\u0000609\u000062"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an extra trailing iref record fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an extra trailing iref record fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-21",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000455\u000013\u0000455\u000052"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item that carries an ipma entry fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item that carries an ipma entry fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-22",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000387\u000013\u0000387\u000049"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item with a second extent fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept Exif item with a second extent fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-23",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000445\u000013\u0000445\u000052"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: two cdsc records from the kept item that reduce to the primary item fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: two cdsc records from the kept item that reduce to the primary item fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-24",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000824\u000011\u0000824\u000037"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, EqualityOperator and MethodExpression: nested and overlapping extents cover the mdat payload exactly once. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, EqualityOperator and MethodExpression: nested and overlapping extents cover the mdat payload exactly once"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-25",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000701\u000013\u0000701\u000058"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: ipco bytes that differ in a property no item uses fail verification while the colour profile is preserved. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: ipco bytes that differ in a property no item uses fail verification while the colour profile is preserved"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-26",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000726\u000045\u0000726\u000075"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and StringLiteral: removed rICC payload bytes found anywhere in the destination fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and StringLiteral: removed rICC payload bytes found anywhere in the destination fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-27",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000533\u000011\u0000533\u000071"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an item that gains an extent fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an item that gains an extent fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-28",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000544\u000013\u0000544\u000061"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an item whose extent is longer than the source's fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: an item whose extent is longer than the source's fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-29",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000520\u000011\u0000520\u000050"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an association whose essential bit differs fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an association whose essential bit differs fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-30",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000508\u000011\u0000508\u000068"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an item that gains a property association fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an item that gains a property association fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-31",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000359\u00009\u0000359\u000060"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept item id whose destination item is not an Exif item fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a kept item id whose destination item is not an Exif item fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-32",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000331\u000011\u0000331\u000031"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a mime item that remains in the destination fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a mime item that remains in the destination fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-33",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000316\u00007\u0000316\u000064"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: a destination item the plan removes fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: a destination item the plan removes fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-34",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000341\u000013\u0000341\u000039"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an Exif item that is not the kept item fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an Exif item that is not the kept item fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-35",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000782\u000015\u0000782\u000073"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > colrIccPayloadBytes ArithmeticOperator: removed ICC payload bytes found anywhere in the destination fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > colrIccPayloadBytes ArithmeticOperator: removed ICC payload bytes found anywhere in the destination fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-36",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000878\u00009\u0000878\u000026"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expectedSurvivingIds.length !== actualSurvivingIds.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expectedSurvivingIds.length !== actualSurvivingIds.length ||\n      expectedSurvivingIds.some((id, index) => id !== actualSurvivingIds[index])\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000id !== actualSurvivingIds[index]\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000item.type === \"mime\"\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000item.id !== keepExifItemId\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000exifItemCount > 1\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000keepExifItemId !== undefined && exifItemCount === 0\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000destinationItem.constructionMethod !== 0\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000destinationItem.extents.length !== 1\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000extent.length !== expectedMinimalExifPayload.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000read.bytesRead !== extent.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000read.bytesRead !== extent.length ||\n          !actualPayload.equals(expectedMinimalExifPayload)\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000reference.type === \"cdsc\"\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000reference.fromItemId === destinationItem.id\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000reference.toItemIds.length === 1\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000qualifyingCdscRecordsFromK.length !== 1\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000destinationItem.properties.length !== 0\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceItem.type !== destinationItem.type\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceItem.hidden !== destinationItem.hidden\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceItem.contentType !== destinationItem.contentType\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceItem.contentEncoding !== destinationItem.contentEncoding\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expectedAssociations.length !== actualAssociations.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expected.essential !== actual.essential\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceItem.extents.length !== destinationItem.extents.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceExtent.length !== destinationExtent.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000keepExifItemId === undefined\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000reference.fromItemId === keepExifItemId\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000reference.type === \"cdsc\"\u00001",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expectedReferences.length !== actualReferences.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000index < expectedReferences.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expected.type !== actual.type\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expected.type !== actual.type ||\n        expected.fromItemId !== actual.fromItemId\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expected.type !== actual.type ||\n        expected.fromItemId !== actual.fromItemId ||\n        expected.toItemIds.length !== actual.toItemIds.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expected.type !== actual.type ||\n        expected.fromItemId !== actual.fromItemId ||\n        expected.toItemIds.length !== actual.toItemIds.length ||\n        expected.toItemIds.some(\n          (id, toIndex) => id !== actual.toItemIds[toIndex],\n        )\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expected.fromItemId !== actual.fromItemId\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expected.toItemIds.length !== actual.toItemIds.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000id !== actual.toItemIds[toIndex]\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000property.type === \"colr\"\u00001",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000property.type === \"colr\"\u00002",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceNclxBytes.length !== destinationNclxBytes.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceNclxBytes.length !== destinationNclxBytes.length ||\n      sourceNclxBytes.some(\n        (bytes, index) => !bytes.equals(destinationNclxBytes[index]!),\n      )\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000child.type === \"ipco\"\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000child.type === \"ipco\"\u00001",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000(sourceIpco === undefined) !== (destinationIpco === undefined)\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceIpco === undefined\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000destinationIpco === undefined\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000!sourceIpcoBytes.equals(destinationIpcoBytes)\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000property.colourType === \"prof\"\u00001",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000property.colourType === \"prof\" || property.colourType === \"rICC\"\u00001",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000property.colourType === \"rICC\"\u00001",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000property.colourType === \"prof\"\u00002",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000property.colourType === \"prof\" || property.colourType === \"rICC\"\u00002",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000property.colourType === \"rICC\"\u00002",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000child.type === \"ipco\"\u00002",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000removedIccProperties.length > 0\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000removedIccProperties.length > 0\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000iccBytes.length > 0 && destinationWhole.includes(iccBytes)\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000iccBytes.length > 0\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000extent.length === 0\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000range.end > effectiveStart\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000(sourceIdat === undefined) !== (destinationIdat === undefined)\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceIdat.length !== destinationIdat.length\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000!idatEqual\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00002"
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression: an abort raised while a range is compared stops the next comparison with the aborted code. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8) > rangesEqual ConditionalExpression: an abort raised while a range is compared stops the next comparison with the aborted code"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-37",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000640\u000021\u0000640\u000045"
       ],
-      "note": "isobmff-9 remainder, closed by a later group of Plan 67-22",
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts removedColrPropertyIndices cluster (67-21, isobmff-8) > removedColrPropertyIndices ConditionalExpression: a property that is not a colr box is never treated as a removed ICC property. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts removedColrPropertyIndices cluster (67-21, isobmff-8) > removedColrPropertyIndices ConditionalExpression: a property that is not a colr box is never treated as a removed ICC property"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:pending-99",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "pending",
+      "count": 6,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000351\u00009\u0000351\u000026",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000379\u000013\u0000379\u000053",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000398\u000011\u0000398\u000062",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000588\u00007\u0000588\u000035",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000643\u000021\u0000643\u000045",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000811\u000013\u0000811\u000032"
+      ],
+      "anchors": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000exifItemCount > 1\u00000",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000destinationItem.constructionMethod !== 0\u00000",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000extent.length !== expectedMinimalExifPayload.length\u00000",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000keepExifItemId === undefined\u00000",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000property.type === \"colr\"\u00002",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000extent.length === 0\u00000"
+      ],
+      "note": "isobmff-9 remainder, awaiting a maintainer source decision (see 67-EVIDENCE.md ## 67-22 checkpoint)",
       "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression"
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator:gap-01",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000EqualityOperator\u0000removedIccProperties.length >= 0\u0000775\u000011\u0000775\u000042",
+        "src/isobmff/verify.ts\u0000EqualityOperator\u0000iccBytes.length >= 0\u0000782\u000015\u0000782\u000034"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and EqualityOperator: the whole destination is read only when an ICC property was removed, and an empty ICC payload is not searched for. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and EqualityOperator: the whole destination is read only when an ICC property was removed, and an empty ICC payload is not searched for"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000EqualityOperator\u0000iccBytes.length <= 0\u0000782\u000015\u0000782\u000034"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > colrIccPayloadBytes ArithmeticOperator: removed ICC payload bytes found anywhere in the destination fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > colrIccPayloadBytes ArithmeticOperator: removed ICC payload bytes found anywhere in the destination fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000EqualityOperator\u0000removedIccProperties.length <= 0\u0000775\u000011\u0000775\u000042"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator:pending-99",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 5,
+      "count": 1,
       "keys": [
-        "src/isobmff/verify.ts\u0000EqualityOperator\u0000removedIccProperties.length <= 0\u0000775\u000011\u0000775\u000042",
-        "src/isobmff/verify.ts\u0000EqualityOperator\u0000removedIccProperties.length >= 0\u0000775\u000011\u0000775\u000042",
-        "src/isobmff/verify.ts\u0000EqualityOperator\u0000iccBytes.length <= 0\u0000782\u000015\u0000782\u000034",
-        "src/isobmff/verify.ts\u0000EqualityOperator\u0000iccBytes.length >= 0\u0000782\u000015\u0000782\u000034",
         "src/isobmff/verify.ts\u0000EqualityOperator\u0000range.end >= effectiveStart\u0000824\u000011\u0000824\u000037"
       ],
       "anchors": [
-        "src/isobmff/verify.ts\u0000EqualityOperator\u0000removedIccProperties.length <= 0\u0000removedIccProperties.length > 0\u00000",
-        "src/isobmff/verify.ts\u0000EqualityOperator\u0000removedIccProperties.length >= 0\u0000removedIccProperties.length > 0\u00000",
-        "src/isobmff/verify.ts\u0000EqualityOperator\u0000iccBytes.length <= 0\u0000iccBytes.length > 0\u00000",
-        "src/isobmff/verify.ts\u0000EqualityOperator\u0000iccBytes.length >= 0\u0000iccBytes.length > 0\u00000",
         "src/isobmff/verify.ts\u0000EqualityOperator\u0000range.end >= effectiveStart\u0000range.end > effectiveStart\u00000"
       ],
-      "note": ""
+      "note": "isobmff-9 remainder, awaiting a maintainer source decision (see 67-EVIDENCE.md ## 67-22 checkpoint)",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator"
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 8,
+      "disposition": "gap",
+      "count": 3,
       "keys": [
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000expectedSurvivingIds.length !== actualSurvivingIds.length && expectedSurvivingIds.some((id, index) => id !== actualSurvivingIds[index])\u0000316\u00007\u0000317\u000081",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000read.bytesRead !== extent.length && !actualPayload.equals(expectedMinimalExifPayload)\u0000421\u000011\u0000422\u000060",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000reference.type === \"cdsc\" || reference.fromItemId === destinationItem.id\u0000440\u000013\u0000441\u000056",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000reference.fromItemId === keepExifItemId || reference.type === \"cdsc\"\u0000592\u000015\u0000593\u000040",
         "src/isobmff/verify.ts\u0000LogicalOperator\u0000(expected.type !== actual.type || expected.fromItemId !== actual.fromItemId || expected.toItemIds.length !== actual.toItemIds.length) && expected.toItemIds.some((id, toIndex) => id !== actual.toItemIds[toIndex])\u0000621\u00009\u0000626\u000010",
         "src/isobmff/verify.ts\u0000LogicalOperator\u0000(expected.type !== actual.type || expected.fromItemId !== actual.fromItemId) && expected.toItemIds.length !== actual.toItemIds.length\u0000621\u00009\u0000623\u000062",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000expected.type !== actual.type && expected.fromItemId !== actual.fromItemId\u0000621\u00009\u0000622\u000050",
+        "src/isobmff/verify.ts\u0000LogicalOperator\u0000expected.type !== actual.type && expected.fromItemId !== actual.fromItemId\u0000621\u00009\u0000622\u000050"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000LogicalOperator\u0000reference.type === \"cdsc\" || reference.fromItemId === destinationItem.id\u0000440\u000013\u0000441\u000056"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and LogicalOperator: only a cdsc record from the kept item that reduces to the primary item counts toward the single qualifying record. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and LogicalOperator: only a cdsc record from the kept item that reduces to the primary item counts toward the single qualifying record"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000LogicalOperator\u0000read.bytesRead !== extent.length && !actualPayload.equals(expectedMinimalExifPayload)\u0000421\u000011\u0000422\u000060"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator and BlockStatement: a kept Exif payload that differs, or that is read short, fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput kept Exif item checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator and BlockStatement: a kept Exif payload that differs, or that is read short, fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/verify.ts\u0000LogicalOperator\u0000sourceNclxBytes.length !== destinationNclxBytes.length && sourceNclxBytes.some((bytes, index) => !bytes.equals(destinationNclxBytes[index]!))\u0000662\u00007\u0000665\u00008"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000expectedSurvivingIds.length !== actualSurvivingIds.length && expectedSurvivingIds.some((id, index) => id !== actualSurvivingIds[index])\u0000expectedSurvivingIds.length !== actualSurvivingIds.length ||\n      expectedSurvivingIds.some((id, index) => id !== actualSurvivingIds[index])\u00000",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000read.bytesRead !== extent.length && !actualPayload.equals(expectedMinimalExifPayload)\u0000read.bytesRead !== extent.length ||\n          !actualPayload.equals(expectedMinimalExifPayload)\u00000",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000reference.type === \"cdsc\" || reference.fromItemId === destinationItem.id\u0000reference.type === \"cdsc\" &&\n            reference.fromItemId === destinationItem.id\u00000",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000reference.fromItemId === keepExifItemId || reference.type === \"cdsc\"\u0000reference.fromItemId === keepExifItemId &&\n              reference.type === \"cdsc\"\u00000",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000(expected.type !== actual.type || expected.fromItemId !== actual.fromItemId || expected.toItemIds.length !== actual.toItemIds.length) && expected.toItemIds.some((id, toIndex) => id !== actual.toItemIds[toIndex])\u0000expected.type !== actual.type ||\n        expected.fromItemId !== actual.fromItemId ||\n        expected.toItemIds.length !== actual.toItemIds.length ||\n        expected.toItemIds.some(\n          (id, toIndex) => id !== actual.toItemIds[toIndex],\n        )\u00000",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000(expected.type !== actual.type || expected.fromItemId !== actual.fromItemId) && expected.toItemIds.length !== actual.toItemIds.length\u0000expected.type !== actual.type ||\n        expected.fromItemId !== actual.fromItemId ||\n        expected.toItemIds.length !== actual.toItemIds.length\u00000",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000expected.type !== actual.type && expected.fromItemId !== actual.fromItemId\u0000expected.type !== actual.type ||\n        expected.fromItemId !== actual.fromItemId\u00000",
-        "src/isobmff/verify.ts\u0000LogicalOperator\u0000sourceNclxBytes.length !== destinationNclxBytes.length && sourceNclxBytes.some((bytes, index) => !bytes.equals(destinationNclxBytes[index]!))\u0000sourceNclxBytes.length !== destinationNclxBytes.length ||\n      sourceNclxBytes.some(\n        (bytes, index) => !bytes.equals(destinationNclxBytes[index]!),\n      )\u00000"
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, ArrowFunction and BlockStatement: a kept nclx colr property that is missing or changed fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, ArrowFunction and BlockStatement: a kept nclx colr property that is missing or changed fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator:gap-05",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000LogicalOperator\u0000expectedSurvivingIds.length !== actualSurvivingIds.length && expectedSurvivingIds.some((id, index) => id !== actualSurvivingIds[index])\u0000316\u00007\u0000317\u000081"
       ],
-      "note": ""
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator:gap-06",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000LogicalOperator\u0000reference.fromItemId === keepExifItemId || reference.type === \"cdsc\"\u0000592\u000015\u0000593\u000040"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary"
+      }
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:gap-01",
@@ -184012,48 +184989,181 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:pending-99",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:gap-02",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
-      "count": 5,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000expectedSurvivingIds.every((id, index) => id !== actualSurvivingIds[index])\u0000317\u00007\u0000317\u000081",
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000expected.toItemIds.every((id, toIndex) => id !== actual.toItemIds[toIndex])\u0000624\u00009\u0000626\u000010",
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000admission.model.properties\u0000639\u000034\u0000641\u00006",
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000destinationModel.properties\u0000642\u000039\u0000644\u00006",
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000Math.min(previousEnd, range.end)\u0000829\u000013\u0000829\u000045"
+        "src/isobmff/verify.ts\u0000MethodExpression\u0000expected.toItemIds.every((id, toIndex) => id !== actual.toItemIds[toIndex])\u0000624\u00009\u0000626\u000010"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000expectedSurvivingIds.every((id, index) => id !== actualSurvivingIds[index])\u0000expectedSurvivingIds.some((id, index) => id !== actualSurvivingIds[index])\u00000",
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000expected.toItemIds.every((id, toIndex) => id !== actual.toItemIds[toIndex])\u0000expected.toItemIds.some(\n          (id, toIndex) => id !== actual.toItemIds[toIndex],\n        )\u00000",
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000admission.model.properties\u0000admission.model.properties.filter(\n      (property) => property.type === \"colr\",\n    )\u00000",
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000destinationModel.properties\u0000destinationModel.properties.filter(\n      (property) => property.type === \"colr\",\n    )\u00000",
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000Math.min(previousEnd, range.end)\u0000Math.max(previousEnd, range.end)\u00000"
-      ],
-      "note": "isobmff-9 remainder, closed by a later group of Plan 67-22",
-      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression"
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput iref records (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: an iref record that differs from the source's in one field fails verification"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "MethodExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000MethodExpression\u0000Math.min(previousEnd, range.end)\u0000829\u000013\u0000829\u000045"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, EqualityOperator and MethodExpression: nested and overlapping extents cover the mdat payload exactly once. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput mdat coverage and idat checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, EqualityOperator and MethodExpression: nested and overlapping extents cover the mdat payload exactly once"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "MethodExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000MethodExpression\u0000expectedSurvivingIds.every((id, index) => id !== actualSurvivingIds[index])\u0000317\u00007\u0000317\u000081"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, LogicalOperator, MethodExpression, ArrowFunction and BlockStatement: the surviving item ids in another order fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:gap-05",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "MethodExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000MethodExpression\u0000admission.model.properties\u0000639\u000034\u0000641\u00006"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts removedColrPropertyIndices cluster (67-21, isobmff-8) > removedColrPropertyIndices ConditionalExpression: a property that is not a colr box is never treated as a removed ICC property. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts removedColrPropertyIndices cluster (67-21, isobmff-8) > removedColrPropertyIndices ConditionalExpression: a property that is not a colr box is never treated as a removed ICC property"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:equivalent-06",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "MethodExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000MethodExpression\u0000destinationModel.properties\u0000642\u000039\u0000644\u00006"
+      ],
+      "anchors": [
+        "src/isobmff/verify.ts\u0000MethodExpression\u0000destinationModel.properties\u0000destinationModel.properties.filter(\n      (property) => property.type === \"colr\",\n    )\u00000"
+      ],
+      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): the parser sets colourType only on colr properties, and this list is consumed only through colourType (nclx, prof, rICC), so dropping the colr filter yields the same matches for every destination.",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression",
+      "equivalenceClass": "redundant-guard-after-typed-check"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
-      "count": 13,
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000714\u000037\u0000714\u000043",
+        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000714\u000071\u0000714\u000077"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a prof or rICC colr property that remains in the destination fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a prof or rICC colr property that remains in the destination fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000726\u000069\u0000726\u000075"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and StringLiteral: removed rICC payload bytes found anywhere in the destination fail verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput nclx and ipco checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and StringLiteral: removed rICC payload bytes found anywhere in the destination fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000331\u000025\u0000331\u000031"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a mime item that remains in the destination fails verification. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput surviving item set and Exif item count (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, StringLiteral and BlockStatement: a mime item that remains in the destination fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000726\u000035\u0000726\u000041"
+      ],
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts colr ICC scan clusters (67-21, isobmff-8) > readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral:equivalent-05",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 8,
       "keys": [
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000235\u000027\u0000235\u000060",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000243\u000036\u0000243\u000057",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000292\u000027\u0000292\u000056",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000304\u000036\u0000304\u000057",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000331\u000025\u0000331\u000031",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000714\u000037\u0000714\u000043",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000714\u000071\u0000714\u000077",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000726\u000035\u0000726\u000041",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000726\u000069\u0000726\u000075",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000800\u000027\u0000800\u000056",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000849\u000036\u0000849\u000060",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000853\u000038\u0000853\u000060",
@@ -184064,17 +185174,14 @@
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"Missing iloc table.\"\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"Missing top-level ftyp box.\"\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"ftyp bytes changed.\"\u00000",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"mime\"\u00000",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"prof\"\u00002",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"rICC\"\u00002",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"prof\"\u00003",
-        "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"rICC\"\u00003",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"Missing top-level mdat box.\"\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"idat presence changed.\"\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"idat length changed.\"\u00000",
         "src/isobmff/verify.ts\u0000StringLiteral\u0000\"\"\u0000\"idat bytes changed.\"\u00000"
       ],
-      "note": ""
+      "note": "Traced equivalence (reports/triage/67-22/batch.json, comment-Ignored): 8 members, each with its own next-line directive in src/isobmff/verify.ts whose specifics name the literal; the pitm (primary item id) changed. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:UnaryOperator",
@@ -184082,15 +185189,16 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "UnaryOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000UnaryOperator\u0000+1\u0000589\u000011\u0000589\u000013"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000UnaryOperator\u0000+1\u0000-1\u000028"
-      ],
-      "note": ""
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref UnaryOperator: with no minimal Exif item every iref record keeps its own targets. Red: reports/triage/67-22/pre.json (pre-edit status Killed).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19) > buildIsobmffOutputPlan iref UnaryOperator: with no minimal Exif item every iref record keeps its own targets"
+      }
     },
     {
       "id": "isobmff:src/isobmff/writer.ts:writeAll:ArithmeticOperator",
@@ -184098,17 +185206,17 @@
       "file": "src/isobmff/writer.ts",
       "function": "writeAll",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/isobmff/writer.ts\u0000ArithmeticOperator\u0000data.length + written\u000023\u00007\u000023\u000028",
         "src/isobmff/writer.ts\u0000ArithmeticOperator\u0000position - written\u000024\u00007\u000024\u000025"
       ],
-      "anchors": [
-        "src/isobmff/writer.ts\u0000ArithmeticOperator\u0000data.length + written\u0000data.length - written\u00000",
-        "src/isobmff/writer.ts\u0000ArithmeticOperator\u0000position - written\u0000position + written\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeAll ArithmeticOperator: a write that makes partial progress is continued at the next offset, length and file position. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeAll ArithmeticOperator: a write that makes partial progress is continued at the next offset, length and file position"
+      }
     },
     {
       "id": "isobmff:src/isobmff/writer.ts:writeAll:ConditionalExpression",
@@ -184116,15 +185224,16 @@
       "file": "src/isobmff/writer.ts",
       "function": "writeAll",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/writer.ts\u0000ConditionalExpression\u0000false\u000026\u00009\u000026\u000032"
       ],
-      "anchors": [
-        "src/isobmff/writer.ts\u0000ConditionalExpression\u0000false\u0000next.bytesWritten === 0\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeAll ConditionalExpression: a write that makes no progress fails instead of retrying. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeAll ConditionalExpression: a write that makes no progress fails instead of retrying"
+      }
     },
     {
       "id": "isobmff:src/isobmff/writer.ts:writeIsobmffOutput:ConditionalExpression",
@@ -184132,15 +185241,16 @@
       "file": "src/isobmff/writer.ts",
       "function": "writeIsobmffOutput",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/writer.ts\u0000ConditionalExpression\u0000false\u000041\u00009\u000041\u000026"
       ],
-      "anchors": [
-        "src/isobmff/writer.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeIsobmffOutput ConditionalExpression, LogicalOperator and StringLiteral: an aborted signal stops before the next part is written, with the signal's own reason or an AbortError. Red: reports/triage/67-22/pre.json (pre-edit status Survived).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeIsobmffOutput ConditionalExpression, LogicalOperator and StringLiteral: an aborted signal stops before the next part is written, with the signal's own reason or an AbortError"
+      }
     },
     {
       "id": "isobmff:src/isobmff/writer.ts:writeIsobmffOutput:LogicalOperator",
@@ -184148,15 +185258,16 @@
       "file": "src/isobmff/writer.ts",
       "function": "writeIsobmffOutput",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/writer.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u000042\u000013\u000042\u000072"
       ],
-      "anchors": [
-        "src/isobmff/writer.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeIsobmffOutput ConditionalExpression, LogicalOperator and StringLiteral: an aborted signal stops before the next part is written, with the signal's own reason or an AbortError. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeIsobmffOutput ConditionalExpression, LogicalOperator and StringLiteral: an aborted signal stops before the next part is written, with the signal's own reason or an AbortError"
+      }
     },
     {
       "id": "isobmff:src/isobmff/writer.ts:writeIsobmffOutput:StringLiteral",
@@ -184164,15 +185275,16 @@
       "file": "src/isobmff/writer.ts",
       "function": "writeIsobmffOutput",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/writer.ts\u0000StringLiteral\u0000\"\"\u000042\u000059\u000042\u000071"
       ],
-      "anchors": [
-        "src/isobmff/writer.ts\u0000StringLiteral\u0000\"\"\u0000\"AbortError\"\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-22/batch.json (Killed); the named test appears in killedBy: writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeIsobmffOutput ConditionalExpression, LogicalOperator and StringLiteral: an aborted signal stops before the next part is written, with the signal's own reason or an AbortError. Red: reports/triage/67-22/pre.json (pre-edit status NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "writer.ts writeAll and writeIsobmffOutput clusters (67-22, isobmff-9) > writeIsobmffOutput ConditionalExpression, LogicalOperator and StringLiteral: an aborted signal stops before the next part is written, with the signal's own reason or an AbortError"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:admit:ArithmeticOperator",
