@@ -843,7 +843,6 @@ export async function verifyIsobmffOutput(
     for (const item of destinationModel.items) {
       if (item.constructionMethod !== 0) continue;
       for (const extent of item.extents) {
-        if (extent.length === 0) continue;
         const start = item.baseOffset + extent.offset;
         cm0Ranges.push({ start, end: start + extent.length });
       }
