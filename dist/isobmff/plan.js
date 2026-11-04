@@ -99,8 +99,8 @@ function maxValueForWidth(width) {
  */
 function checkIlocRewriteFit(survivingItems, rewrites, baseOffsetSize, offsetSize) {
     for (const item of survivingItems) {
-        if (item.constructionMethod !== 0)
-            continue;
+        // Only construction_method 0 items carry a rewrite (computeIlocRewrites skips the others and
+        // admission forces the minimal Exif item's source to construction_method 0).
         const rewrite = rewrites.get(item.id);
         if (rewrite === undefined)
             continue;
