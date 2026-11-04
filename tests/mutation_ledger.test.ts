@@ -3516,6 +3516,44 @@ describe("real iloc boundary receipt", () => {
     expect(expectedSurvivors).toHaveLength(7);
     expect(actualSurvivors).toEqual(expectedSurvivors);
 
+    // This complete historical iloc stage also replaces a shared test file.
+    // Its old bytes cannot satisfy the later readCString receipt's named killer.
+    const cstringOwner = candidateOverlay.clusters.find(
+      (row) => row.sourceOperation,
+    )!;
+    const cstringReport = JSON.parse(
+      (cstringOwner.sourceOperation!.reports as Record<string, { raw: string }>)
+        .final!.raw,
+    ) as Report;
+    const sharedTestFile = "tests/isobmff_items.test.ts";
+    const currentKillerSource = cstringReport.testFiles![sharedTestFile]!.source;
+    expect(
+      readFileSync(join(fullFixture.productRoot, sharedTestFile), "utf8"),
+    ).toBe(finalReport.testFiles[sharedTestFile]!.source);
+    expect(finalReport.testFiles[sharedTestFile]!.source).not.toBe(
+      currentKillerSource,
+    );
+    const staleCStringProblem = `${cstringOwner.id}: current loop opposite named killer source is stale`;
+    expect(fullFinalProblems).toContain(staleCStringProblem);
+    const restoredCStringProblems = withCliFileMutation(
+      fullFixture,
+      `exifcleaner-node/${sharedTestFile}`,
+      () => Buffer.from(currentKillerSource),
+      () =>
+        checkLedger({
+          ledger: candidateOverlay,
+          finalReport,
+          root: fullFixture.productRoot,
+          groups: floors.groups,
+          mode: "final",
+        }).filter((problem) => problem.startsWith(`${cstringOwner.id}:`)),
+    );
+    // With the test source restored, only the scoped report's missing cstring
+    // entry remains; the historical named-killer error must be gone.
+    expect(restoredCStringProblems).toEqual([
+      `${cstringOwner.id}: live sourceOperation source/report differs from the exact measured candidate`,
+    ]);
+
     const expectedPreexistingIncomplete = candidateOverlay.clusters
       .flatMap((row) => {
         if (row.disposition === "pending")
@@ -3544,6 +3582,7 @@ describe("real iloc boundary receipt", () => {
         }
         return [];
       })
+      .concat(staleCStringProblem)
       .sort();
     expect(
       fullFinalProblems
@@ -4624,6 +4663,59 @@ describe("real readCString boundary receipt", () => {
     expect(proof).toMatchObject({ mode: "candidate-only", batch: "isobmff-4" });
     expect(proof.proof).toHaveLength(43);
     expect(proof.originalKeys).toHaveLength(43);
+
+    // The same projection is valid before and after the receipt is applied.
+    const owner = bundle.candidateRows.find((row) => row.sourceOperation)!;
+    const beforeReceipt = withCliLedgerMutation(
+      fixture,
+      (ledger) => {
+        const original = ledger.clusters.find((row) => row.id === owner.id)!;
+        delete original.sourceOperation;
+        original.anchors = bundle.selectedMembers
+          .filter((member) => original.keys.includes(member.key))
+          .map((member) => member.anchorKey);
+      },
+      () =>
+        runRealCli(fixture, [
+          "--cstring-candidate",
+          "--report",
+          reportPath,
+          "--packet",
+          packetPath,
+        ]),
+    );
+    expect(beforeReceipt.error?.message).toBeUndefined();
+    expect(
+      beforeReceipt.status,
+      `${beforeReceipt.stdout}\n${beforeReceipt.stderr}`,
+    ).toBe(0);
+    expect(JSON.parse(String(beforeReceipt.stdout)).proof).toHaveLength(43);
+
+    // Receipt normalization must not exempt changes to unrelated owner fields.
+    const changedOwner = withCliFileMutation(
+      fixture,
+      packetPath,
+      (bytes) => {
+        const changed = JSON.parse(
+          gunzipSync(bytes).toString("utf8"),
+        ) as CStringBoundaryBundle;
+        changed.candidateRows.find((row) => row.id === owner.id)!.note +=
+          " unauthorized change";
+        return gzipSync(Buffer.from(JSON.stringify(changed)));
+      },
+      () =>
+        runRealCli(fixture, [
+          "--cstring-candidate",
+          "--report",
+          reportPath,
+          "--packet",
+          packetPath,
+        ]),
+    );
+    expect(changedOwner.status).toBe(1);
+    expect(`${changedOwner.stdout}\n${changedOwner.stderr}`).toMatch(
+      /candidate projection changed fields outside its exact sourceOperation receipt and anchor/,
+    );
     const batchResult = runRealCli(fixture, [
       "--batch",
       "isobmff-4",
