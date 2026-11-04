@@ -178428,7 +178428,7 @@
       "file": "src/isobmff/items.ts",
       "function": "assertNoDuplicateIds",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 3,
       "keys": [
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000546\u00005\u0000546\u000011",
@@ -178440,7 +178440,8 @@
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"iloc\"\u00002",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"ipma\"\u00002"
       ],
-      "note": ""
+      "note": "The iinf, iloc and ipma context labels are passed only as assertNoDuplicateIds's `context` parameter, whose sole use is the `Duplicate item_ID ${id} in ${context}.` diagnostic text; the duplicate scan and the typed item-graph-invalid refusal are unchanged. One next-line StringLiteral directive per call site; each of those lines holds only the label literal.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/items.ts:buildItemModel:BlockStatement",
@@ -178448,15 +178449,16 @@
       "file": "src/isobmff/items.ts",
       "function": "buildItemModel",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/items.ts\u0000BlockStatement\u0000{}\u0000619\u000047\u0000624\u00008"
       ],
-      "anchors": [
-        "src/isobmff/items.ts\u0000BlockStatement\u0000{}\u0000{\n        throw new IsobmffStructureError(\n          \"item-graph-invalid\",\n          `iref \"${reference.type}\" names undeclared from-item ${reference.fromItemId}.`,\n        );\n      }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json NoCoverage); direct killer in killedBy: buildItemModel BlockStatement and ConditionalExpression clusters > refuses an iref whose from-item is undeclared although every to-item is declared.",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "buildItemModel BlockStatement and ConditionalExpression clusters > refuses an iref whose from-item is undeclared although every to-item is declared"
+      }
     },
     {
       "id": "isobmff:src/isobmff/items.ts:buildItemModel:ConditionalExpression:gap-01",
@@ -178538,15 +178540,16 @@
       "file": "src/isobmff/items.ts",
       "function": "buildItemModel",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/items.ts\u0000EqualityOperator\u0000entry.uri === undefined\u0000784\u000011\u0000784\u000034"
       ],
-      "anchors": [
-        "src/isobmff/items.ts\u0000EqualityOperator\u0000entry.uri === undefined\u0000entry.uri !== undefined\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed). Already Killed before this plan's tests (batch.before.json) by the Plan 67-17 test recorded in killedBy; the hosted pre-triage status is Survived: readCString ConditionalExpression, EqualityOperator, and BlockStatement clusters > reads a terminated URI and declines a missing terminator.",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "readCString ConditionalExpression, EqualityOperator, and BlockStatement clusters > reads a terminated URI and declines a missing terminator"
+      }
     },
     {
       "id": "isobmff:src/isobmff/items.ts:buildItemModel:ObjectLiteral",
@@ -178554,15 +178557,16 @@
       "file": "src/isobmff/items.ts",
       "function": "buildItemModel",
       "mutatorName": "ObjectLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/items.ts\u0000ObjectLiteral\u0000{}\u0000784\u000037\u0000784\u000055"
       ],
-      "anchors": [
-        "src/isobmff/items.ts\u0000ObjectLiteral\u0000{}\u0000{ uri: entry.uri }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed). Already Killed before this plan's tests (batch.before.json) by the Plan 67-17 test recorded in killedBy; the hosted pre-triage status is Survived: readCString ConditionalExpression, EqualityOperator, and BlockStatement clusters > reads a terminated URI and declines a missing terminator.",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "readCString ConditionalExpression, EqualityOperator, and BlockStatement clusters > reads a terminated URI and declines a missing terminator"
+      }
     },
     {
       "id": "isobmff:src/isobmff/items.ts:ensureBytes:ArithmeticOperator",
@@ -181672,33 +181676,52 @@
       "file": "src/isobmff/items.ts",
       "function": "validateDataReferences",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/items.ts\u0000BlockStatement\u0000{}\u0000460\u000032\u0000465\u00006"
       ],
-      "anchors": [
-        "src/isobmff/items.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new IsobmffStructureError(\n        \"item-graph-invalid\",\n        `dref entry \"${entry.type}\" is not a self-contained \"url \" entry.`,\n      );\n    }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json Survived); direct killer in killedBy: validateDataReferences ConditionalExpression and BlockStatement clusters > refuses a urn entry that is flagged self-contained and carries no payload.",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "validateDataReferences ConditionalExpression and BlockStatement clusters > refuses a urn entry that is flagged self-contained and carries no payload"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/items.ts:validateDataReferences:ConditionalExpression",
+      "id": "isobmff:src/isobmff/items.ts:validateDataReferences:ConditionalExpression:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/items.ts",
       "function": "validateDataReferences",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000450\u000047\u0000450\u000064",
+        "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000450\u000047\u0000450\u000064"
+      ],
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json Survived); direct killer in killedBy: validateDataReferences ConditionalExpression and BlockStatement clusters > finds the dref behind a non-dref dinf sibling and refuses its non-self-contained url entry.",
+      "originClusterId": "isobmff:src/isobmff/items.ts:validateDataReferences:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "validateDataReferences ConditionalExpression and BlockStatement clusters > finds the dref behind a non-dref dinf sibling and refuses its non-self-contained url entry"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/items.ts:validateDataReferences:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/items.ts",
+      "function": "validateDataReferences",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/items.ts\u0000ConditionalExpression\u0000false\u0000460\u00009\u0000460\u000030"
       ],
-      "anchors": [
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000true\u0000c.type === \"dref\"\u00000",
-        "src/isobmff/items.ts\u0000ConditionalExpression\u0000false\u0000entry.type !== \"url \"\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json Survived); direct killer in killedBy: validateDataReferences ConditionalExpression and BlockStatement clusters > refuses a urn entry that is flagged self-contained and carries no payload.",
+      "originClusterId": "isobmff:src/isobmff/items.ts:validateDataReferences:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "validateDataReferences ConditionalExpression and BlockStatement clusters > refuses a urn entry that is flagged self-contained and carries no payload"
+      }
     },
     {
       "id": "isobmff:src/isobmff/items.ts:validateDataReferences:StringLiteral",
@@ -181706,7 +181729,7 @@
       "file": "src/isobmff/items.ts",
       "function": "validateDataReferences",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000453\u000030\u0000453\u000048"
@@ -181714,7 +181737,8 @@
       "anchors": [
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"dref entry_count\"\u00000"
       ],
-      "note": ""
+      "note": "The dref entry_count label flows only into the ensureBytes diagnostic text (items.ts ensureBytes: `${what} at offset ... runs past the end of its payload.`); the byte check, the typed box-framing kind and every parsed entry are independent of it. Next-line StringLiteral directive; the line holds no other string literal.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "isobmff:src/isobmff/parse.ts:parseFtyp:BlockStatement",
@@ -181722,15 +181746,16 @@
       "file": "src/isobmff/parse.ts",
       "function": "parseFtyp",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/parse.ts\u0000BlockStatement\u0000{}\u0000112\u000027\u0000117\u00004"
       ],
-      "anchors": [
-        "src/isobmff/parse.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new IsobmffStructureError(\n      \"box-framing\",\n      \"ftyp payload is shorter than its required major_brand/minor_version fields.\",\n    );\n  }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json NoCoverage); direct killer in killedBy: parseFtyp BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines an ftyp payload shorter than major_brand plus minor_version as box-framing.",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseFtyp BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines an ftyp payload shorter than major_brand plus minor_version as box-framing"
+      }
     },
     {
       "id": "isobmff:src/isobmff/parse.ts:parseFtyp:ConditionalExpression",
@@ -181738,15 +181763,16 @@
       "file": "src/isobmff/parse.ts",
       "function": "parseFtyp",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/parse.ts\u0000ConditionalExpression\u0000false\u0000112\u00007\u0000112\u000025"
       ],
-      "anchors": [
-        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000false\u0000payload.length < 8\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json Survived); direct killer in killedBy: parseFtyp BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines an ftyp payload shorter than major_brand plus minor_version as box-framing.",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseFtyp BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines an ftyp payload shorter than major_brand plus minor_version as box-framing"
+      }
     },
     {
       "id": "isobmff:src/isobmff/parse.ts:parseFtyp:EqualityOperator",
@@ -181754,15 +181780,16 @@
       "file": "src/isobmff/parse.ts",
       "function": "parseFtyp",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/parse.ts\u0000EqualityOperator\u0000payload.length <= 8\u0000112\u00007\u0000112\u000025"
       ],
-      "anchors": [
-        "src/isobmff/parse.ts\u0000EqualityOperator\u0000payload.length <= 8\u0000payload.length < 8\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json Survived); direct killer in killedBy: parseFtyp BlockStatement, ConditionalExpression, and EqualityOperator clusters > admits an ftyp payload of exactly eight bytes with no compatible brands. The boundary row is in the evidence matrix.",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseFtyp BlockStatement, ConditionalExpression, and EqualityOperator clusters > admits an ftyp payload of exactly eight bytes with no compatible brands"
+      }
     },
     {
       "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:ArrayDeclaration",
@@ -181770,7 +181797,7 @@
       "file": "src/isobmff/parse.ts",
       "function": "parseIsobmff",
       "mutatorName": "ArrayDeclaration",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/isobmff/parse.ts\u0000ArrayDeclaration\u0000[\"Stryker was here\"]\u0000138\u000045\u0000138\u000047"
@@ -181778,25 +181805,44 @@
       "anchors": [
         "src/isobmff/parse.ts\u0000ArrayDeclaration\u0000[\"Stryker was here\"]\u0000[]\u000017"
       ],
-      "note": ""
+      "note": "compatibleBrands's initial empty list is overwritten together with majorBrand in the only ftyp branch (parse.ts, parseFtyp result assignment) and the function throws box-framing before it can return while majorBrand is still undefined, so the initial value is never read on any path that returns. Next-line ArrayDeclaration directive on the declaration, which holds no other array literal.",
+      "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
-      "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:BlockStatement",
+      "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:BlockStatement:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/parse.ts",
       "function": "parseIsobmff",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/parse.ts\u0000BlockStatement\u0000{}\u0000154\u000028\u0000156\u00006",
+        "src/isobmff/parse.ts\u0000BlockStatement\u0000{}\u0000154\u000028\u0000156\u00006"
+      ],
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json NoCoverage); direct killer in killedBy: parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines with box-framing when the signal is already aborted and parses when it is not.",
+      "originClusterId": "isobmff:src/isobmff/parse.ts:parseIsobmff:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines with box-framing when the signal is already aborted and parses when it is not"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:BlockStatement:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/parse.ts",
+      "function": "parseIsobmff",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/isobmff/parse.ts\u0000BlockStatement\u0000{}\u0000194\u000031\u0000199\u00008"
       ],
-      "anchors": [
-        "src/isobmff/parse.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new IsobmffStructureError(\"box-framing\", \"Parsing aborted.\");\n    }\u00000",
-        "src/isobmff/parse.ts\u0000BlockStatement\u0000{}\u0000{\n        throw new IsobmffStructureError(\n          \"meta-not-fullbox\",\n          \"meta payload is too short to carry a FullBox version/flags field.\",\n        );\n      }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json NoCoverage); direct killer in killedBy: parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines a meta shorter than its FullBox version and flags as meta-not-fullbox.",
+      "originClusterId": "isobmff:src/isobmff/parse.ts:parseIsobmff:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines a meta shorter than its FullBox version and flags as meta-not-fullbox"
+      }
     },
     {
       "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression",
@@ -181828,15 +181874,16 @@
       "file": "src/isobmff/parse.ts",
       "function": "parseIsobmff",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/parse.ts\u0000EqualityOperator\u0000payload.length <= 4\u0000194\u000011\u0000194\u000029"
       ],
-      "anchors": [
-        "src/isobmff/parse.ts\u0000EqualityOperator\u0000payload.length <= 4\u0000payload.length < 4\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.after1.json (Killed; before: batch.before.json Survived); direct killer in killedBy: parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > treats a meta that is exactly a FullBox header as a well-formed container missing its hdlr. The boundary row is in the evidence matrix.",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > treats a meta that is exactly a FullBox header as a well-formed container missing its hdlr"
+      }
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ArithmeticOperator",
