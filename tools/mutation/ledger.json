@@ -181845,28 +181845,74 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression",
+      "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression:gap-01",
       "group": "isobmff",
       "file": "src/isobmff/parse.ts",
       "function": "parseIsobmff",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 5,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000false\u0000154\u00009\u0000154\u000026",
-        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000false\u0000194\u000011\u0000194\u000029",
-        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000true\u0000246\u00009\u0000246\u000031",
+        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000false\u0000154\u00009\u0000154\u000026"
+      ],
+      "note": "reports/triage/67-18/batch.json (Killed); direct killer in killedBy: parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines with box-framing when the signal is already aborted and parses when it is not.",
+      "originClusterId": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines with box-framing when the signal is already aborted and parses when it is not"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/parse.ts",
+      "function": "parseIsobmff",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000false\u0000194\u000011\u0000194\u000029"
+      ],
+      "note": "reports/triage/67-18/batch.json (Killed); direct killer in killedBy: parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines a meta shorter than its FullBox version and flags as meta-not-fullbox.",
+      "originClusterId": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > declines a meta shorter than its FullBox version and flags as meta-not-fullbox"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression:dead-01",
+      "group": "isobmff",
+      "file": "src/isobmff/parse.ts",
+      "function": "parseIsobmff",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000true\u0000246\u00009\u0000246\u000031"
+      ],
+      "note": "Maintainer decision A (2026-11-04): the left operand of the C2PA top-level test was redundant, because usertype is assigned only inside the type === \"uuid\" branch of both header producers (src/isobmff/boxes.ts parseBoxHeader and readBoxHeader) and parse.ts is its only src reader. Removed in node commit c9ae0ea with dist in e289d87; the operand-true mutant no longer exists and no mutant is regenerated at the old anchor. Symbol-only row: no scoped deletion receipt (see 67-EVIDENCE.md ## 67-18).",
+      "originClusterId": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression",
+      "symbol": "header.type === \"uuid\""
+    },
+    {
+      "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/parse.ts",
+      "function": "parseIsobmff",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/isobmff/parse.ts\u0000ConditionalExpression\u0000true\u0000302\u00009\u0000302\u000042",
         "src/isobmff/parse.ts\u0000ConditionalExpression\u0000true\u0000306\u00009\u0000306\u000045"
       ],
-      "anchors": [
-        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00000",
-        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000false\u0000payload.length < 4\u00000",
-        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000true\u0000header.type === \"uuid\"\u00000",
-        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000true\u0000itemModel.idatRange !== undefined\u00000",
-        "src/isobmff/parse.ts\u0000ConditionalExpression\u0000true\u0000itemModel.colorProfile !== undefined\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-18/batch.json (both Killed); direct killer in killedBy for each member: parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > leaves idatRange and colorProfile off the model when the file has neither.",
+      "originClusterId": "isobmff:src/isobmff/parse.ts:parseIsobmff:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_items.test.ts",
+        "name": "parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters > leaves idatRange and colorProfile off the model when the file has neither"
+      }
     },
     {
       "id": "isobmff:src/isobmff/parse.ts:parseIsobmff:EqualityOperator",
