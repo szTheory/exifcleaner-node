@@ -8509,10 +8509,9 @@ describe("named-killer receipt fixtures", () => {
   it("keeps phase evaluate's fresh-report check strict: appended live test bytes are rejected on both evaluate routes", () => {
     const { bundle, finalReport } = loadFinal();
     const fixture = createRealAdmissionCliFixture({ independentHistory: true });
-    writeCandidateItemsSource(fixture, finalReport);
-    for (const file of Object.keys(finalReport.testFiles))
-      if (!existsSync(fixtureFile(fixture, file)))
-        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
+    // Embedded sources, never live bytes: the live items test may already carry a legitimate
+    // later-plan edit (the halted Plan 18 patch), which must not change this control.
+    useEmbeddedReceiptSources(fixture, finalReport);
     const itemsTest = "tests/isobmff_items.test.ts";
     expect(readFileSync(fixtureFile(fixture, itemsTest), "utf8")).toBe(
       finalReport.testFiles[itemsTest]!.source,
