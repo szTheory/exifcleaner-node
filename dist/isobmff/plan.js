@@ -118,8 +118,7 @@ function checkIlocRewriteFit(survivingItems, rewrites, baseOffsetSize, offsetSiz
             }
         }
         const max = maxValueForWidth(offsetSize);
-        for (let index = 0; index < rewrite.extentOffsets.length; index += 1) {
-            const offset = rewrite.extentOffsets[index];
+        for (const [index, offset] of rewrite.extentOffsets.entries()) {
             if (offset < 0) {
                 return (`offset-rewrite-overflow: item ${item.id}'s rewritten extent ${index} offset ` +
                     // Stryker disable next-line StringLiteral: unobservable-message — the negative extent offset label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
