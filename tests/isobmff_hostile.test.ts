@@ -13,8 +13,14 @@ import {
   type IsobmffAdmission,
 } from "../src/isobmff/admission.js";
 import { classifyIsobmffBrand } from "../src/isobmff/brand.js";
+import type { BoxHeader } from "../src/isobmff/boxes.js";
 import type { IsobmffItem } from "../src/isobmff/items.js";
 import type { IsobmffOutputPlan } from "../src/isobmff/plan.js";
+import {
+  rebuildIinf,
+  rebuildIloc,
+  rebuildIref,
+} from "../src/isobmff/rebuild.js";
 import { sanitizeFile } from "../src/engine.js";
 import {
   buildIsobmffOutputPlan,
@@ -1659,5 +1665,135 @@ describe("mapAbsoluteOffset EqualityOperator cluster (67-19)", () => {
       item3: [{ abs: 200, length: 6 }],
     });
     iso6ExpectPlanned(iso6PlanDrop(placed));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plan 67-20 (isobmff-7): the byte encoders in `src/isobmff/rebuild.ts`. `rebuildIloc`,
+// `rebuildIinf` and `rebuildIref` are exported pure transforms, so each case calls one directly
+// with plain data and compares the exact encoded bytes against a hand-written hex layout (the
+// ISO/IEC 14496-12 field order, one space per field), never against another call of the same
+// function. Widths and versions the product fixtures never produce (an `iinf` version 1, an
+// `iref` version 0, a version 0 `iloc` with a non-zero reserved index nibble) are the cases that
+// separate the mutants.
+// ---------------------------------------------------------------------------
+
+function rebuildItem(patch: Partial<IsobmffItem> = {}): IsobmffItem {
+  return {
+    id: 1,
+    type: "hvc1",
+    name: "",
+    hidden: false,
+    constructionMethod: 0,
+    dataReferenceIndex: 0,
+    baseOffset: 0,
+    extents: [{ index: 0, offset: 0x10, length: 0x20 }],
+    properties: [],
+    ...patch,
+  };
+}
+
+/** Spaces in `layout` only separate fields for the reader; the bytes are the hex digits. */
+function expectBytes(actual: Buffer, layout: string): void {
+  expect(actual.toString("hex")).toBe(layout.replace(/ /g, ""));
+}
+
+describe("rebuild.ts encoders (67-20, isobmff-7)", () => {
+  it("hasIndexField ConditionalExpression: a version 0 iloc never carries the extent index field even when the reserved index nibble is set", () => {
+    // version 0, offset/length widths 4, base width 0, reserved nibble 4. Per item: item_ID(16)
+    // data_reference_index(16) extent_count(16) then offset(32) length(32); no
+    // construction_method and no extent_index.
+    const item = rebuildItem({
+      dataReferenceIndex: 0x0102,
+      extents: [{ index: 0x0a0b0c0d, offset: 0x10, length: 0x20 }],
+    });
+    expectBytes(
+      rebuildIloc(0, 4, 4, 0, 4, [item], new Map()),
+      "0000001e 696c6f63 00 000000  4404 0001  0001 0102 0001  00000010 00000020",
+    );
+  });
+
+  it("hasIndexField ConditionalExpression: version 1 and 2 carry construction_method and write an extent index only for a non-zero index size", () => {
+    const item = rebuildItem({
+      constructionMethod: 1,
+      extents: [{ index: 7, offset: 0x10, length: 0x20 }],
+    });
+    // version 1, index size 4: construction_method(16) follows item_ID(16); extent_index(32)
+    // precedes each extent offset
+    expectBytes(
+      rebuildIloc(1, 4, 4, 0, 4, [item], new Map()),
+      "00000024 696c6f63 01 000000  4404 0001  0001 0001 0000 0001  00000007 00000010 00000020",
+    );
+    // version 2, index size 0: 32-bit item_count and item_ID, and no extent_index bytes at all
+    expectBytes(
+      rebuildIloc(2, 4, 4, 0, 0, [item], new Map()),
+      "00000024 696c6f63 02 000000  4400 00000001  00000001 0001 0000 0001  00000010 00000020",
+    );
+  });
+
+  it("writeSizedUint ConditionalExpression: an iloc field width other than 0, 4 or 8 is refused instead of written as 8 bytes", () => {
+    const item = rebuildItem();
+    expect(() => rebuildIloc(0, 2, 4, 0, 0, [item], new Map())).toThrow();
+    expect(() => rebuildIloc(0, 4, 3, 0, 0, [item], new Map())).toThrow();
+    expect(() => rebuildIloc(0, 4, 4, 1, 0, [item], new Map())).toThrow();
+    // width 8 is 8 big-endian bytes, width 0 is none
+    expectBytes(
+      rebuildIloc(0, 8, 4, 0, 0, [item], new Map()),
+      "00000022 696c6f63 00 000000  8400 0001  0001 0000 0001  0000000000000010 00000020",
+    );
+  });
+
+  it("rebuildIloc CallExpression: the data_reference_index of each item is copied into its entry", () => {
+    expectBytes(
+      rebuildIloc(
+        1,
+        4,
+        4,
+        0,
+        0,
+        [rebuildItem({ dataReferenceIndex: 0x0304 })],
+        new Map(),
+      ),
+      "00000020 696c6f63 01 000000  4400 0001  0001 0000 0304 0001  00000010 00000020",
+    );
+  });
+
+  it("rebuildIinf ConditionalExpression: a version 1 iinf carries a 32-bit entry_count and version 0 a 16-bit one", () => {
+    // the surviving infe is bytes 1..3 of the meta payload
+    const source = Buffer.from([0xaa, 0xbb, 0xcc, 0xdd]);
+    const ranges = new Map<number, BoxHeader>([
+      [
+        7,
+        {
+          type: "infe",
+          start: 1,
+          headerSize: 8,
+          size: 2,
+          payloadStart: 1,
+          end: 3,
+          sizeForm: "normal",
+        },
+      ],
+    ]);
+    expectBytes(
+      rebuildIinf(source, 1, [7], ranges),
+      "00000012 69696e66 01 000000  00000001  bbcc",
+    );
+    expectBytes(
+      rebuildIinf(source, 0, [7], ranges),
+      "00000010 69696e66 00 000000  0001  bbcc",
+    );
+  });
+
+  it("rebuildIref ConditionalExpression and CallExpression: version 1 writes 32-bit item ids and version 0 writes 16-bit ones", () => {
+    const references = [{ type: "cdsc", fromItemId: 5, toItemIds: [1, 2] }];
+    expectBytes(
+      rebuildIref(1, references),
+      "00000022 69726566 01 000000  00000016 63647363 00000005 0002 00000001 00000002",
+    );
+    expectBytes(
+      rebuildIref(0, references),
+      "0000001c 69726566 00 000000  00000010 63647363 0005 0002 0001 0002",
+    );
   });
 });
