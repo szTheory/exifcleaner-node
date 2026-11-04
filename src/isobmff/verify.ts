@@ -402,10 +402,10 @@ export async function verifyIsobmffOutput(
           );
         }
         const extent = destinationItem.extents[0]!;
-        if (
-          expectedMinimalExifPayload === undefined ||
-          extent.length !== expectedMinimalExifPayload.length
-        ) {
+        // A kept payload of any other length fails the byte comparison below (the read comes up
+        // short or `equals` is false); the destination admission keeps every extent inside the
+        // single mdat payload, so the read buffer is never larger than the destination file.
+        if (expectedMinimalExifPayload === undefined) {
           return err(
             verificationError(
               // Stryker disable next-line StringLiteral: unobservable-message — the Minimal Exif item N payload length did wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
