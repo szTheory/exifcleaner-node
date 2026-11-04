@@ -362,11 +362,11 @@ export async function verifyIsobmffOutput(sourceHandle, admission, destinationHa
         // source admission only, and independently of plan.ts's own index computation (code review
         // 2026-10-02 CR-01: a blanket `fromItemId === keepExifItemId` rewrite previously squashed
         // every record from k, not only the qualifying one).
-        const qualifyingKReferenceIndex = keepExifItemId === undefined
-            ? -1
-            : admission.model.references.findIndex((reference) => reference.fromItemId === keepExifItemId &&
-                reference.type === "cdsc" &&
-                reference.toItemIds.includes(admission.model.primaryItemId));
+        // With no kept item (`keepExifItemId` undefined) no reference's numeric `fromItemId` matches,
+        // so the search yields -1 and no record is rewritten.
+        const qualifyingKReferenceIndex = admission.model.references.findIndex((reference) => reference.fromItemId === keepExifItemId &&
+            reference.type === "cdsc" &&
+            reference.toItemIds.includes(admission.model.primaryItemId));
         const expectedReferences = admission.model.references
             .map((reference, index) => ({ reference, index }))
             .filter(({ reference }) => !removedIds.has(reference.fromItemId) ||
