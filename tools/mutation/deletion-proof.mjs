@@ -1,4 +1,6 @@
-// Commit-bound, function-scoped deletion receipts (D-18/D-21). Builtins only.
+// Commit-bound, function-scoped deletion receipts (D-18/D-21). Node builtins plus one
+// lazily loaded package: the pinned `typescript` parser, used solely by
+// `namedKillerBinding` (Plan 67-59) and never loaded unless that binding is called.
 //
 // validateDeletion returns one stable contract for both consumers:
 //   { problems: string[], edits: validated edit records[], anchors: [{current, original}],
@@ -10,6 +12,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, resolve, sep } from "node:path";
+import { createRequire } from "node:module";
 import { gunzipSync } from "node:zlib";
 import { anchorKey, mutantKey } from "./identity.mjs";
 import { enclosingFunction } from "./cluster.mjs";
@@ -2192,6 +2195,477 @@ function cstringExpressionOffset(source, expression) {
   return positions[0];
 }
 
+/**
+ * Named-killer closure binding (Plan 67-59, maintainer decision A, 2026-11-04).
+ *
+ * The readCString receipt used to compare whole test-file bytes, so any byte appended to
+ * tests/isobmff_items.test.ts made `ledger-check --pre` fail. It now binds each NAMED KILLER
+ * test's own source closure instead. The closure has six parts; its digest is the SHA-256 of
+ * the canonical JSON of them:
+ *   1 target       raw text of the killer's whole expression statement;
+ *   2 scope        for every static describe on the killer's path: title, callee, every argument
+ *                  but the title and callback (options), and the raw text of each direct
+ *                  callback statement that is not a plain static describe/it/test registration
+ *                  (hooks, helpers, loops, blocks, .each, modifiers, dynamic titles, wrappers);
+ *   3 effects      raw text of each top-level statement that is a non-plain registration, a
+ *                  non-declaration statement (hooks, mocks, setup, assignments), or a
+ *                  declaration that executes code at load, referenced or not;
+ *   4 declarations raw text of each top-level declaration reachable by identifier reference
+ *                  from parts 1-3 (fixed point; destructured names, overload groups and merged
+ *                  declarations indexed by every bound name);
+ *   5 imports      the module/imported/local/type-only record of every import binding used by
+ *                  parts 1-4, plus the file's sorted set of runtime module specifiers;
+ *   6 file flags   whether any registration is exclusive (`only`, `fit`, `fdescribe`) and the
+ *                  sorted `@vitest-` pragma comments.
+ * Raw text means exact source slices, so whitespace or comment edits inside a closure statement
+ * fail closed and need human review. Plain static top-level describe/it/test statements the
+ * killer does not use are deliberately unbound (they are the tests a later plan appends).
+ * The package is loaded lazily and a missing package or an unparseable source throws a typed
+ * error; no consumer falls back to comparing bytes.
+ */
+const NAMED_KILLER_CACHE_LIMIT = 64;
+const namedKillerCache = new Map();
+let typescriptForBinding = null;
+
+export class NamedKillerBindingError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "NamedKillerBindingError";
+    this.code = code;
+  }
+}
+
+function loadTypeScriptForBinding() {
+  if (typescriptForBinding) return typescriptForBinding;
+  try {
+    typescriptForBinding = createRequire(
+      new URL("../../package.json", import.meta.url),
+    )("typescript");
+  } catch (cause) {
+    throw new NamedKillerBindingError(
+      "typescript-unavailable",
+      `the typescript package could not be loaded from exifcleaner-node/package.json, so named killer closures cannot be bound (${String(cause?.message ?? cause).split("\n")[0]})`,
+    );
+  }
+  return typescriptForBinding;
+}
+
+const KILLER_PLAIN_ROOTS = new Set(["describe", "it", "test"]);
+const KILLER_REGISTRATION_ROOTS = new Set([
+  "describe", "it", "test", "fit", "fdescribe", "xit", "xdescribe", "xtest", "suite",
+]);
+
+function namedKillerClosure(source, fullName) {
+  const ts = loadTypeScriptForBinding();
+  const sf = ts.createSourceFile(
+    "named-killer.test.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  if (sf.parseDiagnostics.length > 0)
+    throw new NamedKillerBindingError(
+      "syntax",
+      "named killer test source has a syntax error, so no closure can be bound",
+    );
+  const raw = (node) => source.slice(node.getStart(sf), node.end);
+  const unwrap = (node) => {
+    while (
+      ts.isParenthesizedExpression(node) ||
+      ts.isNonNullExpression(node) ||
+      ts.isAsExpression(node) ||
+      ts.isSatisfiesExpression(node) ||
+      ts.isTypeAssertionExpression(node)
+    )
+      node = node.expression;
+    return node;
+  };
+  // The bare identifier at the root of a callee chain (`it.each(t)` -> `it`).
+  const registrationRoot = (callee) => {
+    let node = callee;
+    for (;;) {
+      node = unwrap(node);
+      if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+        node = node.expression;
+      else if (ts.isCallExpression(node)) node = node.expression;
+      else if (ts.isTaggedTemplateExpression(node)) node = node.tag;
+      else break;
+    }
+    return ts.isIdentifier(node) ? node.text : null;
+  };
+  const isRegistrationCall = (node) =>
+    ts.isCallExpression(node) &&
+    KILLER_REGISTRATION_ROOTS.has(registrationRoot(node.expression));
+  const registrationMemo = new Map();
+  const containsRegistration = (node) => {
+    if (registrationMemo.has(node)) return registrationMemo.get(node);
+    let found = false;
+    const visit = (child) => {
+      if (found) return;
+      if (isRegistrationCall(child)) {
+        found = true;
+        return;
+      }
+      ts.forEachChild(child, visit);
+    };
+    visit(node);
+    registrationMemo.set(node, found);
+    return found;
+  };
+  const staticTitle = (node) =>
+    node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+      ? node.text
+      : null;
+  const isFunctionNode = (node) => ts.isArrowFunction(node) || ts.isFunctionExpression(node);
+  // describe/it/test(<static title>, <one function>[, options]) as a statement.
+  const staticRegistration = (statement) => {
+    if (!ts.isExpressionStatement(statement)) return null;
+    const call = statement.expression;
+    if (
+      !ts.isCallExpression(call) ||
+      !ts.isIdentifier(call.expression) ||
+      !KILLER_PLAIN_ROOTS.has(call.expression.text) ||
+      (call.typeArguments && call.typeArguments.length > 0)
+    )
+      return null;
+    const [first, ...rest] = call.arguments;
+    const title = first === undefined ? null : staticTitle(first);
+    if (title === null) return null;
+    const callbacks = rest.filter(isFunctionNode);
+    if (callbacks.length !== 1) return null;
+    return {
+      statement,
+      kind: call.expression.text,
+      title,
+      call,
+      callback: callbacks[0],
+      options: rest.filter((argument) => argument !== callbacks[0]),
+      plain: rest.length === 1,
+    };
+  };
+  const isPlainRegistration = (statement) => staticRegistration(statement)?.plain === true;
+
+  // A non-plain statement holding a registration may generate or wrap the killer: refuse when a
+  // registration inside it carries the killer's own last title segment or a templated title
+  // whose literal parts are compatible with it.
+  const lastTitleMatches = (title) => fullName === title || fullName.endsWith(` > ${title}`);
+  const mayGenerateKiller = (statement) => {
+    let found = false;
+    const visit = (child) => {
+      if (found) return;
+      if (
+        ts.isCallExpression(child) &&
+        ["it", "test"].includes(registrationRoot(child.expression)) &&
+        child.arguments.length > 0
+      ) {
+        const titleNode = child.arguments[0];
+        const exact = staticTitle(titleNode);
+        if (exact !== null) found = lastTitleMatches(exact);
+        else if (ts.isTemplateExpression(titleNode)) {
+          const head = titleNode.head.text;
+          const tail = titleNode.templateSpans.at(-1).literal.text;
+          const last = fullName.includes(" > ")
+            ? fullName.slice(fullName.lastIndexOf(" > ") + 3)
+            : fullName;
+          found = (head !== "" || tail !== "") && last.startsWith(head) && last.endsWith(tail);
+        }
+        if (found) return;
+      }
+      ts.forEachChild(child, visit);
+    };
+    visit(statement);
+    return found;
+  };
+
+  // --- resolve the killer ---
+  const candidates = [];
+  let unsupported = false;
+  const bodyStatements = (callback) => {
+    if (ts.isBlock(callback.body)) return [...callback.body.statements];
+    if (containsRegistration(callback.body)) unsupported = true;
+    return [];
+  };
+  const walk = (statements, prefix, chain) => {
+    for (const statement of statements) {
+      const registration = staticRegistration(statement);
+      if (registration) {
+        const full = prefix === null ? registration.title : `${prefix} > ${registration.title}`;
+        if (registration.kind === "describe") {
+          if (fullName.startsWith(`${full} > `))
+            walk(bodyStatements(registration.callback), full, [...chain, registration]);
+        } else if (full === fullName) candidates.push({ chain, leaf: registration });
+        continue;
+      }
+      if (containsRegistration(statement) && mayGenerateKiller(statement)) unsupported = true;
+    }
+  };
+  walk(sf.statements, null, []);
+  if (unsupported)
+    throw new NamedKillerBindingError(
+      "unsupported",
+      "named killer registration is unsupported: a dynamic, templated, generated or wrapped registration shares its path",
+    );
+  if (candidates.length === 0)
+    throw new NamedKillerBindingError(
+      "absent",
+      `named killer registration is absent from the test source: ${JSON.stringify(fullName)}`,
+    );
+  if (candidates.length > 1)
+    throw new NamedKillerBindingError(
+      "ambiguous",
+      `named killer registration is ambiguous: ${candidates.length} registrations share ${JSON.stringify(fullName)}`,
+    );
+  const { chain, leaf } = candidates[0];
+  const pathStatements = new Set([...chain.map((entry) => entry.statement), leaf.statement]);
+
+  // --- declarations and import bindings ---
+  const bindingNames = (name, out) => {
+    if (ts.isIdentifier(name)) out.push(name.text);
+    else if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name))
+      for (const element of name.elements)
+        if (ts.isBindingElement(element)) bindingNames(element.name, out);
+    return out;
+  };
+  const declaredNames = (statement) => {
+    if (ts.isVariableStatement(statement))
+      return statement.declarationList.declarations.flatMap((declaration) =>
+        bindingNames(declaration.name, []),
+      );
+    if (
+      (ts.isFunctionDeclaration(statement) ||
+        ts.isClassDeclaration(statement) ||
+        ts.isInterfaceDeclaration(statement) ||
+        ts.isTypeAliasDeclaration(statement) ||
+        ts.isEnumDeclaration(statement) ||
+        ts.isModuleDeclaration(statement)) &&
+      statement.name &&
+      ts.isIdentifier(statement.name)
+    )
+      return [statement.name.text];
+    return [];
+  };
+  const isDeclarationStatement = (statement) =>
+    ts.isVariableStatement(statement) ||
+    ts.isFunctionDeclaration(statement) ||
+    ts.isClassDeclaration(statement) ||
+    ts.isInterfaceDeclaration(statement) ||
+    ts.isTypeAliasDeclaration(statement) ||
+    ts.isEnumDeclaration(statement);
+  const declarationIndex = new Map();
+  const imports = [];
+  const runtimeSpecifiers = new Set();
+  for (const statement of sf.statements) {
+    for (const name of declaredNames(statement)) {
+      if (!declarationIndex.has(name)) declarationIndex.set(name, []);
+      declarationIndex.get(name).push(statement);
+    }
+    if (ts.isImportDeclaration(statement)) {
+      const module = statement.moduleSpecifier.text;
+      const clause = statement.importClause;
+      const declarationTypeOnly = clause?.isTypeOnly === true;
+      if (!declarationTypeOnly) runtimeSpecifiers.add(module);
+      if (!clause) continue;
+      if (clause.name)
+        imports.push({ module, imported: "default", local: clause.name.text, typeOnly: declarationTypeOnly });
+      const named = clause.namedBindings;
+      if (named && ts.isNamespaceImport(named))
+        imports.push({ module, imported: "*", local: named.name.text, typeOnly: declarationTypeOnly });
+      else if (named)
+        for (const element of named.elements)
+          imports.push({
+            module,
+            imported: (element.propertyName ?? element.name).text,
+            local: element.name.text,
+            typeOnly: declarationTypeOnly || element.isTypeOnly === true,
+          });
+    } else if (ts.isImportEqualsDeclaration(statement)) {
+      if (ts.isExternalModuleReference(statement.moduleReference)) {
+        const module = statement.moduleReference.expression.text;
+        if (!statement.isTypeOnly) runtimeSpecifiers.add(module);
+        imports.push({ module, imported: "=", local: statement.name.text, typeOnly: statement.isTypeOnly === true });
+      }
+    } else if (
+      ts.isExportDeclaration(statement) &&
+      statement.moduleSpecifier &&
+      !statement.isTypeOnly
+    )
+      runtimeSpecifiers.add(statement.moduleSpecifier.text);
+  }
+
+  // --- load-time effects ---
+  const isFunctionBoundary = (node) =>
+    ts.isArrowFunction(node) ||
+    ts.isFunctionExpression(node) ||
+    ts.isFunctionDeclaration(node) ||
+    ts.isMethodDeclaration(node) ||
+    ts.isGetAccessorDeclaration(node) ||
+    ts.isSetAccessorDeclaration(node) ||
+    ts.isConstructorDeclaration(node);
+  const hasLoadEffect = (node) => {
+    let found = false;
+    const visit = (child) => {
+      if (found || isFunctionBoundary(child)) return;
+      if (
+        ts.isCallExpression(child) ||
+        ts.isNewExpression(child) ||
+        ts.isAwaitExpression(child) ||
+        ts.isTaggedTemplateExpression(child) ||
+        ts.isDeleteExpression(child) ||
+        ((ts.isPrefixUnaryExpression(child) || ts.isPostfixUnaryExpression(child)) &&
+          (child.operator === ts.SyntaxKind.PlusPlusToken ||
+            child.operator === ts.SyntaxKind.MinusMinusToken)) ||
+        (ts.isBinaryExpression(child) &&
+          child.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+          child.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
+      ) {
+        found = true;
+        return;
+      }
+      ts.forEachChild(child, visit);
+    };
+    visit(node);
+    return found;
+  };
+  const declarationHasLoadEffect = (statement) => {
+    if (ts.isVariableStatement(statement)) return hasLoadEffect(statement.declarationList);
+    if (ts.isEnumDeclaration(statement))
+      return statement.members.some((member) => member.initializer && hasLoadEffect(member.initializer));
+    if (ts.isClassDeclaration(statement)) {
+      if ((ts.getDecorators(statement) ?? []).length > 0) return true;
+      if ((statement.heritageClauses ?? []).some((clause) => hasLoadEffect(clause))) return true;
+      return statement.members.some((member) => {
+        if (ts.isClassStaticBlockDeclaration(member)) return true;
+        if (member.name && ts.isComputedPropertyName(member.name) && hasLoadEffect(member.name))
+          return true;
+        return (
+          ts.isPropertyDeclaration(member) &&
+          (member.modifiers ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.StaticKeyword) &&
+          member.initializer !== undefined &&
+          hasLoadEffect(member.initializer)
+        );
+      });
+    }
+    return false;
+  };
+
+  // --- the six parts ---
+  const target = raw(leaf.statement);
+  const scope = chain.map((entry, depth) => {
+    const next = depth + 1 < chain.length ? chain[depth + 1].statement : leaf.statement;
+    const callbackStatements = ts.isBlock(entry.callback.body) ? [...entry.callback.body.statements] : [];
+    return {
+      title: entry.title,
+      callee: raw(entry.call.expression),
+      options: entry.options.map(raw),
+      statements: callbackStatements
+        .filter((statement) => statement !== next && !isPlainRegistration(statement))
+        .map(raw),
+      nodes: [
+        ...entry.options,
+        ...callbackStatements.filter((statement) => statement !== next && !isPlainRegistration(statement)),
+      ],
+    };
+  });
+  const effectNodes = [];
+  for (const statement of sf.statements) {
+    if (
+      ts.isImportDeclaration(statement) ||
+      ts.isImportEqualsDeclaration(statement) ||
+      ts.isExportDeclaration(statement) ||
+      ts.isEmptyStatement(statement) ||
+      pathStatements.has(statement) ||
+      isPlainRegistration(statement)
+    )
+      continue;
+    if (containsRegistration(statement)) effectNodes.push(statement);
+    else if (!isDeclarationStatement(statement)) effectNodes.push(statement);
+    else if (declarationHasLoadEffect(statement)) effectNodes.push(statement);
+  }
+  const effects = effectNodes.map(raw);
+
+  const referenced = (nodes) => {
+    const names = new Set();
+    const visit = (node) => {
+      if (ts.isIdentifier(node)) names.add(node.text);
+      ts.forEachChild(node, visit);
+    };
+    for (const node of nodes) visit(node);
+    return names;
+  };
+  const seedNodes = [leaf.statement, ...scope.flatMap((entry) => entry.nodes), ...effectNodes];
+  const included = new Set();
+  let frontier = seedNodes;
+  while (frontier.length > 0) {
+    const next = [];
+    for (const name of referenced(frontier))
+      for (const statement of declarationIndex.get(name) ?? [])
+        if (!included.has(statement)) {
+          included.add(statement);
+          next.push(statement);
+        }
+    frontier = next;
+  }
+  const declarations = [...included]
+    .sort((left, right) => left.getStart(sf) - right.getStart(sf))
+    .map(raw);
+  const usedNames = referenced([...seedNodes, ...included]);
+  const importRecords = imports
+    .filter((record) => usedNames.has(record.local))
+    .map((record) => canonical(record))
+    .sort();
+
+  // --- file flags ---
+  let hasOnly = false;
+  const visitFlags = (node) => {
+    if (hasOnly) return;
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      node.name.text === "only" &&
+      KILLER_REGISTRATION_ROOTS.has(registrationRoot(node.expression))
+    )
+      hasOnly = true;
+    else if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      ["fit", "fdescribe"].includes(node.expression.text)
+    )
+      hasOnly = true;
+    ts.forEachChild(node, visitFlags);
+  };
+  visitFlags(sf);
+  const pragmas = [...source.matchAll(/@vitest-[A-Za-z][\w-]*[^\n]*/g)]
+    .map((match) => match[0].trim())
+    .sort();
+
+  return {
+    name: fullName,
+    target,
+    scope: scope.map(({ title, callee, options, statements }) => ({ title, callee, options, statements })),
+    effects,
+    declarations,
+    imports: { bindings: importRecords, runtimeSpecifiers: [...runtimeSpecifiers].sort() },
+    flags: { only: hasOnly, pragmas },
+  };
+}
+
+/**
+ * SHA-256 of the named killer's source closure inside `source` (see the block comment above).
+ * Memoized per (SHA-256 of the source, test name) in a bounded map; never keyed by name alone.
+ */
+export function namedKillerBinding(source, fullTestName) {
+  if (typeof source !== "string" || typeof fullTestName !== "string")
+    throw new NamedKillerBindingError("syntax", "named killer binding needs source text and a test name");
+  const key = `${hash(source)}\0${fullTestName}`;
+  const cached = namedKillerCache.get(key);
+  if (cached !== undefined) return cached;
+  const digest = hash(canonical(namedKillerClosure(source, fullTestName)));
+  if (namedKillerCache.size >= NAMED_KILLER_CACHE_LIMIT)
+    namedKillerCache.delete(namedKillerCache.keys().next().value);
+  namedKillerCache.set(key, digest);
+  return digest;
+}
+
 function cstringDirectKill(report, record, expectedTest, readTest, label) {
   if (record.status !== "Killed")
     throw new Error(`${label} is ${record.status}, not Killed`);
@@ -2209,8 +2683,20 @@ function cstringDirectKill(report, record, expectedTest, readTest, label) {
     !tableEntry.tests.some((test) => test.name === expectedTest.name)
   )
     throw new Error(`${label} named killer is absent from its report test table`);
-  if (readTest && readTest(expectedTest.file) !== tableEntry.source)
-    throw new Error(`${label} named killer source is stale`);
+  if (readTest) {
+    // The named killer's own closure is compared, never whole test-file bytes (Plan 67-59).
+    let embedded;
+    let live;
+    try {
+      embedded = namedKillerBinding(tableEntry.source, expectedTest.name);
+      live = namedKillerBinding(readTest(expectedTest.file), expectedTest.name);
+    } catch (error) {
+      if (error instanceof NamedKillerBindingError)
+        throw new Error(`${label} ${error.message}`);
+      throw error;
+    }
+    if (embedded !== live) throw new Error(`${label} named killer source is stale`);
+  }
   return { file: expectedTest.file, name: expectedTest.name };
 }
 
@@ -2656,8 +3142,9 @@ export function validateReadCStringBoundary({
       for (const [file, entry] of Object.entries(finalReport.testFiles ?? {})) {
         if (typeof entry.source !== "string" || !Array.isArray(entry.tests))
           throw new Error(`final sourceOperation test table is incomplete for ${file}`);
-        if (readTest && readTest(file) !== entry.source)
-          throw new Error(`final sourceOperation test source is stale for ${file}`);
+        // Structural completeness only. Named-killer closures are enforced in
+        // cstringDirectKill; a test file that holds no named killer carries no receipt claim,
+        // so its bytes are not compared here (Plan 67-59).
       }
     }
     return { problems, anchors, equivalentPair, counterpartProofs };

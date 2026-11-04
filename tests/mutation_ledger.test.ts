@@ -170,6 +170,11 @@ interface DeletionProof {
   };
   canonicalReceiptJson(value: unknown): string;
   normalizeReceiptSource(source: string): string;
+  namedKillerBinding(source: string, fullTestName: string): string;
+  NamedKillerBindingError: new (
+    code: string,
+    message: string,
+  ) => Error & { code: string };
 }
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -1647,7 +1652,13 @@ function runRealCli(
   fixture: RealCliFixture,
   args: string[],
 ): ReturnType<typeof spawnSync> {
-  if (args.includes("--batch") || args.includes("--cstring-candidate"))
+  // --cstring-approval reaches validateCStringApprovalPacket, then validateReadCStringBoundary,
+  // then cstringDirectKill, so the copied deletion-proof.mjs needs the pinned parser there too.
+  if (
+    args.includes("--batch") ||
+    args.includes("--cstring-candidate") ||
+    args.includes("--cstring-approval")
+  )
     provisionPinnedTypeScriptParser(fixture.root);
   const script = resolve(fixture.root, cliScriptPath);
   const actualRoot = realpathSync(fixture.root);
@@ -3516,8 +3527,10 @@ describe("real iloc boundary receipt", () => {
     expect(expectedSurvivors).toHaveLength(7);
     expect(actualSurvivors).toEqual(expectedSurvivors);
 
-    // This complete historical iloc stage also replaces a shared test file.
-    // Its old bytes cannot satisfy the later readCString receipt's named killer.
+    // This complete historical iloc stage also replaces a shared test file. The receipt binds
+    // the named killer's own closure (Plan 67-59), and the historical file's killer closure
+    // equals the receipt's, so no named-killer problem is reported for it. Staleness stays
+    // covered by the "named-killer closure binding" controls.
     const cstringOwner = candidateOverlay.clusters.find(
       (row) => row.sourceOperation,
     )!;
@@ -3533,8 +3546,20 @@ describe("real iloc boundary receipt", () => {
     expect(finalReport.testFiles[sharedTestFile]!.source).not.toBe(
       currentKillerSource,
     );
+    expect(
+      deletionProof.namedKillerBinding(
+        finalReport.testFiles[sharedTestFile]!.source,
+        ITEMS_KILLER_NAME,
+      ),
+    ).toBe(deletionProof.namedKillerBinding(currentKillerSource, ITEMS_KILLER_NAME));
     const staleCStringProblem = `${cstringOwner.id}: current loop opposite named killer source is stale`;
-    expect(fullFinalProblems).toContain(staleCStringProblem);
+    const scopedReportProblem = `${cstringOwner.id}: live sourceOperation source/report differs from the exact measured candidate`;
+    expect(fullFinalProblems).not.toContain(staleCStringProblem);
+    expect(
+      fullFinalProblems.filter((problem) =>
+        problem.startsWith(`${cstringOwner.id}:`),
+      ),
+    ).toEqual([scopedReportProblem]);
     const restoredCStringProblems = withCliFileMutation(
       fullFixture,
       `exifcleaner-node/${sharedTestFile}`,
@@ -3582,7 +3607,7 @@ describe("real iloc boundary receipt", () => {
         }
         return [];
       })
-      .concat(staleCStringProblem)
+      .concat(scopedReportProblem)
       .sort();
     expect(
       fullFinalProblems
@@ -4384,12 +4409,26 @@ describe("real readCString boundary receipt", () => {
         testCase.name,
       ).toMatch(testCase.diagnostic);
     }
-    expect(
+    // A replaced items file is no longer a stale byte comparison: the named killer is either
+    // unparseable or absent, and each case reports its own distinct problem (Plan 67-59).
+    const replaced = (text: string) =>
       validate(row, survivors, (file) =>
-        file === "tests/isobmff_items.test.ts" ? "stale test source" :
-          readFileSync(join(packageRoot, file), "utf8"),
-      ).problems.join("\n"),
-    ).toMatch(/named killer source is stale/);
+        file === "tests/isobmff_items.test.ts"
+          ? text
+          : readFileSync(join(packageRoot, file), "utf8"),
+      ).problems.join("\n");
+    expect(replaced("stale test source")).toMatch(
+      /named killer test source has a syntax error/,
+    );
+    expect(replaced("stale test source")).not.toMatch(
+      /named killer source is stale/,
+    );
+    expect(replaced("export const unrelated = 1;\n")).toMatch(
+      /named killer registration is absent from the test source/,
+    );
+    expect(replaced("export const unrelated = 1;\n")).not.toMatch(
+      /named killer source is stale/,
+    );
   }, 15_000);
 
   it("is enforced by checkLedger during precheck without changing frozen membership", () => {
@@ -7634,4 +7673,616 @@ describe("real admission batch CLI provenance", () => {
       `ordinary CLI stdout:\n${accepted.stdout}\nordinary CLI stderr:\n${accepted.stderr}`,
     ).toBe(0);
   }, 120_000);
+});
+
+// ---------------------------------------------------------------------------
+// Plan 67-59 Task 1: named-killer closure binding. Every variant below is built from the
+// receipt's own embedded real sources (the final report's items test and the before report's
+// writer test inside the immutable gzip fixture), never from live test bytes.
+// ---------------------------------------------------------------------------
+const ITEMS_TEST_FILE = "tests/isobmff_items.test.ts";
+const WRITER_TEST_FILE = "tests/isobmff_writer.test.ts";
+const KILLER_TITLE =
+  "matches the independent inventory walker's items, references, properties and associations";
+const ITEMS_KILLER_NAME = `parseIsobmff item graph on heif-enc-grid.heic > ${KILLER_TITLE}`;
+const WRITER_KILLER_NAME =
+  "tracer: heif-enc-grid.heic rebuild (62-02) > rebuilds heif-enc-grid.heic end to end: removes Exif/XMP, preserves every surviving item byte-identical, leaks none of the removed payload, and re-admits";
+const STALE_KILLER = "named killer source is stale";
+// Built from parts: vitest scans a test file for this pragma text and would try to load an
+// environment named after the next word.
+const ENV_PRAGMA = ["@vitest", "environment"].join("-");
+const HEIC_DESCRIBE_HEADER =
+  'describe("parseIsobmff item graph on heif-enc-grid.heic", () => {\n';
+const ITEMS_KILLER_STATEMENT = `  it("${KILLER_TITLE}", async () => {\n    await expectModelMatchesInventory(HEIC_PATH);\n  });\n`;
+
+function replaceOnce(source: string, find: string, replacement: string): string {
+  const first = source.indexOf(find);
+  expect(first, `anchor missing: ${find.slice(0, 70)}`).toBeGreaterThanOrEqual(0);
+  expect(
+    source.indexOf(find, first + find.length),
+    `anchor ambiguous: ${find.slice(0, 70)}`,
+  ).toBe(-1);
+  return source.slice(0, first) + replacement + source.slice(first + find.length);
+}
+function replaceFirst(source: string, find: string, replacement: string): string {
+  const first = source.indexOf(find);
+  expect(first, `anchor missing: ${find.slice(0, 70)}`).toBeGreaterThanOrEqual(0);
+  return source.slice(0, first) + replacement + source.slice(first + find.length);
+}
+const appendText = (source: string, text: string): string => `${source}\n${text}\n`;
+const beforeItemsKiller = (source: string, text: string): string =>
+  replaceOnce(source, ITEMS_KILLER_STATEMENT, `${text}\n${ITEMS_KILLER_STATEMENT}`);
+const afterItemsKiller = (source: string, text: string): string =>
+  replaceOnce(source, ITEMS_KILLER_STATEMENT, `${ITEMS_KILLER_STATEMENT}\n${text}`);
+const insideHeicDescribe = (source: string, text: string): string =>
+  replaceOnce(source, HEIC_DESCRIBE_HEADER, `${HEIC_DESCRIBE_HEADER}${text}\n`);
+
+/** About 240 lines of Plan-18-style appended tests: one function declaration and an extra
+ * plain static describe holding many plain static tests, as the halted Plan 18 patch adds. */
+function planEighteenAppendix(): string {
+  const cases = Array.from({ length: 58 }, (_, index) =>
+    [
+      `  it("appended plan 18 style case ${index}", () => {`,
+      `    expect(appendedPlanEighteenHelper(${index})).toBe(${index + 1});`,
+      "  });",
+      "",
+    ].join("\n"),
+  );
+  return [
+    "",
+    "// --- appended Plan 18 style tests ---",
+    "function appendedPlanEighteenHelper(value: number): number {",
+    "  return value + 1;",
+    "}",
+    "",
+    'describe("appended plan 18 style describe", () => {',
+    ...cases,
+    "});",
+    "",
+  ].join("\n");
+}
+
+function createProductTreeCopy(overrides: Record<string, string> = {}): {
+  root: string;
+  product: string;
+} {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "named-killer-copy-")));
+  temporaryRoots.push(root);
+  const product = join(root, "exifcleaner-node");
+  execFileSync("git", ["clone", "--no-checkout", "--quiet", packageRoot, product], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  execFileSync("git", ["remote", "remove", "origin"], {
+    cwd: product,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const tracked = execFileSync("git", ["ls-files", "-z"], {
+    cwd: packageRoot,
+    encoding: "utf8",
+  })
+    .split("\0")
+    .filter(Boolean);
+  for (const file of tracked) {
+    const from = join(packageRoot, file);
+    if (!existsSync(from)) continue;
+    mkdirSync(dirname(join(product, file)), { recursive: true });
+    copyFileSync(from, join(product, file));
+  }
+  provisionPinnedTypeScriptParser(root);
+  for (const [file, text] of Object.entries(overrides)) {
+    expect(
+      resolve(product, file).startsWith(`${product}${sep}`),
+      `${file} resolves outside the product copy`,
+    ).toBe(true);
+    writeFileSync(join(product, file), text);
+  }
+  return { root, product };
+}
+
+function runLedgerCheckPre(product: string): ReturnType<typeof spawnSync> {
+  return spawnSync(
+    process.execPath,
+    [
+      join(product, "tools", "mutation", "ledger-check.mjs"),
+      "--pre",
+      "tools/mutation/pre-triage-survivors.json",
+    ],
+    { cwd: product, encoding: "utf8" },
+  );
+}
+
+describe("named-killer closure binding", () => {
+  const { namedKillerBinding } = deletionProof;
+  interface KillerSources {
+    items: string;
+    writer: string;
+    row: Cluster;
+    survivors: Survivor[];
+    embedded: Record<string, string>;
+  }
+  let cachedSources: KillerSources | null = null;
+  const sources = (): KillerSources => {
+    if (cachedSources) return cachedSources;
+    const { bundle, beforeReport, finalReport } = loadCStringBoundaryBundle();
+    const row = bundle.candidateRows.find((candidate) => candidate.sourceOperation)!;
+    const survivors = JSON.parse(
+      readFileSync(
+        join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+        "utf8",
+      ),
+    ).survivors as Survivor[];
+    const embedded = Object.fromEntries(
+      Object.entries(finalReport.testFiles).map(([file, entry]) => [file, entry.source]),
+    );
+    cachedSources = {
+      items: embedded[ITEMS_TEST_FILE]!,
+      writer: beforeReport.testFiles![WRITER_TEST_FILE]!.source,
+      row,
+      survivors,
+      embedded,
+    };
+    return cachedSources;
+  };
+  const validateWith = (itemsSource: string, writerSource?: string) => {
+    const s = sources();
+    const requested: string[] = [];
+    const proof = deletionProof.validateReadCStringBoundary({
+      row: s.row,
+      root: packageRoot,
+      survivors: s.survivors,
+      readTest: (file: string) => {
+        requested.push(file);
+        if (file === ITEMS_TEST_FILE) return itemsSource;
+        if (file === WRITER_TEST_FILE) return writerSource ?? s.writer;
+        throw new Error(`the receipt may read only named-killer files, not ${file}`);
+      },
+    });
+    return { proof, requested };
+  };
+  const bind = (source: string, name = ITEMS_KILLER_NAME) =>
+    namedKillerBinding(source, name);
+  const expectAccepted = (label: string, items: string, writer?: string) => {
+    const { proof } = validateWith(items, writer);
+    expect(proof.problems.join("\n"), `${label}: receipt consumers`).toBe("");
+    expect(bind(items), `${label}: items digest`).toBe(bind(sources().items));
+    if (writer !== undefined)
+      expect(bind(writer, WRITER_KILLER_NAME), `${label}: writer digest`).toBe(
+        bind(sources().writer, WRITER_KILLER_NAME),
+      );
+  };
+  const expectRejected = (
+    label: string,
+    items: string,
+    writer?: string,
+    name = ITEMS_KILLER_NAME,
+  ) => {
+    const { proof } = validateWith(items, writer);
+    expect(
+      proof.problems.some((problem) => problem.includes(STALE_KILLER)),
+      `${label}: expected "${STALE_KILLER}", got ${JSON.stringify(proof.problems)}`,
+    ).toBe(true);
+    const changed = name === ITEMS_KILLER_NAME ? items : writer!;
+    const original = name === ITEMS_KILLER_NAME ? sources().items : sources().writer;
+    expect(bind(changed, name), `${label}: digest`).not.toBe(bind(original, name));
+  };
+  const expectDigestsDiffer = (label: string, base: string, variant: string) =>
+    expect(bind(variant), `${label}: digest`).not.toBe(bind(base));
+  const failureOf = (source: string, name = ITEMS_KILLER_NAME) => {
+    try {
+      namedKillerBinding(source, name);
+    } catch (error) {
+      return error as Error & { code?: string };
+    }
+    throw new Error("namedKillerBinding unexpectedly succeeded");
+  };
+
+  it("accepts a Plan-18-shaped items test through the receipt check, checkLedger pre mode and the real ledger-check --pre", () => {
+    const s = sources();
+    const extended = `${s.items}${planEighteenAppendix()}`;
+    expect(extended.split("\n").length - s.items.split("\n").length).toBeGreaterThan(230);
+    // Consumers first: under the whole-file comparison this is where "named killer source is
+    // stale" is reported.
+    const { proof, requested } = validateWith(extended);
+    expect(proof.problems.join("\n")).toBe("");
+    expect([...new Set(requested)].sort()).toEqual([ITEMS_TEST_FILE, WRITER_TEST_FILE]);
+    expect(bind(extended)).toBe(bind(s.items));
+
+    const { product } = createProductTreeCopy({ [ITEMS_TEST_FILE]: extended });
+    expect(readFileSync(join(product, ITEMS_TEST_FILE), "utf8")).toBe(extended);
+    const preJson = JSON.parse(
+      readFileSync(join(product, "tools", "mutation", "pre-triage-survivors.json"), "utf8"),
+    );
+    const problems = checkLedger({
+      ledger: JSON.parse(
+        readFileSync(join(product, "tools", "mutation", "ledger.json"), "utf8"),
+      ),
+      preReport: asReport(preJson),
+      root: product,
+      groups: JSON.parse(readFileSync(join(product, "mutation-floors.json"), "utf8")).groups,
+      mode: "pre",
+    });
+    expect(problems.join("\n")).toBe("");
+    const cli = runLedgerCheckPre(product);
+    expect(cli.stderr).toBe("");
+    expect(cli.status).toBe(0);
+    expect(String(cli.stdout).trimEnd().split("\n").at(-1)).toBe("ledger: ok");
+  }, 120_000);
+
+  it("accepts every edit outside the six closure parts", () => {
+    const s = sources();
+    const items = s.items;
+    const avifBlockStart = items.indexOf('describe("parseIsobmff item graph on heif-enc-grid.avif"');
+    const avifBlockEnd = items.indexOf("\n});\n", avifBlockStart) + "\n});\n".length;
+    expect(avifBlockStart).toBeGreaterThan(0);
+    const avifBlock = items.slice(avifBlockStart, avifBlockEnd);
+    const exportsHeader = 'describe("buildItemModel exports';
+    const accepted: [string, string][] = [
+      [
+        "non-killer test body changed",
+        replaceOnce(
+          items,
+          'expect(typeof buildItemModel).toBe("function");',
+          'expect(typeof buildItemModel).toBe("function");\n    expect(true).toBe(true);',
+        ),
+      ],
+      [
+        "non-killer describe blocks reordered",
+        replaceOnce(
+          items.slice(0, avifBlockStart) + items.slice(avifBlockEnd),
+          exportsHeader,
+          `${avifBlock}\n${exportsHeader}`,
+        ),
+      ],
+      ["plain static top-level describe appended", appendText(items, 'describe("appended plain describe", () => {\n  it("x", () => {});\n});')],
+      ["plain static top-level it appended", appendText(items, 'it("appended plain it", () => {\n  expect(1).toBe(1);\n});')],
+      ["plain static top-level test appended", appendText(items, 'test("appended plain test", async () => {});')],
+      ["unrelated top-level function declaration added", appendText(items, "function unrelatedAppendedHelper(): number {\n  return 7;\n}")],
+      [
+        "unrelated name added to an existing multi-name import",
+        replaceOnce(items, "  pitmBox,\n} from", "  pitmBox,\n  uuidBox,\n} from"),
+      ],
+      [
+        "repeated import of a module specifier the file already imports",
+        replaceOnce(items, 'import { readFileSync } from "node:fs";', 'import { readFileSync } from "node:fs";\nimport { statSync } from "node:fs";'),
+      ],
+      [
+        "declaration-level import type of a new module",
+        replaceOnce(items, 'import { readFileSync } from "node:fs";', 'import { readFileSync } from "node:fs";\nimport type { NewOnlyType } from "./never-imported-before.js";'),
+      ],
+      [
+        "comment edit outside every closure statement",
+        replaceOnce(items, "// src/isobmff/items.ts coverage (BMF-04/BMF-05", "// edited header: src/isobmff/items.ts coverage (BMF-04/BMF-05"),
+      ],
+      [
+        "unreferenced non-call top-level declaration edited",
+        replaceOnce(items, "const WIDE_PRIMARY_ITEM_ID = 0x01020304;", "const WIDE_PRIMARY_ITEM_ID = 0x01020305;"),
+      ],
+      [
+        "plain static tests and a nested plain static describe with its own hook added before, between and after the killer inside its own describe",
+        afterItemsKiller(
+          beforeItemsKiller(
+            insideHeicDescribe(
+              items,
+              '  it("sibling before the killer", () => {\n    expect(1).toBe(1);\n  });',
+            ),
+            '  describe("nested plain describe with its own hook", () => {\n    beforeEach(() => {\n      scratch = 1;\n    });\n    it("nested", () => {});\n  });',
+          ),
+          '  test("sibling after the killer", () => {\n    expect(2).toBe(2);\n  });',
+        ),
+      ],
+    ];
+    for (const [label, variant] of accepted) {
+      expect(variant, `${label}: variant must differ from the receipt bytes`).not.toBe(items);
+      expectAccepted(label, variant);
+    }
+    // Writer file: appended plain static tests and a changed non-killer test.
+    const writer = s.writer;
+    expectAccepted(
+      "writer: plain static tests appended and a non-killer test body changed",
+      items,
+      replaceOnce(
+        appendText(writer, 'it("appended writer test", () => {\n  expect(1).toBe(1);\n});\ndescribe("appended writer describe", () => {\n  it("y", () => {});\n});'),
+        "    expect(true).toBe(true);\n  });\n\n  it(\"rebuilds heif-enc-grid.heic end to end",
+        "    expect(true).toBe(true);\n    expect(1).toBe(1);\n  });\n\n  it(\"rebuilds heif-enc-grid.heic end to end",
+      ),
+    );
+    // A test file that holds no named killer carries no receipt claim at all.
+    const { requested } = validateWith(items);
+    expect(requested.every((file) => file === ITEMS_TEST_FILE || file === WRITER_TEST_FILE)).toBe(true);
+  }, 120_000);
+
+  it("rejects a weakening of every closure part with the stale-killer problem", () => {
+    const s = sources();
+    const items = s.items;
+    // --- target, scope, effects, non-plain registrations, declarations, imports, exclusivity ---
+    const single: [string, string][] = [
+      [
+        "target: killer body changed",
+        replaceOnce(items, "    await expectModelMatchesInventory(HEIC_PATH);\n  });", "    await expectModelMatchesInventory(HEIC_PATH);\n    expect(true).toBe(true);\n  });"),
+      ],
+      ["scope: a hook added to an enclosing describe", insideHeicDescribe(items, "  beforeEach(() => {\n    scratch = 1;\n  });")],
+      [
+        "scope: an enclosing describe gains an options argument",
+        replaceOnce(items, "  });\n});\n\n// --- Task 2: AVIF oracle", "  });\n}, { timeout: 5000 });\n\n// --- Task 2: AVIF oracle"),
+      ],
+      ["scope: a for loop holding a hook and an it, directly inside the enclosing describe", beforeItemsKiller(items, "  for (const n of [1]) {\n    beforeEach(() => {\n      scratch = n;\n    });\n    it(`loop ${n}`, () => {});\n  }")],
+      ["scope: a block holding a hook and an it, directly inside the enclosing describe", beforeItemsKiller(items, "  {\n    beforeEach(() => {\n      scratch = 1;\n    });\n    it(\"block\", () => {});\n  }")],
+      ["scope: an it.each directly inside the enclosing describe", afterItemsKiller(items, '  it.each([1, 2])("case %s", () => {});')],
+      ["scope: an it.skip directly inside the enclosing describe", afterItemsKiller(items, '  it.skip("skipped sibling", () => {});')],
+      ["scope: a dynamically titled it directly inside the enclosing describe", afterItemsKiller(items, "  it(`dynamic ${1}`, () => {});")],
+      ["effects: a top-level hook", appendText(items, "beforeAll(() => {\n  scratch = 1;\n});")],
+      ["effects: a top-level mock call", appendText(items, 'vi.mock("../src/isobmff/parse.js");')],
+      ["effects: a top-level assignment statement", appendText(items, "cleanupDirectories.length = 0;")],
+      ["effects: an unreferenced call-initialized top-level const", appendText(items, "const UNREFERENCED_STAMP = Date.now();")],
+      [
+        "effects: the afterEach body changed",
+        replaceOnce(items, "await rm(directory, { recursive: true, force: true });", "await rm(directory, { recursive: false, force: true });"),
+      ],
+      ["non-plain: a top-level for loop holding a hook and an it", appendText(items, "for (const n of [1]) {\n  beforeEach(() => {\n    scratch = n;\n  });\n  it(`loop ${n}`, () => {});\n}")],
+      ["non-plain: a top-level block holding a hook and an it", appendText(items, '{\n  beforeEach(() => {\n    scratch = 1;\n  });\n  it("block", () => {});\n}')],
+      ["non-plain: a top-level describe.each", appendText(items, 'describe.each([1])("each %s", () => {});')],
+      ["non-plain: a top-level describe.skip", appendText(items, 'describe.skip("skipped describe", () => {});')],
+      ["non-plain: a top-level it.skip", appendText(items, 'it.skip("skipped it", () => {});')],
+      ["non-plain: a top-level test.concurrent", appendText(items, 'test.concurrent("concurrent", async () => {});')],
+      ["non-plain: a top-level describe with a dynamic title", appendText(items, "describe(dynamicTitle(), () => {});")],
+      ["non-plain: a top-level describe with a substitution title", appendText(items, "describe(`tpl ${1} title`, () => {});")],
+      ["non-plain: a top-level wrapper call containing a registration", appendText(items, 'register(() => {\n  it("wrapped", () => {});\n});')],
+      ["non-plain: a top-level it with an options argument", appendText(items, 'it("with options", () => {}, 1000);')],
+      [
+        "declarations: the referenced helper loses one expectation",
+        replaceOnce(items, "    expect(model.primaryItemId).toBe(inventory.primaryItemId);\n", ""),
+      ],
+      [
+        "declarations: the referenced constant HEIC_PATH changes",
+        replaceOnce(items, 'join(FIXTURES_DIR, "heic", "heif-enc-grid.heic")', 'join(FIXTURES_DIR, "heic", "heif-enc-grid-2.heic")'),
+      ],
+      ["imports: the module specifier of a used binding changed", replaceOnce(items, 'from "./isobmff-support/inventory.js"', 'from "./isobmff-support/inventory-2.js"')],
+      ["imports: the imported name changed, the local name kept", replaceOnce(items, "import { inventoryIsobmff } from", "import { inventoryIsobmffTwo as inventoryIsobmff } from")],
+      ["imports: the local name renamed, the imported name kept", replaceOnce(items, "import { inventoryIsobmff } from", "import { inventoryIsobmff as inventoryRenamed } from")],
+      ["imports: the type-only flag flipped", replaceOnce(items, 'import { readFileSync } from "node:fs";', 'import { type readFileSync } from "node:fs";')],
+      ["imports: default versus named swapped", replaceOnce(items, 'import { dirname, join } from "node:path";', 'import dirname, { join } from "node:path";')],
+      ["imports: a side-effect-only import added", replaceOnce(items, 'import { readFileSync } from "node:fs";', 'import { readFileSync } from "node:fs";\nimport "./side-effect.js";')],
+      ["imports: an unreferenced named import from a new module", replaceOnce(items, 'import { readFileSync } from "node:fs";', 'import { readFileSync } from "node:fs";\nimport { neverUsed } from "./new-runtime-module.js";')],
+      ["imports: an export-from of a new module", appendText(items, 'export { other } from "./re-exported-module.js";')],
+      ["exclusivity: a sibling it.only at top level", appendText(items, 'it.only("exclusive it", () => {});')],
+      ["exclusivity: a sibling test.only at top level", appendText(items, 'test.only("exclusive test", () => {});')],
+      ["exclusivity: a sibling describe.only at top level", appendText(items, 'describe.only("exclusive describe", () => {});')],
+      ["exclusivity: an it.only nested in a non-killer describe", replaceOnce(items, 'describe("buildItemModel exports (acceptance: items.ts exports buildItemModel and the four types)", () => {\n', 'describe("buildItemModel exports (acceptance: items.ts exports buildItemModel and the four types)", () => {\n  it.only("nested exclusive", () => {});\n')],
+      ["environment: a file-level environment pragma added", `// ${ENV_PRAGMA} jsdom\n${items}`],
+    ];
+    for (const [label, variant] of single) {
+      expect(variant, `${label}: variant must differ from the receipt bytes`).not.toBe(items);
+      expectRejected(label, variant);
+    }
+    // Environment pragma changed (baseline already carries one).
+    const withNode = `// ${ENV_PRAGMA} node\n${items}`;
+    expectDigestsDiffer("environment: pragma changed", withNode, `// ${ENV_PRAGMA} jsdom\n${items}`);
+    // Existing non-plain statements edited.
+    const withLoop = appendText(items, "for (const n of [1]) {\n  beforeEach(() => {\n    scratch = n;\n  });\n  it(`loop ${n}`, () => {});\n}");
+    expectDigestsDiffer("non-plain: an existing top-level loop edited", withLoop, withLoop.replace("scratch = n;", "scratch = n + 1;"));
+    const withScopedLoop = beforeItemsKiller(items, "  for (const n of [1]) {\n    beforeEach(() => {\n      scratch = n;\n    });\n    it(`loop ${n}`, () => {});\n  }");
+    expectDigestsDiffer("scope: an existing loop in the enclosing describe edited", withScopedLoop, withScopedLoop.replace("scratch = n;", "scratch = n + 1;"));
+    const withLocalHook = insideHeicDescribe(items, "  beforeEach(() => {\n    scratch = 1;\n  });");
+    expectDigestsDiffer("scope: an existing local hook edited", withLocalHook, withLocalHook.replace("scratch = 1;", "scratch = 2;"));
+    const withOptions = replaceOnce(items, "  });\n});\n\n// --- Task 2: AVIF oracle", "  });\n}, { timeout: 5000 });\n\n// --- Task 2: AVIF oracle");
+    expectDigestsDiffer("scope: the options argument changed", withOptions, withOptions.replace("timeout: 5000", "timeout: 6000"));
+    // Fixed point: a helper reachable only through another helper.
+    const nested = replaceOnce(
+      appendText(items, "function outerHelper(): number {\n  return innerHelper();\n}\nfunction innerHelper(): number {\n  return 1;\n}"),
+      "  const inventory = inventoryIsobmff(bytes);\n",
+      "  const inventory = inventoryIsobmff(bytes);\n  outerHelper();\n",
+    );
+    expectDigestsDiffer("declarations: a helper reachable through another helper", nested, nested.replace("return 1;", "return 2;"));
+    // Destructured declaration the killer references (no call, so only reachability binds it).
+    const destructured = replaceOnce(
+      appendText(items, "const { alpha, beta } = { alpha: 1, beta: 2 };\nconst { gamma } = { gamma: 1 };"),
+      "  const inventory = inventoryIsobmff(bytes);\n",
+      "  const inventory = inventoryIsobmff(bytes);\n  void alpha;\n",
+    );
+    expectDigestsDiffer("declarations: a destructured name the killer references", destructured, destructured.replace("{ alpha: 1, beta: 2 }", "{ alpha: 3, beta: 2 }"));
+    expect(bind(destructured.replace("{ gamma: 1 }", "{ gamma: 5 }")), "an unreferenced non-call declaration stays unbound").toBe(bind(destructured));
+    // Overloaded function: each overload signature and the implementation.
+    const overloaded = replaceOnce(
+      appendText(items, "function overloaded(value: string): string;\nfunction overloaded(value: number): number;\nfunction overloaded(value: string | number): string | number {\n  return value;\n}"),
+      "  const inventory = inventoryIsobmff(bytes);\n",
+      '  const inventory = inventoryIsobmff(bytes);\n  overloaded("x");\n',
+    );
+    expectDigestsDiffer("declarations: overload signature", overloaded, overloaded.replace("(value: number): number;", "(value: bigint): bigint;"));
+    expectDigestsDiffer("declarations: overload implementation", overloaded, overloaded.replace("  return value;", "  return value as string;"));
+    // Writer killer: a referenced helper and constant changed.
+    const writer = s.writer;
+    expectRejected(
+      "writer: a referenced constant changed",
+      items,
+      replaceOnce(writer, 'new Set(["grid", "hvc1"])', 'new Set(["grid", "hvc1", "av01"])'),
+      WRITER_KILLER_NAME,
+    );
+    expectRejected(
+      "writer: a referenced helper changed",
+      items,
+      replaceOnce(writer, "return inventory.items.find((item) => item.id === id);", "return inventory.items.find((item) => item.id !== id);"),
+      WRITER_KILLER_NAME,
+    );
+    expectRejected(
+      "writer: the killer body changed",
+      items,
+      replaceOnce(writer, "expect(removedIds.size).toBe(2);", "expect(removedIds.size).toBe(3);"),
+      WRITER_KILLER_NAME,
+    );
+    // The real CLI rejects a killer-body change on a contained copy of the product tree.
+    const { product } = createProductTreeCopy({
+      [ITEMS_TEST_FILE]: single[0]![1],
+    });
+    const cli = runLedgerCheckPre(product);
+    expect(cli.status).toBe(1);
+    expect(cli.stderr).toContain(STALE_KILLER);
+  }, 300_000);
+
+  it("fails closed with a distinct problem for every unresolvable killer, never falling back to bytes", () => {
+    const s = sources();
+    const items = s.items;
+    const absentText = "named killer registration is absent from the test source";
+    const cases: {
+      label: string;
+      source: string;
+      name?: string;
+      code: string;
+      text: string;
+    }[] = [
+      { label: "killer title renamed", source: replaceFirst(items, `it("${KILLER_TITLE}"`, `it("${KILLER_TITLE} (renamed)"`), code: "absent", text: absentText },
+      { label: "items enclosing describe title changed", source: replaceOnce(items, 'describe("parseIsobmff item graph on heif-enc-grid.heic"', 'describe("parseIsobmff item graph on heif-enc-grid.heic v2"'), code: "absent", text: absentText },
+      {
+        label: "writer enclosing describe title changed",
+        source: replaceOnce(s.writer, 'describe("tracer: heif-enc-grid.heic rebuild (62-02)"', 'describe("tracer: heif-enc-grid.heic rebuild (62-02) v2"'),
+        name: WRITER_KILLER_NAME,
+        code: "absent",
+        text: absentText,
+      },
+      { label: "killer removed", source: replaceOnce(items, ITEMS_KILLER_STATEMENT, ""), code: "absent", text: absentText },
+      { label: "two registrations share the killer's full name", source: replaceOnce(items, ITEMS_KILLER_STATEMENT, `${ITEMS_KILLER_STATEMENT}${ITEMS_KILLER_STATEMENT}`), code: "ambiguous", text: "named killer registration is ambiguous" },
+      { label: "killer title templated with a substitution", source: replaceFirst(items, `it("${KILLER_TITLE}"`, "it(`matches the independent inventory walker's items, references, properties and ${\"associations\"}`"), code: "unsupported", text: "named killer registration is unsupported" },
+      { label: "enclosing describe registered through .each", source: replaceOnce(items, HEIC_DESCRIBE_HEADER, 'describe.each([1])("parseIsobmff item graph on heif-enc-grid.heic", () => {\n'), code: "unsupported", text: "named killer registration is unsupported" },
+      { label: "enclosing describe dynamically titled", source: replaceOnce(items, HEIC_DESCRIBE_HEADER, "describe(`parseIsobmff item graph on heif-enc-grid.${\"heic\"}`, () => {\n"), code: "unsupported", text: "named killer registration is unsupported" },
+      { label: "syntax error", source: `${items}\nconst = ;\n`, code: "syntax", text: "named killer test source has a syntax error" },
+    ];
+    for (const { label, source, name = ITEMS_KILLER_NAME, code, text } of cases) {
+      const error = failureOf(source, name);
+      expect(error, `${label}: typed error`).toBeInstanceOf(deletionProof.NamedKillerBindingError);
+      expect(error.code, `${label}: code`).toBe(code);
+      expect(error.message, `${label}: message`).toContain(text);
+      expect(error.message, `${label}: no stale-source fallback`).not.toContain(STALE_KILLER);
+      const items2 = name === ITEMS_KILLER_NAME ? source : items;
+      const writer2 = name === WRITER_KILLER_NAME ? source : undefined;
+      const { proof } = validateWith(items2, writer2);
+      expect(
+        proof.problems.some((problem) => problem.includes(text)),
+        `${label}: receipt problem ${JSON.stringify(proof.problems)}`,
+      ).toBe(true);
+      expect(
+        proof.problems.some((problem) => problem.includes(STALE_KILLER)),
+        `${label}: receipt must not report a byte comparison`,
+      ).toBe(false);
+    }
+  }, 120_000);
+
+  it("loads TypeScript lazily, throws a typed error when it is unavailable, and memoizes per source digest and name", () => {
+    const s = sources();
+    // --- typed failure when the package cannot be resolved, in a copy with no typescript ---
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "named-killer-no-ts-")));
+    temporaryRoots.push(root);
+    mkdirSync(join(root, "tools", "mutation"), { recursive: true });
+    for (const file of ["deletion-proof.mjs", "identity.mjs", "cluster.mjs", "groups.mjs"])
+      copyFileSync(
+        join(packageRoot, "tools", "mutation", file),
+        join(root, "tools", "mutation", file),
+      );
+    writeFileSync(join(root, "package.json"), '{"name":"no-typescript-here","type":"module"}\n');
+    writeFileSync(join(root, "row.json"), JSON.stringify(s.row));
+    writeFileSync(join(root, "survivors.json"), JSON.stringify(s.survivors));
+    const probe = [
+      'import { readFileSync } from "node:fs";',
+      'const mod = await import(new URL("./tools/mutation/deletion-proof.mjs", import.meta.url).href);',
+      'const out = {};',
+      'try { mod.namedKillerBinding("describe(\\"a\\", () => { it(\\"b\\", () => {}); });", "a > b"); out.direct = "no error"; }',
+      'catch (error) { out.direct = { name: error.name, code: error.code, message: error.message }; }',
+      'const row = JSON.parse(readFileSync(new URL("./row.json", import.meta.url), "utf8"));',
+      'const survivors = JSON.parse(readFileSync(new URL("./survivors.json", import.meta.url), "utf8"));',
+      'const finalReport = JSON.parse(row.sourceOperation.reports.final.raw);',
+      'const proof = mod.validateReadCStringBoundary({ row, root: process.argv[2], survivors, readTest: (file) => finalReport.testFiles[file].source });',
+      'out.problems = proof.problems;',
+      'process.stdout.write(JSON.stringify(out));',
+    ].join("\n");
+    writeFileSync(join(root, "probe.mjs"), probe);
+    const run = spawnSync(process.execPath, [join(root, "probe.mjs"), packageRoot], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, NODE_PATH: "" },
+    });
+    expect(run.stderr).toBe("");
+    expect(run.status).toBe(0);
+    const out = JSON.parse(run.stdout) as {
+      direct: { name: string; code: string; message: string };
+      problems: string[];
+    };
+    expect(out.direct.name).toBe("NamedKillerBindingError");
+    expect(out.direct.code).toBe("typescript-unavailable");
+    expect(out.direct.message).toContain("typescript");
+    // The receipt check also fails closed: identical bytes would have passed a byte comparison.
+    expect(out.problems.length).toBeGreaterThan(0);
+    expect(out.problems.every((problem) => problem.includes("typescript"))).toBe(true);
+    expect(out.problems.some((problem) => problem.includes(STALE_KILLER))).toBe(false);
+
+    // --- the copied --inventory route needs no typescript in its fixture. (The verifier's own
+    // --self-test needs the parser for its Vitest-declaration examples, before and after this
+    // plan, so only the live workspace run covers it.) ---
+    const fixture = createRealAdmissionCliFixture();
+    expect(
+      existsSync(join(fixture.root, "exifcleaner-node", "node_modules", "typescript")),
+    ).toBe(false);
+    const inventory = runRealCli(fixture, ["--inventory"]);
+    expect(inventory.status, String(inventory.stderr)).toBe(0);
+    expect(String(inventory.stdout)).toContain(
+      "triage inventory: 32 batches, 586 clusters, 1919 members",
+    );
+
+    // --- memoization is keyed by source digest and name, and bounded ---
+    const small = (value: number) =>
+      `describe("a", () => { it("b", () => { expect(${value}).toBe(${value}); }); });`;
+    expect(namedKillerBinding(small(1), "a > b")).toBe(namedKillerBinding(small(1), "a > b"));
+    expect(namedKillerBinding(small(1), "a > b")).not.toBe(namedKillerBinding(small(2), "a > b"));
+    const withSecond = `${small(1)}\ndescribe("c", () => { it("d", () => { expect(1).toBe(1); }); });`;
+    expect(namedKillerBinding(withSecond, "a > b")).toBe(namedKillerBinding(small(1), "a > b"));
+    expect(namedKillerBinding(withSecond, "c > d")).not.toBe(namedKillerBinding(withSecond, "a > b"));
+    const first = namedKillerBinding(small(0), "a > b");
+    const digests = new Set<string>();
+    for (let value = 1; value <= 70; value++)
+      digests.add(namedKillerBinding(small(value), "a > b"));
+    expect(digests.size).toBe(70);
+    expect(namedKillerBinding(small(0), "a > b")).toBe(first);
+    expect(namedKillerBinding(small(35), "a > b")).toBe(namedKillerBinding(small(35), "a > b"));
+  }, 120_000);
+
+  it("keeps the Plan 56 semantics: CSTRING block, fixture, 43 immutable keys, strict ownership and forged-receipt rejection", () => {
+    const text = readFileSync(
+      join(packageRoot, "tools", "mutation", "deletion-proof.mjs"),
+      "utf8",
+    );
+    const start = text.indexOf("const CSTRING_BOUNDARY_BASE =");
+    const end = text.indexOf("const ILOC_BOUNDARY_SOURCE_SHA256 =");
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    expect(sha256(text.slice(start, end))).toBe(
+      "3858bc9f09fba7fdf0ad0a67323fc3225ebe113cdff7e54099b765064bf5c912",
+    );
+    const { bundle } = loadCStringBoundaryBundle(); // asserts the fixture SHA256 cc8f5349...
+    expect(bundle.selectedMembers).toHaveLength(43);
+    const s = sources();
+    const accepted = validateWith(s.items).proof;
+    expect(accepted.problems.join("\n")).toBe("");
+    expect(accepted.anchors).toHaveLength(593);
+    expect(accepted.counterpartProofs).toHaveLength(2);
+    const forged = structuredClone(s.row);
+    (forged.sourceOperation as { originalKey: string }).originalKey = "forged";
+    const rejected = deletionProof.validateReadCStringBoundary({
+      row: forged,
+      root: packageRoot,
+      survivors: s.survivors,
+      readTest: (file: string) => s.embedded[file]!,
+    });
+    expect(rejected.problems.join("\n")).toMatch(
+      /site, original key or permanent source binding/,
+    );
+    const reassigned = structuredClone(s.row);
+    reassigned.keys = [...reassigned.keys, "extra-owner-key"];
+    expect(
+      deletionProof
+        .validateReadCStringBoundary({
+          row: reassigned,
+          root: packageRoot,
+          survivors: s.survivors,
+          readTest: (file: string) => s.embedded[file]!,
+        })
+        .problems.join("\n"),
+    ).toMatch(/immutable EOF-only owner/);
+  }, 60_000);
 });
