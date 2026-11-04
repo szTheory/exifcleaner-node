@@ -665,10 +665,9 @@ export async function verifyIsobmffOutput(
     const sourceColrProperties = admission.model.properties.filter(
       (property) => property.type === "colr",
     );
-    // Stryker disable next-line MethodExpression: redundant-guard-after-typed-check — the parser sets colourType only on colr properties, and this list is consumed only through colourType (nclx, prof, rICC), so dropping the colr filter yields the same matches for every destination.
-    const destinationColrProperties = destinationModel.properties.filter(
-      (property) => property.type === "colr",
-    );
+    // parseIpco sets `colourType` only on colr properties, and the destination list is consumed
+    // only through `colourType` (nclx, prof, rICC), so it needs no separate colr type filter.
+    const destinationProperties = destinationModel.properties;
     const sourceNclxBytes = sourceColrProperties
       .filter((property) => property.colourType === "nclx")
       .map((property) =>
@@ -677,7 +676,7 @@ export async function verifyIsobmffOutput(
           property.end,
         ),
       );
-    const destinationNclxBytes = destinationColrProperties
+    const destinationNclxBytes = destinationProperties
       .filter((property) => property.colourType === "nclx")
       .map((property) =>
         destinationModel.layout.metaPayload.subarray(
@@ -740,7 +739,7 @@ export async function verifyIsobmffOutput(
     } else {
       // D-16: no prof/rICC colr property may remain anywhere in the destination's ipco, and none
       // of the removed ICC payload bytes may occur anywhere in the destination file.
-      for (const property of destinationColrProperties) {
+      for (const property of destinationProperties) {
         if (property.colourType === "prof" || property.colourType === "rICC") {
           return err(
             verificationError(
