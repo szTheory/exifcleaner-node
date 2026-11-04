@@ -24,6 +24,13 @@ import {
   setRegisteredHandlersForTests,
 } from "../src/admission/registry.js";
 import { admitIsobmff } from "../src/isobmff/admission.js";
+import type { IsobmffAdmission } from "../src/isobmff/admission.js";
+import type { IsobmffItem } from "../src/isobmff/items.js";
+import {
+  buildIsobmffOutputPlan,
+  checkIsobmffOutputPlan,
+  type IsobmffOutputPlan,
+} from "../src/isobmff/plan.js";
 import {
   createIsobmffWriterHandlerForTests,
   createPlanMutantHandler,
@@ -67,7 +74,10 @@ import {
   HOSTILE_FIXTURES,
   type AssembleHeifSpec,
 } from "./isobmff-support/hostile.js";
-import { createMinimalExif } from "../src/metadata/exif.js";
+import {
+  createMinimalExif,
+  createOrientationExif,
+} from "../src/metadata/exif.js";
 import fc from "fast-check";
 import {
   isobmffArmSampleArbitrary,
@@ -2270,5 +2280,558 @@ describe("WR-01 code review fix pass (62-13): verify recomputes the whole surviv
     } finally {
       restore();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plan 67-19 (isobmff-6): the output planner, `src/isobmff/plan.ts`. Real fixtures go through
+// `admitIsobmff` and `buildIsobmffOutputPlan`; the D-12 overflow arithmetic needs offsets above
+// 4 GiB, which no real file this suite can write reaches, so those cases take a real admission
+// and replace only plain data on it (item extents, iloc widths, the mdat size form) -- the same
+// admission shape the engine always hands the planner, as the D-12 tests in
+// tests/isobmff_hostile.test.ts do. The plan is pure data, so no 4 GiB buffer is ever allocated.
+// ---------------------------------------------------------------------------
+
+type PlanLayout = IsobmffAdmission["model"]["layout"];
+type PlanLayoutItem = PlanLayout["item"];
+type PlanBoxHeader = PlanLayout["topLevelBoxes"][number];
+type PlanSpan = { readonly abs: number; readonly length: number };
+
+const ISO6_PRIMARY = Buffer.from("primary-bytes", "ascii");
+const ISO6_SECOND = Buffer.from("second", "ascii");
+const ISO6_THIRD = Buffer.from("third", "ascii");
+const ISO6_EXIF = Buffer.concat([Buffer.alloc(4), createOrientationExif(6)]);
+const UINT32_MAX = 0xffffffff;
+
+/** Primary 1, surviving 3 (and, unless `includeThird` is false, surviving 4), then Exif item 2
+ * (the D-13 source item k, `cdsc` to the primary by default). All extents touch in that order. */
+function iso6Fixture(
+  options: {
+    readonly widths?: NonNullable<AssembleHeifSpec["ilocWidths"]>;
+    readonly refs?: readonly IrefRef[];
+    readonly includeThird?: boolean;
+    readonly exifProperties?: boolean;
+  } = {},
+): Buffer {
+  const includeThird = options.includeThird !== false;
+  const secondOffset = ISO6_PRIMARY.length;
+  const thirdOffset = secondOffset + ISO6_SECOND.length;
+  const exifOffset = includeThird
+    ? thirdOffset + ISO6_THIRD.length
+    : thirdOffset;
+  return assembleHeif({
+    primaryItemId: 1,
+    items: [
+      {
+        itemId: 1,
+        itemType: "hvc1",
+        extents: [{ relOffset: 0, length: ISO6_PRIMARY.length }],
+        propertyIndices: [1, 2],
+      },
+      {
+        itemId: 3,
+        itemType: "hvc1",
+        extents: [{ relOffset: secondOffset, length: ISO6_SECOND.length }],
+      },
+      ...(includeThird
+        ? [
+            {
+              itemId: 4,
+              itemType: "hvc1",
+              extents: [{ relOffset: thirdOffset, length: ISO6_THIRD.length }],
+            },
+          ]
+        : []),
+      {
+        itemId: 2,
+        itemType: "Exif",
+        hidden: true,
+        extents: [{ relOffset: exifOffset, length: ISO6_EXIF.length }],
+        ...(options.exifProperties === true ? { propertyIndices: [1] } : {}),
+      },
+    ],
+    refs: options.refs ?? [{ type: "cdsc", fromItemId: 2, toItemIds: [1] }],
+    mdatPayload: Buffer.concat([
+      ISO6_PRIMARY,
+      ISO6_SECOND,
+      ...(includeThird ? [ISO6_THIRD] : []),
+      ISO6_EXIF,
+    ]),
+    ...(options.widths !== undefined ? { ilocWidths: options.widths } : {}),
+    twoPass: true,
+  });
+}
+
+async function iso6Admit(bytes: Buffer): Promise<IsobmffAdmission> {
+  const directory = await freshDirectory();
+  const path = join(directory, "source.heic");
+  await writeFile(path, bytes);
+  const handle = await open(path, "r");
+  try {
+    return await admitIsobmff(handle, bytes.length);
+  } finally {
+    await handle.close();
+  }
+}
+
+function iso6WithLayoutItem(
+  admission: IsobmffAdmission,
+  patch: Partial<PlanLayoutItem>,
+): IsobmffAdmission {
+  const { layout } = admission.model;
+  return {
+    ...admission,
+    model: {
+      ...admission.model,
+      layout: { ...layout, item: { ...layout.item, ...patch } },
+    },
+  };
+}
+
+function iso6WithTopLevel(
+  admission: IsobmffAdmission,
+  map: (boxes: readonly PlanBoxHeader[]) => readonly PlanBoxHeader[],
+): IsobmffAdmission {
+  const { layout } = admission.model;
+  return {
+    ...admission,
+    model: {
+      ...admission.model,
+      layout: { ...layout, topLevelBoxes: map(layout.topLevelBoxes) },
+    },
+  };
+}
+
+function iso6WithItems(
+  admission: IsobmffAdmission,
+  map: (item: IsobmffItem) => IsobmffItem,
+): IsobmffAdmission {
+  const items = admission.model.items.map(map);
+  return {
+    ...admission,
+    model: {
+      ...admission.model,
+      items,
+      itemsById: new Map(items.map((item) => [item.id, item] as const)),
+    },
+  };
+}
+
+/** Item 1 and item 3 read `spans` as absolute extents from base 0; the mdat takes `sizeForm`. */
+function iso6Place(
+  admission: IsobmffAdmission,
+  spans: {
+    readonly item1: readonly PlanSpan[];
+    readonly item3: readonly PlanSpan[];
+  },
+  layoutPatch: Partial<PlanLayoutItem> = {},
+  sizeForm: "normal" | "largesize" = "normal",
+): IsobmffAdmission {
+  const placed = iso6WithItems(admission, (item) => {
+    const own =
+      item.id === 1 ? spans.item1 : item.id === 3 ? spans.item3 : undefined;
+    if (own === undefined) return item;
+    return {
+      ...item,
+      baseOffset: 0,
+      extents: own.map((span) => ({
+        index: 0,
+        offset: span.abs,
+        length: span.length,
+      })),
+    };
+  });
+  const patched = iso6WithLayoutItem(placed, layoutPatch);
+  return iso6WithTopLevel(patched, (boxes) =>
+    boxes.map((box) =>
+      box.type === "mdat"
+        ? {
+            ...box,
+            sizeForm,
+            headerSize: sizeForm === "largesize" ? 16 : 8,
+          }
+        : box,
+    ),
+  );
+}
+
+/** Every removable item dropped, color profile kept: ipco/ipma come out equal to the source. */
+function iso6PlanDrop(admission: IsobmffAdmission): IsobmffOutputPlan {
+  return buildIsobmffOutputPlan(admission, false, true, false, undefined);
+}
+
+/** Orientation preserved: Exif item k stays as the minimal Exif item. */
+function iso6PlanKeep(admission: IsobmffAdmission): IsobmffOutputPlan {
+  return buildIsobmffOutputPlan(admission, true, true, false, 6);
+}
+
+function iso6ExpectDeclined(
+  plan: IsobmffOutputPlan,
+  admission: IsobmffAdmission,
+): void {
+  expect(checkIsobmffOutputPlan(plan)).toBeDefined();
+  expect(plan.parts).toEqual([]);
+  expect(plan.removedItemIds).toEqual(
+    admission.classification.removableItemIds,
+  );
+}
+
+function iso6ExpectPlanned(plan: IsobmffOutputPlan): void {
+  expect(checkIsobmffOutputPlan(plan)).toBeUndefined();
+  expect(plan.parts.length).toBeGreaterThan(0);
+}
+
+function iso6PartLength(part: IsobmffOutputPlan["parts"][number]): number {
+  return part.kind === "copy" ? part.length : part.data.length;
+}
+
+/** ftyp copy + meta bytes + mdat header: where the new mdat payload starts. */
+function iso6PayloadStart(plan: IsobmffOutputPlan): number {
+  return plan.parts
+    .slice(0, 3)
+    .reduce((sum, part) => sum + iso6PartLength(part), 0);
+}
+
+function iso6MetaBytes(plan: IsobmffOutputPlan): Buffer {
+  const part = plan.parts.find((candidate) => candidate.kind === "bytes");
+  if (part === undefined || part.kind !== "bytes") {
+    throw new Error("the plan carries no meta bytes part");
+  }
+  return part.data;
+}
+
+function iso6ChildTypes(box: Buffer, headerSize: number): string[] {
+  const types: string[] = [];
+  let position = headerSize;
+  while (position < box.length) {
+    types.push(box.toString("ascii", position + 4, position + 8));
+    position += box.readUInt32BE(position);
+  }
+  return types;
+}
+
+async function iso6Sanitize(
+  bytes: Buffer,
+  preserveOrientation: boolean,
+): Promise<IsobmffInventory> {
+  const directory = await freshDirectory();
+  const sourcePath = join(directory, "source.heic");
+  const destinationPath = join(directory, "destination.heic");
+  await writeFile(sourcePath, bytes);
+  const restore = setRegisteredHandlersForTests([
+    createIsobmffWriterHandlerForTests("heic"),
+  ]);
+  try {
+    const sanitized = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: false,
+    });
+    if (!sanitized.ok) {
+      throw new Error(
+        `sanitizeFile failed: ${JSON.stringify(sanitized.error)}`,
+      );
+    }
+    return inventoryIsobmff(await readFile(destinationPath));
+  } finally {
+    restore();
+  }
+}
+
+describe("buildMergedMdatRanges EqualityOperator cluster (67-19)", () => {
+  it("buildMergedMdatRanges EqualityOperator: touching surviving extents are written as one copy of the union", async () => {
+    const admission = await iso6Admit(iso6Fixture());
+    const plan = iso6PlanDrop(admission);
+    iso6ExpectPlanned(plan);
+    const copies = plan.parts.filter((part) => part.kind === "copy");
+    // The ftyp copy plus exactly one mdat copy; touching extents 1, 3 and 4 are not split.
+    expect(copies).toHaveLength(2);
+    const mdatCopy = copies[1]!;
+    expect(mdatCopy.kind === "copy" && mdatCopy.length).toBe(
+      ISO6_PRIMARY.length + ISO6_SECOND.length + ISO6_THIRD.length,
+    );
+  });
+});
+
+describe("buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOperator, and LogicalOperator clusters (67-19)", () => {
+  it("buildIsobmffOutputPlan top-level boxes: an unmodified admission plans", async () => {
+    const admission = await iso6Admit(iso6Fixture());
+    iso6ExpectPlanned(iso6PlanDrop(admission));
+  });
+
+  it.each(["ftyp", "meta"] as const)(
+    "buildIsobmffOutputPlan top-level boxes: a source with no kept %s box is declined before any part is planned",
+    async (missing) => {
+      const admission = await iso6Admit(iso6Fixture());
+      const without = iso6WithTopLevel(admission, (boxes) =>
+        boxes.filter((box) => box.type !== missing),
+      );
+      iso6ExpectDeclined(iso6PlanDrop(without), without);
+    },
+  );
+
+  it("buildIsobmffOutputPlan top-level boxes: a source with no kept mdat box is declined", async () => {
+    const admission = await iso6Admit(iso6Fixture());
+    const without = iso6WithTopLevel(admission, (boxes) =>
+      boxes.filter((box) => box.type !== "mdat"),
+    );
+    iso6ExpectDeclined(iso6PlanDrop(without), without);
+  });
+
+  it("buildIsobmffOutputPlan ArithmeticOperator: a ftyp that does not start at offset 0 contributes its size, not end plus start", async () => {
+    const admission = await iso6Admit(iso6Fixture());
+    const baseline = iso6PlanDrop(admission);
+    const shifted = iso6WithTopLevel(admission, (boxes) =>
+      boxes.map((box) =>
+        box.type === "ftyp"
+          ? {
+              ...box,
+              start: box.start + 8,
+              payloadStart: box.payloadStart + 8,
+              end: box.end + 8,
+            }
+          : box,
+      ),
+    );
+    const plan = iso6PlanDrop(shifted);
+    iso6ExpectPlanned(plan);
+    const first = baseline.parts[0]!;
+    expect(first.kind).toBe("copy");
+    // Only the ftyp copy's source offset moves; its length and every later byte are unchanged,
+    // including the rewritten iloc offsets inside the meta bytes.
+    expect(plan.parts[0]).toEqual({
+      ...first,
+      sourceOffset: first.kind === "copy" ? first.sourceOffset + 8 : 0,
+    });
+    expect(plan.parts.slice(1)).toEqual(baseline.parts.slice(1));
+  });
+});
+
+describe("buildIsobmffOutputPlan iloc width ConditionalExpression and EqualityOperator clusters (67-19)", () => {
+  it("buildIsobmffOutputPlan iloc widths: offset_size 0 with a base offset plans a minimal Exif item at offset 0", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const zeroOffsetWidth = iso6WithLayoutItem(admission, {
+      ilocOffsetSize: 0,
+    });
+    // offset_size 0 cannot carry an absolute position, but base_offset_size 4 can: nothing to decline.
+    iso6ExpectPlanned(iso6PlanKeep(zeroOffsetWidth));
+  });
+
+  it("buildIsobmffOutputPlan iloc widths: offset_size 8 with a base offset plans a minimal Exif item", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const wideOffsets = iso6WithLayoutItem(admission, { ilocOffsetSize: 8 });
+    iso6ExpectPlanned(iso6PlanKeep(wideOffsets));
+  });
+
+  it("buildIsobmffOutputPlan iloc widths: a second extent at a positive offset does not fit offset_size 0", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const spans = {
+      item1: [
+        { abs: 0, length: 4 },
+        { abs: 4, length: 4 },
+      ],
+      item3: [{ abs: 100, length: 6 }],
+    };
+    iso6ExpectPlanned(iso6PlanDrop(iso6Place(admission, spans)));
+    const starved = iso6Place(admission, spans, { ilocOffsetSize: 0 });
+    iso6ExpectDeclined(iso6PlanDrop(starved), starved);
+  });
+});
+
+describe("checkIlocRewriteFit and maxValueForWidth clusters on 32-bit base and extent offsets (67-19)", () => {
+  const GAP = 1000;
+
+  it("checkIlocRewriteFit: a rewritten base offset above 32 bits is declined", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const placed = iso6Place(
+      admission,
+      {
+        item1: [{ abs: 2 ** 32 + GAP, length: 13 }],
+        item3: [{ abs: 0, length: 2 ** 32 }],
+      },
+      { ilocLengthSize: 8 },
+      "largesize",
+    );
+    iso6ExpectDeclined(iso6PlanDrop(placed), placed);
+  });
+
+  it("checkIlocRewriteFit: a rewritten base offset of exactly 0xffffffff fits, one more does not and is caught only by the final pass", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const at = (length: number): IsobmffAdmission =>
+      iso6Place(
+        admission,
+        {
+          item1: [{ abs: length + GAP, length: 13 }],
+          item3: [{ abs: 0, length }],
+        },
+        { ilocLengthSize: 8 },
+        "largesize",
+      );
+    const start = iso6PayloadStart(iso6PlanDrop(at(100)));
+    const fits = at(UINT32_MAX - start);
+    iso6ExpectPlanned(iso6PlanDrop(fits));
+    const overflows = at(UINT32_MAX - start + 1);
+    iso6ExpectDeclined(iso6PlanDrop(overflows), overflows);
+  });
+
+  it("checkIlocRewriteFit: a rewritten extent offset above 32 bits is declined", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const placed = iso6Place(
+      admission,
+      {
+        item1: [
+          { abs: GAP, length: 4 },
+          { abs: 2 * GAP + 2 ** 32 + 10, length: 4 },
+        ],
+        item3: [{ abs: 2 * GAP, length: 2 ** 32 }],
+      },
+      { ilocLengthSize: 8 },
+      "largesize",
+    );
+    iso6ExpectDeclined(iso6PlanDrop(placed), placed);
+  });
+});
+
+describe("checkMdatSizeFit clusters on the rewritten mdat size (67-19)", () => {
+  const withPayload = async (
+    payloadLength: number,
+    sizeForm: "normal" | "largesize",
+    layoutPatch: Partial<PlanLayoutItem> = {},
+  ): Promise<IsobmffAdmission> => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    return iso6Place(
+      admission,
+      {
+        item1: [{ abs: 0, length: 13 }],
+        item3: [{ abs: 100, length: payloadLength - 13 }],
+      },
+      layoutPatch,
+      sizeForm,
+    );
+  };
+
+  it("checkMdatSizeFit: a normal header cannot carry a payload of 0xfffffff8 and is declined", async () => {
+    const admission = await withPayload(0xfffffff8, "normal");
+    iso6ExpectDeclined(iso6PlanDrop(admission), admission);
+  });
+
+  it("checkMdatSizeFit: a normal header carries a payload of 0xfffffff7, the largest that fits", async () => {
+    iso6ExpectPlanned(iso6PlanDrop(await withPayload(0xfffffff7, "normal")));
+  });
+
+  it("checkMdatSizeFit: a largesize header carries a payload of 0xfffffff8", async () => {
+    iso6ExpectPlanned(iso6PlanDrop(await withPayload(0xfffffff8, "largesize")));
+  });
+
+  it("checkMdatSizeFit: a largesize header whose total exceeds the safe integer range is declined", async () => {
+    const admission = await withPayload(2 ** 53 - 15, "largesize", {
+      ilocLengthSize: 8,
+    });
+    iso6ExpectDeclined(iso6PlanDrop(admission), admission);
+  });
+});
+
+describe("buildIsobmffOutputPlan iref ConditionalExpression, LogicalOperator, and UnaryOperator clusters (67-19)", () => {
+  it("buildIsobmffOutputPlan iref UnaryOperator: with no minimal Exif item every iref record keeps its own targets", async () => {
+    const inventory = await iso6Sanitize(
+      iso6Fixture({
+        refs: [
+          { type: "cdsc", fromItemId: 2, toItemIds: [1] },
+          { type: "dimg", fromItemId: 3, toItemIds: [1, 4] },
+        ],
+      }),
+      false,
+    );
+    // The record from the removed Exif item goes; the second record (index 1) is not rewritten.
+    expect(inventory.references).toEqual([
+      { type: "dimg", from: 3, to: [1, 4] },
+    ]);
+  });
+
+  it("buildIsobmffOutputPlan iref ConditionalExpression and LogicalOperator: only k's own cdsc record that names the primary is reduced to the primary", async () => {
+    const inventory = await iso6Sanitize(
+      iso6Fixture({
+        refs: [
+          { type: "cdsc", fromItemId: 3, toItemIds: [1, 4] },
+          { type: "thmb", fromItemId: 2, toItemIds: [1, 4] },
+          { type: "cdsc", fromItemId: 2, toItemIds: [1, 4] },
+        ],
+      }),
+      true,
+    );
+    expect(inventory.references).toEqual([
+      { type: "cdsc", from: 3, to: [1, 4] },
+      { type: "thmb", from: 2, to: [1, 4] },
+      { type: "cdsc", from: 2, to: [1] },
+    ]);
+  });
+});
+
+describe("buildIsobmffOutputPlan iprp and ipma ConditionalExpression, EqualityOperator, and MethodExpression clusters (67-19)", () => {
+  it("buildIsobmffOutputPlan ipma MethodExpression: an ipma entry for a removed item is dropped from the output", async () => {
+    const inventory = await iso6Sanitize(
+      iso6Fixture({ exifProperties: true }),
+      false,
+    );
+    expect(inventory.associations.map((entry) => entry.itemId)).toEqual([1]);
+  });
+
+  it("buildIsobmffOutputPlan iprp ConditionalExpression and EqualityOperator: an iprp with no recognised children is dropped from meta", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const baseline = iso6ChildTypes(iso6MetaBytes(iso6PlanDrop(admission)), 12);
+    expect(baseline).toContain("iprp");
+    const empty = iso6WithLayoutItem(admission, { iprpChildren: [] });
+    expect(iso6ChildTypes(iso6MetaBytes(iso6PlanDrop(empty)), 12)).toEqual(
+      baseline.filter((type) => type !== "iprp"),
+    );
+  });
+
+  it("buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipco keeps the rebuilt ipco", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const { layout } = admission.model;
+    const ipco = layout.item.iprpChildren.find(
+      (child) => child.type === "ipco",
+    )!;
+    const { ipmaVersion: _version, ipmaFlags: _flags, ...rest } = layout.item;
+    const onlyIpco = {
+      ...admission,
+      model: {
+        ...admission.model,
+        layout: {
+          ...layout,
+          item: { ...rest, iprpChildren: [ipco] },
+        },
+      },
+    };
+    const meta = iso6MetaBytes(iso6PlanDrop(onlyIpco));
+    expect(
+      meta.includes(layout.metaPayload.subarray(ipco.start, ipco.end)),
+    ).toBe(true);
+  });
+
+  it("buildIsobmffOutputPlan iprp EqualityOperator: an iprp that holds only ipma keeps the rebuilt ipma", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const { layout } = admission.model;
+    const ipma = layout.item.iprpChildren.find(
+      (child) => child.type === "ipma",
+    )!;
+    const onlyIpma = iso6WithLayoutItem(admission, { iprpChildren: [ipma] });
+    const meta = iso6MetaBytes(iso6PlanDrop(onlyIpma));
+    expect(
+      meta.includes(layout.metaPayload.subarray(ipma.start, ipma.end)),
+    ).toBe(true);
+  });
+
+  it("buildIsobmffOutputPlan iprp ConditionalExpression: an iprp child that is neither ipco nor ipma is not carried into the order", async () => {
+    const admission = await iso6Admit(iso6Fixture({ includeThird: false }));
+    const { iprpChildren } = admission.model.layout.item;
+    const baseline = iso6MetaBytes(iso6PlanDrop(admission));
+    const withFree = iso6WithLayoutItem(admission, {
+      iprpChildren: [...iprpChildren, { ...iprpChildren[0]!, type: "free" }],
+    });
+    expect(iso6MetaBytes(iso6PlanDrop(withFree)).equals(baseline)).toBe(true);
   });
 });
