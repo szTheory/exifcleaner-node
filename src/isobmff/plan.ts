@@ -635,13 +635,14 @@ export function buildIsobmffOutputPlan(
           .map((property) => property.index),
       );
 
-  /** D-16: `new = old - countRemovedBelow(old)`, over a property index that itself survives. */
-  function remapSurvivingPropertyIndex(oldIndex: number): number {
-    let removedBelow = 0;
-    for (const removed of removedPropertyIndices) {
-      if (removed < oldIndex) removedBelow += 1;
+  /** D-16: a surviving property's new index is its 1-based rank among the surviving properties
+   * in ipco declaration order (`old - countRemovedBelow(old)`); ipma entries only name existing
+   * properties (items.ts rejects an out-of-range index at parse). */
+  const survivingPropertyRank = new Map<number, number>();
+  for (const property of model.properties) {
+    if (!removedPropertyIndices.has(property.index)) {
+      survivingPropertyRank.set(property.index, survivingPropertyRank.size + 1);
     }
-    return oldIndex - removedBelow;
   }
 
   // iprp: ipco rebuilt from each surviving property's own verbatim byte range, in source order
@@ -679,9 +680,9 @@ export function buildIsobmffOutputPlan(
                 !removedPropertyIndices.has(association.propertyIndex),
             )
             .map((association) => ({
-              propertyIndex: remapSurvivingPropertyIndex(
+              propertyIndex: survivingPropertyRank.get(
                 association.propertyIndex,
-              ),
+              )!,
               essential: association.essential,
             })),
         })),
