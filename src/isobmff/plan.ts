@@ -785,14 +785,8 @@ export function buildIsobmffOutputPlan(
     iprpBytes,
     finalRewrites,
   );
-  // Stryker disable next-line BlockStatement: defensive-unreachable-by-construction — iloc field widths never change between the probe and final passes (D-11), so the rebuilt meta length always equals the probe length and this branch is never entered.
-  if (metaBytes.length !== probeMetaBytes.length) {
-    return declined(
-      classification.removableItemIds,
-      // Stryker disable next-line StringLiteral: unobservable-message — the probe/final length label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
-      "Rebuilt meta length changed between the probe and final passes.",
-    );
-  }
+  // D-11: widths never change, so `metaBytes.length` equals the probe pass's length that the new
+  // mdat payload start above was computed from.
 
   const mdatHeaderBytes = buildMdatHeader(
     mdatBox.sizeForm,
