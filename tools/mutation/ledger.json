@@ -182964,19 +182964,15 @@
       "file": "src/isobmff/rebuild.ts",
       "function": "hasIndexField",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 3,
       "keys": [
         "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000117\u000025\u0000117\u000074",
         "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000117\u000026\u0000117\u000056",
         "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000117\u000061\u0000117\u000074"
       ],
-      "anchors": [
-        "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000(version === 1 || version === 2) && indexSize > 0\u00000",
-        "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000version === 1 || version === 2\u00001",
-        "src/isobmff/rebuild.ts\u0000ConditionalExpression\u0000true\u0000indexSize > 0\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by a behavior-preserving rewrite in Plan 67-20 (node 35902ec, dist 07d21be): hasIndexField is now hasConstructionMethod. The `indexSize > 0` operand was redundant because writeSizedUint(value, 0) emits no bytes, so a version 1/2 iloc with index_size 0 writes the same bytes either way; the 117:61-74 `true` and `>= 0` mutants were therefore unobservable, and they shared a line with the observable whole-expression and (version === 1 || version === 2) mutants, so a next-line directive would hide killed counterparts. The rewrite is the 67-18/67-19 Gate 2 option A pattern (remove the redundant construct instead of suppressing); no output byte changes (full suite, qualification and native differential). Behavior of the remaining index decision is pinned by tests/isobmff_hostile.test.ts (rebuild.ts encoders (67-20, isobmff-7)). Red: reports/triage/67-20/red.json (Survived); green: reports/triage/67-20/tracer-green.json, no mutant at these anchors.",
+      "symbol": "(version === 1 || version === 2) && indexSize > 0"
     },
     {
       "id": "isobmff:src/isobmff/rebuild.ts:hasIndexField:EqualityOperator",
