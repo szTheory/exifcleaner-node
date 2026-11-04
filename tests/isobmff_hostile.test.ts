@@ -1845,6 +1845,8 @@ interface VerifyPairOptions {
   readonly preserveColorProfile?: boolean;
   readonly wrapSource?: (handle: FileHandle) => FileHandle;
   readonly wrapDestination?: (handle: FileHandle) => FileHandle;
+  /** Hand-assembles the admission after it was read from the source, before it is verified. */
+  readonly adjustAdmission?: (admission: IsobmffAdmission) => void;
 }
 
 async function verifyPair(
@@ -1860,6 +1862,7 @@ async function verifyPair(
   const destinationHandle = await open(destinationPath, "r");
   try {
     const admission = await admitIsobmff(sourceHandle, sourceBytes.length);
+    options.adjustAdmission?.(admission);
     return await verifyIsobmffOutput(
       options.wrapSource?.(sourceHandle) ?? sourceHandle,
       admission,
@@ -2072,6 +2075,26 @@ describe("verify.ts colr ICC scan clusters (67-21, isobmff-8)", () => {
   });
 });
 
+describe("verify.ts removedColrPropertyIndices cluster (67-21, isobmff-8)", () => {
+  it("removedColrPropertyIndices ConditionalExpression: a property that is not a colr box is never treated as a removed ICC property", async () => {
+    const file = plainItemFile(smallPayload());
+    const options = { preserveColorProfile: false } as const;
+    expect((await verifyPair(file, Buffer.from(file), options)).ok).toBe(true);
+
+    // The parser sets colourType only on colr properties, so this admission is hand-assembled:
+    // property 2 (the hvcC box both files keep and item 1 is associated with) claims an ICC
+    // colour type. A property that is not a colr box must not drop that association from the
+    // expected side, so the byte-identical copy still verifies.
+    const result = await verifyPair(file, Buffer.from(file), {
+      ...options,
+      adjustAdmission: (admission) => {
+        Object.assign(admission.model.properties[1]!, { colourType: "prof" });
+      },
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
 /** Item 1 is a file-relative payload in `mdat`; item 2 is an `idat` item whose iloc record carries
  * `item2Base` and `item2Offset`. The iloc box is placed directly before `idat` and item 2 is its
  * last record, so the bytes just before the `idat` payload are item 2's extent fields. */
@@ -2138,15 +2161,15 @@ function idatOffsetFile(item2Base: number, item2Offset: number): Buffer {
 
 describe("verify.ts resolveAbsoluteOffset ArithmeticOperator cluster (67-21, isobmff-8)", () => {
   it("resolveAbsoluteOffset ArithmeticOperator: an idat item is located by idat start plus base_offset plus extent_offset, however the destination splits them", async () => {
-    // source: base_offset 3 and extent_offset 5; destination: base_offset 0 and extent_offset 8.
-    // Both name idat bytes 8..11 ("IJKL"); every other combination of the three terms reads
+    // source: base_offset 1 and extent_offset 1; destination: base_offset 0 and extent_offset 2.
+    // Both name idat bytes 2..5 ("CDEF"); every other combination of the three terms reads
     // different bytes in the two files.
-    const source = idatOffsetFile(3, 5);
-    const destination = idatOffsetFile(0, 8);
+    const source = idatOffsetFile(1, 1);
+    const destination = idatOffsetFile(0, 2);
     expect((await verifyPair(source, destination)).ok).toBe(true);
 
     // control: the idat bytes themselves are compared, so a destination that points at other
     // idat bytes does not verify
-    expectVerificationFailed(await verifyPair(source, idatOffsetFile(0, 9)));
+    expectVerificationFailed(await verifyPair(source, idatOffsetFile(0, 3)));
   });
 });
