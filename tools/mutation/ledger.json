@@ -184039,7 +184039,7 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:equivalent-22",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:dead-22",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
@@ -184054,7 +184054,7 @@
       "symbol": "exifItemCount > 1"
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:equivalent-23",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:dead-23",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
@@ -184531,7 +184531,7 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-24",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:dead-24",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
@@ -185033,7 +185033,7 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator:gap-06",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:LogicalOperator:dead-06",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
@@ -185139,7 +185139,7 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:equivalent-06",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:dead-06",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
