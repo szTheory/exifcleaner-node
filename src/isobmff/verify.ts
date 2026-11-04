@@ -293,6 +293,7 @@ export async function verifyIsobmffOutput(
       (box) => box.type === "ftyp",
     );
     const destinationFtyp = destinationModel.layout.topLevelBoxes.find(
+      // Stryker disable next-line ConditionalExpression: defensive-unreachable-by-construction — the destination was re-parsed above through readTopLevelBoxes, which throws box-framing unless the first top-level box is ftyp, so the ftyp found by type and the first box are the same box and the always-true predicate returns it; the always-false sibling on this line (killed by every successful verification) is suppressed only as collateral of this next-line directive.
       (box) => box.type === "ftyp",
     );
     if (sourceFtyp === undefined || destinationFtyp === undefined) {
@@ -300,12 +301,14 @@ export async function verifyIsobmffOutput(
         verificationError("Missing top-level ftyp box.", destinationPath),
       );
     }
+    // Stryker disable next-line ArithmeticOperator: equivalent-arithmetic — ftyp is the first top-level box (readTopLevelBoxes enforces it) and the first box starts at file offset 0, so sourceFtyp.start is always 0 and end - start equals end + start for every admitted source.
+    const ftypLength = sourceFtyp.end - sourceFtyp.start;
     const ftypEqual = await rangesEqual(
       sourceHandle,
       sourceFtyp.start,
       destinationHandle,
       destinationFtyp.start,
-      sourceFtyp.end - sourceFtyp.start,
+      ftypLength,
       signal,
     );
     if (!ftypEqual) {
