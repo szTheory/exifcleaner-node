@@ -2641,11 +2641,11 @@ describe("verify.ts verifyIsobmffOutput surviving item records (67-22, isobmff-9
     }
   });
 
-  const threeProps = [ispe(32, 32), hvcC(), ispe(16, 16)];
+  const threeProps = (): Buffer[] => [ispe(32, 32), hvcC(), ispe(16, 16)];
   const assocFile = (spec: Partial<AssembleHeifSpec>): Buffer =>
     assembleHeif({
       twoPass: true,
-      properties: threeProps,
+      properties: threeProps(),
       items: [
         {
           itemId: 1,
