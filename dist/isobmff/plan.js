@@ -406,9 +406,9 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
     const removedPropertyIndices = preserveColorProfile
         ? new Set()
         : new Set(model.properties
-            .filter((property) => property.type === "colr" &&
-            (property.colourType === "prof" ||
-                property.colourType === "rICC"))
+            .filter((property) => 
+        // colourType is set only on colr properties.
+        property.colourType === "prof" || property.colourType === "rICC")
             .map((property) => property.index));
     /** D-16: `new = old - countRemovedBelow(old)`, over a property index that itself survives. */
     function remapSurvivingPropertyIndex(oldIndex) {
