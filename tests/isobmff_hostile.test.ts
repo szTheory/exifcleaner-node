@@ -5,15 +5,7 @@
 // support module allowed a type-only import of `IsobmffDeclineClass` from `src/isobmff/errors.js`
 // (see tests/isobmff_isolation.test.ts); this test file itself imports `src/isobmff/` freely.
 import type { FileHandle } from "node:fs/promises";
-import {
-  mkdtemp,
-  open,
-  readdir,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { mkdtemp, open, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
