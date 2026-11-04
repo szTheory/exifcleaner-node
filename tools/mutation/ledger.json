@@ -182089,19 +182089,21 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:dead-06",
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:pending-06",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "ConditionalExpression",
-      "disposition": "dead",
+      "disposition": "pending",
       "count": 1,
       "keys": [
         "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000617\u000015\u0000617\u000039"
       ],
-      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"property.type === \\\"colr\\\" &&\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
-      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
-      "symbol": "property.type === \"colr\" &&"
+      "anchors": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000property.type === \"colr\"\u00000"
+      ],
+      "note": "Pending a maintainer decision recorded in 67-19-HALTED.md (Resolution section): the Gate 2 rewrite left this member without a representable disposition (its source text still appears elsewhere in src, so a symbol-only dead proof cannot hold, or its mutant became a CompileError).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression"
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-07",
@@ -182128,14 +182130,13 @@
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "ConditionalExpression",
       "disposition": "dead",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000640\u000053\u0000640\u000074",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000643\u00007\u0000643\u000031"
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000640\u000053\u0000640\u000074"
       ],
-      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"const ipcoHeader = iprpChildren.find\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"iprpChildren.find((child) => child.type === \\\"ipco\\\")\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
-      "symbol": "const ipcoHeader = iprpChildren.find"
+      "symbol": "iprpChildren.find((child) => child.type === \"ipco\")"
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:dead-09",
@@ -182144,17 +182145,46 @@
       "function": "buildIsobmffOutputPlan",
       "mutatorName": "ConditionalExpression",
       "disposition": "dead",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000641\u000053\u0000641\u000074",
-        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000653\u00009\u0000653\u000033"
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000641\u000053\u0000641\u000074"
       ],
-      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"const ipmaHeader = iprpChildren.find\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"iprpChildren.find((child) => child.type === \\\"ipma\\\")\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
-      "symbol": "const ipmaHeader = iprpChildren.find"
+      "symbol": "iprpChildren.find((child) => child.type === \"ipma\")"
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-10",
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:dead-10",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000643\u00007\u0000643\u000031"
+      ],
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"ipcoHeader !== undefined ?\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "symbol": "ipcoHeader !== undefined ?"
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:dead-11",
+      "group": "isobmff",
+      "file": "src/isobmff/plan.ts",
+      "function": "buildIsobmffOutputPlan",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/plan.ts\u0000ConditionalExpression\u0000true\u0000653\u00009\u0000653\u000033"
+      ],
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"ipmaHeader !== undefined &&\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression",
+      "symbol": "ipmaHeader !== undefined &&"
+    },
+    {
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:gap-12",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
@@ -182172,7 +182202,7 @@
       }
     },
     {
-      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:dead-11",
+      "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:ConditionalExpression:dead-13",
       "group": "isobmff",
       "file": "src/isobmff/plan.ts",
       "function": "buildIsobmffOutputPlan",
@@ -182266,9 +182296,9 @@
       "keys": [
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000child.type !== \"ipco\"\u0000640\u000053\u0000640\u000074"
       ],
-      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"const ipcoHeader = iprpChildren.find\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"iprpChildren.find((child) => child.type === \\\"ipco\\\")\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
-      "symbol": "const ipcoHeader = iprpChildren.find"
+      "symbol": "iprpChildren.find((child) => child.type === \"ipco\")"
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator:dead-06",
@@ -182281,9 +182311,9 @@
       "keys": [
         "src/isobmff/plan.ts\u0000EqualityOperator\u0000child.type !== \"ipma\"\u0000641\u000053\u0000641\u000074"
       ],
-      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"const ipmaHeader = iprpChildren.find\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "note": "Deleted by the Plan 67-19 Gate 2 behavior-preserving rewrite approved by the maintainer (\"A\", 2026-11-04): symbol \"iprpChildren.find((child) => child.type === \\\"ipma\\\")\" no longer appears in src; the node commit and fresh unfiltered report reports/triage/67-19/s10.json show no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
       "originClusterId": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:EqualityOperator",
-      "symbol": "const ipmaHeader = iprpChildren.find"
+      "symbol": "iprpChildren.find((child) => child.type === \"ipma\")"
     },
     {
       "id": "isobmff:src/isobmff/plan.ts:buildIsobmffOutputPlan:LogicalOperator:gap-01",
