@@ -426,15 +426,13 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
     let iprpBytes;
     const iprpChildren = layout.item.iprpChildren;
     if (iprpChildren.length > 0) {
-        const ipcoHeader = iprpChildren.find((child) => child.type === "ipco");
-        const ipmaHeader = iprpChildren.find((child) => child.type === "ipma");
-        const ipcoBytes = ipcoHeader !== undefined
-            ? rebuildIpco(model.properties
-                .filter((property) => !removedPropertyIndices.has(property.index))
-                .map((property) => layout.metaPayload.subarray(property.start, property.end)))
-            : Buffer.alloc(0);
+        // ipco bytes are only read when "ipco" is among the children (see `order` below), and
+        // ipmaVersion is defined exactly when an ipma child exists.
+        const ipcoBytes = rebuildIpco(model.properties
+            .filter((property) => !removedPropertyIndices.has(property.index))
+            .map((property) => layout.metaPayload.subarray(property.start, property.end)));
         let ipmaBytes;
-        if (ipmaHeader !== undefined && layout.item.ipmaVersion !== undefined) {
+        if (layout.item.ipmaVersion !== undefined) {
             const survivingAssociations = (model.ipma ?? []).filter((entry) => !removedIds.has(entry.itemId));
             ipmaBytes = rebuildIpma(layout.item.ipmaVersion, layout.item.ipmaFlags ?? 0, survivingAssociations.map((entry) => ({
                 itemId: entry.itemId,
