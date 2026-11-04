@@ -135,6 +135,7 @@ export async function parseIsobmff(
 
   let majorBrand: string | undefined;
   let minorVersion = 0;
+  // Stryker disable next-line ArrayDeclaration: defensive-unreachable-by-construction — compatibleBrands is assigned together with majorBrand in the only ftyp branch, and the function refuses before returning when majorBrand is still undefined, so this initial empty list is never read.
   let compatibleBrands: readonly string[] = [];
   let metaRange: IsobmffRange | undefined;
   const mdatRanges: IsobmffRange[] = [];
