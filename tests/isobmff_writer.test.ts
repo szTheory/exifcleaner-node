@@ -2592,16 +2592,21 @@ describe("buildIsobmffOutputPlan top-level box ConditionalExpression, EqualityOp
     iso6ExpectPlanned(iso6PlanDrop(admission));
   });
 
-  it.each(["ftyp", "meta"] as const)(
-    "buildIsobmffOutputPlan top-level boxes: a source with no kept %s box is declined before any part is planned",
-    async (missing) => {
-      const admission = await iso6Admit(iso6Fixture());
-      const without = iso6WithTopLevel(admission, (boxes) =>
-        boxes.filter((box) => box.type !== missing),
-      );
-      iso6ExpectDeclined(iso6PlanDrop(without), without);
-    },
-  );
+  it("buildIsobmffOutputPlan top-level boxes: a source with no kept ftyp box is declined before any part is planned", async () => {
+    const admission = await iso6Admit(iso6Fixture());
+    const without = iso6WithTopLevel(admission, (boxes) =>
+      boxes.filter((box) => box.type !== "ftyp"),
+    );
+    iso6ExpectDeclined(iso6PlanDrop(without), without);
+  });
+
+  it("buildIsobmffOutputPlan top-level boxes: a source with no kept meta box is declined before any part is planned", async () => {
+    const admission = await iso6Admit(iso6Fixture());
+    const without = iso6WithTopLevel(admission, (boxes) =>
+      boxes.filter((box) => box.type !== "meta"),
+    );
+    iso6ExpectDeclined(iso6PlanDrop(without), without);
+  });
 
   it("buildIsobmffOutputPlan top-level boxes: a source with no kept mdat box is declined", async () => {
     const admission = await iso6Admit(iso6Fixture());
