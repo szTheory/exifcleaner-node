@@ -279,7 +279,6 @@ function validateDataReferences(buffer, dinfHeader) {
     if (drefHeader === undefined)
         return;
     const { payload } = readFullBoxChild(buffer, drefHeader);
-    // Stryker disable next-line StringLiteral: unobservable-message — this dref entry_count label only appears in ensureBytes diagnostic text; entry parsing and typed box-framing failures are unchanged.
     ensureBytes(payload, 0, 4, "dref entry_count");
     const entries = listSiblings(buffer, drefHeader.payloadStart + 8, // 4 bytes version/flags + 4 bytes entry_count
     drefHeader.end);
@@ -333,9 +332,7 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
         throw new IsobmffStructureError("item-graph-invalid", "meta is missing its required iinf child.");
     }
     const { version: iinfVersion, entries: rawEntries, ranges: infeRanges, } = parseIinfEntries(metaPayload, iinfHeader);
-    assertNoDuplicateIds(rawEntries.map((entry) => entry.itemId), 
-    // Stryker disable next-line StringLiteral: unobservable-message — this iinf context label only appears in the duplicate item_ID diagnostic text; the duplicate scan and typed item-graph-invalid failure are unchanged.
-    "iinf");
+    assertNoDuplicateIds(rawEntries.map((entry) => entry.itemId), "iinf");
     const itemIds = new Set(rawEntries.map((entry) => entry.itemId));
     const pitmHeader = metaChildren.find((c) => c.type === "pitm");
     if (pitmHeader === undefined) {
@@ -351,9 +348,7 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
     }
     const { version: ilocVersion, flags: ilocFlags, payload: ilocPayload, } = readFullBoxChild(metaPayload, ilocHeader);
     const ilocTable = parseIloc(ilocPayload, ilocVersion, ilocFlags);
-    assertNoDuplicateIds(ilocTable.items.map((item) => item.itemId), 
-    // Stryker disable next-line StringLiteral: unobservable-message — this iloc context label only appears in the duplicate item_ID diagnostic text; the duplicate scan and typed item-graph-invalid failure are unchanged.
-    "iloc");
+    assertNoDuplicateIds(ilocTable.items.map((item) => item.itemId), "iloc");
     for (const ilocItem of ilocTable.items) {
         if (!itemIds.has(ilocItem.itemId)) {
             throw new IsobmffStructureError("item-graph-invalid", `iloc entry names undeclared item ${ilocItem.itemId}.`);
@@ -423,9 +418,7 @@ export function buildItemModel(metaPayload, metaChildren, _budget) {
             ipmaVersion = version;
             ipmaFlags = flags;
             ipmaEntries = parseIpma(payload, version, flags);
-            assertNoDuplicateIds(ipmaEntries.map((entry) => entry.itemId), 
-            // Stryker disable next-line StringLiteral: unobservable-message — this ipma context label only appears in the duplicate item_ID diagnostic text; the duplicate scan and typed item-graph-invalid failure are unchanged.
-            "ipma");
+            assertNoDuplicateIds(ipmaEntries.map((entry) => entry.itemId), "ipma");
             // D-17 (closes 61-SECURITY Phase 62 input 2): an ipma entry for an item iinf never declared
             // must decline before any write -- the writer rebuilds ipma from this same model, and a
             // dangling association would carry an undeclared item's shape into the output.

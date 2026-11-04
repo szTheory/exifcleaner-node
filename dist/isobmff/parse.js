@@ -38,7 +38,6 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
     const topLevel = await readTopLevelBoxes(handle, size, budget);
     let majorBrand;
     let minorVersion = 0;
-    // Stryker disable next-line ArrayDeclaration: defensive-unreachable-by-construction — compatibleBrands is assigned together with majorBrand in the only ftyp branch, and the function refuses before returning when majorBrand is still undefined, so this initial empty list is never read.
     let compatibleBrands = [];
     let metaRange;
     const mdatRanges = [];
@@ -114,8 +113,7 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
             // free / skip: admitted, structurally inert.
             continue;
         }
-        // `usertype` is populated only for `uuid` boxes (boxes.ts), so matching it implies the type.
-        if (header.usertype === C2PA_UUID_USERTYPE) {
+        if (header.type === "uuid" && header.usertype === C2PA_UUID_USERTYPE) {
             removableTopLevel.push({
                 offset: header.start,
                 length: header.end - header.start,
