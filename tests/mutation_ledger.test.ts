@@ -656,6 +656,102 @@ const cstringApprovalReviewedPaths = [
   ".planning/phases/67-mutation-baseline/67-triage-verify.mjs",
 ];
 
+// Plan 67-59 Task 2: fixtures and in-process receipt checks take the receipt's own embedded
+// sources, never live test or items.ts bytes, so a legitimate later edit of a live file (Plan 18)
+// cannot fail the suite. Phase evaluate keeps its strict fresh-report check on those sources.
+const CSTRING_CANDIDATE_ITEMS_SHA256 =
+  "9a53dabcfe43d43311c17b17c2453dcc47e55b7cae2c193340c58d24cacc7c88";
+
+function embeddedReceiptTestSources(finalReport: Report): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(finalReport.testFiles ?? {}).map(([file, entry]) => [
+      file,
+      entry.source,
+    ]),
+  );
+}
+
+/** Serves the report's embedded source for every file in the final-report test table and
+ * nothing else: a file outside the table throws. */
+function embeddedReadTest(finalReport: Report): (file: string) => string {
+  const sources = embeddedReceiptTestSources(finalReport);
+  return (file) => {
+    const source = sources[file];
+    if (source === undefined)
+      throw new Error(`${file} is outside the receipt's final-report test table`);
+    return source;
+  };
+}
+
+function rewriteReadOnlyFixtureFile(
+  fixture: RealCliFixture,
+  relativePath: string,
+  content: string,
+): void {
+  const destination = resolve(fixture.root, relativePath);
+  if (existsSync(destination)) chmodSync(destination, 0o644);
+  writeFixtureFile(fixture.root, relativePath, content);
+  chmodSync(destination, 0o444);
+}
+
+/** The embedded source of every file in the receipt's test table, written into the fixture's
+ * copied product tree (contained-path asserts via writeFixtureFile). */
+function writeEmbeddedReceiptSources(
+  fixture: RealCliFixture,
+  finalReport: Report,
+): void {
+  for (const [file, source] of Object.entries(embeddedReceiptTestSources(finalReport)))
+    rewriteReadOnlyFixtureFile(fixture, `exifcleaner-node/${file}`, source);
+}
+
+/** The receipt's candidate raw items.ts (the embedded final report's source). */
+function writeCandidateItemsSource(
+  fixture: RealCliFixture,
+  finalReport: Report,
+): void {
+  rewriteReadOnlyFixtureFile(
+    fixture,
+    "exifcleaner-node/src/isobmff/items.ts",
+    finalReport.files["src/isobmff/items.ts"]!.source,
+  );
+}
+
+function useEmbeddedReceiptSources(
+  fixture: RealCliFixture,
+  finalReport: Report,
+): void {
+  writeEmbeddedReceiptSources(fixture, finalReport);
+  writeCandidateItemsSource(fixture, finalReport);
+}
+
+/** Stand-in for a legitimate later edit of the live files: a comment appended to the fixture's
+ * copy of the items test and of items.ts. */
+function driftLiveShapedReceiptFiles(fixture: RealCliFixture): void {
+  for (const [file, suffix] of [
+    ["tests/isobmff_items.test.ts", "\n// a legitimate later edit of the live items test\n"],
+    ["src/isobmff/items.ts", "\n// a legitimate later edit of live items.ts\n"],
+  ] as const) {
+    const relativePath = `exifcleaner-node/${file}`;
+    if (!existsSync(resolve(fixture.root, relativePath)))
+      copyWorkspaceRegularFile(fixture.root, relativePath);
+    rewriteReadOnlyFixtureFile(
+      fixture,
+      relativePath,
+      readFileSync(resolve(fixture.root, relativePath), "utf8") + suffix,
+    );
+  }
+}
+
+/** A contained mkdtemp fixture with independent Git history (the readCString receipt resolves
+ * history reaching the before-ref cb8eedde...) that carries the candidate items.ts and the
+ * embedded test sources, after its live-shaped copies were drifted. */
+function createEmbeddedReceiptFixture(finalReport: Report): RealCliFixture {
+  const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+  driftLiveShapedReceiptFiles(fixture);
+  useEmbeddedReceiptSources(fixture, finalReport);
+  return fixture;
+}
+
 function createCStringApprovalPacket(
   fixture: RealCliFixture,
   bundle: CStringBoundaryBundle,
@@ -691,9 +787,7 @@ function createCStringApprovalPacket(
   chmodSync(fixtureSourcePath, 0o644);
   writeFileSync(fixtureSourcePath, beforeSource);
   chmodSync(fixtureSourcePath, 0o444);
-  for (const file of Object.keys(finalReport.testFiles ?? {}))
-    if (!existsSync(resolve(fixture.root, `exifcleaner-node/${file}`)))
-      copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
+  writeEmbeddedReceiptSources(fixture, finalReport);
   for (const file of cstringApprovalReviewedPaths)
     if (!existsSync(resolve(fixture.root, file))) copyWorkspaceRegularFile(fixture.root, file);
 
@@ -4144,15 +4238,18 @@ describe("real readCString boundary receipt", () => {
     nonlocal!.killedBy = [alternateCoveredTest!];
     nonlocal!.statusReason = "a different covered test failed first";
 
+    // A contained fixture root (Plan 67-59) holds the receipt's candidate items.ts and serves
+    // its embedded test sources, so a legitimate later edit of the live items.ts or items test
+    // cannot fail this evaluation. Its controls below are unchanged.
+    const nonlocalFixture = createEmbeddedReceiptFixture(finalReport);
     const evaluate = (candidateReport: typeof report) =>
       phaseVerifier.evaluate({
         clusters: bundle.candidateRows,
         survivors,
         report: candidateReport,
         mode: "batch",
-        root: packageRoot,
-        readTest: (testFile) =>
-          readFileSync(join(packageRoot, testFile), "utf8"),
+        root: nonlocalFixture.productRoot,
+        readTest: embeddedReadTest(finalReport),
         symbolAbsent: () => true,
         allowLiveReport: true,
       });
@@ -4495,14 +4592,9 @@ describe("real readCString boundary receipt", () => {
     const report = JSON.parse(bundle.reports.final) as Report & {
       testFiles: NonNullable<Report["testFiles"]>;
     };
-    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
-    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
-    chmodSync(sourcePath, 0o644);
-    writeFileSync(sourcePath, report.files["src/isobmff/items.ts"]!.source);
-    chmodSync(sourcePath, 0o444);
-    for (const file of Object.keys(report.testFiles))
-      if (!existsSync(resolve(fixture.root, `exifcleaner-node/${file}`)))
-        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
+    // The fixture carries the receipt's candidate items.ts and embedded test sources (Plan
+    // 67-59), after its live-shaped copies drifted, so a later live edit cannot fail this test.
+    const fixture = createEmbeddedReceiptFixture(report);
 
     const evaluate = (clusters: Cluster[]) =>
       phaseVerifier.evaluate({
@@ -4511,8 +4603,7 @@ describe("real readCString boundary receipt", () => {
         report,
         mode: "batch",
         root: fixture.productRoot,
-        readTest: (file) =>
-          readFileSync(resolve(fixture.root, `exifcleaner-node/${file}`), "utf8"),
+        readTest: embeddedReadTest(report),
         symbolAbsent: () => true,
       });
     expect(evaluate(bundle.candidateRows)).toHaveLength(43);
@@ -4529,21 +4620,11 @@ describe("real readCString boundary receipt", () => {
   it("rejects a forged receipt through the actual copied candidate CLI", () => {
     const { bundle } = loadCStringBoundaryBundle();
     const finalReport = JSON.parse(bundle.reports.final) as Report;
-    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
-    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
-    chmodSync(sourcePath, 0o644);
-    writeFileSync(
-      sourcePath,
-      finalReport.files["src/isobmff/items.ts"]!.source,
-    );
-    chmodSync(sourcePath, 0o444);
+    const fixture = createEmbeddedReceiptFixture(finalReport);
     const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
     const packetPath =
       "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
     writeFixtureFile(fixture.root, reportPath, bundle.reports.final);
-    for (const file of Object.keys(finalReport.testFiles ?? {}))
-      if (!existsSync(resolve(fixture.root, `exifcleaner-node/${file}`)))
-        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
     const forged = structuredClone(bundle);
     const owner = forged.candidateRows.find((candidate) => candidate.sourceOperation)!;
     owner.sourceOperation!.anchorMappings = [];
@@ -4603,23 +4684,15 @@ describe("real readCString boundary receipt", () => {
         "utf8",
       ),
     ).survivors as Survivor[];
-    expect(validate(owner, survivors).problems).toEqual([]);
+    expect(
+      validate(owner, survivors, embeddedReadTest(finalReport)).problems,
+    ).toEqual([]);
 
-    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
-    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
-    chmodSync(sourcePath, 0o644);
-    writeFileSync(
-      sourcePath,
-      finalReport.files["src/isobmff/items.ts"]!.source,
-    );
-    chmodSync(sourcePath, 0o444);
+    const fixture = createEmbeddedReceiptFixture(finalReport);
     const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
     const packetPath =
       "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
     writeFixtureFile(fixture.root, reportPath, reorderedRaw);
-    for (const file of Object.keys(finalReport.testFiles ?? {}))
-      if (!existsSync(resolve(fixture.root, `exifcleaner-node/${file}`)))
-        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
     writeFixtureFile(
       fixture.root,
       packetPath,
@@ -4641,7 +4714,7 @@ describe("real readCString boundary receipt", () => {
   it("passes the copied full-inventory batch CLI with independent Git history and no live writes", () => {
     const { bundle } = loadCStringBoundaryBundle();
     const finalReport = JSON.parse(bundle.reports.final) as Report;
-    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    const fixture = createEmbeddedReceiptFixture(finalReport);
     const gitMetadata = lstatSync(join(fixture.productRoot, ".git"));
     expect(gitMetadata.isDirectory()).toBe(true);
     expect(
@@ -4651,15 +4724,6 @@ describe("real readCString boundary receipt", () => {
       }).trim(),
     ).toBe("");
 
-    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
-    chmodSync(sourcePath, 0o644);
-    writeFileSync(
-      sourcePath,
-      (JSON.parse(bundle.reports.final) as Report).files[
-        "src/isobmff/items.ts"
-      ]!.source,
-    );
-    chmodSync(sourcePath, 0o444);
     const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
     const packetPath =
       "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
@@ -4681,9 +4745,6 @@ describe("real readCString boundary receipt", () => {
         ),
       ),
     );
-    for (const file of Object.keys(finalReport.testFiles ?? {}))
-      if (!existsSync(resolve(fixture.root, "exifcleaner-node", file)))
-        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
     const result = runRealCli(fixture, [
       "--cstring-candidate",
       "--report",
@@ -8285,4 +8346,154 @@ describe("named-killer closure binding", () => {
         .problems.join("\n"),
     ).toMatch(/immutable EOF-only owner/);
   }, 60_000);
+});
+
+// ---------------------------------------------------------------------------
+// Plan 67-59 Task 2: receipt fixtures supply embedded sources where phase evaluate stays strict.
+// ---------------------------------------------------------------------------
+describe("named-killer receipt fixtures", () => {
+  const candidateReportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
+  const loadFinal = () => {
+    const { bundle, finalReport } = loadCStringBoundaryBundle();
+    return { bundle, finalReport };
+  };
+  type FinalReport = ReturnType<typeof loadCStringBoundaryBundle>["finalReport"];
+  const evaluateOn = (
+    bundle: CStringBoundaryBundle,
+    finalReport: FinalReport,
+    fixture: RealCliFixture,
+    readTest: (file: string) => string,
+    clusters: Cluster[] = bundle.candidateRows,
+    extra: { allowLiveReport?: boolean } = {},
+  ) =>
+    phaseVerifier.evaluate({
+      clusters,
+      survivors: bundle.selectedMembers,
+      report: finalReport,
+      mode: "batch",
+      root: fixture.productRoot,
+      readTest,
+      symbolAbsent: () => true,
+      ...extra,
+    });
+  const runCandidateCli = (
+    fixture: RealCliFixture,
+    bundle: CStringBoundaryBundle,
+  ) => {
+    writeFixtureFile(fixture.root, candidateReportPath, bundle.reports.final);
+    writeFixtureFile(
+      fixture.root,
+      cstringFixtureRelativePath,
+      readFileSync(
+        join(packageRoot, "tests", "fixtures", "mutation", "isobmff-4-cstring-boundary.json.gz"),
+      ),
+    );
+    return runRealCli(fixture, [
+      "--cstring-candidate",
+      "--report",
+      candidateReportPath,
+      "--packet",
+      cstringFixtureRelativePath,
+    ]);
+  };
+  const fixtureFile = (fixture: RealCliFixture, file: string) =>
+    resolve(fixture.root, `exifcleaner-node/${file}`);
+
+  it("accepts phase evaluate on the embedded sources although the live-shaped items test and items.ts drifted", () => {
+    const { bundle, finalReport } = loadFinal();
+    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    driftLiveShapedReceiptFiles(fixture);
+    expect(readFileSync(fixtureFile(fixture, "tests/isobmff_items.test.ts"), "utf8")).not.toBe(
+      finalReport.testFiles["tests/isobmff_items.test.ts"]!.source,
+    );
+    expect(readFileSync(fixtureFile(fixture, "src/isobmff/items.ts"), "utf8")).not.toBe(
+      finalReport.files["src/isobmff/items.ts"]!.source,
+    );
+    useEmbeddedReceiptSources(fixture, finalReport);
+    const readTest = embeddedReadTest(finalReport);
+    expect(evaluateOn(bundle, finalReport, fixture, readTest)).toHaveLength(43);
+    const forged = structuredClone(bundle.candidateRows);
+    forged.find((candidate) => candidate.sourceOperation)!.sourceOperation!.anchorMappings = [];
+    expect(() => evaluateOn(bundle, finalReport, fixture, readTest, forged)).toThrow(
+      /mapping is incomplete, non-injective or forged/,
+    );
+    expect(() => readTest("tests/not_in_the_receipt_table.test.ts")).toThrow(
+      /outside the receipt's final-report test table/,
+    );
+  }, 90_000);
+
+  it("keeps phase evaluate's fresh-report check strict: appended live test bytes are rejected on both evaluate routes", () => {
+    const { bundle, finalReport } = loadFinal();
+    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    writeCandidateItemsSource(fixture, finalReport);
+    for (const file of Object.keys(finalReport.testFiles))
+      if (!existsSync(fixtureFile(fixture, file)))
+        copyWorkspaceRegularFile(fixture.root, `exifcleaner-node/${file}`);
+    const itemsTest = "tests/isobmff_items.test.ts";
+    expect(readFileSync(fixtureFile(fixture, itemsTest), "utf8")).toBe(
+      finalReport.testFiles[itemsTest]!.source,
+    );
+    rewriteReadOnlyFixtureFile(
+      fixture,
+      `exifcleaner-node/${itemsTest}`,
+      `${finalReport.testFiles[itemsTest]!.source}\n// appended after the receipt was measured\n`,
+    );
+    expect(() =>
+      evaluateOn(bundle, finalReport, fixture, (file) =>
+        readFileSync(fixtureFile(fixture, file), "utf8"),
+      ),
+    ).toThrow(/stale or missing killing-test source in report/);
+    const result = runCandidateCli(fixture, bundle);
+    expect(result.error?.message).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(
+      /stale or missing killing-test source in report/,
+    );
+  }, 90_000);
+
+  it("writes embedded sources byte for byte for every file in the 36-file table and the candidate items.ts", () => {
+    const { bundle, finalReport } = loadFinal();
+    const independent = JSON.parse(bundle.reports.final) as Report;
+    const files = Object.keys(independent.testFiles ?? {});
+    expect(files).toHaveLength(36);
+    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    driftLiveShapedReceiptFiles(fixture);
+    useEmbeddedReceiptSources(fixture, finalReport);
+    for (const file of files)
+      expect(
+        readFileSync(fixtureFile(fixture, file), "utf8"),
+        `${file}: fixture bytes equal the embedded source`,
+      ).toBe(independent.testFiles![file]!.source);
+    expect(embeddedReadTest(finalReport)("tests/isobmff_items.test.ts")).toBe(
+      independent.testFiles!["tests/isobmff_items.test.ts"]!.source,
+    );
+    expect(sha256(readFileSync(fixtureFile(fixture, "src/isobmff/items.ts")))).toBe(
+      CSTRING_CANDIDATE_ITEMS_SHA256,
+    );
+  }, 90_000);
+
+  it("accepts the copied --cstring-candidate CLI on the embedded sources although the live-shaped copies drifted", () => {
+    const { bundle, finalReport } = loadFinal();
+    const fixture = createEmbeddedReceiptFixture(finalReport);
+    const result = runCandidateCli(fixture, bundle);
+    expect(result.error?.message).toBeUndefined();
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    const output = JSON.parse(String(result.stdout)) as { proof: unknown[] };
+    expect(output.proof).toHaveLength(43);
+  }, 90_000);
+
+  it("runs the nonlocal-drift evaluation on a contained fixture root that carries the candidate items.ts", () => {
+    const { bundle, finalReport } = loadFinal();
+    const fixture = createEmbeddedReceiptFixture(finalReport);
+    expect(fixture.productRoot.startsWith(`${realpathSync(tmpdir())}${sep}`)).toBe(true);
+    expect(fixture.productRoot).not.toBe(packageRoot);
+    expect(sha256(readFileSync(resolve(fixture.productRoot, "src/isobmff/items.ts")))).toBe(
+      CSTRING_CANDIDATE_ITEMS_SHA256,
+    );
+    expect(
+      evaluateOn(bundle, finalReport, fixture, embeddedReadTest(finalReport), bundle.candidateRows, {
+        allowLiveReport: true,
+      }),
+    ).toHaveLength(43);
+  }, 90_000);
 });
