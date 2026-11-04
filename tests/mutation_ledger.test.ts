@@ -801,12 +801,22 @@ function createCStringApprovalPacket(
     resolve(fixture.productRoot, "src/isobmff/items.ts"),
     "utf8",
   );
-  const testSources = Object.fromEntries(
-    Object.entries(finalReport.testFiles ?? {}).map(([file]) => [
-      file,
-      sha256(readFileSync(resolve(fixture.productRoot, file))),
-    ]),
-  );
+  // v2 (Plan 67-59): the two unique named killers' source closures, keyed by test file path
+  // then full test name, replace the per-file whole-source hashes.
+  const killerBindings = {
+    [ITEMS_TEST_FILE]: {
+      [ITEMS_KILLER_NAME]: deletionProof.namedKillerBinding(
+        finalReport.testFiles![ITEMS_TEST_FILE]!.source,
+        ITEMS_KILLER_NAME,
+      ),
+    },
+    [WRITER_TEST_FILE]: {
+      [WRITER_KILLER_NAME]: deletionProof.namedKillerBinding(
+        finalReport.testFiles![WRITER_TEST_FILE]!.source,
+        WRITER_KILLER_NAME,
+      ),
+    },
+  };
   const fixtureSha256 = sha256(
     readFileSync(resolve(fixture.root, cstringFixtureRelativePath)),
   );
@@ -821,11 +831,11 @@ function createCStringApprovalPacket(
       deletionProof.normalizeReceiptSource(candidateSource),
     ),
     candidateRawSourceSha256: sha256(candidateSource),
-    testSources,
+    killerBindings,
     reviewedFiles: fileBindings,
   };
   const record = {
-    schema: "exifcleaner.readcstring-boundary-approval.v1",
+    schema: "exifcleaner.readcstring-boundary-approval.v2",
     decision: {
       status: decisionStatus,
       responseText:
@@ -845,7 +855,7 @@ function createCStringApprovalPacket(
   const packet = [
     "# ReadCString approval CLI test packet",
     "",
-    "<!-- readcstring-approval-v1",
+    "<!-- readcstring-approval-v2",
     JSON.stringify(record, null, 2),
     "-->",
     "",
@@ -1575,6 +1585,7 @@ function createRealAdmissionCliFixture(
     56,
     57,
     58,
+    59,
   ].map((plan) => `${phaseDir}/67-${String(plan).padStart(2, "0")}-PLAN.md`);
   for (const path of new Set([
     ...planPaths,
@@ -4858,7 +4869,7 @@ describe("real readCString boundary receipt", () => {
       [
         "# ReadCString approval CLI test packet",
         "",
-        "<!-- readcstring-approval-v1",
+        "<!-- readcstring-approval-v2",
         payload,
         "-->",
         "",
@@ -4916,8 +4927,8 @@ describe("real readCString boundary receipt", () => {
     );
 
     const duplicateTopLevel = JSON.stringify(record, null, 2).replace(
-      '"schema": "exifcleaner.readcstring-boundary-approval.v1",',
-      `"decision": ${JSON.stringify(record.decision)},\n  "schema": "exifcleaner.readcstring-boundary-approval.v1",`,
+      '"schema": "exifcleaner.readcstring-boundary-approval.v2",',
+      `"decision": ${JSON.stringify(record.decision)},\n  "schema": "exifcleaner.readcstring-boundary-approval.v2",`,
     );
     writeFixtureFile(fixture.root, packetPath, renderRawPacket(duplicateTopLevel));
     const duplicateTopLevelResult = runRealCli(fixture, args);
@@ -4986,19 +4997,62 @@ describe("real readCString boundary receipt", () => {
     writeFileSync(sourcePath, originalSource);
     chmodSync(sourcePath, 0o444);
 
+    // The old whole-file "// drift" control, re-derived (Plan 67-59). Appended bytes outside
+    // every closure part leave the closure-bound --cstring-approval before stage valid, while
+    // --cstring-candidate always runs phase evaluate and keeps its strict fresh-report check. A
+    // killer-closure edit is stale on both routes.
     const itemTestPath = join(fixture.productRoot, "tests", "isobmff_items.test.ts");
     const originalTest = readFileSync(itemTestPath);
-    chmodSync(itemTestPath, 0o644);
-    writeFileSync(itemTestPath, Buffer.concat([originalTest, Buffer.from("\n// drift\n")]));
-    chmodSync(itemTestPath, 0o444);
+    const setItemsTest = (bytes: Buffer) => {
+      chmodSync(itemTestPath, 0o644);
+      writeFileSync(itemTestPath, bytes);
+      chmodSync(itemTestPath, 0o444);
+    };
+    const setCandidateItems = (bytes: Buffer) => {
+      chmodSync(sourcePath, 0o644);
+      writeFileSync(sourcePath, bytes);
+      chmodSync(sourcePath, 0o444);
+    };
+    const candidateRoute = () =>
+      runRealCli(fixture, [
+        "--cstring-candidate",
+        "--report",
+        liveReportPath,
+        "--packet",
+        packetPath,
+      ]);
+    setItemsTest(Buffer.concat([originalTest, Buffer.from("\n// drift\n")]));
+    const appendedApproval = runRealCli(fixture, args);
+    expect(appendedApproval.status, `${appendedApproval.stdout}\n${appendedApproval.stderr}`).toBe(0);
+    setCandidateItems(Buffer.from(finalReport.files["src/isobmff/items.ts"]!.source));
+    const appendedCandidate = candidateRoute();
+    expect(appendedCandidate.status).toBe(1);
+    expect(`${appendedCandidate.stdout}\n${appendedCandidate.stderr}`).toMatch(
+      /stale or missing killing-test source in report/,
+    );
+    setCandidateItems(originalSource);
+    setItemsTest(
+      Buffer.from(
+        replaceOnce(
+          originalTest.toString("utf8"),
+          "    await expectModelMatchesInventory(HEIC_PATH);\n  });",
+          "    await expectModelMatchesInventory(HEIC_PATH);\n    expect(true).toBe(true);\n  });",
+        ),
+      ),
+    );
     const staleTestResult = runRealCli(fixture, args);
     expect(staleTestResult.status).toBe(1);
     expect(`${staleTestResult.stdout}\n${staleTestResult.stderr}`).toMatch(
-      /named killer source is stale|approval test binding is stale/,
+      /named killer source is stale/,
     );
-    chmodSync(itemTestPath, 0o644);
-    writeFileSync(itemTestPath, originalTest);
-    chmodSync(itemTestPath, 0o444);
+    setCandidateItems(Buffer.from(finalReport.files["src/isobmff/items.ts"]!.source));
+    const staleCandidate = candidateRoute();
+    expect(staleCandidate.status).toBe(1);
+    expect(`${staleCandidate.stdout}\n${staleCandidate.stderr}`).toMatch(
+      /named killer source is stale/,
+    );
+    setCandidateItems(originalSource);
+    setItemsTest(originalTest);
     expectLiveInputsUnchanged();
   }, 60_000);
 });
@@ -5023,6 +5077,7 @@ describe("copied Phase 67 schedule inventory controls", () => {
       56,
       57,
       58,
+      59,
     ].map((plan) => `${phaseDir}/67-${String(plan).padStart(2, "0")}-PLAN.md`);
     for (const path of schedulePlanPaths) {
       expect(readFileSync(resolve(fixture.root, path))).toEqual(
@@ -5060,6 +5115,8 @@ describe("copied Phase 67 schedule inventory controls", () => {
       { plan: 56, field: "dependency", diagnostic: "67-56: wrong predecessor" },
       { plan: 17, field: "wave", diagnostic: "67-17: wrong wave" },
       { plan: 17, field: "dependency", diagnostic: "67-17: wrong predecessor" },
+      { plan: 59, field: "wave", diagnostic: "67-59: wrong wave" },
+      { plan: 59, field: "dependency", diagnostic: "67-59: wrong predecessor" },
       { plan: 18, field: "wave", diagnostic: "67-18: wrong wave" },
       { plan: 18, field: "dependency", diagnostic: "67-18: wrong predecessor" },
       { plan: 47, field: "wave", diagnostic: "67-47: wrong wave" },
@@ -5096,9 +5153,9 @@ describe("copied Phase 67 schedule inventory controls", () => {
     }
   }, 60_000);
 
-  it("requires Plan56-58 metadata and rejects duplicate or malformed dependencies", () => {
+  it("requires Plan56-59 metadata and rejects duplicate or malformed dependencies", () => {
     const fixture = createRealAdmissionCliFixture();
-    for (const plan of [56, 57, 58]) {
+    for (const plan of [56, 57, 58, 59]) {
       const relativePath = `${phaseDir}/67-${String(plan).padStart(2, "0")}-PLAN.md`;
       const missing = withCliFileRemoval(fixture, relativePath, () =>
         runRealCli(fixture, ["--inventory"]),
@@ -5115,6 +5172,8 @@ describe("copied Phase 67 schedule inventory controls", () => {
       { plan: 58, field: "dependency", diagnostic: "67-58: malformed predecessor" },
       { plan: 57, field: "wave", diagnostic: "67-57: malformed wave" },
       { plan: 57, field: "dependency", diagnostic: "67-57: malformed predecessor" },
+      { plan: 59, field: "wave", diagnostic: "67-59: malformed wave" },
+      { plan: 59, field: "dependency", diagnostic: "67-59: malformed predecessor" },
     ] as const) {
       const relativePath = `${phaseDir}/67-${String(control.plan).padStart(2, "0")}-PLAN.md`;
       const result = withCliFileMutation(
@@ -5169,6 +5228,31 @@ describe("copied Phase 67 schedule inventory controls", () => {
         plan: 17,
         dependency: 'depends_on: ["67-16"]',
         diagnostic: "67-17: wrong predecessor",
+      },
+      {
+        plan: 59,
+        dependency: 'depends_on: ["67-56", "67-56"]',
+        diagnostic: "67-59: wrong predecessor",
+      },
+      {
+        plan: 59,
+        dependency: 'depends_on: ["67-56"',
+        diagnostic: "67-59: malformed predecessor",
+      },
+      {
+        plan: 18,
+        dependency: 'depends_on: ["67-17"]',
+        diagnostic: "67-18: wrong predecessor",
+      },
+      {
+        plan: 18,
+        dependency: 'depends_on: ["67-59", "67-59"]',
+        diagnostic: "67-18: wrong predecessor",
+      },
+      {
+        plan: 18,
+        dependency: 'depends_on: ["67-59"',
+        diagnostic: "67-18: malformed predecessor",
       },
     ] as const;
     for (const control of controls) {
@@ -8496,4 +8580,339 @@ describe("named-killer receipt fixtures", () => {
       }),
     ).toHaveLength(43);
   }, 90_000);
+});
+
+// ---------------------------------------------------------------------------
+// Plan 67-59 Task 3: the approval packet binds the two unique named killers' closures (v2).
+// ---------------------------------------------------------------------------
+describe("named-killer approval binding", () => {
+  const SCHEMA_V2 = "exifcleaner.readcstring-boundary-approval.v2";
+  const SCHEMA_V1 = "exifcleaner.readcstring-boundary-approval.v1";
+  type ApprovalRecord = {
+    schema: string;
+    decision: { status: string; responseText: string; recordedAt: string };
+    review: {
+      verdict: string;
+      blockingFindings: number;
+      reviewer: string;
+      reviewedAt: string;
+      reviewedFiles: Record<string, string>;
+    };
+    bindings: {
+      fixtureSha256: string;
+      reviewedFiles: Record<string, string>;
+      killerBindings: Record<string, Record<string, string>>;
+      testSources?: Record<string, string>;
+    };
+  };
+  const setup = () => {
+    const { bundle, finalReport } = loadCStringBoundaryBundle();
+    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
+    const { packetPath, record } = createCStringApprovalPacket(fixture, bundle);
+    return {
+      bundle,
+      finalReport,
+      fixture,
+      packetPath,
+      record: structuredClone(record) as unknown as ApprovalRecord,
+    };
+  };
+  const render = (value: unknown, marker = "readcstring-approval-v2") =>
+    [
+      "# ReadCString approval test packet",
+      "",
+      `<!-- ${marker}`,
+      typeof value === "string" ? value : JSON.stringify(value, null, 2),
+      "-->",
+      "",
+    ].join("\n");
+  const approve = (fixture: RealCliFixture, packetPath: string) =>
+    runRealCli(fixture, ["--cstring-approval", "--packet", packetPath]);
+  const output = (result: ReturnType<typeof runRealCli>) =>
+    `${result.stdout}\n${result.stderr}`;
+  const itemsTestPath = (fixture: RealCliFixture) =>
+    join(fixture.productRoot, "tests", "isobmff_items.test.ts");
+  const setFixtureFile = (path: string, bytes: Buffer | string) => {
+    chmodSync(path, 0o644);
+    writeFileSync(path, bytes);
+    chmodSync(path, 0o444);
+  };
+  /** The after stage: items.ts at the measured candidate, a relocated live-shaped report, and
+   * the approved packet. */
+  const afterStage = (
+    fixture: RealCliFixture,
+    finalReport: Report,
+    packetPath: string,
+  ) => {
+    const liveReportPath = "exifcleaner-node/reports/triage/67-59/live-candidate.json";
+    writeFixtureFile(
+      fixture.root,
+      liveReportPath,
+      JSON.stringify({ ...finalReport, projectRoot: "/private/tmp/fresh-live-run" }),
+    );
+    writeCandidateItemsSource(fixture, finalReport);
+    return runRealCli(fixture, [
+      "--cstring-candidate",
+      "--report",
+      liveReportPath,
+      "--packet",
+      packetPath,
+    ]);
+  };
+
+  it("validates a v2 packet for the before and after stages with killerBindings keyed by file then name and no testSources", () => {
+    const { finalReport, fixture, packetPath, record } = setup();
+    expect(record.schema).toBe(SCHEMA_V2);
+    expect(record.bindings).not.toHaveProperty("testSources");
+    expect(Object.keys(record.bindings.killerBindings).sort()).toEqual(
+      [ITEMS_TEST_FILE, WRITER_TEST_FILE].sort(),
+    );
+    expect(Object.keys(record.bindings.killerBindings[ITEMS_TEST_FILE]!)).toEqual([
+      ITEMS_KILLER_NAME,
+    ]);
+    expect(Object.keys(record.bindings.killerBindings[WRITER_TEST_FILE]!)).toEqual([
+      WRITER_KILLER_NAME,
+    ]);
+    for (const [file, name] of [
+      [ITEMS_TEST_FILE, ITEMS_KILLER_NAME],
+      [WRITER_TEST_FILE, WRITER_KILLER_NAME],
+    ] as const) {
+      const embedded = deletionProof.namedKillerBinding(
+        finalReport.testFiles![file]!.source,
+        name,
+      );
+      const live = deletionProof.namedKillerBinding(
+        readFileSync(join(packageRoot, file), "utf8"),
+        name,
+      );
+      expect(embedded).toBe(live);
+      expect(record.bindings.killerBindings[file]![name]).toBe(live);
+    }
+    const before = approve(fixture, packetPath);
+    expect(before.status, output(before)).toBe(0);
+    expect(JSON.parse(String(before.stdout))).toMatchObject({
+      mode: "pre-operation-approval",
+      decision: "approved",
+      originalKeys: 43,
+      sourceBytesChanged: false,
+    });
+    const after = afterStage(fixture, finalReport, packetPath);
+    expect(after.error?.message).toBeUndefined();
+    expect(after.status, output(after)).toBe(0);
+    expect(JSON.parse(String(after.stdout)).proof).toHaveLength(43);
+  }, 120_000);
+
+  it("rejects the superseded whole-file schema and every malformed, stale or unauthorized v2 packet", () => {
+    const { fixture, packetPath, record } = setup();
+    const digest = record.bindings.killerBindings[ITEMS_TEST_FILE]![ITEMS_KILLER_NAME]!;
+    const duplicated = (() => {
+      const line = `${JSON.stringify(ITEMS_KILLER_NAME)}: ${JSON.stringify(digest)}`;
+      const text = JSON.stringify(record, null, 2);
+      expect(text).toContain(line);
+      return text.replace(line, `${line},\n        ${line}`);
+    })();
+    const mutated = (mutate: (value: ApprovalRecord) => void): string => {
+      const value = structuredClone(record);
+      mutate(value);
+      return render(value);
+    };
+    const superseded = /superseded by the named-killer binding/;
+    const stale = /approval source, test, fixture or checker bindings are stale/;
+    const cases: { name: string; packet: string; diagnostic: RegExp }[] = [
+      { name: "old marker", packet: render(record, "readcstring-approval-v1"), diagnostic: superseded },
+      {
+        name: "old schema string under the new marker",
+        packet: mutated((value) => {
+          value.schema = SCHEMA_V1;
+        }),
+        diagnostic: superseded,
+      },
+      {
+        name: "a testSources key in a new-schema packet",
+        packet: mutated((value) => {
+          value.bindings.testSources = { [ITEMS_TEST_FILE]: "0".repeat(64) };
+        }),
+        diagnostic: /whole-file testSources, which are superseded by the named-killer binding/,
+      },
+      {
+        name: "a missing killer pair",
+        packet: mutated((value) => {
+          delete value.bindings.killerBindings[WRITER_TEST_FILE];
+        }),
+        diagnostic: stale,
+      },
+      {
+        name: "an extra killer pair",
+        packet: mutated((value) => {
+          value.bindings.killerBindings["tests/isobmff_boxes.test.ts"] = {
+            "extra describe > extra test": digest,
+          };
+        }),
+        diagnostic: stale,
+      },
+      {
+        name: "a duplicated killer pair",
+        packet: render(duplicated),
+        diagnostic: /duplicate property/,
+      },
+      {
+        name: "a per-label four-entry shape",
+        packet: mutated((value) => {
+          (value.bindings as unknown as { killerBindings: unknown }).killerBindings = [
+            "old loop opposite",
+            "old NUL-predicate opposite",
+            "current loop opposite",
+            "current NUL-predicate opposite",
+          ].map((label, index) => ({
+            label,
+            file: index < 2 ? WRITER_TEST_FILE : ITEMS_TEST_FILE,
+            name: index < 2 ? WRITER_KILLER_NAME : ITEMS_KILLER_NAME,
+            digest,
+          }));
+        }),
+        diagnostic: stale,
+      },
+      {
+        name: "a wrong closure digest",
+        packet: mutated((value) => {
+          value.bindings.killerBindings[ITEMS_TEST_FILE]![ITEMS_KILLER_NAME] =
+            `${digest.slice(1)}${digest[0] === "0" ? "1" : "0"}`;
+        }),
+        diagnostic: stale,
+      },
+      {
+        name: "a stale reviewedFiles hash in the bindings",
+        packet: mutated((value) => {
+          const file = Object.keys(value.bindings.reviewedFiles)[0]!;
+          value.bindings.reviewedFiles = {
+            ...value.bindings.reviewedFiles,
+            [file]: "0".repeat(64),
+          };
+        }),
+        diagnostic: stale,
+      },
+      {
+        name: "a stale reviewedFiles hash in the review",
+        packet: mutated((value) => {
+          // structuredClone keeps the shared reference between bindings.reviewedFiles and
+          // review.reviewedFiles, so replace the review's object instead of mutating it.
+          const file = Object.keys(value.review.reviewedFiles)[0]!;
+          value.review.reviewedFiles = {
+            ...value.review.reviewedFiles,
+            [file]: "0".repeat(64),
+          };
+        }),
+        diagnostic: /independent review does not bind the current final checker and test files/,
+      },
+      {
+        name: "a stale fixture hash",
+        packet: mutated((value) => {
+          value.bindings.fixtureSha256 = "0".repeat(64);
+        }),
+        diagnostic: /fixture binding is stale/,
+      },
+      {
+        name: "a pending decision",
+        packet: mutated((value) => {
+          value.decision.status = "pending";
+        }),
+        diagnostic: /source decision is missing, rejected or unrecorded/,
+      },
+      {
+        name: "a rejected decision",
+        packet: mutated((value) => {
+          value.decision.status = "rejected";
+        }),
+        diagnostic: /source decision is missing, rejected or unrecorded/,
+      },
+      {
+        name: "a non-PASS review",
+        packet: mutated((value) => {
+          value.review.verdict = "BLOCKED";
+        }),
+        diagnostic: /independent review is not PASS/,
+      },
+    ];
+    for (const testCase of cases) {
+      writeFixtureFile(fixture.root, packetPath, testCase.packet);
+      const result = approve(fixture, packetPath);
+      expect(result.status, `${testCase.name}: ${output(result)}`).toBe(1);
+      expect(
+        testCase.diagnostic.test(output(result)),
+        `${testCase.name}: ${output(result)}`,
+      ).toBe(true);
+    }
+    // The unmodified packet is still accepted (the fixture is not poisoned by the controls).
+    writeFixtureFile(fixture.root, packetPath, render(record));
+    expect(approve(fixture, packetPath).status).toBe(0);
+  }, 180_000);
+
+  it("keeps --cstring-approval valid for appended tests and non-killer edits, while --cstring-candidate keeps its strict check", () => {
+    const { finalReport, fixture, packetPath } = setup();
+    const testPath = itemsTestPath(fixture);
+    const original = readFileSync(testPath, "utf8");
+    expect(original).toBe(finalReport.testFiles![ITEMS_TEST_FILE]!.source);
+    const itemsPath = join(fixture.productRoot, "src", "isobmff", "items.ts");
+    const beforeItems = readFileSync(itemsPath);
+    const variants: [string, string][] = [
+      ["a Plan-18-shaped appendix", `${original}${planEighteenAppendix()}`],
+      [
+        "a non-killer test body edited",
+        replaceOnce(
+          original,
+          'expect(typeof buildItemModel).toBe("function");',
+          'expect(typeof buildItemModel).toBe("function");\n    expect(true).toBe(true);',
+        ),
+      ],
+    ];
+    for (const [label, variant] of variants) {
+      setFixtureFile(testPath, variant);
+      const result = approve(fixture, packetPath);
+      expect(result.status, `${label}: ${output(result)}`).toBe(0);
+    }
+    // --cstring-candidate always runs phase evaluate: appended live test bytes are rejected
+    // by the strict fresh-report check, not accepted.
+    setFixtureFile(testPath, `${original}${planEighteenAppendix()}`);
+    const candidate = afterStage(fixture, finalReport, packetPath);
+    expect(candidate.status).toBe(1);
+    expect(output(candidate)).toMatch(/stale or missing killing-test source in report/);
+    // A killer-closure edit is stale on both routes.
+    setFixtureFile(
+      testPath,
+      replaceOnce(
+        original,
+        "    await expectModelMatchesInventory(HEIC_PATH);\n  });",
+        "    await expectModelMatchesInventory(HEIC_PATH);\n    expect(true).toBe(true);\n  });",
+      ),
+    );
+    setFixtureFile(itemsPath, beforeItems);
+    const staleApproval = approve(fixture, packetPath);
+    expect(staleApproval.status).toBe(1);
+    expect(output(staleApproval)).toMatch(/named killer source is stale/);
+    const staleCandidate = afterStage(fixture, finalReport, packetPath);
+    expect(staleCandidate.status).toBe(1);
+    expect(output(staleCandidate)).toMatch(/named killer source is stale/);
+  }, 120_000);
+
+  it("pins the live Plan 59 and Plan 18 schedule to the verifier (wave 28 after 67-56, wave 29 after 67-59)", () => {
+    const frontmatter = (plan: number) => {
+      const text = readFileSync(
+        join(workspaceRoot, phaseDir, `67-${String(plan).padStart(2, "0")}-PLAN.md`),
+        "utf8",
+      );
+      const block = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)![1]!;
+      return {
+        wave: Number(block.match(/^wave:[ \t]*(\d+)[ \t]*$/m)![1]),
+        dependsOn: JSON.parse(block.match(/^depends_on:[ \t]*(.*?)[ \t]*$/m)![1]!) as string[],
+      };
+    };
+    expect(frontmatter(59)).toEqual({ wave: 28, dependsOn: ["67-56"] });
+    expect(frontmatter(17)).toEqual({ wave: 28, dependsOn: ["67-56"] });
+    expect(frontmatter(18)).toEqual({ wave: 29, dependsOn: ["67-59"] });
+    expect(frontmatter(19)).toEqual({ wave: 30, dependsOn: ["67-18"] });
+    expect(frontmatter(47)).toEqual({ wave: 58, dependsOn: ["67-46"] });
+    const verifier = readFileSync(join(workspaceRoot, phaseDir, "67-triage-verify.mjs"), "utf8");
+    expect(verifier).toContain("[59, 28, 56],");
+    expect(verifier).toContain("requireSchedule(plan, plan + 11, plan === 18 ? 59 : plan - 1);");
+  });
 });
