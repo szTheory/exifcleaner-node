@@ -1512,3 +1512,121 @@ describe("buildItemModel ConditionalExpression, EqualityOperator, and ObjectLite
     expect(Object.hasOwn(mimeItem ?? {}, "uri")).toBe(false);
   });
 });
+
+function drefWithEntries(entries: readonly Buffer[]): Buffer {
+  const count = Buffer.alloc(4);
+  count.writeUInt32BE(entries.length, 0);
+  return fullBox("dref", 0, 0, Buffer.concat([count, ...entries]));
+}
+
+describe("validateDataReferences ConditionalExpression and BlockStatement clusters", () => {
+  it("finds the dref behind a non-dref dinf sibling and refuses its non-self-contained url entry", async () => {
+    const notSelfContained = fullBox("url ", 0, 0, Buffer.alloc(0));
+    const file = buildMinimalFile({
+      extraMetaChildren: [
+        box(
+          "dinf",
+          Buffer.concat([
+            box("free", Buffer.alloc(4)),
+            drefWithEntries([notSelfContained]),
+          ]),
+        ),
+      ],
+    });
+    await expectDecline(file, "item-graph-invalid", "malformed-file");
+  });
+
+  it("refuses a urn entry that is flagged self-contained and carries no payload", async () => {
+    const file = buildMinimalFile({
+      extraMetaChildren: [
+        box("dinf", drefWithEntries([fullBox("urn ", 0, 1, Buffer.alloc(0))])),
+      ],
+    });
+    await expectDecline(file, "item-graph-invalid", "malformed-file");
+  });
+});
+
+/** Replace the leading `ftyp` box of an assembled file with one carrying `ftypPayload` verbatim. */
+function withFtypPayload(file: Buffer, ftypPayload: Buffer): Buffer {
+  const originalFtypSize = file.readUInt32BE(0);
+  return Buffer.concat([
+    box("ftyp", ftypPayload),
+    file.subarray(originalFtypSize),
+  ]);
+}
+
+describe("parseFtyp BlockStatement, ConditionalExpression, and EqualityOperator clusters", () => {
+  it("declines an ftyp payload shorter than major_brand plus minor_version as box-framing", async () => {
+    for (const length of [4, 7]) {
+      const file = withFtypPayload(
+        buildMinimalFile({}),
+        Buffer.alloc(length, 0x61),
+      );
+      await expectDecline(file, "box-framing", "malformed-file");
+    }
+  });
+
+  it("admits an ftyp payload of exactly eight bytes with no compatible brands", async () => {
+    const payload = Buffer.concat([
+      Buffer.from("heic", "ascii"),
+      Buffer.from([0, 0, 0, 7]),
+    ]);
+    const model = await parseFixtureBytes(
+      withFtypPayload(buildMinimalFile({}), payload),
+    );
+    expect(model.majorBrand).toBe("heic");
+    expect(model.minorVersion).toBe(7);
+    expect(model.compatibleBrands).toEqual([]);
+  });
+});
+
+describe("parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters", () => {
+  it("declines with box-framing when the signal is already aborted and parses when it is not", async () => {
+    const file = buildMinimalFile({});
+    const { path, size } = await writeFixture(file);
+    const aborted = new AbortController();
+    aborted.abort();
+    const handle = await open(path, "r");
+    try {
+      await expect(
+        parseIsobmff(handle, size, undefined, aborted.signal),
+      ).rejects.toMatchObject({
+        declineClass: "box-framing",
+        kind: "malformed-file",
+      });
+      const live = await parseIsobmff(
+        handle,
+        size,
+        undefined,
+        new AbortController().signal,
+      );
+      expect(live.primaryItemId).toBe(1);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("declines a meta shorter than its FullBox version and flags as meta-not-fullbox", async () => {
+    for (const length of [0, 2, 3]) {
+      const file = Buffer.concat([
+        ftypBox("heic", 0, ["mif1", "heic"]),
+        box("meta", Buffer.alloc(length)),
+      ]);
+      await expectDecline(file, "meta-not-fullbox", "malformed-file");
+    }
+  });
+
+  it("treats a meta that is exactly a FullBox header as a well-formed container missing its hdlr", async () => {
+    const file = Buffer.concat([
+      ftypBox("heic", 0, ["mif1", "heic"]),
+      box("meta", Buffer.alloc(4)),
+    ]);
+    await expectDecline(file, "item-graph-invalid", "malformed-file");
+  });
+
+  it("leaves idatRange and colorProfile off the model when the file has neither", async () => {
+    const model = await parseFixtureBytes(buildMinimalFile({}));
+    expect(Object.hasOwn(model, "idatRange")).toBe(false);
+    expect(Object.hasOwn(model, "colorProfile")).toBe(false);
+  });
+});
