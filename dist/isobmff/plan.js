@@ -104,7 +104,9 @@ function checkIlocRewriteFit(survivingItems, rewrites, baseOffsetSize, offsetSiz
         const rewrite = rewrites.get(item.id);
         if (rewrite === undefined)
             continue;
-        if (baseOffsetSize > 0) {
+        // A base_offset field of width 0 carries only 0 and its rewritten base is then 0, so the
+        // check below accepts it without a width guard.
+        {
             const max = maxValueForWidth(baseOffsetSize);
             if (rewrite.newBaseOffset < 0 || rewrite.newBaseOffset > max) {
                 return (
