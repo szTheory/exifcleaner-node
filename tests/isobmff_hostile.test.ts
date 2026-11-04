@@ -4,10 +4,19 @@
 // the empty-input edges (zero items, no meta). `tests/isobmff-support/hostile.ts` is the one
 // support module allowed a type-only import of `IsobmffDeclineClass` from `src/isobmff/errors.js`
 // (see tests/isobmff_isolation.test.ts); this test file itself imports `src/isobmff/` freely.
-import { mkdtemp, open, readdir, readFile, rm, stat } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
+import {
+  mkdtemp,
+  open,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   admitIsobmff,
   type IsobmffAdmission,
@@ -21,7 +30,10 @@ import {
   rebuildIloc,
   rebuildIref,
 } from "../src/isobmff/rebuild.js";
+import { COPY_BLOCK_BYTES } from "../src/io/copy-range.js";
 import { sanitizeFile } from "../src/engine.js";
+import { verifyIsobmffOutput } from "../src/isobmff/verify.js";
+import type { Result } from "../src/types.js";
 import {
   buildIsobmffOutputPlan,
   checkIsobmffOutputPlan,
@@ -54,7 +66,9 @@ import {
   inventoryIsobmff,
   type IsobmffInventory,
 } from "./isobmff-support/inventory.js";
+import { iccProfileV4 } from "./fixtures.js";
 import {
+  colrProf,
   ftypBox,
   grplBox,
   hdlrBox,
@@ -65,6 +79,7 @@ import {
   infeBox,
   ipcoBox,
   ipmaBox,
+  iprpBox,
   irefBox,
   ispe,
   mdatBox,
@@ -1794,5 +1809,352 @@ describe("rebuild.ts encoders (67-20, isobmff-7)", () => {
       rebuildIref(0, references),
       "0000001c 69726566 00 000000  00000010 63647363 0005 0002 0001 0002",
     );
+  });
+});
+
+// --- verify.ts clusters (67-21, isobmff-8) ---
+//
+// Every scenario drives the shipped `verifyIsobmffOutput` against a source file and a destination
+// file on disk. Fake handles wrap the real ones: a hook can abort a signal or report a short read
+// (`bytesRead` one below the requested length) while the buffer still holds the correct bytes, so
+// a comparison that ignores the short read would still see equal bytes and report success.
+
+function withReadHook(
+  handle: FileHandle,
+  hook: (length: number, position: number) => number,
+): FileHandle {
+  return new Proxy(handle, {
+    get(target, property) {
+      if (property === "read") {
+        return async (
+          buffer: Buffer,
+          offset: number,
+          length: number,
+          position: number,
+        ) => {
+          const reduction = hook(length, position);
+          const result = await target.read(buffer, offset, length, position);
+          return {
+            bytesRead: Math.max(0, result.bytesRead - reduction),
+            buffer: result.buffer,
+          };
+        };
+      }
+      const value = Reflect.get(target, property, target) as unknown;
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(target)
+        : value;
+    },
+  });
+}
+
+interface VerifyPairOptions {
+  readonly signal?: AbortSignal;
+  readonly preserveColorProfile?: boolean;
+  readonly wrapSource?: (handle: FileHandle) => FileHandle;
+  readonly wrapDestination?: (handle: FileHandle) => FileHandle;
+}
+
+async function verifyPair(
+  sourceBytes: Buffer,
+  destinationBytes: Buffer,
+  options: VerifyPairOptions = {},
+): Promise<Result<void>> {
+  const sourcePath = await freshPath();
+  const destinationPath = join(dirname(sourcePath), "destination.heic");
+  await writeFile(sourcePath, sourceBytes);
+  await writeFile(destinationPath, destinationBytes);
+  const sourceHandle = await open(sourcePath, "r");
+  const destinationHandle = await open(destinationPath, "r");
+  try {
+    const admission = await admitIsobmff(sourceHandle, sourceBytes.length);
+    return await verifyIsobmffOutput(
+      options.wrapSource?.(sourceHandle) ?? sourceHandle,
+      admission,
+      options.wrapDestination?.(destinationHandle) ?? destinationHandle,
+      destinationBytes.length,
+      destinationPath,
+      false,
+      options.preserveColorProfile ?? true,
+      false,
+      undefined,
+      options.signal,
+    );
+  } finally {
+    await sourceHandle.close();
+    await destinationHandle.close();
+  }
+}
+
+async function sanitizeBytesThroughWriter(
+  sourceBytes: Buffer,
+  preserveColorProfile: boolean,
+): Promise<Buffer> {
+  const sourcePath = await freshPath();
+  const destinationPath = join(dirname(sourcePath), "sanitized.heic");
+  await writeFile(sourcePath, sourceBytes);
+  const restore = setRegisteredHandlersForTests([
+    createIsobmffWriterHandlerForTests("heic"),
+  ]);
+  try {
+    const sanitized = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile,
+      preserveTimestamps: false,
+      preserveResolution: false,
+    });
+    expect(sanitized.ok).toBe(true);
+  } finally {
+    restore();
+  }
+  return readFile(destinationPath);
+}
+
+function expectVerificationFailed(result: Result<void>): void {
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.error.code).toBe("verification-failed");
+}
+
+/** One surviving `hvc1` item whose only extent is `payload`, in a file with nothing to remove, so
+ * a byte-identical copy of the file is a correct sanitized output. */
+function plainItemFile(payload: Buffer): Buffer {
+  return assembleHeif({
+    twoPass: true,
+    items: [
+      {
+        itemId: 1,
+        itemType: "hvc1",
+        extents: [{ relOffset: 0, length: payload.length }],
+        propertyIndices: [1, 2],
+      },
+    ],
+    mdatPayload: payload,
+  });
+}
+
+function smallPayload(): Buffer {
+  return Buffer.from([1, 2, 3, 4]);
+}
+
+describe("verify.ts rangesEqual and readWholeFile clusters (67-21, isobmff-8)", () => {
+  it("rangesEqual ConditionalExpression: an abort raised while a range is compared stops the next comparison with the aborted code", async () => {
+    const file = plainItemFile(smallPayload());
+    const control = await verifyPair(file, Buffer.from(file));
+    expect(control.ok).toBe(true);
+
+    const controller = new AbortController();
+    const result = await verifyPair(file, Buffer.from(file), {
+      signal: controller.signal,
+      wrapSource: (handle) =>
+        withReadHook(handle, () => {
+          controller.abort();
+          return 0;
+        }),
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("aborted");
+  });
+
+  it("rangesEqual ConditionalExpression and LogicalOperator: a short read on the source side alone, and on the destination side alone, fails verification", async () => {
+    const file = plainItemFile(smallPayload());
+    expect((await verifyPair(file, Buffer.from(file))).ok).toBe(true);
+
+    expectVerificationFailed(
+      await verifyPair(file, Buffer.from(file), {
+        wrapSource: (handle) => withReadHook(handle, () => 1),
+      }),
+    );
+
+    // the destination is also read while it is parsed, before the first source read: only reads
+    // after the comparison started are shortened
+    let comparing = false;
+    expectVerificationFailed(
+      await verifyPair(file, Buffer.from(file), {
+        wrapSource: (handle) =>
+          withReadHook(handle, () => {
+            comparing = true;
+            return 0;
+          }),
+        wrapDestination: (handle) =>
+          withReadHook(handle, () => (comparing ? 1 : 0)),
+      }),
+    );
+  });
+
+  it("rangesEqual ArithmeticOperator: an item longer than one copy window and not a multiple of it verifies without reading past its end", async () => {
+    const payload = Buffer.from(
+      Array.from({ length: COPY_BLOCK_BYTES + 5 }, (_, index) => index % 251),
+    );
+    const file = plainItemFile(payload);
+    expect((await verifyPair(file, Buffer.from(file))).ok).toBe(true);
+
+    const flipped = Buffer.from(file);
+    flipped[flipped.length - 1] = flipped[flipped.length - 1]! ^ 0xff;
+    expectVerificationFailed(await verifyPair(file, flipped));
+  });
+
+  it("rangesEqual MethodExpression: comparison windows never exceed the compared range or one copy window", async () => {
+    const original = Buffer.allocUnsafe;
+    const sizes: number[] = [];
+    const spy = vi
+      .spyOn(Buffer, "allocUnsafe")
+      .mockImplementation((size: number) => {
+        sizes.push(size);
+        return original.call(Buffer, size);
+      });
+    try {
+      const small = plainItemFile(smallPayload());
+      expect((await verifyPair(small, Buffer.from(small))).ok).toBe(true);
+      expect(sizes.length).toBeGreaterThan(0);
+      expect(Math.max(...sizes)).toBeLessThan(COPY_BLOCK_BYTES);
+
+      sizes.length = 0;
+      const large = plainItemFile(Buffer.alloc(COPY_BLOCK_BYTES + 5, 7));
+      expect((await verifyPair(large, Buffer.from(large))).ok).toBe(true);
+      expect(sizes).toContain(COPY_BLOCK_BYTES);
+      expect(Math.max(...sizes)).toBeLessThanOrEqual(COPY_BLOCK_BYTES);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+/** A source whose only removable thing is a `colr` ICC property, plus an `hdlr` whose name field is
+ * `iccLength` filler bytes (the parser never reads it, so a test can overwrite it freely). */
+function iccSourceFile(icc: Buffer): Buffer {
+  return assembleHeif({
+    twoPass: true,
+    properties: [ispe(32, 32), hvcC(), colrProf(icc)],
+    items: [
+      {
+        itemId: 1,
+        itemType: "hvc1",
+        extents: [{ relOffset: 0, length: 4 }],
+        propertyIndices: [1, 2, 3],
+      },
+    ],
+    omitHdlr: true,
+    extraMetaChildren: [hdlrBox("pict", "x".repeat(icc.length))],
+  });
+}
+
+describe("verify.ts colr ICC scan clusters (67-21, isobmff-8)", () => {
+  it("readWholeFile ConditionalExpression, BlockStatement and CallExpression: a short read of the whole destination fails the removed ICC scan", async () => {
+    const source = iccSourceFile(iccProfileV4());
+    const destination = await sanitizeBytesThroughWriter(source, false);
+    const options = { preserveColorProfile: false } as const;
+    expect((await verifyPair(source, destination, options)).ok).toBe(true);
+
+    expectVerificationFailed(
+      await verifyPair(source, destination, {
+        ...options,
+        wrapDestination: (handle) =>
+          withReadHook(handle, (length) =>
+            length === destination.length ? 1 : 0,
+          ),
+      }),
+    );
+  });
+
+  it("colrIccPayloadBytes ArithmeticOperator: removed ICC payload bytes found anywhere in the destination fail verification", async () => {
+    const icc = iccProfileV4();
+    const source = iccSourceFile(icc);
+    const destination = await sanitizeBytesThroughWriter(source, false);
+    const options = { preserveColorProfile: false } as const;
+    expect((await verifyPair(source, destination, options)).ok).toBe(true);
+
+    const nameAt = destination.indexOf(Buffer.alloc(icc.length, 0x78));
+    expect(nameAt).toBeGreaterThan(0);
+
+    // the same bytes of the destination overwritten with other filler still verify
+    const benign = Buffer.from(destination);
+    Buffer.alloc(icc.length, 0x79).copy(benign, nameAt);
+    expect((await verifyPair(source, benign, options)).ok).toBe(true);
+
+    // the removed profile bytes, copied into the parsed-but-unchecked hdlr name field, are found
+    const leaked = Buffer.from(destination);
+    icc.copy(leaked, nameAt);
+    expectVerificationFailed(await verifyPair(source, leaked, options));
+  });
+});
+
+/** Item 1 is a file-relative payload in `mdat`; item 2 is an `idat` item whose iloc record carries
+ * `item2Base` and `item2Offset`. The iloc box is placed directly before `idat` and item 2 is its
+ * last record, so the bytes just before the `idat` payload are item 2's extent fields. */
+function idatOffsetFile(item2Base: number, item2Offset: number): Buffer {
+  const build = (mdatStart: number): Buffer => {
+    const iloc = ilocBox({
+      version: 1,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 4,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          constructionMethod: 0,
+          dataReferenceIndex: 0,
+          baseOffset: mdatStart,
+          extents: [{ offset: 0, length: 4 }],
+        },
+        {
+          itemId: 2,
+          constructionMethod: 1,
+          dataReferenceIndex: 0,
+          baseOffset: item2Base,
+          extents: [{ offset: item2Offset, length: 4 }],
+        },
+      ],
+    });
+    const association = (itemId: number) => ({
+      itemId,
+      associations: [
+        { propertyIndex: 1, essential: false },
+        { propertyIndex: 2, essential: false },
+      ],
+    });
+    const meta = metaBox([
+      hdlrBox("pict"),
+      pitmBox(0, 1),
+      iloc,
+      idatBox(Buffer.from("ABCDEFGHIJKLMNOPQRSTUVWX", "ascii")),
+      iinfBox(0, [
+        infeBox({ version: 2, itemId: 1, itemType: "hvc1" }),
+        infeBox({ version: 2, itemId: 2, itemType: "hvc1", hidden: true }),
+      ]),
+      iprpBox(
+        ipcoBox([ispe(32, 32), hvcC()]),
+        ipmaBox({
+          version: 0,
+          flags: 0,
+          entries: [association(1), association(2)],
+        }),
+      ),
+    ]);
+    return Buffer.concat([
+      ftypBox("heic", 0, ["mif1", "heic"]),
+      meta,
+      mdatBox(Buffer.from([1, 2, 3, 4])),
+    ]);
+  };
+  // iloc's encoded length depends only on the field widths, so a placeholder pass measures the
+  // header; the 4-byte mdat payload is the last thing in the file
+  return build(build(0).length - 4);
+}
+
+describe("verify.ts resolveAbsoluteOffset ArithmeticOperator cluster (67-21, isobmff-8)", () => {
+  it("resolveAbsoluteOffset ArithmeticOperator: an idat item is located by idat start plus base_offset plus extent_offset, however the destination splits them", async () => {
+    // source: base_offset 3 and extent_offset 5; destination: base_offset 0 and extent_offset 8.
+    // Both name idat bytes 8..11 ("IJKL"); every other combination of the three terms reads
+    // different bytes in the two files.
+    const source = idatOffsetFile(3, 5);
+    const destination = idatOffsetFile(0, 8);
+    expect((await verifyPair(source, destination)).ok).toBe(true);
+
+    // control: the idat bytes themselves are compared, so a destination that points at other
+    // idat bytes does not verify
+    expectVerificationFailed(await verifyPair(source, idatOffsetFile(0, 9)));
   });
 });
