@@ -183506,7 +183506,7 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000sourceFtyp.end + sourceFtyp.start\u0000300\u00007\u0000300\u000040"
@@ -183514,31 +183514,49 @@
       "anchors": [
         "src/isobmff/verify.ts\u0000ArithmeticOperator\u0000sourceFtyp.end + sourceFtyp.start\u0000sourceFtyp.end - sourceFtyp.start\u00000"
       ],
-      "note": ""
+      "note": "ftyp is always the first top-level box (readTopLevelBoxes, boxes.ts, throws box-framing otherwise), and the first box of an admitted file starts at offset 0, so sourceFtyp.start is 0 for every admitted source and sourceFtyp.end - sourceFtyp.start equals sourceFtyp.end + sourceFtyp.start. The expression is the only ArithmeticOperator mutant on its line (extracted to the ftypLength statement so the next-line directive attaches to a statement rather than to the operator expression).",
+      "equivalenceClass": "equivalent-arithmetic"
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction:gap-01",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ArrowFunction",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000273\u00009\u0000273\u000066"
+      ],
+      "note": "reports/triage/67-22/g1b.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, MethodExpression and ArrowFunction: the same top-level boxes in another order fail verification. Red: reports/triage/67-22/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, MethodExpression and ArrowFunction: the same top-level boxes in another order fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction:pending-99",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "ArrowFunction",
       "disposition": "pending",
-      "count": 5,
+      "count": 4,
       "keys": [
-        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000273\u00009\u0000273\u000066",
         "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000317\u000033\u0000317\u000080",
         "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000625\u000011\u0000625\u000060",
         "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000664\u00009\u0000664\u000070",
         "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000725\u00009\u0000726\u000075"
       ],
       "anchors": [
-        "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000(type, index) => type !== destinationTopLevelTypes[index]\u00000",
         "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000(id, index) => id !== actualSurvivingIds[index]\u00000",
         "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000(id, toIndex) => id !== actual.toItemIds[toIndex]\u00000",
         "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000(bytes, index) => !bytes.equals(destinationNclxBytes[index]!)\u00000",
         "src/isobmff/verify.ts\u0000ArrowFunction\u0000() => undefined\u0000(property) =>\n          property.colourType === \"prof\" || property.colourType === \"rICC\"\u00000"
       ],
-      "note": ""
+      "note": "isobmff-9 remainder, closed by a later group of Plan 67-22",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ArrowFunction"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:AssignmentOperator",
@@ -183557,15 +183575,32 @@
       "note": ""
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:gap-01",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000233\u000075\u0000237\u00006"
+      ],
+      "note": "reports/triage/67-22/g1b.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a destination whose primary item id differs fails verification. Red: reports/triage/67-22/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a destination whose primary item id differs fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement:pending-99",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "BlockStatement",
       "disposition": "pending",
-      "count": 31,
+      "count": 30,
       "keys": [
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000233\u000075\u0000237\u00006",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000318\u00007\u0000325\u00006",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000331\u000033\u0000338\u00008",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000341\u000041\u0000348\u000010",
@@ -183598,7 +183633,6 @@
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000871\u000023\u0000873\u00008"
       ],
       "anchors": [
-        "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(\n        verificationError(\"pitm (primary item id) changed.\", destinationPath),\n      );\n    }\u00000",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n      return err(\n        verificationError(\n          \"Destination item set did not match the sanitized plan.\",\n          destinationPath,\n        ),\n      );\n    }\u00000",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(\n          verificationError(\n            \"mime item remained after sanitization.\",\n            destinationPath,\n          ),\n        );\n      }\u00000",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n          return err(\n            verificationError(\n              `Unexpected Exif item ${item.id} remained after sanitization.`,\n              destinationPath,\n            ),\n          );\n        }\u00000",
@@ -183630,7 +183664,8 @@
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(verificationError(\"idat length changed.\", destinationPath));\n      }\u00000",
         "src/isobmff/verify.ts\u0000BlockStatement\u0000{}\u0000{\n        return err(verificationError(\"idat bytes changed.\", destinationPath));\n      }\u00000"
       ],
-      "note": ""
+      "note": "isobmff-9 remainder, closed by a later group of Plan 67-22",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:BlockStatement"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:CallExpression",
@@ -183638,34 +183673,138 @@
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/isobmff/verify.ts\u0000CallExpression\u0000;\u0000217\u00005\u0000217\u000061"
       ],
-      "anchors": [
-        "src/isobmff/verify.ts\u0000CallExpression\u0000;\u0000classifyIsobmffModel(destinationModel, destinationSize);\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-22/g1b.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput CallExpression: a destination the admission rules decline fails verification. Red: reports/triage/67-22/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput CallExpression: a destination the admission rules decline fails verification"
+      }
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-01",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000219\u00009\u0000219\u000026"
+      ],
+      "note": "reports/triage/67-22/g1b.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: a signal aborted before the destination is re-parsed is reported with the aborted code. Red: reports/triage/67-22/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: a signal aborted before the destination is re-parsed is reported with the aborted code"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-02",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000233\u00009\u0000233\u000073"
+      ],
+      "note": "reports/triage/67-22/g1b.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a destination whose primary item id differs fails verification. Red: reports/triage/67-22/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression and BlockStatement: a destination whose primary item id differs fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-03",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 4,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000246\u00007\u0000246\u000053",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000248\u00007\u0000248\u000059",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000249\u00007\u0000249\u000067",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000250\u00007\u0000250\u000057"
+      ],
+      "note": "reports/triage/67-22/g1b.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an iloc version, length size, base offset size or index size that differs from the source's fails verification. Red: reports/triage/67-22/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: an iloc version, length size, base offset size or index size that differs from the source's fails verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-04",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000273\u000026\u0000273\u000066"
+      ],
+      "note": "reports/triage/67-22/g1b.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, MethodExpression and ArrowFunction: the same top-level boxes in another order fail verification. Red: reports/triage/67-22/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, MethodExpression and ArrowFunction: the same top-level boxes in another order fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:gap-05",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000285\u000016\u0000285\u000035"
+      ],
+      "note": "reports/triage/67-22/g1b.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: the source's ftyp is the box found by type, not whichever box comes first. Red: reports/triage/67-22/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression: the source's ftyp is the box found by type, not whichever box comes first"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:equivalent-06",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000288\u000016\u0000288\u000035"
+      ],
+      "anchors": [
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000box.type === \"ftyp\"\u00001",
+        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000box.type === \"ftyp\"\u00001"
+      ],
+      "note": "The destination's ftyp lookup `find((box) => box.type === \"ftyp\")` always returns the first top-level box: the destination is re-parsed above through readTopLevelBoxes (boxes.ts), which throws a box-framing decline unless the first top-level box is ftyp, and the parse is inside the try block whose catch returns before this line. The always-true predicate therefore returns the very same box, so destinationFtyp (start, end and the compared range) is identical for every destination that reaches this line. A destination cannot be hand-assembled the way the source admission is (the destination is parsed from its handle), unlike the source-side twin on the line above, which tests/isobmff_hostile.test.ts kills with a hand-assembled leading free header. One next-line ConditionalExpression directive covers the line; its always-false sibling mutant (Killed before the directive by every successful verification) is suppressed only as collateral and is listed as the second anchor so no suppression lacks an owner.",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression",
+      "equivalenceClass": "defensive-unreachable-by-construction"
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression:pending-99",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 73,
+      "count": 64,
       "keys": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000219\u00009\u0000219\u000026",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000233\u00009\u0000233\u000073",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000246\u00007\u0000246\u000053",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000248\u00007\u0000248\u000059",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000249\u00007\u0000249\u000067",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000250\u00007\u0000250\u000057",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000273\u000026\u0000273\u000066",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000285\u000016\u0000285\u000035",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000288\u000016\u0000288\u000035",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000316\u00007\u0000316\u000064",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000316\u00007\u0000317\u000081",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000317\u000048\u0000317\u000080",
@@ -183732,15 +183871,6 @@
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000878\u00009\u0000878\u000026"
       ],
       "anchors": [
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00001",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000admission.model.primaryItemId !== destinationModel.primaryItemId\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceIloc.version !== destinationIloc.version\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceIloc.lengthSize !== destinationIloc.lengthSize\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceIloc.baseOffsetSize !== destinationIloc.baseOffsetSize\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000sourceIloc.indexSize !== destinationIloc.indexSize\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000type !== destinationTopLevelTypes[index]\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000box.type === \"ftyp\"\u00000",
-        "src/isobmff/verify.ts\u0000ConditionalExpression\u0000true\u0000box.type === \"ftyp\"\u00001",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expectedSurvivingIds.length !== actualSurvivingIds.length\u00000",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000expectedSurvivingIds.length !== actualSurvivingIds.length ||\n      expectedSurvivingIds.some((id, index) => id !== actualSurvivingIds[index])\u00000",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000id !== actualSurvivingIds[index]\u00000",
@@ -183806,7 +183936,8 @@
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000!idatEqual\u00000",
         "src/isobmff/verify.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00002"
       ],
-      "note": ""
+      "note": "isobmff-9 remainder, closed by a later group of Plan 67-22",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:ConditionalExpression"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:EqualityOperator",
@@ -183863,15 +183994,32 @@
       "note": ""
     },
     {
-      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression",
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:gap-01",
+      "group": "isobmff",
+      "file": "src/isobmff/verify.ts",
+      "function": "verifyIsobmffOutput",
+      "mutatorName": "MethodExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/isobmff/verify.ts\u0000MethodExpression\u0000sourceTopLevelTypes.every((type, index) => type !== destinationTopLevelTypes[index])\u0000272\u00007\u0000274\u00008"
+      ],
+      "note": "reports/triage/67-22/g1b.json (Killed); the named test appears in killedBy: verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, MethodExpression and ArrowFunction: the same top-level boxes in another order fail verification. Red: reports/triage/67-22/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "verify.ts verifyIsobmffOutput destination header checks (67-22, isobmff-9) > verifyIsobmffOutput ConditionalExpression, MethodExpression and ArrowFunction: the same top-level boxes in another order fail verification"
+      }
+    },
+    {
+      "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression:pending-99",
       "group": "isobmff",
       "file": "src/isobmff/verify.ts",
       "function": "verifyIsobmffOutput",
       "mutatorName": "MethodExpression",
       "disposition": "pending",
-      "count": 6,
+      "count": 5,
       "keys": [
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000sourceTopLevelTypes.every((type, index) => type !== destinationTopLevelTypes[index])\u0000272\u00007\u0000274\u00008",
         "src/isobmff/verify.ts\u0000MethodExpression\u0000expectedSurvivingIds.every((id, index) => id !== actualSurvivingIds[index])\u0000317\u00007\u0000317\u000081",
         "src/isobmff/verify.ts\u0000MethodExpression\u0000expected.toItemIds.every((id, toIndex) => id !== actual.toItemIds[toIndex])\u0000624\u00009\u0000626\u000010",
         "src/isobmff/verify.ts\u0000MethodExpression\u0000admission.model.properties\u0000639\u000034\u0000641\u00006",
@@ -183879,14 +184027,14 @@
         "src/isobmff/verify.ts\u0000MethodExpression\u0000Math.min(previousEnd, range.end)\u0000829\u000013\u0000829\u000045"
       ],
       "anchors": [
-        "src/isobmff/verify.ts\u0000MethodExpression\u0000sourceTopLevelTypes.every((type, index) => type !== destinationTopLevelTypes[index])\u0000sourceTopLevelTypes.some(\n        (type, index) => type !== destinationTopLevelTypes[index],\n      )\u00000",
         "src/isobmff/verify.ts\u0000MethodExpression\u0000expectedSurvivingIds.every((id, index) => id !== actualSurvivingIds[index])\u0000expectedSurvivingIds.some((id, index) => id !== actualSurvivingIds[index])\u00000",
         "src/isobmff/verify.ts\u0000MethodExpression\u0000expected.toItemIds.every((id, toIndex) => id !== actual.toItemIds[toIndex])\u0000expected.toItemIds.some(\n          (id, toIndex) => id !== actual.toItemIds[toIndex],\n        )\u00000",
         "src/isobmff/verify.ts\u0000MethodExpression\u0000admission.model.properties\u0000admission.model.properties.filter(\n      (property) => property.type === \"colr\",\n    )\u00000",
         "src/isobmff/verify.ts\u0000MethodExpression\u0000destinationModel.properties\u0000destinationModel.properties.filter(\n      (property) => property.type === \"colr\",\n    )\u00000",
         "src/isobmff/verify.ts\u0000MethodExpression\u0000Math.min(previousEnd, range.end)\u0000Math.max(previousEnd, range.end)\u00000"
       ],
-      "note": ""
+      "note": "isobmff-9 remainder, closed by a later group of Plan 67-22",
+      "originClusterId": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:MethodExpression"
     },
     {
       "id": "isobmff:src/isobmff/verify.ts:verifyIsobmffOutput:StringLiteral",
