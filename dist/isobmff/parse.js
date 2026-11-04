@@ -38,6 +38,7 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
     const topLevel = await readTopLevelBoxes(handle, size, budget);
     let majorBrand;
     let minorVersion = 0;
+    // Stryker disable next-line ArrayDeclaration: defensive-unreachable-by-construction — compatibleBrands is assigned together with majorBrand in the only ftyp branch, and the function refuses before returning when majorBrand is still undefined, so this initial empty list is never read.
     let compatibleBrands = [];
     let metaRange;
     const mdatRanges = [];
