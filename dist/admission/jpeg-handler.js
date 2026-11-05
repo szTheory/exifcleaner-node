@@ -594,11 +594,9 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
                         ? 2
                         : 3);
             if (!exifPayload.equals(expectedPayload) ||
-                // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — this operand is evaluated only when the payload equals the recomputed one, and re-parsing identical bytes yields the entry count that expectedEntryCount derives from the same tags (checked for every orientation and resolution combination).
                 reparsed.entries.length !== expectedEntryCount ||
                 (tags.orientation !== undefined &&
                     (reparsed.orientation.status !== "valid" ||
-                        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — reached only when the payload equals the recomputed one and the status is valid, so the parsed value is the orientation the minimal Exif was built from.
                         reparsed.orientation.value !== tags.orientation)))
                 return err(verificationError(
                 // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
