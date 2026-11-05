@@ -194995,74 +194995,138 @@
       "keys": [
         "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000177\u00005\u0000177\u000012"
       ],
+      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
       "anchors": [
         "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000nul + 1\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement",
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement:gap-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseIccpChunk",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000178\u00005\u0000183\u00004",
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000185\u000021\u0000190\u00004"
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000178\u00005\u0000183\u00004"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"iCCP chunk profile name is missing or exceeds the 79-byte limit.\",\n    );\n  }\u00000",
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"iCCP chunk compression method must be zero.\",\n    );\n  }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional, Equality and Logical clusters: a profile name of 1 to 79 bytes is read and any other length refuses the chunk"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression",
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement:gap-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseIccpChunk",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000185\u000021\u0000190\u00004"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional and Block clusters: only compression method zero is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseIccpChunk",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 4,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000175\u000033",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000176\u000033",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000177\u000027",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000176\u00005\u0000176\u000033"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional, Equality and Logical clusters: a profile name of 1 to 79 bytes is read and any other length refuses the chunk"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression:pending-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseIccpChunk",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 6,
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000175\u000033",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000176\u000033",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000177\u000027",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000176\u00005\u0000176\u000033",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000177\u00005\u0000177\u000027",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000185\u00007\u0000185\u000019"
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000177\u00005\u0000177\u000027"
       ],
+      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul < ICCP_MIN_KEYWORD_BYTES\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul < ICCP_MIN_KEYWORD_BYTES ||\n    nul > ICCP_MAX_KEYWORD_BYTES\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul < ICCP_MIN_KEYWORD_BYTES ||\n    nul > ICCP_MAX_KEYWORD_BYTES ||\n    nul + 1 >= data.length\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul > ICCP_MAX_KEYWORD_BYTES\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul + 1 >= data.length\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000method !== 0\u00000"
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul + 1 >= data.length\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseIccpChunk:EqualityOperator",
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression:gap-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseIccpChunk",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000185\u00007\u0000185\u000019"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional and Block clusters: only compression method zero is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:EqualityOperator:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseIccpChunk",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= ICCP_MIN_KEYWORD_BYTES\u0000175\u00005\u0000175\u000033",
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul >= ICCP_MAX_KEYWORD_BYTES\u0000176\u00005\u0000176\u000033"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional, Equality and Logical clusters: a profile name of 1 to 79 bytes is read and any other length refuses the chunk"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:EqualityOperator:pending-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseIccpChunk",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 3,
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= ICCP_MIN_KEYWORD_BYTES\u0000175\u00005\u0000175\u000033",
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul >= ICCP_MAX_KEYWORD_BYTES\u0000176\u00005\u0000176\u000033",
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul + 1 > data.length\u0000177\u00005\u0000177\u000027"
       ],
+      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= ICCP_MIN_KEYWORD_BYTES\u0000nul < ICCP_MIN_KEYWORD_BYTES\u00000",
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul >= ICCP_MAX_KEYWORD_BYTES\u0000nul > ICCP_MAX_KEYWORD_BYTES\u00000",
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul + 1 > data.length\u0000nul + 1 >= data.length\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:EqualityOperator"
     },
     {
       "id": "png:src/admission/png-handler.ts:parseIccpChunk:LogicalOperator",
@@ -195070,77 +195134,126 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseIccpChunk",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/admission/png-handler.ts\u0000LogicalOperator\u0000(nul < ICCP_MIN_KEYWORD_BYTES || nul > ICCP_MAX_KEYWORD_BYTES) && nul + 1 >= data.length\u0000175\u00005\u0000177\u000027",
         "src/admission/png-handler.ts\u0000LogicalOperator\u0000nul < ICCP_MIN_KEYWORD_BYTES && nul > ICCP_MAX_KEYWORD_BYTES\u0000175\u00005\u0000176\u000033"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000LogicalOperator\u0000(nul < ICCP_MIN_KEYWORD_BYTES || nul > ICCP_MAX_KEYWORD_BYTES) && nul + 1 >= data.length\u0000nul < ICCP_MIN_KEYWORD_BYTES ||\n    nul > ICCP_MAX_KEYWORD_BYTES ||\n    nul + 1 >= data.length\u00000",
-        "src/admission/png-handler.ts\u0000LogicalOperator\u0000nul < ICCP_MIN_KEYWORD_BYTES && nul > ICCP_MAX_KEYWORD_BYTES\u0000nul < ICCP_MIN_KEYWORD_BYTES ||\n    nul > ICCP_MAX_KEYWORD_BYTES\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional, Equality and Logical clusters: a profile name of 1 to 79 bytes is read and any other length refuses the chunk"
+      }
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseItxtChunk:BlockStatement",
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:BlockStatement:pending-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseItxtChunk",
       "mutatorName": "BlockStatement",
       "disposition": "pending",
-      "count": 3,
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000219\u000023\u0000224\u00004",
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000219\u000023\u0000224\u00004"
+      ],
+      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
+      "anchors": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"iTXt chunk is missing its keyword terminator.\",\n    );\n  }\u00000"
+      ],
+      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:BlockStatement"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:BlockStatement:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseItxtChunk",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000229\u000024\u0000234\u00004",
         "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000237\u000026\u0000242\u00004"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"iTXt chunk is missing its keyword terminator.\",\n    );\n  }\u00000",
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"iTXt chunk is missing its language-tag terminator.\",\n    );\n  }\u00000",
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"iTXt chunk is missing its translated-keyword terminator.\",\n    );\n  }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseItxtChunk BlockStatement, Conditional and Equality clusters: the language tag and translated keyword terminators are required, and an empty keyword is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:BlockStatement"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression",
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression:pending-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseItxtChunk",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 3,
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000219\u00007\u0000219\u000021",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000219\u00007\u0000219\u000021"
+      ],
+      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
+      "anchors": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000keywordNul < 0\u00000"
+      ],
+      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseItxtChunk",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000229\u00007\u0000229\u000022",
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000237\u00007\u0000237\u000024"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000keywordNul < 0\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000languageNul < 0\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000translatedNul < 0\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseItxtChunk BlockStatement, Conditional and Equality clusters: the language tag and translated keyword terminators are required, and an empty keyword is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator",
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseItxtChunk",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000keywordNul <= 0\u0000219\u00007\u0000219\u000021"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseItxtChunk BlockStatement, Conditional and Equality clusters: the language tag and translated keyword terminators are required, and an empty keyword is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator:pending-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseItxtChunk",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 3,
+      "count": 2,
       "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000keywordNul <= 0\u0000219\u00007\u0000219\u000021",
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000languageNul <= 0\u0000229\u00007\u0000229\u000022",
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000translatedNul <= 0\u0000237\u00007\u0000237\u000024"
       ],
+      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000keywordNul <= 0\u0000keywordNul < 0\u00000",
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000languageNul <= 0\u0000languageNul < 0\u00000",
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000translatedNul <= 0\u0000translatedNul < 0\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator"
     },
     {
       "id": "png:src/admission/png-handler.ts:parseItxtChunk:StringLiteral",
@@ -195148,15 +195261,16 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseItxtChunk",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000246\u000033\u0000246\u000039"
       ],
+      "note": "A next-line StringLiteral disable owns the chunk label passed to inflateBounded for compressed iTXt text. The label reaches only the text of the PngStructureError messages and the typed limit chunkType, whose only consumer is the comparison with the iCCP label in classifyAdmissionFailure, so an empty label selects no different outcome for an iTXt chunk. The directive line holds no other mutant.",
+      "equivalenceClass": "unobservable-message",
       "anchors": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"iTXt\"\u00001"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
       "id": "png:src/admission/png-handler.ts:parseTextChunkData:ConditionalExpression",
@@ -195164,15 +195278,16 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseTextChunkData",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000259\u000010\u0000259\u000017"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul < 0\u00001"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseTextChunkData Conditional, Equality and String clusters: a tEXt chunk without a terminator is all keyword with empty text, and an empty keyword is read"
+      }
     },
     {
       "id": "png:src/admission/png-handler.ts:parseTextChunkData:EqualityOperator",
@@ -195180,15 +195295,16 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseTextChunkData",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= 0\u0000259\u000010\u0000259\u000017"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= 0\u0000nul < 0\u00001"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseTextChunkData Conditional, Equality and String clusters: a tEXt chunk without a terminator is all keyword with empty text, and an empty keyword is read"
+      }
     },
     {
       "id": "png:src/admission/png-handler.ts:parseTextChunkData:StringLiteral",
@@ -195196,15 +195312,16 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseTextChunkData",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000260\u000049\u0000260\u000051"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000\"\"\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseTextChunkData Conditional, Equality and String clusters: a tEXt chunk without a terminator is all keyword with empty text, and an empty keyword is read"
+      }
     },
     {
       "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ArithmeticOperator",
@@ -195217,10 +195334,10 @@
       "keys": [
         "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000197\u000018\u0000197\u000025"
       ],
+      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
       "anchors": [
         "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000nul + 1\u00002"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
       "id": "png:src/admission/png-handler.ts:parseZtxtChunk:BlockStatement",
@@ -195228,53 +195345,87 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseZtxtChunk",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000197\u000042\u0000202\u00004"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"zTXt chunk is missing its keyword terminator.\",\n    );\n  }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
+      }
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression",
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u00007\u0000197\u000014",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u00007\u0000197\u000040"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression:pending-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseZtxtChunk",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 3,
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u00007\u0000197\u000014",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u00007\u0000197\u000040",
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u000018\u0000197\u000040"
       ],
+      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul < 0\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul < 0 || nul + 1 >= data.length\u00000",
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul + 1 >= data.length\u00001"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator",
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= 0\u0000197\u00007\u0000197\u000014"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator:pending-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseZtxtChunk",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= 0\u0000197\u00007\u0000197\u000014",
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul + 1 > data.length\u0000197\u000018\u0000197\u000040"
       ],
+      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= 0\u0000nul < 0\u00000",
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul + 1 > data.length\u0000nul + 1 >= data.length\u00001"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator"
     },
     {
       "id": "png:src/admission/png-handler.ts:parseZtxtChunk:LogicalOperator",
@@ -195282,15 +195433,16 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseZtxtChunk",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000LogicalOperator\u0000nul < 0 && nul + 1 >= data.length\u0000197\u00007\u0000197\u000040"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000LogicalOperator\u0000nul < 0 && nul + 1 >= data.length\u0000nul < 0 || nul + 1 >= data.length\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
+      }
     },
     {
       "id": "png:src/admission/png-handler.ts:parseZtxtChunk:StringLiteral",
@@ -195298,15 +195450,16 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseZtxtChunk",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000206\u00005\u0000206\u000011"
       ],
+      "note": "A next-line StringLiteral disable owns the chunk label passed to inflateBounded for zTXt. The label reaches only the text of the PngStructureError messages and the typed limit chunkType, whose only consumer is the comparison with the iCCP label in classifyAdmissionFailure, so an empty label selects no different outcome for a zTXt chunk. The directive line holds no other mutant.",
+      "equivalenceClass": "unobservable-message",
       "anchors": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"zTXt\"\u00001"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
       "id": "png:src/admission/png-handler.ts:routeTextKeyword:CallExpression",
@@ -195314,15 +195467,16 @@
       "file": "src/admission/png-handler.ts",
       "function": "routeTextKeyword",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000CallExpression\u0000;\u0000293\u00005\u0000293\u000038"
       ],
-      "anchors": [
-        "src/admission/png-handler.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > routeTextKeyword CallExpression cluster: warnings from an XMP packet reach the inspection"
+      }
     },
     {
       "id": "png:src/admission/png-handler.ts:verificationAborted:StringLiteral",
