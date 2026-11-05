@@ -73,6 +73,7 @@ import {
   readIfd0Resolution,
 } from "../src/metadata/exif.js";
 import { parseIcc } from "../src/metadata/icc.js";
+import { parseXmp, xmpOrientation } from "../src/metadata/xmp.js";
 import {
   registeredHandlersForTests,
   setRegisteredHandlersForTests,
@@ -8038,5 +8039,213 @@ describe("metadata/icc_admission.ts validateIccForPreservation clusters (67-34, 
     ];
     expect(cases).toHaveLength(24);
     for (const [, build, reason] of cases) expectIccRefusal(build(), reason);
+  });
+});
+
+describe("metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5)", () => {
+  const XMP_RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+  const xmpDoc = (inner: string, attributes = ""): Buffer =>
+    Buffer.from(
+      `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="${XMP_RDF_NS}"><rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:tiff="http://ns.adobe.com/tiff/1.0/"${attributes}>${inner}</rdf:Description></rdf:RDF></x:xmpmeta>`,
+      "utf8",
+    );
+  const titleDoc = (value: string): Buffer =>
+    xmpDoc(`<dc:title>${value}</dc:title>`);
+  const bare = (xml: string): Buffer => Buffer.from(xml, "utf8");
+  const titleOf = (payload: Buffer): unknown =>
+    parseXmp(payload).entries.find((entry) => entry.name === "dc:title")?.value;
+  const orientationDoc = (value: string): Buffer =>
+    xmpDoc("", ` tiff:Orientation="${value}"`);
+  // A refused packet has no entries and exactly one typed warning; only that the detail is
+  // non-empty is asserted, never its wording.
+  const expectXmpRefused = (payload: Buffer, label: string): void => {
+    const result = parseXmp(payload);
+    expect(result.entries, label).toEqual([]);
+    expect(result.warnings, label).toHaveLength(1);
+    expect(result.warnings[0]?.code, label).toBe("metadata-invalid");
+    expect(result.warnings[0]?.detail.length, label).toBeGreaterThan(0);
+  };
+
+  it("isOrientationValue clusters: xmpOrientation admits exactly the integers 1 through 8", () => {
+    for (const refused of ["0", "-1", "NaN", "9"])
+      expect(xmpOrientation(orientationDoc(refused)), refused).toBe("invalid");
+    for (const admitted of [1, 2, 7, 8])
+      expect(
+        xmpOrientation(orientationDoc(String(admitted))),
+        String(admitted),
+      ).toBe(admitted);
+  });
+
+  it("isValidCodePoint and decodeXml clusters: numeric entities decode in both radixes across the valid range", () => {
+    const decoded: readonly (readonly [string, string])[] = [
+      ["&#65;", "A"],
+      ["&#x41;", "A"],
+      ["&#X41;", "A"],
+      ["&#0;", "\u0000"],
+      ["&#x0;", "\u0000"],
+      ["&#xD7FF;", "퟿"],
+      ["&#55295;", "퟿"],
+      ["&#xE000;", ""],
+      ["&#57344;", ""],
+      ["&#x10FFFF;", "\u{10FFFF}"],
+      ["&#1114111;", "\u{10FFFF}"],
+    ];
+    for (const [entity, text] of decoded)
+      expect(titleOf(titleDoc(entity)), entity).toBe(text);
+  });
+
+  it("isValidCodePoint and decodeXml clusters: surrogate and above-range numeric entities refuse the packet", () => {
+    for (const entity of [
+      "&#xD800;",
+      "&#xDBFF;",
+      "&#xDFFF;",
+      "&#55296;",
+      "&#57343;",
+      "&#x110000;",
+      "&#1114112;",
+    ])
+      expectXmpRefused(titleDoc(entity), entity);
+  });
+
+  it("decodeXml clusters: the five predefined entities decode once and in order", () => {
+    expect(titleOf(titleDoc("&quot;q&quot;"))).toBe('"q"');
+    expect(titleOf(titleDoc("&apos;a&apos;"))).toBe("'a'");
+    expect(titleOf(titleDoc("&lt;b&gt;"))).toBe("<b>");
+    expect(titleOf(titleDoc("a &amp; b"))).toBe("a & b");
+    // The ampersand is decoded last, so an escaped entity is not decoded twice.
+    expect(titleOf(titleDoc("&amp;lt;"))).toBe("&lt;");
+    expect(titleOf(titleDoc("&amp;quot;"))).toBe("&quot;");
+    expect(titleOf(titleDoc("&amp;#65;"))).toBe("&#65;");
+  });
+
+  it("validateEntities clusters: a malformed or unsupported entity refuses the packet", () => {
+    for (const text of ["a &foo; b", "a & b", "&#;", "&#x;", "&#xZZ;", "&#6a;"])
+      expectXmpRefused(titleDoc(text), text);
+  });
+
+  it("validateEntities clusters: ampersands inside CDATA, comments and processing instructions are not entity text", () => {
+    expect(titleOf(xmpDoc("<dc:title><![CDATA[a & b]]></dc:title>"))).toBe(
+      "a & b",
+    );
+    expect(titleOf(xmpDoc("<!-- a & b --><dc:title>t</dc:title>"))).toBe("t");
+    expect(titleOf(xmpDoc("<? a & b ?><dc:title>t</dc:title>"))).toBe("t");
+    expect(titleOf(xmpDoc("<dc:title>t</dc:title><![CDATA[a & b & c]]>"))).toBe(
+      "t",
+    );
+  });
+
+  it("validateEntities clusters: an entity interrupted by a comment, CDATA section or processing instruction is rejoined", () => {
+    expect(titleOf(titleDoc("&<!---->amp;"))).toBe("&");
+    expect(titleOf(titleDoc("&<![CDATA[]]>amp;"))).toBe("&");
+    expect(titleOf(titleDoc("&<?x?>amp;"))).toBe("&");
+  });
+
+  it("validateEntities clusters: valid entities of any length are not malformed text", () => {
+    expect(titleOf(titleDoc("&#65;&#x41;&#x1F600;&#128512;&amp;"))).toBe(
+      "AA\u{1F600}\u{1F600}&",
+    );
+  });
+
+  it("validateXmlStructure clusters: a DOCTYPE or ENTITY declaration anywhere refuses the packet", () => {
+    for (const inner of [
+      "<!DOCTYPE a><dc:title>t</dc:title>",
+      "<!-- <!DOCTYPE a> --><dc:title>t</dc:title>",
+      '<dc:title><![CDATA[<!ENTITY a "b">]]></dc:title>',
+      "<dc:title>t</dc:title><?pi <!doctype a> ?>",
+    ])
+      expectXmpRefused(xmpDoc(inner), inner);
+  });
+
+  it("validateXmlStructure Regex cluster: comments, processing instructions and CDATA sections may contain > and <", () => {
+    for (const inner of [
+      "<!-- a > <b --><dc:title>t</dc:title>",
+      "<!--a><b--><dc:title>t</dc:title>",
+      "<? a > <b ?><dc:title>t</dc:title>",
+      "<?a><b?><dc:title>t</dc:title>",
+      "<![CDATA[ a > <b ]]><dc:title>t</dc:title>",
+      "<![CDATA[a><b]]><dc:title>t</dc:title>",
+      "<!----><?x?><![CDATA[]]><dc:title>t</dc:title>",
+    ])
+      expect(titleOf(xmpDoc(inner)), inner).toBe("t");
+  });
+
+  it("validateXmlStructure MethodExpression cluster: comment and CDATA tokens are skipped, not read as tags", () => {
+    expect(titleOf(xmpDoc("<!-- c --><dc:title>t</dc:title>"))).toBe("t");
+    expect(titleOf(xmpDoc("<dc:title>t</dc:title><![CDATA[x]]>"))).toBe("t");
+    expect(titleOf(xmpDoc("<dc:title><![CDATA[x]]></dc:title>"))).toBe("x");
+  });
+
+  it("validateXmlStructure clusters: mismatched close tags refuse the packet", () => {
+    for (const inner of [
+      "<dc:title>t</dc:title></y:z>",
+      "<a><b></a></b>",
+      "<a></b>",
+    ])
+      expectXmpRefused(
+        bare(`<x:xmpmeta xmlns:x="a">${inner}</x:xmpmeta>`),
+        inner,
+      );
+  });
+
+  it("validateXmlStructure clusters: malformed tags refuse the packet", () => {
+    for (const tag of ["< 1>", "<1a>", "< 1 <a></a>", "<>", "< >"])
+      expectXmpRefused(
+        bare(`<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title>${tag}</x:xmpmeta>`),
+        tag,
+      );
+  });
+
+  it("validateXmlStructure clusters: unclosed tags and trailing markup refuse the packet", () => {
+    for (const text of [
+      '<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title>',
+      '<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title></x:xmpmeta><',
+      '<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title></x:xmpmeta><oops',
+      '<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title></x:xmpmeta>trailing < text',
+    ])
+      expectXmpRefused(bare(text), text);
+  });
+
+  it("validateXmlStructure Regex cluster: close tags tolerate whitespace and a token that only contains a later tag is not that tag", () => {
+    expect(
+      titleOf(
+        bare('<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title ></x:xmpmeta >'),
+      ),
+    ).toBe("t");
+    expect(
+      titleOf(
+        bare('<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title\n></x:xmpmeta>'),
+      ),
+    ).toBe("t");
+    // `<x </a>` is one token that opens `x`; it does not close `a`.
+    expectXmpRefused(
+      bare(
+        '<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title><a><x </a></x:xmpmeta>',
+      ),
+      "open token that contains a close tag",
+    );
+    // `< 1 <a>` starts with a non-name, so the later `<a>` does not rescue it.
+    expectXmpRefused(
+      bare(
+        '<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title>< 1 <a></a></x:xmpmeta>',
+      ),
+      "malformed token that contains an open tag",
+    );
+  });
+
+  it("validateXmlStructure Regex cluster: self-closing tags do not open an element", () => {
+    expect(
+      titleOf(
+        bare(
+          '<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title><br/><br /><br\n/></x:xmpmeta>',
+        ),
+      ),
+    ).toBe("t");
+    expect(
+      titleOf(
+        bare(
+          '<x:xmpmeta xmlns:x="a"><dc:title>t</dc:title><a b="/"></a></x:xmpmeta>',
+        ),
+      ),
+    ).toBe("t");
   });
 });
