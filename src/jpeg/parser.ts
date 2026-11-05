@@ -231,7 +231,7 @@ interface JpegSosHeader {
 }
 
 function parseSosHeader(payload: Buffer): JpegSosHeader {
-  if (payload.length < 1) {
+  if (payload.length === 0) {
     refuse("malformed-container", "SOS header is too short.");
   }
   const ns = payload.readUInt8(0);
