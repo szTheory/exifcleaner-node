@@ -55,9 +55,6 @@ function classifySegments(parsed) {
         const { marker } = segment;
         if (isStructuralMarker(marker))
             return "structural";
-        // Stryker disable next-line LogicalOperator: redundant-guard-after-typed-check — only the || to && replacement is ignored here: with && a COM marker still returns "remove" (COM is not an APPn marker) and every other non-APPn marker falls through to classifyAppPayload, which returns "other" for it because parseJpeg buffers payloads for APPn segments only, so the final return "remove" gives the same class for every segment parseJpeg admits.
-        if (marker === COM || !isAppMarker(marker))
-            return "remove";
         const kind = classifyAppPayload(marker, parsed.buffered.get(index));
         if (kind === "adobe")
             return "keep";
