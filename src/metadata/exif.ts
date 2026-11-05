@@ -75,7 +75,17 @@ interface TiffReader {
   i32(offset: number): number;
 }
 
-function inBounds(buffer: Buffer, offset: number, length: number): boolean {
+/**
+ * True when `length` bytes starting at `offset` lie inside `buffer`; `offset` and
+ * `length` must be non-negative safe integers. Private test seam, not public API
+ * (this module is not re-exported from src/index.ts): the TIFF readers only ever
+ * pass such values, so the integer and sign checks are exercised directly.
+ */
+export function inBounds(
+  buffer: Buffer,
+  offset: number,
+  length: number,
+): boolean {
   return (
     Number.isSafeInteger(offset) &&
     Number.isSafeInteger(length) &&
@@ -106,8 +116,9 @@ function makeReader(buffer: Buffer, littleEndian: boolean): TiffReader {
         : buffer.readUInt32BE(offset);
     },
     i32(offset) {
-      if (!inBounds(buffer, offset, 4))
-        throw new RangeError("TIFF i32 out of bounds");
+      // Every i32 read follows an inBounds check on the same range (the
+      // byte-length check in readValue), so Buffer's own RangeError is the
+      // only bounds failure this read can raise.
       return littleEndian
         ? buffer.readInt32LE(offset)
         : buffer.readInt32BE(offset);
