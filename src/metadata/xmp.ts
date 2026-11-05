@@ -12,12 +12,8 @@ function isOrientationValue(value: number): boolean {
 }
 
 function isValidCodePoint(value: number): boolean {
-  return (
-    Number.isInteger(value) &&
-    value >= 0 &&
-    value <= 0x10ffff &&
-    !(value >= 0xd800 && value <= 0xdfff)
-  );
+  // Code points above U+10FFFF are refused by String.fromCodePoint itself, with a RangeError.
+  return !(value >= 0xd800 && value <= 0xdfff);
 }
 
 function decodeXml(value: string): string {
@@ -56,9 +52,8 @@ function validateEntities(xml: string): string | undefined {
   try {
     decodeXml(entitySurface);
   } catch (cause) {
-    return cause instanceof Error
-      ? cause.message
-      : "XMP contains an invalid entity.";
+    // decodeXml throws only RangeError instances, so the message is always present.
+    return (cause as RangeError).message;
   }
   return undefined;
 }
@@ -87,16 +82,16 @@ function validateXmlStructure(xml: string): string | undefined {
       token.startsWith("<![CDATA[")
     )
       continue;
-    const close = token.match(/^<\/\s*([A-Za-z_][\w.:-]*)\s*>$/u);
+    const close = token.match(/^<\/\s*([A-Za-z_][\w.:-]*)\s*>/u);
     if (close !== null) {
       const expected = stack.pop();
       if (expected !== close[1]) return "XMP contains mismatched XML tags.";
       continue;
     }
-    const open = token.match(/^<\s*([A-Za-z_][\w.:-]*)\b[\s\S]*>$/u);
+    const open = token.match(/^<\s*([A-Za-z_][\w.:-]*)\b[\s\S]*>/u);
     if (open === null) return "XMP contains a malformed tag.";
     // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — the open-tag pattern has a mandatory first capture group, so a match always carries a name and the empty fallback is never used.
-    if (!/\/\s*>$/u.test(token)) stack.push(open[1] ?? "");
+    if (!/\/\s*>/u.test(token)) stack.push(open[1] ?? "");
   }
   if (xml.slice(consumed).includes("<") || stack.length > 0) {
     return "XMP contains an unclosed XML tag.";
