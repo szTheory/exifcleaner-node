@@ -192,10 +192,11 @@ export function xmpOrientation(xmp) {
     // prettier-ignore
     const text = typeof raw === "string"
         ? raw.trim()
-        // Stryker disable next-line ConditionalExpression, EqualityOperator: equivalent-arithmetic — parseXmp yields only strings or arrays of at least two strings, never numbers, and a joined array always holds a comma, so it can never read back as an integer: an array or a number reaches the invalid outcome whichever way this test goes.
-        : typeof raw === "number"
-            ? String(raw)
-            : undefined;
+        :
+            // Stryker disable next-line ConditionalExpression, EqualityOperator: equivalent-arithmetic — parseXmp yields only strings or arrays of at least two strings, never numbers, and a joined array always holds a comma, so it can never read back as an integer: an array or a number reaches the invalid outcome whichever way this test goes.
+            typeof raw === "number"
+                ? String(raw)
+                : undefined;
     // Stryker disable next-line ConditionalExpression: equivalent-arithmetic — an empty text is already rejected by the integer round-trip comparison below (parsing an empty string gives NaN, whose string form never equals an empty text), so dropping the length test returns the same invalid outcome for every input. The other ConditionalExpression mutants of this line are compile errors, suppressed only as collateral because the next-line form cannot select a replacement.
     if (text === undefined || text.length === 0)
         return "invalid";
