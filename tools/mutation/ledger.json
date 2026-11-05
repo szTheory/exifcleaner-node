@@ -187823,7 +187823,7 @@
       "file": "src/jpeg/parser.ts",
       "function": "parseDhtSlots",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 2,
       "keys": [
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000215\u000037\u0000215\u000069",
@@ -187833,7 +187833,8 @@
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000\"DHT table header is truncated.\"\u00000",
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000\"DHT table is truncated.\"\u00000"
       ],
-      "note": ""
+      "note": "The message literal of refuse(<refusal>, <message>) (a jpeg-6 member, owned here because the rule also ignores it and the batch verifier requires an owner for every comment-style Ignored mutant of parser.ts). It only feeds the free-text message of a typed JpegStructureError. Ignored by the second narrow ignorer rule of tools/mutation/ignorers/error-message-rule.mjs (67-27 second halt, D-20), whose class reason is \"unobservable-message\"; the refusal literal at argument 0 of the same call stays mutated (CompileError, detected). reports/triage/67-27/ignorer.json.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ArithmeticOperator:gap-01",
@@ -187971,18 +187972,22 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral:pending-99",
+      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral:equivalent-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDqtSlots",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000198\u000037\u0000198\u000062"
       ],
-      "note": "Maintainer-approved residue (67-27-HALTED.md Gate 5, Option B, relayed by the coordinating agent): the member is the free-text message literal of refuse(\"malformed-container\", ...) at the DQT truncation check. It is equivalent, but a next-line StringLiteral directive would also comment-Ignore the type-invalid \"malformed-container\" mutant on the same line, which no frozen row can own, and hosting the message in a local constant moves the frozen anchor of the enclosing BlockStatement member. No rule-conforming disposition exists; carried until a tooling decision (a narrow refuse() message ignorer).",
-      "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral"
+      "note": "The message literal of refuse(<refusal>, <message>) (the 67-27 Gate 5 member, maintainer-approved Option A of the second halt). It only feeds the free-text message of a typed JpegStructureError. Ignored by the second narrow ignorer rule of tools/mutation/ignorers/error-message-rule.mjs (67-27 second halt, D-20), whose class reason is \"unobservable-message\"; the refusal literal at argument 0 of the same call stays mutated (CompileError, detected). reports/triage/67-27/ignorer.json.",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral",
+      "equivalenceClass": "unobservable-message",
+      "anchors": [
+        "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000\"DQT table is truncated.\"\u00000"
+      ]
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:parseJpeg:ArithmeticOperator",
@@ -188296,7 +188301,7 @@
       "file": "src/jpeg/parser.ts",
       "function": "parseSosHeader",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 2,
       "keys": [
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000247\u000035\u0000247\u000061",
@@ -188306,7 +188311,8 @@
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000\"SOS header is too short.\"\u00000",
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000\"SOS header is truncated.\"\u00000"
       ],
-      "note": ""
+      "note": "The message literal of refuse(<refusal>, <message>) (a jpeg-6 member, owned here because the rule also ignores it and the batch verifier requires an owner for every comment-style Ignored mutant of parser.ts). It only feeds the free-text message of a typed JpegStructureError. Ignored by the second narrow ignorer rule of tools/mutation/ignorers/error-message-rule.mjs (67-27 second halt, D-20), whose class reason is \"unobservable-message\"; the refusal literal at argument 0 of the same call stays mutated (CompileError, detected). reports/triage/67-27/ignorer.json.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:readExactly:ArithmeticOperator",
