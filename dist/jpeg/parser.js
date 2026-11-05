@@ -90,14 +90,12 @@ function parseDqtSlots(payload, dqtSlots) {
         cursor += 1 + tableBytes;
     }
 }
-/** DHT payload: repeated [TcTh(1)][BITS(16)][VALUES(sum(BITS))]. Populates
- * `dcSlots`/`acSlots` with every Th id defined for the matching Tc class. */
+/** DHT payload: repeated [TcTh(1)][BITS(16)][VALUES(sum(BITS))]: the BITS start at
+ * cursor + 1 and the VALUES at cursor + 1 + 16. Populates `dcSlots`/`acSlots` with
+ * every Th id defined for the matching Tc class. */
 function parseDhtSlots(payload, dcSlots, acSlots) {
     let cursor = 0;
     while (cursor < payload.length) {
-        if (cursor + 1 + 16 > payload.length) {
-            refuse("malformed-container", "DHT table header is truncated.");
-        }
         const tcTh = payload.readUInt8(cursor);
         const tc = (tcTh >> 4) & 0x0f;
         const th = tcTh & 0x0f;
