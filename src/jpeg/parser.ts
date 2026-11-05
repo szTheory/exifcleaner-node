@@ -78,12 +78,7 @@ export interface ParsedJpeg {
 }
 
 export function isJpegSignature(magic: Buffer): boolean {
-  return (
-    magic.length >= 3 &&
-    magic[0] === 0xff &&
-    magic[1] === SOI &&
-    magic[2] === 0xff
-  );
+  return magic[0] === 0xff && magic[1] === SOI && magic[2] === 0xff;
 }
 
 function isAborted(signal: AbortSignal | undefined): boolean {

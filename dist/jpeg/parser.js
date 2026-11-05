@@ -18,10 +18,7 @@ export class JpegStructureError extends Error {
     }
 }
 export function isJpegSignature(magic) {
-    return (magic.length >= 3 &&
-        magic[0] === 0xff &&
-        magic[1] === SOI &&
-        magic[2] === 0xff);
+    return magic[0] === 0xff && magic[1] === SOI && magic[2] === 0xff;
 }
 function isAborted(signal) {
     return signal?.aborted ?? false;
