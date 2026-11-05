@@ -25,10 +25,6 @@ const APP11 = 0xeb;
 function isAborted(signal) {
     return signal?.aborted ?? false;
 }
-function startsWith(payload, prefix) {
-    return (payload.length >= prefix.length &&
-        payload.subarray(0, prefix.length).equals(prefix));
-}
 // WR-01: APPn-prefix classification ("what's removed vs. kept", D-01) lives
 // once in src/jpeg/markers.ts (classifyAppPayload / AppSegmentKind) and is
 // imported here, rather than re-implemented -- src/jpeg/parser.ts's
@@ -223,9 +219,8 @@ function collectMetadata(parsed, trailerTail) {
                 entries.push(...found.entries);
                 warnings.push(...found.warnings);
                 orientation = found.orientation;
-                const tiff = startsWith(payload, EXIF_PREFIX)
-                    ? payload.subarray(EXIF_PREFIX.length)
-                    : payload;
+                // classifyAppPayload returns "exif" only for a payload that starts with EXIF_PREFIX.
+                const tiff = payload.subarray(EXIF_PREFIX.length);
                 sourceResolution = readIfd0Resolution(tiff);
             }
             return;
