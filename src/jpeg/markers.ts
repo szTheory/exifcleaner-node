@@ -230,10 +230,7 @@ const MPF_ID = Buffer.from("MPF\0", "ascii");
 const ADOBE_ID = Buffer.from("Adobe", "ascii");
 
 function startsWithAppId(payload: Buffer, prefix: Buffer): boolean {
-  return (
-    payload.length >= prefix.length &&
-    payload.subarray(0, prefix.length).equals(prefix)
-  );
+  return payload.subarray(0, prefix.length).equals(prefix);
 }
 
 /**
