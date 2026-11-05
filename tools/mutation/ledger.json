@@ -190072,15 +190072,16 @@
       "file": "src/metadata/exif.ts",
       "function": "assertResolutionValue",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000325\u00009\u0000328\u00002"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000{\n  assertUint32(value.numerator, `${field} numerator`);\n  assertUint32(value.denominator, `${field} denominator`);\n}\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 and assertResolutionValue clusters: a non-integer resolution field is a RangeError, never rounded into the bytes"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:assertResolutionValue:StringLiteral",
@@ -190088,17 +190089,18 @@
       "file": "src/metadata/exif.ts",
       "function": "assertResolutionValue",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 2,
       "keys": [
         "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000326\u000033\u0000326\u000053",
         "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000327\u000035\u0000327\u000057"
       ],
+      "note": "Two next-line StringLiteral disables own the field labels passed to assertUint32 in assertResolutionValue (`${field} numerator` and `${field} denominator`). assertUint32 uses its field argument only inside the text of its RangeError, so replacing a label by the empty string changes the message text and nothing else: which values are accepted or refused and the thrown kind are identical. Typed outcomes rather than message strings are the asserted contract. Each directive names StringLiteral only and the line holds no other mutator.",
+      "equivalenceClass": "unobservable-message",
       "anchors": [
         "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000`${field} numerator`\u00000",
         "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000`${field} denominator`\u00000"
-      ],
-      "note": ""
+      ]
     },
     {
       "id": "metadata:src/metadata/exif.ts:assertUint32:BlockStatement",
@@ -190106,17 +190108,17 @@
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000314\u000059\u0000320\u00002",
         "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000315\u000068\u0000319\u00004"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000{\n  if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {\n    throw new RangeError(\n      `${field} must be an integer from 0 through 4294967295`,\n    );\n  }\n}\u00000",
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new RangeError(\n      `${field} must be an integer from 0 through 4294967295`,\n    );\n  }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 and assertResolutionValue clusters: a non-integer resolution field is a RangeError, never rounded into the bytes"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:assertUint32:CallExpression",
@@ -190124,37 +190126,54 @@
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000316\u00005\u0000318\u00007"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000throw new RangeError(\n      `${field} must be an integer from 0 through 4294967295`,\n    );\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 and assertResolutionValue clusters: a non-integer resolution field is a RangeError, never rounded into the bytes"
+      }
     },
     {
-      "id": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression",
+      "id": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u00007\u0000315\u000044",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u00007\u0000315\u000066",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u00007\u0000315\u000066"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 and assertResolutionValue clusters: a non-integer resolution field is a RangeError, never rounded into the bytes"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "assertUint32",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u000035\u0000315\u000044",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u000048\u0000315\u000066"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!Number.isInteger(value) || value < 0\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!Number.isInteger(value) || value < 0 || value > 0xffffffff\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000value < 0\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000value > 0xffffffff\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 ConditionalExpression cluster: a negative or oversized resolution field is refused by createMinimalExif's own RangeError, not by the Buffer encoder"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression"
     },
     {
       "id": "metadata:src/metadata/exif.ts:assertUint32:EqualityOperator",
@@ -190162,15 +190181,16 @@
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000EqualityOperator\u0000value >= 0xffffffff\u0000315\u000048\u0000315\u000066"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000value >= 0xffffffff\u0000value > 0xffffffff\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 EqualityOperator cluster: 0 and 0xffffffff are accepted in every resolution field and written exactly"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:assertUint32:LogicalOperator",
@@ -190178,17 +190198,17 @@
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/metadata/exif.ts\u0000LogicalOperator\u0000!Number.isInteger(value) && value < 0\u0000315\u00007\u0000315\u000044",
         "src/metadata/exif.ts\u0000LogicalOperator\u0000(!Number.isInteger(value) || value < 0) && value > 0xffffffff\u0000315\u00007\u0000315\u000066"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000!Number.isInteger(value) && value < 0\u0000!Number.isInteger(value) || value < 0\u00000",
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000(!Number.isInteger(value) || value < 0) && value > 0xffffffff\u0000!Number.isInteger(value) || value < 0 || value > 0xffffffff\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 and assertResolutionValue clusters: a non-integer resolution field is a RangeError, never rounded into the bytes"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:createMinimalExif:ArithmeticOperator",
@@ -190489,15 +190509,16 @@
       "file": "src/metadata/exif.ts",
       "function": "parseExif",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000202\u000051\u0000204\u00006"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new RangeError(\"EXIF byte order is invalid\");\n    }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > parseExif ConditionalExpression, BlockStatement and CallExpression clusters: a byte order other than II or MM, or a marker other than 42, is malformed"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:parseExif:CallExpression",
@@ -190505,35 +190526,53 @@
       "file": "src/metadata/exif.ts",
       "function": "parseExif",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000203\u00007\u0000203\u000058"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000throw new RangeError(\"EXIF byte order is invalid\");\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > parseExif ConditionalExpression, BlockStatement and CallExpression clusters: a byte order other than II or MM, or a marker other than 42, is malformed"
+      }
     },
     {
-      "id": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression",
+      "id": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "parseExif",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000200\u00009\u0000200\u000024",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000200\u00009\u0000200\u000024"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > parseExif ConditionalExpression and EqualityOperator clusters: a payload shorter than the 8-byte header is reported alike however much of it is present, and distinctly from a header with no IFD"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "parseExif",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000202\u00009\u0000202\u000049",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000206\u00009\u0000206\u000029"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000tiff.length < 8\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byteOrder !== \"II\" && byteOrder !== \"MM\"\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000reader.u16(2) !== 42\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > parseExif ConditionalExpression, BlockStatement and CallExpression clusters: a byte order other than II or MM, or a marker other than 42, is malformed"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression"
     },
     {
       "id": "metadata:src/metadata/exif.ts:parseExif:EqualityOperator",
@@ -190541,15 +190580,16 @@
       "file": "src/metadata/exif.ts",
       "function": "parseExif",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000EqualityOperator\u0000tiff.length <= 8\u0000200\u00009\u0000200\u000024"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000tiff.length <= 8\u0000tiff.length < 8\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > parseExif ConditionalExpression and EqualityOperator clusters: a payload shorter than the 8-byte header is reported alike however much of it is present, and distinctly from a header with no IFD"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:parseExif:StringLiteral",
@@ -190557,15 +190597,16 @@
       "file": "src/metadata/exif.ts",
       "function": "parseExif",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000281\u000048\u0000281\u000071"
       ],
+      "note": "A next-line StringLiteral disable owns the non-Error fallback text in parseExif's catch (cause instanceof Error ? cause.message : \"EXIF data is invalid.\"). Every throw reachable from the try block is an Error: the explicit RangeErrors, the u16 and u32 bounds RangeErrors, Buffer's own RangeErrors, and a stack overflow (also a RangeError); nothing throws a non-Error value, so the fallback is never used by any public input. The directive names StringLiteral only, so the ConditionalExpression mutants of the same line stay active and Killed.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
       "anchors": [
         "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000\"EXIF data is invalid.\"\u00000"
-      ],
-      "note": ""
+      ]
     },
     {
       "id": "metadata:src/metadata/exif.ts:readIfd0Resolution:ArithmeticOperator",
@@ -191190,176 +191231,450 @@
       ]
     },
     {
-      "id": "metadata:src/metadata/exif.ts:visitIfd:ArithmeticOperator",
+      "id": "metadata:src/metadata/exif.ts:visitIfd:ArithmeticOperator:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "visitIfd",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000offset - 2\u0000218\u000025\u0000218\u000035",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000depth - 1\u0000230\u000062\u0000230\u000071"
+        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000offset - 2\u0000218\u000025\u0000218\u000035"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000offset - 2\u0000offset + 2\u00000",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000depth - 1\u0000depth + 1\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd ArithmeticOperator, BlockStatement and CallExpression clusters: an IFD missing the last byte of its next-IFD field is malformed"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:ArithmeticOperator"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:visitIfd:BlockStatement",
+      "id": "metadata:src/metadata/exif.ts:visitIfd:ArithmeticOperator:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000depth - 1\u0000230\u000062\u0000230\u000071"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, ConditionalExpression, LogicalOperator and ArithmeticOperator clusters: IFD nesting stops after depth 4"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:ArithmeticOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:BlockStatement:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "visitIfd",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000219\u00009\u0000221\u00008",
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000234\u000048\u0000242\u000012"
+        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000219\u00009\u0000221\u00008"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000{\n        throw new RangeError(\"EXIF IFD is oversized or truncated\");\n      }\u00000",
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000{\n            const detail = \"EXIF contains more than one Orientation tag.\";\n            orientation = {\n              status: \"unsupported\",\n              detail,\n            };\n            warnings.push({ code: \"metadata-unsupported\", detail });\n            continue;\n          }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, LogicalOperator, ConditionalExpression and BlockStatement clusters: 4096 entries are read, 4097 are refused even when they all fit"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:BlockStatement"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:visitIfd:CallExpression",
+      "id": "metadata:src/metadata/exif.ts:visitIfd:BlockStatement:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000234\u000048\u0000242\u000012"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd ConditionalExpression and BlockStatement clusters: a second Orientation tag is unsupported and is not read"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:BlockStatement"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:CallExpression:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "visitIfd",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000212\u00007\u0000212\u000027",
-        "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000220\u00009\u0000220\u000068"
+        "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000212\u00007\u0000212\u000027"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000visited.add(offset);\u00000",
-        "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000throw new RangeError(\"EXIF IFD is oversized or truncated\");\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd LogicalOperator, ConditionalExpression and CallExpression clusters: an IFD that points back at itself or at an ancestor is read once"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:CallExpression"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression",
+      "id": "metadata:src/metadata/exif.ts:visitIfd:CallExpression:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "CallExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000220\u00009\u0000220\u000068"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, LogicalOperator, ConditionalExpression and BlockStatement clusters: 4096 entries are read, 4097 are refused even when they all fit"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:CallExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "visitIfd",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 15,
+      "disposition": "gap",
+      "count": 4,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000211\u000011\u0000211\u000032",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000211\u000011\u0000211\u000055",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000213\u000011\u0000213\u000037",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000229\u000013\u0000229\u000027",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000229\u000039\u0000229\u000053"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, ConditionalExpression, LogicalOperator and ArithmeticOperator clusters: IFD nesting stops after depth 4"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression:equivalent-01",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000213\u000011\u0000213\u000037"
+      ],
+      "note": "A next-line ConditionalExpression disable owns the IFD offset bounds check in visitIfd (!inBounds(tiff, offset, 2)). Without it the next statement, reader.u16(offset), applies the same inBounds(offset, 2) check inside u16 and throws its own RangeError; visitIfd has no other consumer of the offset before that read and the surrounding catch in parseExif turns either RangeError into the identical typed outcome (orientation malformed, one metadata-invalid warning, no entries). Only the diagnostic text differs, and typed outcomes rather than message strings are the asserted contract. The directive line also covers the always-true replacement of the same condition; that replacement is observable (every parse would fail) and was Killed before the directive, so it is suppressed only as collateral because the next-line form cannot select a replacement; the BooleanLiteral mutant of the same condition stays active and Killed.",
+      "equivalenceClass": "unobservable-message",
+      "anchors": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000!inBounds(tiff, offset, 2)\u00000",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!inBounds(tiff, offset, 2)\u00000"
+      ],
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000217\u00009\u0000217\u000032",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000217\u00009\u0000218\u000052",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000217\u00009\u0000218\u000052"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, LogicalOperator, ConditionalExpression and BlockStatement clusters: 4096 entries are read, 4097 are refused even when they all fit"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000227\u000049\u0000227\u000063",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000229\u000013\u0000229\u000027",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000229\u000013\u0000229\u000027",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000229\u000039\u0000229\u000053",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000229\u000039\u0000229\u000053",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000229\u000039\u0000229\u000053"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd ConditionalExpression, EqualityOperator and StringLiteral clusters: the Exif, GPS and Interop pointers name their entries and the pointer tags are not entries"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression:gap-04",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000233\u000013\u0000233\u000026",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000234\u000015\u0000234\u000046",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000266\u000013\u0000266\u000026",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000266\u000013\u0000266\u000026"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd ConditionalExpression clusters: an Orientation tag below an Exif pointer is an ordinary entry and never sets the orientation"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression:gap-05",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000234\u000015\u0000234\u000046"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd ConditionalExpression and BlockStatement clusters: a second Orientation tag is unsupported and is not read"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression:gap-06",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000267\u000015\u0000267\u000052",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000267\u000042\u0000267\u000052"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000depth > MAX_IFD_DEPTH\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000depth > MAX_IFD_DEPTH || visited.has(offset)\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!inBounds(tiff, offset, 2)\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000count > MAX_IFD_ENTRIES\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000count > MAX_IFD_ENTRIES ||\n        !inBounds(tiff, offset + 2, count * 12 + 4)\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000tag === 0xa005\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000tag === 0x8825\u00001",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000tag === 0x8825\u00001",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000tag === 0x8769\u00001",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000tag === 0x8769\u00001",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000prefix === \"\"\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000orientation.status !== \"absent\"\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000prefix === \"\"\u00001",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000Number.isInteger(value) && value >= 1\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000value >= 1\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd StringLiteral and ConditionalExpression clusters: an Orientation that is not one SHORT, or is outside 1 through 8, is unsupported"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:ConditionalExpression"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:visitIfd:EqualityOperator",
+      "id": "metadata:src/metadata/exif.ts:visitIfd:EqualityOperator:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "visitIfd",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/metadata/exif.ts\u0000EqualityOperator\u0000depth >= MAX_IFD_DEPTH\u0000211\u000011\u0000211\u000032",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000count >= MAX_IFD_ENTRIES\u0000217\u00009\u0000217\u000032",
         "src/metadata/exif.ts\u0000EqualityOperator\u0000tag !== 0x8769\u0000229\u000039\u0000229\u000053"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000depth >= MAX_IFD_DEPTH\u0000depth > MAX_IFD_DEPTH\u00000",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000count >= MAX_IFD_ENTRIES\u0000count > MAX_IFD_ENTRIES\u00000",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000tag !== 0x8769\u0000tag === 0x8769\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, ConditionalExpression, LogicalOperator and ArithmeticOperator clusters: IFD nesting stops after depth 4"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:EqualityOperator"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:visitIfd:LogicalOperator",
+      "id": "metadata:src/metadata/exif.ts:visitIfd:EqualityOperator:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000EqualityOperator\u0000count >= MAX_IFD_ENTRIES\u0000217\u00009\u0000217\u000032"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, LogicalOperator, ConditionalExpression and BlockStatement clusters: 4096 entries are read, 4097 are refused even when they all fit"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:EqualityOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:LogicalOperator:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "visitIfd",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000depth > MAX_IFD_DEPTH && visited.has(offset)\u0000211\u000011\u0000211\u000055",
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000count > MAX_IFD_ENTRIES && !inBounds(tiff, offset + 2, count * 12 + 4)\u0000217\u00009\u0000218\u000052",
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isInteger(value) || value >= 1\u0000267\u000015\u0000267\u000052"
+        "src/metadata/exif.ts\u0000LogicalOperator\u0000depth > MAX_IFD_DEPTH && visited.has(offset)\u0000211\u000011\u0000211\u000055"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000depth > MAX_IFD_DEPTH && visited.has(offset)\u0000depth > MAX_IFD_DEPTH || visited.has(offset)\u00000",
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000count > MAX_IFD_ENTRIES && !inBounds(tiff, offset + 2, count * 12 + 4)\u0000count > MAX_IFD_ENTRIES ||\n        !inBounds(tiff, offset + 2, count * 12 + 4)\u00000",
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isInteger(value) || value >= 1\u0000Number.isInteger(value) && value >= 1\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, ConditionalExpression, LogicalOperator and ArithmeticOperator clusters: IFD nesting stops after depth 4"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:LogicalOperator"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral",
+      "id": "metadata:src/metadata/exif.ts:visitIfd:LogicalOperator:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000LogicalOperator\u0000count > MAX_IFD_ENTRIES && !inBounds(tiff, offset + 2, count * 12 + 4)\u0000217\u00009\u0000218\u000052"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, LogicalOperator, ConditionalExpression and BlockStatement clusters: 4096 entries are read, 4097 are refused even when they all fit"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:LogicalOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:LogicalOperator:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isInteger(value) || value >= 1\u0000267\u000015\u0000267\u000052"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd StringLiteral and ConditionalExpression clusters: an Orientation that is not one SHORT, or is outside 1 through 8, is unsupported"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:LogicalOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "visitIfd",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
-      "count": 10,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000229\u000030\u0000229\u000036",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000229\u000056\u0000229\u000063",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000229\u000066\u0000229\u000076",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000235\u000028\u0000235\u000074",
+        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000229\u000066\u0000229\u000076"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd ConditionalExpression, EqualityOperator and StringLiteral clusters: the Exif, GPS and Interop pointers name their entries and the pointer tags are not entries"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000229\u000056\u0000229\u000063"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd EqualityOperator, ConditionalExpression, LogicalOperator and ArithmeticOperator clusters: IFD nesting stops after depth 4"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000235\u000028\u0000235\u000074"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd ConditionalExpression and BlockStatement clusters: a second Orientation tag is unsupported and is not read"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral:gap-04",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000245\u000015\u0000245\u000077",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000258\u000021\u0000258\u0000106",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000258\u000064\u0000258\u000067",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000263\u000029\u0000263\u000072",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000263\u000066\u0000263\u000069",
         "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000271\u000015\u0000271\u000070"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000\"GPS.\"\u00000",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000\"Exif.\"\u00000",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000\"Interop.\"\u00000",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000\"EXIF contains more than one Orientation tag.\"\u00000",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000\"EXIF Orientation must use TIFF SHORT with exactly one value.\"\u00000",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000`EXIF tag 0x${tag.toString(16).padStart(4, \"0\")} uses unsupported TIFF type ${type}.`\u00000",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000\"0\"\u00000",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000`Tag0x${tag.toString(16).padStart(4, \"0\")}`\u00000",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000\"0\"\u00001",
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000\"EXIF Orientation must be an integer from 1 through 8.\"\u00000"
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd StringLiteral and ConditionalExpression clusters: an Orientation that is not one SHORT, or is outside 1 through 8, is unsupported"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral:gap-05",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000258\u000021\u0000258\u0000106",
+        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000258\u000064\u0000258\u000067",
+        "src/metadata/exif.ts\u0000StringLiteral\u0000\"\"\u0000263\u000066\u0000263\u000069"
       ],
-      "note": ""
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > visitIfd StringLiteral clusters: an unsupported TIFF type warns with the zero-padded tag and an unknown tag is named with four hex digits"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral:gap-06",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "visitIfd",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000StringLiteral\u0000``\u0000263\u000029\u0000263\u000072"
+      ],
+      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: the immutable hosted pre-triage status (Survived or NoCoverage) is the red evidence. reports/triage/67-32/red.json (src/metadata/exif.ts whole file, taken after Plan 67-31) already shows this member Killed by that earlier Plan 67-31 test, so no new gap test was invented for it.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, BlockStatement and CallExpression clusters: a value pointing past the end of the EXIF data is malformed, never truncated"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:visitIfd:StringLiteral"
     },
     {
       "id": "metadata:src/metadata/icc.ts:ascii:Regex",
