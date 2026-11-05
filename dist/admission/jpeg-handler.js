@@ -238,8 +238,8 @@ function collectMetadata(parsed, trailerTail) {
             // Read-only, for D-05 orientation reconciliation only -- never feeds
             // output bytes or `entries` (JPG-01 removes all XMP outright).
             namespaces.add("XMP");
-            if (payload !== undefined)
-                extendedXmpPayloads.push(payload);
+            // classifyAppPayload returns "extended-xmp" only for a buffered payload.
+            extendedXmpPayloads.push(payload);
             return;
         }
         if (kind === "mpf") {
