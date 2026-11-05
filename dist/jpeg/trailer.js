@@ -39,7 +39,7 @@ function classifyMpfPayload(mpfPayload, fileSize) {
     if (maxIfdEntriesByPayload < 2)
         return invalid;
     const entryCount = readU16(ifdOffset);
-    if (entryCount > maxIfdEntriesByPayload)
+    if (maxIfdEntriesByPayload < entryCount)
         return invalid;
     let numberOfImages;
     let mpEntryOffset;

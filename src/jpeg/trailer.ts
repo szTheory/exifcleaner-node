@@ -72,7 +72,7 @@ function classifyMpfPayload(
   // Both required tags (NumberOfImages and MPEntry) need an entry.
   if (maxIfdEntriesByPayload < 2) return invalid;
   const entryCount = readU16(ifdOffset);
-  if (entryCount > maxIfdEntriesByPayload) return invalid;
+  if (maxIfdEntriesByPayload < entryCount) return invalid;
 
   let numberOfImages: number | undefined;
   let mpEntryOffset: number | undefined;
