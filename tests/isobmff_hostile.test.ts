@@ -24,7 +24,12 @@ import {
 } from "../src/isobmff/rebuild.js";
 import { COPY_BLOCK_BYTES } from "../src/io/copy-range.js";
 import { inspectFile, sanitizeFile } from "../src/engine.js";
-import { jpegHandler } from "../src/admission/jpeg-handler.js";
+import {
+  jpegHandler,
+  type JpegAdmission,
+  type JpegOutputPlan,
+} from "../src/admission/jpeg-handler.js";
+import { parseJpeg } from "../src/jpeg/parser.js";
 import { classifyFallback } from "../src/fallback.js";
 import { verifyIsobmffOutput } from "../src/isobmff/verify.js";
 import { writeIsobmffOutput } from "../src/isobmff/writer.js";
@@ -77,6 +82,8 @@ import {
   appSegment,
   appendTrailer,
   iccSegments,
+  jpegExifOrientationPayload,
+  jpegExifResolutionPayload,
   spliceSegments,
 } from "./qualification/jpeg/fixtures.js";
 import {
@@ -3633,6 +3640,699 @@ describe("jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1)", 
     expect(result.error.code).toBe("unsupported-feature");
     if ("feature" in result.error) {
       expect(result.error.feature).toBe("orientation-preservation");
+    }
+  });
+});
+
+const JH_DQT = 0xdb;
+const JH_DHT = 0xc4;
+const JH_SOS = 0xda;
+const JH_EOI_BYTES = Buffer.from([0xff, 0xd9]);
+
+interface JhHandleCall {
+  readonly offset: number;
+  readonly length: number;
+  readonly position: number;
+  readonly bufferLength: number;
+}
+
+interface JhCallPlan {
+  /** Bytes the call really transfers (a partial read or write). */
+  readonly transfer?: number;
+  /** Bytes subtracted from the reported count after a full real read. */
+  readonly underReport?: number;
+  /** Report zero bytes without touching the file. */
+  readonly stall?: boolean;
+  /** Throw, to stop a loop that should have ended. */
+  readonly fail?: boolean;
+}
+
+type JhCallScript = (
+  call: JhHandleCall,
+  index: number,
+) => JhCallPlan | undefined;
+
+/**
+ * Wraps a real FileHandle so every read and write is recorded and a script can
+ * shorten, stall or fail individual calls. The record holds the exact
+ * (offset, length, position) arguments the handler passed.
+ */
+function jhScriptedHandle(handle: FileHandle, script?: JhCallScript) {
+  const reads: JhHandleCall[] = [];
+  const writes: JhHandleCall[] = [];
+  const serveRead = async (
+    buffer: Buffer,
+    offset: number,
+    length: number,
+    position: number,
+  ) => {
+    const call = { offset, length, position, bufferLength: buffer.length };
+    const plan = script?.(call, reads.length) ?? {};
+    reads.push(call);
+    if (plan.fail === true) throw new Error("scripted handle: runaway loop");
+    if (plan.stall === true) return { bytesRead: 0, buffer };
+    const done = await handle.read(
+      buffer,
+      offset,
+      Math.min(length, plan.transfer ?? length),
+      position,
+    );
+    return { bytesRead: done.bytesRead - (plan.underReport ?? 0), buffer };
+  };
+  const serveWrite = async (
+    buffer: Buffer,
+    offset: number,
+    length: number,
+    position: number,
+  ) => {
+    const call = { offset, length, position, bufferLength: buffer.length };
+    const plan = script?.(call, writes.length) ?? {};
+    writes.push(call);
+    if (plan.fail === true) throw new Error("scripted handle: runaway loop");
+    if (plan.stall === true) return { bytesWritten: 0, buffer };
+    const done = await handle.write(
+      buffer,
+      offset,
+      Math.min(length, plan.transfer ?? length),
+      position,
+    );
+    return { bytesWritten: done.bytesWritten, buffer };
+  };
+  const proxy = new Proxy(handle, {
+    get(target, property) {
+      if (property === "read") return serveRead;
+      if (property === "write") return serveWrite;
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(target)
+        : value;
+    },
+  });
+  return { handle: proxy, reads, writes };
+}
+
+interface JhVerifyScripts {
+  readonly source?: JhCallScript;
+  readonly destination?: JhCallScript;
+  readonly signal?: AbortSignal;
+  /** Replaces the admission the verifier receives. */
+  readonly admission?: (admitted: JpegAdmission) => JpegAdmission;
+  /** Replaces the Orientation the verifier is asked to expect. */
+  readonly expectedOrientation?: number;
+}
+
+/**
+ * Runs the shipped jpegHandler.verifyOutput of `source` against an arbitrary
+ * `destination` byte string (not necessarily what the handler would write), so
+ * a test can change exactly one dimension of an otherwise valid output.
+ */
+async function jhVerifyDestination(
+  source: Buffer,
+  destination: Buffer,
+  flags: Partial<JhPreservationFlags> = {},
+  scripts: JhVerifyScripts = {},
+) {
+  const directory = await jhFreshDirectory();
+  const sourcePath = join(directory, "source.jpg");
+  const destinationPath = join(directory, "destination.jpg");
+  await writeFile(sourcePath, source);
+  await writeFile(destinationPath, destination);
+  const sourceHandle = await open(sourcePath, "r");
+  const destinationHandle = await open(destinationPath, "r");
+  try {
+    const admitted = await jpegHandler.admit(sourceHandle, source.length);
+    const admission = scripts.admission?.(admitted) ?? admitted;
+    const orientation =
+      scripts.expectedOrientation ??
+      (admitted.orientation.status === "valid"
+        ? admitted.orientation.value
+        : undefined);
+    const scriptedSource = jhScriptedHandle(sourceHandle, scripts.source);
+    const scriptedDestination = jhScriptedHandle(
+      destinationHandle,
+      scripts.destination,
+    );
+    const result: Result<void> = await jpegHandler.verifyOutput(
+      scriptedSource.handle,
+      admission,
+      scriptedDestination.handle,
+      destination.length,
+      destinationPath,
+      flags.preserveOrientation ?? false,
+      flags.preserveColorProfile ?? false,
+      flags.preserveResolution ?? false,
+      orientation,
+      scripts.signal,
+    );
+    return {
+      result,
+      sourceReads: scriptedSource.reads,
+      destinationReads: scriptedDestination.reads,
+    };
+  } finally {
+    await sourceHandle.close();
+    await destinationHandle.close();
+  }
+}
+
+/** The number of reads parseJpeg alone makes of `destination`. */
+async function jhParseReadCount(destination: Buffer): Promise<number> {
+  const directory = await jhFreshDirectory();
+  const path = join(directory, "destination.jpg");
+  await writeFile(path, destination);
+  const handle = await open(path, "r");
+  try {
+    const scripted = jhScriptedHandle(handle);
+    await parseJpeg(scripted.handle, destination.length);
+    return scripted.reads.length;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function jhSanitizedBytes(
+  source: Buffer,
+  options: Partial<JhPreservationFlags> = {},
+): Promise<Buffer> {
+  const { result, destinationPath } = await jhSanitizeBytes(source, options);
+  expect(result.ok).toBe(true);
+  return readFile(destinationPath);
+}
+
+function jhSegmentRange(
+  bytes: Buffer,
+  marker: number,
+  occurrence = 0,
+): JhMarkerRange {
+  const range = jhReadMarkerRanges(bytes).filter(
+    (candidate) => candidate.marker === marker,
+  )[occurrence];
+  if (range === undefined) throw new Error("the marker is not in the bytes");
+  return range;
+}
+
+function jhSwapAdjacentSegments(
+  bytes: Buffer,
+  firstMarker: number,
+  secondMarker: number,
+): Buffer {
+  const first = jhSegmentRange(bytes, firstMarker);
+  const second = jhSegmentRange(bytes, secondMarker);
+  if (first.end !== second.start) throw new Error("the segments are apart");
+  return Buffer.concat([
+    bytes.subarray(0, first.start),
+    bytes.subarray(second.start, second.end),
+    bytes.subarray(first.start, first.end),
+    bytes.subarray(second.end),
+  ]);
+}
+
+function jhWithByte(bytes: Buffer, position: number, value: number): Buffer {
+  const copy = Buffer.from(bytes);
+  copy[position] = value;
+  return copy;
+}
+
+/** A metadata-free JPEG whose scan is longer than one copy block, filled with
+ * a repeating pattern that never contains 0xFF. */
+function jhLargeScanJpeg(): Buffer {
+  const base = minimalJpeg({ components: 3 });
+  const filler = Buffer.alloc(COPY_BLOCK_BYTES + 5000);
+  for (let index = 0; index < filler.length; index += 1)
+    filler[index] = (index * 7 + 3) % 251;
+  return Buffer.concat([
+    base.subarray(0, base.length - JH_EOI_BYTES.length),
+    filler,
+    JH_EOI_BYTES,
+  ]);
+}
+
+describe("jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2)", () => {
+  it("buildOutputPlan CallExpression: the synthesized Exif slot contributes the APP1 marker to the expected sequence", async () => {
+    const source = spliceSegments(minimalJpeg({ components: 3 }), [
+      appSegment(JH_APP1, jpegExifOrientationPayload(6)),
+    ]);
+    const admission = await jhAdmitBytes(source);
+    const plan = jpegHandler.buildOutputPlan(admission, true, false, false, 6);
+    expect(plan.parts.map((part) => part.kind)).toEqual(["insert", "copy"]);
+    expect(plan.expectedMarkers).toEqual([
+      JH_APP1,
+      JH_DQT,
+      0xc0,
+      JH_DHT,
+      JH_SOS,
+    ]);
+  });
+
+  it("buildOutputPlan ConditionalExpression: adjacent kept segments coalesce into one copy part and a removed segment splits the ranges", async () => {
+    const plain = minimalJpeg({ components: 3 });
+    const plainAdmission = await jhAdmitBytes(plain);
+    const plainPlan = jpegHandler.buildOutputPlan(
+      plainAdmission,
+      false,
+      false,
+      false,
+      undefined,
+    );
+    const segments = plainAdmission.parsed.segments;
+    const first = segments[0]!;
+    const last = segments[segments.length - 1]!;
+    expect(plainPlan.parts).toEqual([
+      {
+        kind: "copy",
+        sourceOffset: first.offset,
+        length: last.offset + last.totalLength - first.offset,
+      },
+    ]);
+    expect(plainPlan.copiedRanges).toEqual([
+      {
+        sourceOffset: first.offset,
+        length: last.offset + last.totalLength - first.offset,
+      },
+    ]);
+
+    const split = spliceSegments(
+      plain,
+      [appSegment(0xfe, Buffer.from("remove me"))],
+      "before-sof",
+    );
+    const splitAdmission = await jhAdmitBytes(split);
+    const splitPlan = jpegHandler.buildOutputPlan(
+      splitAdmission,
+      false,
+      false,
+      false,
+      undefined,
+    );
+    expect(splitPlan.parts.map((part) => part.kind)).toEqual(["copy", "copy"]);
+  });
+
+  it("writeAll ArithmeticOperator: a partial write continues at the next unwritten byte with only the remainder", async () => {
+    const directory = await jhFreshDirectory();
+    const path = join(directory, "destination.jpg");
+    const destination = await open(path, "wx");
+    try {
+      const scripted = jhScriptedHandle(destination, () => ({ transfer: 2 }));
+      const plan: JpegOutputPlan = {
+        parts: [{ kind: "insert", data: Buffer.from([1, 2, 3, 4, 5, 6]) }],
+        expectedMarkers: [],
+        copiedRanges: [],
+        preserveResolution: false,
+      };
+      await jpegHandler.writeOutput(
+        undefined as unknown as FileHandle,
+        scripted.handle,
+        plan,
+      );
+      expect(
+        scripted.writes.map((call) => [
+          call.offset,
+          call.length,
+          call.position,
+        ]),
+      ).toEqual([
+        [0, 2, 0],
+        [0, 6, 2],
+        [2, 4, 4],
+        [4, 2, 6],
+        [0, 2, 8],
+      ]);
+    } finally {
+      await destination.close();
+    }
+    expect([...(await readFile(path))]).toEqual([
+      0xff, 0xd8, 1, 2, 3, 4, 5, 6, 0xff, 0xd9,
+    ]);
+  });
+
+  it("writeAll ConditionalExpression: a write that makes no progress fails after exactly one attempt", async () => {
+    const directory = await jhFreshDirectory();
+    const destination = await open(join(directory, "destination.jpg"), "wx");
+    try {
+      const scripted = jhScriptedHandle(destination, (_call, index) =>
+        index === 0 ? { stall: true } : { fail: true },
+      );
+      const plan: JpegOutputPlan = {
+        parts: [],
+        expectedMarkers: [],
+        copiedRanges: [],
+        preserveResolution: false,
+      };
+      await expect(
+        jpegHandler.writeOutput(
+          undefined as unknown as FileHandle,
+          scripted.handle,
+          plan,
+        ),
+      ).rejects.toBeInstanceOf(Error);
+      expect(scripted.writes).toHaveLength(1);
+    } finally {
+      await destination.close();
+    }
+  });
+
+  it("readTail ArithmeticOperator and EqualityOperator: partial trailer reads continue at the next unread byte and stop when the tail is full", async () => {
+    const tailBytes = 41;
+    const source = appendTrailer(
+      minimalJpeg({ components: 3 }),
+      Buffer.alloc(tailBytes, 0x55),
+    );
+    const directory = await jhFreshDirectory();
+    const path = join(directory, "source.jpg");
+    await writeFile(path, source);
+    const handle = await open(path, "r");
+    try {
+      const scripted = jhScriptedHandle(handle, (call) =>
+        call.bufferLength === tailBytes ? { transfer: 5 } : undefined,
+      );
+      await jpegHandler
+        .admit(scripted.handle, source.length)
+        .catch(() => undefined);
+      const tailStart = source.length - tailBytes;
+      const expected: number[][] = [];
+      for (let read = 0; read < tailBytes; read += 5)
+        expected.push([read, tailBytes - read, tailStart + read]);
+      expect(
+        scripted.reads
+          .filter((call) => call.bufferLength === tailBytes)
+          .map((call) => [call.offset, call.length, call.position]),
+      ).toEqual(expected);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("readTail ConditionalExpression: a read that returns no bytes ends the tail read after one attempt", async () => {
+    const tailBytes = 41;
+    const source = appendTrailer(
+      minimalJpeg({ components: 3 }),
+      Buffer.alloc(tailBytes, 0x55),
+    );
+    const directory = await jhFreshDirectory();
+    const path = join(directory, "source.jpg");
+    await writeFile(path, source);
+    const handle = await open(path, "r");
+    try {
+      let stalledTailReads = 0;
+      const scripted = jhScriptedHandle(handle, (call) => {
+        if (call.bufferLength !== tailBytes) return undefined;
+        stalledTailReads += 1;
+        return stalledTailReads === 1 ? { stall: true } : { fail: true };
+      });
+      await jpegHandler
+        .admit(scripted.handle, source.length)
+        .catch(() => undefined);
+      expect(
+        scripted.reads.filter((call) => call.bufferLength === tailBytes),
+      ).toHaveLength(1);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("segmentsEqual ConditionalExpression, EqualityOperator and BooleanLiteral: one altered byte in a kept segment fails verification while count and order are unchanged", async () => {
+    const source = spliceSegments(minimalJpeg({ components: 3 }), [
+      appSegment(0xee, jpegAdobe(1)),
+    ]);
+    const output = await jhSanitizedBytes(source);
+    const control = await jhVerifyDestination(source, output);
+    expect(control.result.ok).toBe(true);
+
+    const adobe = jhSegmentRange(output, 0xee);
+    const altered = jhWithByte(output, adobe.end - 1, 7);
+    expect(jhMarkerSequence(altered)).toEqual(jhMarkerSequence(output));
+    expect(altered.length).toBe(output.length);
+    const outcome = await jhVerifyDestination(source, altered);
+    expect(outcome.result.ok).toBe(false);
+    if (outcome.result.ok) throw new Error("unreachable");
+    expect(outcome.result.error.code).toBe("verification-failed");
+
+    const table = jhSegmentRange(output, JH_DQT);
+    const tableAltered = jhWithByte(output, table.end - 1, 9);
+    const tableOutcome = await jhVerifyDestination(source, tableAltered);
+    expect(tableOutcome.result.ok).toBe(false);
+  });
+
+  it("segmentsEqual ConditionalExpression and BooleanLiteral: a longer scan segment with an identical prefix fails verification", async () => {
+    const source = minimalJpeg({ components: 3 });
+    const scan = jhSegmentRange(source, JH_SOS);
+    const longer = Buffer.concat([
+      source.subarray(0, scan.end),
+      Buffer.alloc(6, 0x11),
+      source.subarray(scan.end),
+    ]);
+    expect(jhMarkerSequence(longer)).toEqual(jhMarkerSequence(source));
+    const outcome = await jhVerifyDestination(source, longer);
+    expect(outcome.result.ok).toBe(false);
+    if (outcome.result.ok) throw new Error("unreachable");
+    expect(outcome.result.error.code).toBe("verification-failed");
+  });
+
+  it("segmentsEqual ArithmeticOperator and MethodExpression: a segment larger than one copy block compares block by block within the buffer bound", async () => {
+    const source = jhLargeScanJpeg();
+    const scan = jhSegmentRange(source, JH_SOS);
+    expect(scan.end - scan.start).toBeGreaterThan(COPY_BLOCK_BYTES);
+
+    const spy = vi.spyOn(Buffer, "allocUnsafe");
+    let allocated: number[];
+    let outcome;
+    try {
+      outcome = await jhVerifyDestination(source, source);
+      allocated = spy.mock.calls.map((call) => call[0]);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(outcome.result.ok).toBe(true);
+    expect(Math.max(...allocated)).toBeLessThanOrEqual(COPY_BLOCK_BYTES);
+    const scanBlocks = outcome.sourceReads.map((call) => [
+      call.length,
+      call.position,
+    ]);
+    expect(
+      scanBlocks.filter(([length]) => length === COPY_BLOCK_BYTES),
+    ).toEqual([[COPY_BLOCK_BYTES, scan.start]]);
+
+    const lastByte = scan.end - 1;
+    const changed = jhWithByte(source, lastByte, source[lastByte]! ^ 0x01);
+    const changedOutcome = await jhVerifyDestination(source, changed);
+    expect(changedOutcome.result.ok).toBe(false);
+  });
+
+  it("segmentsEqual ConditionalExpression and LogicalOperator: a short source read or a short destination read fails verification", async () => {
+    const source = spliceSegments(minimalJpeg({ components: 3 }), [
+      appSegment(0xee, jpegAdobe(1)),
+    ]);
+    const output = await jhSanitizedBytes(source);
+
+    const shortSource = await jhVerifyDestination(
+      source,
+      output,
+      {},
+      {
+        source: () => ({ underReport: 1 }),
+      },
+    );
+    expect(shortSource.result.ok).toBe(false);
+    if (shortSource.result.ok) throw new Error("unreachable");
+    expect(shortSource.result.error.code).toBe("verification-failed");
+
+    let sourceReadCount = 0;
+    const shortDestination = await jhVerifyDestination(
+      source,
+      output,
+      {},
+      {
+        source: () => {
+          sourceReadCount += 1;
+          return undefined;
+        },
+        destination: () =>
+          sourceReadCount > 0 ? { underReport: 1 } : undefined,
+      },
+    );
+    expect(shortDestination.result.ok).toBe(false);
+    if (shortDestination.result.ok) throw new Error("unreachable");
+    expect(shortDestination.result.error.code).toBe("verification-failed");
+  });
+
+  it("segmentsEqual ConditionalExpression: an abort during segment comparison reports the typed aborted error", async () => {
+    const source = spliceSegments(minimalJpeg({ components: 3 }), [
+      appSegment(0xee, jpegAdobe(1)),
+    ]);
+    const output = await jhSanitizedBytes(source);
+    const controller = new AbortController();
+    const outcome = await jhVerifyDestination(
+      source,
+      output,
+      {},
+      {
+        source: (_call, index) => {
+          if (index === 0) controller.abort();
+          return undefined;
+        },
+        signal: controller.signal,
+      },
+    );
+    expect(outcome.result.ok).toBe(false);
+    if (outcome.result.ok) throw new Error("unreachable");
+    expect(outcome.result.error.code).toBe("aborted");
+  });
+
+  it("verifyOutput ConditionalExpression: a destination with trailer bytes after the primary EOI fails verification", async () => {
+    const source = minimalJpeg({ components: 3 });
+    const output = await jhSanitizedBytes(source);
+    const outcome = await jhVerifyDestination(
+      source,
+      appendTrailer(output, Buffer.from([1, 2, 3, 4])),
+    );
+    expect(outcome.result.ok).toBe(false);
+    if (outcome.result.ok) throw new Error("unreachable");
+    expect(outcome.result.error.code).toBe("verification-failed");
+  });
+
+  it("verifyOutput ConditionalExpression, LogicalOperator, MethodExpression and ArrowFunction: a changed marker sequence fails before any segment byte is compared", async () => {
+    const source = minimalJpeg({ components: 3, restartInterval: 4 });
+    const output = await jhSanitizedBytes(source);
+    const control = await jhVerifyDestination(source, output);
+    expect(control.result.ok).toBe(true);
+
+    const swapped = jhSwapAdjacentSegments(output, JH_DHT, 0xdd);
+    expect(jhMarkerSequence(swapped)).toHaveLength(
+      jhMarkerSequence(output).length,
+    );
+    expect(jhMarkerSequence(swapped)).not.toEqual(jhMarkerSequence(output));
+    const outcome = await jhVerifyDestination(source, swapped);
+    expect(outcome.result.ok).toBe(false);
+    if (outcome.result.ok) throw new Error("unreachable");
+    expect(outcome.result.error.code).toBe("verification-failed");
+    expect(outcome.sourceReads).toEqual([]);
+  });
+
+  it("verifyOutput ConditionalExpression: a destination whose markers are a prefix of the plan fails before its Exif payload is read", async () => {
+    const source = spliceSegments(
+      minimalJpeg({ components: 3, scans: "per-component" }),
+      [appSegment(JH_APP1, jpegExifOrientationPayload(6))],
+    );
+    const flags = { preserveOrientation: true };
+    const output = await jhSanitizedBytes(source, flags);
+    const control = await jhVerifyDestination(source, output, flags);
+    expect(control.result.ok).toBe(true);
+
+    const lastScan = jhSegmentRange(output, JH_SOS, 2);
+    const prefix = Buffer.concat([
+      output.subarray(0, lastScan.start),
+      JH_EOI_BYTES,
+    ]);
+    expect(jhMarkerSequence(prefix)).toEqual([
+      ...jhMarkerSequence(output).slice(0, -2),
+      0xd9,
+    ]);
+    const outcome = await jhVerifyDestination(source, prefix, flags);
+    expect(outcome.result.ok).toBe(false);
+    if (outcome.result.ok) throw new Error("unreachable");
+    expect(outcome.result.error.code).toBe("verification-failed");
+    expect(outcome.destinationReads).toHaveLength(
+      await jhParseReadCount(prefix),
+    );
+  });
+
+  it("verifyOutput BlockStatement and ConditionalExpression: a destination segment that classifies as removed fails before any segment byte is compared", async () => {
+    const source = spliceSegments(minimalJpeg({ components: 3 }), [
+      appSegment(0xee, jpegAdobe(1)),
+    ]);
+    const output = await jhSanitizedBytes(source);
+    const control = await jhVerifyDestination(source, output);
+    expect(control.result.ok).toBe(true);
+
+    const adobe = jhSegmentRange(output, 0xee);
+    // "Adobe" -> "Adobx": still an APP14 segment of the same length, but no
+    // longer an Adobe segment, so the destination classifies it as removed.
+    const renamed = jhWithByte(output, adobe.start + 4 + 4, 0x78);
+    expect(jhMarkerSequence(renamed)).toEqual(jhMarkerSequence(output));
+    const outcome = await jhVerifyDestination(source, renamed);
+    expect(outcome.result.ok).toBe(false);
+    if (outcome.result.ok) throw new Error("unreachable");
+    expect(outcome.result.error.code).toBe("verification-failed");
+    expect(outcome.sourceReads).toEqual([]);
+  });
+
+  it("verifyOutput LogicalOperator and ConditionalExpression: with a synthesized Exif a removed destination segment still fails before any segment byte is compared", async () => {
+    const source = spliceSegments(minimalJpeg({ components: 3 }), [
+      appSegment(JH_APP1, jpegExifOrientationPayload(6)),
+      appSegment(0xee, jpegAdobe(1)),
+    ]);
+    const flags = { preserveOrientation: true };
+    const output = await jhSanitizedBytes(source, flags);
+    const control = await jhVerifyDestination(source, output, flags);
+    expect(control.result.ok).toBe(true);
+
+    const adobe = jhSegmentRange(output, 0xee);
+    const renamed = jhWithByte(output, adobe.start + 4 + 4, 0x78);
+    const outcome = await jhVerifyDestination(source, renamed, flags);
+    expect(outcome.result.ok).toBe(false);
+    if (outcome.result.ok) throw new Error("unreachable");
+    expect(outcome.result.error.code).toBe("verification-failed");
+    expect(outcome.sourceReads).toEqual([]);
+  });
+
+  it("verifyOutput BlockStatement, LogicalOperator and ConditionalExpression: an altered synthesized Exif payload fails verification", async () => {
+    const resolutionSource = spliceSegments(minimalJpeg({ components: 3 }), [
+      appSegment(JH_APP1, jpegExifResolutionPayload(300, 300, 2)),
+    ]);
+    const resolutionFlags = { preserveResolution: true };
+    const resolutionOutput = await jhSanitizedBytes(
+      resolutionSource,
+      resolutionFlags,
+    );
+    const resolutionControl = await jhVerifyDestination(
+      resolutionSource,
+      resolutionOutput,
+      resolutionFlags,
+    );
+    expect(resolutionControl.result.ok).toBe(true);
+    const resolutionExif = jhSegmentRange(resolutionOutput, JH_APP1);
+    const resolutionAltered = await jhVerifyDestination(
+      resolutionSource,
+      jhWithByte(resolutionOutput, resolutionExif.end - 1, 2),
+      resolutionFlags,
+    );
+    expect(resolutionAltered.result.ok).toBe(false);
+    if (resolutionAltered.result.ok) throw new Error("unreachable");
+    expect(resolutionAltered.result.error.code).toBe("verification-failed");
+
+    const orientationSource = spliceSegments(minimalJpeg({ components: 3 }), [
+      appSegment(JH_APP1, jpegExifOrientationPayload(6)),
+    ]);
+    const orientationFlags = { preserveOrientation: true };
+    const orientationOutput = await jhSanitizedBytes(
+      orientationSource,
+      orientationFlags,
+    );
+    const orientationExif = jhSegmentRange(orientationOutput, JH_APP1);
+    const orientationAltered = await jhVerifyDestination(
+      orientationSource,
+      jhWithByte(orientationOutput, orientationExif.end - 1, 1),
+      orientationFlags,
+    );
+    expect(orientationAltered.result.ok).toBe(false);
+  });
+
+  it("findInsertPosition EqualityOperator and verifyOutput ConditionalExpression: the synthesized Exif slot is excluded from the kept-segment comparison whatever the source classified it as", async () => {
+    const source = spliceSegments(minimalJpeg({ components: 3 }), [
+      appSegment(JH_APP1, jpegExifOrientationPayload(6)),
+    ]);
+    const flags = { preserveOrientation: true };
+    const output = await jhSanitizedBytes(source, flags);
+    for (const classified of ["structural", "keep"] as const) {
+      const outcome = await jhVerifyDestination(source, output, flags, {
+        admission: (admitted) => ({
+          ...admitted,
+          classes: admitted.classes.map((cls, index) =>
+            index === admitted.exifSlot ? classified : cls,
+          ),
+        }),
+      });
+      expect(outcome.result.ok).toBe(true);
     }
   });
 });
