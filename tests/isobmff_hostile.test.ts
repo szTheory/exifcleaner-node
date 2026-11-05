@@ -5598,6 +5598,13 @@ describe("jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7)", () => {
     expect(
       jpOutcomeName(await jqParse(bytes, { signal: jqSignalAfter(1000) })),
     ).toBe("parsed");
+    // The entry check runs before any size or signature refusal: an aborted signal wins over a
+    // three-byte file that would otherwise be refused as too small.
+    const tooSmall = jqConcat([0xff, 0xd8, 0xff]);
+    expect((await jqParse(tooSmall, { signal: controller.signal })).error).toBe(
+      custom,
+    );
+    expect(jpOutcomeName(await jqParse(tooSmall))).toBe("malformed-container");
     // SOI and one COM segment, no EOI: the loop ends at the end of the file and the third read of
     // the signal never happens, so the refusal is the missing EOI, not the abort.
     const unfinished = jqConcat(
