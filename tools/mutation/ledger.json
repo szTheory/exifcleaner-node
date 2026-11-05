@@ -189832,7 +189832,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000ConditionalExpression\u0000true\u000052\u000040\u000052\u000075"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > collectMetadata MethodExpression: an XMP orientation that agrees with EXIF does not mask an incomplete ExtendedXMP"
@@ -189840,17 +189840,19 @@
       "originClusterId": "jpeg:src/jpeg/xmp.ts:findHasExtendedXmpGuid:ConditionalExpression"
     },
     {
-      "id": "jpeg:src/jpeg/xmp.ts:findHasExtendedXmpGuid:ConditionalExpression:pending-01",
+      "id": "jpeg:src/jpeg/xmp.ts:findHasExtendedXmpGuid:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/xmp.ts",
       "function": "findHasExtendedXmpGuid",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/xmp.ts\u0000ConditionalExpression\u0000true\u000057\u000010\u000057\u000039"
       ],
-      "note": "Pending a maintainer decision (67-30-HALTED.md): this ConditionalExpression `true` member is a provable equivalent (the guard is redundant after the chunk-GUID comparison), but a next-line directive would also hide its Killed counterparts on the same line, so the only honest closure is a source simplification that needs maintainer approval.",
+      "note": "Rewritten by the Plan 67-30 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-30-HALTED.md, Option A): the redundant GUID length check was dropped because reassembleExtendedXmp compares the returned GUID to each chunk guid with ===, and a chunk guid is always 32 characters, so a wrong-length GUID has always produced the same absent result. The expression is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-30/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "trimmed.length === GUID_BYTES",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/xmp.ts:findHasExtendedXmpGuid:ConditionalExpression"
     },
     {
@@ -189864,7 +189866,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000MethodExpression\u0000value\u000056\u000019\u000056\u000031"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
@@ -189882,7 +189884,7 @@
         "src/jpeg/xmp.ts\u0000ArithmeticOperator\u0000base + GUID_BYTES - CHUNK_HEADER_BYTES\u000034\u000024\u000034\u000062",
         "src/jpeg/xmp.ts\u0000ArithmeticOperator\u0000base - GUID_BYTES\u000034\u000024\u000034\u000041"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > parseExtendedXmpChunk ArithmeticOperator, BlockStatement, ConditionalExpression and EqualityOperator clusters: a payload shorter than identifier, GUID and 8-byte header is ignored, a header-only payload is a chunk"
@@ -189899,7 +189901,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000BlockStatement\u0000{}\u000034\u000064\u000036\u00004"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > parseExtendedXmpChunk ArithmeticOperator, BlockStatement, ConditionalExpression and EqualityOperator clusters: a payload shorter than identifier, GUID and 8-byte header is ignored, a header-only payload is a chunk"
@@ -189916,7 +189918,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000ConditionalExpression\u0000false\u000034\u00007\u000034\u000062"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > parseExtendedXmpChunk ArithmeticOperator, BlockStatement, ConditionalExpression and EqualityOperator clusters: a payload shorter than identifier, GUID and 8-byte header is ignored, a header-only payload is a chunk"
@@ -189933,7 +189935,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000EqualityOperator\u0000payload.length <= base + GUID_BYTES + CHUNK_HEADER_BYTES\u000034\u00007\u000034\u000062"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > parseExtendedXmpChunk ArithmeticOperator, BlockStatement, ConditionalExpression and EqualityOperator clusters: a payload shorter than identifier, GUID and 8-byte header is ignored, a header-only payload is a chunk"
@@ -189950,7 +189952,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000ArithmeticOperator\u0000left.offset + right.offset\u0000100\u000022\u0000100\u000048"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > reassembleExtendedXmp MethodExpression and ArithmeticOperator clusters: chunks arriving out of offset order are sorted by offset, without reordering the caller's input"
@@ -189967,7 +189969,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000BlockStatement\u0000{}\u000092\u000049\u000097\u00004"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > reassembleExtendedXmp StringLiteral cluster: every incomplete outcome (inconsistent lengths, oversize, overlap, coverage mismatch) carries a non-empty detail"
@@ -189984,7 +189986,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000ConditionalExpression\u0000false\u000092\u00007\u000092\u000047"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > reassembleExtendedXmp StringLiteral cluster: every incomplete outcome (inconsistent lengths, oversize, overlap, coverage mismatch) carries a non-empty detail"
@@ -190021,7 +190023,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000EqualityOperator\u0000fullLength >= JPEG_MAX_EXTENDED_XMP_BYTES\u000092\u00007\u000092\u000047"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > reassembleExtendedXmp EqualityOperator, ConditionalExpression and BlockStatement clusters: exactly JPEG_MAX_EXTENDED_XMP_BYTES reassembles, one byte more is incomplete even when fully covered"
@@ -190038,7 +190040,7 @@
       "keys": [
         "src/jpeg/xmp.ts\u0000MethodExpression\u0000[...matching]\u000099\u000018\u0000101\u00004"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > reassembleExtendedXmp MethodExpression and ArithmeticOperator clusters: chunks arriving out of offset order are sorted by offset, without reordering the caller's input"
@@ -190058,7 +190060,7 @@
         "src/jpeg/xmp.ts\u0000StringLiteral\u0000``\u0000113\u000017\u0000113\u000072",
         "src/jpeg/xmp.ts\u0000StringLiteral\u0000``\u0000121\u000015\u0000121\u0000115"
       ],
-      "note": "reports/triage/67-30/green3-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-30/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-30/red-full.json (src/jpeg/xmp.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > reassembleExtendedXmp StringLiteral cluster: every incomplete outcome (inconsistent lengths, oversize, overlap, coverage mismatch) carries a non-empty detail"
