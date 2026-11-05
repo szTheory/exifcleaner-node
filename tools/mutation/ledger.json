@@ -185359,18 +185359,36 @@
       }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:admit:ArithmeticOperator",
+      "id": "jpeg:src/admission/jpeg-handler.ts:admit:ArithmeticOperator:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "admit",
       "mutatorName": "ArithmeticOperator",
       "disposition": "gap",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000size + TRAILER_TAIL_BYTES\u00001027\u00009\u00001027\u000034",
+        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000size + TRAILER_TAIL_BYTES\u00001027\u00009\u00001027\u000034"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. After the approved unconditional readTail edit this mutant (size + TRAILER_TAIL_BYTES) makes admit pass a negative length to readTail, which throws on every input, so Stryker records the earliest-running test that drives admit as the first killer; the 67-24 readTail test and the 67-25 trailer-tail tests fail it too.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:ArithmeticOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > isStructuralMarker ConditionalExpression: a DRI restart-interval segment is structural and survives sanitization byte-identically"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:admit:ArithmeticOperator:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "admit",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000size + trailerStart\u00001029\u000029\u00001029\u000048"
       ],
       "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:ArithmeticOperator",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
@@ -185382,17 +185400,14 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "admit",
       "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u00001031\u00009\u00001031\u000026"
       ],
-      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "Deleted by the Plan 67-25 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-25-HALTED.md, Option A): the trailerLength > 0 test (false mutant); the symbol \"trailerLength > 0\" no longer appears anywhere in src/ (whole-tree witness; admit is a method of an object literal, so the function-scoped proof does not apply); the fresh unfiltered report reports/triage/67-25/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
       "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:ConditionalExpression",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
-      }
+      "symbol": "trailerLength > 0"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:admit:ConditionalExpression:pending-99",
@@ -185400,16 +185415,14 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "admit",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u00001031\u00009\u00001031\u000026"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000trailerLength > 0\u00000"
-      ],
-      "note": "Needs a maintainer decision: see 67-25-HALTED.md and the Pending members section of the ## 67-25 evidence.",
-      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:ConditionalExpression"
+      "note": "Deleted by the Plan 67-25 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-25-HALTED.md, Option A): the trailerLength > 0 test (true mutant); the symbol \"trailerLength > 0\" no longer appears anywhere in src/ (whole-tree witness; admit is a method of an object literal, so the function-scoped proof does not apply); the fresh unfiltered report reports/triage/67-25/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:ConditionalExpression",
+      "symbol": "trailerLength > 0"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator:gap-01",
@@ -185417,17 +185430,14 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "admit",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000trailerLength <= 0\u00001031\u00009\u00001031\u000026"
       ],
-      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "Deleted by the Plan 67-25 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-25-HALTED.md, Option A): the trailerLength > 0 test (<= 0 mutant); the symbol \"trailerLength > 0\" no longer appears anywhere in src/ (whole-tree witness; admit is a method of an object literal, so the function-scoped proof does not apply); the fresh unfiltered report reports/triage/67-25/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
       "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
-      }
+      "symbol": "trailerLength > 0"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator:pending-99",
@@ -185435,16 +185445,14 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "admit",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000trailerLength >= 0\u00001031\u00009\u00001031\u000026"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000trailerLength >= 0\u0000trailerLength > 0\u00000"
-      ],
-      "note": "Needs a maintainer decision: see 67-25-HALTED.md and the Pending members section of the ## 67-25 evidence.",
-      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator"
+      "note": "Deleted by the Plan 67-25 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-25-HALTED.md, Option A): the trailerLength > 0 test (>= 0 mutant); the symbol \"trailerLength > 0\" no longer appears anywhere in src/ (whole-tree witness; admit is a method of an object literal, so the function-scoped proof does not apply); the fresh unfiltered report reports/triage/67-25/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator",
+      "symbol": "trailerLength > 0"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:admit:MethodExpression",
@@ -187075,16 +187083,15 @@
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000045\u000022\u000047\u00006"
       ],
-      "anchors": [
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u0000{\n      refuseMalformed(\"ICC_PROFILE segment declared count is zero.\");\n    }\u00000"
-      ],
-      "note": "Needs a maintainer decision: see 67-25-HALTED.md and the Pending members section of the ## 67-25 evidence.",
-      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement"
+      "note": "Deleted by the Plan 67-25 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-25-HALTED.md, Option A): the block of if (count === 0); the symbol \"count === 0\" no longer appears in its enclosing function reassembleIccSegments (Plan 59 amendment 2 scoped witness); the fresh unfiltered report reports/triage/67-25/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential); only the free-text message for a zero declared count changes.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement",
+      "symbol": "count === 0",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement:gap-05",
@@ -187165,16 +187172,15 @@
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000045\u00009\u000045\u000020"
       ],
-      "anchors": [
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u0000count === 0\u00000"
-      ],
-      "note": "Needs a maintainer decision: see 67-25-HALTED.md and the Pending members section of the ## 67-25 evidence.",
-      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression"
+      "note": "Deleted by the Plan 67-25 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-25-HALTED.md, Option A): the if (count === 0) test; the symbol \"count === 0\" no longer appears in its enclosing function reassembleIccSegments (Plan 59 amendment 2 scoped witness); the fresh unfiltered report reports/triage/67-25/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential); only the free-text message for a zero declared count changes.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression",
+      "symbol": "count === 0",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression:gap-05",
@@ -187308,17 +187314,15 @@
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "StringLiteral",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000046\u000023\u000046\u000068"
       ],
-      "anchors": [
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC_PROFILE segment declared count is zero.\"\u00000"
-      ],
-      "note": "The message of the count-zero refusal. The typed refusal is asserted by an existing test; the wording is free text. One next-line StringLiteral directive; that line holds no other mutant.",
+      "note": "Deleted by the Plan 67-25 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-25-HALTED.md, Option A): the message of the deleted zero-count refusal; the symbol \"count === 0\" no longer appears in its enclosing function reassembleIccSegments (Plan 59 amendment 2 scoped witness); the fresh unfiltered report reports/triage/67-25/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential); only the free-text message for a zero declared count changes.",
       "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral",
-      "equivalenceClass": "unobservable-message"
+      "symbol": "count === 0",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral:equivalent-05",
