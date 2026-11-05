@@ -192501,55 +192501,49 @@
       "originClusterId": "metadata:src/metadata/icc.ts:parseIcc:StringLiteral"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:bcd:ArithmeticOperator:pending-01",
+      "id": "metadata:src/metadata/icc_admission.ts:bcd:ArithmeticOperator:dead-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "bcd",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000high / 10\u000057\u000034\u000057\u000043"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000high / 10\u0000high * 10\u00000"
-      ],
-      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
-      "originClusterId": "metadata:src/metadata/icc_admission.ts:bcd:ArithmeticOperator"
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"bcd\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in src; the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:bcd:ArithmeticOperator",
+      "symbol": "bcd"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:bcd:ConditionalExpression:pending-01",
+      "id": "metadata:src/metadata/icc_admission.ts:bcd:ConditionalExpression:dead-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "bcd",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u000057\u000010\u000057\u000019"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000high <= 9\u00000"
-      ],
-      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
-      "originClusterId": "metadata:src/metadata/icc_admission.ts:bcd:ConditionalExpression"
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"bcd\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in src; the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:bcd:ConditionalExpression",
+      "symbol": "bcd"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:bcd:EqualityOperator",
+      "id": "metadata:src/metadata/icc_admission.ts:bcd:EqualityOperator:dead-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "bcd",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000high < 9\u000057\u000010\u000057\u000019"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > bcd clusters: a packed version byte whose high nibble is 9 is decimal and reaches the minor-version policy"
-      }
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"bcd\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in src; the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:bcd:EqualityOperator",
+      "symbol": "bcd"
     },
     {
       "id": "metadata:src/metadata/icc_admission.ts:profileIdMatches:CallExpression",
@@ -192563,7 +192557,7 @@
         "src/metadata/icc_admission.ts\u0000CallExpression\u0000;\u000069\u00003\u000069\u000031",
         "src/metadata/icc_admission.ts\u0000CallExpression\u0000;\u000070\u00003\u000070\u000031"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > profileIdMatches CallExpression cluster: the Profile ID is computed with flags and rendering intent zeroed"
@@ -192580,7 +192574,7 @@
       "keys": [
         "src/metadata/icc_admission.ts\u0000BooleanLiteral\u0000true\u000049\u000012\u000049\u000017"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
@@ -192608,7 +192602,7 @@
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000047\u00005\u000047\u000016",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u000051\u000010\u000051\u000018"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
@@ -192630,7 +192624,7 @@
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000second >= 59\u000047\u00005\u000047\u000016",
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000day > 1\u000051\u000010\u000051\u000018"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
@@ -192651,7 +192645,7 @@
         "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000(year === 0 || month < 1) && month > 12\u000042\u00005\u000044\u000015",
         "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000year === 0 && month < 1\u000042\u00005\u000043\u000014"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
@@ -192668,7 +192662,7 @@
       "keys": [
         "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000ICC_HEADER_BYTES - ICC_TAG_COUNT_BYTES\u000090\u000024\u000090\u000062"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment"
@@ -192686,7 +192680,7 @@
       "keys": [
         "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000payload.length + offset\u0000177\u000014\u0000177\u000037"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation tag table clusters: no tags, a tag count the profile cannot hold and a tag range that ends past the profile are typed refusals"
@@ -192706,7 +192700,7 @@
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000138\u00007\u0000138\u000042",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000139\u00007\u0000139\u000042"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation header clusters: rendering intent 3 and a v2 profile without a D50 illuminant are admitted, a v4 illuminant word is checked"
@@ -192720,16 +192714,15 @@
       "function": "validateIccForPreservation",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 3,
+      "count": 2,
       "keys": [
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000146\u00007\u0000146\u000021",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000155\u00007\u0000155\u000032",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000177\u00007\u0000177\u000037"
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000085\u00007\u000085\u000041",
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000092\u00007\u000092\u000031"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation tag table clusters: no tags, a tag count the profile cannot hold and a tag range that ends past the profile are typed refusals"
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment"
       },
       "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression"
     },
@@ -192740,42 +192733,113 @@
       "function": "validateIccForPreservation",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000085\u00007\u000085\u000041",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000092\u00007\u000092\u000031"
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000177\u00007\u0000177\u000037"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment"
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation tag table clusters: no tags, a tag count the profile cannot hold and a tag range that ends past the profile are typed refusals"
       },
       "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:pending-01",
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:dead-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "validateIccForPreservation",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 5,
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000146\u00007\u0000146\u000021"
+      ],
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"tagCount === 0\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression",
+      "symbol": "tagCount === 0",
+      "symbolScope": "function"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:dead-02",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000155\u00007\u0000155\u000032"
+      ],
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"tableEnd > payload.length\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression",
+      "symbol": "tableEnd > payload.length",
+      "symbolScope": "function"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:dead-03",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 2,
       "keys": [
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000173\u00007\u0000173\u000024",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000173\u00007\u0000174\u000023",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000174\u00007\u0000174\u000023",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000176\u00007\u0000176\u000030",
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000173\u00007\u0000174\u000023"
+      ],
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"offset < tableEnd\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression",
+      "symbol": "offset < tableEnd",
+      "symbolScope": "function"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:dead-04",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000174\u00007\u0000174\u000023"
+      ],
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"offset % 4\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression",
+      "symbol": "offset % 4",
+      "symbolScope": "function"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:dead-05",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000176\u00007\u0000176\u000030"
+      ],
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"offset > payload.length\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression",
+      "symbol": "offset > payload.length",
+      "symbolScope": "function"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:dead-06",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000187\u00009\u0000187\u000033"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000offset < tableEnd\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000offset < tableEnd ||\n      offset % 4 !== 0\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000offset % 4 !== 0\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000offset > payload.length\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000!physicalRanges.has(key)\u00000"
-      ],
-      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
-      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression"
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"physicalRanges.has\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression",
+      "symbol": "physicalRanges.has",
+      "symbolScope": "function"
     },
     {
       "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator:gap-01",
@@ -192789,7 +192853,7 @@
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.length >= MAX_PROFILE_BYTES\u000085\u00007\u000085\u000041",
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.length <= ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES\u000090\u00007\u000090\u000062"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment"
@@ -192807,7 +192871,7 @@
       "keys": [
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.readUInt32BE(64) >= 3\u0000123\u00007\u0000123\u000035"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation header clusters: rendering intent 3 and a v2 profile without a D50 illuminant are admitted, a v4 illuminant word is checked"
@@ -192815,40 +192879,52 @@
       "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator:pending-01",
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator:dead-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "validateIccForPreservation",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000tableEnd >= payload.length\u0000155\u00007\u0000155\u000032",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000offset >= payload.length\u0000176\u00007\u0000176\u000030"
+        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000tableEnd >= payload.length\u0000155\u00007\u0000155\u000032"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000tableEnd >= payload.length\u0000tableEnd > payload.length\u00000",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000offset >= payload.length\u0000offset > payload.length\u00000"
-      ],
-      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
-      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator"
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"tableEnd > payload.length\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator",
+      "symbol": "tableEnd > payload.length",
+      "symbolScope": "function"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:LogicalOperator:pending-01",
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator:dead-02",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000offset >= payload.length\u0000176\u00007\u0000176\u000030"
+      ],
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"offset > payload.length\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator",
+      "symbol": "offset > payload.length",
+      "symbolScope": "function"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:LogicalOperator:dead-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "validateIccForPreservation",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000offset < tableEnd && offset % 4 !== 0\u0000173\u00007\u0000174\u000023"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000offset < tableEnd && offset % 4 !== 0\u0000offset < tableEnd ||\n      offset % 4 !== 0\u00000"
-      ],
-      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
-      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:LogicalOperator"
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"offset % 4\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:LogicalOperator",
+      "symbol": "offset % 4",
+      "symbolScope": "function"
     },
     {
       "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral:gap-01",
@@ -192857,7 +192933,7 @@
       "function": "validateIccForPreservation",
       "mutatorName": "StringLiteral",
       "disposition": "gap",
-      "count": 14,
+      "count": 13,
       "keys": [
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000097\u00007\u000097\u000060",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000100\u000032\u0000100\u000067",
@@ -192869,12 +192945,11 @@
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000134\u000032\u0000134\u000068",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000151\u00007\u0000151\u000056",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000169\u00009\u0000169\u000065",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000183\u00009\u0000183\u000059",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000198\u00009\u0000198\u000072",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000204\u000036\u0000204\u000073",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000208\u000032\u0000208\u000068"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation StringLiteral cluster: every refusal path carries its typed reason and a non-empty detail"
@@ -192894,7 +192969,7 @@
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000091\u000032\u000091\u000066",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000093\u000032\u000093\u000078"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment"
@@ -192910,11 +192985,11 @@
       "disposition": "gap",
       "count": 3,
       "keys": [
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000147\u000032\u0000147\u000065",
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000183\u00009\u0000183\u000059",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000156\u000032\u0000156\u000069",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000179\u000034\u0000179\u000069"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation tag table clusters: no tags, a tag count the profile cannot hold and a tag range that ends past the profile are typed refusals"
@@ -192933,7 +193008,7 @@
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000105\u000032\u0000105\u000075",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000114\u00007\u0000114\u000051"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > bcd clusters: a packed version byte whose high nibble is 9 is decimal and reaches the minor-version policy"
@@ -192951,7 +193026,7 @@
       "keys": [
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000143\u000032\u0000143\u000076"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > profileIdMatches CallExpression cluster: the Profile ID is computed with flags and rendering intent zeroed"
@@ -192969,12 +193044,28 @@
       "keys": [
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000122\u000032\u0000122\u000071"
       ],
-      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-34/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
       },
       "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral:dead-01",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "StringLiteral",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000147\u000032\u0000147\u000065"
+      ],
+      "note": "Removed or rewritten by the Plan 67-34 behavior-preserving source edit approved by the maintainer (Option A of 67-34-HALTED.md: \"i approve all ur recommendations\", relayed by the coordinating agent): the check or expression containing \"ICC profile has no tag records.\" is redundant (traced to every consumer in 67-34-HALTED.md: the same typed reason is returned by the checks that remain; only the free-text detail of three classes of already-refused profile changes). The symbol no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-34/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral",
+      "symbol": "ICC profile has no tag records.",
+      "symbolScope": "function"
     },
     {
       "id": "metadata:src/metadata/xmp.ts:add:CallExpression",
