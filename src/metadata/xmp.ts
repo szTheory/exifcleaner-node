@@ -48,6 +48,7 @@ function validateEntities(xml: string): string | undefined {
     .replace(/<\?[\s\S]*?\?>/gu, "");
   const withoutValid = entitySurface.replace(
     /&(amp|quot|apos|lt|gt|#x[0-9a-f]+|#[0-9]+);/giu,
+    // Stryker disable next-line StringLiteral: equivalent-arithmetic — the replacement text of this replace call is only ever searched for an ampersand, and any replacement without one leaves that search result identical.
     "",
   );
   if (withoutValid.includes("&"))
@@ -73,8 +74,11 @@ function validateXmlStructure(xml: string): string | undefined {
   for (const match of xml.matchAll(tokenPattern)) {
     const token = match[0];
     const index = match.index;
+    // Stryker disable next-line ConditionalExpression: defensive-unreachable-by-construction — String.prototype.matchAll yields only matches that carry an index, so this guard never fires. The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and that sibling is a compile error, not a frozen member.
     if (index === undefined) continue;
+    // Stryker disable next-line ConditionalExpression: defensive-unreachable-by-construction — a less-than sign between two matched tokens would itself begin a token, because the last alternative of the token pattern accepts any less-than sign that a greater-than sign follows and one always follows (it ends the next match), so the gap text never holds one. The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and that sibling is a compile error, not a frozen member.
     if (xml.slice(consumed, index).includes("<"))
+      // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — the guard above never fires, so this refusal text is never produced.
       return "XMP contains a malformed tag.";
     consumed = index + token.length;
     if (
@@ -91,6 +95,7 @@ function validateXmlStructure(xml: string): string | undefined {
     }
     const open = token.match(/^<\s*([A-Za-z_][\w.:-]*)\b[\s\S]*>$/u);
     if (open === null) return "XMP contains a malformed tag.";
+    // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — the open-tag pattern has a mandatory first capture group, so a match always carries a name and the empty fallback is never used.
     if (!/\/\s*>$/u.test(token)) stack.push(open[1] ?? "");
   }
   if (xml.slice(consumed).includes("<") || stack.length > 0) {
