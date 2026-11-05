@@ -39,10 +39,6 @@ export function reassembleIccSegments(payloads) {
             // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
             refuseMalformed("ICC_PROFILE segment sequence number is zero.");
         }
-        if (count === 0) {
-            // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
-            refuseMalformed("ICC_PROFILE segment declared count is zero.");
-        }
         if (sequence > count) {
             refuseMalformed(
             // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
