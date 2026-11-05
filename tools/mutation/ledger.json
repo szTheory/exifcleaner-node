@@ -190103,22 +190103,38 @@
       ]
     },
     {
-      "id": "metadata:src/metadata/exif.ts:assertUint32:BlockStatement",
+      "id": "metadata:src/metadata/exif.ts:assertUint32:BlockStatement:dead-01",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "assertUint32",
+      "mutatorName": "BlockStatement",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000314\u000059\u0000320\u00002"
+      ],
+      "note": "Deleted by the Plan 67-32 amendment, a behavior-preserving source edit approved by the maintainer (reply \"approve 32\" to the Plan 67-32 judgment item, Option \"drop the redundant guards\", relayed by the coordinating agent): the redundant `value < 0` and `value > 0xffffffff` range checks in assertUint32 were dropped because Buffer.writeUInt32LE, the sole consumer of an accepted value, already throws a RangeError for a negative or oversized number (only the diagnostic text differs); the frozen member's expression, or the function body that contains it, no longer exists in that form. Symbol \"0xffffffff\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-32/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "0xffffffff",
+      "symbolScope": "function",
+      "originClusterId": "metadata:src/metadata/exif.ts:assertUint32:BlockStatement"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:assertUint32:BlockStatement:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "BlockStatement",
       "disposition": "gap",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000314\u000059\u0000320\u00002",
         "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000315\u000068\u0000319\u00004"
       ],
       "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 and assertResolutionValue clusters: a non-integer resolution field is a RangeError, never rounded into the bytes"
-      }
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:assertUint32:BlockStatement"
     },
     {
       "id": "metadata:src/metadata/exif.ts:assertUint32:CallExpression",
@@ -190138,41 +190154,37 @@
       }
     },
     {
-      "id": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression:gap-01",
+      "id": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression:dead-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u00007\u0000315\u000044",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u00007\u0000315\u000066"
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u000035\u0000315\u000044"
       ],
-      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 and assertResolutionValue clusters: a non-integer resolution field is a RangeError, never rounded into the bytes"
-      },
+      "note": "Deleted by the Plan 67-32 amendment, a behavior-preserving source edit approved by the maintainer (reply \"approve 32\" to the Plan 67-32 judgment item, Option \"drop the redundant guards\", relayed by the coordinating agent): the redundant `value < 0` and `value > 0xffffffff` range checks in assertUint32 were dropped because Buffer.writeUInt32LE, the sole consumer of an accepted value, already throws a RangeError for a negative or oversized number (only the diagnostic text differs); the frozen member's expression, or the function body that contains it, no longer exists in that form. Symbol \"value < 0\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-32/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "value < 0",
+      "symbolScope": "function",
       "originClusterId": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression:gap-02",
+      "id": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression:dead-02",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 2,
       "keys": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u000035\u0000315\u000044",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u00007\u0000315\u000066",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000315\u000048\u0000315\u000066"
       ],
-      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 ConditionalExpression cluster: a negative or oversized resolution field is refused by createMinimalExif's own RangeError, not by the Buffer encoder"
-      },
+      "note": "Deleted by the Plan 67-32 amendment, a behavior-preserving source edit approved by the maintainer (reply \"approve 32\" to the Plan 67-32 judgment item, Option \"drop the redundant guards\", relayed by the coordinating agent): the redundant `value < 0` and `value > 0xffffffff` range checks in assertUint32 were dropped because Buffer.writeUInt32LE, the sole consumer of an accepted value, already throws a RangeError for a negative or oversized number (only the diagnostic text differs); the frozen member's expression, or the function body that contains it, no longer exists in that form. Symbol \"0xffffffff\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-32/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "0xffffffff",
+      "symbolScope": "function",
       "originClusterId": "metadata:src/metadata/exif.ts:assertUint32:ConditionalExpression"
     },
     {
@@ -190181,34 +190193,46 @@
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000EqualityOperator\u0000value >= 0xffffffff\u0000315\u000048\u0000315\u000066"
       ],
-      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 EqualityOperator cluster: 0 and 0xffffffff are accepted in every resolution field and written exactly"
-      }
+      "note": "Deleted by the Plan 67-32 amendment, a behavior-preserving source edit approved by the maintainer (reply \"approve 32\" to the Plan 67-32 judgment item, Option \"drop the redundant guards\", relayed by the coordinating agent): the redundant `value < 0` and `value > 0xffffffff` range checks in assertUint32 were dropped because Buffer.writeUInt32LE, the sole consumer of an accepted value, already throws a RangeError for a negative or oversized number (only the diagnostic text differs); the frozen member's expression, or the function body that contains it, no longer exists in that form. Symbol \"0xffffffff\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-32/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "0xffffffff",
+      "symbolScope": "function"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:assertUint32:LogicalOperator",
+      "id": "metadata:src/metadata/exif.ts:assertUint32:LogicalOperator:dead-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "assertUint32",
       "mutatorName": "LogicalOperator",
-      "disposition": "gap",
-      "count": 2,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000!Number.isInteger(value) && value < 0\u0000315\u00007\u0000315\u000044",
+        "src/metadata/exif.ts\u0000LogicalOperator\u0000!Number.isInteger(value) && value < 0\u0000315\u00007\u0000315\u000044"
+      ],
+      "note": "Deleted by the Plan 67-32 amendment, a behavior-preserving source edit approved by the maintainer (reply \"approve 32\" to the Plan 67-32 judgment item, Option \"drop the redundant guards\", relayed by the coordinating agent): the redundant `value < 0` and `value > 0xffffffff` range checks in assertUint32 were dropped because Buffer.writeUInt32LE, the sole consumer of an accepted value, already throws a RangeError for a negative or oversized number (only the diagnostic text differs); the frozen member's expression, or the function body that contains it, no longer exists in that form. Symbol \"value < 0\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-32/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "value < 0",
+      "symbolScope": "function",
+      "originClusterId": "metadata:src/metadata/exif.ts:assertUint32:LogicalOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:assertUint32:LogicalOperator:dead-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "assertUint32",
+      "mutatorName": "LogicalOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/metadata/exif.ts\u0000LogicalOperator\u0000(!Number.isInteger(value) || value < 0) && value > 0xffffffff\u0000315\u00007\u0000315\u000066"
       ],
-      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > createMinimalExif assertUint32 and assertResolutionValue clusters: a non-integer resolution field is a RangeError, never rounded into the bytes"
-      }
+      "note": "Deleted by the Plan 67-32 amendment, a behavior-preserving source edit approved by the maintainer (reply \"approve 32\" to the Plan 67-32 judgment item, Option \"drop the redundant guards\", relayed by the coordinating agent): the redundant `value < 0` and `value > 0xffffffff` range checks in assertUint32 were dropped because Buffer.writeUInt32LE, the sole consumer of an accepted value, already throws a RangeError for a negative or oversized number (only the diagnostic text differs); the frozen member's expression, or the function body that contains it, no longer exists in that form. Symbol \"0xffffffff\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-32/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "0xffffffff",
+      "symbolScope": "function",
+      "originClusterId": "metadata:src/metadata/exif.ts:assertUint32:LogicalOperator"
     },
     {
       "id": "metadata:src/metadata/exif.ts:createMinimalExif:ArithmeticOperator",
@@ -190590,25 +190614,23 @@
       }
     },
     {
-      "id": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression:gap-01",
+      "id": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression:dead-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "parseExif",
       "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000200\u00009\u0000200\u000024"
       ],
-      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > parseExif ConditionalExpression and EqualityOperator clusters: a payload shorter than the 8-byte header is reported alike however much of it is present, and distinctly from a header with no IFD"
-      },
+      "note": "Deleted by the Plan 67-32 amendment, a behavior-preserving source edit approved by the maintainer (reply \"approve 32\" to the Plan 67-32 judgment item, Option \"drop the redundant guards\", relayed by the coordinating agent): the redundant `tiff.length < 8` guard in parseExif was dropped because every payload shorter than 9 bytes still ends malformed (the II/MM check, the bounds-checked u16(2) and u32(4) reads caught by the surrounding catch, then inBounds on the IFD). Symbol \"tiff.length\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-32/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "tiff.length",
+      "symbolScope": "function",
       "originClusterId": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression:gap-02",
+      "id": "metadata:src/metadata/exif.ts:parseExif:ConditionalExpression:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "parseExif",
@@ -190632,16 +190654,14 @@
       "file": "src/metadata/exif.ts",
       "function": "parseExif",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000EqualityOperator\u0000tiff.length <= 8\u0000200\u00009\u0000200\u000024"
       ],
-      "note": "reports/triage/67-32/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-32/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2) > parseExif ConditionalExpression and EqualityOperator clusters: a payload shorter than the 8-byte header is reported alike however much of it is present, and distinctly from a header with no IFD"
-      }
+      "note": "Deleted by the Plan 67-32 amendment, a behavior-preserving source edit approved by the maintainer (reply \"approve 32\" to the Plan 67-32 judgment item, Option \"drop the redundant guards\", relayed by the coordinating agent): the redundant `tiff.length < 8` guard in parseExif was dropped because every payload shorter than 9 bytes still ends malformed (the II/MM check, the bounds-checked u16(2) and u32(4) reads caught by the surrounding catch, then inBounds on the IFD). Symbol \"tiff.length\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-32/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "tiff.length",
+      "symbolScope": "function"
     },
     {
       "id": "metadata:src/metadata/exif.ts:parseExif:StringLiteral",
