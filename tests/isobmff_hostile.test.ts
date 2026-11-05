@@ -4,6 +4,7 @@
 // the empty-input edges (zero items, no meta). `tests/isobmff-support/hostile.ts` is the one
 // support module allowed a type-only import of `IsobmffDeclineClass` from `src/isobmff/errors.js`
 // (see tests/isobmff_isolation.test.ts); this test file itself imports `src/isobmff/` freely.
+import { createHash } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
 import { mkdtemp, open, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -38,7 +39,10 @@ import {
   ICC_SEGMENT_IDENTIFIER,
   reassembleIccSegments,
 } from "../src/jpeg/icc.js";
-import { MAX_PROFILE_BYTES } from "../src/metadata/icc_admission.js";
+import {
+  MAX_PROFILE_BYTES,
+  validateIccForPreservation,
+} from "../src/metadata/icc_admission.js";
 import {
   JPEG_MAX_EXTENDED_XMP_BYTES,
   JPEG_MAX_FILE_BYTES,
@@ -100,6 +104,7 @@ import {
 import {
   exifWithArtist,
   exifWithOrientation,
+  iccProfileV2,
   iccProfileV4,
   jpegAdobe,
   jpegExif,
@@ -7684,5 +7689,371 @@ describe("metadata/exif.ts createMinimalExif and readIfd0Resolution clusters (67
       w32(tiff, 10 + 12 + 8, tiff.length - 4);
       expect(readIfd0Resolution(tiff)).toStrictEqual({ x: RI_X, y: RI_Y });
     }
+  });
+});
+
+// metadata/icc_admission.ts validateIccForPreservation, validDate, bcd and profileIdMatches clusters
+// (67-34, metadata-4). Every refusal is asserted by its typed `reason`; a refusal's `detail` is only
+// checked to be a non-empty string (the diagnostic is present), never for its wording. The profiles
+// come from the shared iccProfileV4 fixture (header, one `rTRC` tag at 144 of size 8, 152 bytes) and
+// change one field at a time, so a refusal can only come from that field.
+function iccAdmissionVerdict(profile: Buffer): {
+  readonly ok: boolean;
+  readonly reason?: "invalid" | "unsupported" | "policy-limit";
+  readonly detail?: string;
+} {
+  return validateIccForPreservation(profile);
+}
+
+function expectIccRefusal(
+  profile: Buffer,
+  reason: "invalid" | "unsupported" | "policy-limit",
+): void {
+  const verdict = iccAdmissionVerdict(profile);
+  expect(verdict.ok).toBe(false);
+  expect(verdict.reason).toBe(reason);
+  expect(typeof verdict.detail).toBe("string");
+  expect((verdict.detail ?? "").length).toBeGreaterThan(0);
+}
+
+function expectIccAdmitted(profile: Buffer): void {
+  expect(iccAdmissionVerdict(profile)).toStrictEqual({ ok: true });
+}
+
+function iccWithDate(
+  fields: readonly [number, number, number, number, number, number],
+): Buffer {
+  const profile = iccProfileV4();
+  for (const [index, value] of fields.entries())
+    profile.writeUInt16BE(value, 24 + index * 2);
+  return profile;
+}
+
+/** The ICC Profile ID: MD5 of the profile with flags, rendering intent and the ID itself zeroed. */
+function iccWithProfileId(profile: Buffer): Buffer {
+  const digestInput = Buffer.from(profile);
+  digestInput.fill(0, 44, 48);
+  digestInput.fill(0, 64, 68);
+  digestInput.fill(0, 84, 100);
+  const result = Buffer.from(profile);
+  createHash("md5").update(digestInput).digest().copy(result, 84);
+  return result;
+}
+
+describe("metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4)", () => {
+  it("validDate clusters: each date field is refused outside its range and admitted at its edges", () => {
+    // Edges that are valid: the first and last month, hour, minute, second and day.
+    expectIccAdmitted(iccWithDate([2024, 1, 1, 0, 0, 0]));
+    expectIccAdmitted(iccWithDate([2024, 12, 31, 23, 59, 59]));
+    expectIccAdmitted(iccWithDate([2024, 6, 15, 12, 34, 56]));
+    // One field out of range at a time, the others valid.
+    const refused: readonly (readonly [
+      string,
+      [number, number, number, number, number, number],
+    ])[] = [
+      ["year zero", [0, 6, 15, 12, 34, 56]],
+      ["month zero", [2024, 0, 15, 12, 34, 56]],
+      ["month thirteen", [2024, 13, 15, 12, 34, 56]],
+      ["hour twenty-four", [2024, 6, 15, 24, 34, 56]],
+      ["minute sixty", [2024, 6, 15, 12, 60, 56]],
+      ["second sixty", [2024, 6, 15, 12, 34, 60]],
+      ["day zero", [2024, 6, 0, 12, 34, 56]],
+      ["day past the month", [2024, 6, 31, 12, 34, 56]],
+    ];
+    for (const [, fields] of refused)
+      expectIccRefusal(iccWithDate(fields), "invalid");
+  });
+
+  it("bcd clusters: a packed version byte whose high nibble is 9 is decimal and reaches the minor-version policy", () => {
+    // 0x90 and 0x99 are valid BCD (minor 9): they are refused as an unsupported minor version,
+    // not as malformed BCD. 0xa0 and 0x0a are not decimal.
+    for (const version of [0x90, 0x99]) {
+      const profile = iccProfileV4();
+      profile[9] = version;
+      expectIccRefusal(profile, "unsupported");
+    }
+    for (const version of [0xa0, 0x0a]) {
+      const profile = iccProfileV4();
+      profile[9] = version;
+      expectIccRefusal(profile, "invalid");
+    }
+  });
+
+  it("profileIdMatches CallExpression cluster: the Profile ID is computed with flags and rendering intent zeroed", () => {
+    const profile = iccProfileV4();
+    profile.writeUInt32BE(0x0000_0001, 44);
+    profile.writeUInt32BE(1, 64);
+    const withId = iccWithProfileId(profile);
+    expect(withId.readUInt32BE(44)).toBe(1);
+    expect(withId.readUInt32BE(64)).toBe(1);
+    expect(withId.subarray(84, 100).equals(Buffer.alloc(16))).toBe(false);
+    expectIccAdmitted(withId);
+    const flipped = Buffer.from(withId);
+    flipped[84] = (flipped[84] ?? 0) ^ 1;
+    expectIccRefusal(flipped, "invalid");
+  });
+
+  it("validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment", () => {
+    const limit = (extra: number): Buffer =>
+      iccProfileV4({}, [
+        { signature: "rTRC", size: MAX_PROFILE_BYTES + extra - 144 },
+      ]);
+    // Exactly the limit is admitted; the next four-byte step is a policy-limit refusal.
+    const atLimit = limit(0);
+    expect(atLimit.length).toBe(MAX_PROFILE_BYTES);
+    expectIccAdmitted(atLimit);
+    const overLimit = limit(4);
+    expect(overLimit.length).toBe(MAX_PROFILE_BYTES + 4);
+    expectIccRefusal(overLimit, "policy-limit");
+    // A 128-byte header with no tag count is truncated (a typed refusal, not a read past the end).
+    const headerOnly = iccProfileV4().subarray(0, 128);
+    headerOnly.writeUInt32BE(128, 0);
+    expectIccRefusal(Buffer.from(headerOnly), "invalid");
+    // A 132-byte profile (header and tag count, no tags) is not truncated: it reaches the version
+    // policy before the missing tags.
+    const noTags = iccProfileV4({}, []);
+    expect(noTags.length).toBe(132);
+    noTags[9] = 0x50;
+    expectIccRefusal(noTags, "unsupported");
+    // An unaligned length is refused as invalid before the version policy would refuse it.
+    const unaligned = Buffer.concat([iccProfileV4(), Buffer.alloc(1)]);
+    unaligned.writeUInt32BE(unaligned.length, 0);
+    unaligned[9] = 0x50;
+    expectIccRefusal(unaligned, "invalid");
+    // The same profile, aligned, is refused by the version policy.
+    const aligned = iccProfileV4();
+    aligned[9] = 0x50;
+    expectIccRefusal(aligned, "unsupported");
+  });
+
+  it("validateIccForPreservation header clusters: rendering intent 3 and a v2 profile without a D50 illuminant are admitted, a v4 illuminant word is checked", () => {
+    const intent = iccProfileV4();
+    intent.writeUInt32BE(3, 64);
+    expectIccAdmitted(intent);
+    // Only a v4 profile carries the D50 illuminant requirement.
+    const v2 = iccProfileV2();
+    v2.fill(0, 68, 80);
+    expectIccAdmitted(v2);
+    for (const offset of [68, 72, 76]) {
+      const v4 = iccProfileV4();
+      v4.writeUInt32BE((v4.readUInt32BE(offset) + 1) >>> 0, offset);
+      expectIccRefusal(v4, "invalid");
+    }
+  });
+
+  it("validateIccForPreservation tag table clusters: no tags, a tag count the profile cannot hold and a tag range that ends past the profile are typed refusals", () => {
+    expectIccRefusal(iccProfileV4({}, []), "invalid");
+    // A tag count of 1 in a profile of 132 bytes: the table does not fit, and nothing is read from it.
+    const noRoom = iccProfileV4({}, []);
+    noRoom.writeUInt32BE(1, 128);
+    expectIccRefusal(noRoom, "invalid");
+    // A table cut four bytes short of its only record: a typed refusal, not a read past the end.
+    const cutTable = Buffer.concat([iccProfileV4({}, []), Buffer.alloc(4)]);
+    cutTable.writeUInt32BE(cutTable.length, 0);
+    cutTable.writeUInt32BE(1, 128);
+    expectIccRefusal(cutTable, "invalid");
+    // A table that fits but leaves no room for one 8-byte tag payload is refused the same way.
+    const noPayloadRoom = Buffer.concat([
+      iccProfileV4({}, []),
+      Buffer.alloc(16),
+    ]);
+    noPayloadRoom.writeUInt32BE(noPayloadRoom.length, 0);
+    noPayloadRoom.writeUInt32BE(1, 128);
+    noPayloadRoom.write("rTRC", 132, 4, "ascii");
+    noPayloadRoom.writeUInt32BE(144, 136);
+    noPayloadRoom.writeUInt32BE(8, 140);
+    expectIccRefusal(noPayloadRoom, "invalid");
+    // A tag whose 8 bytes start 4 bytes before the end: refused, and the type word at offset + 4
+    // is never read past the end of the profile.
+    const pastEnd = iccProfileV4();
+    pastEnd.writeUInt32BE(pastEnd.length - 4, 136);
+    expectIccRefusal(pastEnd, "invalid");
+    // Tag offsets that are below the table, unaligned or beyond the profile stay typed refusals.
+    const belowTable = iccProfileV4();
+    belowTable.writeUInt32BE(140, 136);
+    expectIccRefusal(belowTable, "invalid");
+    const unalignedOffset = iccProfileV4();
+    unalignedOffset.writeUInt32BE(146, 136);
+    expectIccRefusal(unalignedOffset, "invalid");
+    const beyond = iccProfileV4();
+    beyond.writeUInt32BE(beyond.length + 4, 136);
+    expectIccRefusal(beyond, "invalid");
+    const atEnd = iccProfileV4();
+    atEnd.writeUInt32BE(atEnd.length, 136);
+    expectIccRefusal(atEnd, "invalid");
+    // Two tags that share one range are admitted.
+    expectIccAdmitted(
+      iccProfileV4({}, [
+        { signature: "rTRC", offset: 156 },
+        { signature: "gTRC", offset: 156 },
+      ]),
+    );
+  });
+
+  it("validateIccForPreservation StringLiteral cluster: every refusal path carries its typed reason and a non-empty detail", () => {
+    const withExtra = (
+      extra: Buffer,
+      mutate?: (profile: Buffer) => void,
+    ): Buffer => {
+      const profile = Buffer.concat([iccProfileV4(), extra]);
+      profile.writeUInt32BE(profile.length, 0);
+      mutate?.(profile);
+      return profile;
+    };
+    const mutated = (
+      build: () => Buffer,
+      mutate: (profile: Buffer) => void,
+    ): Buffer => {
+      const profile = build();
+      mutate(profile);
+      return profile;
+    };
+    const cases: readonly (readonly [
+      string,
+      () => Buffer,
+      "invalid" | "unsupported" | "policy-limit",
+    ])[] = [
+      [
+        "over the policy size limit",
+        () =>
+          iccProfileV4({}, [
+            { signature: "rTRC", size: MAX_PROFILE_BYTES + 4 - 144 },
+          ]),
+        "policy-limit",
+      ],
+      [
+        "header truncated",
+        () => Buffer.from(iccProfileV4().subarray(0, 131)),
+        "invalid",
+      ],
+      [
+        "length not four-byte aligned",
+        () => withExtra(Buffer.alloc(1)),
+        "invalid",
+      ],
+      [
+        "declared size mismatch",
+        () => mutated(iccProfileV4, (p) => p.writeUInt32BE(p.length + 4, 0)),
+        "invalid",
+      ],
+      [
+        "signature not acsp",
+        () => mutated(iccProfileV4, (p) => p.write("nope", 36, 4, "ascii")),
+        "invalid",
+      ],
+      [
+        "non-decimal BCD",
+        () =>
+          mutated(iccProfileV4, (p) => {
+            p[9] = 0xa0;
+          }),
+        "invalid",
+      ],
+      [
+        "major version not admitted",
+        () =>
+          mutated(iccProfileV4, (p) => {
+            p[8] = 5;
+          }),
+        "unsupported",
+      ],
+      [
+        "minor version not admitted",
+        () =>
+          mutated(iccProfileV4, (p) => {
+            p[9] = 0x50;
+          }),
+        "unsupported",
+      ],
+      [
+        "version-reserved bytes nonzero",
+        () =>
+          mutated(iccProfileV4, (p) => {
+            p[10] = 1;
+          }),
+        "invalid",
+      ],
+      [
+        "creation date invalid",
+        () => iccWithDate([2024, 13, 15, 12, 34, 56]),
+        "invalid",
+      ],
+      [
+        "rendering intent invalid",
+        () => mutated(iccProfileV4, (p) => p.writeUInt32BE(4, 64)),
+        "invalid",
+      ],
+      [
+        "device class not admitted",
+        () => mutated(iccProfileV4, (p) => p.write("prtr", 12, 4, "ascii")),
+        "unsupported",
+      ],
+      [
+        "color space not admitted",
+        () => mutated(iccProfileV4, (p) => p.write("CMYK", 16, 4, "ascii")),
+        "unsupported",
+      ],
+      [
+        "v2 reserved bytes nonzero",
+        () =>
+          mutated(iccProfileV2, (p) => {
+            p[84] = 1;
+          }),
+        "invalid",
+      ],
+      [
+        "v4 required header field invalid",
+        () =>
+          mutated(iccProfileV4, (p) => {
+            p[68] = 1;
+          }),
+        "invalid",
+      ],
+      ["no tag records", () => iccProfileV4({}, []), "invalid"],
+      [
+        "tag count over the policy limit",
+        () => mutated(iccProfileV4, (p) => p.writeUInt32BE(4_097, 128)),
+        "policy-limit",
+      ],
+      [
+        "tag table truncated",
+        () => mutated(iccProfileV4, (p) => p.writeUInt32BE(2, 128)),
+        "invalid",
+      ],
+      [
+        "zero tag signature",
+        () => iccProfileV4({}, [{ signature: "\0\0\0\0" }]),
+        "invalid",
+      ],
+      [
+        "tag range invalid",
+        () => iccProfileV4({}, [{ signature: "rTRC", offset: 145 }]),
+        "invalid",
+      ],
+      [
+        "tag type reserved bytes nonzero",
+        () => iccProfileV4({}, [{ signature: "rTRC", reserved: 1 }]),
+        "invalid",
+      ],
+      [
+        "tag payloads not canonical",
+        () => iccProfileV4({}, [{ signature: "rTRC", offset: 148 }]),
+        "invalid",
+      ],
+      [
+        "tag padding nonzero",
+        () =>
+          mutated(
+            () => iccProfileV4({}, [{ signature: "rTRC", size: 9 }]),
+            (p) => {
+              p[153] = 1;
+            },
+          ),
+        "invalid",
+      ],
+      ["tag trailer bytes", () => withExtra(Buffer.alloc(4)), "invalid"],
+    ];
+    expect(cases).toHaveLength(24);
+    for (const [, build, reason] of cases) expectIccRefusal(build(), reason);
   });
 });
