@@ -187443,19 +187443,18 @@
       "file": "src/jpeg/markers.ts",
       "function": "classifyAppPayload",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 3,
       "keys": [
         "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker === APP0 || startsWithAppId(payload, JFIF_ID)\u0000253\u00007\u0000253\u000059",
         "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker === APP1 || startsWithAppId(payload, XMP_STANDARD_ID)\u0000258\u00007\u0000258\u000067",
         "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker === APP2 || startsWithAppId(payload, MPF_ID)\u0000264\u00007\u0000264\u000058"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker === APP0 || startsWithAppId(payload, JFIF_ID)\u0000marker === APP0 && startsWithAppId(payload, JFIF_ID)\u00000",
-        "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker === APP1 || startsWithAppId(payload, XMP_STANDARD_ID)\u0000marker === APP1 && startsWithAppId(payload, XMP_STANDARD_ID)\u00000",
-        "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker === APP2 || startsWithAppId(payload, MPF_ID)\u0000marker === APP2 && startsWithAppId(payload, MPF_ID)\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > classifyAppPayload ConditionalExpression and LogicalOperator: each identifier classifies only under its own APPn marker, and the right marker needs the right identifier"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:classifyMarker:BlockStatement",
@@ -187463,15 +187462,16 @@
       "file": "src/jpeg/markers.ts",
       "function": "classifyMarker",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/jpeg/markers.ts\u0000BlockStatement\u0000{}\u0000150\u000041\u0000152\u00004"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000BlockStatement\u0000{}\u0000{\n    return { admitted: true, kind: \"restart\" };\n  }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > classifyMarker ConditionalExpression, BlockStatement and EqualityOperator: every marker byte 0x00 to 0xFF maps to exactly its T.81 admit or refuse class"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:classifyMarker:ConditionalExpression",
@@ -187479,19 +187479,18 @@
       "file": "src/jpeg/markers.ts",
       "function": "classifyMarker",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 3,
       "keys": [
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000false\u0000138\u00007\u0000138\u000021",
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000false\u0000150\u00007\u0000150\u000039",
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000171\u000031\u0000171\u000050"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000false\u0000marker === SOI\u00000",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000false\u0000marker >= RST0 && marker <= RST7\u00001",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker <= JPGN_LAST\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > classifyMarker ConditionalExpression, BlockStatement and EqualityOperator: every marker byte 0x00 to 0xFF maps to exactly its T.81 admit or refuse class"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:classifyMarker:EqualityOperator",
@@ -187499,7 +187498,7 @@
       "file": "src/jpeg/markers.ts",
       "function": "classifyMarker",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 4,
       "keys": [
         "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker > RST0\u0000150\u00007\u0000150\u000021",
@@ -187507,13 +187506,11 @@
         "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker > JPGN_FIRST\u0000171\u00007\u0000171\u000027",
         "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker < JPGN_LAST\u0000171\u000031\u0000171\u000050"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker > RST0\u0000marker >= RST0\u00001",
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker < RST7\u0000marker <= RST7\u00001",
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker > JPGN_FIRST\u0000marker >= JPGN_FIRST\u00000",
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker < JPGN_LAST\u0000marker <= JPGN_LAST\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > classifyMarker ConditionalExpression, BlockStatement and EqualityOperator: every marker byte 0x00 to 0xFF maps to exactly its T.81 admit or refuse class"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:isAppMarker:ConditionalExpression",
@@ -187521,19 +187518,18 @@
       "file": "src/jpeg/markers.ts",
       "function": "isAppMarker",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 3,
       "keys": [
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u000034\u000010\u000034\u000024",
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u000034\u000010\u000034\u000043",
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u000034\u000028\u000034\u000043"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker >= APP0\u00000",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker >= APP0 && marker <= APP15\u00000",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker <= APP15\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > isAppMarker ConditionalExpression, EqualityOperator and LogicalOperator: exactly the sixteen codes 0xE0 to 0xEF are application markers"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:isAppMarker:EqualityOperator",
@@ -187541,15 +187537,16 @@
       "file": "src/jpeg/markers.ts",
       "function": "isAppMarker",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker < APP15\u000034\u000028\u000034\u000043"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker < APP15\u0000marker <= APP15\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. The earlier 67-23 test is the first killer Stryker records (the immutable hosted pre-triage status is Survived, retained as the red evidence; reports/triage/67-26/red-full.json already shows it Killed by that test). The 67-26 isAppMarker sweep asserts isAppMarker(0xEF) is true and fails the same mutant (marker < APP15) too.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > markerLabel ConditionalExpression: an APPn segment whose identifier is empty is named APPn without a colon"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:isAppMarker:LogicalOperator",
@@ -187557,15 +187554,16 @@
       "file": "src/jpeg/markers.ts",
       "function": "isAppMarker",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker >= APP0 || marker <= APP15\u000034\u000010\u000034\u000043"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker >= APP0 || marker <= APP15\u0000marker >= APP0 && marker <= APP15\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > isAppMarker ConditionalExpression, EqualityOperator and LogicalOperator: exactly the sixteen codes 0xE0 to 0xEF are application markers"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:isRestartMarker:ConditionalExpression",
@@ -187573,7 +187571,7 @@
       "file": "src/jpeg/markers.ts",
       "function": "isRestartMarker",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 4,
       "keys": [
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000false\u000038\u000010\u000038\u000042",
@@ -187581,13 +187579,11 @@
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u000038\u000010\u000038\u000042",
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u000038\u000028\u000038\u000042"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000false\u0000marker >= RST0 && marker <= RST7\u00000",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker >= RST0\u00000",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker >= RST0 && marker <= RST7\u00000",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker <= RST7\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > isRestartMarker ConditionalExpression, EqualityOperator and LogicalOperator: exactly the eight codes 0xD0 to 0xD7 are restart markers"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:isRestartMarker:EqualityOperator",
@@ -187595,7 +187591,7 @@
       "file": "src/jpeg/markers.ts",
       "function": "isRestartMarker",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 4,
       "keys": [
         "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker < RST0\u000038\u000010\u000038\u000024",
@@ -187603,13 +187599,11 @@
         "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker < RST7\u000038\u000028\u000038\u000042",
         "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker > RST7\u000038\u000028\u000038\u000042"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker < RST0\u0000marker >= RST0\u00000",
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker > RST0\u0000marker >= RST0\u00000",
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker < RST7\u0000marker <= RST7\u00000",
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000marker > RST7\u0000marker <= RST7\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > isRestartMarker ConditionalExpression, EqualityOperator and LogicalOperator: exactly the eight codes 0xD0 to 0xD7 are restart markers"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:isRestartMarker:LogicalOperator",
@@ -187617,15 +187611,16 @@
       "file": "src/jpeg/markers.ts",
       "function": "isRestartMarker",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker >= RST0 || marker <= RST7\u000038\u000010\u000038\u000042"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000LogicalOperator\u0000marker >= RST0 || marker <= RST7\u0000marker >= RST0 && marker <= RST7\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > isRestartMarker ConditionalExpression, EqualityOperator and LogicalOperator: exactly the eight codes 0xD0 to 0xD7 are restart markers"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:startsWithAppId:ConditionalExpression",
@@ -187641,7 +187636,7 @@
       "anchors": [
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000payload.length >= prefix.length\u00000"
       ],
-      "note": ""
+      "note": "pending: equivalent but its line holds Killed observable counterparts, so no directive is allowed; needs a maintainer source decision, see .planning/phases/67-mutation-baseline/67-26-HALTED.md"
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:startsWithAppId:EqualityOperator",
@@ -187649,15 +187644,16 @@
       "file": "src/jpeg/markers.ts",
       "function": "startsWithAppId",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/jpeg/markers.ts\u0000EqualityOperator\u0000payload.length > prefix.length\u0000234\u00005\u0000234\u000036"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000EqualityOperator\u0000payload.length > prefix.length\u0000payload.length >= prefix.length\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > classifyAppPayload startsWithAppId EqualityOperator: a payload exactly as long as its identifier is still classified by that identifier"
+      }
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:constructor:StringLiteral",
