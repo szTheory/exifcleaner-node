@@ -301,7 +301,7 @@ function collectMetadata(parsed, trailerTail) {
             candidates.push("invalid");
             warnings.push({ code: "metadata-invalid", detail: extended.detail });
         }
-        // some() over an empty candidate list is false, so no length check is needed.
+        // some() over an empty candidate list finds no disagreement, so no length check is needed.
         const sourceValue = validOrientationValue(orientation);
         // "invalid" never equals sourceValue (a number or undefined), so it needs no test of its own.
         const disagrees = candidates.some((candidate) => candidate !== sourceValue);
