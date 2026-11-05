@@ -35,6 +35,15 @@ import {
   reassembleIccSegments,
 } from "../src/jpeg/icc.js";
 import { MAX_PROFILE_BYTES } from "../src/metadata/icc_admission.js";
+import {
+  classifyAppPayload,
+  classifyMarker,
+  isAppMarker,
+  isRestartMarker,
+  type AppSegmentKind,
+  type JpegRefusal,
+  type MarkerClassification,
+} from "../src/jpeg/markers.js";
 import { classifyFallback } from "../src/fallback.js";
 import { verifyIsobmffOutput } from "../src/isobmff/verify.js";
 import { writeIsobmffOutput } from "../src/isobmff/writer.js";
@@ -4576,5 +4585,188 @@ describe("jpeg-handler.ts admit, output-plan and write clusters, and reassembleI
     expect(
       jpegHandler.classifyAdmissionFailure(new Error("unrelated"), true),
     ).toBeUndefined();
+  });
+});
+
+// Marker byte sweeps for src/jpeg/markers.ts (67-26, jpeg-4). The expectations are written out
+// from ITU-T T.81 Table B.1 and the APPn identifier strings, never derived from the constants or
+// operators under test, so a changed boundary comparison or a dropped marker check is a visible
+// difference at a named byte.
+function jmRange(first: number, count: number): number[] {
+  return Array.from({ length: count }, (_, offset) => first + offset);
+}
+
+function jmAllMarkerBytes(): number[] {
+  return jmRange(0, 256);
+}
+
+function jmExpectedMarkerClass(marker: number): MarkerClassification {
+  const admitted = (kind: string): MarkerClassification =>
+    ({ admitted: true, kind }) as MarkerClassification;
+  const refused = (refusal: JpegRefusal): MarkerClassification => ({
+    admitted: false,
+    refusal,
+  });
+  const single = new Map<number, MarkerClassification>([
+    [0xd8, admitted("soi")],
+    [0xd9, admitted("eoi")],
+    [0xda, admitted("sos")],
+    [0xdb, admitted("dqt")],
+    [0xc4, admitted("dht")],
+    [0xdd, admitted("dri")],
+    [0xfe, admitted("com")],
+    [0xc0, admitted("sof-admitted")],
+    [0xc1, admitted("sof-admitted")],
+    [0xc2, admitted("sof-admitted")],
+    [0xdc, refused("dnl-marker")],
+    [0xcc, refused("arithmetic-frame")],
+    [0xde, refused("hierarchical-frame")],
+    [0xdf, refused("hierarchical-frame")],
+    [0xc3, refused("lossless-frame")],
+    [0xc5, refused("hierarchical-frame")],
+    [0xc6, refused("hierarchical-frame")],
+    [0xc7, refused("hierarchical-frame")],
+    [0xc8, refused("non-t81-frame")],
+    [0xc9, refused("arithmetic-frame")],
+    [0xca, refused("arithmetic-frame")],
+    [0xcb, refused("arithmetic-frame")],
+    [0xcd, refused("arithmetic-frame")],
+    [0xce, refused("arithmetic-frame")],
+    [0xcf, refused("arithmetic-frame")],
+  ]);
+  const known = single.get(marker);
+  if (known !== undefined) return known;
+  if (jmRange(0xe0, 16).includes(marker)) return admitted("app");
+  if (jmRange(0xd0, 8).includes(marker)) return admitted("restart");
+  if (jmRange(0xf0, 14).includes(marker)) return refused("non-t81-frame");
+  return refused("malformed-container");
+}
+
+function jmAppIdentifiers(): ReadonlyArray<{
+  readonly marker: number;
+  readonly kind: AppSegmentKind;
+  readonly identifier: Buffer;
+}> {
+  return [
+    { marker: 0xe0, kind: "jfif", identifier: Buffer.from("JFIF\0", "latin1") },
+    {
+      marker: 0xe1,
+      kind: "exif",
+      identifier: Buffer.from("Exif\0\0", "latin1"),
+    },
+    {
+      marker: 0xe1,
+      kind: "xmp",
+      identifier: Buffer.from("http://ns.adobe.com/xap/1.0/\0", "latin1"),
+    },
+    {
+      marker: 0xe1,
+      kind: "extended-xmp",
+      identifier: Buffer.from("http://ns.adobe.com/xmp/extension/\0", "latin1"),
+    },
+    {
+      marker: 0xe2,
+      kind: "icc",
+      identifier: Buffer.from("ICC_PROFILE\0", "latin1"),
+    },
+    { marker: 0xe2, kind: "mpf", identifier: Buffer.from("MPF\0", "latin1") },
+    { marker: 0xee, kind: "adobe", identifier: Buffer.from("Adobe", "latin1") },
+  ];
+}
+
+describe("jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4)", () => {
+  it("isAppMarker ConditionalExpression, EqualityOperator and LogicalOperator: exactly the sixteen codes 0xE0 to 0xEF are application markers", () => {
+    const apps = new Set(jmRange(0xe0, 16));
+    for (const marker of jmAllMarkerBytes()) {
+      expect([marker, isAppMarker(marker)]).toEqual([marker, apps.has(marker)]);
+    }
+    expect(isAppMarker(0xdf)).toBe(false);
+    expect(isAppMarker(0xe0)).toBe(true);
+    expect(isAppMarker(0xef)).toBe(true);
+    expect(isAppMarker(0xf0)).toBe(false);
+  });
+
+  it("isRestartMarker ConditionalExpression, EqualityOperator and LogicalOperator: exactly the eight codes 0xD0 to 0xD7 are restart markers", () => {
+    const restarts = new Set(jmRange(0xd0, 8));
+    for (const marker of jmAllMarkerBytes()) {
+      expect([marker, isRestartMarker(marker)]).toEqual([
+        marker,
+        restarts.has(marker),
+      ]);
+    }
+    expect(isRestartMarker(0xcf)).toBe(false);
+    expect(isRestartMarker(0xd0)).toBe(true);
+    expect(isRestartMarker(0xd7)).toBe(true);
+    expect(isRestartMarker(0xd8)).toBe(false);
+  });
+
+  it("classifyMarker ConditionalExpression, BlockStatement and EqualityOperator: every marker byte 0x00 to 0xFF maps to exactly its T.81 admit or refuse class", () => {
+    for (const marker of jmAllMarkerBytes()) {
+      expect([marker, classifyMarker(marker)]).toEqual([
+        marker,
+        jmExpectedMarkerClass(marker),
+      ]);
+    }
+    // Endpoints and neighbours the comparisons turn on.
+    expect(classifyMarker(0xd8)).toEqual({ admitted: true, kind: "soi" });
+    expect(classifyMarker(0xcf)).toEqual({
+      admitted: false,
+      refusal: "arithmetic-frame",
+    });
+    expect(classifyMarker(0xd0)).toEqual({ admitted: true, kind: "restart" });
+    expect(classifyMarker(0xd7)).toEqual({ admitted: true, kind: "restart" });
+    expect(classifyMarker(0xef)).toEqual({ admitted: true, kind: "app" });
+    expect(classifyMarker(0xf0)).toEqual({
+      admitted: false,
+      refusal: "non-t81-frame",
+    });
+    expect(classifyMarker(0xfd)).toEqual({
+      admitted: false,
+      refusal: "non-t81-frame",
+    });
+    expect(classifyMarker(0xff)).toEqual({
+      admitted: false,
+      refusal: "malformed-container",
+    });
+  });
+
+  it("classifyAppPayload startsWithAppId EqualityOperator: a payload exactly as long as its identifier is still classified by that identifier", () => {
+    for (const { marker, kind, identifier } of jmAppIdentifiers()) {
+      expect([
+        kind,
+        classifyAppPayload(marker, Buffer.from(identifier)),
+      ]).toEqual([kind, kind]);
+    }
+  });
+
+  it("classifyAppPayload ConditionalExpression and LogicalOperator: each identifier classifies only under its own APPn marker, and the right marker needs the right identifier", () => {
+    const tail = Buffer.from([0x01, 0x02, 0x03]);
+    for (const { marker: own, kind, identifier } of jmAppIdentifiers()) {
+      const payload = Buffer.concat([identifier, tail]);
+      for (const marker of jmAllMarkerBytes()) {
+        expect([kind, marker, classifyAppPayload(marker, payload)]).toEqual([
+          kind,
+          marker,
+          marker === own ? kind : "other",
+        ]);
+      }
+      // The identifier minus its last byte is not the identifier, under any marker.
+      const short = identifier.subarray(0, identifier.length - 1);
+      for (const marker of jmAllMarkerBytes()) {
+        expect([kind, marker, classifyAppPayload(marker, short)]).toEqual([
+          kind,
+          marker,
+          "other",
+        ]);
+      }
+    }
+    // The right marker with an unrelated, an empty and an absent payload.
+    for (const marker of [0xe0, 0xe1, 0xe2, 0xee]) {
+      expect(
+        classifyAppPayload(marker, Buffer.from("XXXXXXXX", "latin1")),
+      ).toBe("other");
+      expect(classifyAppPayload(marker, Buffer.alloc(0))).toBe("other");
+      expect(classifyAppPayload(marker, undefined)).toBe("other");
+    }
   });
 });
