@@ -185434,16 +185434,13 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "buildExifInsertSegment",
       "mutatorName": "BlockStatement",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000544\u000024\u0000548\u00004"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    // Stryker disable next-line CallExpression: defensive-unreachable-by-construction — see the guard above: the synthesized Exif segment is a few dozen bytes, so this throw is never reached.\n    throw new RangeError(\n      \"Synthesized EXIF segment exceeds the 16-bit segment length field.\",\n    );\n  }\u00000"
-      ],
-      "note": "buildExifInsertSegment's tiff comes from createMinimalExif, which writes at most an Orientation entry and a resolution entry (a few dozen bytes), so length = 2 + 6 + tiff.length never exceeds 0xffff and the guard body never executes. The directive names BlockStatement only; the line's observable opposites (ConditionalExpression true, EqualityOperator <=) stay active.",
-      "equivalenceClass": "defensive-unreachable-by-construction"
+      "note": "Deleted by the Plan 67-23 source edit 6 (node c3b197c), which deletes the 16-bit length guard in buildExifInsertSegment: the synthesized TIFF is a few dozen bytes and writeUInt16BE still rejects an oversize length, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green. Its next-line directive went away with the code it guarded.",
+      "symbol": "Synthesized EXIF segment exceeds the 16-bit segment length field."
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:buildExifInsertSegment:CallExpression",
@@ -185451,16 +185448,13 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "buildExifInsertSegment",
       "mutatorName": "CallExpression",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000545\u00005\u0000547\u00007"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000throw new RangeError(\n      \"Synthesized EXIF segment exceeds the 16-bit segment length field.\",\n    );\u00000"
-      ],
-      "note": "The throw new RangeError statement sits inside the length > 0xffff guard that no synthesized Exif segment can reach (see the BlockStatement row); it was NoCoverage. A next-line CallExpression directive covers it.",
-      "equivalenceClass": "defensive-unreachable-by-construction"
+      "note": "Deleted by the Plan 67-23 source edit 6 (node c3b197c), which deletes the 16-bit length guard in buildExifInsertSegment: the synthesized TIFF is a few dozen bytes and writeUInt16BE still rejects an oversize length, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green. Its next-line directive went away with the code it guarded.",
+      "symbol": "Synthesized EXIF segment exceeds the 16-bit segment length field."
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:buildExifInsertSegment:ConditionalExpression",
@@ -185468,15 +185462,13 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "buildExifInsertSegment",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000544\u00007\u0000544\u000022"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000length > 0xffff\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by the Plan 67-23 source edit 6 (node c3b197c), which deletes the 16-bit length guard in buildExifInsertSegment: the synthesized TIFF is a few dozen bytes and writeUInt16BE still rejects an oversize length, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "symbol": "Synthesized EXIF segment exceeds the 16-bit segment length field."
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:buildExifInsertSegment:EqualityOperator",
@@ -185484,15 +185476,13 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "buildExifInsertSegment",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000length >= 0xffff\u0000544\u00007\u0000544\u000022"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000length >= 0xffff\u0000length > 0xffff\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by the Plan 67-23 source edit 6 (node c3b197c), which deletes the 16-bit length guard in buildExifInsertSegment: the synthesized TIFF is a few dozen bytes and writeUInt16BE still rejects an oversize length, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "symbol": "Synthesized EXIF segment exceeds the 16-bit segment length field."
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:CallExpression",
@@ -185600,17 +185590,15 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "classifySegments",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000191\u00009\u0000191\u000023",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000191\u00009\u0000191\u000047"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000marker === COM\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000marker === COM || !isAppMarker(marker)\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by the Plan 67-23 source edit 2 (node 3dd4796), which deletes the redundant non-APPn remove guard: every non-APPn marker reaches classifyAppPayload with no buffered payload, returns other and then remove, and COM is not an APPn marker, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "symbol": "marker === COM || !isAppMarker(marker)",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:classifySegments:LogicalOperator",
@@ -185618,16 +185606,14 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "classifySegments",
       "mutatorName": "LogicalOperator",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000marker === COM && !isAppMarker(marker)\u0000191\u00009\u0000191\u000047"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000marker === COM && !isAppMarker(marker)\u0000marker === COM || !isAppMarker(marker)\u00000"
-      ],
-      "note": "classifySegments returns remove for a COM or non-APPn marker before reading the payload. With the || to && replacement a COM marker still returns remove (COM, 0xfe, is not an APPn marker, so !isAppMarker is true) and every other non-APPn, non-structural marker falls through to classifyAppPayload(marker, parsed.buffered.get(index)); parseJpeg buffers payloads for APPn segments only, so the payload is undefined, the kind is other, none of the later branches match and the final return remove gives the same class. parseJpeg admits only SOS, DQT, DHT, DRI, admitted SOF, APPn and COM, so no other marker reaches the line anyway. The directive names LogicalOperator only: the line's killed opposites (ConditionalExpression true, EqualityOperator !==) stay active.",
-      "equivalenceClass": "redundant-guard-after-typed-check"
+      "note": "Deleted by the Plan 67-23 source edit 2 (node 3dd4796), which deletes the redundant non-APPn remove guard: every non-APPn marker reaches classifyAppPayload with no buffered payload, returns other and then remove, and COM is not an APPn marker, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "symbol": "marker === COM || !isAppMarker(marker)",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:BlockStatement:gap-01",
@@ -185775,25 +185761,49 @@
       "equivalenceClass": "redundant-guard-after-typed-check"
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression:pending-99",
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "collectMetadata",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000394\u000011\u0000394\u000032",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000448\u00009\u0000448\u000030",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000394\u000011\u0000394\u000032"
+      ],
+      "note": "Deleted by the Plan 67-23 source edit 3 (node d4ba03f), which drops the payload !== undefined guard before the ExtendedXMP push: classifyAppPayload returns extended-xmp only for a buffered payload, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression",
+      "symbol": "if (payload !== undefined) extendedXmpPayloads.push(payload)"
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression:dead-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000448\u00009\u0000448\u000030"
+      ],
+      "note": "Deleted by the Plan 67-23 source edit 4 (node 0588540), which removes the candidates.length wrapper: some() over an empty candidate list is false, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression",
+      "symbol": "if (candidates.length > 0)"
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression:dead-03",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000451\u000024\u0000451\u000047"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000payload !== undefined\u00006",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000candidates.length > 0\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000candidate === \"invalid\"\u00000"
-      ],
-      "note": "Equivalent but each takes a source decision recorded in 67-EVIDENCE.md ## 67-23: the observable opposite of every one of these three is Killed and a directive would hide it.",
-      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression"
+      "note": "Deleted by the Plan 67-23 source edit 5 (node 705548d), which drops the invalid operand: the string invalid never equals sourceValue (a number or undefined), approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression",
+      "symbol": "candidate === \"invalid\" || candidate !== sourceValue"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:EqualityOperator",
@@ -185801,15 +185811,13 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "collectMetadata",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000candidates.length >= 0\u0000448\u00009\u0000448\u000030"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000candidates.length >= 0\u0000candidates.length > 0\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by the Plan 67-23 source edit 4 (node 0588540), which removes the candidates.length wrapper: some() over an empty candidate list is false, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "symbol": "if (candidates.length > 0)"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:MethodExpression",
@@ -185817,16 +185825,14 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "collectMetadata",
       "mutatorName": "MethodExpression",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000MethodExpression\u0000candidates.every(candidate => candidate === \"invalid\" || candidate !== sourceValue)\u0000450\u000025\u0000452\u00008"
       ],
-      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > collectMetadata MethodExpression: an XMP orientation that agrees with EXIF does not mask an incomplete ExtendedXMP"
-      }
+      "note": "Anchor relocated, not removed. Removing the candidates.length wrapper (Plan 67-23 edit node 0588540, approved as maintainer decision \"Approve.\", 2026-11-04) dedented the some() call by two columns, and dropping the invalid operand (node 705548d) changed its text, and the baseline anchor's mutated span contains that text and indentation. The expression and its .some to .every mutant still exist, now at src/admission/jpeg-handler.ts 450:23, and reports/triage/67-23/batch.json records it Killed by the retained test \"D-05 orientation matrix (jpeg_orientation) > XMP with no Orientation: keeps 6\" (with the wrapper gone, an empty candidate list reaches it, and every() over an empty list is true); this plan's own test \"collectMetadata MethodExpression: an XMP orientation that agrees with EXIF does not mask an incomplete ExtendedXMP\" also fails under that mutant. No mutant remains at the old whitespace-bearing anchor, and the witness is the old indented text, scoped to collectMetadata.",
+      "symbol": "candidates.some(\n        (candidate) => candidate === \"invalid\" || candidate !== sourceValue,\n      )",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:StringLiteral:gap-01",
@@ -186232,17 +186238,14 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "startsWith",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000150\u00005\u0000150\u000036",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000150\u00005\u0000151\u000054"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000payload.length >= prefix.length\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000payload.length >= prefix.length &&\n    payload.subarray(0, prefix.length).equals(prefix)\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by the Plan 67-23 source edit 1 (node ad3c517), which inlines the Exif prefix strip and deletes startsWith: its only caller reaches it when classifyAppPayload returned exif, which requires the Exif\\0\\0 prefix, so the prefix test was always true, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "symbol": "startsWith(payload, EXIF_PREFIX)"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:startsWith:EqualityOperator",
@@ -186250,15 +186253,13 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "startsWith",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000payload.length > prefix.length\u0000150\u00005\u0000150\u000036"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000payload.length > prefix.length\u0000payload.length >= prefix.length\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by the Plan 67-23 source edit 1 (node ad3c517), which inlines the Exif prefix strip and deletes startsWith: its only caller reaches it when classifyAppPayload returned exif, which requires the Exif\\0\\0 prefix, so the prefix test was always true, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "symbol": "startsWith(payload, EXIF_PREFIX)"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:startsWith:LogicalOperator",
@@ -186266,15 +186267,13 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "startsWith",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000payload.length >= prefix.length || payload.subarray(0, prefix.length).equals(prefix)\u0000150\u00005\u0000151\u000054"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000payload.length >= prefix.length || payload.subarray(0, prefix.length).equals(prefix)\u0000payload.length >= prefix.length &&\n    payload.subarray(0, prefix.length).equals(prefix)\u00000"
-      ],
-      "note": ""
+      "note": "Deleted by the Plan 67-23 source edit 1 (node ad3c517), which inlines the Exif prefix strip and deletes startsWith: its only caller reaches it when classifyAppPayload returned exif, which requires the Exif\\0\\0 prefix, so the prefix test was always true, approved by the maintainer (\"Approve.\", 2026-11-04, option approve of 67-23-HALTED.md). Behavior is unchanged: the focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "symbol": "startsWith(payload, EXIF_PREFIX)"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:verificationAborted:StringLiteral",
