@@ -66,7 +66,9 @@ import {
   createOrientationExif,
   inBounds,
   parseExif,
+  readIfd0Resolution,
 } from "../src/metadata/exif.js";
+import { parseIcc } from "../src/metadata/icc.js";
 import {
   registeredHandlersForTests,
   setRegisteredHandlersForTests,
@@ -7093,6 +7095,594 @@ describe("metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (6
         // Buffer's own range error carries code ERR_OUT_OF_RANGE; the validation error has none.
         expect((thrown as { code?: unknown }).code).toBeUndefined();
       }
+    }
+  });
+});
+
+// metadata/icc.ts parseIcc and ascii clusters (67-33, metadata-3). `iccBuild` lays out a profile
+// byte by byte: the 128-byte header, the tag count at 128 and 12-byte tag records from 132. Entry
+// names are returned metadata keys, so they are asserted exactly; a warning's `detail` is only
+// checked to be non-empty (or to differ between two situations), never for its wording.
+interface IccTagSpec {
+  readonly sig: string;
+  readonly offset: number;
+  readonly size: number;
+}
+
+interface IccBuildOptions {
+  readonly length: number;
+  readonly declared?: number;
+  readonly signature?: string;
+  /** Major version byte and the packed minor/bugfix byte. */
+  readonly version?: readonly [number, number];
+  readonly text?: Partial<
+    Record<
+      "cmm" | "class" | "space" | "pcs" | "platform" | "maker" | "model",
+      string
+    >
+  >;
+  readonly intent?: number;
+  readonly tagCount?: number;
+  readonly tags?: readonly IccTagSpec[];
+}
+
+function iccBuild(options: IccBuildOptions): Buffer {
+  const out = Buffer.alloc(options.length);
+  const put32 = (at: number, value: number): void => {
+    if (at + 4 <= out.length) out.writeUInt32BE(value, at);
+  };
+  const putText = (at: number, text: string): void => {
+    if (at + 4 <= out.length) out.write(text, at, "ascii");
+  };
+  const text = options.text ?? {};
+  put32(0, options.declared ?? options.length);
+  putText(4, text.cmm ?? "lcms");
+  if (out.length > 9) {
+    out[8] = options.version?.[0] ?? 4;
+    out[9] = options.version?.[1] ?? 0x30;
+  }
+  putText(12, text.class ?? "mntr");
+  putText(16, text.space ?? "RGB ");
+  putText(20, text.pcs ?? "XYZ ");
+  putText(36, options.signature ?? "acsp");
+  putText(40, text.platform ?? "APPL");
+  putText(48, text.maker ?? "ABCD");
+  putText(52, text.model ?? "mdl1");
+  put32(64, options.intent ?? 1);
+  const tags = options.tags ?? [];
+  put32(128, options.tagCount ?? tags.length);
+  tags.forEach((tag, index) => {
+    const at = 132 + index * 12;
+    if (at + 12 > out.length) return;
+    putText(at, tag.sig);
+    put32(at + 4, tag.offset);
+    put32(at + 8, tag.size);
+  });
+  return out;
+}
+
+function iccNamed(name: string, value: unknown): unknown {
+  return { namespace: "ICC", name, value };
+}
+
+/** The eleven header entries of a profile built with the default `iccBuild` fields. */
+function iccHeaderEntries(length: number, declared = length): unknown[] {
+  return [
+    iccNamed("Size", length),
+    iccNamed("DeclaredSize", declared),
+    iccNamed("CMMType", "lcms"),
+    iccNamed("Version", "4.3.0"),
+    iccNamed("DeviceClass", "mntr"),
+    iccNamed("ColorSpace", "RGB "),
+    iccNamed("PCS", "XYZ "),
+    iccNamed("Platform", "APPL"),
+    iccNamed("Manufacturer", "ABCD"),
+    iccNamed("Model", "mdl1"),
+    iccNamed("RenderingIntent", 1),
+  ];
+}
+
+/** Every warning is `metadata-invalid` with some detail text; returns the details. */
+function iccWarnings(payload: Buffer, expectedCount: number): string[] {
+  const { warnings } = parseIcc(payload);
+  expect(warnings.map((warning) => warning.code)).toEqual(
+    Array.from({ length: expectedCount }, () => "metadata-invalid"),
+  );
+  for (const warning of warnings) {
+    expect(warning.detail.length).toBeGreaterThan(0);
+  }
+  return warnings.map((warning) => warning.detail);
+}
+
+function iccSignatures(payload: Buffer): unknown {
+  return parseIcc(payload).entries.find(
+    (entry) => entry.name === "TagSignatures",
+  )?.value;
+}
+
+function iccEntryNames(payload: Buffer): string[] {
+  return parseIcc(payload).entries.map((entry) => entry.name);
+}
+
+describe("metadata/icc.ts parseIcc and ascii clusters (67-33, metadata-3)", () => {
+  it("ascii Regex and StringLiteral clusters: only trailing NULs, and all of them, are stripped from the four-byte text fields", () => {
+    const parsed = parseIcc(
+      iccBuild({
+        length: 132,
+        text: {
+          cmm: "AB\0\0",
+          class: "A\0B\0",
+          space: "ABCD",
+          pcs: "\0\0\0\0",
+          platform: "\0ABC",
+          maker: "A\0\0\0",
+        },
+      }),
+    );
+    const byName = new Map(
+      parsed.entries.map((entry) => [entry.name, entry.value]),
+    );
+    expect(byName.get("CMMType")).toBe("AB");
+    expect(byName.get("DeviceClass")).toBe("A\0B");
+    expect(byName.get("ColorSpace")).toBe("ABCD");
+    expect(byName.get("PCS")).toBe("");
+    expect(byName.get("Platform")).toBe("\0ABC");
+    expect(byName.get("Manufacturer")).toBe("A");
+  });
+
+  it("parseIcc StringLiteral and ArrayDeclaration clusters: every header and tag entry is named and carries its value", () => {
+    const payload = iccBuild({
+      length: 300,
+      tags: [
+        { sig: "desc", offset: 200, size: 10 },
+        { sig: "wtpt", offset: 128, size: 0 },
+      ],
+    });
+    expect(parseIcc(payload)).toEqual({
+      entries: [
+        ...iccHeaderEntries(300),
+        iccNamed("TagCount", 2),
+        iccNamed("TagSignatures", ["desc", "wtpt"]),
+      ],
+      warnings: [],
+    });
+  });
+
+  it("parseIcc LogicalOperator and StringLiteral clusters: the Version entry joins the major byte with the two nibbles of the next byte", () => {
+    const versionOf = (version: readonly [number, number]): unknown =>
+      parseIcc(iccBuild({ length: 128, version })).entries.find(
+        (entry) => entry.name === "Version",
+      )?.value;
+    expect(versionOf([2, 0x13])).toBe("2.1.3");
+    expect(versionOf([4, 0x30])).toBe("4.3.0");
+    expect(versionOf([0, 0])).toBe("0.0.0");
+    expect(versionOf([255, 0xff])).toBe("255.f.f");
+  });
+
+  it("parseIcc ArrayDeclaration, StringLiteral and EqualityOperator clusters: a payload shorter than the 128-byte header reports its size and one warning", () => {
+    for (const length of [0, 1, 4, 127]) {
+      const payload = iccBuild({ length });
+      expect(parseIcc(payload).entries).toEqual([iccNamed("Size", length)]);
+      iccWarnings(payload, 1);
+    }
+  });
+
+  it("parseIcc EqualityOperator, ConditionalExpression and BlockStatement clusters: a header-only payload and one that cuts the tag-count field short are different failures", () => {
+    // Exactly 128 bytes is a complete header with no tag-count field.
+    const headerOnly = iccBuild({ length: 128 });
+    expect(parseIcc(headerOnly).entries).toEqual(iccHeaderEntries(128));
+    const [headerOnlyDetail] = iccWarnings(headerOnly, 1);
+    // 129 through 131 bytes cut the four-byte tag count short: every length is one failure,
+    // and it is not the header-only one.
+    const cutDetails = new Set<string>();
+    for (const length of [129, 130, 131]) {
+      const payload = iccBuild({ length });
+      expect(parseIcc(payload).entries).toEqual(iccHeaderEntries(length));
+      cutDetails.add(iccWarnings(payload, 1)[0] ?? "");
+    }
+    expect(cutDetails.size).toBe(1);
+    expect(cutDetails.has(headerOnlyDetail ?? "")).toBe(false);
+    // Exactly 132 bytes hold a tag count of zero and nothing else.
+    const countOnly = iccBuild({ length: 132 });
+    expect(parseIcc(countOnly)).toEqual({
+      entries: [...iccHeaderEntries(132), iccNamed("TagCount", 0)],
+      warnings: [],
+    });
+  });
+
+  it("parseIcc ConditionalExpression and BlockStatement clusters: a wrong signature and a wrong declared size are one warning each", () => {
+    expect(iccWarnings(iccBuild({ length: 132 }), 0)).toEqual([]);
+    iccWarnings(iccBuild({ length: 132, signature: "xxxx" }), 1);
+    for (const declared of [0, 131, 133, 0xffffffff]) {
+      const payload = iccBuild({ length: 132, declared });
+      expect(parseIcc(payload).entries).toEqual([
+        ...iccHeaderEntries(132, declared),
+        iccNamed("TagCount", 0),
+      ]);
+      iccWarnings(payload, 1);
+    }
+    iccWarnings(iccBuild({ length: 132, signature: "xxxx", declared: 0 }), 2);
+  });
+
+  it("parseIcc EqualityOperator, LogicalOperator, ConditionalExpression and BlockStatement clusters: 4096 tags that all fit are read, 4097 that all fit are refused", () => {
+    const records = (count: number): IccTagSpec[] =>
+      Array.from({ length: count }, (_, index) => ({
+        sig: index.toString(16).padStart(4, "0"),
+        offset: 128,
+        size: 0,
+      }));
+    const atCap = iccBuild({ length: 132 + 4096 * 12, tags: records(4096) });
+    expect(iccWarnings(atCap, 0)).toEqual([]);
+    expect(iccSignatures(atCap)).toEqual(records(4096).map((tag) => tag.sig));
+    expect(iccEntryNames(atCap)).toContain("TagCount");
+
+    const overCap = iccBuild({ length: 132 + 4097 * 12, tags: records(4097) });
+    iccWarnings(overCap, 1);
+    expect(iccEntryNames(overCap)).toContain("TagCount");
+    expect(iccSignatures(overCap)).toBeUndefined();
+  });
+
+  it("parseIcc ArithmeticOperator, ConditionalExpression, LogicalOperator and BlockStatement clusters: a tag count the profile cannot hold is refused without reading past the end", () => {
+    const tags = [
+      { sig: "aaaa", offset: 128, size: 0 },
+      { sig: "bbbb", offset: 128, size: 0 },
+      { sig: "cccc", offset: 128, size: 0 },
+    ];
+    // Two whole records and eight bytes of a third: floor(32 / 12) = 2 records fit, three are declared.
+    const short = iccBuild({ length: 164, tagCount: 3, tags });
+    iccWarnings(short, 1);
+    expect(iccEntryNames(short)).toContain("TagCount");
+    expect(iccSignatures(short)).toBeUndefined();
+    // The same three records, all present, are read.
+    const exact = iccBuild({ length: 168, tags });
+    expect(iccWarnings(exact, 0)).toEqual([]);
+    expect(iccSignatures(exact)).toEqual(["aaaa", "bbbb", "cccc"]);
+    // A count far above both the cap and the profile.
+    iccWarnings(iccBuild({ length: 140, tagCount: 0xffffffff }), 1);
+    // A count above what fits, but below the cap, with only a table of two records present.
+    iccWarnings(iccBuild({ length: 156, tagCount: 5, tags }), 1);
+  });
+
+  it("parseIcc ArithmeticOperator, ConditionalExpression and CallExpression clusters: tag records are read at their own offsets and returned in order", () => {
+    const payload = iccBuild({
+      length: 400,
+      tags: [
+        { sig: "okAa", offset: 128, size: 0 },
+        { sig: "low1", offset: 127, size: 0 },
+        { sig: "low2", offset: 0, size: 4 },
+        { sig: "okBb", offset: 390, size: 10 },
+        { sig: "end1", offset: 391, size: 10 },
+        { sig: "huge", offset: 200, size: 0xffffffff },
+        { sig: "over", offset: 140, size: 300 },
+      ],
+    });
+    // Offsets from 128 up to the end of the profile are inside; a tag one byte too far, below the
+    // header, or sized past the end is outside.
+    expect(iccSignatures(payload)).toEqual(["okAa", "okBb"]);
+    iccWarnings(payload, 5);
+    // A size of 0xffffffff on the first record is read from the record, not from the header.
+    const first = iccBuild({
+      length: 300,
+      tags: [{ sig: "huge", offset: 200, size: 0xffffffff }],
+    });
+    iccWarnings(first, 1);
+    expect(iccSignatures(first)).toBeUndefined();
+    // A data range that ends exactly at the end of the profile is inside it.
+    const edge = iccBuild({
+      length: 300,
+      tags: [{ sig: "edge", offset: 290, size: 10 }],
+    });
+    expect(iccWarnings(edge, 0)).toEqual([]);
+    expect(iccSignatures(edge)).toEqual(["edge"]);
+  });
+
+  it("parseIcc ConditionalExpression and ArrayDeclaration clusters: a profile whose tags are all outside, or that has none, has no TagSignatures entry", () => {
+    const none = iccBuild({ length: 132 });
+    expect(iccEntryNames(none)).not.toContain("TagSignatures");
+    const allOutside = iccBuild({
+      length: 300,
+      tags: [
+        { sig: "out1", offset: 299, size: 10 },
+        { sig: "out2", offset: 10, size: 1 },
+      ],
+    });
+    iccWarnings(allOutside, 2);
+    expect(iccEntryNames(allOutside)).toContain("TagCount");
+    expect(iccEntryNames(allOutside)).not.toContain("TagSignatures");
+    const one = iccBuild({
+      length: 300,
+      tags: [{ sig: "only", offset: 128, size: 1 }],
+    });
+    expect(iccSignatures(one)).toEqual(["only"]);
+  });
+});
+
+// metadata/exif.ts createMinimalExif and readIfd0Resolution clusters (67-33, metadata-3). The
+// IFD0 fixtures reuse `exTiff` (little- and big-endian); RATIONAL values are external.
+const RI_X = { numerator: 72, denominator: 1 };
+const RI_Y = { numerator: 96, denominator: 1 };
+
+function riRational(
+  tag: number,
+  value: { readonly numerator: number; readonly denominator: number },
+  big: boolean,
+): ExEntry {
+  return {
+    tag,
+    type: 5,
+    count: 1,
+    value: exU32([value.numerator, value.denominator], big),
+  };
+}
+
+function riXY(big: boolean): ExEntry[] {
+  return [riRational(0x011a, RI_X, big), riRational(0x011b, RI_Y, big)];
+}
+
+/** An X or Y entry whose value offset points at the first eight bytes of the TIFF header. */
+function riHeaderValue(tag: number): ExEntry {
+  return { tag, type: 5, count: 1, offset: 0 };
+}
+
+function riHeaderRational(
+  tiff: Buffer,
+  big: boolean,
+): { readonly numerator: number; readonly denominator: number } {
+  return big
+    ? { numerator: tiff.readUInt32BE(0), denominator: tiff.readUInt32BE(4) }
+    : { numerator: tiff.readUInt32LE(0), denominator: tiff.readUInt32LE(4) };
+}
+
+describe("metadata/exif.ts createMinimalExif and readIfd0Resolution clusters (67-33, metadata-3)", () => {
+  it("createMinimalExif ConditionalExpression, LogicalOperator and EqualityOperator clusters: Orientation 0 and below, above 8 and non-integers are refused; 1 through 8 are written", () => {
+    for (const bad of [0, -1, 9, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => createMinimalExif({ orientation: bad })).toThrow(RangeError);
+    }
+    for (const value of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      expect(
+        parseExif(createMinimalExif({ orientation: value })).orientation,
+      ).toEqual({ status: "valid", value });
+    }
+  });
+
+  it("createMinimalExif BlockStatement, ConditionalExpression, LogicalOperator, EqualityOperator and CallExpression clusters: ResolutionUnit 0 through 65535 is written exactly, anything else is refused by createMinimalExif's own RangeError", () => {
+    for (const unit of [0, 1, 2, 3, 0xfffe, 0xffff]) {
+      const written = createMinimalExif({
+        resolution: { x: RI_X, y: RI_Y, unit },
+      });
+      expect(readIfd0Resolution(written)).toStrictEqual({
+        x: RI_X,
+        y: RI_Y,
+        unit,
+      });
+    }
+    expect(
+      readIfd0Resolution(
+        createMinimalExif({ resolution: { x: RI_X, y: RI_Y } }),
+      ),
+    ).toStrictEqual({ x: RI_X, y: RI_Y });
+    for (const bad of [
+      -1,
+      0x10000,
+      1.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ]) {
+      let thrown: unknown;
+      try {
+        createMinimalExif({ resolution: { x: RI_X, y: RI_Y, unit: bad } });
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(RangeError);
+      // Buffer's own range error carries code ERR_OUT_OF_RANGE; the validation error has none.
+      expect((thrown as { code?: unknown }).code).toBeUndefined();
+    }
+  });
+
+  it("createMinimalExif: the IFD0 entries are written in ascending tag order and read back through both readers", () => {
+    const written = createMinimalExif({
+      orientation: 6,
+      resolution: { x: RI_X, y: RI_Y, unit: 2 },
+    });
+    expect(written.toString("ascii", 0, 2)).toBe("II");
+    expect(written.readUInt16LE(8)).toBe(4);
+    expect(
+      [0, 1, 2, 3].map((index) => written.readUInt16LE(10 + index * 12)),
+    ).toEqual([0x0112, 0x011a, 0x011b, 0x0128]);
+    expect(parseExif(written).orientation).toEqual({
+      status: "valid",
+      value: 6,
+    });
+    expect(readIfd0Resolution(written)).toStrictEqual({
+      x: RI_X,
+      y: RI_Y,
+      unit: 2,
+    });
+  });
+
+  it("readIfd0Resolution ConditionalExpression and EqualityOperator clusters: a byte order other than II or MM, a marker other than 42 and a payload shorter than the header give undefined", () => {
+    for (const big of [false, true]) {
+      const good = exTiff([...riXY(big), exShort(0x0128, 2, big)], big);
+      expect(readIfd0Resolution(good)).toStrictEqual({
+        x: RI_X,
+        y: RI_Y,
+        unit: 2,
+      });
+      // "XX" is read as big-endian when the check is gone, and the big-endian fixture parses.
+      const badOrder = Buffer.from(good);
+      badOrder.write("XX", 0, "ascii");
+      expect(readIfd0Resolution(badOrder)).toBeUndefined();
+      const lowerCase = Buffer.from(good);
+      lowerCase.write(big ? "mm" : "ii", 0, "ascii");
+      expect(readIfd0Resolution(lowerCase)).toBeUndefined();
+      for (const marker of [0, 41, 43, 0x2a00]) {
+        const badMarker = Buffer.from(good);
+        if (big) badMarker.writeUInt16BE(marker, 2);
+        else badMarker.writeUInt16LE(marker, 2);
+        expect(readIfd0Resolution(badMarker)).toBeUndefined();
+      }
+      for (let length = 0; length <= 8; length += 1) {
+        expect(readIfd0Resolution(good.subarray(0, length))).toBeUndefined();
+      }
+      // An IFD0 offset at or past the end of the payload leaves nothing to read.
+      for (const offset of [good.length - 1, good.length, 0xffffffff]) {
+        const badOffset = Buffer.from(good);
+        if (big) badOffset.writeUInt32BE(offset, 4);
+        else badOffset.writeUInt32LE(offset, 4);
+        expect(readIfd0Resolution(badOffset)).toBeUndefined();
+      }
+    }
+  });
+
+  it("readIfd0Resolution EqualityOperator, ConditionalExpression, LogicalOperator and ArithmeticOperator clusters: 4096 entries that fit are read, 4097 are refused, and an IFD cut one byte short is refused", () => {
+    for (const big of [false, true]) {
+      const entriesOf = (count: number): ExEntry[] => [
+        riHeaderValue(0x011a),
+        riHeaderValue(0x011b),
+        ...Array.from({ length: count - 2 }, () => exMarker(0xf700, 1)),
+      ];
+      const atCap = exTiff(entriesOf(4096), big);
+      const value = riHeaderRational(atCap, big);
+      expect(readIfd0Resolution(atCap)).toStrictEqual({ x: value, y: value });
+      expect(readIfd0Resolution(exTiff(entriesOf(4097), big))).toBeUndefined();
+
+      // Entries only, no next-IFD field and no values behind them: the last entry ends the payload.
+      const three = exTiff(entriesOf(3), big);
+      const entriesEnd = 10 + 3 * 12;
+      const exact = three.subarray(0, entriesEnd);
+      const tripleValue = riHeaderRational(exact, big);
+      expect(readIfd0Resolution(exact)).toStrictEqual({
+        x: tripleValue,
+        y: tripleValue,
+      });
+      expect(
+        readIfd0Resolution(three.subarray(0, entriesEnd - 1)),
+      ).toBeUndefined();
+      expect(
+        readIfd0Resolution(three.subarray(0, entriesEnd - 12)),
+      ).toBeUndefined();
+    }
+  });
+
+  it("readIfd0Resolution EqualityOperator cluster: only the declared entries are read, never the bytes that follow them", () => {
+    for (const big of [false, true]) {
+      const w16 = (buffer: Buffer, at: number, value: number): void => {
+        if (big) buffer.writeUInt16BE(value, at);
+        else buffer.writeUInt16LE(value, at);
+      };
+      const w32 = (buffer: Buffer, at: number, value: number): void => {
+        if (big) buffer.writeUInt32BE(value, at);
+        else buffer.writeUInt32LE(value, at);
+      };
+      // One declared entry (X). The next-IFD field and the bytes after it form a complete Y entry.
+      const base = exTiff([riHeaderValue(0x011a)], big);
+      const phantom = Buffer.concat([base, Buffer.alloc(8)]);
+      const at = 10 + 12;
+      w16(phantom, at, 0x011b);
+      w16(phantom, at + 2, 5);
+      w32(phantom, at + 4, 1);
+      w32(phantom, at + 8, 0);
+      expect(readIfd0Resolution(phantom)).toBeUndefined();
+      // Declaring that second entry makes the same bytes a resolution.
+      const declared = exTiff(
+        [riHeaderValue(0x011a), riHeaderValue(0x011b)],
+        big,
+      );
+      const value = riHeaderRational(declared, big);
+      expect(readIfd0Resolution(declared)).toStrictEqual({
+        x: value,
+        y: value,
+      });
+    }
+  });
+
+  it("readIfd0Resolution ConditionalExpression and LogicalOperator clusters: entries with other tags never overwrite X or Y", () => {
+    for (const big of [false, true]) {
+      const tiff = exTiff(
+        [
+          ...riXY(big),
+          riRational(0x829a, { numerator: 1, denominator: 250 }, big),
+          exShort(0x0112, 6, big),
+        ],
+        big,
+      );
+      expect(readIfd0Resolution(tiff)).toStrictEqual({ x: RI_X, y: RI_Y });
+    }
+  });
+
+  it("readIfd0Resolution ConditionalExpression and LogicalOperator clusters: a ResolutionUnit that is not one SHORT is ignored", () => {
+    for (const big of [false, true]) {
+      const withUnit = (unit: ExEntry): Buffer =>
+        exTiff([...riXY(big), unit], big);
+      expect(
+        readIfd0Resolution(withUnit(exShort(0x0128, 2, big))),
+      ).toStrictEqual({
+        x: RI_X,
+        y: RI_Y,
+        unit: 2,
+      });
+      // A LONG with count 1 and a SHORT with count 2 are not a ResolutionUnit.
+      const long: ExEntry = {
+        tag: 0x0128,
+        type: 4,
+        count: 1,
+        value: exU32([2], big),
+      };
+      const pair: ExEntry = {
+        tag: 0x0128,
+        type: 3,
+        count: 2,
+        value: exU16([2, 3], big),
+      };
+      expect(readIfd0Resolution(withUnit(long))).toStrictEqual({
+        x: RI_X,
+        y: RI_Y,
+      });
+      expect(readIfd0Resolution(withUnit(pair))).toStrictEqual({
+        x: RI_X,
+        y: RI_Y,
+      });
+    }
+  });
+
+  it("readIfd0Resolution ConditionalExpression and LogicalOperator clusters: an X or Y that is not one RATIONAL is ignored, leaving the resolution incomplete", () => {
+    for (const big of [false, true]) {
+      for (const [tag, otherTag, other] of [
+        [0x011a, 0x011b, RI_Y],
+        [0x011b, 0x011a, RI_X],
+      ] as const) {
+        const long: ExEntry = { tag, type: 4, count: 1, offset: 0 };
+        const pair: ExEntry = { tag, type: 5, count: 2, offset: 0 };
+        for (const bad of [long, pair]) {
+          expect(
+            readIfd0Resolution(
+              exTiff([bad, riRational(otherTag, other, big)], big),
+            ),
+          ).toBeUndefined();
+        }
+      }
+    }
+  });
+
+  it("readIfd0Resolution ConditionalExpression cluster: a value offset outside the payload skips that entry and a later valid one is still read", () => {
+    for (const big of [false, true]) {
+      const w32 = (buffer: Buffer, at: number, value: number): void => {
+        if (big) buffer.writeUInt32BE(value, at);
+        else buffer.writeUInt32LE(value, at);
+      };
+      const tiff = exTiff(
+        [
+          { tag: 0x011a, type: 5, count: 1, offset: 0xfffffff0 },
+          riHeaderValue(0x011a),
+          riRational(0x011a, RI_X, big),
+          riRational(0x011b, RI_Y, big),
+        ],
+        big,
+      );
+      // The second entry's value starts four bytes before the end: eight bytes do not fit.
+      w32(tiff, 10 + 12 + 8, tiff.length - 4);
+      expect(readIfd0Resolution(tiff)).toStrictEqual({ x: RI_X, y: RI_Y });
     }
   });
 });
