@@ -460,7 +460,10 @@ export function readIfd0Resolution(
   tiff: Buffer,
 ): MinimalExifResolution | undefined {
   try {
-    if (tiff.length < 8) return undefined;
+    // A payload shorter than the 8-byte TIFF header needs no guard of its own:
+    // the byte order check refuses anything that is not II or MM, and the
+    // bounds-checked u16 and u32 reads below throw a RangeError, which the
+    // catch turns into the same undefined result.
     const byteOrder = tiff.toString("ascii", 0, 2);
     if (byteOrder !== "II" && byteOrder !== "MM") return undefined;
     const reader = makeReader(tiff, byteOrder === "II");
