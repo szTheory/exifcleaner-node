@@ -702,9 +702,7 @@ export const jpegHandler = Object.freeze({
         const parsed = await parseJpeg(handle, size, signal);
         const trailerStart = Math.max(parsed.primaryEoiEnd, size - TRAILER_TAIL_BYTES);
         const trailerLength = size - trailerStart;
-        const trailerTail = trailerLength > 0
-            ? await readTail(handle, trailerLength, trailerStart)
-            : Buffer.alloc(0);
+        const trailerTail = await readTail(handle, trailerLength, trailerStart);
         return { parsed, ...collectMetadata(parsed, trailerTail) };
     },
     inspect(admission) {
