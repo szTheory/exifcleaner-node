@@ -56,6 +56,7 @@ import { verifyIsobmffOutput } from "../src/isobmff/verify.js";
 import { writeIsobmffOutput } from "../src/isobmff/writer.js";
 import type { MetadataEntry, Result } from "../src/types.js";
 import { classifyTrailerClasses } from "../src/jpeg/trailer.js";
+import { reassembleExtendedXmp } from "../src/jpeg/xmp.js";
 import {
   buildIsobmffOutputPlan,
   checkIsobmffOutputPlan,
@@ -6009,5 +6010,180 @@ describe("jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrai
       "gain-map",
       "mpf",
     ]);
+  });
+});
+
+const JX_GUID = "0123456789ABCDEF0123456789ABCDEF";
+const JX_OTHER_GUID = "FEDCBA9876543210FEDCBA9876543210";
+// Adobe XMP Part 3: the identifier and its NUL (35 bytes), the 32-byte GUID, then the 4-byte full
+// length and the 4-byte chunk offset.
+const JX_EXTENSION_HEADER_BYTES = 35 + 32 + 8;
+
+/** One raw ExtendedXMP APP1 payload (Adobe XMP Part 3). */
+function jxChunk(
+  guid: string,
+  fullLength: number,
+  offset: number,
+  data: Buffer,
+): Buffer {
+  const head = Buffer.alloc(8);
+  head.writeUInt32BE(fullLength, 0);
+  head.writeUInt32BE(offset, 4);
+  return Buffer.concat([
+    Buffer.from("http://ns.adobe.com/xmp/extension/\0", "ascii"),
+    Buffer.from(guid, "ascii"),
+    head,
+    data,
+  ]);
+}
+
+/** The standard packet names `declared` through xmpNote:HasExtendedXMP. */
+function jxReassemble(chunks: readonly Buffer[], declared = JX_GUID) {
+  return reassembleExtendedXmp(
+    jhStandardXmpOrientationPayload(1, declared),
+    chunks,
+  );
+}
+
+function jxExpectIncompleteWithDetail(
+  result: ReturnType<typeof reassembleExtendedXmp>,
+): void {
+  expect(result.status).toBe("incomplete");
+  if (result.status !== "incomplete") return;
+  expect(typeof result.detail).toBe("string");
+  expect(result.detail.length).toBeGreaterThan(0);
+}
+
+describe("jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8)", () => {
+  it("reassembleExtendedXmp StringLiteral cluster: every incomplete outcome (inconsistent lengths, oversize, overlap, coverage mismatch) carries a non-empty detail", () => {
+    const data = Buffer.alloc(10, 7);
+    // Two chunks of the named GUID that disagree on the full length.
+    jxExpectIncompleteWithDetail(
+      jxReassemble([
+        jxChunk(JX_GUID, 20, 0, data),
+        jxChunk(JX_GUID, 21, 10, data),
+      ]),
+    );
+    // A declared full length one byte over the cap, with the chunk data covering all of it.
+    const oversized = JPEG_MAX_EXTENDED_XMP_BYTES + 1;
+    jxExpectIncompleteWithDetail(
+      jxReassemble([jxChunk(JX_GUID, oversized, 0, Buffer.alloc(oversized))]),
+    );
+    // Offset overlap: the second chunk starts inside the first.
+    jxExpectIncompleteWithDetail(
+      jxReassemble([
+        jxChunk(JX_GUID, 20, 0, data),
+        jxChunk(JX_GUID, 20, 5, data),
+      ]),
+    );
+    // A hole: the second chunk starts after the first one ends.
+    jxExpectIncompleteWithDetail(
+      jxReassemble([
+        jxChunk(JX_GUID, 20, 0, data),
+        jxChunk(JX_GUID, 20, 15, data),
+      ]),
+    );
+    // Exact-length coverage of fewer bytes than declared.
+    jxExpectIncompleteWithDetail(jxReassemble([jxChunk(JX_GUID, 20, 0, data)]));
+    // Coverage of more bytes than declared.
+    jxExpectIncompleteWithDetail(jxReassemble([jxChunk(JX_GUID, 5, 0, data)]));
+  });
+
+  it("parseExtendedXmpChunk ArithmeticOperator, BlockStatement, ConditionalExpression and EqualityOperator clusters: a payload shorter than identifier, GUID and 8-byte header is ignored, a header-only payload is a chunk", () => {
+    const whole = jxChunk(JX_GUID, 10, 0, Buffer.alloc(10, 7));
+    for (const length of [0, 34, 35, 58, 59, 66, 67, 70, 71, 74]) {
+      const truncated = whole.subarray(0, length);
+      expect(jxReassemble([truncated])).toEqual({ status: "absent" });
+      // A short payload beside a good chunk is skipped, not thrown on.
+      const result = jxReassemble([truncated, whole]);
+      expect(result.status).toBe("complete");
+      if (result.status === "complete")
+        expect(result.xmp.equals(Buffer.alloc(10, 7))).toBe(true);
+    }
+
+    // Exactly the header, no data: a real zero-length chunk (not ignored).
+    const headerOnly = jxChunk(JX_GUID, 0, 0, Buffer.alloc(0));
+    expect(headerOnly.length).toBe(JX_EXTENSION_HEADER_BYTES);
+    const empty = jxReassemble([headerOnly]);
+    expect(empty.status).toBe("complete");
+    if (empty.status === "complete") expect(empty.xmp.length).toBe(0);
+    // ...and a header-only chunk still takes part in the full length agreement.
+    jxExpectIncompleteWithDetail(
+      jxReassemble([
+        jxChunk(JX_GUID, 10, 0, Buffer.alloc(10, 7)),
+        jxChunk(JX_GUID, 11, 10, Buffer.alloc(0)),
+      ]),
+    );
+  });
+
+  it("findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks", () => {
+    // parseXmp trims the raw attribute text and only then decodes entities, so whitespace written
+    // as character references (&#32; and &#10;) reaches the GUID lookup and has to be trimmed there.
+    const data = Buffer.alloc(10, 7);
+    const padded = jxReassemble(
+      [jxChunk(JX_GUID, 10, 0, data)],
+      `&#32;${JX_GUID}&#10;`,
+    );
+    expect(padded.status).toBe("complete");
+    if (padded.status === "complete")
+      expect(padded.xmp.equals(data)).toBe(true);
+    // A GUID that is not 32 characters even once trimmed names nothing.
+    expect(
+      jxReassemble(
+        [jxChunk(JX_GUID, 10, 0, data)],
+        `&#32;${JX_GUID.slice(1)}&#10;`,
+      ),
+    ).toEqual({ status: "absent" });
+  });
+
+  it("reassembleExtendedXmp ConditionalExpression cluster: a declared GUID with no chunk of that GUID is absent, never an error", () => {
+    expect(jxReassemble([])).toEqual({ status: "absent" });
+    expect(
+      jxReassemble([jxChunk(JX_OTHER_GUID, 10, 0, Buffer.alloc(10))]),
+    ).toEqual({ status: "absent" });
+  });
+
+  it("reassembleExtendedXmp EqualityOperator, ConditionalExpression and BlockStatement clusters: exactly JPEG_MAX_EXTENDED_XMP_BYTES reassembles, one byte more is incomplete even when fully covered", () => {
+    const exact = Buffer.alloc(JPEG_MAX_EXTENDED_XMP_BYTES, 0x41);
+    const atCap = jxReassemble([
+      jxChunk(JX_GUID, JPEG_MAX_EXTENDED_XMP_BYTES, 0, exact),
+    ]);
+    expect(atCap.status).toBe("complete");
+    if (atCap.status === "complete") {
+      expect(atCap.xmp.length).toBe(JPEG_MAX_EXTENDED_XMP_BYTES);
+      expect(atCap.xmp.equals(exact)).toBe(true);
+    }
+    const over = JPEG_MAX_EXTENDED_XMP_BYTES + 1;
+    expect(
+      jxReassemble([jxChunk(JX_GUID, over, 0, Buffer.alloc(over, 0x41))])
+        .status,
+    ).toBe("incomplete");
+  });
+
+  it("reassembleExtendedXmp MethodExpression and ArithmeticOperator clusters: chunks arriving out of offset order are sorted by offset, without reordering the caller's input", () => {
+    const full = Buffer.from(
+      "ExtendedXMP chunk payload bytes whose order must come out by offset.",
+      "ascii",
+    );
+    const third = Math.floor(full.length / 3);
+    const parts = [
+      { offset: 0, data: full.subarray(0, third) },
+      { offset: third, data: full.subarray(third, 2 * third) },
+      { offset: 2 * third, data: full.subarray(2 * third) },
+    ];
+    const reversed = parts
+      .map((part) => jxChunk(JX_GUID, full.length, part.offset, part.data))
+      .reverse();
+    const input = [...reversed];
+    const result = jxReassemble(reversed);
+    expect(result.status).toBe("complete");
+    if (result.status === "complete")
+      expect(result.xmp.equals(full)).toBe(true);
+    expect(reversed).toEqual(input);
+    // Interleaved order as well: the middle chunk first.
+    const shuffled = [reversed[1]!, reversed[2]!, reversed[0]!];
+    const again = jxReassemble(shuffled);
+    expect(again.status).toBe("complete");
+    if (again.status === "complete") expect(again.xmp.equals(full)).toBe(true);
   });
 });
