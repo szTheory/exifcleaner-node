@@ -185485,24 +185485,58 @@
       "symbol": "Synthesized EXIF segment exceeds the 16-bit segment length field."
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:CallExpression",
+      "id": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:CallExpression:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "buildOutputPlan",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000593\u00007\u0000593\u000034",
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000598\u00007\u0000598\u000015",
+        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000593\u00007\u0000593\u000034"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:CallExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > buildOutputPlan CallExpression: the synthesized Exif slot contributes the APP1 marker to the expected sequence"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:CallExpression:equivalent-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "buildOutputPlan",
+      "mutatorName": "CallExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000598\u00007\u0000598\u000015"
+      ],
+      "anchors": [
+        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000flush();\u00001"
+      ],
+      "note": "The flush() call in the removed-segment branch of buildOutputPlan. Dropping it emits the same parts: a kept segment that follows a removed one never starts at pendingEnd (the removed segment lies between them, and every segment has a positive length), so the else branch flushes the same pending range before opening a new one, the Exif slot branch flushes before it inserts, and the final flush covers the tail. plan.parts and plan.copiedRanges are identical. One next-line CallExpression directive on the flush() line; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:CallExpression",
+      "equivalenceClass": "redundant-guard-after-typed-check"
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:CallExpression:equivalent-03",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "buildOutputPlan",
+      "mutatorName": "CallExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
         "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000606\u00007\u0000606\u000015"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000expectedMarkers.push(APP1);\u00000",
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000flush();\u00001",
         "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000flush();\u00002"
       ],
-      "note": ""
+      "note": "The flush() call in the else branch of the adjacency test in buildOutputPlan. The branch runs only when pendingEnd differs from the segment's start; every earlier gap in the segment list (a removed segment, the Exif slot) has already flushed and parsed segments are contiguous, so no pending range is open here and the call never emits a part. One next-line CallExpression directive on the flush() line; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:CallExpression",
+      "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:ConditionalExpression",
@@ -185510,15 +185544,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "buildOutputPlan",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000603\u00009\u0000603\u000036"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000pendingEnd === segmentStart\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > buildOutputPlan ConditionalExpression: adjacent kept segments coalesce into one copy part and a removed segment splits the ranges"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:buildOutputPlan:StringLiteral",
@@ -185526,7 +185561,7 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "buildOutputPlan",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000621\u00009\u0000621\u000095"
@@ -185534,7 +185569,8 @@
       "anchors": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"JPEG JFIF segment carries an embedded thumbnail; resolution preservation falls back.\"\u00000"
       ],
-      "note": ""
+      "note": "The thumbnail decline detail. It reaches only plan.declineReason, which checkOutputPlan returns and engine.ts forwards as the free-text detail of the typed unsafe-structure refusal (the engine tests the value against undefined, so an empty string still declines); the refusal code, the path and the plan parts do not depend on its wording. The literal moved into a local const so the next-line StringLiteral directive sits on its line (a directive inside a ternary branch fails disable-lint).",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:checkOutputPlan:ConditionalExpression",
@@ -185878,15 +185914,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "findInsertPosition",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000index <= stopAt\u0000663\u000023\u0000663\u000037"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000index <= stopAt\u0000index < stopAt\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > findInsertPosition EqualityOperator and verifyOutput ConditionalExpression: the synthesized Exif slot is excluded from the kept-segment comparison whatever the source classified it as"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:isStructuralMarker:ConditionalExpression",
@@ -186052,35 +186089,53 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "readTail",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000length + read\u0000701\u00007\u0000701\u000020",
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000position - read\u0000702\u00007\u0000702\u000022"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000length + read\u0000length - read\u00000",
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000position - read\u0000position + read\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:readTail:ConditionalExpression",
+      "id": "jpeg:src/admission/jpeg-handler.ts:readTail:ConditionalExpression:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "readTail",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000704\u00009\u0000704\u000029",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000704\u00009\u0000704\u000029"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:readTail:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ConditionalExpression: a read that returns no bytes ends the tail read after one attempt"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:readTail:ConditionalExpression:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "readTail",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000704\u00009\u0000704\u000029"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000next.bytesRead === 0\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000next.bytesRead === 0\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:readTail:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:readTail:EqualityOperator",
@@ -186088,17 +186143,17 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "readTail",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000read <= length\u0000697\u000010\u0000697\u000023",
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000next.bytesRead !== 0\u0000704\u00009\u0000704\u000029"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000read <= length\u0000read < length\u00000",
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000next.bytesRead !== 0\u0000next.bytesRead === 0\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ArithmeticOperator",
@@ -186106,65 +186161,129 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "segmentsEqual",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 3,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000span + offset\u0000725\u000047\u0000725\u000060",
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000source.offset - offset\u0000730\u00007\u0000730\u000029",
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000destination.offset - offset\u0000736\u00007\u0000736\u000034"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000span + offset\u0000span - offset\u00000",
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000source.offset - offset\u0000source.offset + offset\u00000",
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000destination.offset - offset\u0000destination.offset + offset\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ArithmeticOperator and MethodExpression: a segment larger than one copy block compares block by block within the buffer bound"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:BooleanLiteral",
+      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:BooleanLiteral:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "segmentsEqual",
       "mutatorName": "BooleanLiteral",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000717\u000062\u0000717\u000067",
-        "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000747\u000014\u0000747\u000019"
+        "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000717\u000062\u0000717\u000067"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000false\u00007",
-        "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000false\u00008"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:BooleanLiteral",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression and BooleanLiteral: a longer scan segment with an identical prefix fails verification"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ConditionalExpression",
+      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:BooleanLiteral:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "segmentsEqual",
+      "mutatorName": "BooleanLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000747\u000014\u0000747\u000019"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:BooleanLiteral",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression, EqualityOperator and BooleanLiteral, and verifyOutput BlockStatement and EqualityOperator: one altered byte in a kept segment fails verification while count and order are unchanged"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ConditionalExpression:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "segmentsEqual",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 7,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000717\u00007\u0000717\u000053",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000717\u00007\u0000717\u000053"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression and BooleanLiteral: a longer scan segment with an identical prefix fails verification"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ConditionalExpression:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "segmentsEqual",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000722\u000024\u0000722\u000037",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000723\u00009\u0000723\u000026",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000738\u00009\u0000738\u000034",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000738\u00009\u0000738\u000064",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000738\u000038\u0000738\u000064",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000743\u00007\u0000745\u000055"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000source.totalLength !== destination.totalLength\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000offset < span\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000left.bytesRead !== length\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000left.bytesRead !== length || right.bytesRead !== length\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000right.bytesRead !== length\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000!sourceBuffer\n        .subarray(0, length)\n        .equals(destinationBuffer.subarray(0, length))\u00000"
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression, EqualityOperator and BooleanLiteral, and verifyOutput BlockStatement and EqualityOperator: one altered byte in a kept segment fails verification while count and order are unchanged"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ConditionalExpression:gap-03",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "segmentsEqual",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000723\u00009\u0000723\u000026"
       ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression: an abort during segment comparison reports the typed aborted error"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ConditionalExpression:gap-04",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "segmentsEqual",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000738\u00009\u0000738\u000034",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000738\u00009\u0000738\u000064",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000738\u000038\u0000738\u000064"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression and LogicalOperator: a short source read or a short destination read fails verification"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:EqualityOperator",
@@ -186172,33 +186291,52 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "segmentsEqual",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000offset >= span\u0000722\u000024\u0000722\u000037"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000offset >= span\u0000offset < span\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression, EqualityOperator and BooleanLiteral, and verifyOutput BlockStatement and EqualityOperator: one altered byte in a kept segment fails verification while count and order are unchanged"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:LogicalOperator",
+      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:LogicalOperator:equivalent-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "segmentsEqual",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "equivalent",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000724\u000013\u0000724\u000072",
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000left.bytesRead !== length && right.bytesRead !== length\u0000738\u00009\u0000738\u000064"
+        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000724\u000013\u0000724\u000072"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00000",
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000left.bytesRead !== length && right.bytesRead !== length\u0000left.bytesRead !== length || right.bytesRead !== length\u00000"
+        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00000"
       ],
-      "note": ""
+      "note": "The signal?.reason ?? new DOMException(...) expression thrown by segmentsEqual when the signal is aborted. The thrown value is never read: the only catcher is verifyOutput's catch, which tests isAborted(signal) and returns the typed aborted error whatever was thrown. One next-line directive naming LogicalOperator and StringLiteral on the throw line; the other mutants on that line are the two string literals of the same expression.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:LogicalOperator",
+      "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:LogicalOperator:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "segmentsEqual",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000left.bytesRead !== length && right.bytesRead !== length\u0000738\u00009\u0000738\u000064"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression and LogicalOperator: a short source read or a short destination read fails verification"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:MethodExpression",
@@ -186206,15 +186344,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "segmentsEqual",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000MethodExpression\u0000Math.max(COPY_BLOCK_BYTES, Math.max(span, 1))\u0000719\u000022\u0000719\u000067"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000MethodExpression\u0000Math.max(COPY_BLOCK_BYTES, Math.max(span, 1))\u0000Math.min(COPY_BLOCK_BYTES, Math.max(span, 1))\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ArithmeticOperator and MethodExpression: a segment larger than one copy block compares block by block within the buffer bound"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:segmentsEqual:StringLiteral",
@@ -186222,15 +186361,17 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "segmentsEqual",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000724\u000059\u0000724\u000071"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"AbortError\"\u00000"
+        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"AbortError\"\u00000",
+        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"Aborted\"\u00000"
       ],
-      "note": ""
+      "note": "The AbortError name of the DOMException segmentsEqual throws on an aborted signal. It is swallowed by verifyOutput's catch, which returns the typed aborted error (see the LogicalOperator row for the trace). Same next-line directive as that row.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:startsWith:ConditionalExpression",
@@ -186281,15 +186422,17 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "verificationAborted",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000762\u000032\u0000762\u000056"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"Operation was aborted.\"\u00000"
+        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"Operation was aborted.\"\u00000",
+        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"aborted\"\u00000"
       ],
-      "note": ""
+      "note": "The detail of the typed aborted error built by verificationAborted. It is free text; callers branch on the aborted code and the path. The next-line StringLiteral directive sits above the object-literal argument line; the code literal on the same line is a CompileError mutant suppressed as collateral and listed as a second anchor.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:verificationError:StringLiteral",
@@ -186297,7 +186440,7 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "verificationError",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 8,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000796\u000011\u0000796\u000069",
@@ -186319,7 +186462,8 @@
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"Kept JPEG segment bytes changed.\"\u00000",
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"Could not reopen and verify the destination.\"\u00000"
       ],
-      "note": ""
+      "note": "The eight detail arguments passed to verificationError (trailer bytes, marker sequence, remaining marker template, missing Exif slot, Exif payload, segment count, kept segment bytes, and the fallback for an unreadable destination). Each is the free-text detail of the typed verification-failed error; the tests assert the code and the path, never the wording. One next-line StringLiteral directive per literal, each on its own line (the fallback moved into a local const so its directive sits on its line).",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ArrowFunction",
@@ -186327,87 +186471,315 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "ArrowFunction",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ArrowFunction\u0000() => undefined\u0000813\u00009\u0000813\u000061"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ArrowFunction\u0000() => undefined\u0000(marker, index) => marker !== expectedMarkers[index]\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput ConditionalExpression, LogicalOperator, MethodExpression and ArrowFunction: a changed marker sequence fails before any segment byte is compared"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement",
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000834\u000062\u0000845\u00006",
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000836\u000067\u0000844\u00008",
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000847\u000020\u0000884\u00006",
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000906\u000064\u0000927\u00006"
+        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000836\u000067\u0000844\u00008"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000{\n      if (hasInsert && index === insertPosition) continue;\n      if (!isKept(cls, preserveColorProfile, preserveResolution)) {\n        const marker = destination.segments[index]?.marker ?? 0;\n        return err(\n          verificationError(\n            `Marker 0x${marker.toString(16)} remained after sanitization.`,\n            destinationPath,\n          ),\n        );\n      }\n    }\u00000",
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000{\n        const marker = destination.segments[index]?.marker ?? 0;\n        return err(\n          verificationError(\n            `Marker 0x${marker.toString(16)} remained after sanitization.`,\n            destinationPath,\n          ),\n        );\n      }\u00000",
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000{\n      const exifSegment = destination.segments[insertPosition];\n      if (exifSegment === undefined || exifSegment.marker !== APP1)\n        return err(\n          verificationError(\n            \"Expected synthesized Exif segment is missing from its source slot.\",\n            destinationPath,\n          ),\n        );\n      const exifPayload = await readTail(\n        destinationHandle,\n        exifSegment.payloadLength,\n        exifSegment.payloadOffset,\n      );\n      const expectedTiff = createMinimalExif(tags);\n      const expectedPayload = Buffer.concat([EXIF_PREFIX, expectedTiff]);\n      const reparsed = parseExif(exifPayload);\n      const expectedEntryCount =\n        (tags.orientation === undefined ? 0 : 1) +\n        (tags.resolution === undefined\n          ? 0\n          : tags.resolution.unit === undefined\n            ? 2\n            : 3);\n      if (\n        !exifPayload.equals(expectedPayload) ||\n        reparsed.entries.length !== expectedEntryCount ||\n        (tags.orientation !== undefined &&\n          (reparsed.orientation.status !== \"valid\" ||\n            reparsed.orientation.value !== tags.orientation))\n      )\n        return err(\n          verificationError(\n            \"Inserted Exif did not equal the recomputed minimal EXIF payload.\",\n            destinationPath,\n          ),\n        );\n    }\u00000",
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000{\n      const left = sourceKept[index];\n      const right = destinationForComparison[index];\n      if (\n        left === undefined ||\n        right === undefined ||\n        left.marker !== right.marker ||\n        !(await segmentsEqual(\n          sourceHandle,\n          left,\n          destinationHandle,\n          right,\n          signal,\n        ))\n      )\n        return err(\n          verificationError(\n            \"Kept JPEG segment bytes changed.\",\n            destinationPath,\n          ),\n        );\n    }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput BlockStatement and ConditionalExpression: a destination segment that classifies as removed fails before any segment byte is compared"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000847\u000020\u0000884\u00006"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput BlockStatement, LogicalOperator and ConditionalExpression: an altered synthesized Exif payload fails verification"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement:gap-03",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000906\u000064\u0000927\u00006"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression, EqualityOperator and BooleanLiteral, and verifyOutput BlockStatement and EqualityOperator: one altered byte in a kept segment fails verification while count and order are unchanged"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-01",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000793\u00009\u0000793\u000039"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput ConditionalExpression: a destination with trailer bytes after the primary EOI fails verification"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000811\u00007\u0000811\u000059"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput ConditionalExpression: a destination whose markers are a prefix of the plan fails before its Exif payload is read"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-03",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000811\u00007\u0000814\u00008",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000813\u000028\u0000813\u000061"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput ConditionalExpression, LogicalOperator, MethodExpression and ArrowFunction: a changed marker sequence fails before any segment byte is compared"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-04",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000835\u000011\u0000835\u000048",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000836\u000011\u0000836\u000065"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput BlockStatement and ConditionalExpression: a destination segment that classifies as removed fails before any segment byte is compared"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-05",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000835\u000024\u0000835\u000048"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput LogicalOperator and ConditionalExpression: with a synthesized Exif a removed destination segment still fails before any segment byte is compared"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:equivalent-06",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000849\u000040\u0000849\u000067"
+      ],
+      "anchors": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000exifSegment.marker !== APP1\u00000",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000exifSegment === undefined || exifSegment.marker !== APP1\u00000",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000exifSegment === undefined || exifSegment.marker !== APP1\u00000",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000exifSegment === undefined\u00000"
+      ],
+      "note": "The exifSegment.marker !== APP1 half of the missing-Exif-slot test. The marker-sequence check earlier in verifyOutput already requires the destination marker at insertPosition to equal the recomputed one, and recomputeExpectedMarkers puts APP1 exactly at the index findInsertPosition returns, so the half is never true when it is reached; the exifSegment === undefined half stays active and its mutants are CompileErrors suppressed only as collateral. The EqualityOperator mutant of the same operand stays active (Killed).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "equivalenceClass": "redundant-guard-after-typed-check"
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-07",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000872\u00009\u0000873\u000055",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000872\u00009\u0000876\u000062"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput BlockStatement, LogicalOperator and ConditionalExpression: an altered synthesized Exif payload fails verification"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:pending-99",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 18,
+      "count": 3,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000793\u00009\u0000793\u000039",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000811\u00007\u0000811\u000059",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000811\u00007\u0000814\u00008",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000813\u000028\u0000813\u000061",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000835\u000011\u0000835\u000048",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000835\u000024\u0000835\u000048",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000836\u000011\u0000836\u000065",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000849\u000040\u0000849\u000067",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000872\u00009\u0000873\u000055",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000872\u00009\u0000876\u000062",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000873\u00009\u0000873\u000055",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000874\u000010\u0000876\u000061",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000876\u000013\u0000876\u000060",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000887\u000011\u0000887\u000052",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000899\u00009\u0000899\u000062",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000910\u00009\u0000919\u000011",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000912\u00009\u0000912\u000037",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000931\u00009\u0000931\u000026"
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000876\u000013\u0000876\u000060"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000destination.trailerBytes !== 0\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000destinationMarkers.length !== expectedMarkers.length\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000destinationMarkers.length !== expectedMarkers.length ||\n      destinationMarkers.some(\n        (marker, index) => marker !== expectedMarkers[index],\n      )\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000marker !== expectedMarkers[index]\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000hasInsert && index === insertPosition\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000index === insertPosition\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000!isKept(cls, preserveColorProfile, preserveResolution)\u00001",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000exifSegment.marker !== APP1\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000!exifPayload.equals(expectedPayload) ||\n        reparsed.entries.length !== expectedEntryCount\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000!exifPayload.equals(expectedPayload) ||\n        reparsed.entries.length !== expectedEntryCount ||\n        (tags.orientation !== undefined &&\n          (reparsed.orientation.status !== \"valid\" ||\n            reparsed.orientation.value !== tags.orientation))\u00000",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000reparsed.entries.length !== expectedEntryCount\u00000",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000tags.orientation !== undefined &&\n          (reparsed.orientation.status !== \"valid\" ||\n            reparsed.orientation.value !== tags.orientation)\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000reparsed.orientation.value !== tags.orientation\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000hasInsert && index === admission.exifSlot\u00001",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000sourceKept.length !== destinationForComparison.length\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000left === undefined ||\n        right === undefined ||\n        left.marker !== right.marker ||\n        !(await segmentsEqual(\n          sourceHandle,\n          left,\n          destinationHandle,\n          right,\n          signal,\n        ))\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000left.marker !== right.marker\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00001"
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000reparsed.orientation.value !== tags.orientation\u00000"
       ],
-      "note": ""
+      "note": "Needs a maintainer decision: see 67-24-HALTED.md and the Pending members section of the ## 67-24 evidence.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-09",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000887\u000011\u0000887\u000052"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > findInsertPosition EqualityOperator and verifyOutput ConditionalExpression: the synthesized Exif slot is excluded from the kept-segment comparison whatever the source classified it as"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:equivalent-10",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000899\u00009\u0000899\u000062"
+      ],
+      "anchors": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000sourceKept.length !== destinationForComparison.length\u00000",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000sourceKept.length !== destinationForComparison.length\u00000"
+      ],
+      "note": "The sourceKept.length !== destinationForComparison.length test. The marker-sequence check earlier in verifyOutput already requires the destination to hold exactly the planned number of segments (the kept source segments plus the one Exif slot), so the kept counts are equal when this line is reached. The EqualityOperator mutant of the same test stays active (Killed); the always-true mutant is a CompileError suppressed only as collateral.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "equivalenceClass": "redundant-guard-after-typed-check"
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-11",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000910\u00009\u0000919\u000011"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression, EqualityOperator and BooleanLiteral, and verifyOutput BlockStatement and EqualityOperator: one altered byte in a kept segment fails verification while count and order are unchanged"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:equivalent-12",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000912\u00009\u0000912\u000037"
+      ],
+      "anchors": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000left.marker !== right.marker\u00000"
+      ],
+      "note": "The left.marker !== right.marker operand of the pair test. The marker-sequence check earlier in verifyOutput fixes the destination's marker order, so each kept pair already shares its marker, and segmentsEqual compares the marker bytes again. The EqualityOperator mutant of the operand stays active (Killed).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "equivalenceClass": "redundant-guard-after-typed-check"
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-13",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000931\u00009\u0000931\u000026"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression: an abort during segment comparison reports the typed aborted error"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:EqualityOperator",
@@ -186415,37 +186787,71 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000index >= sourceKept.length\u0000906\u000025\u0000906\u000050"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000index >= sourceKept.length\u0000index < sourceKept.length\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ConditionalExpression, EqualityOperator and BooleanLiteral, and verifyOutput BlockStatement and EqualityOperator: one altered byte in a kept segment fails verification while count and order are unchanged"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator",
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000destinationMarkers.length !== expectedMarkers.length && destinationMarkers.some((marker, index) => marker !== expectedMarkers[index])\u0000811\u00007\u0000814\u00008",
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000hasInsert || index === insertPosition\u0000835\u000011\u0000835\u000048",
+        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000destinationMarkers.length !== expectedMarkers.length && destinationMarkers.some((marker, index) => marker !== expectedMarkers[index])\u0000811\u00007\u0000814\u00008"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput ConditionalExpression, LogicalOperator, MethodExpression and ArrowFunction: a changed marker sequence fails before any segment byte is compared"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000hasInsert || index === insertPosition\u0000835\u000011\u0000835\u000048"
+      ],
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput LogicalOperator and ConditionalExpression: with a synthesized Exif a removed destination segment still fails before any segment byte is compared"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator:gap-03",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000!exifPayload.equals(expectedPayload) && reparsed.entries.length !== expectedEntryCount\u0000872\u00009\u0000873\u000055",
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000(!exifPayload.equals(expectedPayload) || reparsed.entries.length !== expectedEntryCount) && tags.orientation !== undefined && (reparsed.orientation.status !== \"valid\" || reparsed.orientation.value !== tags.orientation)\u0000872\u00009\u0000876\u000062"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000destinationMarkers.length !== expectedMarkers.length && destinationMarkers.some((marker, index) => marker !== expectedMarkers[index])\u0000destinationMarkers.length !== expectedMarkers.length ||\n      destinationMarkers.some(\n        (marker, index) => marker !== expectedMarkers[index],\n      )\u00000",
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000hasInsert || index === insertPosition\u0000hasInsert && index === insertPosition\u00000",
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000!exifPayload.equals(expectedPayload) && reparsed.entries.length !== expectedEntryCount\u0000!exifPayload.equals(expectedPayload) ||\n        reparsed.entries.length !== expectedEntryCount\u00000",
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000(!exifPayload.equals(expectedPayload) || reparsed.entries.length !== expectedEntryCount) && tags.orientation !== undefined && (reparsed.orientation.status !== \"valid\" || reparsed.orientation.value !== tags.orientation)\u0000!exifPayload.equals(expectedPayload) ||\n        reparsed.entries.length !== expectedEntryCount ||\n        (tags.orientation !== undefined &&\n          (reparsed.orientation.status !== \"valid\" ||\n            reparsed.orientation.value !== tags.orientation))\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput BlockStatement, LogicalOperator and ConditionalExpression: an altered synthesized Exif payload fails verification"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:MethodExpression",
@@ -186453,15 +186859,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000MethodExpression\u0000destinationMarkers.every((marker, index) => marker !== expectedMarkers[index])\u0000812\u00007\u0000814\u00008"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000MethodExpression\u0000destinationMarkers.every((marker, index) => marker !== expectedMarkers[index])\u0000destinationMarkers.some(\n        (marker, index) => marker !== expectedMarkers[index],\n      )\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput ConditionalExpression, LogicalOperator, MethodExpression and ArrowFunction: a changed marker sequence fails before any segment byte is compared"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:UnaryOperator",
@@ -186469,7 +186876,7 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "UnaryOperator",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000UnaryOperator\u0000+1\u0000825\u00009\u0000825\u000011"
@@ -186477,7 +186884,8 @@
       "anchors": [
         "src/admission/jpeg-handler.ts\u0000UnaryOperator\u0000+1\u0000-1\u00006"
       ],
-      "note": ""
+      "note": "The -1 insertPosition sentinel used when no Exif is synthesized. Every use of insertPosition sits behind hasInsert (the class loop's hasInsert && test, the if (hasInsert) block, the hasInsert ? filter : ... expression), and when hasInsert is true findInsertPosition replaces the sentinel, so the value never matters. The literal moved into a local const so the next-line UnaryOperator directive sits on its line.",
+      "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:writeAll:ArithmeticOperator",
@@ -186485,17 +186893,17 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "writeAll",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000data.length + written\u0000680\u00007\u0000680\u000028",
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000position - written\u0000681\u00007\u0000681\u000025"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000data.length + written\u0000data.length - written\u00000",
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000position - written\u0000position + written\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > writeAll ArithmeticOperator: a partial write continues at the next unwritten byte with only the remainder"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:writeAll:ConditionalExpression",
@@ -186503,15 +186911,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "writeAll",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000683\u00009\u0000683\u000032"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000next.bytesWritten === 0\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > writeAll ConditionalExpression: a write that makes no progress fails after exactly one attempt"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:writeOutput:ConditionalExpression",
