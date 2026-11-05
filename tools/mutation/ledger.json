@@ -187623,37 +187623,36 @@
       }
     },
     {
-      "id": "jpeg:src/jpeg/markers.ts:startsWithAppId:ConditionalExpression",
+      "id": "jpeg:src/jpeg/markers.ts:startsWithAppId:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/markers.ts",
       "function": "startsWithAppId",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000234\u00005\u0000234\u000036"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000payload.length >= prefix.length\u00000"
-      ],
-      "note": "pending: equivalent but its line holds Killed observable counterparts, so no directive is allowed; needs a maintainer source decision, see .planning/phases/67-mutation-baseline/67-26-HALTED.md"
+      "note": "Deleted by the Plan 67-26 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-26-HALTED.md, Option A): the redundant length operand of startsWithAppId; Buffer#equals already rejects a different length. The symbol \"payload.length >= prefix.length\" no longer appears in its enclosing function startsWithAppId (scoped witness); the fresh unfiltered report reports/triage/67-26/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "jpeg:src/jpeg/markers.ts:startsWithAppId:ConditionalExpression",
+      "symbol": "payload.length >= prefix.length",
+      "symbolScope": "function"
     },
     {
-      "id": "jpeg:src/jpeg/markers.ts:startsWithAppId:EqualityOperator",
+      "id": "jpeg:src/jpeg/markers.ts:startsWithAppId:EqualityOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/markers.ts",
       "function": "startsWithAppId",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/markers.ts\u0000EqualityOperator\u0000payload.length > prefix.length\u0000234\u00005\u0000234\u000036"
       ],
-      "note": "reports/triage/67-26/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > classifyAppPayload startsWithAppId EqualityOperator: a payload exactly as long as its identifier is still classified by that identifier"
-      }
+      "note": "Deleted by the Plan 67-26 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-26-HALTED.md, Option A): the redundant length operand of startsWithAppId; Buffer#equals already rejects a different length. The symbol \"payload.length >= prefix.length\" no longer appears in its enclosing function startsWithAppId (scoped witness); the fresh unfiltered report reports/triage/67-26/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "jpeg:src/jpeg/markers.ts:startsWithAppId:EqualityOperator",
+      "symbol": "payload.length >= prefix.length",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:constructor:StringLiteral",
