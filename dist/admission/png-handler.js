@@ -73,11 +73,11 @@ const ICCP_MIN_KEYWORD_BYTES = 1;
 const ICCP_MAX_KEYWORD_BYTES = 79;
 function parseIccpChunk(data, budget) {
     const nul = data.indexOf(0);
-    if (nul < ICCP_MIN_KEYWORD_BYTES ||
-        nul > ICCP_MAX_KEYWORD_BYTES ||
-        nul + 1 >= data.length) {
+    if (nul < ICCP_MIN_KEYWORD_BYTES || nul > ICCP_MAX_KEYWORD_BYTES) {
         throw new PngStructureError("malformed-file", "iCCP chunk profile name is missing or exceeds the 79-byte limit.");
     }
+    // A terminator that is the last byte leaves no method byte: `method` is then
+    // undefined and the check below refuses the chunk with the same typed kind.
     const method = data[nul + 1];
     if (method !== 0) {
         throw new PngStructureError("malformed-file", "iCCP chunk compression method must be zero.");
@@ -87,9 +87,11 @@ function parseIccpChunk(data, budget) {
 }
 function parseZtxtChunk(data, budget) {
     const nul = data.indexOf(0);
-    if (nul < 0 || nul + 1 >= data.length) {
+    if (nul < 0) {
         throw new PngStructureError("malformed-file", "zTXt chunk is missing its keyword terminator.");
     }
+    // A terminator in the last two bytes leaves no compressed data: inflateBounded
+    // refuses the empty stream with the same typed kind.
     const compressed = data.subarray(nul + 2);
     return inflateBounded(compressed, 
     // Stryker disable next-line StringLiteral: unobservable-message — this chunk label reaches only the diagnostic text and the typed limit's chunkType, which classifyAdmissionFailure compares with the iCCP label alone, so a zTXt label never selects a different outcome.
@@ -97,19 +99,18 @@ function parseZtxtChunk(data, budget) {
 }
 function parseItxtChunk(data, budget) {
     const keywordNul = data.indexOf(0);
-    if (keywordNul < 0) {
-        throw new PngStructureError("malformed-file", "iTXt chunk is missing its keyword terminator.");
-    }
+    // No keyword terminator means the data holds no zero byte at all, so the
+    // language-tag search below finds none either and refuses with the same kind.
     const keyword = data.toString("latin1", 0, keywordNul);
     const compressionFlag = data[keywordNul + 1];
     let offset = keywordNul + 3; // past keyword\0, compression flag, compression method
     const languageNul = data.indexOf(0, offset);
-    if (languageNul < 0) {
+    if (languageNul === -1) {
         throw new PngStructureError("malformed-file", "iTXt chunk is missing its language-tag terminator.");
     }
     offset = languageNul + 1;
     const translatedNul = data.indexOf(0, offset);
-    if (translatedNul < 0) {
+    if (translatedNul === -1) {
         throw new PngStructureError("malformed-file", "iTXt chunk is missing its translated-keyword terminator.");
     }
     const payload = data.subarray(translatedNul + 1);
