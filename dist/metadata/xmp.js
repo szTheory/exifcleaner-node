@@ -108,6 +108,7 @@ export function parseXmp(payload) {
             warnings: [
                 {
                     code: "metadata-invalid",
+                    // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — this branch runs only when the structure check or the entity check returned a message, so one of the first two operands always supplies the detail and the final fallback text is never used.
                     detail: structureError ?? entityError ?? "XMP is malformed.",
                 },
             ],
@@ -126,6 +127,7 @@ export function parseXmp(payload) {
     };
     const descriptionPattern = /<rdf:Description\b([^>]*)>/giu;
     for (const match of xml.matchAll(descriptionPattern)) {
+        // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — the Description pattern has one capture group that takes part in every match (it may capture nothing), so the fallback for a missing group is never used.
         const attributes = match[1] ?? "";
         const attributePattern = /([A-Za-z_][\w.-]*:[A-Za-z_][\w.-]*)\s*=\s*(["'])(.*?)\2/gsu;
         for (const attribute of attributes.matchAll(attributePattern)) {
@@ -148,6 +150,7 @@ export function parseXmp(payload) {
             ...body.matchAll(/<rdf:li\b[^>]*>([\s\S]*?)<\/rdf:li\s*>/gu),
         ];
         if (listItems.length > 0) {
+            // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — the list-item pattern has one capture group that takes part in every match, so the fallback for a missing group is never used.
             for (const item of listItems)
                 add(name, item[1] ?? "");
         }
@@ -165,6 +168,7 @@ export function parseXmp(payload) {
         entries: [...values].map(([name, found]) => ({
             namespace: "XMP",
             name,
+            // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — the single-value branch is reached only when the collected array holds exactly one string, so the fallback for a missing first element is never used.
             value: found.length === 1 ? (found[0] ?? "") : found,
         })),
         warnings,
@@ -184,11 +188,15 @@ export function xmpOrientation(xmp) {
     if (entry === undefined)
         return undefined;
     const raw = entry.value;
+    // Prettier would move the comment inside this chain onto the end of the previous line, which the disable-comment lint rejects, so the declaration is left as written.
+    // prettier-ignore
     const text = typeof raw === "string"
         ? raw.trim()
+        // Stryker disable next-line ConditionalExpression, EqualityOperator: equivalent-arithmetic — parseXmp yields only strings or arrays of at least two strings, never numbers, and a joined array always holds a comma, so it can never read back as an integer: an array or a number reaches the invalid outcome whichever way this test goes.
         : typeof raw === "number"
             ? String(raw)
             : undefined;
+    // Stryker disable next-line ConditionalExpression: equivalent-arithmetic — an empty text is already rejected by the integer round-trip comparison below (parsing an empty string gives NaN, whose string form never equals an empty text), so dropping the length test returns the same invalid outcome for every input. The other ConditionalExpression mutants of this line are compile errors, suppressed only as collateral because the next-line form cannot select a replacement.
     if (text === undefined || text.length === 0)
         return "invalid";
     const parsed = Number.parseInt(text, 10);
