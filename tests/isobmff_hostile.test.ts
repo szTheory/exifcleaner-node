@@ -29,7 +29,12 @@ import {
   type JpegAdmission,
   type JpegOutputPlan,
 } from "../src/admission/jpeg-handler.js";
-import { parseJpeg } from "../src/jpeg/parser.js";
+import { JpegStructureError, parseJpeg } from "../src/jpeg/parser.js";
+import {
+  ICC_SEGMENT_IDENTIFIER,
+  reassembleIccSegments,
+} from "../src/jpeg/icc.js";
+import { MAX_PROFILE_BYTES } from "../src/metadata/icc_admission.js";
 import { classifyFallback } from "../src/fallback.js";
 import { verifyIsobmffOutput } from "../src/isobmff/verify.js";
 import { writeIsobmffOutput } from "../src/isobmff/writer.js";
@@ -4336,5 +4341,240 @@ describe("jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2)", 
       });
       expect(outcome.result.ok).toBe(true);
     }
+  });
+});
+
+/**
+ * Raw ICC_PROFILE APPn payload as parseJpeg buffers it: identifier prefix, a
+ * 1-byte sequence number, a 1-byte total count, then chunk bytes.
+ */
+function jhIccPayload(sequence: number, count: number, chunk: Buffer): Buffer {
+  return Buffer.concat([
+    Buffer.from("ICC_PROFILE\0", "ascii"),
+    Buffer.from([sequence, count]),
+    chunk,
+  ]);
+}
+
+/** Asserts the typed malformed-container refusal, not a range error or a result. */
+function jhExpectIccMalformed(payloads: readonly Buffer[]): void {
+  try {
+    reassembleIccSegments(payloads);
+  } catch (error) {
+    expect(error).toBeInstanceOf(JpegStructureError);
+    expect((error as JpegStructureError).refusal).toBe("malformed-container");
+    return;
+  }
+  expect.unreachable();
+}
+
+/** The reads admit performs after parseJpeg's own, and the Trailer entry value. */
+async function jhAdmitTailReads(bytes: Buffer): Promise<{
+  readonly tailReads: readonly JhHandleCall[];
+  readonly trailerEntry: unknown;
+}> {
+  const parseReads = await jhParseReadCount(bytes);
+  const handle = await open(await jhWriteSource(bytes), "r");
+  try {
+    const scripted = jhScriptedHandle(handle);
+    const admission = await jpegHandler.admit(scripted.handle, bytes.length);
+    const entry = admission.entries.find(
+      (candidate) =>
+        candidate.namespace === "JPEG" && candidate.name === "Trailer",
+    );
+    return {
+      tailReads: scripted.reads.slice(parseReads),
+      trailerEntry: entry?.value,
+    };
+  } finally {
+    await handle.close();
+  }
+}
+
+/** The decline fields the classifyAdmissionFailure test reads from the closed union. */
+interface JhDeclineFields {
+  readonly code: string;
+  readonly detail: string;
+  readonly feature?: string;
+  readonly reason?: string;
+}
+
+/**
+ * Runs the shipped writeOutput with a hand-built plan whose only part is an
+ * insert, so only the loop's own abort check (not copyRange's) can stop it.
+ */
+async function jhWriteWithSignal(
+  bytes: Buffer,
+  signal: AbortSignal,
+): Promise<{ readonly error: unknown; readonly written: Buffer }> {
+  const sourcePath = await jhWriteSource(bytes);
+  const destinationPath = join(await jhFreshDirectory(), "destination.jpg");
+  await writeFile(destinationPath, Buffer.alloc(0));
+  const source = await open(sourcePath, "r");
+  const destination = await open(destinationPath, "r+");
+  try {
+    const admission = await jpegHandler.admit(source, bytes.length);
+    const built = jpegHandler.buildOutputPlan(
+      admission,
+      false,
+      false,
+      false,
+      undefined,
+    );
+    const plan = {
+      ...built,
+      parts: [{ kind: "insert" as const, data: Buffer.from([0x01, 0x02]) }],
+    };
+    let error: unknown;
+    try {
+      await jpegHandler.writeOutput(source, destination, plan, signal);
+    } catch (caught) {
+      error = caught;
+    }
+    return { error, written: await destination.readFile() };
+  } finally {
+    await source.close();
+    await destination.close();
+  }
+}
+
+describe("jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3)", () => {
+  it("reassembleIccSegments: an empty payload list is refused with the typed malformed-container error", () => {
+    jhExpectIccMalformed([]);
+  });
+
+  it("reassembleIccSegments ConditionalExpression and BlockStatement: a payload shorter than the 14-byte header is refused with the typed error, not a range error", () => {
+    for (const length of [0, 1, 10, 11, 12, 13]) {
+      jhExpectIccMalformed([Buffer.alloc(length, 0x41)]);
+    }
+  });
+
+  it("reassembleIccSegments EqualityOperator: a header-only payload of exactly 14 bytes is a valid empty profile", () => {
+    const result = reassembleIccSegments([jhIccPayload(1, 1, Buffer.alloc(0))]);
+    expect(result.length).toBe(0);
+  });
+
+  it("reassembleIccSegments ConditionalExpression and BlockStatement: sequence zero is refused even beside a complete 1-of-1 set", () => {
+    const zero = jhIccPayload(0, 1, Buffer.from([0x0a]));
+    const one = jhIccPayload(1, 1, Buffer.from([0x0b]));
+    jhExpectIccMalformed([zero, one]);
+    jhExpectIccMalformed([one, zero]);
+  });
+
+  it("reassembleIccSegments ConditionalExpression and BlockStatement: a sequence number above its declared count is refused even beside a complete set", () => {
+    const first = jhIccPayload(1, 1, Buffer.from([0x0a]));
+    const beyond = jhIccPayload(2, 1, Buffer.from([0x0b]));
+    jhExpectIccMalformed([first, beyond]);
+    jhExpectIccMalformed([beyond, first]);
+  });
+
+  it("reassembleIccSegments ConditionalExpression: segments that declare different counts are refused even when the last count yields a complete set", () => {
+    const declaresThree = jhIccPayload(1, 3, Buffer.from([0x0a]));
+    const declaresTwo = jhIccPayload(2, 2, Buffer.from([0x0b]));
+    jhExpectIccMalformed([declaresThree, declaresTwo]);
+  });
+
+  it("reassembleIccSegments EqualityOperator: a profile of exactly MAX_PROFILE_BYTES is accepted and returned in sequence order", () => {
+    const half = MAX_PROFILE_BYTES / 2;
+    const result = reassembleIccSegments([
+      jhIccPayload(2, 2, Buffer.alloc(half, 0x22)),
+      jhIccPayload(1, 2, Buffer.alloc(half, 0x11)),
+    ]);
+    expect(result.length).toBe(MAX_PROFILE_BYTES);
+    expect(result[0]).toBe(0x11);
+    expect(result[half - 1]).toBe(0x11);
+    expect(result[half]).toBe(0x22);
+    expect(result[MAX_PROFILE_BYTES - 1]).toBe(0x22);
+  });
+
+  it("admit MethodExpression, ArithmeticOperator, ConditionalExpression and EqualityOperator: a trailer longer than the 64-byte window reads exactly the last 64 bytes", async () => {
+    const bytes = appendTrailer(minimalJpeg(), Buffer.alloc(200, 0x5a));
+    const result = await jhAdmitTailReads(bytes);
+    expect(result.tailReads).toEqual([
+      { offset: 0, length: 64, position: bytes.length - 64, bufferLength: 64 },
+    ]);
+    expect(result.trailerEntry).toBe(200);
+  });
+
+  it("admit MethodExpression, ArithmeticOperator, ConditionalExpression and EqualityOperator: a short trailer reads exactly its own bytes from the primary EOI", async () => {
+    const bytes = appendTrailer(minimalJpeg(), Buffer.alloc(20, 0x5a));
+    const result = await jhAdmitTailReads(bytes);
+    expect(result.tailReads).toEqual([
+      { offset: 0, length: 20, position: bytes.length - 20, bufferLength: 20 },
+    ]);
+    expect(result.trailerEntry).toBe(20);
+  });
+
+  it("admit MethodExpression and ArithmeticOperator: a file without a trailer reads nothing beyond the parse", async () => {
+    const result = await jhAdmitTailReads(minimalJpeg());
+    expect(result.tailReads).toEqual([]);
+    expect(result.trailerEntry).toBeUndefined();
+  });
+
+  it("checkOutputPlan ConditionalExpression: a plan without a scan declines with a string, and a declined plan returns its own reason", async () => {
+    const admission = await jhAdmitBytes(minimalJpeg());
+    const plan = jpegHandler.buildOutputPlan(
+      admission,
+      false,
+      false,
+      false,
+      undefined,
+    );
+    expect(jpegHandler.checkOutputPlan(plan)).toBeUndefined();
+    expect(plan.expectedMarkers).toContain(JH_SOS);
+
+    const noScan = {
+      ...plan,
+      expectedMarkers: plan.expectedMarkers.filter(
+        (marker) => marker !== JH_SOS,
+      ),
+    };
+    expect(typeof jpegHandler.checkOutputPlan(noScan)).toBe("string");
+
+    const declined = { ...plan, declineReason: "scripted decline reason" };
+    expect(jpegHandler.checkOutputPlan(declined)).toBe(
+      "scripted decline reason",
+    );
+  });
+
+  it("writeOutput ConditionalExpression and LogicalOperator: an aborted signal stops the write loop and rejects with the signal's own reason", async () => {
+    const reason = new Error("scripted abort reason");
+    const controller = new AbortController();
+    controller.abort(reason);
+    const outcome = await jhWriteWithSignal(minimalJpeg(), controller.signal);
+    expect(outcome.error).toBe(reason);
+    expect(outcome.written.length).toBeLessThanOrEqual(2);
+  });
+
+  it("writeOutput StringLiteral and LogicalOperator: an aborted signal without a reason rejects with a DOMException named AbortError", async () => {
+    const signalWithoutReason = { aborted: true } as unknown as AbortSignal;
+    const outcome = await jhWriteWithSignal(minimalJpeg(), signalWithoutReason);
+    expect(outcome.error).toBeInstanceOf(DOMException);
+    expect((outcome.error as DOMException).name).toBe("AbortError");
+  });
+
+  it("classifyAdmissionFailure StringLiteral: an over-limit ICC profile declines color-profile preservation with the typed policy-limit reason, and other structure errors keep their kind", () => {
+    const oversize = new JpegStructureError(
+      "resource-limits",
+      "scripted oversize ICC profile",
+      { segment: ICC_SEGMENT_IDENTIFIER, size: 99, limit: 16 },
+    );
+    const preserved = jpegHandler.classifyAdmissionFailure(oversize, true) as
+      JhDeclineFields | undefined;
+    expect(preserved?.code).toBe("unsupported-feature");
+    expect(preserved?.feature).toBe("color-profile-preservation");
+    expect(preserved?.reason).toBe("policy-limit");
+    expect(typeof preserved?.detail).toBe("string");
+
+    const notPreserved = jpegHandler.classifyAdmissionFailure(
+      oversize,
+      false,
+    ) as JhDeclineFields | undefined;
+    expect(notPreserved?.code).toBe(oversize.kind);
+    expect(notPreserved?.feature).toBeUndefined();
+
+    expect(
+      jpegHandler.classifyAdmissionFailure(new Error("unrelated"), true),
+    ).toBeUndefined();
   });
 });
