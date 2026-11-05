@@ -3326,7 +3326,7 @@ async function jhAdmitBytes(source: Buffer) {
   }
 }
 
-/** A JFIF JH_APP0 payload with explicit unit, density and thumbnail dimensions;
+/** A JFIF APP0 payload with explicit unit, density and thumbnail dimensions;
  * `length` cuts it short of the 14-byte fixed header. */
 function jhJfifBytes(fields: {
   readonly unit?: number;
@@ -3394,7 +3394,7 @@ function jhGainMapXmpPayload(): Buffer {
 }
 
 describe("jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1)", () => {
-  it("isStructuralMarker ConditionalExpression: a JH_DRI restart-interval segment is structural and survives sanitization byte-identically", async () => {
+  it("isStructuralMarker ConditionalExpression: a DRI restart-interval segment is structural and survives sanitization byte-identically", async () => {
     const source = minimalJpeg({ components: 3, restartInterval: 4 });
     expect(jhMarkerSequence(source)).toContain(JH_DRI);
 
@@ -3509,7 +3509,7 @@ describe("jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1)", 
     ]);
   });
 
-  it("collectMetadata BooleanLiteral: jfifDroppedForAdobe is true only when an JH_APP14 Adobe segment drops the JFIF segment", async () => {
+  it("collectMetadata BooleanLiteral: jfifDroppedForAdobe is true only when an APP14 Adobe segment drops the JFIF segment", async () => {
     const base = minimalJpeg({ components: 3 });
     const jfif = appSegment(JH_APP0, jhJfifBytes({}));
     const adobe = appSegment(JH_APP14, jpegAdobe(1));
