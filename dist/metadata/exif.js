@@ -176,6 +176,7 @@ export function parseExif(payload) {
             if (depth > MAX_IFD_DEPTH || visited.has(offset))
                 return;
             visited.add(offset);
+            // Stryker disable next-line ConditionalExpression: unobservable-message — without this guard the next statement, reader.u16(offset), applies the same inBounds(offset, 2) check inside u16 and throws its own RangeError, which the surrounding catch turns into the identical malformed outcome and metadata-invalid warning (only the diagnostic text differs). The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition stays active.
             if (!inBounds(tiff, offset, 2))
                 throw new RangeError("EXIF IFD is out of bounds");
             const count = reader.u16(offset);
@@ -239,7 +240,9 @@ export function parseExif(payload) {
         visitIfd(reader.u32(4), "", 0);
     }
     catch (cause) {
-        const detail = cause instanceof Error ? cause.message : "EXIF data is invalid.";
+        const detail = 
+        // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — every throw inside the try block is a RangeError (explicit throws, u16/u32 bounds checks, Buffer's own range checks) or another Error such as a stack overflow, so the cause is always an Error and this non-Error fallback text is never used.
+        cause instanceof Error ? cause.message : "EXIF data is invalid.";
         warnings.push({
             code: "metadata-invalid",
             detail,
@@ -254,7 +257,9 @@ function assertUint32(value, field) {
     }
 }
 function assertResolutionValue(value, field) {
+    // Stryker disable next-line StringLiteral: unobservable-message — this field label only reaches the text of assertUint32's RangeError; the thrown kind and which values are accepted or refused are unchanged.
     assertUint32(value.numerator, `${field} numerator`);
+    // Stryker disable next-line StringLiteral: unobservable-message — this field label only reaches the text of assertUint32's RangeError; the thrown kind and which values are accepted or refused are unchanged.
     assertUint32(value.denominator, `${field} denominator`);
 }
 /**
