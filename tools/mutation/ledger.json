@@ -186502,22 +186502,19 @@
       }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement:gap-02",
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement:dead-02",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "BlockStatement",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000847\u000020\u0000884\u00006"
       ],
-      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "note": "Deleted by the Plan 67-24 source edit (node 6c973e9), which reduces the inserted-Exif verification in verifyOutput to if (!exifPayload.equals(expectedPayload)) and drops reparsed and expectedEntryCount: Anchor relocated, not removed. The BlockStatement mutant of the if (hasInsert) block still exists (now at src/admission/jpeg-handler.ts 855:20) and is Killed by the altered-Exif test in reports/triage/67-24/batch.json, but its frozen anchor is a multi-line span whose text contained the removed reparsed and expectedEntryCount lines, so no mutant sits at the old anchor (the 67-23 collectMetadata:MethodExpression precedent). Approved by the maintainer (reply \"approve\", relayed by the orchestrator, 2026-11-04, Option A of 67-24-HALTED.md). Behavior is unchanged: the entry-count and orientation re-parse operands only ran when the payload already equalled the recomputed one, createMinimalExif rejects any orientation outside 1 through 8, and re-parsing identical bytes yields the derived entry count and a valid equal orientation (reports/triage/67-24/exif-roundtrip.mjs, 1952 combinations, 0 mismatches). The focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
       "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput BlockStatement, LogicalOperator and ConditionalExpression: an altered synthesized Exif payload fails verification"
-      }
+      "symbol": "expectedEntryCount"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:BlockStatement:gap-03",
@@ -186651,44 +186648,37 @@
       "equivalenceClass": "redundant-guard-after-typed-check"
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-07",
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:dead-07",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000872\u00009\u0000873\u000055",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000872\u00009\u0000876\u000062"
       ],
-      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "note": "Deleted by the Plan 67-24 source edit (node 6c973e9), which reduces the inserted-Exif verification in verifyOutput to if (!exifPayload.equals(expectedPayload)) and drops reparsed and expectedEntryCount: The two ConditionalExpression false mutants of the A || B and whole-chain expressions (formerly Killed by the altered-Exif test) no longer exist, because the expressions are gone; the surviving single operand is covered by its own Killed mutants. Approved by the maintainer (reply \"approve\", relayed by the orchestrator, 2026-11-04, Option A of 67-24-HALTED.md). Behavior is unchanged: the entry-count and orientation re-parse operands only ran when the payload already equalled the recomputed one, createMinimalExif rejects any orientation outside 1 through 8, and re-parsing identical bytes yields the derived entry count and a valid equal orientation (reports/triage/67-24/exif-roundtrip.mjs, 1952 combinations, 0 mismatches). The focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
       "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput BlockStatement, LogicalOperator and ConditionalExpression: an altered synthesized Exif payload fails verification"
-      }
+      "symbol": "expectedEntryCount"
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:pending-99",
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:dead-08",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 3,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000873\u00009\u0000873\u000055",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000874\u000010\u0000876\u000061",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000876\u000013\u0000876\u000060"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000reparsed.entries.length !== expectedEntryCount\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000tags.orientation !== undefined &&\n          (reparsed.orientation.status !== \"valid\" ||\n            reparsed.orientation.value !== tags.orientation)\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000reparsed.orientation.value !== tags.orientation\u00000"
-      ],
-      "note": "Needs a maintainer decision: see 67-24-HALTED.md and the Pending members section of the ## 67-24 evidence.",
-      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression"
+      "note": "Deleted by the Plan 67-24 source edit (node 6c973e9), which reduces the inserted-Exif verification in verifyOutput to if (!exifPayload.equals(expectedPayload)) and drops reparsed and expectedEntryCount: The three pending operands (entry count, orientation presence and status/value test, orientation value) no longer exist. Approved by the maintainer (reply \"approve\", relayed by the orchestrator, 2026-11-04, Option A of 67-24-HALTED.md). Behavior is unchanged: the entry-count and orientation re-parse operands only ran when the payload already equalled the recomputed one, createMinimalExif rejects any orientation outside 1 through 8, and re-parsing identical bytes yields the derived entry count and a valid equal orientation (reports/triage/67-24/exif-roundtrip.mjs, 1952 combinations, 0 mismatches). The focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression",
+      "symbol": "expectedEntryCount"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:ConditionalExpression:gap-09",
@@ -186835,23 +186825,20 @@
       }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator:gap-03",
+      "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator:dead-03",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "LogicalOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000!exifPayload.equals(expectedPayload) && reparsed.entries.length !== expectedEntryCount\u0000872\u00009\u0000873\u000055",
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000(!exifPayload.equals(expectedPayload) || reparsed.entries.length !== expectedEntryCount) && tags.orientation !== undefined && (reparsed.orientation.status !== \"valid\" || reparsed.orientation.value !== tags.orientation)\u0000872\u00009\u0000876\u000062"
       ],
-      "note": "reports/triage/67-24/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-24/red.json for the verifyOutput range and reports/triage/67-23/batch.json, a whole-file report of the same source and the previous tests, where this member is Survived or NoCoverage (hosted pre-triage status Survived or NoCoverage).",
+      "note": "Deleted by the Plan 67-24 source edit (node 6c973e9), which reduces the inserted-Exif verification in verifyOutput to if (!exifPayload.equals(expectedPayload)) and drops reparsed and expectedEntryCount: The two LogicalOperator mutants of the A || B and (A || B) && C expressions (formerly Killed by the altered-Exif test) no longer exist, because the expressions are gone. Approved by the maintainer (reply \"approve\", relayed by the orchestrator, 2026-11-04, Option A of 67-24-HALTED.md). Behavior is unchanged: the entry-count and orientation re-parse operands only ran when the payload already equalled the recomputed one, createMinimalExif rejects any orientation outside 1 through 8, and re-parsing identical bytes yields the derived entry count and a valid equal orientation (reports/triage/67-24/exif-roundtrip.mjs, 1952 combinations, 0 mismatches). The focused suites, the full suite, JPEG qualification and native_vs_exiftool pass, dist is rebuilt and check:dist is green.",
       "originClusterId": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:LogicalOperator",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > verifyOutput BlockStatement, LogicalOperator and ConditionalExpression: an altered synthesized Exif payload fails verification"
-      }
+      "symbol": "expectedEntryCount"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:verifyOutput:MethodExpression",
