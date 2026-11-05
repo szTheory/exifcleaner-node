@@ -55,6 +55,9 @@ function classifySegments(parsed) {
         const { marker } = segment;
         if (isStructuralMarker(marker))
             return "structural";
+        // COM is not an APPn marker, so `marker === COM` needs no test of its own:
+        // every non-APPn marker reaches classifyAppPayload with no buffered
+        // payload, which returns "other" and ends at the final "remove".
         const kind = classifyAppPayload(marker, parsed.buffered.get(index));
         if (kind === "adobe")
             return "keep";
