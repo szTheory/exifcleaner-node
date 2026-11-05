@@ -79,9 +79,6 @@ function refuse(refusal, detail) {
 function parseDqtSlots(payload, dqtSlots) {
     let cursor = 0;
     while (cursor < payload.length) {
-        if (cursor + 1 > payload.length) {
-            refuse("malformed-container", "DQT table header is truncated.");
-        }
         const pqTq = payload.readUInt8(cursor);
         const pq = (pqTq >> 4) & 0x0f;
         const tq = pqTq & 0x0f;
