@@ -256,7 +256,8 @@ function parseSosHeader(payload: Buffer): JpegSosHeader {
  * defined by a preceding DQT/DHT before this SOS. A sequential frame
  * (SOF0/SOF1) always needs both DC and AC for every component. A progressive
  * frame (SOF2) needs only DC for a DC-first scan (Ss=0, Ah=0), nothing for a
- * DC-refinement scan (Ss=0, Ah>0), and only AC for an AC scan (Ss>0).
+ * DC-refinement scan (Ss=0, Ah>0; the Ss=0 scan left once the DC-first scan is
+ * matched), and only AC for an AC scan (Ss>0).
  */
 function validateScanTables(
   frame: JpegFrame,
@@ -271,7 +272,7 @@ function validateScanTables(
     if (sos.ss === 0 && sos.ah === 0) {
       needsDc = true;
       needsAc = false;
-    } else if (sos.ss === 0 && sos.ah > 0) {
+    } else if (sos.ss === 0) {
       needsDc = false;
       needsAc = false;
     } else {
