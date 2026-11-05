@@ -8249,3 +8249,162 @@ describe("metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-
     ).toBe("t");
   });
 });
+
+describe("metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6)", () => {
+  const RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+  const packet = (inner: string, attributes = ""): Buffer =>
+    Buffer.from(
+      `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="${RDF_NS}"><rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:tiff="http://ns.adobe.com/tiff/1.0/"${attributes}>${inner}</rdf:Description></rdf:RDF></x:xmpmeta>`,
+      "utf8",
+    );
+  const entriesOf = (payload: Buffer): readonly [string, unknown][] =>
+    parseXmp(payload).entries.map((entry) => [entry.name, entry.value]);
+  const orientationOf = (inner: string, attributes = ""): unknown =>
+    xmpOrientation(packet(inner, attributes));
+
+  it("parseXmp BooleanLiteral, ObjectLiteral and StringLiteral clusters: bytes that are not UTF-8 refuse the whole packet", () => {
+    const good = packet("<dc:title>title</dc:title>");
+    expect(entriesOf(good)).toEqual([["dc:title", "title"]]);
+    expect(entriesOf(packet("<dc:title>é€😀</dc:title>"))).toEqual([
+      ["dc:title", "é€😀"],
+    ]);
+    const at = good.indexOf("</dc:title>");
+    const invalid: readonly (readonly number[])[] = [
+      [0xff],
+      [0xc3, 0x28],
+      [0xe2, 0x82],
+      [0xc0, 0xaf],
+    ];
+    for (const bytes of invalid) {
+      const payload = Buffer.concat([
+        good.subarray(0, at),
+        Buffer.from(bytes),
+        good.subarray(at),
+      ]);
+      const result = parseXmp(payload);
+      const label = bytes.map((byte) => byte.toString(16)).join(" ");
+      expect(result.entries, label).toEqual([]);
+      expect(result.warnings, label).toHaveLength(1);
+      expect(result.warnings[0]?.code, label).toBe("metadata-invalid");
+      expect(result.warnings[0]?.detail.length, label).toBeGreaterThan(0);
+      expect(xmpOrientation(payload), label).toBeUndefined();
+    }
+  });
+
+  it("parseXmp Regex cluster: attributes may put any whitespace before and after the equals sign", () => {
+    expect(
+      entriesOf(
+        packet("", ' dc:title ="a" dc:creator\t=\t\'b\' dc:rights\n=\n"c"'),
+      ),
+    ).toEqual([
+      ["dc:title", "a"],
+      ["dc:creator", "b"],
+      ["dc:rights", "c"],
+    ]);
+    expect(orientationOf("", ' tiff:Orientation = "6"')).toBe(6);
+  });
+
+  it("parseXmp Regex cluster: open tags may carry attributes and close tags may carry whitespace", () => {
+    expect(
+      entriesOf(packet('<dc:title xml:lang="x-default">T</dc:title >')),
+    ).toEqual([["dc:title", "T"]]);
+    expect(entriesOf(packet("<dc:title>U</dc:title\n>"))).toEqual([
+      ["dc:title", "U"],
+    ]);
+  });
+
+  it("parseXmp Regex and add CallExpression clusters: list items tolerate close-tag whitespace and repeated names collect every value", () => {
+    expect(
+      entriesOf(
+        packet(
+          "<dc:subject><rdf:Bag><rdf:li>a</rdf:li ><rdf:li>b</rdf:li\n><rdf:li>a</rdf:li></rdf:Bag></dc:subject>",
+        ),
+      ),
+    ).toEqual([["dc:subject", ["a", "b", "a"]]]);
+    expect(
+      entriesOf(
+        packet(
+          "<dc:subject><rdf:Bag><rdf:li>only</rdf:li></rdf:Bag></dc:subject>",
+        ),
+      ),
+    ).toEqual([["dc:subject", "only"]]);
+  });
+
+  it("add Regex, StringLiteral and MethodExpression clusters: markup inside a value is stripped and the text is trimmed", () => {
+    expect(
+      entriesOf(
+        packet(
+          "<dc:description><rdf:Alt><rdf:li> a<em>b</em>c<i>d</i> </rdf:li></rdf:Alt></dc:description>",
+        ),
+      ),
+    ).toEqual([["dc:description", "abcd"]]);
+    expect(entriesOf(packet("<dc:title>  spaced \n</dc:title>"))).toEqual([
+      ["dc:title", "spaced"],
+    ]);
+    expect(entriesOf(packet("<dc:title>   </dc:title>"))).toEqual([]);
+    expect(
+      entriesOf(
+        packet("<dc:title><rdf:Alt><rdf:li> </rdf:li></rdf:Alt></dc:title>"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("parseXmp Regex and ConditionalExpression clusters: an element that holds another element yields no value of its own", () => {
+    expect(
+      entriesOf(packet("<dc:title><dc:sub>x</dc:sub></dc:title>")),
+    ).toEqual([]);
+    expect(
+      entriesOf(packet("<dc:title>t<dc:sub>x</dc:sub></dc:title>")),
+    ).toEqual([]);
+  });
+
+  it("parseXmp Regex, StringLiteral and add clusters: CDATA text that looks like markup is kept as text, and a comment that wraps a CDATA marker is not markup", () => {
+    expect(entriesOf(packet("<dc:title>t<![CDATA[ <b ]]></dc:title>"))).toEqual(
+      [["dc:title", "t <b"]],
+    );
+    expect(
+      entriesOf(packet("<dc:title><![CDATA[ <b c ]]>z</dc:title>")),
+    ).toEqual([["dc:title", "<b c z"]]);
+    expect(
+      entriesOf(packet("<dc:title>T<!--<<![CDATA[x]]>1--></dc:title>")),
+    ).toEqual([["dc:title", "T"]]);
+  });
+
+  it("parseXmp Regex, ConditionalExpression and BlockStatement clusters: a packet without an RDF root keeps its entries and reports one typed warning", () => {
+    expect(parseXmp(packet("<dc:title>t</dc:title>")).warnings).toEqual([]);
+    for (const root of ["x:xmpmeta", "rdf:RDF", "rdf:Description"])
+      expect(
+        parseXmp(
+          Buffer.from(`<${root}><dc:title>t</dc:title></${root}>`, "utf8"),
+        ).warnings,
+        root,
+      ).toEqual([]);
+    const result = parseXmp(Buffer.from("<dc:title>t</dc:title>", "utf8"));
+    expect(result.entries.map((entry) => [entry.name, entry.value])).toEqual([
+      ["dc:title", "t"],
+    ]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.code).toBe("metadata-invalid");
+    expect(result.warnings[0]?.detail.length).toBeGreaterThan(0);
+  });
+
+  it("xmpOrientation MethodExpression, ConditionalExpression and EqualityOperator clusters: whitespace that entity decoding adds is ignored, and repeated or blank values are invalid", () => {
+    expect(orientationOf("", ' tiff:Orientation="&#32;6&#32;"')).toBe(6);
+    expect(
+      orientationOf("<tiff:Orientation>&#x20;8&#x9;</tiff:Orientation>"),
+    ).toBe(8);
+    expect(orientationOf("", ' tiff:Orientation="&#32;"')).toBe("invalid");
+    expect(
+      orientationOf(
+        "<tiff:Orientation>6</tiff:Orientation>",
+        ' tiff:Orientation="6"',
+      ),
+    ).toBe("invalid");
+    expect(
+      orientationOf(
+        "<tiff:Orientation>6</tiff:Orientation><tiff:Orientation>3</tiff:Orientation>",
+      ),
+    ).toBe("invalid");
+    expect(orientationOf("<tiff:Orientation>5</tiff:Orientation>")).toBe(5);
+  });
+});
