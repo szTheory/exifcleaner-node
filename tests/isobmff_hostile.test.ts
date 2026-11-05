@@ -8156,7 +8156,7 @@ describe("metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-
       expectXmpRefused(xmpDoc(inner), inner);
   });
 
-  it("validateXmlStructure Regex cluster: comments, processing instructions and CDATA sections may contain > and <", () => {
+  it("validateXmlStructure Regex cluster: comments, processing instructions and CDATA sections may contain greater-than and less-than signs", () => {
     for (const inner of [
       "<!-- a > <b --><dc:title>t</dc:title>",
       "<!--a><b--><dc:title>t</dc:title>",
