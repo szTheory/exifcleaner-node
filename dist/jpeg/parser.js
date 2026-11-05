@@ -76,7 +76,9 @@ function readIdentifier(payload) {
 // function, so the two can never desynchronize.
 function refuse(refusal, detail) {
     const prefix = JPEG_REFUSAL_DETAILS[refusal];
-    throw new JpegStructureError(refusal, detail === undefined ? prefix : `${prefix} ${detail}`);
+    throw new JpegStructureError(refusal, 
+    // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: unobservable-message — the optional detail only composes the free-text message of the typed JpegStructureError; the refusal literal and its kind come from the first argument and callers branch on those, never on the wording.
+    detail === undefined ? prefix : `${prefix} ${detail}`);
 }
 /** DQT payload: repeated [PqTq(1)][64 or 128 bytes of table values]. Populates
  * `dqtSlots` with every Tq id defined (Task 2/D-10 table-slot tracking). */
@@ -168,16 +170,24 @@ function validateScanTables(frame, sos, dqtSlots, dcSlots, acSlots) {
     for (const component of sos.components) {
         const frameComponent = frame.components.find((c) => c.id === component.cs);
         if (frameComponent === undefined) {
-            refuse("malformed-container", `SOS references undefined component id ${component.cs}.`);
+            refuse("malformed-container", 
+            // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
+            `SOS references undefined component id ${component.cs}.`);
         }
         if (!dqtSlots.has(frameComponent.tq)) {
-            refuse("undefined-table-reference", `Component ${component.cs} references quantization table ${frameComponent.tq}, which was never defined.`);
+            refuse("undefined-table-reference", 
+            // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed undefined-table-reference refusal; callers branch on the refusal and its kind, never on the wording.
+            `Component ${component.cs} references quantization table ${frameComponent.tq}, which was never defined.`);
         }
         if (needsDc && !dcSlots.has(component.td)) {
-            refuse("undefined-table-reference", `Component ${component.cs} references DC Huffman table ${component.td}, which was never defined.`);
+            refuse("undefined-table-reference", 
+            // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed undefined-table-reference refusal; callers branch on the refusal and its kind, never on the wording.
+            `Component ${component.cs} references DC Huffman table ${component.td}, which was never defined.`);
         }
         if (needsAc && !acSlots.has(component.ta)) {
-            refuse("undefined-table-reference", `Component ${component.cs} references AC Huffman table ${component.ta}, which was never defined.`);
+            refuse("undefined-table-reference", 
+            // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed undefined-table-reference refusal; callers branch on the refusal and its kind, never on the wording.
+            `Component ${component.cs} references AC Huffman table ${component.ta}, which was never defined.`);
         }
     }
 }

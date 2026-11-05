@@ -178,6 +178,7 @@ function refuse(refusal: JpegRefusal, detail?: string): never {
   const prefix = JPEG_REFUSAL_DETAILS[refusal];
   throw new JpegStructureError(
     refusal,
+    // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: unobservable-message — the optional detail only composes the free-text message of the typed JpegStructureError; the refusal literal and its kind come from the first argument and callers branch on those, never on the wording.
     detail === undefined ? prefix : `${prefix} ${detail}`,
   );
 }
@@ -298,24 +299,28 @@ function validateScanTables(
     if (frameComponent === undefined) {
       refuse(
         "malformed-container",
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
         `SOS references undefined component id ${component.cs}.`,
       );
     }
     if (!dqtSlots.has(frameComponent.tq)) {
       refuse(
         "undefined-table-reference",
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed undefined-table-reference refusal; callers branch on the refusal and its kind, never on the wording.
         `Component ${component.cs} references quantization table ${frameComponent.tq}, which was never defined.`,
       );
     }
     if (needsDc && !dcSlots.has(component.td)) {
       refuse(
         "undefined-table-reference",
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed undefined-table-reference refusal; callers branch on the refusal and its kind, never on the wording.
         `Component ${component.cs} references DC Huffman table ${component.td}, which was never defined.`,
       );
     }
     if (needsAc && !acSlots.has(component.ta)) {
       refuse(
         "undefined-table-reference",
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed undefined-table-reference refusal; callers branch on the refusal and its kind, never on the wording.
         `Component ${component.cs} references AC Huffman table ${component.ta}, which was never defined.`,
       );
     }
