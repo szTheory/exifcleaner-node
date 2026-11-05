@@ -187742,37 +187742,35 @@
       "symbolScope": "function"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDhtSlots",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor + 1 - 16\u0000214\u00009\u0000214\u000024"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor + 1 - 16\u0000cursor + 1 + 16\u00000"
-      ],
-      "note": "Pending maintainer decision G1 (67-28-HALTED.md): message-only equivalent: the DHT header-truncation guard is redundant with the table-truncation check that follows it (same typed refusal), and a directive cannot isolate the guard's ConditionalExpression false.",
+      "note": "Deleted by the Plan 67-28 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the DHT header-truncation guard of parseDhtSlots is gone (the table-truncation check below it refuses the same payloads with the same typed refusal); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "cursor + 1 + 16 > payload.length",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator:pending-02",
+      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator:dead-02",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDhtSlots",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor - 1\u0000214\u00009\u0000214\u000019"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor - 1\u0000cursor + 1\u00002"
-      ],
-      "note": "Pending maintainer decision G1 and G4 (67-28-HALTED.md): the frozen identity (span `cursor + 1`, ordinal 2) lost its anchor to the 67-27 Gate 4 deletion: it now resolves to the Killed `subarray(cursor - 1, ...)` mutant, first killed by a test outside this batch's allowlist, while the survivor it recorded sits at the guard; see the ordinal shift section.",
+      "note": "Deleted by the Plan 67-28 Gate 1 edit with the Gate 4 doc-comment realignment, both approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the frozen identity (span `cursor + 1`, ordinal 2) now resolves to the documentation sentence of parseDhtSlots, which is not a mutant, so the member is accounted for as deleted with the guard it recorded; the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "cursor + 1 + 16 > payload.length",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator"
     },
     {
@@ -187782,12 +187780,13 @@
       "function": "parseDhtSlots",
       "mutatorName": "ArithmeticOperator",
       "disposition": "gap",
-      "count": 2,
+      "count": 3,
       "keys": [
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor + 1 + 16 - valueCount\u0000223\u00009\u0000223\u000037",
-        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor + 1 - 16\u0000223\u00009\u0000223\u000024"
+        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor + 1 - 16\u0000223\u00009\u0000223\u000024",
+        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor - 1\u0000223\u00009\u0000223\u000019"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > parseDhtSlots ArithmeticOperator, BlockStatement and ConditionalExpression clusters: a table whose BITS promise more VALUES than the payload holds is refused"
@@ -187795,37 +187794,19 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator:pending-03",
-      "group": "jpeg",
-      "file": "src/jpeg/parser.ts",
-      "function": "parseDhtSlots",
-      "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor - 1\u0000223\u00009\u0000223\u000019"
-      ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor - 1\u0000cursor + 1\u00005"
-      ],
-      "note": "Pending maintainer decision G4 (67-28-HALTED.md): the frozen identity (span `cursor + 1`, ordinal 5) lost its anchor to the 67-27 Gate 4 deletion: it resolves to no mutant; the survivor it recorded (the table-truncation check) is now ordinal 4 and is Killed by the 67-28 DHT test.",
-      "originClusterId": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator"
-    },
-    {
-      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:BlockStatement:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:BlockStatement:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDhtSlots",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000214\u000043\u0000216\u00006"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000{\n      refuse(\"malformed-container\", \"DHT table header is truncated.\");\n    }\u00000"
-      ],
-      "note": "Pending maintainer decision G1 (67-28-HALTED.md): message-only equivalent: the DHT header-truncation guard is redundant with the table-truncation check that follows it (same typed refusal), and a directive cannot isolate the guard's ConditionalExpression false.",
+      "note": "Deleted by the Plan 67-28 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the DHT header-truncation guard of parseDhtSlots is gone (the table-truncation check below it refuses the same payloads with the same typed refusal); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "DHT table header is truncated.",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDhtSlots:BlockStatement"
     },
     {
@@ -187839,7 +187820,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000223\u000056\u0000225\u00006"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > parseDhtSlots ArithmeticOperator, BlockStatement and ConditionalExpression clusters: a table whose BITS promise more VALUES than the payload holds is refused"
@@ -187847,20 +187828,19 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDhtSlots:BlockStatement"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ConditionalExpression:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDhtSlots",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000214\u00009\u0000214\u000041"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000cursor + 1 + 16 > payload.length\u00000"
-      ],
-      "note": "Pending maintainer decision G1 (67-28-HALTED.md): message-only equivalent: the DHT header-truncation guard is redundant with the table-truncation check that follows it (same typed refusal), and a directive cannot isolate the guard's ConditionalExpression false.",
+      "note": "Deleted by the Plan 67-28 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the DHT header-truncation guard of parseDhtSlots is gone (the table-truncation check below it refuses the same payloads with the same typed refusal); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "cursor + 1 + 16 > payload.length",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ConditionalExpression"
     },
     {
@@ -187874,7 +187854,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000223\u00009\u0000223\u000054"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > parseDhtSlots ArithmeticOperator, BlockStatement and ConditionalExpression clusters: a table whose BITS promise more VALUES than the payload holds is refused"
@@ -187887,35 +187867,48 @@
       "file": "src/jpeg/parser.ts",
       "function": "parseDhtSlots",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000cursor + 1 + 16 >= payload.length\u0000214\u00009\u0000214\u000041"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > parseDhtSlots EqualityOperator cluster: a table with zero VALUES that ends exactly at the payload end is admitted and defines its slot"
-      }
+      "note": "Deleted by the Plan 67-28 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the DHT header-truncation guard of parseDhtSlots is gone (the table-truncation check below it refuses the same payloads with the same typed refusal); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "cursor + 1 + 16 > payload.length",
+      "symbolScope": "function"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:StringLiteral",
+      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:StringLiteral:dead-01",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "parseDhtSlots",
+      "mutatorName": "StringLiteral",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000215\u000037\u0000215\u000069"
+      ],
+      "note": "Deleted by the Plan 67-28 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the DHT header-truncation guard of parseDhtSlots is gone (the table-truncation check below it refuses the same payloads with the same typed refusal); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "DHT table header is truncated.",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:parseDhtSlots:StringLiteral"
+    },
+    {
+      "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:StringLiteral:equivalent-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDhtSlots",
       "mutatorName": "StringLiteral",
       "disposition": "equivalent",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000215\u000037\u0000215\u000069",
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000224\u000037\u0000224\u000062"
       ],
       "anchors": [
-        "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000\"DHT table header is truncated.\"\u00000",
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000\"DHT table is truncated.\"\u00000"
       ],
       "note": "The message literal of refuse(<refusal>, <message>) (a jpeg-6 member, owned here because the rule also ignores it and the batch verifier requires an owner for every comment-style Ignored mutant of parser.ts). It only feeds the free-text message of a typed JpegStructureError. Ignored by the second narrow ignorer rule of tools/mutation/ignorers/error-message-rule.mjs (67-27 second halt, D-20), whose class reason is \"unobservable-message\"; the refusal literal at argument 0 of the same call stays mutated (CompileError, detected). reports/triage/67-27/ignorer.json.",
-      "equivalenceClass": "unobservable-message"
+      "equivalenceClass": "unobservable-message",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:parseDhtSlots:StringLiteral"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ArithmeticOperator:gap-01",
@@ -188313,7 +188306,7 @@
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u00001 - ns * 2\u0000250\u000024\u0000250\u000034",
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000ns / 2\u0000250\u000028\u0000250\u000034"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > parseSosHeader BlockStatement, ConditionalExpression and ArithmeticOperator clusters: an SOS payload shorter than its own header is refused as malformed-container"
@@ -188321,20 +188314,19 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseSosHeader:ArithmeticOperator"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseSosHeader:ArithmeticOperator:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:parseSosHeader:ArithmeticOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseSosHeader",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000tailBase - 1\u0000262\u000032\u0000262\u000044"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000tailBase - 1\u0000tailBase + 1\u00000"
-      ],
-      "note": "Pending maintainer decision G3 (67-28-HALTED.md): equivalent: the Se byte is parsed into a field that nothing reads, so reading another index changes no outcome.",
+      "note": "Deleted by the Plan 67-28 Gate 3 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the unread `se` field and its read are gone; the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "payload.readUInt8(tailBase + 1)",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseSosHeader:ArithmeticOperator"
     },
     {
@@ -188348,7 +188340,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000tailBase - 2\u0000263\u000034\u0000263\u000046"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > validateScanTables BooleanLiteral, BlockStatement, ConditionalExpression, EqualityOperator and LogicalOperator clusters: each scan type requires exactly its own tables"
@@ -188367,29 +188359,45 @@
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000246\u000027\u0000248\u00004",
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000250\u000040\u0000252\u00004"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > parseSosHeader BlockStatement, ConditionalExpression and ArithmeticOperator clusters: an SOS payload shorter than its own header is refused as malformed-container"
       }
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseSosHeader:ConditionalExpression",
+      "id": "jpeg:src/jpeg/parser.ts:parseSosHeader:ConditionalExpression:dead-01",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "parseSosHeader",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000246\u00007\u0000246\u000025"
+      ],
+      "note": "Rewritten by the Plan 67-28 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the guard is now `payload.length === 0` (same condition for non-negative lengths); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "payload.length < 1)",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:parseSosHeader:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/parser.ts:parseSosHeader:ConditionalExpression:gap-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseSosHeader",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000246\u00007\u0000246\u000025",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000250\u00007\u0000250\u000038"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > parseSosHeader BlockStatement, ConditionalExpression and ArithmeticOperator clusters: an SOS payload shorter than its own header is refused as malformed-container"
-      }
+      },
+      "originClusterId": "jpeg:src/jpeg/parser.ts:parseSosHeader:ConditionalExpression"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:parseSosHeader:EqualityOperator",
@@ -188397,15 +188405,14 @@
       "file": "src/jpeg/parser.ts",
       "function": "parseSosHeader",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000payload.length <= 1\u0000246\u00007\u0000246\u000025"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000payload.length <= 1\u0000payload.length < 1\u00000"
-      ],
-      "note": "Pending maintainer decision G2 (67-28-HALTED.md): message-only equivalent: a one-byte SOS payload is refused as malformed-container either way, and a directive on this line would also hide the Killed `payload.length >= 1` mutant."
+      "note": "Rewritten by the Plan 67-28 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the guard is now `payload.length === 0` (same condition for non-negative lengths); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "payload.length < 1)",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:parseSosHeader:StringLiteral",
@@ -188718,7 +188725,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000AssignmentOperator\u0000offset -= 1\u0000350\u00007\u0000350\u000018"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > scanEntropyData BlockStatement, ConditionalExpression, AssignmentOperator and EqualityOperator clusters: a 0xFF fill run ends the scan at its last 0xFF, restart markers RST0 to RST7 stay inside the scan and any other marker ends it"
@@ -188735,7 +188742,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000349\u000027\u0000352\u00006"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Timeout, Stryker hit limit, with the named test as the only covering test); the exact named test appears in coveredBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Timeout, Stryker hit limit, with the named test as the only covering test); the exact named test appears in coveredBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > scanEntropyData BlockStatement, ConditionalExpression, AssignmentOperator and EqualityOperator clusters: a 0xFF fill run ends the scan at its last 0xFF, restart markers RST0 to RST7 stay inside the scan and any other marker ends it"
@@ -188753,7 +188760,7 @@
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000349\u000012\u0000349\u000025",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000353\u00009\u0000353\u000021"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > scanEntropyData BlockStatement, ConditionalExpression, AssignmentOperator and EqualityOperator clusters: a 0xFF fill run ends the scan at its last 0xFF, restart markers RST0 to RST7 stay inside the scan and any other marker ends it"
@@ -188770,31 +188777,47 @@
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000next < RST7\u0000353\u000025\u0000353\u000037"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > scanEntropyData BlockStatement, ConditionalExpression, AssignmentOperator and EqualityOperator clusters: a 0xFF fill run ends the scan at its last 0xFF, restart markers RST0 to RST7 stay inside the scan and any other marker ends it"
       }
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:validateScanTables:BlockStatement",
+      "id": "jpeg:src/jpeg/parser.ts:validateScanTables:BlockStatement:dead-01",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "validateScanTables",
+      "mutatorName": "BlockStatement",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000284\u000030\u0000295\u00004"
+      ],
+      "note": "Rewritten by the Plan 67-28 Gate 5 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the branch is now `else if (sos.ss === 0)` (Ah > 0 always held there); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "sos.ss === 0 && sos.ah > 0",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:validateScanTables:BlockStatement"
+    },
+    {
+      "id": "jpeg:src/jpeg/parser.ts:validateScanTables:BlockStatement:gap-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "validateScanTables",
       "mutatorName": "BlockStatement",
       "disposition": "gap",
-      "count": 4,
+      "count": 3,
       "keys": [
-        "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000284\u000030\u0000295\u00004",
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000285\u000039\u0000288\u00006",
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000288\u000044\u0000291\u00006",
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000291\u000012\u0000294\u00006"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > validateScanTables BooleanLiteral, BlockStatement, ConditionalExpression, EqualityOperator and LogicalOperator clusters: each scan type requires exactly its own tables"
-      }
+      },
+      "originClusterId": "jpeg:src/jpeg/parser.ts:validateScanTables:BlockStatement"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:validateScanTables:BooleanLiteral",
@@ -188812,7 +188835,7 @@
         "src/jpeg/parser.ts\u0000BooleanLiteral\u0000true\u0000290\u000017\u0000290\u000022",
         "src/jpeg/parser.ts\u0000BooleanLiteral\u0000true\u0000292\u000017\u0000292\u000022"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > validateScanTables BooleanLiteral, BlockStatement, ConditionalExpression, EqualityOperator and LogicalOperator clusters: each scan type requires exactly its own tables"
@@ -188825,16 +188848,15 @@
       "function": "validateScanTables",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 6,
+      "count": 5,
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000284\u00007\u0000284\u000028",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000284\u00007\u0000284\u000028",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000285\u00009\u0000285\u000037",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000285\u000025\u0000285\u000037",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000288\u000016\u0000288\u000042",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000288\u000016\u0000288\u000028"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > validateScanTables BooleanLiteral, BlockStatement, ConditionalExpression, EqualityOperator and LogicalOperator clusters: each scan type requires exactly its own tables"
@@ -188842,20 +188864,20 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:validateScanTables:ConditionalExpression"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:validateScanTables:ConditionalExpression:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:validateScanTables:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "validateScanTables",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 1,
+      "disposition": "dead",
+      "count": 2,
       "keys": [
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000288\u000016\u0000288\u000042",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000288\u000032\u0000288\u000042"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000sos.ah > 0\u00000"
-      ],
-      "note": "Pending maintainer decision G5 (67-28-HALTED.md): equivalent: `sos.ah > 0` always holds when evaluated (Ss=0 with Ah=0 was matched by the previous branch), and a directive on this line would also hide Killed observable mutants.",
+      "note": "Rewritten by the Plan 67-28 Gate 5 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the branch is now `else if (sos.ss === 0)` (Ah > 0 always held there); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "sos.ss === 0 && sos.ah > 0",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:validateScanTables:ConditionalExpression"
     },
     {
@@ -188869,7 +188891,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000297\u000057\u0000297\u000078"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > validateScanTables ConditionalExpression cluster: a scan component is resolved to its own frame component by id"
@@ -188883,14 +188905,13 @@
       "function": "validateScanTables",
       "mutatorName": "EqualityOperator",
       "disposition": "gap",
-      "count": 4,
+      "count": 3,
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000frame.marker !== SOF2\u0000284\u00007\u0000284\u000028",
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000sos.ah !== 0\u0000285\u000025\u0000285\u000037",
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000sos.ss !== 0\u0000288\u000016\u0000288\u000028",
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000sos.ah <= 0\u0000288\u000032\u0000288\u000042"
+        "src/jpeg/parser.ts\u0000EqualityOperator\u0000sos.ss !== 0\u0000288\u000016\u0000288\u000028"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-28/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > validateScanTables BooleanLiteral, BlockStatement, ConditionalExpression, EqualityOperator and LogicalOperator clusters: each scan type requires exactly its own tables"
@@ -188898,20 +188919,20 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:validateScanTables:EqualityOperator"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:validateScanTables:EqualityOperator:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:validateScanTables:EqualityOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "validateScanTables",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 1,
+      "disposition": "dead",
+      "count": 2,
       "keys": [
+        "src/jpeg/parser.ts\u0000EqualityOperator\u0000sos.ah <= 0\u0000288\u000032\u0000288\u000042",
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000sos.ah >= 0\u0000288\u000032\u0000288\u000042"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000sos.ah >= 0\u0000sos.ah > 0\u00000"
-      ],
-      "note": "Pending maintainer decision G5 (67-28-HALTED.md): equivalent: `sos.ah > 0` always holds when evaluated (Ss=0 with Ah=0 was matched by the previous branch), and a directive on this line would also hide Killed observable mutants.",
+      "note": "Rewritten by the Plan 67-28 Gate 5 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the branch is now `else if (sos.ss === 0)` (Ah > 0 always held there); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "sos.ss === 0 && sos.ah > 0",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:validateScanTables:EqualityOperator"
     },
     {
@@ -188920,16 +188941,14 @@
       "file": "src/jpeg/parser.ts",
       "function": "validateScanTables",
       "mutatorName": "LogicalOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000LogicalOperator\u0000sos.ss === 0 || sos.ah > 0\u0000288\u000016\u0000288\u000042"
       ],
-      "note": "reports/triage/67-28/green1-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-28/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6) > validateScanTables BooleanLiteral, BlockStatement, ConditionalExpression, EqualityOperator and LogicalOperator clusters: each scan type requires exactly its own tables"
-      }
+      "note": "Rewritten by the Plan 67-28 Gate 5 behavior-preserving source edit approved by the maintainer (reply \"approve\", 67-28-HALTED.md, Option A): the branch is now `else if (sos.ss === 0)` (Ah > 0 always held there); the symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-28/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "sos.ss === 0 && sos.ah > 0",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator",
