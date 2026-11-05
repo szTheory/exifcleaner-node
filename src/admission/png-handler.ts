@@ -203,6 +203,7 @@ function parseZtxtChunk(data: Buffer, budget: InflateBudget): Buffer {
   const compressed = data.subarray(nul + 2);
   return inflateBounded(
     compressed,
+    // Stryker disable next-line StringLiteral: unobservable-message — this chunk label reaches only the diagnostic text and the typed limit's chunkType, which classifyAdmissionFailure compares with the iCCP label alone, so a zTXt label never selects a different outcome.
     "zTXt",
     PNG_MAX_INFLATED_TEXT_BYTES,
     budget,
@@ -243,7 +244,13 @@ function parseItxtChunk(data: Buffer, budget: InflateBudget): ParsedItxt {
   const payload = data.subarray(translatedNul + 1);
   const text =
     compressionFlag === 1
-      ? inflateBounded(payload, "iTXt", PNG_MAX_INFLATED_TEXT_BYTES, budget)
+      ? inflateBounded(
+          payload,
+          // Stryker disable next-line StringLiteral: unobservable-message — this chunk label reaches only the diagnostic text and the typed limit's chunkType, which classifyAdmissionFailure compares with the iCCP label alone, so an iTXt label never selects a different outcome.
+          "iTXt",
+          PNG_MAX_INFLATED_TEXT_BYTES,
+          budget,
+        )
       : payload;
   return { keyword, text };
 }
