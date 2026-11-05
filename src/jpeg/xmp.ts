@@ -71,6 +71,7 @@ export function reassembleExtendedXmp(
   extensionPayloads: readonly Buffer[],
 ): ExtendedXmpResult {
   const guid = findHasExtendedXmpGuid(standardXmp);
+  // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — with the GUID undefined no chunk's string guid can compare equal, so `matching` stays empty and the `matching.length === 0` guard below returns the same `{ status: "absent" }`; the only other mutant on this line, `true`, does not compile.
   if (guid === undefined) return { status: "absent" };
 
   const matching: ExtendedXmpChunk[] = [];
