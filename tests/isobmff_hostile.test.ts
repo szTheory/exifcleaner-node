@@ -29,7 +29,11 @@ import {
   type JpegAdmission,
   type JpegOutputPlan,
 } from "../src/admission/jpeg-handler.js";
-import { JpegStructureError, parseJpeg } from "../src/jpeg/parser.js";
+import {
+  isJpegSignature,
+  JpegStructureError,
+  parseJpeg,
+} from "../src/jpeg/parser.js";
 import {
   ICC_SEGMENT_IDENTIFIER,
   reassembleIccSegments,
@@ -4767,6 +4771,311 @@ describe("jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4
       ).toBe("other");
       expect(classifyAppPayload(marker, Buffer.alloc(0))).toBe("other");
       expect(classifyAppPayload(marker, undefined)).toBe("other");
+    }
+  });
+});
+
+// Parser clusters for src/jpeg/parser.ts (67-27, jpeg-5). Every assertion is a typed refusal
+// (`refusal` and `kind`), a returned offset, a segment identifier or the exact reads the parser
+// asked of the file handle (offset, length, position), never diagnostic wording. The scripted
+// handle is the 67-24 `jhScriptedHandle`, which records each read and can shorten or stall it.
+type JpParseOutcome =
+  | {
+      readonly parsed: Awaited<ReturnType<typeof parseJpeg>>;
+      readonly error: undefined;
+      readonly reads: readonly JhHandleCall[];
+    }
+  | {
+      readonly parsed: undefined;
+      readonly error: unknown;
+      readonly reads: readonly JhHandleCall[];
+    };
+
+async function jpParse(
+  bytes: Buffer,
+  script?: JhCallScript,
+  declaredSize?: number,
+): Promise<JpParseOutcome> {
+  const directory = await jhFreshDirectory();
+  const path = join(directory, "input.jpg");
+  await writeFile(path, bytes);
+  const handle = await open(path, "r");
+  try {
+    const scripted = jhScriptedHandle(handle, script);
+    try {
+      const parsed = await parseJpeg(
+        scripted.handle,
+        declaredSize ?? bytes.length,
+      );
+      return { parsed, error: undefined, reads: scripted.reads };
+    } catch (error) {
+      return { parsed: undefined, error, reads: scripted.reads };
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
+/** The typed outcome of a parse: the refusal literal, or "parsed", or "other-error". */
+function jpOutcomeName(outcome: JpParseOutcome): string {
+  if (outcome.error === undefined) return "parsed";
+  return outcome.error instanceof JpegStructureError
+    ? outcome.error.refusal
+    : "other-error";
+}
+
+function jpDqtTable(precision: 0 | 1, slot: number): Buffer {
+  return Buffer.concat([
+    Buffer.from([(precision << 4) | slot]),
+    Buffer.alloc(precision === 0 ? 64 : 128, 1),
+  ]);
+}
+
+/** minimalJpeg (one component, quantization slot 0) with its DQT payload replaced. */
+function jpWithDqtPayload(payload: Buffer): Buffer {
+  const base = minimalJpeg({ components: 1 });
+  const dqtLength = base.readUInt16BE(4);
+  const header = Buffer.from([0xff, 0xdb, 0x00, 0x00]);
+  header.writeUInt16BE(payload.length + 2, 2);
+  return Buffer.concat([
+    base.subarray(0, 2),
+    header,
+    payload,
+    base.subarray(4 + dqtLength),
+  ]);
+}
+
+function jpWithAppPayload(marker: number, payload: Buffer): Buffer {
+  return spliceSegments(minimalJpeg({ components: 1 }), [
+    appSegment(marker, payload),
+  ]);
+}
+
+function jpIdentifierOf(bytes: Buffer, marker: number): Promise<unknown> {
+  return jpParse(bytes).then(
+    (outcome) =>
+      outcome.parsed?.segments.find((segment) => segment.marker === marker)
+        ?.identifier,
+  );
+}
+
+/** About 150 KiB of COM segments after SOI: three 50000-byte payloads, then the frame. */
+function jpMultiWindowJpeg(): Buffer {
+  return spliceSegments(
+    minimalJpeg({ components: 1 }),
+    [1, 2, 3].map((fill) => appSegment(0xfe, Buffer.alloc(50_000, fill))),
+  );
+}
+
+describe("jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5)", () => {
+  it("constructor StringLiteral: a JpegStructureError is named JpegStructureError and carries its typed refusal and kind", () => {
+    const error = new JpegStructureError("truncation", "any text");
+    expect(error.name).toBe("JpegStructureError");
+    expect(error).toBeInstanceOf(Error);
+    expect([error.refusal, error.kind, error.limit]).toEqual([
+      "truncation",
+      "malformed-file",
+      undefined,
+    ]);
+    const limited = new JpegStructureError("resource-limits", "any text", {
+      segment: "segment-count",
+      size: 2,
+      limit: 1,
+    });
+    expect([limited.name, limited.kind, limited.limit]).toEqual([
+      "JpegStructureError",
+      "unsafe-structure",
+      { segment: "segment-count", size: 2, limit: 1 },
+    ]);
+  });
+
+  it("isJpegSignature ConditionalExpression, EqualityOperator and LogicalOperator: only FF D8 FF followed by anything is a signature, at exactly three bytes too", () => {
+    const cases: ReadonlyArray<readonly [number[], boolean]> = [
+      [[0xff, 0xd8, 0xff], true],
+      [[0xff, 0xd8, 0xff, 0xe0], true],
+      [[0xff, 0xd8, 0xff, 0x00, 0x00], true],
+      [[], false],
+      [[0xff], false],
+      [[0xff, 0xd8], false],
+      [[0x00, 0xd8, 0xff], false],
+      [[0xff, 0x00, 0xff], false],
+      [[0xff, 0xd8, 0x00], false],
+      [[0x00, 0x00, 0xff], false],
+      [[0x00, 0xd8, 0x00], false],
+      [[0xff, 0x00, 0x00], false],
+      [[0x00, 0x00, 0x00], false],
+      [[0x00, 0xd8, 0xff, 0xe0], false],
+      [[0xff, 0x00, 0xff, 0xe0], false],
+      [[0xff, 0xd8, 0x00, 0xe0], false],
+    ];
+    for (const [bytes, expected] of cases) {
+      expect([bytes, isJpegSignature(Buffer.from(bytes))]).toEqual([
+        bytes,
+        expected,
+      ]);
+    }
+  });
+
+  it("readExactly ArithmeticOperator, ConditionalExpression and BlockStatement: a handle that returns three bytes per read still yields the same parse, each read asks for exactly what is left, and a file shorter than declared is a truncation", async () => {
+    const bytes = minimalJpeg({ components: 3 });
+    const whole = await jpParse(bytes);
+    const short = await jpParse(bytes, () => ({ transfer: 3 }));
+    expect(jpOutcomeName(whole)).toBe("parsed");
+    expect(jpOutcomeName(short)).toBe("parsed");
+    expect(short.parsed).toEqual(whole.parsed);
+    expect(short.reads.length).toBe(Math.ceil(bytes.length / 3));
+    short.reads.forEach((call, index) => {
+      expect([index, call.offset, call.position]).toEqual([
+        index,
+        index * 3,
+        index * 3,
+      ]);
+      expect([index, call.length]).toEqual([
+        index,
+        call.bufferLength - call.offset,
+      ]);
+    });
+
+    // The handle reports zero bytes: the read loop must stop with a truncation, not spin.
+    const stalled = await jpParse(bytes, (_call, index) =>
+      index === 0 ? { stall: true } : { fail: true },
+    );
+    expect(jpOutcomeName(stalled)).toBe("truncation");
+    expect(stalled.reads.length).toBe(1);
+
+    // The file really ends before the declared size: one full read, then a read at EOF.
+    const declaredTooLong = await jpParse(
+      bytes,
+      (_call, index) => (index >= 6 ? { fail: true } : undefined),
+      bytes.length + 7,
+    );
+    expect(jpOutcomeName(declaredTooLong)).toBe("truncation");
+    expect(
+      declaredTooLong.error instanceof JpegStructureError &&
+        declaredTooLong.error.kind,
+    ).toBe("malformed-file");
+    expect(declaredTooLong.reads.map((call) => call.position)).toEqual([
+      0,
+      bytes.length,
+    ]);
+  });
+
+  it("readWindowed ConditionalExpression, EqualityOperator and ArithmeticOperator: a file under 64 KiB is read once, and a larger file is read in windows that never extend past the end of the file", async () => {
+    const small = minimalJpeg({ components: 3 });
+    const smallOutcome = await jpParse(small);
+    expect(jpOutcomeName(smallOutcome)).toBe("parsed");
+    expect(smallOutcome.reads).toEqual([
+      {
+        offset: 0,
+        length: small.length,
+        position: 0,
+        bufferLength: small.length,
+      },
+    ]);
+
+    const large = jpMultiWindowJpeg();
+    const largeOutcome = await jpParse(large);
+    expect(jpOutcomeName(largeOutcome)).toBe("parsed");
+    expect(largeOutcome.parsed?.primaryEoiEnd).toBe(large.length);
+    // The windows open where a payload does not fit the open window: the second and third
+    // COM payloads start at 50010 and 100014; each window is 64 KiB or what remains.
+    expect(largeOutcome.reads).toEqual([
+      { offset: 0, length: 65_536, position: 0, bufferLength: 65_536 },
+      { offset: 0, length: 65_536, position: 50_010, bufferLength: 65_536 },
+      {
+        offset: 0,
+        length: large.length - 100_014,
+        position: 100_014,
+        bufferLength: large.length - 100_014,
+      },
+    ]);
+  });
+
+  it("readIdentifier MethodExpression, ConditionalExpression and EqualityOperator: an APPn identifier is the text before a NUL found in the first 32 payload bytes, empty for a leading NUL, absent otherwise", async () => {
+    const withNul = (text: string, total: number): Buffer =>
+      Buffer.concat([
+        Buffer.from(text, "latin1"),
+        Buffer.alloc(total - text.length, 0x58),
+      ]);
+    const nulAt = (index: number, total: number): Buffer => {
+      const payload = Buffer.alloc(total, 0x41);
+      payload[index] = 0x00;
+      return payload;
+    };
+    const cases: ReadonlyArray<readonly [string, Buffer, string | undefined]> =
+      [
+        ["Exif NUL NUL", Buffer.from("Exif\0\0abc", "latin1"), "Exif"],
+        ["NUL at index 31", nulAt(31, 40), "A".repeat(31)],
+        ["NUL at index 32", nulAt(32, 40), undefined],
+        ["NUL at index 35", nulAt(35, 40), undefined],
+        ["leading NUL", nulAt(0, 6), ""],
+        ["no NUL, short", Buffer.alloc(10, 0x44), undefined],
+        ["no NUL, one byte", Buffer.alloc(1, 0x44), undefined],
+        ["NUL last of a short payload", nulAt(9, 10), "A".repeat(9)],
+        ["empty payload", Buffer.alloc(0), undefined],
+        ["text then filler", withNul("abc", 5), undefined],
+      ];
+    for (const [label, payload, expected] of cases) {
+      expect([
+        label,
+        await jpIdentifierOf(jpWithAppPayload(0xe5, payload), 0xe5),
+      ]).toEqual([label, expected]);
+    }
+  });
+
+  it("parseDqtSlots ArithmeticOperator, ConditionalExpression and BlockStatement: a DQT table is admitted at exactly its 65 or 129 bytes and refused as malformed-container one byte short, from any cursor", async () => {
+    const cases: ReadonlyArray<readonly [string, Buffer, string]> = [
+      ["8-bit table", jpDqtTable(0, 0), "parsed"],
+      [
+        "8-bit table one byte short",
+        jpDqtTable(0, 0).subarray(0, 64),
+        "malformed-container",
+      ],
+      [
+        "lone table header byte",
+        jpDqtTable(0, 0).subarray(0, 1),
+        "malformed-container",
+      ],
+      ["16-bit table", jpDqtTable(1, 0), "parsed"],
+      [
+        "16-bit table one byte short",
+        jpDqtTable(1, 0).subarray(0, 128),
+        "malformed-container",
+      ],
+      [
+        "16-bit table cut at the 8-bit length",
+        jpDqtTable(1, 0).subarray(0, 65),
+        "malformed-container",
+      ],
+      [
+        "two 8-bit tables",
+        Buffer.concat([jpDqtTable(0, 0), jpDqtTable(0, 1)]),
+        "parsed",
+      ],
+      [
+        "second 8-bit table one byte short",
+        Buffer.concat([jpDqtTable(0, 0), jpDqtTable(0, 1).subarray(0, 64)]),
+        "malformed-container",
+      ],
+      [
+        "8-bit then 16-bit table",
+        Buffer.concat([jpDqtTable(0, 0), jpDqtTable(1, 1)]),
+        "parsed",
+      ],
+      [
+        "16-bit then 8-bit table",
+        Buffer.concat([jpDqtTable(1, 0), jpDqtTable(0, 1)]),
+        "parsed",
+      ],
+    ];
+    for (const [label, payload, expected] of cases) {
+      const outcome = await jpParse(jpWithDqtPayload(payload));
+      expect([label, jpOutcomeName(outcome)]).toEqual([label, expected]);
+      if (expected !== "parsed") {
+        expect(
+          outcome.error instanceof JpegStructureError && outcome.error.kind,
+        ).toBe("malformed-file");
+      }
     }
   });
 });
