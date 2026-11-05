@@ -127,9 +127,6 @@ async function readWindowed(
   position: number,
   size: number,
 ): Promise<Buffer> {
-  if (length > READ_WINDOW_BYTES) {
-    return readExactly(handle, length, position);
-  }
   if (position < window.start || position + length > window.end) {
     const windowLength = Math.min(READ_WINDOW_BYTES, size - position);
     window.buffer = await readExactly(handle, windowLength, position);
