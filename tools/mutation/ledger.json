@@ -190678,21 +190678,20 @@
       }
     },
     {
-      "id": "metadata:src/metadata/exif.ts:readIfd0Resolution:ConditionalExpression:pending-01",
+      "id": "metadata:src/metadata/exif.ts:readIfd0Resolution:ConditionalExpression:dead-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "readIfd0Resolution",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000441\u00009\u0000441\u000024"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000tiff.length < 8\u00001"
-      ],
-      "originClusterId": "metadata:src/metadata/exif.ts:readIfd0Resolution:ConditionalExpression"
+      "note": "Deleted by the Plan 67-33 behavior-preserving source edit approved by the maintainer (reply \"approve\" to 67-33-HALTED.md, Option A, relayed by the coordinating agent): the redundant `tiff.length < 8` guard in readIfd0Resolution was dropped because every payload shorter than 9 bytes still ends in undefined (the II/MM check, the bounds-checked u16(2) and u32(4) reads caught by the surrounding catch, then inBounds(tiff, 8, 2)). Symbol \"tiff.length\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-33/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/exif.ts:readIfd0Resolution:ConditionalExpression",
+      "symbol": "tiff.length",
+      "symbolScope": "function"
     },
     {
       "id": "metadata:src/metadata/exif.ts:readIfd0Resolution:ConditionalExpression:gap-01",
@@ -190828,21 +190827,20 @@
       "originClusterId": "metadata:src/metadata/exif.ts:readIfd0Resolution:ConditionalExpression"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:readIfd0Resolution:EqualityOperator:pending-01",
+      "id": "metadata:src/metadata/exif.ts:readIfd0Resolution:EqualityOperator:dead-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "readIfd0Resolution",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000EqualityOperator\u0000tiff.length <= 8\u0000441\u00009\u0000441\u000024"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000tiff.length <= 8\u0000tiff.length < 8\u00001"
-      ],
-      "originClusterId": "metadata:src/metadata/exif.ts:readIfd0Resolution:EqualityOperator"
+      "note": "Deleted by the Plan 67-33 behavior-preserving source edit approved by the maintainer (reply \"approve\" to 67-33-HALTED.md, Option A, relayed by the coordinating agent): the redundant `tiff.length < 8` guard in readIfd0Resolution was dropped because every payload shorter than 9 bytes still ends in undefined (the II/MM check, the bounds-checked u16(2) and u32(4) reads caught by the surrounding catch, then inBounds(tiff, 8, 2)). Symbol \"tiff.length\" no longer appears in its enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-33/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "originClusterId": "metadata:src/metadata/exif.ts:readIfd0Resolution:EqualityOperator",
+      "symbol": "tiff.length",
+      "symbolScope": "function"
     },
     {
       "id": "metadata:src/metadata/exif.ts:readIfd0Resolution:EqualityOperator:gap-01",
