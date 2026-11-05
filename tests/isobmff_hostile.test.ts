@@ -3647,7 +3647,9 @@ describe("jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1)", 
 const JH_DQT = 0xdb;
 const JH_DHT = 0xc4;
 const JH_SOS = 0xda;
-const JH_EOI_BYTES = Buffer.from([0xff, 0xd9]);
+function jhEoiBytes(): Buffer {
+  return Buffer.from([0xff, 0xd9]);
+}
 
 interface JhHandleCall {
   readonly offset: number;
@@ -3861,9 +3863,9 @@ function jhLargeScanJpeg(): Buffer {
   for (let index = 0; index < filler.length; index += 1)
     filler[index] = (index * 7 + 3) % 251;
   return Buffer.concat([
-    base.subarray(0, base.length - JH_EOI_BYTES.length),
+    base.subarray(0, base.length - jhEoiBytes().length),
     filler,
-    JH_EOI_BYTES,
+    jhEoiBytes(),
   ]);
 }
 
@@ -4221,7 +4223,7 @@ describe("jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2)", 
     const lastScan = jhSegmentRange(output, JH_SOS, 2);
     const prefix = Buffer.concat([
       output.subarray(0, lastScan.start),
-      JH_EOI_BYTES,
+      jhEoiBytes(),
     ]);
     expect(jhMarkerSequence(prefix)).toEqual([
       ...jhMarkerSequence(output).slice(0, -2),
