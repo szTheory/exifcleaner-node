@@ -188075,7 +188075,7 @@
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000size + offset\u0000521\u000011\u0000521\u000024",
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000payloadOffset - payloadLength\u0000537\u000011\u0000537\u000040"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: SOS and other segment headers refuse at the exact byte that is missing"
@@ -188093,7 +188093,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000size + offset\u0000570\u00009\u0000570\u000022"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, LogicalOperator and EqualityOperator clusters: the file-size guard refuses only a size above the cap, and a size that is not a safe integer or is below four bytes"
@@ -188112,7 +188112,7 @@
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u00006 - componentCount * 3\u0000621\u000028\u0000621\u000050",
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000componentCount / 3\u0000621\u000032\u0000621\u000050"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: an SOF payload must hold its six header bytes and three bytes per declared component"
@@ -188130,7 +188130,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000base - 1\u0000644\u000044\u0000644\u000052"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg ArithmeticOperator cluster: each frame component keeps its own id, sampling nibbles and quantization table index"
@@ -188150,7 +188150,7 @@
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000392\u000048\u0000397\u00004",
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000430\u000028\u0000432\u00006"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, LogicalOperator, StringLiteral and EqualityOperator clusters: an aborted signal rejects with its own reason or an AbortError, at the entry and at every marker boundary but not past the last segment"
@@ -188169,7 +188169,7 @@
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000400\u000042\u0000405\u00004",
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000435\u000026\u0000440\u00006"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression and LogicalOperator clusters: a file refuses unless both of its first two bytes are the SOI, and a segment must start with a 0xFF prefix"
@@ -188189,7 +188189,7 @@
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000537\u000049\u0000542\u00008",
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000611\u000031\u0000616\u00008"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: SOS and other segment headers refuse at the exact byte that is missing"
@@ -188207,7 +188207,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000570\u000028\u0000575\u00006"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, LogicalOperator and EqualityOperator clusters: the file-size guard refuses only a size above the cap, and a size that is not a safe integer or is below four bytes"
@@ -188225,7 +188225,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000621\u000052\u0000626\u00008"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: an SOF payload must hold its six header bytes and three bytes per declared component"
@@ -188233,22 +188233,20 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:BlockStatement"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:BlockStatement:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:BlockStatement:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseJpeg",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000529\u000023\u0000534\u00008",
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000578\u000021\u0000583\u00006"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000{\n        throw new JpegStructureError(\n          \"malformed-container\",\n          \"SOS segment length is below 2.\",\n        );\n      }\u00000",
-        "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new JpegStructureError(\n        \"malformed-container\",\n        \"Segment length is below 2.\",\n      );\n    }\u00000"
-      ],
-      "note": "Provably equivalent or redundant, but the only directive that could suppress it would also hide an observable Killed counterpart on its line; maintainer decision pending, see 67-29-HALTED.md.",
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant `length < 2` guard of the segment header was removed (Gate 1); a length of 0 or 1 still ends in the same typed malformed-container refusal, pinned by the segment-header test. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "length < 2",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:BlockStatement"
     },
     {
@@ -188263,7 +188261,7 @@
         "src/jpeg/parser.ts\u0000BooleanLiteral\u0000false\u0000692\u000021\u0000692\u000025",
         "src/jpeg/parser.ts\u0000BooleanLiteral\u0000false\u0000707\u000020\u0000707\u000024"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg ConditionalExpression, EqualityOperator, LogicalOperator and BooleanLiteral clusters: only APPn segments carry an identifier and only the first JFIF and MPF segments are buffered, while every Adobe segment is"
@@ -188283,7 +188281,7 @@
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000392\u000038\u0000392\u000046",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000430\u00009\u0000430\u000026"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, LogicalOperator, StringLiteral and EqualityOperator clusters: an aborted signal rejects with its own reason or an AbortError, at the entry and at every marker boundary but not past the last segment"
@@ -188304,7 +188302,7 @@
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000400\u000026\u0000400\u000040",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000435\u00009\u0000435\u000024"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression and LogicalOperator clusters: a file refuses unless both of its first two bytes are the SOI, and a segment must start with a 0xFF prefix"
@@ -188324,7 +188322,7 @@
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000537\u000011\u0000537\u000047",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000611\u000011\u0000611\u000029"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: SOS and other segment headers refuse at the exact byte that is missing"
@@ -188342,7 +188340,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000570\u00009\u0000570\u000026"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, LogicalOperator and EqualityOperator clusters: the file-size guard refuses only a size above the cap, and a size that is not a safe integer or is below four bytes"
@@ -188360,7 +188358,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000621\u000011\u0000621\u000050"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: an SOF payload must hold its six header bytes and three bytes per declared component"
@@ -188383,7 +188381,7 @@
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000705\u000013\u0000705\u000020",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000709\u000018\u0000709\u000038"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg ConditionalExpression, EqualityOperator, LogicalOperator and BooleanLiteral clusters: only APPn segments carry an identifier and only the first JFIF and MPF segments are buffered, while every Adobe segment is"
@@ -188391,28 +188389,38 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:ConditionalExpression"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:ConditionalExpression:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseJpeg",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 5,
+      "disposition": "dead",
+      "count": 2,
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000529\u000011\u0000529\u000021",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000578\u00009\u0000578\u000019",
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000578\u00009\u0000578\u000019"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant `length < 2` guard of the segment header was removed (Gate 1); a length of 0 or 1 still ends in the same typed malformed-container refusal, pinned by the segment-header test. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "length < 2",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:ConditionalExpression:dead-02",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "parseJpeg",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 3,
+      "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000659\u00009\u0000659\u000023",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000659\u00009\u0000659\u000042",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000659\u000027\u0000659\u000042"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000length < 2\u00000",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000length < 2\u00001",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000marker >= APP0\u00001",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000marker >= APP0 && marker <= APP15\u00001",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000marker <= APP15\u00001"
-      ],
-      "note": "Provably equivalent or redundant, but the only directive that could suppress it would also hide an observable Killed counterpart on its line; maintainer decision pending, see 67-29-HALTED.md.",
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant outer APPn range guard was removed (Gate 2); classifyAppPayload answers other outside the APPn classes, so nothing changes. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "if (marker >= APP0 && marker <= APP15) {",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:ConditionalExpression"
     },
     {
@@ -188427,7 +188435,7 @@
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000size >= JPEG_MAX_FILE_BYTES\u0000385\u00007\u0000385\u000033",
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000size <= 4\u0000392\u000038\u0000392\u000046"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, LogicalOperator and EqualityOperator clusters: the file-size guard refuses only a size above the cap, and a size that is not a safe integer or is below four bytes"
@@ -188445,7 +188453,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000offset <= size\u0000429\u000010\u0000429\u000023"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, LogicalOperator, StringLiteral and EqualityOperator clusters: an aborted signal rejects with its own reason or an AbortError, at the entry and at every marker boundary but not past the last segment"
@@ -188466,7 +188474,7 @@
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000size - offset <= 2\u0000570\u00009\u0000570\u000026",
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000payloadOffset + payloadLength >= size\u0000586\u00009\u0000586\u000045"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: SOS and other segment headers refuse at the exact byte that is missing"
@@ -188484,7 +188492,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000payload.length <= 6\u0000611\u000011\u0000611\u000029"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: an SOF payload must hold its six header bytes and three bytes per declared component"
@@ -188502,7 +188510,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000marker > APP0\u0000657\u00007\u0000657\u000021"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg ConditionalExpression, EqualityOperator, LogicalOperator and BooleanLiteral clusters: only APPn segments carry an identifier and only the first JFIF and MPF segments are buffered, while every Adobe segment is"
@@ -188520,7 +188528,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000marker < APP15\u0000657\u000025\u0000657\u000040"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. These members were already Killed in reports/triage/67-29/red-full.json (a real run on the unedited source and the baseline tests) by this pre-existing test; the immutable hosted pre-triage status was Survived or NoCoverage, so no new test was needed.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. These members were already Killed in reports/triage/67-29/red-full.json (a real run on the unedited source and the baseline tests) by this pre-existing test; the immutable hosted pre-triage status was Survived or NoCoverage, so no new test was needed.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > markerLabel ConditionalExpression: an APPn segment whose identifier is empty is named APPn without a colon"
@@ -188539,7 +188547,7 @@
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000iccSegmentCount >= JPEG_MAX_ICC_SEGMENTS\u0000663\u000013\u0000663\u000052",
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000extendedXmpBytesTotal >= JPEG_MAX_EXTENDED_XMP_BYTES\u0000677\u000013\u0000677\u000064"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg EqualityOperator cluster: the ICC segment count and the ExtendedXMP byte total are refused only above their caps"
@@ -188547,22 +188555,35 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:EqualityOperator"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:EqualityOperator:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:EqualityOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseJpeg",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000length <= 2\u0000529\u000011\u0000529\u000021",
+        "src/jpeg/parser.ts\u0000EqualityOperator\u0000length <= 2\u0000529\u000011\u0000529\u000021"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant `length < 2` guard of the segment header was removed (Gate 1); a length of 0 or 1 still ends in the same typed malformed-container refusal, pinned by the segment-header test. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "length < 2",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:EqualityOperator"
+    },
+    {
+      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:EqualityOperator:dead-02",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "parseJpeg",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000marker < APP15\u0000659\u000027\u0000659\u000042"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000length <= 2\u0000length < 2\u00000",
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000marker < APP15\u0000marker <= APP15\u00001"
-      ],
-      "note": "Provably equivalent or redundant, but the only directive that could suppress it would also hide an observable Killed counterpart on its line; maintainer decision pending, see 67-29-HALTED.md.",
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant outer APPn range guard was removed (Gate 2); classifyAppPayload answers other outside the APPn classes, so nothing changes. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "if (marker >= APP0 && marker <= APP15) {",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:EqualityOperator"
     },
     {
@@ -188578,7 +188599,7 @@
         "src/jpeg/parser.ts\u0000LogicalOperator\u0000!Number.isSafeInteger(size) && size < 4\u0000392\u00007\u0000392\u000046",
         "src/jpeg/parser.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000431\u000013\u0000431\u000072"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, LogicalOperator, StringLiteral and EqualityOperator clusters: an aborted signal rejects with its own reason or an AbortError, at the entry and at every marker boundary but not past the last segment"
@@ -188596,7 +188617,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000LogicalOperator\u0000soi[0] !== 0xff && soi[1] !== SOI\u0000400\u00007\u0000400\u000040"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression and LogicalOperator clusters: a file refuses unless both of its first two bytes are the SOI, and a segment must start with a 0xFF prefix"
@@ -188614,7 +188635,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000LogicalOperator\u0000marker >= APP0 || marker <= APP15\u0000657\u00007\u0000657\u000040"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg ConditionalExpression, EqualityOperator, LogicalOperator and BooleanLiteral clusters: only APPn segments carry an identifier and only the first JFIF and MPF segments are buffered, while every Adobe segment is"
@@ -188622,20 +188643,19 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:LogicalOperator"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:LogicalOperator:pending-01",
+      "id": "jpeg:src/jpeg/parser.ts:parseJpeg:LogicalOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseJpeg",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000LogicalOperator\u0000marker >= APP0 || marker <= APP15\u0000659\u00009\u0000659\u000042"
       ],
-      "anchors": [
-        "src/jpeg/parser.ts\u0000LogicalOperator\u0000marker >= APP0 || marker <= APP15\u0000marker >= APP0 && marker <= APP15\u00001"
-      ],
-      "note": "Provably equivalent or redundant, but the only directive that could suppress it would also hide an observable Killed counterpart on its line; maintainer decision pending, see 67-29-HALTED.md.",
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant outer APPn range guard was removed (Gate 2); classifyAppPayload answers other outside the APPn classes, so nothing changes. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "if (marker >= APP0 && marker <= APP15) {",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseJpeg:LogicalOperator"
     },
     {
@@ -188650,7 +188670,7 @@
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000381\u000057\u0000381\u000069",
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000431\u000059\u0000431\u000071"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7) > parseJpeg BlockStatement, ConditionalExpression, LogicalOperator, StringLiteral and EqualityOperator clusters: an aborted signal rejects with its own reason or an AbortError, at the entry and at every marker boundary but not past the last segment"
@@ -189324,10 +189344,10 @@
       "keys": [
         "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000ifdOffset - 2\u000062\u00007\u000062\u000020"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload ConditionalExpression and EqualityOperator clusters: the magic number, the IFD location and the image count each have an exact boundary"
+        "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload BooleanLiteral, ConditionalExpression and StringLiteral clusters: II and MM are the only byte orders, each read in its own endianness"
       },
       "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator"
     },
@@ -189338,12 +189358,48 @@
       "function": "classifyMpfPayload",
       "mutatorName": "ArithmeticOperator",
       "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000(header.length - entriesStart) * MPF_IFD_ENTRY_BYTES\u000066\u00005\u000066\u000057"
+      ],
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload EqualityOperator and ConditionalExpression clusters: an IFD that ends exactly at the end of the payload is admitted, and every proper prefix of a valid payload is the invalid class"
+      },
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator:gap-03",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000header.length + entriesStart\u000066\u00006\u000066\u000034"
+      ],
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload ConditionalExpression and EqualityOperator clusters: the magic number, the IFD location and the image count each have an exact boundary"
+      },
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator:gap-04",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000entryBase - 4\u0000101\u000026\u0000101\u000039",
         "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000dataOffset - size\u0000103\u00009\u0000103\u000026"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload ArithmeticOperator, ConditionalExpression and EqualityOperator clusters: a secondary image must end within the file, and a file of exactly its end is admitted"
@@ -189351,26 +189407,35 @@
       "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator"
     },
     {
-      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator:pending-01",
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/trailer.ts",
       "function": "classifyMpfPayload",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000MPF_IDENTIFIER_BYTES - 8\u000043\u000027\u000043\u000051",
-        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000(header.length - entriesStart) * MPF_IFD_ENTRY_BYTES\u000066\u00005\u000066\u000057",
-        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000header.length + entriesStart\u000066\u00006\u000066\u000034",
+        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000MPF_IDENTIFIER_BYTES - 8\u000043\u000027\u000043\u000051"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "MPF_IDENTIFIER_BYTES + 8",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator:dead-02",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000entryOffset - MPF_IFD_ENTRY_BYTES\u000075\u00009\u000075\u000042"
       ],
-      "anchors": [
-        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000MPF_IDENTIFIER_BYTES - 8\u0000MPF_IDENTIFIER_BYTES + 8\u00000",
-        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000(header.length - entriesStart) * MPF_IFD_ENTRY_BYTES\u0000(header.length - entriesStart) / MPF_IFD_ENTRY_BYTES\u00000",
-        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000header.length + entriesStart\u0000header.length - entriesStart\u00000",
-        "src/jpeg/trailer.ts\u0000ArithmeticOperator\u0000entryOffset - MPF_IFD_ENTRY_BYTES\u0000entryOffset + MPF_IFD_ENTRY_BYTES\u00000"
-      ],
-      "note": "Provably equivalent or redundant, but the only directive that could suppress it would also hide an observable Killed counterpart on its line; maintainer decision pending, see 67-29-HALTED.md.",
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "entryOffset + MPF_IFD_ENTRY_BYTES",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ArithmeticOperator"
     },
     {
@@ -189384,7 +189449,7 @@
       "keys": [
         "src/jpeg/trailer.ts\u0000BooleanLiteral\u0000little\u000049\u00007\u000049\u000014"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload BooleanLiteral, ConditionalExpression and StringLiteral clusters: II and MM are the only byte orders, each read in its own endianness"
@@ -189403,7 +189468,7 @@
         "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000true\u000048\u000015\u000048\u000033",
         "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000049\u00007\u000049\u000022"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload BooleanLiteral, ConditionalExpression and StringLiteral clusters: II and MM are the only byte orders, each read in its own endianness"
@@ -189417,19 +189482,129 @@
       "function": "classifyMpfPayload",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 5,
+      "count": 3,
       "keys": [
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000056\u00007\u000056\u000024",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000062\u00007\u000062\u000036",
         "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000true\u000079\u000016\u000079\u000040",
         "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000084\u000039\u000084\u000057",
         "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000090\u00007\u000090\u000039"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload ConditionalExpression and EqualityOperator clusters: the magic number, the IFD location and the image count each have an exact boundary"
       },
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression:dead-01",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000043\u00007\u000043\u000051"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "mpfPayload.length < MPF_IDENTIFIER_BYTES + 8",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression:dead-02",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000055\u00007\u000055\u000024"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "header.length < 8",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression:dead-03",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000056\u00007\u000056\u000024"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "readU16(2) !== 42",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression:dead-04",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000062\u00007\u000062\u000036"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "ifdOffset + 2 > header.length",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression:dead-05",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000068\u00007\u000068\u000023"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "entryCount === 0",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression:dead-06",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000068\u00007\u000068\u000062"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "entryCount === 0 || entryCount > maxIfdEntriesByPayload",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression:dead-07",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000075\u00009\u000075\u000058"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "entryOffset + MPF_IFD_ENTRY_BYTES > header.length",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
     },
     {
@@ -189439,24 +189614,14 @@
       "function": "classifyMpfPayload",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 6,
+      "count": 1,
       "keys": [
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000043\u00007\u000043\u000051",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000055\u00007\u000055\u000024",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000068\u00007\u000068\u000023",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000068\u00007\u000068\u000062",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000068\u000027\u000068\u000062",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000075\u00009\u000075\u000058"
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000068\u000027\u000068\u000062"
       ],
       "anchors": [
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000mpfPayload.length < MPF_IDENTIFIER_BYTES + 8\u00000",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000header.length < 8\u00000",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000entryCount === 0\u00000",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000entryCount === 0 || entryCount > maxIfdEntriesByPayload\u00000",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000entryCount > maxIfdEntriesByPayload\u00000",
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000entryOffset + MPF_IFD_ENTRY_BYTES > header.length\u00000"
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000entryCount > maxIfdEntriesByPayload\u00000"
       ],
-      "note": "Provably equivalent or redundant, but the only directive that could suppress it would also hide an observable Killed counterpart on its line; maintainer decision pending, see 67-29-HALTED.md.",
+      "note": "The only killer in the report is a test that predates the baseline (tests/jpeg_trailer.test.ts), which the verifier rejects as a gap proof; maintainer decision pending, see 67-29-HALTED.md (addendum).",
       "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
     },
     {
@@ -189466,13 +189631,12 @@
       "function": "classifyMpfPayload",
       "mutatorName": "EqualityOperator",
       "disposition": "gap",
-      "count": 3,
+      "count": 2,
       "keys": [
         "src/jpeg/trailer.ts\u0000EqualityOperator\u0000entryCount >= maxIfdEntriesByPayload\u000068\u000027\u000068\u000062",
-        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000index <= entryCount\u000073\u000023\u000073\u000041",
-        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000entryOffset + MPF_IFD_ENTRY_BYTES >= header.length\u000075\u00009\u000075\u000058"
+        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000index <= entryCount\u000073\u000023\u000073\u000041"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload EqualityOperator and ConditionalExpression clusters: an IFD that ends exactly at the end of the payload is admitted, and every proper prefix of a valid payload is the invalid class"
@@ -189490,7 +189654,7 @@
       "keys": [
         "src/jpeg/trailer.ts\u0000EqualityOperator\u0000dataOffset + size >= fileSize\u0000103\u00009\u0000103\u000037"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload ArithmeticOperator, ConditionalExpression and EqualityOperator clusters: a secondary image must end within the file, and a file of exactly its end is admitted"
@@ -189498,41 +189662,84 @@
       "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator"
     },
     {
-      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator:pending-01",
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/trailer.ts",
       "function": "classifyMpfPayload",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000mpfPayload.length <= MPF_IDENTIFIER_BYTES + 8\u000043\u00007\u000043\u000051",
-        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000header.length <= 8\u000055\u00007\u000055\u000024",
-        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000ifdOffset + 2 >= header.length\u000062\u00007\u000062\u000036"
+        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000mpfPayload.length <= MPF_IDENTIFIER_BYTES + 8\u000043\u00007\u000043\u000051"
       ],
-      "anchors": [
-        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000mpfPayload.length <= MPF_IDENTIFIER_BYTES + 8\u0000mpfPayload.length < MPF_IDENTIFIER_BYTES + 8\u00000",
-        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000header.length <= 8\u0000header.length < 8\u00000",
-        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000ifdOffset + 2 >= header.length\u0000ifdOffset + 2 > header.length\u00000"
-      ],
-      "note": "Provably equivalent or redundant, but the only directive that could suppress it would also hide an observable Killed counterpart on its line; maintainer decision pending, see 67-29-HALTED.md.",
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "mpfPayload.length < MPF_IDENTIFIER_BYTES + 8",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator"
     },
     {
-      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:LogicalOperator",
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator:dead-02",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000header.length <= 8\u000055\u00007\u000055\u000024"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "header.length < 8",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator:dead-03",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000ifdOffset + 2 >= header.length\u000062\u00007\u000062\u000036"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "ifdOffset + 2 > header.length",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator:dead-04",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000entryOffset + MPF_IFD_ENTRY_BYTES >= header.length\u000075\u00009\u000075\u000058"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "entryOffset + MPF_IFD_ENTRY_BYTES > header.length",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:LogicalOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/trailer.ts",
       "function": "classifyMpfPayload",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/trailer.ts\u0000LogicalOperator\u0000entryCount === 0 && entryCount > maxIfdEntriesByPayload\u000068\u00007\u000068\u000062"
       ],
-      "anchors": [
-        "src/jpeg/trailer.ts\u0000LogicalOperator\u0000entryCount === 0 && entryCount > maxIfdEntriesByPayload\u0000entryCount === 0 || entryCount > maxIfdEntriesByPayload\u00000"
-      ],
-      "note": "Provably equivalent or redundant, but the only directive that could suppress it would also hide an observable Killed counterpart on its line; maintainer decision pending, see 67-29-HALTED.md."
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "entryCount === 0 || entryCount > maxIfdEntriesByPayload",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:LogicalOperator"
     },
     {
       "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:StringLiteral",
@@ -189545,7 +189752,7 @@
       "keys": [
         "src/jpeg/trailer.ts\u0000StringLiteral\u0000\"\"\u000047\u000032\u000047\u000036"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > classifyMpfPayload BooleanLiteral, ConditionalExpression and StringLiteral clusters: II and MM are the only byte orders, each read in its own endianness"
@@ -189562,44 +189769,43 @@
       "keys": [
         "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000157\u000031\u0000157\u000061"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > isSamsungSeftTail EqualityOperator cluster and classifyTrailerClasses ConditionalExpression cluster: an eight-byte SEFT tail is Samsung, a shorter one is not, and an XMP flag counts when only an MPF payload carries the secondary bytes"
       }
     },
     {
-      "id": "jpeg:src/jpeg/trailer.ts:isSamsungSeftTail:ConditionalExpression",
+      "id": "jpeg:src/jpeg/trailer.ts:isSamsungSeftTail:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/trailer.ts",
       "function": "isSamsungSeftTail",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000121\u00007\u0000121\u000043"
       ],
-      "anchors": [
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000trailerTail.length < SEFT_TAIL_BYTES\u00000"
-      ],
-      "note": "Provably equivalent or redundant, but the only directive that could suppress it would also hide an observable Killed counterpart on its line; maintainer decision pending, see 67-29-HALTED.md."
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "trailerTail.length < SEFT_TAIL_BYTES",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:isSamsungSeftTail:ConditionalExpression"
     },
     {
-      "id": "jpeg:src/jpeg/trailer.ts:isSamsungSeftTail:EqualityOperator",
+      "id": "jpeg:src/jpeg/trailer.ts:isSamsungSeftTail:EqualityOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/trailer.ts",
       "function": "isSamsungSeftTail",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/trailer.ts\u0000EqualityOperator\u0000trailerTail.length <= SEFT_TAIL_BYTES\u0000121\u00007\u0000121\u000043"
       ],
-      "note": "reports/triage/67-29/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7) > isSamsungSeftTail EqualityOperator cluster and classifyTrailerClasses ConditionalExpression cluster: an eight-byte SEFT tail is Samsung, a shorter one is not, and an XMP flag counts when only an MPF payload carries the secondary bytes"
-      }
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "trailerTail.length < SEFT_TAIL_BYTES",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:isSamsungSeftTail:EqualityOperator"
     },
     {
       "id": "jpeg:src/jpeg/xmp.ts:findHasExtendedXmpGuid:ConditionalExpression",
