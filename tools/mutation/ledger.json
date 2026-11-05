@@ -190354,7 +190354,7 @@
       "anchors": [
         "src/metadata/exif.ts\u0000BooleanLiteral\u0000inBounds(buffer, offset, 4)\u0000!inBounds(buffer, offset, 4)\u00001"
       ],
-      "note": ""
+      "note": "Awaiting the maintainer ruling in 67-31-HALTED.md (a behavior-preserving source simplification of inBounds and the i32 reader guard): the equivalent members of these rows share a source line with observable gap members, so no next-line directive can own them honestly."
     },
     {
       "id": "metadata:src/metadata/exif.ts:i32:ConditionalExpression",
@@ -190372,7 +190372,7 @@
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!inBounds(buffer, offset, 4)\u00001",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000!inBounds(buffer, offset, 4)\u00001"
       ],
-      "note": ""
+      "note": "Awaiting the maintainer ruling in 67-31-HALTED.md (a behavior-preserving source simplification of inBounds and the i32 reader guard): the equivalent members of these rows share a source line with observable gap members, so no next-line directive can own them honestly."
     },
     {
       "id": "metadata:src/metadata/exif.ts:inBounds:ArithmeticOperator",
@@ -190380,43 +190380,60 @@
       "file": "src/metadata/exif.ts",
       "function": "inBounds",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000ArithmeticOperator\u0000buffer.length + length\u000084\u000015\u000084\u000037"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000buffer.length + length\u0000buffer.length - length\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, BlockStatement and CallExpression clusters: a value pointing past the end of the EXIF data is malformed, never truncated"
+      }
     },
     {
-      "id": "metadata:src/metadata/exif.ts:inBounds:ConditionalExpression",
+      "id": "metadata:src/metadata/exif.ts:inBounds:ConditionalExpression:pending-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "inBounds",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 7,
+      "count": 5,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000080\u00005\u000081\u000033",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000080\u00005\u000082\u000016",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000080\u00005\u000083\u000016",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000080\u00005\u000084\u000037",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000082\u00005\u000082\u000016",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000083\u00005\u000083\u000016",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000084\u00005\u000084\u000037"
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000083\u00005\u000083\u000016"
       ],
       "anchors": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000Number.isSafeInteger(offset) &&\n    Number.isSafeInteger(length)\u00000",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000Number.isSafeInteger(offset) &&\n    Number.isSafeInteger(length) &&\n    offset >= 0\u00000",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000Number.isSafeInteger(offset) &&\n    Number.isSafeInteger(length) &&\n    offset >= 0 &&\n    length >= 0\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000Number.isSafeInteger(offset) &&\n    Number.isSafeInteger(length) &&\n    offset >= 0 &&\n    length >= 0 &&\n    offset <= buffer.length - length\u00000",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000offset >= 0\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000length >= 0\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000offset <= buffer.length - length\u00000"
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000length >= 0\u00000"
       ],
-      "note": ""
+      "note": "Awaiting the maintainer ruling in 67-31-HALTED.md (a behavior-preserving source simplification of inBounds and the i32 reader guard): the equivalent members of these rows share a source line with observable gap members, so no next-line directive can own them honestly.",
+      "originClusterId": "metadata:src/metadata/exif.ts:inBounds:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:inBounds:ConditionalExpression:gap-01",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "inBounds",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000080\u00005\u000084\u000037",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u000084\u00005\u000084\u000037"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, BlockStatement and CallExpression clusters: a value pointing past the end of the EXIF data is malformed, never truncated"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:inBounds:ConditionalExpression"
     },
     {
       "id": "metadata:src/metadata/exif.ts:inBounds:EqualityOperator",
@@ -190424,39 +190441,56 @@
       "file": "src/metadata/exif.ts",
       "function": "inBounds",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/metadata/exif.ts\u0000EqualityOperator\u0000offset > 0\u000082\u00005\u000082\u000016",
         "src/metadata/exif.ts\u0000EqualityOperator\u0000length > 0\u000083\u00005\u000083\u000016"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000offset > 0\u0000offset >= 0\u00000",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000length > 0\u0000length >= 0\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > inBounds ArithmeticOperator, ConditionalExpression, EqualityOperator and LogicalOperator clusters: a value is read from offset 0, with length 0 and flush against the end, and refused one byte past the end"
+      }
     },
     {
-      "id": "metadata:src/metadata/exif.ts:inBounds:LogicalOperator",
+      "id": "metadata:src/metadata/exif.ts:inBounds:LogicalOperator:gap-01",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "inBounds",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isSafeInteger(offset) && Number.isSafeInteger(length) && offset >= 0 && length >= 0 || offset <= buffer.length - length\u000080\u00005\u000084\u000037"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, BlockStatement and CallExpression clusters: a value pointing past the end of the EXIF data is malformed, never truncated"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:inBounds:LogicalOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:inBounds:LogicalOperator:pending-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "inBounds",
       "mutatorName": "LogicalOperator",
       "disposition": "pending",
-      "count": 4,
+      "count": 3,
       "keys": [
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isSafeInteger(offset) && Number.isSafeInteger(length) && offset >= 0 && length >= 0 || offset <= buffer.length - length\u000080\u00005\u000084\u000037",
         "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isSafeInteger(offset) && Number.isSafeInteger(length) && offset >= 0 || length >= 0\u000080\u00005\u000083\u000016",
         "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isSafeInteger(offset) && Number.isSafeInteger(length) || offset >= 0\u000080\u00005\u000082\u000016",
         "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isSafeInteger(offset) || Number.isSafeInteger(length)\u000080\u00005\u000081\u000033"
       ],
       "anchors": [
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isSafeInteger(offset) && Number.isSafeInteger(length) && offset >= 0 && length >= 0 || offset <= buffer.length - length\u0000Number.isSafeInteger(offset) &&\n    Number.isSafeInteger(length) &&\n    offset >= 0 &&\n    length >= 0 &&\n    offset <= buffer.length - length\u00000",
         "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isSafeInteger(offset) && Number.isSafeInteger(length) && offset >= 0 || length >= 0\u0000Number.isSafeInteger(offset) &&\n    Number.isSafeInteger(length) &&\n    offset >= 0 &&\n    length >= 0\u00000",
         "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isSafeInteger(offset) && Number.isSafeInteger(length) || offset >= 0\u0000Number.isSafeInteger(offset) &&\n    Number.isSafeInteger(length) &&\n    offset >= 0\u00000",
         "src/metadata/exif.ts\u0000LogicalOperator\u0000Number.isSafeInteger(offset) || Number.isSafeInteger(length)\u0000Number.isSafeInteger(offset) &&\n    Number.isSafeInteger(length)\u00000"
       ],
-      "note": ""
+      "note": "Awaiting the maintainer ruling in 67-31-HALTED.md (a behavior-preserving source simplification of inBounds and the i32 reader guard): the equivalent members of these rows share a source line with observable gap members, so no next-line directive can own them honestly.",
+      "originClusterId": "metadata:src/metadata/exif.ts:inBounds:LogicalOperator"
     },
     {
       "id": "metadata:src/metadata/exif.ts:parseExif:BlockStatement",
@@ -190641,54 +190675,101 @@
       "note": ""
     },
     {
-      "id": "metadata:src/metadata/exif.ts:readNumber:ConditionalExpression",
+      "id": "metadata:src/metadata/exif.ts:readNumber:ConditionalExpression:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "readNumber",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 3,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000case 7:\u0000119\u00005\u0000122\u000041",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000120\u000011\u0000120\u000046",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000case 4:\u0000125\u00005\u0000126\u000033",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000case 9:\u0000127\u00005\u0000128\u000033"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000case 7:\u0000case 7:\n      if (!inBounds(reader.buffer, offset, 1))\n        throw new RangeError(\"TIFF byte out of bounds\");\n      return reader.buffer[offset] ?? 0;\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!inBounds(reader.buffer, offset, 1)\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000case 4:\u0000case 4:\n      return reader.u32(offset);\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000case 9:\u0000case 9:\n      return reader.i32(offset);\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readNumber ConditionalExpression cluster: BYTE, LONG and SLONG values decode by their own width and sign"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readNumber:ConditionalExpression"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:readValue:ArithmeticOperator",
+      "id": "metadata:src/metadata/exif.ts:readNumber:ConditionalExpression:equivalent-01",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readNumber",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000120\u000011\u0000120\u000046"
+      ],
+      "note": "A next-line ConditionalExpression disable owns the byte bounds guard in readNumber. readNumber is reached only from the generic element loop of readValue (types 1, 3, 4 and 9; type 7 is handled earlier), whose preceding inBounds check already covers every element offset valueOffset + index * width (width 1 for a byte), so the guard never fires. The directive line also covers the always-true replacement of the same condition. That replacement is observable (every BYTE value would throw) and was Killed before the directive; it is suppressed only as collateral because the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition stays active and Killed.",
+      "equivalenceClass": "redundant-guard-after-typed-check",
+      "anchors": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000!inBounds(reader.buffer, offset, 1)\u00000",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!inBounds(reader.buffer, offset, 1)\u00000"
+      ],
+      "originClusterId": "metadata:src/metadata/exif.ts:readNumber:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:ArithmeticOperator:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 7,
+      "disposition": "gap",
+      "count": 4,
       "keys": [
         "src/metadata/exif.ts\u0000ArithmeticOperator\u0000valueOffset - index * 8\u0000162\u000022\u0000162\u000045",
         "src/metadata/exif.ts\u0000ArithmeticOperator\u0000index / 8\u0000162\u000036\u0000162\u000045",
         "src/metadata/exif.ts\u0000ArithmeticOperator\u0000offset - 4\u0000165\u000058\u0000165\u000068",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000numerator * denominator\u0000169\u000013\u0000169\u000036",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000valueOffset - byteLength\u0000175\u000055\u0000175\u000079",
+        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000numerator * denominator\u0000169\u000013\u0000169\u000036"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, ArithmeticOperator and ObjectLiteral clusters: RATIONAL and SRATIONAL values decode sign, division and a zero denominator exactly"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:ArithmeticOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:ArithmeticOperator:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000valueOffset - byteLength\u0000175\u000055\u0000175\u000079"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes that are all text decode as a string without their trailing NULs"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:ArithmeticOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:ArithmeticOperator:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/metadata/exif.ts\u0000ArithmeticOperator\u0000valueOffset - index * width\u0000186\u000042\u0000186\u000069",
         "src/metadata/exif.ts\u0000ArithmeticOperator\u0000index / width\u0000186\u000056\u0000186\u000069"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000valueOffset - index * 8\u0000valueOffset + index * 8\u00000",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000index / 8\u0000index * 8\u00000",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000offset - 4\u0000offset + 4\u00001",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000numerator * denominator\u0000numerator / denominator\u00000",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000valueOffset - byteLength\u0000valueOffset + byteLength\u00001",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000valueOffset - index * width\u0000valueOffset + index * width\u00000",
-        "src/metadata/exif.ts\u0000ArithmeticOperator\u0000index / width\u0000index * width\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ArithmeticOperator and simplify ConditionalExpression clusters: multi-value arrays advance by the element width and a single value is not wrapped"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:ArithmeticOperator"
     },
     {
       "id": "metadata:src/metadata/exif.ts:readValue:ArrayDeclaration",
@@ -190696,15 +190777,16 @@
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "ArrayDeclaration",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000ArrayDeclaration\u0000[]\u0000181\u000012\u0000181\u000022"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ArrayDeclaration\u0000[]\u0000[...bytes]\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes containing a control byte decode as a byte array"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:readValue:ArrowFunction",
@@ -190712,33 +190794,52 @@
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "ArrowFunction",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000ArrowFunction\u0000() => undefined\u0000177\u00007\u0000178\u000077"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ArrowFunction\u0000() => undefined\u0000(byte) =>\n        byte === 0 || byte === 9 || byte === 10 || byte === 13 || byte >= 32\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes that are all text decode as a string without their trailing NULs"
+      }
     },
     {
-      "id": "metadata:src/metadata/exif.ts:readValue:BlockStatement",
+      "id": "metadata:src/metadata/exif.ts:readValue:BlockStatement:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000150\u000058\u0000152\u00004",
+        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000150\u000058\u0000152\u00004"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, BlockStatement and CallExpression clusters: a value pointing past the end of the EXIF data is malformed, never truncated"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:BlockStatement"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:BlockStatement:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000174\u000019\u0000182\u00004"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new RangeError(\"TIFF value points outside EXIF data\");\n  }\u00000",
-        "src/metadata/exif.ts\u0000BlockStatement\u0000{}\u0000{\n    const bytes = reader.buffer.subarray(valueOffset, valueOffset + byteLength);\n    const printable = bytes.every(\n      (byte) =>\n        byte === 0 || byte === 9 || byte === 10 || byte === 13 || byte >= 32,\n    );\n    if (printable) return bytes.toString(\"utf8\").replace(/\\0+$/u, \"\");\n    return [...bytes];\n  }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes that are all text decode as a string without their trailing NULs"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:BlockStatement"
     },
     {
       "id": "metadata:src/metadata/exif.ts:readValue:CallExpression",
@@ -190746,103 +190847,217 @@
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000151\u00005\u0000151\u000065"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000CallExpression\u0000;\u0000throw new RangeError(\"TIFF value points outside EXIF data\");\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, BlockStatement and CallExpression clusters: a value pointing past the end of the EXIF data is malformed, never truncated"
+      }
     },
     {
-      "id": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression",
+      "id": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 23,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000145\u000030\u0000145\u000047",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000147\u00007\u0000147\u000040",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000145\u000030\u0000145\u000047"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression and EqualityOperator clusters: a count above 1,000,000 is an unsupported value, exactly 1,000,000 is read"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression:equivalent-01",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000147\u00007\u0000147\u000040"
+      ],
+      "note": "A next-line ConditionalExpression disable owns the safe-integer guard on byteLength in readValue. The width is at most 8 and the line before already returns for a count above 1_000_000, so byteLength is at most 8_000_000 and always a safe integer; the guard never fires. The directive line also covers the always-true replacement of the same condition, which does not compile (unreachable code, a CompileError) and is suppressed only as collateral; the BooleanLiteral mutant of the same condition stays active and Killed.",
+      "equivalenceClass": "redundant-guard-after-typed-check",
+      "anchors": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000!Number.isSafeInteger(byteLength)\u00000",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!Number.isSafeInteger(byteLength)\u00000"
+      ],
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000150\u00007\u0000150\u000056",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000157\u000030\u0000157\u000037",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000157\u000030\u0000157\u000037"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, BlockStatement and CallExpression clusters: a value pointing past the end of the EXIF data is malformed, never truncated"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 6,
+      "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000159\u000021\u0000159\u000032",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000163\u000025\u0000163\u000035",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000163\u000025\u0000163\u000035",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000165\u00009\u0000165\u000019",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000165\u00009\u0000165\u000019",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000167\u00009\u0000167\u000026",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000167\u00009\u0000167\u000026"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, ArithmeticOperator and ObjectLiteral clusters: RATIONAL and SRATIONAL values decode sign, division and a zero denominator exactly"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression:gap-04",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 11,
+      "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000174\u00007\u0000174\u000017",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000178\u00009\u0000178\u000019",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000178\u00009\u0000178\u000033",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000178\u00009\u0000178\u000048",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000178\u00009\u0000178\u000063",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000178\u00009\u0000178\u000077",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000178\u00009\u0000178\u000077",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000178\u000023\u0000178\u000033",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000178\u000037\u0000178\u000048",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000178\u000052\u0000178\u000063",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000178\u000067\u0000178\u000077",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000180\u00009\u0000180\u000018",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000180\u00009\u0000180\u000018"
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000180\u00009\u0000180\u000018"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000count > 1_000_000\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!Number.isSafeInteger(byteLength)\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!inBounds(reader.buffer, valueOffset, byteLength)\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000nul < 0\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000type === 10\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000type === 5\u00001",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000type === 5\u00001",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000type === 5\u00002",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000type === 5\u00002",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000denominator === 0\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000type === 7\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byte === 0\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byte === 0 || byte === 9\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byte === 0 || byte === 9 || byte === 10\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byte === 0 || byte === 9 || byte === 10 || byte === 13\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byte === 0 || byte === 9 || byte === 10 || byte === 13 || byte >= 32\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000byte === 0 || byte === 9 || byte === 10 || byte === 13 || byte >= 32\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byte === 9\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byte === 10\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byte === 13\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000byte >= 32\u00000",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000printable\u00001",
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000printable\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes that are all text decode as a string without their trailing NULs"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression"
     },
     {
-      "id": "metadata:src/metadata/exif.ts:readValue:EqualityOperator",
+      "id": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression:gap-05",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000178\u00009\u0000178\u000077",
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000180\u00009\u0000180\u000018"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes containing a control byte decode as a byte array"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:EqualityOperator:gap-01",
       "group": "metadata",
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 7,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000count >= 1_000_000\u0000145\u000030\u0000145\u000047",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000nul <= 0\u0000157\u000030\u0000157\u000037",
+        "src/metadata/exif.ts\u0000EqualityOperator\u0000count >= 1_000_000\u0000145\u000030\u0000145\u000047"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression and EqualityOperator clusters: a count above 1,000,000 is an unsupported value, exactly 1,000,000 is read"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:EqualityOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:EqualityOperator:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/exif.ts\u0000EqualityOperator\u0000nul <= 0\u0000157\u000030\u0000157\u000037"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression and EqualityOperator clusters: ASCII values stop at the first NUL, keep an unterminated tail and read a leading NUL as empty"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:EqualityOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:EqualityOperator:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/metadata/exif.ts\u0000EqualityOperator\u0000type !== 5\u0000163\u000025\u0000163\u000035",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000type !== 5\u0000165\u00009\u0000165\u000019",
+        "src/metadata/exif.ts\u0000EqualityOperator\u0000type !== 5\u0000165\u00009\u0000165\u000019"
+      ],
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, ArithmeticOperator and ObjectLiteral clusters: RATIONAL and SRATIONAL values decode sign, division and a zero denominator exactly"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:EqualityOperator"
+    },
+    {
+      "id": "metadata:src/metadata/exif.ts:readValue:EqualityOperator:gap-04",
+      "group": "metadata",
+      "file": "src/metadata/exif.ts",
+      "function": "readValue",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
         "src/metadata/exif.ts\u0000EqualityOperator\u0000byte !== 13\u0000178\u000052\u0000178\u000063",
         "src/metadata/exif.ts\u0000EqualityOperator\u0000byte < 32\u0000178\u000067\u0000178\u000077",
         "src/metadata/exif.ts\u0000EqualityOperator\u0000byte > 32\u0000178\u000067\u0000178\u000077"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000count >= 1_000_000\u0000count > 1_000_000\u00000",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000nul <= 0\u0000nul < 0\u00000",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000type !== 5\u0000type === 5\u00001",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000type !== 5\u0000type === 5\u00002",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000byte !== 13\u0000byte === 13\u00000",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000byte < 32\u0000byte >= 32\u00000",
-        "src/metadata/exif.ts\u0000EqualityOperator\u0000byte > 32\u0000byte >= 32\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes that are all text decode as a string without their trailing NULs"
+      },
+      "originClusterId": "metadata:src/metadata/exif.ts:readValue:EqualityOperator"
     },
     {
       "id": "metadata:src/metadata/exif.ts:readValue:LogicalOperator",
@@ -190850,15 +191065,16 @@
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000LogicalOperator\u0000(byte === 0 || byte === 9 || byte === 10 || byte === 13) && byte >= 32\u0000178\u00009\u0000178\u000077"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000LogicalOperator\u0000(byte === 0 || byte === 9 || byte === 10 || byte === 13) && byte >= 32\u0000byte === 0 || byte === 9 || byte === 10 || byte === 13 || byte >= 32\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes that are all text decode as a string without their trailing NULs"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:readValue:MethodExpression",
@@ -190866,15 +191082,16 @@
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000MethodExpression\u0000bytes.some(byte => byte === 0 || byte === 9 || byte === 10 || byte === 13 || byte >= 32)\u0000176\u000023\u0000179\u00006"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000MethodExpression\u0000bytes.some(byte => byte === 0 || byte === 9 || byte === 10 || byte === 13 || byte >= 32)\u0000bytes.every(\n      (byte) =>\n        byte === 0 || byte === 9 || byte === 10 || byte === 13 || byte >= 32,\n    )\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes containing a control byte decode as a byte array"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:readValue:ObjectLiteral",
@@ -190882,15 +191099,16 @@
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "ObjectLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000ObjectLiteral\u0000{}\u0000168\u000013\u0000168\u000039"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ObjectLiteral\u0000{}\u0000{ numerator, denominator }\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ConditionalExpression, ArithmeticOperator and ObjectLiteral clusters: RATIONAL and SRATIONAL values decode sign, division and a zero denominator exactly"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:readValue:Regex",
@@ -190898,17 +191116,17 @@
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "Regex",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/metadata/exif.ts\u0000Regex\u0000/\\0$/u\u0000180\u000058\u0000180\u000065",
         "src/metadata/exif.ts\u0000Regex\u0000/\\0+/u\u0000180\u000058\u0000180\u000065"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000Regex\u0000/\\0$/u\u0000/\\0+$/u\u00000",
-        "src/metadata/exif.ts\u0000Regex\u0000/\\0+/u\u0000/\\0+$/u\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes that are all text decode as a string without their trailing NULs"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:readValue:StringLiteral",
@@ -190916,15 +191134,16 @@
       "file": "src/metadata/exif.ts",
       "function": "readValue",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000180\u000067\u0000180\u000069"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000\"\"\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue type 7 clusters: UNDEFINED bytes that are all text decode as a string without their trailing NULs"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:simplify:ConditionalExpression",
@@ -190932,15 +191151,16 @@
       "file": "src/metadata/exif.ts",
       "function": "simplify",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000135\u000010\u0000135\u000029"
       ],
-      "anchors": [
-        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000values.length === 1\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-31/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-31/red.json (src/metadata/exif.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1) > readValue ArithmeticOperator and simplify ConditionalExpression clusters: multi-value arrays advance by the element width and a single value is not wrapped"
+      }
     },
     {
       "id": "metadata:src/metadata/exif.ts:u16:ConditionalExpression",
@@ -190948,15 +191168,17 @@
       "file": "src/metadata/exif.ts",
       "function": "u16",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u000093\u000011\u000093\u000039"
       ],
+      "note": "A next-line ConditionalExpression disable owns the u16 bounds guard. Every u16 read follows an inBounds check on the same range (the IFD and entry checks in parseExif and readIfd0Resolution, the byte-length check in readValue), so the guard never fires; without it the Buffer read throws its own RangeError, which parseExif turns into the same malformed outcome and readIfd0Resolution into the same undefined, differing only in the message text. The directive line also covers the always-true replacement of the same condition. That replacement is observable (every u16 read would throw) and was Killed before the directive; it is suppressed only as collateral because the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition (negating it) stays active and Killed.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
       "anchors": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000!inBounds(buffer, offset, 2)\u00000",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!inBounds(buffer, offset, 2)\u00000"
-      ],
-      "note": ""
+      ]
     },
     {
       "id": "metadata:src/metadata/exif.ts:u32:ConditionalExpression",
@@ -190964,15 +191186,17 @@
       "file": "src/metadata/exif.ts",
       "function": "u32",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000100\u000011\u0000100\u000039"
       ],
+      "note": "A next-line ConditionalExpression disable owns the u32 bounds guard. Every u32 read follows an inBounds check on the same range (the IFD and entry checks in parseExif and readIfd0Resolution, the byte-length check in readValue), so the guard never fires; without it the Buffer read throws its own RangeError, which parseExif turns into the same malformed outcome and readIfd0Resolution into the same undefined, differing only in the message text. The directive line also covers the always-true replacement of the same condition. That replacement is observable (every u32 read would throw) and was Killed before the directive; it is suppressed only as collateral because the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition (negating it) stays active and Killed.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
       "anchors": [
+        "src/metadata/exif.ts\u0000ConditionalExpression\u0000true\u0000!inBounds(buffer, offset, 4)\u00000",
         "src/metadata/exif.ts\u0000ConditionalExpression\u0000false\u0000!inBounds(buffer, offset, 4)\u00000"
-      ],
-      "note": ""
+      ]
     },
     {
       "id": "metadata:src/metadata/exif.ts:visitIfd:ArithmeticOperator",
