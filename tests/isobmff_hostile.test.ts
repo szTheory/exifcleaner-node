@@ -64,6 +64,7 @@ import {
 import {
   createMinimalExif,
   createOrientationExif,
+  inBounds,
   parseExif,
 } from "../src/metadata/exif.js";
 import {
@@ -6604,6 +6605,26 @@ describe("metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1
         exNamed(0xf063, "A"),
       ]);
     }
+  });
+
+  it("inBounds ConditionalExpression and LogicalOperator clusters: an offset or length that is not a non-negative safe integer is out of bounds", () => {
+    const buffer = Buffer.alloc(16);
+    expect(inBounds(buffer, 0, 16)).toBe(true);
+    expect(inBounds(buffer, 16, 0)).toBe(true);
+    expect(inBounds(buffer, 15, 1)).toBe(true);
+    expect(inBounds(buffer, 15, 2)).toBe(false);
+    // A fractional offset or length, NaN and values beyond the safe-integer range.
+    expect(inBounds(buffer, 1.5, 1)).toBe(false);
+    expect(inBounds(buffer, 1, 1.5)).toBe(false);
+    expect(inBounds(buffer, Number.NaN, 1)).toBe(false);
+    expect(inBounds(buffer, 0, Number.NaN)).toBe(false);
+    expect(inBounds(buffer, Number.MAX_SAFE_INTEGER + 1, 1)).toBe(false);
+    expect(inBounds(buffer, 0, Number.MAX_SAFE_INTEGER + 1)).toBe(false);
+    // Negative values, alone and together.
+    expect(inBounds(buffer, -1, 1)).toBe(false);
+    expect(inBounds(buffer, 0, -1)).toBe(false);
+    expect(inBounds(buffer, -1, -1)).toBe(false);
+    expect(inBounds(buffer, -17, 1)).toBe(false);
   });
 
   it("readValue type 7 clusters: UNDEFINED bytes containing a control byte decode as a byte array", () => {
