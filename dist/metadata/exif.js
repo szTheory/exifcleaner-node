@@ -285,7 +285,9 @@ export function createMinimalExif(tags) {
         }
     }
     if (resolution !== undefined) {
+        // Stryker disable next-line StringLiteral: unobservable-message — this field label only reaches the text of assertUint32's RangeError through assertResolutionValue; the thrown kind and which values are accepted or refused are unchanged.
         assertResolutionValue(resolution.x, "XResolution");
+        // Stryker disable next-line StringLiteral: unobservable-message — this field label only reaches the text of assertUint32's RangeError through assertResolutionValue; the thrown kind and which values are accepted or refused are unchanged.
         assertResolutionValue(resolution.y, "YResolution");
         if (resolution.unit !== undefined) {
             if (!Number.isInteger(resolution.unit) ||
@@ -306,6 +308,7 @@ export function createMinimalExif(tags) {
             entries.push({ tag: 0x0128, type: 3, inlineValue: resolution.unit });
         }
     }
+    // Stryker disable next-line ArithmeticOperator, MethodExpression: defensive-unreachable-by-construction — entries are pushed in ascending tag order (0x0112, 0x011a, 0x011b, 0x0128), so the sort never reorders them; dropping it, or an always-positive comparator, keeps an already ascending array in the same order and the written bytes are unchanged.
     entries.sort((a, b) => a.tag - b.tag);
     const entryCount = entries.length;
     const ifdBytes = 2 + entryCount * 12 + 4;
@@ -356,6 +359,7 @@ export function readIfd0Resolution(tiff) {
         if (reader.u16(2) !== 42)
             return undefined;
         const ifd0Offset = reader.u32(4);
+        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — without this guard the next statement, reader.u16(ifd0Offset), applies the same inBounds(offset, 2) check and throws a RangeError, which the catch below turns into the same undefined result; nothing is read in between.
         if (!inBounds(tiff, ifd0Offset, 2))
             return undefined;
         const count = reader.u16(ifd0Offset);
