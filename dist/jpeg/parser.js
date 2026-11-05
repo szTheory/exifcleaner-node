@@ -331,9 +331,6 @@ export async function parseJpeg(handle, size, signal) {
             }
             const header = await readWindowed(handle, window, 2, offset, size);
             const length = readU16BE(header, 0);
-            if (length < 2) {
-                throw new JpegStructureError("malformed-container", "SOS segment length is below 2.");
-            }
             const payloadOffset = offset + 2;
             const payloadLength = length - 2;
             if (payloadOffset + payloadLength > size) {
@@ -364,9 +361,6 @@ export async function parseJpeg(handle, size, signal) {
         }
         const header = await readWindowed(handle, window, 2, offset, size);
         const length = readU16BE(header, 0);
-        if (length < 2) {
-            throw new JpegStructureError("malformed-container", "Segment length is below 2.");
-        }
         const payloadOffset = offset + 2;
         const payloadLength = length - 2;
         if (payloadOffset + payloadLength > size) {
