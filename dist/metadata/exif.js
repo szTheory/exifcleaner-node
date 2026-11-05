@@ -60,6 +60,7 @@ function makeReader(buffer, littleEndian) {
         buffer,
         littleEndian,
         u16(offset) {
+            // Stryker disable next-line ConditionalExpression: defensive-unreachable-by-construction — every u16 read follows an inBounds check on the same range (the IFD and entry checks in parseExif and readIfd0Resolution, the byte-length check in readValue), so this guard never fires; without it the Buffer read throws its own RangeError, which every caller already turns into the same malformed or undefined outcome. The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition stays active.
             if (!inBounds(buffer, offset, 2))
                 throw new RangeError("TIFF u16 out of bounds");
             return littleEndian
@@ -67,6 +68,7 @@ function makeReader(buffer, littleEndian) {
                 : buffer.readUInt16BE(offset);
         },
         u32(offset) {
+            // Stryker disable next-line ConditionalExpression: defensive-unreachable-by-construction — every u32 read follows an inBounds check on the same range (the IFD and entry checks in parseExif and readIfd0Resolution, the byte-length check in readValue), so this guard never fires; without it the Buffer read throws its own RangeError, which every caller already turns into the same malformed or undefined outcome. The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition stays active.
             if (!inBounds(buffer, offset, 4))
                 throw new RangeError("TIFF u32 out of bounds");
             return littleEndian
@@ -86,6 +88,7 @@ function readNumber(reader, type, offset) {
     switch (type) {
         case 1:
         case 7:
+            // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — readNumber is reached only from the generic loop of readValue, whose earlier inBounds check already covers every element offset valueOffset + index * width (width 1 here), so this guard never fires. The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition stays active.
             if (!inBounds(reader.buffer, offset, 1))
                 throw new RangeError("TIFF byte out of bounds");
             return reader.buffer[offset] ?? 0;
@@ -107,6 +110,7 @@ function readValue(reader, entryOffset, type, count) {
     if (width === undefined || count > 1_000_000)
         return undefined;
     const byteLength = width * count;
+    // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the width is at most 8 and the previous line already rejects a count above 1_000_000, so byteLength is at most 8_000_000 and always a safe integer. The always-true sibling does not compile (unreachable code) and is suppressed only as collateral.
     if (!Number.isSafeInteger(byteLength))
         return undefined;
     const valueOffset = byteLength <= 4 ? entryOffset + 8 : reader.u32(entryOffset + 8);
