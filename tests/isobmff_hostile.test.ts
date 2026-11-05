@@ -8416,53 +8416,69 @@ describe("metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, meta
 
 describe("png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1)", () => {
   type PngChunkSpec = readonly [string, Buffer];
-  const PROFILE = iccProfileV4();
-  const ICC_ENTRIES = parseIcc(PROFILE).entries;
   // A zlib stream that holds no zero byte, so that a zTXt payload built from
   // one keyword byte followed by it has no keyword terminator at all.
-  const NUL_FREE_ZLIB = Buffer.from(
-    "789ccb2e2ecd4f2e2e2c4eac4ccd4fadcc2ecc2fcc06b3128b0b8b93f301c8690ce5",
-    "hex",
-  );
+  function nulFreeZlib(): Buffer {
+    return Buffer.from(
+      "789ccb2e2ecd4f2e2e2c4eac4ccd4fadcc2ecc2fcc06b3128b0b8b93f301c8690ce5",
+      "hex",
+    );
+  }
 
-  const inspectPng = async (chunks: readonly PngChunkSpec[]) => {
+  function profileBytes(): Buffer {
+    return iccProfileV4();
+  }
+  function profileEntries(): readonly MetadataEntry[] {
+    return parseIcc(profileBytes()).entries;
+  }
+  async function inspectPng(chunks: readonly PngChunkSpec[]) {
     const path = await freshPath();
     await writeFile(path, pngWithChunksBefore(chunks));
     return inspectFile(path);
-  };
-  const refusalCodeOf = async (
+  }
+  async function refusalCodeOf(
     chunks: readonly PngChunkSpec[],
-  ): Promise<string> => {
+  ): Promise<string> {
     const result = await inspectPng(chunks);
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("unreachable");
     return result.error.code;
-  };
-  const acceptedOf = async (chunks: readonly PngChunkSpec[]) => {
+  }
+  async function acceptedOf(chunks: readonly PngChunkSpec[]) {
     const result = await inspectPng(chunks);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("unreachable");
     return result.value;
-  };
-  const pngEntriesOf = (
+  }
+  function pngEntriesOf(
     entries: readonly MetadataEntry[],
-  ): readonly [string, unknown][] =>
-    entries
+  ): readonly [string, unknown][] {
+    return entries
       .filter((entry) => entry.namespace === "PNG")
       .map((entry) => [entry.name, entry.value]);
-  const iccpWith = (name: Buffer, method: number, profile = PROFILE): Buffer =>
-    Buffer.concat([name, Buffer.from([0, method]), deflateSync(profile)]);
+  }
+  function iccpWith(name: Buffer, method: number): Buffer {
+    return Buffer.concat([
+      name,
+      Buffer.from([0, method]),
+      deflateSync(profileBytes()),
+    ]);
+  }
 
   it("parseIccpChunk Conditional, Equality and Logical clusters: a profile name of 1 to 79 bytes is read and any other length refuses the chunk", async () => {
     for (const length of [1, 2, 78, 79]) {
       const value = await acceptedOf([
-        ["iCCP", pngIccp(PROFILE, "n".repeat(length))],
+        ["iCCP", pngIccp(profileBytes(), "n".repeat(length))],
       ]);
-      expect(value.entries, `name of ${length} bytes`).toEqual(ICC_ENTRIES);
+      expect(value.entries, `name of ${length} bytes`).toEqual(
+        profileEntries(),
+      );
     }
     for (const length of [0, 80, 81, 200])
       expect(
-        await refusalCodeOf([["iCCP", pngIccp(PROFILE, "n".repeat(length))]]),
+        await refusalCodeOf([
+          ["iCCP", pngIccp(profileBytes(), "n".repeat(length))],
+        ]),
         `name of ${length} bytes`,
       ).toBe("malformed-file");
   });
@@ -8470,7 +8486,7 @@ describe("png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTe
   it("parseIccpChunk Conditional and Block clusters: only compression method zero is read", async () => {
     expect(
       (await acceptedOf([["iCCP", iccpWith(Buffer.from("icc"), 0)]])).entries,
-    ).toEqual(ICC_ENTRIES);
+    ).toEqual(profileEntries());
     for (const method of [1, 2, 255])
       expect(
         await refusalCodeOf([["iCCP", iccpWith(Buffer.from("icc"), method)]]),
@@ -8479,7 +8495,7 @@ describe("png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTe
   });
 
   it("parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read", async () => {
-    const noTerminator = Buffer.concat([Buffer.from("k"), NUL_FREE_ZLIB]);
+    const noTerminator = Buffer.concat([Buffer.from("k"), nulFreeZlib()]);
     expect(noTerminator.includes(0)).toBe(false);
     expect(await refusalCodeOf([["zTXt", noTerminator]])).toBe(
       "malformed-file",
