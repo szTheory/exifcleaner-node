@@ -192481,7 +192481,7 @@
       "originClusterId": "metadata:src/metadata/icc.ts:parseIcc:StringLiteral"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:bcd:ArithmeticOperator",
+      "id": "metadata:src/metadata/icc_admission.ts:bcd:ArithmeticOperator:pending-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "bcd",
@@ -192494,10 +192494,11 @@
       "anchors": [
         "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000high / 10\u0000high * 10\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:bcd:ArithmeticOperator"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:bcd:ConditionalExpression",
+      "id": "metadata:src/metadata/icc_admission.ts:bcd:ConditionalExpression:pending-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "bcd",
@@ -192510,7 +192511,8 @@
       "anchors": [
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000high <= 9\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:bcd:ConditionalExpression"
     },
     {
       "id": "metadata:src/metadata/icc_admission.ts:bcd:EqualityOperator",
@@ -192518,15 +192520,16 @@
       "file": "src/metadata/icc_admission.ts",
       "function": "bcd",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000high < 9\u000057\u000010\u000057\u000019"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000high < 9\u0000high <= 9\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > bcd clusters: a packed version byte whose high nibble is 9 is decimal and reaches the minor-version policy"
+      }
     },
     {
       "id": "metadata:src/metadata/icc_admission.ts:profileIdMatches:CallExpression",
@@ -192534,17 +192537,17 @@
       "file": "src/metadata/icc_admission.ts",
       "function": "profileIdMatches",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/metadata/icc_admission.ts\u0000CallExpression\u0000;\u000069\u00003\u000069\u000031",
         "src/metadata/icc_admission.ts\u0000CallExpression\u0000;\u000070\u00003\u000070\u000031"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000CallExpression\u0000;\u0000digestInput.fill(0, 44, 48);\u00000",
-        "src/metadata/icc_admission.ts\u0000CallExpression\u0000;\u0000digestInput.fill(0, 64, 68);\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > profileIdMatches CallExpression cluster: the Profile ID is computed with flags and rendering intent zeroed"
+      }
     },
     {
       "id": "metadata:src/metadata/icc_admission.ts:validDate:BooleanLiteral",
@@ -192552,15 +192555,16 @@
       "file": "src/metadata/icc_admission.ts",
       "function": "validDate",
       "mutatorName": "BooleanLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/icc_admission.ts\u0000BooleanLiteral\u0000true\u000049\u000012\u000049\u000017"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000BooleanLiteral\u0000true\u0000false\u00002"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
+      }
     },
     {
       "id": "metadata:src/metadata/icc_admission.ts:validDate:ConditionalExpression",
@@ -192568,7 +192572,7 @@
       "file": "src/metadata/icc_admission.ts",
       "function": "validDate",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 12,
       "keys": [
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000042\u00005\u000042\u000015",
@@ -192584,21 +192588,11 @@
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000047\u00005\u000047\u000016",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u000051\u000010\u000051\u000018"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000year === 0\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000year === 0 ||\n    month < 1\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000year === 0 ||\n    month < 1 ||\n    month > 12\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000year === 0 ||\n    month < 1 ||\n    month > 12 ||\n    hour > 23\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000year === 0 ||\n    month < 1 ||\n    month > 12 ||\n    hour > 23 ||\n    minute > 59\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000year === 0 ||\n    month < 1 ||\n    month > 12 ||\n    hour > 23 ||\n    minute > 59 ||\n    second > 59\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000month < 1\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000month > 12\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000hour > 23\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000minute > 59\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000second > 59\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000day >= 1\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
+      }
     },
     {
       "id": "metadata:src/metadata/icc_admission.ts:validDate:EqualityOperator",
@@ -192606,7 +192600,7 @@
       "file": "src/metadata/icc_admission.ts",
       "function": "validDate",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 6,
       "keys": [
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000month <= 1\u000043\u00005\u000043\u000014",
@@ -192616,15 +192610,11 @@
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000second >= 59\u000047\u00005\u000047\u000016",
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000day > 1\u000051\u000010\u000051\u000018"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000month <= 1\u0000month < 1\u00000",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000month >= 12\u0000month > 12\u00000",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000hour >= 23\u0000hour > 23\u00000",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000minute >= 59\u0000minute > 59\u00000",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000second >= 59\u0000second > 59\u00000",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000day > 1\u0000day >= 1\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
+      }
     },
     {
       "id": "metadata:src/metadata/icc_admission.ts:validDate:LogicalOperator",
@@ -192632,7 +192622,7 @@
       "file": "src/metadata/icc_admission.ts",
       "function": "validDate",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 5,
       "keys": [
         "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000(year === 0 || month < 1 || month > 12 || hour > 23 || minute > 59) && second > 59\u000042\u00005\u000047\u000016",
@@ -192641,99 +192631,190 @@
         "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000(year === 0 || month < 1) && month > 12\u000042\u00005\u000044\u000015",
         "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000year === 0 && month < 1\u000042\u00005\u000043\u000014"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000(year === 0 || month < 1 || month > 12 || hour > 23 || minute > 59) && second > 59\u0000year === 0 ||\n    month < 1 ||\n    month > 12 ||\n    hour > 23 ||\n    minute > 59 ||\n    second > 59\u00000",
-        "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000(year === 0 || month < 1 || month > 12 || hour > 23) && minute > 59\u0000year === 0 ||\n    month < 1 ||\n    month > 12 ||\n    hour > 23 ||\n    minute > 59\u00000",
-        "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000(year === 0 || month < 1 || month > 12) && hour > 23\u0000year === 0 ||\n    month < 1 ||\n    month > 12 ||\n    hour > 23\u00000",
-        "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000(year === 0 || month < 1) && month > 12\u0000year === 0 ||\n    month < 1 ||\n    month > 12\u00000",
-        "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000year === 0 && month < 1\u0000year === 0 ||\n    month < 1\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
+      }
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ArithmeticOperator",
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ArithmeticOperator:gap-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "validateIccForPreservation",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000ICC_HEADER_BYTES - ICC_TAG_COUNT_BYTES\u000090\u000024\u000090\u000062",
-        "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000payload.length + offset\u0000177\u000014\u0000177\u000037"
+        "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000ICC_HEADER_BYTES - ICC_TAG_COUNT_BYTES\u000090\u000024\u000090\u000062"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000ICC_HEADER_BYTES - ICC_TAG_COUNT_BYTES\u0000ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES\u00000",
-        "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000payload.length + offset\u0000payload.length - offset\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ArithmeticOperator"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression",
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ArithmeticOperator:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000ArithmeticOperator\u0000payload.length + offset\u0000177\u000014\u0000177\u000037"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation tag table clusters: no tags, a tag count the profile cannot hold and a tag range that ends past the profile are typed refusals"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ArithmeticOperator"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:gap-01",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000136\u00005\u0000136\u000021",
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000138\u00007\u0000138\u000042",
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000139\u00007\u0000139\u000042"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation header clusters: rendering intent 3 and a v2 profile without a D50 illuminant are admitted, a v4 illuminant word is checked"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000146\u00007\u0000146\u000021",
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000155\u00007\u0000155\u000032",
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000177\u00007\u0000177\u000037"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation tag table clusters: no tags, a tag count the profile cannot hold and a tag range that ends past the profile are typed refusals"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000085\u00007\u000085\u000041",
+        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000092\u00007\u000092\u000031"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression:pending-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "validateIccForPreservation",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 13,
+      "count": 5,
       "keys": [
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000085\u00007\u000085\u000041",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u000092\u00007\u000092\u000031",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000136\u00005\u0000136\u000021",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000138\u00007\u0000138\u000042",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000139\u00007\u0000139\u000042",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000146\u00007\u0000146\u000021",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000155\u00007\u0000155\u000032",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000173\u00007\u0000173\u000024",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000173\u00007\u0000174\u000023",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000174\u00007\u0000174\u000023",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000176\u00007\u0000176\u000030",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000177\u00007\u0000177\u000037",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000187\u00009\u0000187\u000033"
       ],
       "anchors": [
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000payload.length > MAX_PROFILE_BYTES\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000payload.length % 4 !== 0\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000payload[8] === 4\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000payload.readUInt32BE(72) !== D50[1]\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000payload.readUInt32BE(76) !== D50[2]\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000tagCount === 0\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000tableEnd > payload.length\u00000",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000offset < tableEnd\u00000",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000offset < tableEnd ||\n      offset % 4 !== 0\u00000",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000offset % 4 !== 0\u00000",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000offset > payload.length\u00000",
-        "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000false\u0000size > payload.length - offset\u00000",
         "src/metadata/icc_admission.ts\u0000ConditionalExpression\u0000true\u0000!physicalRanges.has(key)\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:ConditionalExpression"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator",
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator:gap-01",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.length >= MAX_PROFILE_BYTES\u000085\u00007\u000085\u000041",
+        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.length <= ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES\u000090\u00007\u000090\u000062"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.readUInt32BE(64) >= 3\u0000123\u00007\u0000123\u000035"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation header clusters: rendering intent 3 and a v2 profile without a D50 illuminant are admitted, a v4 illuminant word is checked"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator:pending-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "validateIccForPreservation",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 5,
+      "count": 2,
       "keys": [
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.length >= MAX_PROFILE_BYTES\u000085\u00007\u000085\u000041",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.length <= ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES\u000090\u00007\u000090\u000062",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.readUInt32BE(64) >= 3\u0000123\u00007\u0000123\u000035",
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000tableEnd >= payload.length\u0000155\u00007\u0000155\u000032",
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000offset >= payload.length\u0000176\u00007\u0000176\u000030"
       ],
       "anchors": [
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.length >= MAX_PROFILE_BYTES\u0000payload.length > MAX_PROFILE_BYTES\u00000",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.length <= ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES\u0000payload.length < ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES\u00000",
-        "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000payload.readUInt32BE(64) >= 3\u0000payload.readUInt32BE(64) > 3\u00000",
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000tableEnd >= payload.length\u0000tableEnd > payload.length\u00000",
         "src/metadata/icc_admission.ts\u0000EqualityOperator\u0000offset >= payload.length\u0000offset > payload.length\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:EqualityOperator"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:LogicalOperator",
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:LogicalOperator:pending-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "validateIccForPreservation",
@@ -192746,69 +192827,134 @@
       "anchors": [
         "src/metadata/icc_admission.ts\u0000LogicalOperator\u0000offset < tableEnd && offset % 4 !== 0\u0000offset < tableEnd ||\n      offset % 4 !== 0\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer decision in 67-34-HALTED.md: this member is unobservable (the same typed outcome, and for most of them the same detail, with or without the code it mutates), and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly. Option A of 67-34-HALTED.md is a behavior-preserving source simplification.",
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:LogicalOperator"
     },
     {
-      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral",
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral:gap-01",
       "group": "metadata",
       "file": "src/metadata/icc_admission.ts",
       "function": "validateIccForPreservation",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
-      "count": 24,
+      "disposition": "gap",
+      "count": 14,
       "keys": [
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000088\u00007\u000088\u000051",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000091\u000032\u000091\u000066",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000093\u000032\u000093\u000078",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000097\u00007\u000097\u000060",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000100\u000032\u0000100\u000067",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000105\u000032\u0000105\u000075",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000109\u00007\u0000109\u000051",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000114\u00007\u0000114\u000051",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000119\u00007\u0000119\u000056",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000122\u000032\u0000122\u000071",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000124\u000032\u0000124\u000074",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000130\u000036\u0000130\u000079",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000132\u000036\u0000132\u000078",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000134\u000032\u0000134\u000068",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000143\u000032\u0000143\u000076",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000147\u000032\u0000147\u000065",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000151\u00007\u0000151\u000056",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000156\u000032\u0000156\u000069",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000169\u00009\u0000169\u000065",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000179\u000034\u0000179\u000069",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000183\u00009\u0000183\u000059",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000198\u00009\u0000198\u000072",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000204\u000036\u0000204\u000073",
         "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000208\u000032\u0000208\u000068"
       ],
-      "anchors": [
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile exceeds the policy size limit.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile header is truncated.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile length is not four-byte aligned.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile declared size does not match its bytes.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile signature is invalid.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile version uses non-decimal BCD.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile major version is not admitted.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile minor version is not admitted.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile version-reserved bytes are nonzero.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile creation date is invalid.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile rendering intent is invalid.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile device class is not admitted.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile color space is not admitted.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC v2 reserved bytes are nonzero.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC v4 required header fields are invalid.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile has no tag records.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile tag count exceeds the policy limit.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile tag table is truncated.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile tag signatures must be unique and nonzero.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile tag range is invalid.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile tag type reserved bytes are nonzero.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile tag payloads are not canonical contiguous ranges.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile tag padding is nonzero.\"\u00000",
-        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC profile has tag trailer bytes.\"\u00000"
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation StringLiteral cluster: every refusal path carries its typed reason and a non-empty detail"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000088\u00007\u000088\u000051",
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000091\u000032\u000091\u000066",
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u000093\u000032\u000093\u000078"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation size clusters: the policy limit, the header length and four-byte alignment"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000147\u000032\u0000147\u000065",
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000156\u000032\u0000156\u000069",
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000179\u000034\u0000179\u000069"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validateIccForPreservation tag table clusters: no tags, a tag count the profile cannot hold and a tag range that ends past the profile are typed refusals"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral:gap-04",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000105\u000032\u0000105\u000075",
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000114\u00007\u0000114\u000051"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > bcd clusters: a packed version byte whose high nibble is 9 is decimal and reaches the minor-version policy"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral:gap-05",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000143\u000032\u0000143\u000076"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > profileIdMatches CallExpression cluster: the Profile ID is computed with flags and rendering intent zeroed"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral:gap-06",
+      "group": "metadata",
+      "file": "src/metadata/icc_admission.ts",
+      "function": "validateIccForPreservation",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/icc_admission.ts\u0000StringLiteral\u0000\"\"\u0000122\u000032\u0000122\u000071"
+      ],
+      "note": "reports/triage/67-34/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-34/red.json (src/metadata/icc_admission.ts whole file, a real run on the unedited source and the current tests, 74 members undetected) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/icc_admission.ts validateIccForPreservation clusters (67-34, metadata-4) > validDate clusters: each date field is refused outside its range and admitted at its edges"
+      },
+      "originClusterId": "metadata:src/metadata/icc_admission.ts:validateIccForPreservation:StringLiteral"
     },
     {
       "id": "metadata:src/metadata/xmp.ts:add:CallExpression",
