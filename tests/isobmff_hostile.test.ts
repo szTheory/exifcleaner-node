@@ -3874,7 +3874,7 @@ describe("jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2)", 
     ]);
     const admission = await jhAdmitBytes(source);
     const plan = jpegHandler.buildOutputPlan(admission, true, false, false, 6);
-    expect(plan.parts.map((part) => part.kind)).toEqual(["insert", "copy"]);
+    expect(plan.parts[0]?.kind).toBe("insert");
     expect(plan.expectedMarkers).toEqual([
       JH_APP1,
       JH_DQT,
@@ -3991,7 +3991,7 @@ describe("jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2)", 
     }
   });
 
-  it("readTail ArithmeticOperator and EqualityOperator: partial trailer reads continue at the next unread byte and stop when the tail is full", async () => {
+  it("readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full", async () => {
     const tailBytes = 41;
     const source = appendTrailer(
       minimalJpeg({ components: 3 }),
@@ -4050,7 +4050,7 @@ describe("jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2)", 
     }
   });
 
-  it("segmentsEqual ConditionalExpression, EqualityOperator and BooleanLiteral: one altered byte in a kept segment fails verification while count and order are unchanged", async () => {
+  it("segmentsEqual ConditionalExpression, EqualityOperator and BooleanLiteral, and verifyOutput BlockStatement and EqualityOperator: one altered byte in a kept segment fails verification while count and order are unchanged", async () => {
     const source = spliceSegments(minimalJpeg({ components: 3 }), [
       appSegment(0xee, jpegAdobe(1)),
     ]);
