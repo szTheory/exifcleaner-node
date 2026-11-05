@@ -64,6 +64,7 @@ import {
 import {
   createMinimalExif,
   createOrientationExif,
+  parseExif,
 } from "../src/metadata/exif.js";
 import {
   registeredHandlersForTests,
@@ -6185,5 +6186,458 @@ describe("jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8)"
     const again = jxReassemble(shuffled);
     expect(again.status).toBe("complete");
     if (again.status === "complete") expect(again.xmp.equals(full)).toBe(true);
+  });
+});
+
+// metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1). The fixtures are
+// little- and big-endian TIFF containers with an IFD0 built entry by entry. Every assertion is on
+// the typed outcome (`entries`, the orientation status, the warning codes), never on message text.
+interface ExEntry {
+  readonly tag: number;
+  readonly type: number;
+  readonly count: number;
+  /** Value bytes: at most 4 are stored inline (zero padded), longer values follow the IFD. */
+  readonly value?: Buffer;
+  /** Writes this offset into the 4-byte value/offset field instead of the value. */
+  readonly offset?: number;
+}
+
+function exTiff(entries: readonly ExEntry[], big: boolean): Buffer {
+  const w16 = (buffer: Buffer, at: number, value: number): void => {
+    if (big) buffer.writeUInt16BE(value, at);
+    else buffer.writeUInt16LE(value, at);
+  };
+  const w32 = (buffer: Buffer, at: number, value: number): void => {
+    if (big) buffer.writeUInt32BE(value, at);
+    else buffer.writeUInt32LE(value, at);
+  };
+  const dataStart = 8 + 2 + entries.length * 12 + 4;
+  const head = Buffer.alloc(dataStart);
+  head.write(big ? "MM" : "II", 0, "ascii");
+  w16(head, 2, 42);
+  w32(head, 4, 8);
+  w16(head, 8, entries.length);
+  const external: Buffer[] = [];
+  let next = dataStart;
+  entries.forEach((entry, index) => {
+    const at = 10 + index * 12;
+    w16(head, at, entry.tag);
+    w16(head, at + 2, entry.type);
+    w32(head, at + 4, entry.count);
+    if (entry.offset !== undefined) {
+      w32(head, at + 8, entry.offset);
+      return;
+    }
+    const value = entry.value ?? Buffer.alloc(0);
+    if (value.length <= 4) {
+      value.copy(head, at + 8);
+      return;
+    }
+    w32(head, at + 8, next);
+    external.push(value);
+    next += value.length;
+  });
+  return Buffer.concat([head, ...external]);
+}
+
+function exU16(values: readonly number[], big: boolean): Buffer {
+  const out = Buffer.alloc(values.length * 2);
+  values.forEach((value, index) =>
+    big
+      ? out.writeUInt16BE(value, index * 2)
+      : out.writeUInt16LE(value, index * 2),
+  );
+  return out;
+}
+
+function exU32(values: readonly number[], big: boolean): Buffer {
+  const out = Buffer.alloc(values.length * 4);
+  values.forEach((value, index) =>
+    big
+      ? out.writeUInt32BE(value, index * 4)
+      : out.writeUInt32LE(value, index * 4),
+  );
+  return out;
+}
+
+function exI32(values: readonly number[], big: boolean): Buffer {
+  const out = Buffer.alloc(values.length * 4);
+  values.forEach((value, index) =>
+    big
+      ? out.writeInt32BE(value, index * 4)
+      : out.writeInt32LE(value, index * 4),
+  );
+  return out;
+}
+
+/** Numerator/denominator pairs as RATIONAL (unsigned) or SRATIONAL (signed) bytes. */
+function exRational(
+  pairs: ReadonlyArray<readonly [number, number]>,
+  signed: boolean,
+  big: boolean,
+): Buffer {
+  const flat = pairs.flat();
+  return signed ? exI32(flat, big) : exU32(flat, big);
+}
+
+function exEntries(tiff: Buffer): ReturnType<typeof parseExif>["entries"] {
+  const parsed = parseExif(tiff);
+  expect(parsed.warnings).toEqual([]);
+  expect(parsed.orientation).toEqual({ status: "absent" });
+  return parsed.entries;
+}
+
+function exNamed(tag: number, value: unknown): unknown {
+  return {
+    namespace: "EXIF",
+    name: `Tag0x${tag.toString(16).padStart(4, "0")}`,
+    value,
+  };
+}
+
+function exExpectMalformed(tiff: Buffer): void {
+  const parsed = parseExif(tiff);
+  expect(parsed.entries).toEqual([]);
+  expect(parsed.orientation.status).toBe("malformed");
+  expect(parsed.warnings.map((warning) => warning.code)).toEqual([
+    "metadata-invalid",
+  ]);
+}
+
+describe("metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1)", () => {
+  it("readValue ConditionalExpression, BlockStatement and CallExpression clusters: a value pointing past the end of the EXIF data is malformed, never truncated", () => {
+    for (const big of [false, true]) {
+      const whole = exTiff(
+        [{ tag: 0xf001, type: 2, count: 8, value: Buffer.alloc(8, 0x41) }],
+        big,
+      );
+      // The 8-byte value starts at offset 26; moving it to length - 4 leaves only 4 of its bytes.
+      const patch = (offset: number): Buffer => {
+        const copy = Buffer.from(whole);
+        if (big) copy.writeUInt32BE(offset, 18);
+        else copy.writeUInt32LE(offset, 18);
+        return copy;
+      };
+      exExpectMalformed(patch(whole.length - 4));
+      exExpectMalformed(patch(whole.length - 1));
+      exExpectMalformed(patch(0xfffffff0));
+      // Flush against the end is still read.
+      expect(exEntries(patch(whole.length - 8))).toEqual([
+        exNamed(0xf001, "AAAAAAAA"),
+      ]);
+    }
+  });
+
+  it("inBounds ArithmeticOperator, ConditionalExpression, EqualityOperator and LogicalOperator clusters: a value is read from offset 0, with length 0 and flush against the end, and refused one byte past the end", () => {
+    for (const big of [false, true]) {
+      // Offset 0: the value is the TIFF header itself (NUL-terminated at the first zero byte).
+      expect(
+        exEntries(exTiff([{ tag: 0xf001, type: 2, count: 8, offset: 0 }], big)),
+      ).toEqual([exNamed(0xf001, big ? "MM" : "II*")]);
+      // Length 0: an ASCII value of count 0 is the empty string.
+      expect(
+        exEntries(exTiff([{ tag: 0xf002, type: 2, count: 0 }], big)),
+      ).toEqual([exNamed(0xf002, "")]);
+      // Flush against the end is read, one byte past the end is refused.
+      expect(
+        exEntries(
+          exTiff(
+            [
+              {
+                tag: 0xf003,
+                type: 2,
+                count: 8,
+                value: Buffer.from("ABCDEFG\0"),
+              },
+            ],
+            big,
+          ),
+        ),
+      ).toEqual([exNamed(0xf003, "ABCDEFG")]);
+      exExpectMalformed(
+        exTiff(
+          [{ tag: 0xf003, type: 2, count: 9, value: Buffer.alloc(8, 0x41) }],
+          big,
+        ),
+      );
+    }
+  });
+
+  it("readNumber ConditionalExpression cluster: BYTE, LONG and SLONG values decode by their own width and sign", () => {
+    for (const big of [false, true]) {
+      const entries = exEntries(
+        exTiff(
+          [
+            // A BYTE reads one byte even though the next inline byte is not zero.
+            {
+              tag: 0xf010,
+              type: 1,
+              count: 1,
+              value: Buffer.from([5, 1, 0, 0]),
+            },
+            { tag: 0xf011, type: 4, count: 1, value: exU32([0xfffffffe], big) },
+            { tag: 0xf012, type: 4, count: 1, value: exU32([0x80000000], big) },
+            { tag: 0xf013, type: 9, count: 1, value: exI32([-5], big) },
+            {
+              tag: 0xf014,
+              type: 9,
+              count: 1,
+              value: exI32([-0x80000000], big),
+            },
+          ],
+          big,
+        ),
+      );
+      expect(entries).toEqual([
+        exNamed(0xf010, 5),
+        exNamed(0xf011, 4294967294),
+        exNamed(0xf012, 2147483648),
+        exNamed(0xf013, -5),
+        exNamed(0xf014, -2147483648),
+      ]);
+    }
+  });
+
+  it("readValue ArithmeticOperator and simplify ConditionalExpression clusters: multi-value arrays advance by the element width and a single value is not wrapped", () => {
+    for (const big of [false, true]) {
+      const entries = exEntries(
+        exTiff(
+          [
+            { tag: 0xf020, type: 3, count: 2, value: exU16([1, 0x8002], big) },
+            { tag: 0xf021, type: 1, count: 3, value: Buffer.from([7, 8, 9]) },
+            {
+              tag: 0xf022,
+              type: 4,
+              count: 3,
+              value: exU32([1, 0xffffffff, 3], big),
+            },
+            { tag: 0xf023, type: 9, count: 2, value: exI32([-1, 2], big) },
+            { tag: 0xf024, type: 3, count: 1, value: exU16([9], big) },
+          ],
+          big,
+        ),
+      );
+      expect(entries).toEqual([
+        exNamed(0xf020, [1, 0x8002]),
+        exNamed(0xf021, [7, 8, 9]),
+        exNamed(0xf022, [1, 4294967295, 3]),
+        exNamed(0xf023, [-1, 2]),
+        exNamed(0xf024, 9),
+      ]);
+    }
+  });
+
+  it("readValue ConditionalExpression, ArithmeticOperator and ObjectLiteral clusters: RATIONAL and SRATIONAL values decode sign, division and a zero denominator exactly", () => {
+    for (const big of [false, true]) {
+      const entries = exEntries(
+        exTiff(
+          [
+            {
+              tag: 0xf030,
+              type: 5,
+              count: 1,
+              value: exRational([[0xffffffff, 1]], false, big),
+            },
+            {
+              tag: 0xf031,
+              type: 5,
+              count: 1,
+              value: exRational([[1, 0x80000000]], false, big),
+            },
+            {
+              tag: 0xf032,
+              type: 5,
+              count: 1,
+              value: exRational([[3, 4]], false, big),
+            },
+            {
+              tag: 0xf033,
+              type: 10,
+              count: 1,
+              value: exRational([[-3, 4]], true, big),
+            },
+            {
+              tag: 0xf034,
+              type: 10,
+              count: 1,
+              value: exRational([[3, -4]], true, big),
+            },
+            {
+              tag: 0xf035,
+              type: 5,
+              count: 1,
+              value: exRational([[5, 0]], false, big),
+            },
+            {
+              tag: 0xf036,
+              type: 10,
+              count: 1,
+              value: exRational([[-5, 0]], true, big),
+            },
+            {
+              tag: 0xf037,
+              type: 5,
+              count: 3,
+              value: exRational(
+                [
+                  [1, 2],
+                  [3, 4],
+                  [5, 8],
+                ],
+                false,
+                big,
+              ),
+            },
+            {
+              tag: 0xf038,
+              type: 10,
+              count: 2,
+              value: exRational(
+                [
+                  [-1, 2],
+                  [3, -4],
+                ],
+                true,
+                big,
+              ),
+            },
+          ],
+          big,
+        ),
+      );
+      expect(entries).toEqual([
+        exNamed(0xf030, 4294967295),
+        exNamed(0xf031, 1 / 0x80000000),
+        exNamed(0xf032, 0.75),
+        exNamed(0xf033, -0.75),
+        exNamed(0xf034, -0.75),
+        exNamed(0xf035, { numerator: 5, denominator: 0 }),
+        exNamed(0xf036, { numerator: -5, denominator: 0 }),
+        exNamed(0xf037, [0.5, 0.75, 0.625]),
+        exNamed(0xf038, [-0.5, -0.75]),
+      ]);
+    }
+  });
+
+  it("readValue ConditionalExpression and EqualityOperator clusters: ASCII values stop at the first NUL, keep an unterminated tail and read a leading NUL as empty", () => {
+    for (const big of [false, true]) {
+      const entries = exEntries(
+        exTiff(
+          [
+            { tag: 0xf040, type: 2, count: 5, value: Buffer.from("Hello") },
+            {
+              tag: 0xf041,
+              type: 2,
+              count: 9,
+              value: Buffer.from("Hi\0there\0"),
+            },
+            { tag: 0xf042, type: 2, count: 4, value: Buffer.from("abc\0") },
+            { tag: 0xf043, type: 2, count: 5, value: Buffer.alloc(5) },
+          ],
+          big,
+        ),
+      );
+      expect(entries).toEqual([
+        exNamed(0xf040, "Hello"),
+        exNamed(0xf041, "Hi"),
+        exNamed(0xf042, "abc"),
+        exNamed(0xf043, ""),
+      ]);
+    }
+  });
+
+  it("readValue ConditionalExpression and EqualityOperator clusters: a count above 1,000,000 is an unsupported value, exactly 1,000,000 is read", () => {
+    for (const big of [false, true]) {
+      const over = parseExif(
+        exTiff(
+          [{ tag: 0xf050, type: 1, count: 1_000_001, offset: 0xfffffff0 }],
+          big,
+        ),
+      );
+      expect(over.entries).toEqual([]);
+      expect(over.orientation).toEqual({ status: "absent" });
+      expect(over.warnings.map((warning) => warning.code)).toEqual([
+        "metadata-unsupported",
+      ]);
+      const text = Buffer.alloc(1_000_000, 0x61);
+      const at = exEntries(
+        exTiff([{ tag: 0xf051, type: 2, count: 1_000_000, value: text }], big),
+      );
+      expect(at).toHaveLength(1);
+      expect(at[0]!.name).toBe("Tag0xf051");
+      expect(at[0]!.value).toBe(text.toString("latin1"));
+    }
+  });
+
+  it("readValue type 7 clusters: UNDEFINED bytes that are all text decode as a string without their trailing NULs", () => {
+    for (const big of [false, true]) {
+      const entries = exEntries(
+        exTiff(
+          [
+            { tag: 0xf060, type: 7, count: 4, value: Buffer.from("0230") },
+            {
+              tag: 0xf061,
+              type: 7,
+              count: 8,
+              value: Buffer.from([0x41, 0x09, 0x0a, 0x0d, 0x20, 0x42, 0, 0]),
+            },
+            {
+              tag: 0xf062,
+              type: 7,
+              count: 6,
+              value: Buffer.from([0x41, 0, 0x42, 0, 0, 0]),
+            },
+            {
+              tag: 0xf063,
+              type: 7,
+              count: 4,
+              value: Buffer.from([0x41, 0, 0, 0]),
+            },
+          ],
+          big,
+        ),
+      );
+      expect(entries).toEqual([
+        exNamed(0xf060, "0230"),
+        exNamed(0xf061, "A\t\n\r B"),
+        exNamed(0xf062, "A\u0000B"),
+        exNamed(0xf063, "A"),
+      ]);
+    }
+  });
+
+  it("readValue type 7 clusters: UNDEFINED bytes containing a control byte decode as a byte array", () => {
+    for (const big of [false, true]) {
+      const entries = exEntries(
+        exTiff(
+          [
+            {
+              tag: 0xf070,
+              type: 7,
+              count: 4,
+              value: Buffer.from([0x41, 0x01, 0x42, 0x43]),
+            },
+            {
+              tag: 0xf071,
+              type: 7,
+              count: 5,
+              value: Buffer.from([0x41, 0x42, 0x43, 0x44, 0x1f]),
+            },
+            {
+              tag: 0xf072,
+              type: 7,
+              count: 4,
+              value: Buffer.from([0x01, 0x02, 0x03, 0x04]),
+            },
+          ],
+          big,
+        ),
+      );
+      expect(entries).toEqual([
+        exNamed(0xf070, [0x41, 0x01, 0x42, 0x43]),
+        exNamed(0xf071, [0x41, 0x42, 0x43, 0x44, 0x1f]),
+        exNamed(0xf072, [1, 2, 3, 4]),
+      ]);
+    }
   });
 });
