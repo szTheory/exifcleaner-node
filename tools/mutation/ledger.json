@@ -185364,53 +185364,87 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "admit",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000size + TRAILER_TAIL_BYTES\u00001027\u00009\u00001027\u000034",
         "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000size + trailerStart\u00001029\u000029\u00001029\u000048"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000size + TRAILER_TAIL_BYTES\u0000size - TRAILER_TAIL_BYTES\u00000",
-        "src/admission/jpeg-handler.ts\u0000ArithmeticOperator\u0000size + trailerStart\u0000size - trailerStart\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:admit:ConditionalExpression",
+      "id": "jpeg:src/admission/jpeg-handler.ts:admit:ConditionalExpression:gap-01",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "admit",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u00001031\u00009\u00001031\u000026"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:admit:ConditionalExpression:pending-99",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "admit",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u00001031\u00009\u00001031\u000026",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u00001031\u00009\u00001031\u000026"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000trailerLength > 0\u00000",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000trailerLength > 0\u00000"
       ],
-      "note": ""
+      "note": "Needs a maintainer decision: see 67-25-HALTED.md and the Pending members section of the ## 67-25 evidence.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:ConditionalExpression"
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator",
+      "id": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator:gap-01",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "admit",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000trailerLength <= 0\u00001031\u00009\u00001031\u000026"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator:pending-99",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "admit",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000trailerLength <= 0\u00001031\u00009\u00001031\u000026",
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000trailerLength >= 0\u00001031\u00009\u00001031\u000026"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000trailerLength <= 0\u0000trailerLength > 0\u00000",
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000trailerLength >= 0\u0000trailerLength > 0\u00000"
       ],
-      "note": ""
+      "note": "Needs a maintainer decision: see 67-25-HALTED.md and the Pending members section of the ## 67-25 evidence.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:admit:EqualityOperator"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:admit:MethodExpression",
@@ -185418,15 +185452,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "admit",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000MethodExpression\u0000Math.min(parsed.primaryEoiEnd, size - TRAILER_TAIL_BYTES)\u00001025\u000028\u00001028\u00008"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000MethodExpression\u0000Math.min(parsed.primaryEoiEnd, size - TRAILER_TAIL_BYTES)\u0000Math.max(\n        parsed.primaryEoiEnd,\n        size - TRAILER_TAIL_BYTES,\n      )\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > readTail ArithmeticOperator, EqualityOperator and ConditionalExpression: partial trailer reads continue at the next unread byte and stop when the tail is full"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:buildExifInsertSegment:BlockStatement",
@@ -185578,15 +185613,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "checkOutputPlan",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u00001045\u000011\u00001045\u000043"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000plan.declineReason !== undefined\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > checkOutputPlan ConditionalExpression: a plan without a scan declines with a string, and a declined plan returns its own reason"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:checkOutputPlan:StringLiteral",
@@ -185594,7 +185630,7 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "checkOutputPlan",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u00001048\u000011\u00001048\u000042"
@@ -185602,7 +185638,8 @@
       "anchors": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"Sanitized JPEG plan is empty.\"\u00000"
       ],
-      "note": ""
+      "note": "The empty-plan detail in checkOutputPlan, hosted in a local const so the directive sits on the literal. engine.ts tests the returned value against undefined and forwards it as the free-text detail of the typed unsafe-structure refusal, so any defined string, even an empty one, still declines; the code, the path and the plan are unchanged. One next-line StringLiteral directive; that line holds no other mutant.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:classifyAdmissionFailure:StringLiteral",
@@ -185610,7 +185647,7 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "classifyAdmissionFailure",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000``\u0000951\u000015\u0000951\u0000105"
@@ -185618,7 +185655,8 @@
       "anchors": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000``\u0000`ICC profile size ${cause.limit.size} exceeds the ${cause.limit.limit}-byte policy limit.`\u00000"
       ],
-      "note": ""
+      "note": "The detail template of the unsupported-feature decline that classifyAdmissionFailure returns for an over-limit ICC profile when color-profile preservation is requested. The value reaches only the free-text detail of the typed decline (engine.ts passes it to declinedError); the code unsupported-feature, the feature color-profile-preservation and the reason policy-limit are asserted by the 67-25 test and are unchanged. One next-line StringLiteral directive on the detail line; that line holds no other mutant.",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:classifySegments:ConditionalExpression",
@@ -186915,15 +186953,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "writeOutput",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u00001059\u000013\u00001059\u000030"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00002"
-      ],
-      "note": ""
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > writeOutput ConditionalExpression and LogicalOperator: an aborted signal stops the write loop and rejects with the signal's own reason"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:writeOutput:LogicalOperator",
@@ -186931,15 +186970,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "writeOutput",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u00001060\u000017\u00001060\u000076"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > writeOutput ConditionalExpression and LogicalOperator: an aborted signal stops the write loop and rejects with the signal's own reason"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:writeOutput:StringLiteral",
@@ -186947,15 +186987,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "writeOutput",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u00001060\u000063\u00001060\u000075"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"AbortError\"\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > writeOutput StringLiteral and LogicalOperator: an aborted signal without a reason rejects with a DOMException named AbortError"
+      }
     },
     {
       "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ArithmeticOperator",
@@ -186963,129 +187004,411 @@
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/jpeg/icc.ts\u0000ArithmeticOperator\u0000ICC_IDENTIFIER_BYTES - 2\u000037\u000026\u000037\u000050"
       ],
-      "anchors": [
-        "src/jpeg/icc.ts\u0000ArithmeticOperator\u0000ICC_IDENTIFIER_BYTES - 2\u0000ICC_IDENTIFIER_BYTES + 2\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments ConditionalExpression and BlockStatement: a payload shorter than the 14-byte header is refused with the typed error, not a range error"
+      }
     },
     {
-      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement",
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement:equivalent-01",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000029\u000030\u000031\u00004"
+      ],
+      "anchors": [
+        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u0000{\n    // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.\n    refuseMalformed(\"No ICC_PROFILE segments were provided to reassemble.\");\n  }\u00000"
+      ],
+      "note": "The block of if (payloads.length === 0) in reassembleIccSegments. Replacing it with {} lets an empty list fall through to the declaredCount refusal below, which throws the same typed malformed-container error with the same text. See the ConditionalExpression row for the trace; one next-line directive on the if line names ConditionalExpression and BlockStatement.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement",
+      "equivalenceClass": "redundant-guard-after-typed-check"
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement:gap-02",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000037\u000052\u000039\u00006"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments ConditionalExpression and BlockStatement: a payload shorter than the 14-byte header is refused with the typed error, not a range error"
+      }
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement:gap-03",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000042\u000025\u000044\u00006"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments ConditionalExpression and BlockStatement: sequence zero is refused even beside a complete 1-of-1 set"
+      }
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement:pending-99",
       "group": "jpeg",
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "BlockStatement",
       "disposition": "pending",
-      "count": 5,
+      "count": 1,
       "keys": [
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000029\u000030\u000031\u00004",
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000037\u000052\u000039\u00006",
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000042\u000025\u000044\u00006",
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000045\u000022\u000047\u00006",
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000048\u000027\u000052\u00006"
+        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000045\u000022\u000047\u00006"
       ],
       "anchors": [
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u0000{\n    refuseMalformed(\"No ICC_PROFILE segments were provided to reassemble.\");\n  }\u00000",
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u0000{\n      refuseMalformed(\"ICC_PROFILE segment payload is too short.\");\n    }\u00000",
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u0000{\n      refuseMalformed(\"ICC_PROFILE segment sequence number is zero.\");\n    }\u00000",
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u0000{\n      refuseMalformed(\"ICC_PROFILE segment declared count is zero.\");\n    }\u00000",
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u0000{\n      refuseMalformed(\n        `ICC_PROFILE segment sequence number ${sequence} exceeds its declared count ${count}.`,\n      );\n    }\u00000"
+        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u0000{\n      refuseMalformed(\"ICC_PROFILE segment declared count is zero.\");\n    }\u00000"
       ],
-      "note": ""
+      "note": "Needs a maintainer decision: see 67-25-HALTED.md and the Pending members section of the ## 67-25 evidence.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement"
     },
     {
-      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression",
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement:gap-05",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000048\u000027\u000052\u00006"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments ConditionalExpression and BlockStatement: a sequence number above its declared count is refused even beside a complete set"
+      }
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression:equivalent-01",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000029\u00007\u000029\u000028"
+      ],
+      "anchors": [
+        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u0000payloads.length === 0\u00000",
+        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000true\u0000payloads.length === 0\u00000"
+      ],
+      "note": "The payloads.length === 0 test in reassembleIccSegments. An empty list runs no loop iteration and reaches the declaredCount === undefined refusal, which throws the same typed malformed-container error with the same text, so skipping the branch (the false mutant, and the BlockStatement {} mutant that falls through) changes nothing observable; the 67-25 test asserts the typed refusal for an empty list and passes on both. The directive names ConditionalExpression and BlockStatement; the always-true sibling at the same position is a compile error and is suppressed only as collateral, listed as the second anchor so no suppression lacks an owner. The EqualityOperator mutant of the same test stays active (Killed).",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression",
+      "equivalenceClass": "redundant-guard-after-typed-check"
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression:gap-02",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000037\u00009\u000037\u000050"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments ConditionalExpression and BlockStatement: a payload shorter than the 14-byte header is refused with the typed error, not a range error"
+      }
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression:gap-03",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000042\u00009\u000042\u000023"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments ConditionalExpression and BlockStatement: sequence zero is refused even beside a complete 1-of-1 set"
+      }
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression:pending-99",
       "group": "jpeg",
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 6,
+      "count": 1,
       "keys": [
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000029\u00007\u000029\u000028",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000037\u00009\u000037\u000050",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000042\u00009\u000042\u000023",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000045\u00009\u000045\u000020",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000048\u00009\u000048\u000025",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000true\u000053\u00009\u000053\u000036"
+        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000045\u00009\u000045\u000020"
       ],
       "anchors": [
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u0000payloads.length === 0\u00000",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u0000payload.length < ICC_IDENTIFIER_BYTES + 2\u00000",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u0000sequence === 0\u00000",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u0000count === 0\u00000",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u0000sequence > count\u00000",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000true\u0000declaredCount === undefined\u00000"
+        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u0000count === 0\u00000"
       ],
-      "note": ""
+      "note": "Needs a maintainer decision: see 67-25-HALTED.md and the Pending members section of the ## 67-25 evidence.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression"
     },
     {
-      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:EqualityOperator",
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression:gap-05",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000048\u00009\u000048\u000025"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments ConditionalExpression and BlockStatement: a sequence number above its declared count is refused even beside a complete set"
+      }
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression:gap-06",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000true\u000053\u00009\u000053\u000036"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments ConditionalExpression: segments that declare different counts are refused even when the last count yields a complete set"
+      }
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:EqualityOperator:gap-01",
       "group": "jpeg",
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/jpeg/icc.ts\u0000EqualityOperator\u0000payload.length <= ICC_IDENTIFIER_BYTES + 2\u000037\u00009\u000037\u000050",
-        "src/jpeg/icc.ts\u0000EqualityOperator\u0000totalLength >= MAX_PROFILE_BYTES\u000085\u00007\u000085\u000038"
+        "src/jpeg/icc.ts\u0000EqualityOperator\u0000payload.length <= ICC_IDENTIFIER_BYTES + 2\u000037\u00009\u000037\u000050"
       ],
-      "anchors": [
-        "src/jpeg/icc.ts\u0000EqualityOperator\u0000payload.length <= ICC_IDENTIFIER_BYTES + 2\u0000payload.length < ICC_IDENTIFIER_BYTES + 2\u00000",
-        "src/jpeg/icc.ts\u0000EqualityOperator\u0000totalLength >= MAX_PROFILE_BYTES\u0000totalLength > MAX_PROFILE_BYTES\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments EqualityOperator: a header-only payload of exactly 14 bytes is a valid empty profile"
+      }
     },
     {
-      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral",
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:EqualityOperator:gap-02",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000EqualityOperator\u0000totalLength >= MAX_PROFILE_BYTES\u000085\u00007\u000085\u000038"
+      ],
+      "note": "reports/triage/67-25/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-25/red.json (icc.ts lines 29-53, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:EqualityOperator",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts admit, output-plan and write clusters, and reassembleIccSegments (67-25, jpeg-3) > reassembleIccSegments EqualityOperator: a profile of exactly MAX_PROFILE_BYTES is accepted and returned in sequence order"
+      }
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral:equivalent-01",
       "group": "jpeg",
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
-      "count": 5,
+      "disposition": "equivalent",
+      "count": 1,
       "keys": [
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000030\u000021\u000030\u000075",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000038\u000023\u000038\u000066",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000043\u000023\u000043\u000069",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000046\u000023\u000046\u000068",
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000030\u000021\u000030\u000075"
+      ],
+      "anchors": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"No ICC_PROFILE segments were provided to reassemble.\"\u00000"
+      ],
+      "note": "The message of the empty-list refusal. refuseMalformed throws JpegStructureError malformed-container; callers branch on the refusal and kind, never on the wording, and no test asserts it. One next-line StringLiteral directive; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral",
+      "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral:equivalent-02",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000038\u000023\u000038\u000066"
+      ],
+      "anchors": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC_PROFILE segment payload is too short.\"\u00000"
+      ],
+      "note": "The message of the too-short-payload refusal. The typed malformed-container refusal and its kind are asserted by the 67-25 tests; the wording is free text. One next-line StringLiteral directive; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral",
+      "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral:equivalent-03",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000043\u000023\u000043\u000069"
+      ],
+      "anchors": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC_PROFILE segment sequence number is zero.\"\u00000"
+      ],
+      "note": "The message of the sequence-zero refusal. The typed refusal is asserted by the 67-25 tests; the wording is free text. One next-line StringLiteral directive; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral",
+      "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral:equivalent-04",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000046\u000023\u000046\u000068"
+      ],
+      "anchors": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC_PROFILE segment declared count is zero.\"\u00000"
+      ],
+      "note": "The message of the count-zero refusal. The typed refusal is asserted by an existing test; the wording is free text. One next-line StringLiteral directive; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral",
+      "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral:equivalent-05",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "reassembleIccSegments",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
         "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000069\u000021\u000069\u000075"
       ],
       "anchors": [
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"No ICC_PROFILE segments were provided to reassemble.\"\u00000",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC_PROFILE segment payload is too short.\"\u00000",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC_PROFILE segment sequence number is zero.\"\u00000",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC_PROFILE segment declared count is zero.\"\u00000",
         "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"No ICC_PROFILE segments were provided to reassemble.\"\u00001"
       ],
-      "note": ""
+      "note": "The message of the declaredCount === undefined refusal after the loop. declaredCount stays undefined only for an empty payload list, which the first check in the function already refuses, so no public input reaches this line (the Stryker report shows NoCoverage); the check exists to narrow the type for the loop below. One next-line StringLiteral directive; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral",
+      "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
-      "id": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral",
+      "id": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral:equivalent-01",
       "group": "jpeg",
       "file": "src/jpeg/icc.ts",
       "function": "refuseMalformed",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "equivalent",
+      "count": 1,
       "keys": [
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u000050\u00009\u000050\u000095",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000057\u00009\u000057\u000066",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u000062\u00009\u000062\u000082",
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u000050\u00009\u000050\u000095"
+      ],
+      "anchors": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u0000`ICC_PROFILE segment sequence number ${sequence} exceeds its declared count ${count}.`\u00000"
+      ],
+      "note": "The template message of the sequence-above-count refusal. The typed refusal is asserted by the 67-25 tests; the wording is free text. One next-line StringLiteral directive; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral",
+      "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral:equivalent-02",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "refuseMalformed",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000057\u00009\u000057\u000066"
+      ],
+      "anchors": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC_PROFILE segments declare inconsistent total counts.\"\u00000"
+      ],
+      "note": "The message of the inconsistent-counts refusal. The typed refusal is asserted by the 67-25 tests; the wording is free text. One next-line StringLiteral directive; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral",
+      "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral:equivalent-03",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "refuseMalformed",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u000062\u00009\u000062\u000082"
+      ],
+      "anchors": [
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u0000`ICC_PROFILE segment sequence number ${sequence} appears more than once.`\u00000"
+      ],
+      "note": "The template message of the duplicate-sequence refusal. The typed refusal is asserted by an existing test; the wording is free text. One next-line StringLiteral directive; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral",
+      "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral:equivalent-04",
+      "group": "jpeg",
+      "file": "src/jpeg/icc.ts",
+      "function": "refuseMalformed",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
         "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u000078\u00009\u000078\u000070"
       ],
       "anchors": [
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u0000`ICC_PROFILE segment sequence number ${sequence} exceeds its declared count ${count}.`\u00000",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"ICC_PROFILE segments declare inconsistent total counts.\"\u00000",
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u0000`ICC_PROFILE segment sequence number ${sequence} appears more than once.`\u00000",
         "src/jpeg/icc.ts\u0000StringLiteral\u0000``\u0000`ICC_PROFILE segment sequence number ${sequence} is missing.`\u00000"
       ],
-      "note": ""
+      "note": "The template message of the missing-sequence refusal. The typed refusal is asserted by an existing test; the wording is free text. One next-line StringLiteral directive; that line holds no other mutant.",
+      "originClusterId": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:classifyAppPayload:ConditionalExpression",
