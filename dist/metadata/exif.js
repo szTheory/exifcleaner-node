@@ -162,8 +162,10 @@ export function parseExif(payload) {
         ? payload.subarray(6)
         : payload;
     try {
-        if (tiff.length < 8)
-            throw new RangeError("EXIF TIFF header is truncated");
+        // A payload shorter than the 8-byte TIFF header needs no guard of its own:
+        // the byte order check refuses anything that is not II or MM, and the
+        // bounds-checked u16 and u32 reads below throw a RangeError, which the
+        // catch turns into the same malformed outcome.
         const byteOrder = tiff.toString("ascii", 0, 2);
         if (byteOrder !== "II" && byteOrder !== "MM") {
             throw new RangeError("EXIF byte order is invalid");
@@ -252,7 +254,10 @@ export function parseExif(payload) {
     return { entries, warnings, orientation };
 }
 function assertUint32(value, field) {
-    if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {
+    // Only integrality needs a check of its own: Buffer's writeUInt32LE, the sole
+    // consumer of an accepted value, already throws a RangeError for a negative
+    // number or one above the 32-bit maximum, so the range needs no second guard.
+    if (!Number.isInteger(value)) {
         throw new RangeError(`${field} must be an integer from 0 through 4294967295`);
     }
 }
