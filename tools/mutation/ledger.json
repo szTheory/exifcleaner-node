@@ -185434,15 +185434,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "buildExifInsertSegment",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000544\u000024\u0000548\u00004"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new RangeError(\n      \"Synthesized EXIF segment exceeds the 16-bit segment length field.\",\n    );\n  }\u00000"
+        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    // Stryker disable next-line CallExpression: defensive-unreachable-by-construction — see the guard above: the synthesized Exif segment is a few dozen bytes, so this throw is never reached.\n    throw new RangeError(\n      \"Synthesized EXIF segment exceeds the 16-bit segment length field.\",\n    );\n  }\u00000"
       ],
-      "note": ""
+      "note": "buildExifInsertSegment's tiff comes from createMinimalExif, which writes at most an Orientation entry and a resolution entry (a few dozen bytes), so length = 2 + 6 + tiff.length never exceeds 0xffff and the guard body never executes. The directive names BlockStatement only; the line's observable opposites (ConditionalExpression true, EqualityOperator <=) stay active.",
+      "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:buildExifInsertSegment:CallExpression",
@@ -185450,7 +185451,7 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "buildExifInsertSegment",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000545\u00005\u0000547\u00007"
@@ -185458,7 +185459,8 @@
       "anchors": [
         "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000throw new RangeError(\n      \"Synthesized EXIF segment exceeds the 16-bit segment length field.\",\n    );\u00000"
       ],
-      "note": ""
+      "note": "The throw new RangeError statement sits inside the length > 0xffff guard that no synthesized Exif segment can reach (see the BlockStatement row); it was NoCoverage. A next-line CallExpression directive covers it.",
+      "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:buildExifInsertSegment:ConditionalExpression",
@@ -185616,7 +185618,7 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "classifySegments",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000marker === COM && !isAppMarker(marker)\u0000191\u00009\u0000191\u000047"
@@ -185624,25 +185626,44 @@
       "anchors": [
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000marker === COM && !isAppMarker(marker)\u0000marker === COM || !isAppMarker(marker)\u00000"
       ],
-      "note": ""
+      "note": "classifySegments returns remove for a COM or non-APPn marker before reading the payload. With the || to && replacement a COM marker still returns remove (COM, 0xfe, is not an APPn marker, so !isAppMarker is true) and every other non-APPn, non-structural marker falls through to classifyAppPayload(marker, parsed.buffered.get(index)); parseJpeg buffers payloads for APPn segments only, so the payload is undefined, the kind is other, none of the later branches match and the final return remove gives the same class. parseJpeg admits only SOS, DQT, DHT, DRI, admitted SOF, APPn and COM, so no other marker reaches the line anyway. The directive names LogicalOperator only: the line's killed opposites (ConditionalExpression true, EqualityOperator !==) stay active.",
+      "equivalenceClass": "redundant-guard-after-typed-check"
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:BlockStatement",
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:BlockStatement:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "collectMetadata",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000311\u000036\u0000321\u000010",
+        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000311\u000036\u0000321\u000010"
+      ],
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:BlockStatement",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > readJfifDensity ConditionalExpression: a JFIF payload shorter than the 14-byte header reports no density"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:BlockStatement:equivalent-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
         "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000327\u000025\u0000335\u00006"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000{\n          entries.push(\n            {\n              namespace: \"JPEG\",\n              name: \"JFIF:ResolutionUnit\",\n              value: density.unit,\n            },\n            { namespace: \"JPEG\", name: \"JFIF:XResolution\", value: density.x },\n            { namespace: \"JPEG\", name: \"JFIF:YResolution\", value: density.y },\n          );\n        }\u00000",
         "src/admission/jpeg-handler.ts\u0000BlockStatement\u0000{}\u0000{\n      namespaces.add(\"JPEG\");\n      entries.push({\n        namespace: \"JPEG\",\n        name: markerLabel(marker, undefined),\n        value: segment.payloadLength,\n      });\n      return;\n    }\u00000"
       ],
-      "note": ""
+      "note": "The block of if (marker === COM) in collectMetadata. Replacing it with {} lets a COM segment fall through to the generic bottom branch, which adds namespace JPEG and pushes {JPEG, markerLabel(COM, segment.identifier), payloadLength}; the parser sets identifier for APPn segments only, so the name is COM exactly as the dedicated block computed and the value is the same payloadLength. See the ConditionalExpression:equivalent-01 row for the trace; one next-line directive on the if line names ConditionalExpression and BlockStatement.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:BlockStatement",
+      "equivalenceClass": "redundant-guard-after-typed-check"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:BooleanLiteral",
@@ -185650,61 +185671,129 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "collectMetadata",
       "mutatorName": "BooleanLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000276\u000029\u0000276\u000034",
         "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000false\u0000341\u000029\u0000341\u000033"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000false\u00003",
-        "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000false\u0000true\u00006"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > collectMetadata BooleanLiteral: jfifDroppedForAdobe is true only when an APP14 Adobe segment drops the JFIF segment"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:CallExpression",
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:CallExpression:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "collectMetadata",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000364\u00009\u0000364\u000042",
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000380\u00009\u0000380\u000042",
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000381\u00009\u0000381\u000043",
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000467\u00005\u0000467\u000038"
+        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000364\u00009\u0000364\u000042"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00000",
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00001",
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000xmpEntries.push(...found.entries);\u00000",
-        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000warnings.push(...found.warnings);\u00002"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:CallExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > collectMetadata CallExpression: EXIF parse warnings reach the inspection"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression",
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:CallExpression:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "CallExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000380\u00009\u0000380\u000042"
+      ],
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:CallExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > collectMetadata CallExpression: standard XMP parse warnings reach the inspection"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:CallExpression:gap-03",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "CallExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000381\u00009\u0000381\u000043"
+      ],
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:CallExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > collectMetadata CallExpression: the standard XMP entries feed the trailer classification, so a gain-map XMP with trailer bytes is refused"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:CallExpression:gap-04",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "CallExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000CallExpression\u0000;\u0000467\u00005\u0000467\u000038"
+      ],
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:CallExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > collectMetadata CallExpression: ICC parse warnings reach the inspection"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression:equivalent-01",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000327\u00009\u0000327\u000023"
+      ],
+      "anchors": [
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000marker === COM\u00002",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000marker === COM\u00002"
+      ],
+      "note": "The if (marker === COM) branch of collectMetadata duplicates the generic bottom branch: a COM segment has no buffered payload, so classifyAppPayload returns other, none of the jfif/exif/xmp/extended-xmp/mpf/APP11 branches match, and the generic branch adds namespace JPEG and pushes {JPEG, markerLabel(COM, segment.identifier), payloadLength}; the parser sets identifier for APPn segments only, so segment.identifier is undefined and the label is COM exactly as in the dedicated branch. Skipping the branch (the false mutant, and the BlockStatement {} mutant that falls through) therefore yields the same namespaces and entries for every COM segment. The directive names ConditionalExpression and BlockStatement; the always-true sibling at the same position is a compile error and is suppressed only as collateral, listed as the second anchor so no suppression lacks an owner.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression",
+      "equivalenceClass": "redundant-guard-after-typed-check"
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression:pending-99",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "collectMetadata",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 4,
+      "count": 3,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000327\u00009\u0000327\u000023",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000394\u000011\u0000394\u000032",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000448\u00009\u0000448\u000030",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000451\u000024\u0000451\u000047"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000marker === COM\u00002",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000payload !== undefined\u00006",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000true\u0000candidates.length > 0\u00000",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000candidate === \"invalid\"\u00000"
       ],
-      "note": ""
+      "note": "Equivalent but each takes a source decision recorded in 67-EVIDENCE.md ## 67-23: the observable opposite of every one of these three is Killed and a directive would hide it.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:ConditionalExpression"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:EqualityOperator",
@@ -185728,37 +185817,54 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "collectMetadata",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000MethodExpression\u0000candidates.every(candidate => candidate === \"invalid\" || candidate !== sourceValue)\u0000450\u000025\u0000452\u00008"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000MethodExpression\u0000candidates.every(candidate => candidate === \"invalid\" || candidate !== sourceValue)\u0000candidates.some(\n        (candidate) => candidate === \"invalid\" || candidate !== sourceValue,\n      )\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > collectMetadata MethodExpression: an XMP orientation that agrees with EXIF does not mask an incomplete ExtendedXMP"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:StringLiteral",
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:StringLiteral:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "collectMetadata",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 3,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000315\u000021\u0000315\u000042",
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000318\u000040\u0000318\u000058",
-        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000319\u000040\u0000319\u000058",
+        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000319\u000040\u0000319\u000058"
+      ],
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:StringLiteral",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > readJfifDensity ConditionalExpression: a JFIF payload shorter than the 14-byte header reports no density"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:StringLiteral:equivalent-01",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000457\u000013\u0000457\u000085"
       ],
       "anchors": [
-        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"JFIF:ResolutionUnit\"\u00000",
-        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"JFIF:XResolution\"\u00000",
-        "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"JFIF:YResolution\"\u00000",
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"A non-EXIF Orientation is missing from EXIF IFD0 or disagrees with it.\"\u00000"
       ],
-      "note": ""
+      "note": "The detail of the unsupported orientation state is free-text diagnostic wording. Its only consumer is engine.ts, which passes admission.orientation.detail into the orientation-preservation admissionDecline; callers branch on the typed unsupported-feature code, the orientation-preservation feature and the path, never on the wording (the orientation matrix tests assert exactly those). One next-line StringLiteral directive covers the single literal on the line.",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:collectMetadata:StringLiteral",
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:findInsertPosition:EqualityOperator",
@@ -185782,15 +185888,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "isStructuralMarker",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000169\u00005\u0000169\u000019"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000marker === DRI\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > isStructuralMarker ConditionalExpression: a DRI restart-interval segment is structural and survives sanitization byte-identically"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:jfifHasEmbeddedThumbnail:BooleanLiteral",
@@ -185798,35 +185905,53 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "jfifHasEmbeddedThumbnail",
       "mutatorName": "BooleanLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000235\u000050\u0000235\u000055"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000BooleanLiteral\u0000true\u0000false\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > jfifHasEmbeddedThumbnail ConditionalExpression, EqualityOperator and BooleanLiteral: a JFIF payload shorter than the header is never treated as carrying a thumbnail"
+      }
     },
     {
-      "id": "jpeg:src/admission/jpeg-handler.ts:jfifHasEmbeddedThumbnail:ConditionalExpression",
+      "id": "jpeg:src/admission/jpeg-handler.ts:jfifHasEmbeddedThumbnail:ConditionalExpression:gap-01",
       "group": "jpeg",
       "file": "src/admission/jpeg-handler.ts",
       "function": "jfifHasEmbeddedThumbnail",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000235\u00007\u0000235\u000041",
+        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000235\u00007\u0000235\u000041"
+      ],
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:jfifHasEmbeddedThumbnail:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > readJfifDensity ConditionalExpression: a JFIF payload shorter than the 14-byte header reports no density"
+      }
+    },
+    {
+      "id": "jpeg:src/admission/jpeg-handler.ts:jfifHasEmbeddedThumbnail:ConditionalExpression:gap-02",
+      "group": "jpeg",
+      "file": "src/admission/jpeg-handler.ts",
+      "function": "jfifHasEmbeddedThumbnail",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000236\u000010\u0000236\u000037",
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000236\u000041\u0000236\u000068"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000payload.length < JFIF_HEADER_BYTES\u00001",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000payload.readUInt8(12) !== 0\u00000",
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000payload.readUInt8(13) !== 0\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "originClusterId": "jpeg:src/admission/jpeg-handler.ts:jfifHasEmbeddedThumbnail:ConditionalExpression",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > jfifHasEmbeddedThumbnail LogicalOperator and ConditionalExpression: a width-only or height-only thumbnail declines resolution preservation"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:jfifHasEmbeddedThumbnail:EqualityOperator",
@@ -185834,15 +185959,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "jfifHasEmbeddedThumbnail",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000payload.length <= JFIF_HEADER_BYTES\u0000235\u00007\u0000235\u000041"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000EqualityOperator\u0000payload.length <= JFIF_HEADER_BYTES\u0000payload.length < JFIF_HEADER_BYTES\u00001"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > jfifHasEmbeddedThumbnail LogicalOperator and ConditionalExpression: a width-only or height-only thumbnail declines resolution preservation"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:jfifHasEmbeddedThumbnail:LogicalOperator",
@@ -185850,15 +185976,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "jfifHasEmbeddedThumbnail",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000payload.readUInt8(12) !== 0 && payload.readUInt8(13) !== 0\u0000236\u000010\u0000236\u000068"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000LogicalOperator\u0000payload.readUInt8(12) !== 0 && payload.readUInt8(13) !== 0\u0000payload.readUInt8(12) !== 0 || payload.readUInt8(13) !== 0\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > jfifHasEmbeddedThumbnail LogicalOperator and ConditionalExpression: a width-only or height-only thumbnail declines resolution preservation"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:markerLabel:ConditionalExpression",
@@ -185866,15 +185993,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "markerLabel",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000248\u000038\u0000248\u000061"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000identifier.length === 0\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > markerLabel ConditionalExpression: an APPn segment whose identifier is empty is named APPn without a colon"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:markerLabel:StringLiteral",
@@ -185882,7 +186010,7 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "markerLabel",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 2,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000``\u0000247\u000011\u0000247\u000054",
@@ -185892,7 +186020,8 @@
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000``\u0000`0x${marker.toString(16).padStart(2, \"0\")}`\u00000",
         "src/admission/jpeg-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"0\"\u00000"
       ],
-      "note": ""
+      "note": "markerLabel's third branch builds a hex name for a marker that is neither COM nor an APPn marker. parseJpeg admits only SOS, DQT, DHT, DRI, admitted SOF, APPn and COM segments (classification.kind), structural segments are never reported, and markerLabel's callers (the COM branch, the mpf branch and the generic bottom branch of collectMetadata) pass COM or an APPn marker, so the hex name is never built; both mutants (the template and the padStart fill) were NoCoverage. One next-line directive on the extracted hexMarkerName statement covers both.",
+      "equivalenceClass": "defensive-unreachable-by-construction"
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:readJfifDensity:ConditionalExpression",
@@ -185900,15 +186029,16 @@
       "file": "src/admission/jpeg-handler.ts",
       "function": "readJfifDensity",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000226\u00007\u0000226\u000041"
       ],
-      "anchors": [
-        "src/admission/jpeg-handler.ts\u0000ConditionalExpression\u0000false\u0000payload.length < JFIF_HEADER_BYTES\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-23/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-23/pre.json (hosted pre-triage status Survived or NoCoverage).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > readJfifDensity ConditionalExpression: a JFIF payload shorter than the 14-byte header reports no density"
+      }
     },
     {
       "id": "jpeg:src/admission/jpeg-handler.ts:readTail:ArithmeticOperator",
