@@ -189600,28 +189600,27 @@
       "disposition": "dead",
       "count": 1,
       "keys": [
+        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000068\u000027\u000068\u000062"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "entryCount > maxIfdEntriesByPayload",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression:dead-08",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000075\u00009\u000075\u000058"
       ],
       "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
       "symbol": "entryOffset + MPF_IFD_ENTRY_BYTES > header.length",
       "symbolScope": "function",
-      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
-    },
-    {
-      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression:pending-01",
-      "group": "jpeg",
-      "file": "src/jpeg/trailer.ts",
-      "function": "classifyMpfPayload",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u000068\u000027\u000068\u000062"
-      ],
-      "anchors": [
-        "src/jpeg/trailer.ts\u0000ConditionalExpression\u0000false\u0000entryCount > maxIfdEntriesByPayload\u00000"
-      ],
-      "note": "The only killer in the report is a test that predates the baseline (tests/jpeg_trailer.test.ts), which the verifier rejects as a gap proof; maintainer decision pending, see 67-29-HALTED.md (addendum).",
       "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:ConditionalExpression"
     },
     {
@@ -189631,9 +189630,8 @@
       "function": "classifyMpfPayload",
       "mutatorName": "EqualityOperator",
       "disposition": "gap",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000entryCount >= maxIfdEntriesByPayload\u000068\u000027\u000068\u000062",
         "src/jpeg/trailer.ts\u0000EqualityOperator\u0000index <= entryCount\u000073\u000023\u000073\u000041"
       ],
       "note": "reports/triage/67-29/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-29/red-full.json (src/jpeg/parser.ts and src/jpeg/trailer.ts whole files, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
@@ -189711,6 +189709,22 @@
     },
     {
       "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator:dead-04",
+      "group": "jpeg",
+      "file": "src/jpeg/trailer.ts",
+      "function": "classifyMpfPayload",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/trailer.ts\u0000EqualityOperator\u0000entryCount >= maxIfdEntriesByPayload\u000068\u000027\u000068\u000062"
+      ],
+      "note": "Rewritten by the Plan 67-29 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-29-HALTED.md, Option A): the redundant MPF index and SEFT length guards were folded (Gate 3); accepted payloads and every refusal class are unchanged, pinned by the MPF header, exact-fit and prefix tests. The symbol is no longer in its enclosing function (scoped witness) and the fresh unfiltered report reports/triage/67-29/batch.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "entryCount > maxIfdEntriesByPayload",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator"
+    },
+    {
+      "id": "jpeg:src/jpeg/trailer.ts:classifyMpfPayload:EqualityOperator:dead-05",
       "group": "jpeg",
       "file": "src/jpeg/trailer.ts",
       "function": "classifyMpfPayload",
