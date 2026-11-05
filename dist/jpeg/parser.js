@@ -127,9 +127,8 @@ function parseSosHeader(payload) {
     }
     const tailBase = 1 + ns * 2;
     const ss = payload.readUInt8(tailBase);
-    const se = payload.readUInt8(tailBase + 1);
     const ahAl = payload.readUInt8(tailBase + 2);
-    return { components, ss, se, ah: (ahAl >> 4) & 0x0f, al: ahAl & 0x0f };
+    return { components, ss, ah: (ahAl >> 4) & 0x0f, al: ahAl & 0x0f };
 }
 /**
  * D-10 / RESEARCH Pitfall 2: validates that every scan component's frame

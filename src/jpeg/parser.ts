@@ -225,7 +225,6 @@ interface JpegSosComponent {
 interface JpegSosHeader {
   readonly components: readonly JpegSosComponent[];
   readonly ss: number;
-  readonly se: number;
   readonly ah: number;
   readonly al: number;
 }
@@ -247,9 +246,8 @@ function parseSosHeader(payload: Buffer): JpegSosHeader {
   }
   const tailBase = 1 + ns * 2;
   const ss = payload.readUInt8(tailBase);
-  const se = payload.readUInt8(tailBase + 1);
   const ahAl = payload.readUInt8(tailBase + 2);
-  return { components, ss, se, ah: (ahAl >> 4) & 0x0f, al: ahAl & 0x0f };
+  return { components, ss, ah: (ahAl >> 4) & 0x0f, al: ahAl & 0x0f };
 }
 
 /**
