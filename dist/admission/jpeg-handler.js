@@ -383,11 +383,6 @@ function computeMinimalExifTags(admission, preserveOrientation, preserveResoluti
  * (`0xFF 0xE1`, big-endian length, `Exif\0\0`, the TIFF bytes). */
 function buildExifInsertSegment(tiff) {
     const length = 2 + EXIF_PREFIX.length + tiff.length;
-    // Stryker disable next-line BlockStatement: defensive-unreachable-by-construction — the synthesized TIFF holds at most an Orientation entry and a resolution entry (createMinimalExif), far below 64 KiB, so length never exceeds the 16-bit segment length field and this body never executes.
-    if (length > 0xffff) {
-        // Stryker disable next-line CallExpression: defensive-unreachable-by-construction — see the guard above: the synthesized Exif segment is a few dozen bytes, so this throw is never reached.
-        throw new RangeError("Synthesized EXIF segment exceeds the 16-bit segment length field.");
-    }
     const header = Buffer.alloc(4);
     header[0] = 0xff;
     header[1] = APP1;
