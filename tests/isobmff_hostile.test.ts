@@ -40,6 +40,9 @@ import {
 } from "../src/jpeg/icc.js";
 import { MAX_PROFILE_BYTES } from "../src/metadata/icc_admission.js";
 import {
+  JPEG_MAX_EXTENDED_XMP_BYTES,
+  JPEG_MAX_FILE_BYTES,
+  JPEG_MAX_ICC_SEGMENTS,
   classifyAppPayload,
   classifyMarker,
   isAppMarker,
@@ -51,7 +54,8 @@ import {
 import { classifyFallback } from "../src/fallback.js";
 import { verifyIsobmffOutput } from "../src/isobmff/verify.js";
 import { writeIsobmffOutput } from "../src/isobmff/writer.js";
-import type { Result } from "../src/types.js";
+import type { MetadataEntry, Result } from "../src/types.js";
+import { classifyTrailerClasses } from "../src/jpeg/trailer.js";
 import {
   buildIsobmffOutputPlan,
   checkIsobmffOutputPlan,
@@ -5417,6 +5421,586 @@ describe("jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-
     const betweenParse = (await jpParse(betweenScans)).parsed;
     expect(betweenParse?.segments.map((segment) => segment.marker)).toEqual([
       0xdb, 0xc0, 0xc4, 0xda, 0xc4, 0xda, 0xda,
+    ]);
+  });
+});
+
+// parseJpeg main loop and classifyMpfPayload clusters (67-29, jpeg-7). Every assertion is a typed
+// refusal literal, the thrown abort reason, a segment identifier or buffered index, a parsed frame
+// component or an MPF class set, never diagnostic wording. The fixtures are built from the T.81
+// marker grammar and the CIPA DC-007 MP Index layout, not derived from the operators under test.
+async function jqParse(
+  bytes: Buffer,
+  options: {
+    readonly declaredSize?: number;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<JpParseOutcome> {
+  const directory = await jhFreshDirectory();
+  const path = join(directory, "input.jpg");
+  await writeFile(path, bytes);
+  const handle = await open(path, "r");
+  try {
+    const parsed = await parseJpeg(
+      handle,
+      options.declaredSize ?? bytes.length,
+      options.signal,
+    );
+    return { parsed, error: undefined, reads: [] };
+  } catch (error) {
+    return { parsed: undefined, error, reads: [] };
+  } finally {
+    await handle.close();
+  }
+}
+
+/** A duck-typed signal that reports `aborted` false for its first `calm` reads, then true. */
+function jqSignalAfter(calm: number, reason?: unknown): AbortSignal {
+  let reads = 0;
+  return {
+    get aborted() {
+      reads += 1;
+      return reads > calm;
+    },
+    reason,
+  } as unknown as AbortSignal;
+}
+
+function jqOutcome(bytes: Buffer, declaredSize?: number): Promise<string> {
+  return jqParse(
+    bytes,
+    declaredSize === undefined ? {} : { declaredSize },
+  ).then(jpOutcomeName);
+}
+
+/** The bytes of `base` before the first occurrence of `marker`, plus that marker. */
+function jqHeadThrough(base: Buffer, marker: number): Buffer {
+  return base.subarray(0, base.indexOf(Buffer.from([0xff, marker])) + 2);
+}
+
+function jqConcat(...parts: ReadonlyArray<Buffer | readonly number[]>): Buffer {
+  return Buffer.concat(
+    parts.map((part) => (Buffer.isBuffer(part) ? part : Buffer.from(part))),
+  );
+}
+
+interface JqMpfSpec {
+  readonly little?: boolean;
+  readonly orderBytes?: string;
+  readonly magic?: number;
+  readonly numberOfImages?: number;
+  readonly secondary?: ReadonlyArray<readonly [size: number, offset: number]>;
+  readonly declaredBytes?: number;
+  readonly trailingTags?: readonly number[];
+  readonly ifdLast?: boolean;
+  readonly ifdOffset?: number;
+}
+
+/**
+ * An APP2 MPF payload ("MPF\0" plus the CIPA DC-007 header): byte order, the 42 magic, the IFD
+ * offset, an IFD of NumberOfImages (B001), MPEntry (B002) and any trailing tags, then 16-byte MP
+ * entries (the primary entry first). `ifdLast` puts the MP entries before the IFD, so the IFD
+ * ends exactly at the end of the payload.
+ */
+function jqMpfPayload(spec: JqMpfSpec = {}): Buffer {
+  const little = spec.little ?? true;
+  const u16 = (value: number): Buffer => {
+    const bytes = Buffer.alloc(2);
+    if (little) bytes.writeUInt16LE(value);
+    else bytes.writeUInt16BE(value);
+    return bytes;
+  };
+  const u32 = (value: number): Buffer => {
+    const bytes = Buffer.alloc(4);
+    if (little) bytes.writeUInt32LE(value);
+    else bytes.writeUInt32BE(value);
+    return bytes;
+  };
+  const images = spec.numberOfImages ?? 2;
+  const entries: ReadonlyArray<readonly [number, number]> = [
+    [0, 0],
+    ...(spec.secondary ?? [[100, 50] as const]),
+  ];
+  const mpEntries = Buffer.concat(
+    entries.map(([size, offset]) =>
+      Buffer.concat([u32(0), u32(size), u32(offset), u16(0), u16(0)]),
+    ),
+  );
+  const tags = [0xb001, 0xb002, ...(spec.trailingTags ?? [])];
+  const ifdLength = 2 + tags.length * 12 + (spec.ifdLast ? 0 : 4);
+  const mpOffset = spec.ifdLast ? 8 : 8 + ifdLength;
+  const ifdAt = spec.ifdLast ? 8 + mpEntries.length : 8;
+  const entry = (tag: number): Buffer => {
+    if (tag === 0xb001) {
+      return Buffer.concat([u16(tag), u16(4), u32(1), u32(images)]);
+    }
+    if (tag === 0xb002) {
+      return Buffer.concat([
+        u16(tag),
+        u16(7),
+        u32(spec.declaredBytes ?? mpEntries.length),
+        u32(mpOffset),
+      ]);
+    }
+    return Buffer.concat([u16(tag), u16(7), u32(4), u32(0x30313030)]);
+  };
+  const ifd = Buffer.concat([
+    u16(tags.length),
+    ...tags.map(entry),
+    ...(spec.ifdLast ? [] : [u32(0)]),
+  ]);
+  const header = Buffer.concat([
+    Buffer.from(spec.orderBytes ?? (little ? "II" : "MM"), "ascii"),
+    u16(spec.magic ?? 42),
+    u32(spec.ifdOffset ?? ifdAt),
+  ]);
+  const body = spec.ifdLast
+    ? Buffer.concat([header, mpEntries, ifd])
+    : Buffer.concat([header, ifd, mpEntries]);
+  return Buffer.concat([Buffer.from("MPF\0", "latin1"), body]);
+}
+
+function jqMpfClasses(
+  mpfPayload: Buffer,
+  fileSize = 1000,
+  xmpEntries: readonly MetadataEntry[] = [],
+): string[] {
+  return [
+    ...classifyTrailerClasses({
+      mpfPayload,
+      xmpEntries,
+      trailerTail: Buffer.alloc(0),
+      trailerBytes: 0,
+      fileSize,
+    }),
+  ].sort();
+}
+
+describe("jpeg/parser.ts parseJpeg main-loop clusters (67-29, jpeg-7)", () => {
+  it("parseJpeg BlockStatement, ConditionalExpression, LogicalOperator, StringLiteral and EqualityOperator clusters: an aborted signal rejects with its own reason or an AbortError, at the entry and at every marker boundary but not past the last segment", async () => {
+    const bytes = minimalJpeg();
+    const custom = new Error("scripted abort reason");
+    const controller = new AbortController();
+    controller.abort(custom);
+    expect((await jqParse(bytes, { signal: controller.signal })).error).toBe(
+      custom,
+    );
+    // Calm at the entry check, aborted at the first marker boundary.
+    expect(
+      (await jqParse(bytes, { signal: jqSignalAfter(1, custom) })).error,
+    ).toBe(custom);
+    for (const calm of [0, 1]) {
+      const error = (await jqParse(bytes, { signal: jqSignalAfter(calm) }))
+        .error;
+      expect(error).toBeInstanceOf(DOMException);
+      expect((error as DOMException).name).toBe("AbortError");
+    }
+    expect(
+      jpOutcomeName(await jqParse(bytes, { signal: jqSignalAfter(1000) })),
+    ).toBe("parsed");
+    // SOI and one COM segment, no EOI: the loop ends at the end of the file and the third read of
+    // the signal never happens, so the refusal is the missing EOI, not the abort.
+    const unfinished = jqConcat(
+      [0xff, 0xd8],
+      appSegment(0xfe, Buffer.from("hi")),
+    );
+    const outcome = await jqParse(unfinished, {
+      signal: jqSignalAfter(2, custom),
+    });
+    expect(jpOutcomeName(outcome)).toBe("truncation");
+  });
+
+  it("parseJpeg BlockStatement, ConditionalExpression, LogicalOperator and EqualityOperator clusters: the file-size guard refuses only a size above the cap, and a size that is not a safe integer or is below four bytes", async () => {
+    const bytes = minimalJpeg();
+    const cases: ReadonlyArray<
+      readonly [label: string, size: number, expected: string]
+    > = [
+      [
+        "exactly the cap, then the file ends early",
+        JPEG_MAX_FILE_BYTES,
+        "truncation",
+      ],
+      ["one above the cap", JPEG_MAX_FILE_BYTES + 1, "resource-limits"],
+      ["NaN", Number.NaN, "malformed-container"],
+      ["a fraction", 4.5, "malformed-container"],
+      ["zero", 0, "malformed-container"],
+      ["three bytes", 3, "malformed-container"],
+      ["four bytes: SOI and a marker with no length field", 4, "truncation"],
+    ];
+    for (const [label, size, expected] of cases) {
+      expect(await jqOutcome(bytes, size), label).toBe(expected);
+    }
+  });
+
+  it("parseJpeg BlockStatement, ConditionalExpression and LogicalOperator clusters: a file refuses unless both of its first two bytes are the SOI, and a segment must start with a 0xFF prefix", async () => {
+    const bytes = minimalJpeg();
+    expect(await jqOutcome(bytes)).toBe("parsed");
+    for (const soi of [
+      [0x00, 0xd8],
+      [0xff, 0x00],
+      [0x00, 0x00],
+    ]) {
+      const corrupted = jqConcat(soi, bytes.subarray(2));
+      expect(await jqOutcome(corrupted), `SOI ${soi.join(",")}`).toBe(
+        "malformed-container",
+      );
+    }
+    // The prefix byte of the first segment, and of a later one, is not 0xFF.
+    const firstPrefix = Buffer.from(bytes);
+    firstPrefix[2] = 0x00;
+    expect(await jqOutcome(firstPrefix)).toBe("malformed-container");
+    const sofAt = bytes.indexOf(Buffer.from([0xff, 0xc0]));
+    const laterPrefix = Buffer.from(bytes);
+    laterPrefix[sofAt] = 0x00;
+    expect(await jqOutcome(laterPrefix)).toBe("malformed-container");
+  });
+
+  it("parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: SOS and other segment headers refuse at the exact byte that is missing", async () => {
+    const base = minimalJpeg({ components: 1 });
+    const sosHead = jqHeadThrough(base, 0xda);
+    const sosCases: ReadonlyArray<readonly [string, Buffer, string]> = [
+      ["SOS marker is the last two bytes", sosHead, "truncation"],
+      ["one byte of the SOS length", jqConcat(sosHead, [0x00]), "truncation"],
+      [
+        "SOS length 2 and an empty payload",
+        jqConcat(sosHead, [0x00, 0x02]),
+        "malformed-container",
+      ],
+      [
+        "SOS length 0",
+        jqConcat(sosHead, [0x00, 0x00, 0xaa, 0xbb]),
+        "malformed-container",
+      ],
+      [
+        "SOS length 1",
+        jqConcat(sosHead, [0x00, 0x01, 0xaa, 0xbb]),
+        "malformed-container",
+      ],
+      [
+        "SOS payload runs past the end of the file",
+        jqConcat(sosHead, [0x00, 0x20, 0x01]),
+        "truncation",
+      ],
+    ];
+    for (const [label, bytes, expected] of sosCases) {
+      expect(await jqOutcome(bytes), label).toBe(expected);
+    }
+    // An SOS whose payload ends exactly at the end of the file is still parsed and validated: the
+    // scan names an undefined DC table.
+    const scan = jpScanFixture({
+      sos: jpSosPayload([[1, 1, 0]], JP_SEQUENTIAL_SPECTRAL),
+    });
+    const sosAt = scan.indexOf(Buffer.from([0xff, 0xda]));
+    expect(await jqOutcome(scan.subarray(0, sosAt + 4 + 6))).toBe(
+      "undefined-table-reference",
+    );
+
+    const sofHead = jqHeadThrough(base, 0xc0);
+    const sofAt = sofHead.length - 2;
+    const segmentCases: ReadonlyArray<readonly [string, Buffer, string]> = [
+      ["SOF marker is the last two bytes", sofHead, "truncation"],
+      ["one byte of the SOF length", jqConcat(sofHead, [0x00]), "truncation"],
+      [
+        "SOF length 2 and an empty payload",
+        jqConcat(sofHead, [0x00, 0x02]),
+        "malformed-container",
+      ],
+      [
+        "SOF length 0",
+        jqConcat(sofHead, [0x00, 0x00, 0x11, 0x22]),
+        "malformed-container",
+      ],
+      [
+        "SOF length 1",
+        jqConcat(sofHead, [0x00, 0x01, 0x11, 0x22]),
+        "malformed-container",
+      ],
+      [
+        "SOF payload runs past the end of the file",
+        jqConcat(sofHead, [0x00, 0x20, 0x01]),
+        "truncation",
+      ],
+      [
+        "a 12-bit SOF is the last segment and ends exactly at the end of the file",
+        jqConcat(
+          base.subarray(0, sofAt),
+          appSegment(0xc0, Buffer.from([12, 0, 8, 0, 8, 1, 1, 0x11, 0])),
+        ),
+        "non-8-bit-precision",
+      ],
+    ];
+    for (const [label, bytes, expected] of segmentCases) {
+      expect(await jqOutcome(bytes), label).toBe(expected);
+    }
+  });
+
+  it("parseJpeg BlockStatement, ConditionalExpression, EqualityOperator and ArithmeticOperator clusters: an SOF payload must hold its six header bytes and three bytes per declared component", async () => {
+    const base = minimalJpeg({ components: 1 });
+    const beforeSof = base.subarray(0, jqHeadThrough(base, 0xc0).length - 2);
+    const sofWith = (payload: readonly number[]): Buffer =>
+      jqConcat(beforeSof, appSegment(0xc0, Buffer.from(payload)));
+    const cases: ReadonlyArray<readonly [string, readonly number[], string]> = [
+      ["five payload bytes", [8, 0, 8, 0, 8], "malformed-container"],
+      [
+        "six payload bytes, zero components",
+        [8, 0, 8, 0, 8, 0],
+        "unsupported-component-count",
+      ],
+      [
+        "one component declared, none present",
+        [8, 0, 8, 0, 8, 1],
+        "malformed-container",
+      ],
+      [
+        "three components declared, two present",
+        [8, 0, 8, 0, 8, 3, 1, 0x11, 0, 2, 0x11, 0],
+        "malformed-container",
+      ],
+      [
+        "four components declared, three present",
+        [8, 0, 8, 0, 8, 4, 1, 0x11, 0, 2, 0x11, 0, 3, 0x11, 0],
+        "malformed-container",
+      ],
+      [
+        "three components declared and present (the file then ends without an EOI)",
+        [8, 0, 8, 0, 8, 3, 1, 0x11, 0, 2, 0x11, 0, 3, 0x11, 0],
+        "truncation",
+      ],
+    ];
+    for (const [label, payload, expected] of cases) {
+      expect(await jqOutcome(sofWith(payload)), label).toBe(expected);
+    }
+  });
+
+  it("parseJpeg ArithmeticOperator cluster: each frame component keeps its own id, sampling nibbles and quantization table index", async () => {
+    const sof = Buffer.from([
+      8, 0, 8, 0, 8, 3, 7, 0x21, 0, 8, 0x12, 1, 9, 0x34, 1,
+    ]);
+    const bytes = jqConcat(
+      [0xff, 0xd8],
+      appSegment(0xdb, Buffer.concat([jpDqtTable(0, 0), jpDqtTable(0, 1)])),
+      appSegment(0xc0, sof),
+      appSegment(0xc4, jpDc0Ac0Tables()),
+      appSegment(
+        0xda,
+        jpSosPayload(
+          [
+            [7, 0, 0],
+            [8, 0, 0],
+            [9, 0, 0],
+          ],
+          JP_SEQUENTIAL_SPECTRAL,
+        ),
+      ),
+      [0x12, 0x34, 0xff, 0xd9],
+    );
+    const parsed = (await jqParse(bytes)).parsed;
+    expect(parsed?.frame.components).toEqual([
+      { id: 7, h: 2, v: 1, tq: 0 },
+      { id: 8, h: 1, v: 2, tq: 1 },
+      { id: 9, h: 3, v: 4, tq: 1 },
+    ]);
+  });
+
+  it("parseJpeg ConditionalExpression, EqualityOperator, LogicalOperator and BooleanLiteral clusters: only APPn segments carry an identifier and only the first JFIF and MPF segments are buffered, while every Adobe segment is", async () => {
+    const jfif = appSegment(
+      0xe0,
+      Buffer.from("JFIF\0\x01\x01\x00\x00\x01\x00\x01\x00\x00", "latin1"),
+    );
+    const mpf = appSegment(0xe2, Buffer.from("MPF\0abcd", "latin1"));
+    const adobe = appSegment(
+      0xee,
+      Buffer.from("Adobe\0\x64\x00\x00\x00\x00\x00", "latin1"),
+    );
+    const unknown = appSegment(0xe3, Buffer.from("Foo\0bar", "latin1"));
+    const comment = appSegment(0xfe, Buffer.from("hi\0there", "latin1"));
+    const bytes = spliceSegments(minimalJpeg({ components: 1 }), [
+      jfif,
+      jfif,
+      mpf,
+      mpf,
+      adobe,
+      adobe,
+      unknown,
+      comment,
+    ]);
+    const parsed = (await jqParse(bytes)).parsed;
+    expect(parsed?.segments.map((segment) => segment.identifier)).toEqual([
+      "JFIF",
+      "JFIF",
+      "MPF",
+      "MPF",
+      "Adobe",
+      "Adobe",
+      "Foo",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect([...(parsed?.buffered.keys() ?? [])].sort((a, b) => a - b)).toEqual([
+      0, 2, 4, 5,
+    ]);
+  });
+
+  it("parseJpeg EqualityOperator cluster: the ICC segment count and the ExtendedXMP byte total are refused only above their caps", async () => {
+    const icc = (sequence: number): Buffer =>
+      appSegment(
+        0xe2,
+        Buffer.concat([
+          Buffer.from("ICC_PROFILE\0", "latin1"),
+          Buffer.from([sequence, JPEG_MAX_ICC_SEGMENTS]),
+          Buffer.alloc(4),
+        ]),
+      );
+    const iccBytes = spliceSegments(
+      minimalJpeg({ components: 1 }),
+      Array.from({ length: JPEG_MAX_ICC_SEGMENTS }, (_, index) =>
+        icc(index + 1),
+      ),
+    );
+    const iccParsed = (await jqParse(iccBytes)).parsed;
+    expect(iccParsed?.buffered.size).toBe(JPEG_MAX_ICC_SEGMENTS);
+
+    const header = Buffer.concat([
+      Buffer.from("http://ns.adobe.com/xmp/extension/\0", "latin1"),
+      Buffer.alloc(32, 0x41),
+      Buffer.alloc(8),
+    ]);
+    const chunk = (payloadBytes: number): Buffer =>
+      appSegment(
+        0xe1,
+        Buffer.concat([header, Buffer.alloc(payloadBytes - header.length, 0)]),
+      );
+    const full = 65_533;
+    const count = Math.floor(JPEG_MAX_EXTENDED_XMP_BYTES / full);
+    const rest = JPEG_MAX_EXTENDED_XMP_BYTES - count * full;
+    const xmpBytes = spliceSegments(minimalJpeg({ components: 1 }), [
+      ...Array.from({ length: count }, () => chunk(full)),
+      chunk(rest),
+    ]);
+    const xmpParsed = (await jqParse(xmpBytes)).parsed;
+    const total = [...(xmpParsed?.buffered.values() ?? [])].reduce(
+      (sum, payload) => sum + payload.length,
+      0,
+    );
+    expect(total).toBe(JPEG_MAX_EXTENDED_XMP_BYTES);
+  }, 60_000);
+});
+
+describe("jpeg/trailer.ts classifyMpfPayload, isSamsungSeftTail and classifyTrailerClasses clusters (67-29, jpeg-7)", () => {
+  it("classifyMpfPayload BooleanLiteral, ConditionalExpression and StringLiteral clusters: II and MM are the only byte orders, each read in its own endianness", () => {
+    expect(jqMpfClasses(jqMpfPayload({ little: true }))).toEqual(["mpf"]);
+    expect(jqMpfClasses(jqMpfPayload({ little: false }))).toEqual(["mpf"]);
+    for (const little of [true, false]) {
+      expect(
+        jqMpfClasses(jqMpfPayload({ little, orderBytes: "XX" })),
+        `XX read as ${little ? "little" : "big"}-endian`,
+      ).toEqual(["mpf-index-invalid"]);
+    }
+  });
+
+  it("classifyMpfPayload ConditionalExpression and EqualityOperator clusters: the magic number, the IFD location and the image count each have an exact boundary", () => {
+    expect(jqMpfClasses(jqMpfPayload({ magic: 43 }))).toEqual([
+      "mpf-index-invalid",
+    ]);
+    const headerLength = jqMpfPayload().length - 4;
+    for (const ifdOffset of [headerLength, headerLength - 1, 0xffffffff]) {
+      expect(
+        jqMpfClasses(jqMpfPayload({ ifdOffset })),
+        `ifdOffset ${ifdOffset}`,
+      ).toEqual(["mpf-index-invalid"]);
+    }
+    expect(jqMpfClasses(jqMpfPayload({ numberOfImages: 1 }))).toEqual([
+      "mpf-index-invalid",
+    ]);
+    expect(jqMpfClasses(jqMpfPayload({ numberOfImages: 2 }))).toEqual(["mpf"]);
+    // Three images need three 16-byte MP entries.
+    expect(jqMpfClasses(jqMpfPayload({ numberOfImages: 3 }))).toEqual([
+      "mpf-index-invalid",
+    ]);
+    expect(
+      jqMpfClasses(
+        jqMpfPayload({
+          numberOfImages: 3,
+          secondary: [
+            [100, 50],
+            [100, 60],
+          ],
+        }),
+      ),
+    ).toEqual(["mpf"]);
+    // A tag other than B001 and B002 after them leaves the MP entry alone.
+    expect(jqMpfClasses(jqMpfPayload({ trailingTags: [0xb000] }))).toEqual([
+      "mpf",
+    ]);
+  });
+
+  it("classifyMpfPayload EqualityOperator and ConditionalExpression clusters: an IFD that ends exactly at the end of the payload is admitted, and every proper prefix of a valid payload is the invalid class", () => {
+    for (const little of [true, false]) {
+      expect(
+        jqMpfClasses(jqMpfPayload({ little, ifdLast: true })),
+        `IFD last, ${little ? "little" : "big"}-endian`,
+      ).toEqual(["mpf"]);
+    }
+    for (const spec of [{}, { ifdLast: true }, { little: false }]) {
+      const full = jqMpfPayload(spec);
+      for (let cut = 0; cut < full.length; cut += 1) {
+        expect(
+          jqMpfClasses(full.subarray(0, cut)),
+          `${JSON.stringify(spec)} cut to ${cut} bytes`,
+        ).toEqual(["mpf-index-invalid"]);
+      }
+    }
+  });
+
+  it("classifyMpfPayload ArithmeticOperator, ConditionalExpression and EqualityOperator clusters: a secondary image must end within the file, and a file of exactly its end is admitted", () => {
+    expect(
+      jqMpfClasses(jqMpfPayload({ secondary: [[600, 500]] }), 1000),
+    ).toEqual(["mpf-index-invalid"]);
+    expect(
+      jqMpfClasses(jqMpfPayload({ secondary: [[600, 400]] }), 1000),
+    ).toEqual(["mpf"]);
+    expect(
+      jqMpfClasses(jqMpfPayload({ secondary: [[600, 400]] }), 999),
+    ).toEqual(["mpf-index-invalid"]);
+  });
+
+  it("isSamsungSeftTail EqualityOperator cluster and classifyTrailerClasses ConditionalExpression cluster: an eight-byte SEFT tail is Samsung, a shorter one is not, and an XMP flag counts when only an MPF payload carries the secondary bytes", () => {
+    const seft = Buffer.concat([
+      Buffer.from("SEFT", "ascii"),
+      Buffer.alloc(4, 1),
+    ]);
+    const classesOf = (trailerTail: Buffer): string[] =>
+      [
+        ...classifyTrailerClasses({
+          mpfPayload: undefined,
+          xmpEntries: [],
+          trailerTail,
+          trailerBytes: trailerTail.length,
+          fileSize: 1000,
+        }),
+      ].sort();
+    expect(classesOf(seft)).toEqual(["plain-trailer", "samsung-trailer"]);
+    expect(
+      classesOf(Buffer.concat([Buffer.from([1, 2, 3, 4, 5]), seft])),
+    ).toEqual(["plain-trailer", "samsung-trailer"]);
+    expect(classesOf(seft.subarray(0, 7))).toEqual(["plain-trailer"]);
+
+    const entry = (name: string): MetadataEntry => ({
+      namespace: "XMP",
+      name,
+      value: "1",
+    });
+    const mpf = jqMpfPayload();
+    expect(jqMpfClasses(mpf, 1000, [entry("GCamera:MotionPhoto")])).toEqual([
+      "google-motion-photo",
+      "mpf",
+    ]);
+    expect(jqMpfClasses(mpf, 1000, [entry("hdrgm:Version")])).toEqual([
+      "gain-map",
+      "mpf",
     ]);
   });
 });
