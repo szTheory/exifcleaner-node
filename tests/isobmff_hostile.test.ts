@@ -9,6 +9,7 @@ import type { FileHandle } from "node:fs/promises";
 import { mkdtemp, open, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { deflateSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   admitIsobmff,
@@ -103,6 +104,7 @@ import {
   type IsobmffInventory,
 } from "./isobmff-support/inventory.js";
 import {
+  XMP_ITXT_KEYWORD,
   exifWithArtist,
   exifWithOrientation,
   iccProfileV2,
@@ -110,6 +112,9 @@ import {
   jpegAdobe,
   jpegExif,
   minimalJpeg,
+  pngIccp,
+  pngItxt,
+  pngWithChunksBefore,
 } from "./fixtures.js";
 import {
   appSegment,
@@ -8406,5 +8411,167 @@ describe("metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, meta
       ),
     ).toBe("invalid");
     expect(orientationOf("<tiff:Orientation>5</tiff:Orientation>")).toBe(5);
+  });
+});
+
+describe("png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1)", () => {
+  type PngChunkSpec = readonly [string, Buffer];
+  const PROFILE = iccProfileV4();
+  const ICC_ENTRIES = parseIcc(PROFILE).entries;
+  // A zlib stream that holds no zero byte, so that a zTXt payload built from
+  // one keyword byte followed by it has no keyword terminator at all.
+  const NUL_FREE_ZLIB = Buffer.from(
+    "789ccb2e2ecd4f2e2e2c4eac4ccd4fadcc2ecc2fcc06b3128b0b8b93f301c8690ce5",
+    "hex",
+  );
+
+  const inspectPng = async (chunks: readonly PngChunkSpec[]) => {
+    const path = await freshPath();
+    await writeFile(path, pngWithChunksBefore(chunks));
+    return inspectFile(path);
+  };
+  const refusalCodeOf = async (
+    chunks: readonly PngChunkSpec[],
+  ): Promise<string> => {
+    const result = await inspectPng(chunks);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    return result.error.code;
+  };
+  const acceptedOf = async (chunks: readonly PngChunkSpec[]) => {
+    const result = await inspectPng(chunks);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    return result.value;
+  };
+  const pngEntriesOf = (
+    entries: readonly MetadataEntry[],
+  ): readonly [string, unknown][] =>
+    entries
+      .filter((entry) => entry.namespace === "PNG")
+      .map((entry) => [entry.name, entry.value]);
+  const iccpWith = (name: Buffer, method: number, profile = PROFILE): Buffer =>
+    Buffer.concat([name, Buffer.from([0, method]), deflateSync(profile)]);
+
+  it("parseIccpChunk Conditional, Equality and Logical clusters: a profile name of 1 to 79 bytes is read and any other length refuses the chunk", async () => {
+    for (const length of [1, 2, 78, 79]) {
+      const value = await acceptedOf([
+        ["iCCP", pngIccp(PROFILE, "n".repeat(length))],
+      ]);
+      expect(value.entries, `name of ${length} bytes`).toEqual(ICC_ENTRIES);
+    }
+    for (const length of [0, 80, 81, 200])
+      expect(
+        await refusalCodeOf([["iCCP", pngIccp(PROFILE, "n".repeat(length))]]),
+        `name of ${length} bytes`,
+      ).toBe("malformed-file");
+  });
+
+  it("parseIccpChunk Conditional and Block clusters: only compression method zero is read", async () => {
+    expect(
+      (await acceptedOf([["iCCP", iccpWith(Buffer.from("icc"), 0)]])).entries,
+    ).toEqual(ICC_ENTRIES);
+    for (const method of [1, 2, 255])
+      expect(
+        await refusalCodeOf([["iCCP", iccpWith(Buffer.from("icc"), method)]]),
+        `method ${method}`,
+      ).toBe("malformed-file");
+  });
+
+  it("parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read", async () => {
+    const noTerminator = Buffer.concat([Buffer.from("k"), NUL_FREE_ZLIB]);
+    expect(noTerminator.includes(0)).toBe(false);
+    expect(await refusalCodeOf([["zTXt", noTerminator]])).toBe(
+      "malformed-file",
+    );
+    const emptyKeyword = Buffer.concat([
+      Buffer.from([0, 0]),
+      deflateSync(Buffer.from("value", "latin1")),
+    ]);
+    expect(
+      pngEntriesOf((await acceptedOf([["zTXt", emptyKeyword]])).entries),
+    ).toEqual([["", "value"]]);
+    const named = Buffer.concat([
+      Buffer.from("Author"),
+      Buffer.from([0, 0]),
+      deflateSync(Buffer.from("value", "latin1")),
+    ]);
+    expect(pngEntriesOf((await acceptedOf([["zTXt", named]])).entries)).toEqual(
+      [["Author", "value"]],
+    );
+  });
+
+  it("parseItxtChunk BlockStatement, Conditional and Equality clusters: the language tag and translated keyword terminators are required, and an empty keyword is read", async () => {
+    const noLanguageTerminator = Buffer.concat([
+      Buffer.from("kw"),
+      Buffer.from([0, 0, 0]),
+      Buffer.from("value"),
+    ]);
+    expect(noLanguageTerminator.indexOf(0, 5)).toBe(-1);
+    expect(await refusalCodeOf([["iTXt", noLanguageTerminator]])).toBe(
+      "malformed-file",
+    );
+    const noTranslatedTerminator = Buffer.concat([
+      Buffer.from("kw"),
+      Buffer.from([0, 0, 0]),
+      Buffer.from("en"),
+      Buffer.from([0]),
+      Buffer.from("value"),
+    ]);
+    expect(noTranslatedTerminator.indexOf(0, 8)).toBe(-1);
+    expect(await refusalCodeOf([["iTXt", noTranslatedTerminator]])).toBe(
+      "malformed-file",
+    );
+    expect(
+      pngEntriesOf(
+        (await acceptedOf([["iTXt", pngItxt("kw", Buffer.from("value"))]]))
+          .entries,
+      ),
+    ).toEqual([["kw", "value"]]);
+    expect(
+      pngEntriesOf(
+        (await acceptedOf([["iTXt", pngItxt("", Buffer.from("value"))]]))
+          .entries,
+      ),
+    ).toEqual([["", "value"]]);
+  });
+
+  it("parseTextChunkData Conditional, Equality and String clusters: a tEXt chunk without a terminator is all keyword with empty text, and an empty keyword is read", async () => {
+    expect(
+      pngEntriesOf(
+        (await acceptedOf([["tEXt", Buffer.from("Comment", "latin1")]]))
+          .entries,
+      ),
+    ).toEqual([["Comment", ""]]);
+    expect(
+      pngEntriesOf(
+        (await acceptedOf([["tEXt", Buffer.from("\0value", "latin1")]]))
+          .entries,
+      ),
+    ).toEqual([["", "value"]]);
+    expect(
+      pngEntriesOf(
+        (await acceptedOf([["tEXt", Buffer.from("Comment\0value", "latin1")]]))
+          .entries,
+      ),
+    ).toEqual([["Comment", "value"]]);
+  });
+
+  it("routeTextKeyword CallExpression cluster: warnings from an XMP packet reach the inspection", async () => {
+    const withoutRoot = Buffer.from("<dc:title>t</dc:title>", "utf8");
+    const value = await acceptedOf([
+      ["iTXt", pngItxt(XMP_ITXT_KEYWORD, withoutRoot)],
+    ]);
+    expect(value.warnings.map((warning) => warning.code)).toEqual([
+      "metadata-invalid",
+    ]);
+    const rooted = Buffer.from(
+      "<x:xmpmeta><dc:title>t</dc:title></x:xmpmeta>",
+      "utf8",
+    );
+    expect(
+      (await acceptedOf([["iTXt", pngItxt(XMP_ITXT_KEYWORD, rooted)]]))
+        .warnings,
+    ).toEqual([]);
   });
 });
