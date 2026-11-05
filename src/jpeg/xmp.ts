@@ -44,8 +44,9 @@ function parseExtendedXmpChunk(payload: Buffer): ExtendedXmpChunk | undefined {
 /**
  * Reads the ExtendedXMP GUID a standard XMP packet names via a bounded
  * attribute/element match over `parseXmp` output -- never a regex over raw
- * bytes larger than the packet. Returns `undefined` when no valid 32-character
- * GUID is present.
+ * bytes larger than the packet. Returns `undefined` when the packet names no
+ * string value; the 32-character length is enforced by the exact comparison
+ * against each chunk's GUID in `reassembleExtendedXmp`.
  */
 function findHasExtendedXmpGuid(standardXmp: Buffer): string | undefined {
   const { entries } = parseXmp(standardXmp);
@@ -53,8 +54,7 @@ function findHasExtendedXmpGuid(standardXmp: Buffer): string | undefined {
   if (entry === undefined) return undefined;
   const value = entry.value;
   if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed.length === GUID_BYTES ? trimmed : undefined;
+  return value.trim();
 }
 
 /**
