@@ -5079,3 +5079,344 @@ describe("jpeg/parser.ts structure error, signature, read and DQT clusters (67-2
     }
   });
 });
+
+// Parser clusters for src/jpeg/parser.ts (67-28, jpeg-6): DHT table framing, SOS header framing,
+// the table requirements of each scan type and the entropy-data terminator. Every fixture is built
+// from the marker grammar (T.81: marker, length, payload), so each expected outcome comes from the
+// format, not from the parser's own operators. Outcomes are typed refusals, "parsed" or a
+// `jpOutcomeName` of "other-error" (an untyped Buffer RangeError), never diagnostic wording.
+
+/** One DHT table: Tc/Th byte, 16 BITS counts (code lengths 1 to 16), then VALUES. */
+function jpHuffmanTable(
+  tableClass: 0 | 1,
+  tableId: number,
+  counts: readonly number[],
+  values: readonly number[],
+): Buffer {
+  const bits = Buffer.alloc(16);
+  counts.forEach((count, index) => {
+    bits[index] = count;
+  });
+  return Buffer.concat([
+    Buffer.from([(tableClass << 4) | tableId]),
+    bits,
+    Buffer.from(values),
+  ]);
+}
+
+function jpDc0Ac0Tables(): Buffer {
+  return Buffer.concat([
+    jpHuffmanTable(0, 0, [1], [0]),
+    jpHuffmanTable(1, 0, [1], [0]),
+  ]);
+}
+
+interface JpSpectral {
+  readonly ss: number;
+  readonly se: number;
+  readonly ah: number;
+  readonly al: number;
+}
+
+/** SOS payload: Ns, (Cs, TdTa) per component, Ss, Se, AhAl. */
+function jpSosPayload(
+  components: ReadonlyArray<readonly [cs: number, td: number, ta: number]>,
+  spectral: JpSpectral,
+): Buffer {
+  const bytes: number[] = [components.length];
+  for (const [cs, td, ta] of components) bytes.push(cs, (td << 4) | ta);
+  bytes.push(spectral.ss, spectral.se, (spectral.ah << 4) | spectral.al);
+  return Buffer.from(bytes);
+}
+
+const JP_SEQUENTIAL_SPECTRAL: JpSpectral = { ss: 0, se: 63, ah: 0, al: 0 };
+
+interface JpScanFixture {
+  readonly sofMarker?: number;
+  readonly frameComponents?: ReadonlyArray<readonly [id: number, tq: number]>;
+  readonly dhtPayload?: Buffer;
+  readonly sos: Buffer;
+  /** Bytes spliced between the entropy data and the EOI (may hold markers). */
+  readonly afterEntropy?: Buffer;
+}
+
+/** SOI, DQT (Tq 0), SOF, DHT, one SOS, two entropy bytes, optional bytes, EOI. */
+function jpScanFixture(fixture: JpScanFixture): Buffer {
+  const frameComponents = fixture.frameComponents ?? [[1, 0]];
+  const sof = Buffer.alloc(6 + frameComponents.length * 3);
+  sof.writeUInt8(8, 0);
+  sof.writeUInt16BE(8, 1);
+  sof.writeUInt16BE(8, 3);
+  sof.writeUInt8(frameComponents.length, 5);
+  frameComponents.forEach(([id, tq], index) => {
+    sof.writeUInt8(id, 6 + index * 3);
+    sof.writeUInt8(0x11, 7 + index * 3);
+    sof.writeUInt8(tq, 8 + index * 3);
+  });
+  return Buffer.concat([
+    Buffer.from([0xff, 0xd8]),
+    appSegment(0xdb, Buffer.concat([Buffer.from([0x00]), Buffer.alloc(64, 1)])),
+    appSegment(fixture.sofMarker ?? 0xc0, sof),
+    appSegment(0xc4, fixture.dhtPayload ?? jpDc0Ac0Tables()),
+    appSegment(0xda, fixture.sos),
+    Buffer.from([0x12, 0x34]),
+    fixture.afterEntropy ?? Buffer.alloc(0),
+    Buffer.from([0xff, 0xd9]),
+  ]);
+}
+
+async function jpScanOutcome(fixture: JpScanFixture): Promise<string> {
+  return jpOutcomeName(await jpParse(jpScanFixture(fixture)));
+}
+
+describe("jpeg/parser.ts DHT, SOS, scan-table and entropy clusters (67-28, jpeg-6)", () => {
+  it("validateScanTables BooleanLiteral, BlockStatement, ConditionalExpression, EqualityOperator and LogicalOperator clusters: each scan type requires exactly its own tables", async () => {
+    // Defined: DC table 0 and AC table 0. Table id 1 is undefined for both classes.
+    const sequential = 0xc0;
+    const progressive = 0xc2;
+    const dcFirst: JpSpectral = { ss: 0, se: 0, ah: 0, al: 0 };
+    const dcRefine: JpSpectral = { ss: 0, se: 0, ah: 1, al: 0 };
+    const acFirst: JpSpectral = { ss: 1, se: 63, ah: 0, al: 0 };
+    const acRefine: JpSpectral = { ss: 1, se: 63, ah: 1, al: 0 };
+    const ok = "parsed";
+    const noTable = "undefined-table-reference";
+    const cases: ReadonlyArray<
+      readonly [
+        label: string,
+        sofMarker: number,
+        spectral: JpSpectral,
+        td: number,
+        ta: number,
+        expected: string,
+      ]
+    > = [
+      ["sequential, DC 0, AC 0", sequential, JP_SEQUENTIAL_SPECTRAL, 0, 0, ok],
+      [
+        "sequential, undefined DC 1",
+        sequential,
+        JP_SEQUENTIAL_SPECTRAL,
+        1,
+        0,
+        noTable,
+      ],
+      [
+        "sequential, undefined AC 1",
+        sequential,
+        JP_SEQUENTIAL_SPECTRAL,
+        0,
+        1,
+        noTable,
+      ],
+      ["progressive DC-first, DC 0, AC 1", progressive, dcFirst, 0, 1, ok],
+      [
+        "progressive DC-first, undefined DC 1",
+        progressive,
+        dcFirst,
+        1,
+        0,
+        noTable,
+      ],
+      [
+        "progressive DC-first, undefined DC and AC",
+        progressive,
+        dcFirst,
+        1,
+        1,
+        noTable,
+      ],
+      [
+        "progressive DC refinement, undefined DC 1",
+        progressive,
+        dcRefine,
+        1,
+        0,
+        ok,
+      ],
+      [
+        "progressive DC refinement, undefined AC 1",
+        progressive,
+        dcRefine,
+        0,
+        1,
+        ok,
+      ],
+      [
+        "progressive DC refinement, undefined DC and AC",
+        progressive,
+        dcRefine,
+        1,
+        1,
+        ok,
+      ],
+      ["progressive AC-first, undefined DC 1", progressive, acFirst, 1, 0, ok],
+      [
+        "progressive AC-first, undefined AC 1",
+        progressive,
+        acFirst,
+        0,
+        1,
+        noTable,
+      ],
+      [
+        "progressive AC refinement, undefined DC 1",
+        progressive,
+        acRefine,
+        1,
+        0,
+        ok,
+      ],
+      [
+        "progressive AC refinement, undefined AC 1",
+        progressive,
+        acRefine,
+        0,
+        1,
+        noTable,
+      ],
+    ];
+    for (const [label, sofMarker, spectral, td, ta, expected] of cases) {
+      const outcome = await jpScanOutcome({
+        sofMarker,
+        sos: jpSosPayload([[1, td, ta]], spectral),
+      });
+      expect([label, outcome]).toEqual([label, expected]);
+    }
+  });
+
+  it("validateScanTables ConditionalExpression cluster: a scan component is resolved to its own frame component by id", async () => {
+    // Components 1 and 3 use quantization table 0 (defined); component 2 uses table 1 (not).
+    const frameComponents = [
+      [1, 0],
+      [2, 1],
+      [3, 0],
+    ] as const;
+    const resolve = (cs: number) =>
+      jpScanOutcome({
+        frameComponents,
+        sos: jpSosPayload([[cs, 0, 0]], JP_SEQUENTIAL_SPECTRAL),
+      });
+    expect(await resolve(1)).toBe("parsed");
+    expect(await resolve(2)).toBe("undefined-table-reference");
+    expect(await resolve(9)).toBe("malformed-container");
+  });
+
+  it("parseDhtSlots ArithmeticOperator, BlockStatement and ConditionalExpression clusters: a table whose BITS promise more VALUES than the payload holds is refused", async () => {
+    const cases: ReadonlyArray<readonly [label: string, dhtPayload: Buffer]> = [
+      ["one promised value, none present", jpHuffmanTable(0, 0, [1], [])],
+      [
+        "second table promises two values, holds one",
+        Buffer.concat([
+          jpHuffmanTable(0, 0, [1], [0]),
+          jpHuffmanTable(1, 0, [2], [0]),
+        ]),
+      ],
+    ];
+    for (const [label, dhtPayload] of cases) {
+      const outcome = await jpScanOutcome({
+        dhtPayload,
+        sos: jpSosPayload([[1, 0, 0]], JP_SEQUENTIAL_SPECTRAL),
+      });
+      expect([label, outcome]).toEqual([label, "malformed-container"]);
+    }
+  });
+
+  it("parseDhtSlots EqualityOperator cluster: a table with zero VALUES that ends exactly at the payload end is admitted and defines its slot", async () => {
+    // 17 bytes: Tc/Th plus sixteen zero BITS counts, no VALUES. It is the last table.
+    const dhtPayload = Buffer.concat([
+      jpDc0Ac0Tables(),
+      jpHuffmanTable(0, 1, [], []),
+    ]);
+    const usesDcTableOne = jpSosPayload([[1, 1, 0]], JP_SEQUENTIAL_SPECTRAL);
+    expect(await jpScanOutcome({ dhtPayload, sos: usesDcTableOne })).toBe(
+      "parsed",
+    );
+    // Without the empty table the same scan names an undefined DC table.
+    expect(await jpScanOutcome({ sos: usesDcTableOne })).toBe(
+      "undefined-table-reference",
+    );
+    // One to sixteen trailing bytes cannot hold a table header.
+    for (let trailing = 1; trailing <= 16; trailing += 1) {
+      const outcome = await jpScanOutcome({
+        dhtPayload: Buffer.concat([
+          jpDc0Ac0Tables(),
+          Buffer.alloc(trailing, 0),
+        ]),
+        sos: jpSosPayload([[1, 0, 0]], JP_SEQUENTIAL_SPECTRAL),
+      });
+      expect([trailing, outcome]).toEqual([trailing, "malformed-container"]);
+    }
+  });
+
+  it("parseSosHeader BlockStatement, ConditionalExpression and ArithmeticOperator clusters: an SOS payload shorter than its own header is refused as malformed-container", async () => {
+    const outcomes: string[] = [];
+    // Empty payload: the segment length field is 2.
+    outcomes.push(await jpScanOutcome({ sos: Buffer.alloc(0) }));
+    // Every proper prefix of a valid SOS payload for 1, 3 and 4 components.
+    for (const count of [1, 3, 4]) {
+      const frameComponents = Array.from(
+        { length: count },
+        (_, index) => [index + 1, 0] as const,
+      );
+      const valid = jpSosPayload(
+        frameComponents.map(([id]) => [id, 0, 0] as const),
+        JP_SEQUENTIAL_SPECTRAL,
+      );
+      expect(valid.length).toBe(1 + count * 2 + 3);
+      for (let length = 1; length < valid.length; length += 1) {
+        outcomes.push(
+          await jpScanOutcome({
+            frameComponents,
+            sos: valid.subarray(0, length),
+          }),
+        );
+      }
+      expect(await jpScanOutcome({ frameComponents, sos: valid })).toBe(
+        "parsed",
+      );
+    }
+    expect(outcomes).toHaveLength(1 + 5 + 9 + 11);
+    expect(new Set(outcomes)).toEqual(new Set(["malformed-container"]));
+  });
+
+  it("scanEntropyData BlockStatement, ConditionalExpression, AssignmentOperator and EqualityOperator clusters: a 0xFF fill run ends the scan at its last 0xFF, restart markers RST0 to RST7 stay inside the scan and any other marker ends it", async () => {
+    // Fill run: ... entropy, FF, FF, FF D9. The scan ends at the last 0xFF, which starts the EOI.
+    const filled = jpScanFixture({
+      sos: jpSosPayload([[1, 0, 0]], JP_SEQUENTIAL_SPECTRAL),
+      afterEntropy: Buffer.from([0xff, 0xff]),
+    });
+    const filledParse = (await jpParse(filled)).parsed;
+    expect(
+      filledParse?.segments.find((segment) => segment.marker === 0xda)
+        ?.entropyEnd,
+    ).toBe(filled.length - 2);
+    expect(filledParse?.primaryEoiEnd).toBe(filled.length);
+
+    // Nine MCUs with a restart interval of one carry RST0 through RST7.
+    const restarts = minimalJpeg({ width: 72, height: 8, restartInterval: 1 });
+    for (let marker = 0xd0; marker <= 0xd7; marker += 1) {
+      expect(restarts.includes(Buffer.from([0xff, marker]))).toBe(true);
+    }
+    const restartParse = (await jpParse(restarts)).parsed;
+    expect(restartParse?.segments.map((segment) => segment.marker)).toEqual([
+      0xdb, 0xc0, 0xc4, 0xdd, 0xda,
+    ]);
+    expect(restartParse?.primaryEoiEnd).toBe(restarts.length);
+
+    // A DHT (0xC4, below RST0) between two scans ends the first scan.
+    const twoScans = minimalJpeg({ components: 3, scans: "per-component" });
+    const firstScan = twoScans.indexOf(Buffer.from([0xff, 0xda]));
+    const secondScan = twoScans.indexOf(
+      Buffer.from([0xff, 0xda]),
+      firstScan + 2,
+    );
+    const betweenScans = Buffer.concat([
+      twoScans.subarray(0, secondScan),
+      appSegment(0xc4, jpHuffmanTable(0, 2, [], [])),
+      twoScans.subarray(secondScan),
+    ]);
+    const betweenParse = (await jpParse(betweenScans)).parsed;
+    expect(betweenParse?.segments.map((segment) => segment.marker)).toEqual([
+      0xdb, 0xc0, 0xc4, 0xda, 0xc4, 0xda, 0xda,
+    ]);
+  });
+});
