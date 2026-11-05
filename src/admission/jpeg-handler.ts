@@ -444,19 +444,18 @@ function collectMetadata(
       candidates.push("invalid");
       warnings.push({ code: "metadata-invalid", detail: extended.detail });
     }
-    if (candidates.length > 0) {
-      const sourceValue = validOrientationValue(orientation);
-      const disagrees = candidates.some(
-        (candidate) => candidate === "invalid" || candidate !== sourceValue,
-      );
-      if (disagrees) {
-        orientation = {
-          status: "unsupported",
-          detail:
-            // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording that only reaches the orientation-preservation decline; the typed unsupported-feature code, the feature and the path are unchanged.
-            "A non-EXIF Orientation is missing from EXIF IFD0 or disagrees with it.",
-        };
-      }
+    // some() over an empty candidate list is false, so no length check is needed.
+    const sourceValue = validOrientationValue(orientation);
+    const disagrees = candidates.some(
+      (candidate) => candidate === "invalid" || candidate !== sourceValue,
+    );
+    if (disagrees) {
+      orientation = {
+        status: "unsupported",
+        detail:
+          // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording that only reaches the orientation-preservation decline; the typed unsupported-feature code, the feature and the path are unchanged.
+          "A non-EXIF Orientation is missing from EXIF IFD0 or disagrees with it.",
+      };
     }
   }
 
