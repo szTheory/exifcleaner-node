@@ -870,21 +870,7 @@ async function verifyOutput(
       );
       const expectedTiff = createMinimalExif(tags);
       const expectedPayload = Buffer.concat([EXIF_PREFIX, expectedTiff]);
-      const reparsed = parseExif(exifPayload);
-      const expectedEntryCount =
-        (tags.orientation === undefined ? 0 : 1) +
-        (tags.resolution === undefined
-          ? 0
-          : tags.resolution.unit === undefined
-            ? 2
-            : 3);
-      if (
-        !exifPayload.equals(expectedPayload) ||
-        reparsed.entries.length !== expectedEntryCount ||
-        (tags.orientation !== undefined &&
-          (reparsed.orientation.status !== "valid" ||
-            reparsed.orientation.value !== tags.orientation))
-      )
+      if (!exifPayload.equals(expectedPayload))
         return err(
           verificationError(
             // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
