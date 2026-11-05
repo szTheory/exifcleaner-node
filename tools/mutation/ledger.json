@@ -187420,7 +187420,7 @@
       "file": "src/jpeg/markers.ts",
       "function": "classifyAppPayload",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 7,
       "keys": [
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000253\u00007\u0000253\u000022",
@@ -187431,16 +187431,11 @@
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000264\u00007\u0000264\u000022",
         "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000265\u00007\u0000265\u000023"
       ],
-      "anchors": [
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker === APP0\u00000",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker === APP1\u00000",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker === APP1\u00001",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker === APP1\u00002",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker === APP2\u00000",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker === APP2\u00001",
-        "src/jpeg/markers.ts\u0000ConditionalExpression\u0000true\u0000marker === APP14\u00000"
-      ],
-      "note": ""
+      "note": "reports/triage/67-26/tracer-green.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-26/red-full.json (src/jpeg/markers.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/markers.ts marker and APPn classification clusters (67-26, jpeg-4) > classifyAppPayload ConditionalExpression and LogicalOperator: each identifier classifies only under its own APPn marker, and the right marker needs the right identifier"
+      }
     },
     {
       "id": "jpeg:src/jpeg/markers.ts:classifyAppPayload:LogicalOperator",
