@@ -414,61 +414,61 @@ export async function parseJpeg(handle, size, signal) {
             frame = { marker, precision, height, width, components };
         }
         const identifier = marker >= APP0 && marker <= APP15 ? readIdentifier(payload) : undefined;
-        if (marker >= APP0 && marker <= APP15) {
-            const appClass = classifyAppPayload(marker, payload);
-            if (appClass === "icc") {
-                iccSegmentCount += 1;
-                if (iccSegmentCount > JPEG_MAX_ICC_SEGMENTS) {
-                    throw new JpegStructureError("resource-limits", `${JPEG_REFUSAL_DETAILS["resource-limits"]} More than ${JPEG_MAX_ICC_SEGMENTS} ICC_PROFILE segments.`, {
-                        segment: "icc-segment-count",
-                        size: iccSegmentCount,
-                        limit: JPEG_MAX_ICC_SEGMENTS,
-                    });
-                }
-                buffered.set(segments.length, payload);
+        // classifyAppPayload answers "other" for any marker outside APP0..APP15 (every
+        // class it names is keyed to one APPn marker), so no range guard is needed here.
+        const appClass = classifyAppPayload(marker, payload);
+        if (appClass === "icc") {
+            iccSegmentCount += 1;
+            if (iccSegmentCount > JPEG_MAX_ICC_SEGMENTS) {
+                throw new JpegStructureError("resource-limits", `${JPEG_REFUSAL_DETAILS["resource-limits"]} More than ${JPEG_MAX_ICC_SEGMENTS} ICC_PROFILE segments.`, {
+                    segment: "icc-segment-count",
+                    size: iccSegmentCount,
+                    limit: JPEG_MAX_ICC_SEGMENTS,
+                });
             }
-            else if (appClass === "extended-xmp") {
-                extendedXmpBytesTotal += payload.length;
-                if (extendedXmpBytesTotal > JPEG_MAX_EXTENDED_XMP_BYTES) {
-                    throw new JpegStructureError("resource-limits", `${JPEG_REFUSAL_DETAILS["resource-limits"]} ExtendedXMP payloads exceed ${JPEG_MAX_EXTENDED_XMP_BYTES} bytes.`, {
-                        segment: "extended-xmp-bytes",
-                        size: extendedXmpBytesTotal,
-                        limit: JPEG_MAX_EXTENDED_XMP_BYTES,
-                    });
-                }
-                buffered.set(segments.length, payload);
-            }
-            else if (appClass === "jfif") {
-                if (!sawJfif) {
-                    buffered.set(segments.length, payload);
-                    sawJfif = true;
-                }
-            }
-            else if (appClass === "exif") {
-                if (!sawExif) {
-                    buffered.set(segments.length, payload);
-                    sawExif = true;
-                }
-            }
-            else if (appClass === "xmp") {
-                if (!sawXmp) {
-                    buffered.set(segments.length, payload);
-                    sawXmp = true;
-                }
-            }
-            else if (appClass === "mpf") {
-                if (!sawMpf) {
-                    buffered.set(segments.length, payload);
-                    sawMpf = true;
-                }
-            }
-            else if (appClass === "adobe") {
-                // Every APP14 Adobe segment is buffered (D-01: always kept).
-                buffered.set(segments.length, payload);
-            }
-            // Every other payload (COM, APP13, unknown APPn, duplicates beyond the
-            // first) is skipped by offset -- never buffered.
+            buffered.set(segments.length, payload);
         }
+        else if (appClass === "extended-xmp") {
+            extendedXmpBytesTotal += payload.length;
+            if (extendedXmpBytesTotal > JPEG_MAX_EXTENDED_XMP_BYTES) {
+                throw new JpegStructureError("resource-limits", `${JPEG_REFUSAL_DETAILS["resource-limits"]} ExtendedXMP payloads exceed ${JPEG_MAX_EXTENDED_XMP_BYTES} bytes.`, {
+                    segment: "extended-xmp-bytes",
+                    size: extendedXmpBytesTotal,
+                    limit: JPEG_MAX_EXTENDED_XMP_BYTES,
+                });
+            }
+            buffered.set(segments.length, payload);
+        }
+        else if (appClass === "jfif") {
+            if (!sawJfif) {
+                buffered.set(segments.length, payload);
+                sawJfif = true;
+            }
+        }
+        else if (appClass === "exif") {
+            if (!sawExif) {
+                buffered.set(segments.length, payload);
+                sawExif = true;
+            }
+        }
+        else if (appClass === "xmp") {
+            if (!sawXmp) {
+                buffered.set(segments.length, payload);
+                sawXmp = true;
+            }
+        }
+        else if (appClass === "mpf") {
+            if (!sawMpf) {
+                buffered.set(segments.length, payload);
+                sawMpf = true;
+            }
+        }
+        else if (appClass === "adobe") {
+            // Every APP14 Adobe segment is buffered (D-01: always kept).
+            buffered.set(segments.length, payload);
+        }
+        // Every other payload (COM, APP13, unknown APPn, duplicates beyond the
+        // first) is skipped by offset -- never buffered.
         segments.push({
             marker,
             offset: markerStart,
