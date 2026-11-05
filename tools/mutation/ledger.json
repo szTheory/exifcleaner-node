@@ -193144,7 +193144,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000BooleanLiteral\u0000isValidCodePoint(codePoint)\u000027\u000011\u000027\u000039"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: numeric entities decode in both radixes across the valid range"
@@ -193162,7 +193162,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000BooleanLiteral\u0000isValidCodePoint(codePoint)\u000033\u000011\u000033\u000039"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
@@ -193181,7 +193181,7 @@
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000027\u000011\u000027\u000039",
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000033\u000011\u000033\u000039"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: surrogate and above-range numeric entities refuse the packet"
@@ -193199,7 +193199,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000027\u000011\u000027\u000039"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: numeric entities decode in both radixes across the valid range"
@@ -193217,7 +193217,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000033\u000011\u000033\u000039"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
@@ -193236,7 +193236,7 @@
         "src/metadata/xmp.ts\u0000Regex\u0000/&#([0-9]);/gu\u000031\u000014\u000031\u000029",
         "src/metadata/xmp.ts\u0000Regex\u0000/&#([^0-9]+);/gu\u000031\u000014\u000031\u000029"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
@@ -193257,7 +193257,7 @@
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u000040\u000024\u000040\u000027",
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u000041\u000025\u000041\u000028"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > decodeXml clusters: the five predefined entities decode once and in order"
@@ -193275,7 +193275,7 @@
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000011\u000010\u000011\u000047",
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000011\u000037\u000011\u000047"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isOrientationValue clusters: xmpOrientation admits exactly the integers 1 through 8"
@@ -193292,7 +193292,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000EqualityOperator\u0000value > 1\u000011\u000037\u000011\u000047"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isOrientationValue clusters: xmpOrientation admits exactly the integers 1 through 8"
@@ -193309,7 +193309,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000LogicalOperator\u0000Number.isInteger(value) || value >= 1\u000011\u000010\u000011\u000047"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isOrientationValue clusters: xmpOrientation admits exactly the integers 1 through 8"
@@ -193326,7 +193326,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000BooleanLiteral\u0000value >= 0xd800 && value <= 0xdfff\u000019\u00005\u000019\u000042"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
@@ -193339,16 +193339,14 @@
       "function": "isValidCodePoint",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 3,
+      "count": 1,
       "keys": [
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000016\u00005\u000019\u000042",
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000019\u00007\u000019\u000022",
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000019\u00007\u000019\u000041"
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000019\u00007\u000019\u000041"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
+        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: surrogate and above-range numeric entities refuse the packet"
       },
       "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression"
     },
@@ -193361,13 +193359,13 @@
       "disposition": "gap",
       "count": 2,
       "keys": [
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000016\u00005\u000019\u000042",
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000019\u00007\u000019\u000041"
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000019\u00007\u000019\u000022",
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000019\u00007\u000019\u000041"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: surrogate and above-range numeric entities refuse the packet"
+        "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
       },
       "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression"
     },
@@ -193382,7 +193380,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000019\u000026\u000019\u000041"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: numeric entities decode in both radixes across the valid range"
@@ -193390,20 +193388,54 @@
       "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression"
     },
     {
-      "id": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression:pending-01",
+      "id": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression:dead-01",
       "group": "metadata",
       "file": "src/metadata/xmp.ts",
       "function": "isValidCodePoint",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 4,
       "keys": [
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000016\u00005\u000019\u000042",
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000016\u00005\u000017\u000015",
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000016\u00005\u000018\u000022",
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000017\u00005\u000017\u000015",
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000016\u00005\u000019\u000042"
+      ],
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"Number.isInteger\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "Number.isInteger",
+      "symbolScope": "function",
+      "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression:dead-02",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "isValidCodePoint",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000017\u00005\u000017\u000015"
+      ],
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"value >= 0\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "value >= 0",
+      "symbolScope": "function",
+      "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression:dead-03",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "isValidCodePoint",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u000018\u00005\u000018\u000022"
       ],
-      "note": "Pending a maintainer decision recorded in 67-35-HALTED.md (a behavior-preserving source edit that this plan may not assume): these members are unobservable but share a line and mutator with an observable member, so no next-line directive can own them honestly.",
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"0x10ffff\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "0x10ffff",
+      "symbolScope": "function",
       "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:ConditionalExpression"
     },
     {
@@ -193413,13 +193445,11 @@
       "function": "isValidCodePoint",
       "mutatorName": "EqualityOperator",
       "disposition": "gap",
-      "count": 3,
+      "count": 1,
       "keys": [
-        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value < 0\u000017\u00005\u000017\u000015",
-        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value > 0x10ffff\u000018\u00005\u000018\u000022",
         "src/metadata/xmp.ts\u0000EqualityOperator\u0000value < 0xd800\u000019\u00007\u000019\u000022"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
@@ -193433,16 +193463,15 @@
       "function": "isValidCodePoint",
       "mutatorName": "EqualityOperator",
       "disposition": "gap",
-      "count": 3,
+      "count": 2,
       "keys": [
-        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value > 0\u000017\u00005\u000017\u000015",
-        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value < 0x10ffff\u000018\u00005\u000018\u000022",
-        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value > 0xdfff\u000019\u000026\u000019\u000041"
+        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value > 0xd800\u000019\u00007\u000019\u000022",
+        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value < 0xdfff\u000019\u000026\u000019\u000041"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: numeric entities decode in both radixes across the valid range"
+        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: surrogate and above-range numeric entities refuse the packet"
       },
       "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:EqualityOperator"
     },
@@ -193453,16 +193482,49 @@
       "function": "isValidCodePoint",
       "mutatorName": "EqualityOperator",
       "disposition": "gap",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value > 0xd800\u000019\u00007\u000019\u000022",
-        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value < 0xdfff\u000019\u000026\u000019\u000041"
+        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value > 0xdfff\u000019\u000026\u000019\u000041"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: surrogate and above-range numeric entities refuse the packet"
+        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: numeric entities decode in both radixes across the valid range"
       },
+      "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:EqualityOperator"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:isValidCodePoint:EqualityOperator:dead-01",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "isValidCodePoint",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 2,
+      "keys": [
+        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value < 0\u000017\u00005\u000017\u000015",
+        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value > 0\u000017\u00005\u000017\u000015"
+      ],
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"value >= 0\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "value >= 0",
+      "symbolScope": "function",
+      "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:EqualityOperator"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:isValidCodePoint:EqualityOperator:dead-02",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "isValidCodePoint",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 2,
+      "keys": [
+        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value < 0x10ffff\u000018\u00005\u000018\u000022",
+        "src/metadata/xmp.ts\u0000EqualityOperator\u0000value > 0x10ffff\u000018\u00005\u000018\u000022"
+      ],
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"0x10ffff\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "0x10ffff",
+      "symbolScope": "function",
       "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:EqualityOperator"
     },
     {
@@ -193474,27 +193536,9 @@
       "disposition": "gap",
       "count": 1,
       "keys": [
-        "src/metadata/xmp.ts\u0000LogicalOperator\u0000Number.isInteger(value) && value >= 0 && value <= 0x10ffff || !(value >= 0xd800 && value <= 0xdfff)\u000016\u00005\u000019\u000042"
-      ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: surrogate and above-range numeric entities refuse the packet"
-      },
-      "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:LogicalOperator"
-    },
-    {
-      "id": "metadata:src/metadata/xmp.ts:isValidCodePoint:LogicalOperator:gap-02",
-      "group": "metadata",
-      "file": "src/metadata/xmp.ts",
-      "function": "isValidCodePoint",
-      "mutatorName": "LogicalOperator",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
         "src/metadata/xmp.ts\u0000LogicalOperator\u0000value >= 0xd800 || value <= 0xdfff\u000019\u00007\u000019\u000041"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
@@ -193502,18 +193546,21 @@
       "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:LogicalOperator"
     },
     {
-      "id": "metadata:src/metadata/xmp.ts:isValidCodePoint:LogicalOperator:pending-01",
+      "id": "metadata:src/metadata/xmp.ts:isValidCodePoint:LogicalOperator:dead-01",
       "group": "metadata",
       "file": "src/metadata/xmp.ts",
       "function": "isValidCodePoint",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "dead",
+      "count": 3,
       "keys": [
+        "src/metadata/xmp.ts\u0000LogicalOperator\u0000Number.isInteger(value) && value >= 0 && value <= 0x10ffff || !(value >= 0xd800 && value <= 0xdfff)\u000016\u00005\u000019\u000042",
         "src/metadata/xmp.ts\u0000LogicalOperator\u0000Number.isInteger(value) && value >= 0 || value <= 0x10ffff\u000016\u00005\u000018\u000022",
         "src/metadata/xmp.ts\u0000LogicalOperator\u0000Number.isInteger(value) || value >= 0\u000016\u00005\u000017\u000015"
       ],
-      "note": "Pending a maintainer decision recorded in 67-35-HALTED.md (a behavior-preserving source edit that this plan may not assume): these members are unobservable but share a line and mutator with an observable member, so no next-line directive can own them honestly.",
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"Number.isInteger\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "Number.isInteger",
+      "symbolScope": "function",
       "originClusterId": "metadata:src/metadata/xmp.ts:isValidCodePoint:LogicalOperator"
     },
     {
@@ -193665,7 +193712,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000053\u00007\u000053\u000033"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: a malformed or unsupported entity refuses the packet"
@@ -193693,7 +193740,7 @@
         "src/metadata/xmp.ts\u0000Regex\u0000/<\\?[\\s\\s]*?\\?>/gu\u000048\u000014\u000048\u000032",
         "src/metadata/xmp.ts\u0000Regex\u0000/<\\?[^\\s\\S]*?\\?>/gu\u000048\u000014\u000048\u000032"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: ampersands inside CDATA, comments and processing instructions are not entity text"
@@ -193712,7 +193759,7 @@
         "src/metadata/xmp.ts\u0000Regex\u0000/&(amp|quot|apos|lt|gt|#x[0-9a-f]+|#[0-9]);/giu\u000050\u00005\u000050\u000053",
         "src/metadata/xmp.ts\u0000Regex\u0000/&(amp|quot|apos|lt|gt|#x[0-9a-f]+|#[^0-9]+);/giu\u000050\u00005\u000050\u000053"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/xmp.ts reassembleExtendedXmp and helper clusters (67-30, jpeg-8) > findHasExtendedXmpGuid MethodExpression cluster: a HasExtendedXMP GUID padded with numeric-entity whitespace still names its chunks"
@@ -193731,7 +193778,7 @@
         "src/metadata/xmp.ts\u0000Regex\u0000/&(amp|quot|apos|lt|gt|#x[0-9a-f]|#[0-9]+);/giu\u000050\u00005\u000050\u000053",
         "src/metadata/xmp.ts\u0000Regex\u0000/&(amp|quot|apos|lt|gt|#x[^0-9a-f]+|#[0-9]+);/giu\u000050\u00005\u000050\u000053"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > isValidCodePoint and decodeXml clusters: numeric entities decode in both radixes across the valid range"
@@ -193751,7 +193798,7 @@
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u000047\u000035\u000047\u000037",
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u000048\u000034\u000048\u000036"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: an entity interrupted by a comment, CDATA section or processing instruction is rejoined"
@@ -193769,7 +193816,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u000054\u000012\u000054\u000061"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: a malformed or unsupported entity refuses the packet"
@@ -193795,17 +193842,19 @@
       "originClusterId": "metadata:src/metadata/xmp.ts:validateEntities:StringLiteral"
     },
     {
-      "id": "metadata:src/metadata/xmp.ts:validateEntities:StringLiteral:pending-01",
+      "id": "metadata:src/metadata/xmp.ts:validateEntities:StringLiteral:dead-01",
       "group": "metadata",
       "file": "src/metadata/xmp.ts",
       "function": "validateEntities",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u000060\u00009\u000060\u000042"
       ],
-      "note": "Pending a maintainer decision recorded in 67-35-HALTED.md (a behavior-preserving source edit that this plan may not assume): these members are unobservable but share a line and mutator with an observable member, so no next-line directive can own them honestly.",
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"instanceof\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "instanceof",
+      "symbolScope": "function",
       "originClusterId": "metadata:src/metadata/xmp.ts:validateEntities:StringLiteral"
     },
     {
@@ -193819,7 +193868,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000BlockStatement\u0000{}\u000066\u000045\u000068\u00004"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: a DOCTYPE or ENTITY declaration anywhere refuses the packet"
@@ -193837,7 +193886,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000BlockStatement\u0000{}\u000096\u000062\u000098\u00004"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: unclosed tags and trailing markup refuse the packet"
@@ -193855,7 +193904,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000066\u00007\u000066\u000043"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: a DOCTYPE or ENTITY declaration anywhere refuses the packet"
@@ -193873,7 +193922,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000089\u000011\u000089\u000032"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: mismatched close tags refuse the packet"
@@ -193892,7 +193941,7 @@
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000096\u00007\u000096\u000060",
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u000096\u000044\u000096\u000060"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: unclosed tags and trailing markup refuse the packet"
@@ -193932,7 +193981,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000LogicalOperator\u0000xml.slice(consumed).includes(\"<\") && stack.length > 0\u000096\u00007\u000096\u000060"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: unclosed tags and trailing markup refuse the packet"
@@ -193950,7 +193999,7 @@
         "src/metadata/xmp.ts\u0000MethodExpression\u0000token.endsWith(\"<!--\")\u000082\u00007\u000082\u000031",
         "src/metadata/xmp.ts\u0000MethodExpression\u0000token.endsWith(\"<![CDATA[\")\u000083\u00007\u000083\u000036"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: ampersands inside CDATA, comments and processing instructions are not entity text"
@@ -193978,7 +194027,7 @@
         "src/metadata/xmp.ts\u0000Regex\u0000/<!--[\\s\\s]*?-->|<\\?[\\s\\S]*?\\?>|<!\\[CDATA\\[[\\s\\S]*?\\]\\]>|<[^>]*>/gu\u000071\u00005\u000071\u000072",
         "src/metadata/xmp.ts\u0000Regex\u0000/<!--[^\\s\\S]*?-->|<\\?[\\s\\S]*?\\?>|<!\\[CDATA\\[[\\s\\S]*?\\]\\]>|<[^>]*>/gu\u000071\u00005\u000071\u000072"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure Regex cluster: comments, processing instructions and CDATA sections may contain greater-than and less-than signs"
@@ -193986,56 +194035,54 @@
       "originClusterId": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex"
     },
     {
-      "id": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex:gap-02",
+      "id": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex:dead-01",
       "group": "metadata",
       "file": "src/metadata/xmp.ts",
       "function": "validateXmlStructure",
       "mutatorName": "Regex",
-      "disposition": "gap",
-      "count": 2,
-      "keys": [
-        "src/metadata/xmp.ts\u0000Regex\u0000/<\\/\\s*([A-Za-z_][\\w.:-]*)\\s*>$/u\u000086\u000031\u000086\u000065",
-        "src/metadata/xmp.ts\u0000Regex\u0000/^<\\/\\s*([A-Za-z_][\\w.:-]*)\\S*>$/u\u000086\u000031\u000086\u000065"
-      ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure Regex cluster: close tags tolerate whitespace and a token that only contains a later tag is not that tag"
-      },
-      "originClusterId": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex"
-    },
-    {
-      "id": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex:gap-03",
-      "group": "metadata",
-      "file": "src/metadata/xmp.ts",
-      "function": "validateXmlStructure",
-      "mutatorName": "Regex",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/metadata/xmp.ts\u0000Regex\u0000/<\\s*([A-Za-z_][\\w.:-]*)\\b[\\s\\S]*>$/u\u000092\u000030\u000092\u000068"
-      ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: malformed tags refuse the packet"
-      },
-      "originClusterId": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex"
-    },
-    {
-      "id": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex:pending-01",
-      "group": "metadata",
-      "file": "src/metadata/xmp.ts",
-      "function": "validateXmlStructure",
-      "mutatorName": "Regex",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 3,
       "keys": [
-        "src/metadata/xmp.ts\u0000Regex\u0000/^<\\/\\s*([A-Za-z_][\\w.:-]*)\\s*>/u\u000086\u000031\u000086\u000065",
-        "src/metadata/xmp.ts\u0000Regex\u0000/^<\\s*([A-Za-z_][\\w.:-]*)\\b[\\s\\S]*>/u\u000092\u000030\u000092\u000068",
+        "src/metadata/xmp.ts\u0000Regex\u0000/<\\/\\s*([A-Za-z_][\\w.:-]*)\\s*>$/u\u000086\u000031\u000086\u000065",
+        "src/metadata/xmp.ts\u0000Regex\u0000/^<\\/\\s*([A-Za-z_][\\w.:-]*)\\S*>$/u\u000086\u000031\u000086\u000065",
+        "src/metadata/xmp.ts\u0000Regex\u0000/^<\\/\\s*([A-Za-z_][\\w.:-]*)\\s*>/u\u000086\u000031\u000086\u000065"
+      ],
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"/^<\\\\/\\\\s*([A-Za-z_][\\\\w.:-]*)\\\\s*>$/u\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "/^<\\/\\s*([A-Za-z_][\\w.:-]*)\\s*>$/u",
+      "symbolScope": "function",
+      "originClusterId": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex:dead-02",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "validateXmlStructure",
+      "mutatorName": "Regex",
+      "disposition": "dead",
+      "count": 2,
+      "keys": [
+        "src/metadata/xmp.ts\u0000Regex\u0000/<\\s*([A-Za-z_][\\w.:-]*)\\b[\\s\\S]*>$/u\u000092\u000030\u000092\u000068",
+        "src/metadata/xmp.ts\u0000Regex\u0000/^<\\s*([A-Za-z_][\\w.:-]*)\\b[\\s\\S]*>/u\u000092\u000030\u000092\u000068"
+      ],
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"/^<\\\\s*([A-Za-z_][\\\\w.:-]*)\\\\b[\\\\s\\\\S]*>$/u\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "/^<\\s*([A-Za-z_][\\w.:-]*)\\b[\\s\\S]*>$/u",
+      "symbolScope": "function",
+      "originClusterId": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex:dead-03",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "validateXmlStructure",
+      "mutatorName": "Regex",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/metadata/xmp.ts\u0000Regex\u0000/\\/\\s*>/u\u000094\u000010\u000094\u000020"
       ],
-      "note": "Pending a maintainer decision recorded in 67-35-HALTED.md (a behavior-preserving source edit that this plan may not assume): these members are unobservable but share a line and mutator with an observable member, so no next-line directive can own them honestly.",
+      "note": "Removed or rewritten by the Plan 67-35 behavior-preserving source edit approved by the maintainer (Option A of 67-35-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent): the check or expression containing \"/\\\\/\\\\s*>$/u\" is redundant or rewritten (traced to every consumer in 67-35-HALTED.md: accepted and refused inputs and typed outcomes are unchanged; only the free-text detail of the warning for an above-range numeric entity changes). The witness no longer appears in the enclosing function; the fresh unfiltered report reports/triage/67-35/batch.json shows no mutant at these anchors. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "/\\/\\s*>$/u",
+      "symbolScope": "function",
       "originClusterId": "metadata:src/metadata/xmp.ts:validateXmlStructure:Regex"
     },
     {
@@ -194049,7 +194096,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u000067\u000012\u000067\u000072"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: a DOCTYPE or ENTITY declaration anywhere refuses the packet"
@@ -194067,7 +194114,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u000089\u000041\u000089\u000076"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: mismatched close tags refuse the packet"
@@ -194085,7 +194132,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u000093\u000031\u000093\u000062"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: malformed tags refuse the packet"
@@ -194103,7 +194150,7 @@
       "keys": [
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u000097\u000012\u000097\u000047"
       ],
-      "note": "reports/triage/67-35/green3.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-35/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-35/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure clusters: unclosed tags and trailing markup refuse the packet"
