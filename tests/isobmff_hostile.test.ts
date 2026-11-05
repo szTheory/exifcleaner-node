@@ -6662,3 +6662,382 @@ describe("metadata/exif.ts parseExif and TIFF reader clusters (67-31, metadata-1
     }
   });
 });
+
+// metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2). The
+// fixtures are little- and big-endian TIFF containers; `exIfds` builds several IFDs, each pointer
+// entry naming the IFD it points at. Assertions are on the typed outcome (`entries`, the
+// orientation status, the warning codes) and on entry names, never on diagnostic wording; where a
+// detail string is checked it is only that it is non-empty and the same on both channels.
+interface ExPointer {
+  readonly tag: number;
+  /** Index of the IFD (in the `exIfds` argument) this pointer entry points at. */
+  readonly pointsTo: number;
+}
+
+function exIfds(
+  ifds: ReadonlyArray<ReadonlyArray<ExEntry | ExPointer>>,
+  big: boolean,
+): Buffer {
+  const w16 = (buffer: Buffer, at: number, value: number): void => {
+    if (big) buffer.writeUInt16BE(value, at);
+    else buffer.writeUInt16LE(value, at);
+  };
+  const w32 = (buffer: Buffer, at: number, value: number): void => {
+    if (big) buffer.writeUInt32BE(value, at);
+    else buffer.writeUInt32LE(value, at);
+  };
+  const starts: number[] = [];
+  let end = 8;
+  for (const ifd of ifds) {
+    starts.push(end);
+    end += 2 + ifd.length * 12 + 4;
+  }
+  const out = Buffer.alloc(end);
+  out.write(big ? "MM" : "II", 0, "ascii");
+  w16(out, 2, 42);
+  w32(out, 4, starts[0] ?? 8);
+  ifds.forEach((ifd, index) => {
+    const base = starts[index] ?? 0;
+    w16(out, base, ifd.length);
+    ifd.forEach((node, position) => {
+      const at = base + 2 + position * 12;
+      w16(out, at, node.tag);
+      if ("pointsTo" in node) {
+        w16(out, at + 2, 4);
+        w32(out, at + 4, 1);
+        w32(out, at + 8, starts[node.pointsTo] ?? 0);
+        return;
+      }
+      w16(out, at + 2, node.type);
+      w32(out, at + 4, node.count);
+      if (node.offset !== undefined) w32(out, at + 8, node.offset);
+      else (node.value ?? Buffer.alloc(0)).copy(out, at + 8);
+    });
+  });
+  return out;
+}
+
+function exMarker(tag: number, marker: number): ExEntry {
+  return { tag, type: 1, count: 1, value: Buffer.from([marker]) };
+}
+
+function exShort(tag: number, value: number, big: boolean): ExEntry {
+  return { tag, type: 3, count: 1, value: exU16([value], big) };
+}
+
+function exSummary(tiff: Buffer): {
+  readonly names: readonly string[];
+  readonly values: readonly unknown[];
+  readonly warnings: readonly string[];
+  readonly orientation: string;
+} {
+  const parsed = parseExif(tiff);
+  return {
+    names: parsed.entries.map((entry) => entry.name),
+    values: parsed.entries.map((entry) => entry.value),
+    warnings: parsed.warnings.map((warning) => warning.code),
+    orientation: parsed.orientation.status,
+  };
+}
+
+/** The orientation detail, which must be a non-empty string that the warning repeats. */
+function exExpectUnsupportedOrientation(tiff: Buffer): void {
+  const parsed = parseExif(tiff);
+  expect(parsed.orientation.status).toBe("unsupported");
+  if (parsed.orientation.status !== "unsupported") return;
+  expect(parsed.orientation.detail.length).toBeGreaterThan(0);
+  const warning = parsed.warnings.at(-1);
+  expect(warning?.code).toBe("metadata-unsupported");
+  expect(warning?.detail).toBe(parsed.orientation.detail);
+}
+
+describe("metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (67-32, metadata-2)", () => {
+  it("parseExif ConditionalExpression, BlockStatement and CallExpression clusters: a byte order other than II or MM, or a marker other than 42, is malformed", () => {
+    for (const big of [false, true]) {
+      const good = exTiff([exMarker(0xf101, 7)], big);
+      expect(exSummary(good).names).toEqual(["Tag0xf101"]);
+      // "XX" is read as big-endian when the check is gone, and the big-endian fixture parses.
+      const badOrder = Buffer.from(good);
+      badOrder.write("XX", 0, "ascii");
+      exExpectMalformed(badOrder);
+      const lowerCase = Buffer.from(good);
+      lowerCase.write(big ? "mm" : "ii", 0, "ascii");
+      exExpectMalformed(lowerCase);
+      // Every other marker value is refused, not just a different one.
+      for (const marker of [0, 41, 43, 0x2a00]) {
+        const badMarker = Buffer.from(good);
+        if (big) badMarker.writeUInt16BE(marker, 2);
+        else badMarker.writeUInt16LE(marker, 2);
+        exExpectMalformed(badMarker);
+      }
+    }
+  });
+
+  it("visitIfd EqualityOperator, ConditionalExpression, LogicalOperator and ArithmeticOperator clusters: IFD nesting stops after depth 4", () => {
+    for (const big of [false, true]) {
+      // Seven IFDs, each holding one marker entry and a pointer to the next.
+      const chain = Array.from({ length: 7 }, (_, index) => [
+        exMarker(0xf200 + index, index + 1),
+        ...(index < 6 ? [{ tag: 0x8769, pointsTo: index + 1 }] : []),
+      ]);
+      const summary = exSummary(exIfds(chain, big));
+      expect(summary.warnings).toEqual([]);
+      // Depths 0 through 4 are read (the first at the top level, the others under "Exif.").
+      expect(summary.names).toEqual([
+        "Tag0xf200",
+        "Exif.Tag0xf201",
+        "Exif.Tag0xf202",
+        "Exif.Tag0xf203",
+        "Exif.Tag0xf204",
+      ]);
+      expect(summary.values).toEqual([1, 2, 3, 4, 5]);
+    }
+  });
+
+  it("visitIfd LogicalOperator, ConditionalExpression and CallExpression clusters: an IFD that points back at itself or at an ancestor is read once", () => {
+    for (const big of [false, true]) {
+      const self = exSummary(
+        exIfds([[exMarker(0xf210, 1), { tag: 0x8769, pointsTo: 0 }]], big),
+      );
+      expect(self.names).toEqual(["Tag0xf210"]);
+      expect(self.warnings).toEqual([]);
+      const loop = exSummary(
+        exIfds(
+          [
+            [exMarker(0xf211, 1), { tag: 0x8769, pointsTo: 1 }],
+            [exMarker(0xf212, 2), { tag: 0x8825, pointsTo: 0 }],
+          ],
+          big,
+        ),
+      );
+      expect(loop.names).toEqual(["Tag0xf211", "Exif.Tag0xf212"]);
+      expect(loop.warnings).toEqual([]);
+      // Two pointers to the same child IFD read it once; the first pointer names it.
+      const twice = exSummary(
+        exIfds(
+          [
+            [
+              { tag: 0x8769, pointsTo: 1 },
+              { tag: 0x8825, pointsTo: 1 },
+            ],
+            [exMarker(0xf213, 3)],
+          ],
+          big,
+        ),
+      );
+      expect(twice.names).toEqual(["Exif.Tag0xf213"]);
+    }
+  });
+
+  it("visitIfd ConditionalExpression, EqualityOperator and StringLiteral clusters: the Exif, GPS and Interop pointers name their entries and the pointer tags are not entries", () => {
+    for (const big of [false, true]) {
+      const summary = exSummary(
+        exIfds(
+          [
+            [
+              { tag: 0x8769, pointsTo: 1 },
+              { tag: 0x8825, pointsTo: 2 },
+              { tag: 0xa005, pointsTo: 3 },
+            ],
+            [exMarker(0xf301, 1)],
+            [exMarker(0xf302, 2)],
+            [exMarker(0xf303, 3)],
+          ],
+          big,
+        ),
+      );
+      expect(summary.warnings).toEqual([]);
+      expect(summary.names).toEqual([
+        "Exif.Tag0xf301",
+        "GPS.Tag0xf302",
+        "Interop.Tag0xf303",
+      ]);
+      expect(summary.values).toEqual([1, 2, 3]);
+    }
+  });
+
+  it("visitIfd EqualityOperator, LogicalOperator, ConditionalExpression and BlockStatement clusters: 4096 entries are read, 4097 are refused even when they all fit", () => {
+    for (const big of [false, true]) {
+      const many = (count: number): Buffer =>
+        exTiff(
+          Array.from({ length: count }, (_, index) =>
+            exMarker(0xf400 + (index % 0x100), index & 0xff),
+          ),
+          big,
+        );
+      const atCap = parseExif(many(4096));
+      expect(atCap.warnings).toEqual([]);
+      expect(atCap.orientation).toEqual({ status: "absent" });
+      expect(atCap.entries).toHaveLength(4096);
+      exExpectMalformed(many(4097));
+    }
+  });
+
+  it("visitIfd ArithmeticOperator, BlockStatement and CallExpression clusters: an IFD missing the last byte of its next-IFD field is malformed", () => {
+    for (const big of [false, true]) {
+      const whole = exTiff([exMarker(0xf500, 9)], big);
+      expect(exSummary(whole).names).toEqual(["Tag0xf500"]);
+      exExpectMalformed(whole.subarray(0, whole.length - 1));
+      exExpectMalformed(whole.subarray(0, whole.length - 4));
+      // The entry itself is complete but the IFD is not, so no partial entry list is reported.
+      exExpectMalformed(whole.subarray(0, whole.length - 3));
+    }
+  });
+
+  it("visitIfd ConditionalExpression and BlockStatement clusters: a second Orientation tag is unsupported and is not read", () => {
+    for (const big of [false, true]) {
+      const tiff = exTiff(
+        [exShort(0x0112, 6, big), exShort(0x0112, 8, big)],
+        big,
+      );
+      const parsed = parseExif(tiff);
+      expect(parsed.entries.map((entry) => [entry.name, entry.value])).toEqual([
+        ["Orientation", 6],
+      ]);
+      exExpectUnsupportedOrientation(tiff);
+    }
+  });
+
+  it("visitIfd StringLiteral and ConditionalExpression clusters: an Orientation that is not one SHORT, or is outside 1 through 8, is unsupported", () => {
+    for (const big of [false, true]) {
+      // LONG instead of SHORT.
+      const long = exTiff(
+        [{ tag: 0x0112, type: 4, count: 1, value: exU32([3], big) }],
+        big,
+      );
+      expect(parseExif(long).entries).toEqual([]);
+      exExpectUnsupportedOrientation(long);
+      // Two SHORT values.
+      const two = exTiff(
+        [{ tag: 0x0112, type: 3, count: 2, value: exU16([3, 4], big) }],
+        big,
+      );
+      expect(parseExif(two).entries).toEqual([]);
+      exExpectUnsupportedOrientation(two);
+      // Out of range SHORT values are read as entries and refused as orientation.
+      for (const value of [0, 9, 0xffff]) {
+        const tiff = exTiff([exShort(0x0112, value, big)], big);
+        expect(parseExif(tiff).entries.map((entry) => entry.value)).toEqual([
+          value,
+        ]);
+        exExpectUnsupportedOrientation(tiff);
+      }
+      // The ends of the valid range stay valid.
+      for (const value of [1, 8]) {
+        const parsed = parseExif(exTiff([exShort(0x0112, value, big)], big));
+        expect(parsed.orientation).toEqual({ status: "valid", value });
+        expect(parsed.warnings).toEqual([]);
+      }
+    }
+  });
+
+  it("visitIfd ConditionalExpression clusters: an Orientation tag below an Exif pointer is an ordinary entry and never sets the orientation", () => {
+    for (const big of [false, true]) {
+      const under = (child: ExEntry): ReturnType<typeof exSummary> =>
+        exSummary(exIfds([[{ tag: 0x8769, pointsTo: 1 }], [child]], big));
+      // A LONG, an invalid SHORT and a valid SHORT all stay plain "Exif.Orientation" entries.
+      for (const child of [
+        { tag: 0x0112, type: 4, count: 1, value: exU32([3], big) },
+        exShort(0x0112, 9, big),
+        exShort(0x0112, 3, big),
+      ]) {
+        const summary = under(child);
+        expect(summary.names).toEqual(["Exif.Orientation"]);
+        expect(summary.warnings).toEqual([]);
+        expect(summary.orientation).toBe("absent");
+      }
+      // Neither does it count as a second Orientation next to a valid top-level one.
+      const both = parseExif(
+        exIfds(
+          [
+            [exShort(0x0112, 6, big), { tag: 0x8769, pointsTo: 1 }],
+            [exShort(0x0112, 3, big)],
+          ],
+          big,
+        ),
+      );
+      expect(both.warnings).toEqual([]);
+      expect(both.orientation).toEqual({ status: "valid", value: 6 });
+      expect(both.entries.map((entry) => entry.name)).toEqual([
+        "Orientation",
+        "Exif.Orientation",
+      ]);
+    }
+  });
+
+  it("visitIfd StringLiteral clusters: an unsupported TIFF type warns with the zero-padded tag and an unknown tag is named with four hex digits", () => {
+    for (const big of [false, true]) {
+      const parsed = parseExif(
+        exTiff(
+          [
+            // SBYTE (6) has no width in TYPE_WIDTHS.
+            { tag: 0x00ab, type: 6, count: 1, value: Buffer.from([1]) },
+            exMarker(0x00cd, 5),
+          ],
+          big,
+        ),
+      );
+      expect(parsed.entries).toEqual([exNamed(0x00cd, 5)]);
+      expect(parsed.warnings.map((warning) => warning.code)).toEqual([
+        "metadata-unsupported",
+      ]);
+      const detail = parsed.warnings[0]?.detail ?? "";
+      // The detail names the tag by its four-digit hex id, not a shortened one.
+      expect(detail).toContain("0x00ab");
+      expect(detail).not.toContain("0xab ");
+    }
+  });
+
+  it("createMinimalExif assertUint32 and assertResolutionValue clusters: a non-integer resolution field is a RangeError, never rounded into the bytes", () => {
+    const fields = [
+      (value: number) => ({
+        x: { numerator: value, denominator: 1 },
+        y: { numerator: 1, denominator: 1 },
+      }),
+      (value: number) => ({
+        x: { numerator: 1, denominator: value },
+        y: { numerator: 1, denominator: 1 },
+      }),
+      (value: number) => ({
+        x: { numerator: 1, denominator: 1 },
+        y: { numerator: value, denominator: 1 },
+      }),
+      (value: number) => ({
+        x: { numerator: 1, denominator: 1 },
+        y: { numerator: 1, denominator: value },
+      }),
+    ];
+    for (const field of fields) {
+      for (const bad of [
+        1.5,
+        Number.NaN,
+        Number.POSITIVE_INFINITY,
+        -1,
+        2 ** 32,
+      ]) {
+        expect(() => createMinimalExif({ resolution: field(bad) })).toThrow(
+          RangeError,
+        );
+      }
+    }
+  });
+
+  it("createMinimalExif assertUint32 EqualityOperator cluster: 0 and 0xffffffff are accepted in every resolution field and written exactly", () => {
+    for (const edge of [0, 0xffffffff]) {
+      const result = createMinimalExif({
+        resolution: {
+          x: { numerator: edge, denominator: edge },
+          y: { numerator: edge, denominator: edge },
+        },
+      });
+      // Two RATIONAL entries; their values follow the IFD (8 + 2 + 2 * 12 + 4 = 38).
+      expect(result).toHaveLength(54);
+      expect([38, 42, 46, 50].map((at) => result.readUInt32LE(at))).toEqual([
+        edge,
+        edge,
+        edge,
+        edge,
+      ]);
+    }
+  });
+});
