@@ -193073,15 +193073,16 @@
       "file": "src/metadata/xmp.ts",
       "function": "add",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/xmp.ts\u0000CallExpression\u0000;\u0000136\u000010\u0000136\u000030"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000CallExpression\u0000;\u0000current.push(clean);\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex and add CallExpression clusters: list items tolerate close-tag whitespace and repeated names collect every value"
+      }
     },
     {
       "id": "metadata:src/metadata/xmp.ts:add:MethodExpression",
@@ -193089,15 +193090,16 @@
       "file": "src/metadata/xmp.ts",
       "function": "add",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/xmp.ts\u0000MethodExpression\u0000value.replace(/<[^>]+>/gu, \"\")\u0000132\u000029\u0000132\u000066"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000MethodExpression\u0000value.replace(/<[^>]+>/gu, \"\")\u0000value.replace(/<[^>]+>/gu, \"\").trim()\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > add Regex, StringLiteral and MethodExpression clusters: markup inside a value is stripped and the text is trimmed"
+      }
     },
     {
       "id": "metadata:src/metadata/xmp.ts:add:Regex",
@@ -193105,17 +193107,17 @@
       "file": "src/metadata/xmp.ts",
       "function": "add",
       "mutatorName": "Regex",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/metadata/xmp.ts\u0000Regex\u0000/<[>]+>/gu\u0000132\u000043\u0000132\u000054",
         "src/metadata/xmp.ts\u0000Regex\u0000/<[^>]>/gu\u0000132\u000043\u0000132\u000054"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000Regex\u0000/<[>]+>/gu\u0000/<[^>]+>/gu\u00000",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<[^>]>/gu\u0000/<[^>]+>/gu\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: an entity interrupted by a comment, CDATA section or processing instruction is rejoined"
+      }
     },
     {
       "id": "metadata:src/metadata/xmp.ts:add:StringLiteral",
@@ -193123,15 +193125,16 @@
       "file": "src/metadata/xmp.ts",
       "function": "add",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000132\u000056\u0000132\u000058"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000\"\"\u00005"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: an entity interrupted by a comment, CDATA section or processing instruction is rejoined"
+      }
     },
     {
       "id": "metadata:src/metadata/xmp.ts:decodeXml:BooleanLiteral:gap-01",
@@ -193569,15 +193572,16 @@
       "file": "src/metadata/xmp.ts",
       "function": "parseXmp",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/xmp.ts\u0000BlockStatement\u0000{}\u0000175\u000063\u0000180\u00004"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000BlockStatement\u0000{}\u0000{\n    warnings.push({\n      code: \"metadata-invalid\",\n      detail: \"XMP packet has no RDF metadata root.\",\n    });\n  }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex, ConditionalExpression and BlockStatement clusters: a packet without an RDF root keeps its entries and reports one typed warning"
+      }
     },
     {
       "id": "metadata:src/metadata/xmp.ts:parseXmp:BooleanLiteral",
@@ -193585,35 +193589,70 @@
       "file": "src/metadata/xmp.ts",
       "function": "parseXmp",
       "mutatorName": "BooleanLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/xmp.ts\u0000BooleanLiteral\u0000false\u0000106\u000045\u0000106\u000049"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000BooleanLiteral\u0000false\u0000true\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp BooleanLiteral, ObjectLiteral and StringLiteral clusters: bytes that are not UTF-8 refuse the whole packet"
+      }
     },
     {
-      "id": "metadata:src/metadata/xmp.ts:parseXmp:ConditionalExpression",
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:ConditionalExpression:gap-01",
       "group": "metadata",
       "file": "src/metadata/xmp.ts",
       "function": "parseXmp",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000169\u00007\u0000169\u000074",
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000175\u00007\u0000175\u000061",
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000169\u00007\u0000169\u000074"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex and ConditionalExpression clusters: an element that holds another element yields no value of its own"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:ConditionalExpression:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000175\u00007\u0000175\u000061"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex, ConditionalExpression and BlockStatement clusters: a packet without an RDF root keeps its entries and reports one typed warning"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:ConditionalExpression:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000186\u000014\u0000186\u000032"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000!/<[A-Za-z_]/u.test(body.replace(/<!\\[CDATA\\[[\\s\\S]*?\\]\\]>/gu, \"\"))\u00000",
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000!/<(?:x:xmpmeta|rdf:RDF|rdf:Description)\\b/u.test(xml)\u00000",
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000found.length === 1\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex and add CallExpression clusters: list items tolerate close-tag whitespace and repeated names collect every value"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:ConditionalExpression"
     },
     {
       "id": "metadata:src/metadata/xmp.ts:parseXmp:ObjectLiteral",
@@ -193621,85 +193660,292 @@
       "file": "src/metadata/xmp.ts",
       "function": "parseXmp",
       "mutatorName": "ObjectLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/xmp.ts\u0000ObjectLiteral\u0000{}\u0000106\u000036\u0000106\u000051"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000ObjectLiteral\u0000{}\u0000{ fatal: true }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp BooleanLiteral, ObjectLiteral and StringLiteral clusters: bytes that are not UTF-8 refuse the whole packet"
+      }
     },
     {
-      "id": "metadata:src/metadata/xmp.ts:parseXmp:Regex",
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:Regex:gap-01",
       "group": "metadata",
       "file": "src/metadata/xmp.ts",
       "function": "parseXmp",
       "mutatorName": "Regex",
-      "disposition": "pending",
-      "count": 13,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/xmp.ts\u0000Regex\u0000/([A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\S*=\\s*([\"'])(.*?)\\2/gsu\u0000143\u00007\u0000143\u000067",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<((?!rdf:|x:)[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\b[>]*>([\\s\\S]*?)<\\/\\1\\s*>/gu\u0000158\u00005\u0000158\u000083",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<((?!rdf:|x:)[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\b[^>]*>([\\s\\S]*?)<\\/\\1\\S*>/gu\u0000158\u00005\u0000158\u000083",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<rdf:li\\b[^>]*>([\\s\\S]*?)<\\/rdf:li\\S*>/gu\u0000164\u000024\u0000164\u000066",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<[^A-Za-z_]/u\u0000169\u00008\u0000169\u000021",
+        "src/metadata/xmp.ts\u0000Regex\u0000/([A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\S*=\\s*([\"'])(.*?)\\2/gsu\u0000143\u00007\u0000143\u000067"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex cluster: attributes may put any whitespace before and after the equals sign"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:Regex"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:Regex:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "Regex",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000Regex\u0000/<((?!rdf:|x:)[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\b[>]*>([\\s\\S]*?)<\\/\\1\\s*>/gu\u0000158\u00005\u0000158\u000083"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex cluster: open tags may carry attributes and close tags may carry whitespace"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:Regex"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:Regex:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "Regex",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000Regex\u0000/<((?!rdf:|x:)[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\b[^>]*>([\\s\\S]*?)<\\/\\1\\S*>/gu\u0000158\u00005\u0000158\u000083"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateXmlStructure Regex cluster: close tags tolerate whitespace and a token that only contains a later tag is not that tag"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:Regex"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:Regex:gap-04",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "Regex",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000Regex\u0000/<rdf:li\\b[^>]*>([\\s\\S]*?)<\\/rdf:li\\S*>/gu\u0000164\u000024\u0000164\u000066"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex and add CallExpression clusters: list items tolerate close-tag whitespace and repeated names collect every value"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:Regex"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:Regex:gap-05",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "Regex",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000Regex\u0000/<[^A-Za-z_]/u\u0000169\u00008\u0000169\u000021"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: an entity interrupted by a comment, CDATA section or processing instruction is rejoined"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:Regex"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:Regex:gap-06",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "Regex",
+      "disposition": "gap",
+      "count": 4,
+      "keys": [
         "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[[\\S\\S]*?\\]\\]>/gu\u0000169\u000040\u0000169\u000068",
         "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[[\\s\\S]\\]\\]>/gu\u0000169\u000040\u0000169\u000068",
         "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[[\\s\\s]*?\\]\\]>/gu\u0000169\u000040\u0000169\u000068",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[[^\\s\\S]*?\\]\\]>/gu\u0000169\u000040\u0000169\u000068",
+        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[[^\\s\\S]*?\\]\\]>/gu\u0000169\u000040\u0000169\u000068"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex, StringLiteral and add clusters: CDATA text that looks like markup is kept as text, and a comment that wraps a CDATA marker is not markup"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:Regex"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:Regex:gap-07",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "Regex",
+      "disposition": "gap",
+      "count": 4,
+      "keys": [
         "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[([\\S\\S]*?)\\]\\]>/gu\u0000171\u000030\u0000171\u000060",
         "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[([\\s\\S])\\]\\]>/gu\u0000171\u000030\u0000171\u000060",
         "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[([\\s\\s]*?)\\]\\]>/gu\u0000171\u000030\u0000171\u000060",
         "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[([^\\s\\S]*?)\\]\\]>/gu\u0000171\u000030\u0000171\u000060"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000Regex\u0000/([A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\S*=\\s*([\"'])(.*?)\\2/gsu\u0000/([A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\s*=\\s*([\"'])(.*?)\\2/gsu\u00000",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<((?!rdf:|x:)[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\b[>]*>([\\s\\S]*?)<\\/\\1\\s*>/gu\u0000/<((?!rdf:|x:)[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\b[^>]*>([\\s\\S]*?)<\\/\\1\\s*>/gu\u00000",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<((?!rdf:|x:)[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\b[^>]*>([\\s\\S]*?)<\\/\\1\\S*>/gu\u0000/<((?!rdf:|x:)[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*)\\b[^>]*>([\\s\\S]*?)<\\/\\1\\s*>/gu\u00000",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<rdf:li\\b[^>]*>([\\s\\S]*?)<\\/rdf:li\\S*>/gu\u0000/<rdf:li\\b[^>]*>([\\s\\S]*?)<\\/rdf:li\\s*>/gu\u00000",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<[^A-Za-z_]/u\u0000/<[A-Za-z_]/u\u00000",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[[\\S\\S]*?\\]\\]>/gu\u0000/<!\\[CDATA\\[[\\s\\S]*?\\]\\]>/gu\u00001",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[[\\s\\S]\\]\\]>/gu\u0000/<!\\[CDATA\\[[\\s\\S]*?\\]\\]>/gu\u00001",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[[\\s\\s]*?\\]\\]>/gu\u0000/<!\\[CDATA\\[[\\s\\S]*?\\]\\]>/gu\u00001",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[[^\\s\\S]*?\\]\\]>/gu\u0000/<!\\[CDATA\\[[\\s\\S]*?\\]\\]>/gu\u00001",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[([\\S\\S]*?)\\]\\]>/gu\u0000/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/gu\u00000",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[([\\s\\S])\\]\\]>/gu\u0000/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/gu\u00000",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[([\\s\\s]*?)\\]\\]>/gu\u0000/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/gu\u00000",
-        "src/metadata/xmp.ts\u0000Regex\u0000/<!\\[CDATA\\[([^\\s\\S]*?)\\]\\]>/gu\u0000/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/gu\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: ampersands inside CDATA, comments and processing instructions are not entity text"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:Regex"
     },
     {
-      "id": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral",
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral:gap-01",
       "group": "metadata",
       "file": "src/metadata/xmp.ts",
       "function": "parseXmp",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
-      "count": 8,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000111\u000045\u0000111\u000070",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000124\u000052\u0000124\u000071",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000141\u000036\u0000141\u000038",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000167\u000058\u0000167\u000060",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000169\u000070\u0000169\u000072",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000171\u000062\u0000171\u000066",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000178\u000015\u0000178\u000053",
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000111\u000045\u0000111\u000070"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp BooleanLiteral, ObjectLiteral and StringLiteral clusters: bytes that are not UTF-8 refuse the whole packet"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral:gap-02",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000169\u000070\u0000169\u000072"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex, StringLiteral and add clusters: CDATA text that looks like markup is kept as text, and a comment that wraps a CDATA marker is not markup"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral:gap-03",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000171\u000062\u0000171\u000066"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp and xmpOrientation clusters (67-35, metadata-5) > validateEntities clusters: ampersands inside CDATA, comments and processing instructions are not entity text"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral:gap-04",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000178\u000015\u0000178\u000053"
+      ],
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > parseXmp Regex, ConditionalExpression and BlockStatement clusters: a packet without an RDF root keeps its entries and reports one typed warning"
+      },
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral:equivalent-01",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000124\u000052\u0000124\u000071"
+      ],
+      "note": "A next-line StringLiteral disable owns the final fallback text of the detail chain returned for a refused packet in parseXmp. That branch runs only when the structure check or the entity check returned a message, so one of the first two operands always supplies the detail and the final text is never produced. The line holds no other StringLiteral mutator.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
+      "anchors": [
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000\"XMP is malformed.\"\u00000"
+      ],
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral:equivalent-02",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000141\u000036\u0000141\u000038"
+      ],
+      "note": "A next-line StringLiteral disable owns the empty fallback after the nullish coalescing of the Description attribute capture group in parseXmp. The pattern's single capture group takes part in every match (it may capture nothing), so a match never carries an undefined group and the fallback is never used.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
+      "anchors": [
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000\"\"\u00006"
+      ],
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral:equivalent-03",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000167\u000058\u0000167\u000060"
+      ],
+      "note": "A next-line StringLiteral disable owns the empty fallback after the nullish coalescing of the list-item capture group in parseXmp. The pattern's single capture group takes part in every match, so a match never carries an undefined group and the fallback is never used.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
+      "anchors": [
+        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000\"\"\u00007"
+      ],
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral:equivalent-04",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "parseXmp",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000186\u000048\u0000186\u000050"
       ],
+      "note": "A next-line StringLiteral disable owns the empty fallback after the nullish coalescing of the first collected value in parseXmp. The single-value branch is reached only when the collected array holds exactly one string, so the element is always defined and the fallback is never used. The line's ConditionalExpression and EqualityOperator mutants stay active and Killed.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
       "anchors": [
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000\"XMP is not valid UTF-8.\"\u00000",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000\"XMP is malformed.\"\u00000",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000\"\"\u00006",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000\"\"\u00007",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000\"\"\u00008",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000\"$1\"\u00000",
-        "src/metadata/xmp.ts\u0000StringLiteral\u0000\"\"\u0000\"XMP packet has no RDF metadata root.\"\u00000",
         "src/metadata/xmp.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u0000\"\"\u00009"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "metadata:src/metadata/xmp.ts:parseXmp:StringLiteral"
     },
     {
       "id": "metadata:src/metadata/xmp.ts:validateEntities:ConditionalExpression",
@@ -194178,24 +194424,45 @@
       "originClusterId": "metadata:src/metadata/xmp.ts:validateXmlStructure:StringLiteral"
     },
     {
-      "id": "metadata:src/metadata/xmp.ts:xmpOrientation:ConditionalExpression",
+      "id": "metadata:src/metadata/xmp.ts:xmpOrientation:ConditionalExpression:equivalent-01",
       "group": "metadata",
       "file": "src/metadata/xmp.ts",
       "function": "xmpOrientation",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "equivalent",
+      "count": 2,
       "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000208\u00009\u0000208\u000032",
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000208\u00009\u0000208\u000032",
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000208\u00009\u0000208\u000032"
+      ],
+      "note": "A next-line ConditionalExpression, EqualityOperator disable owns the number test of the text chain in xmpOrientation. Every entry value comes from parseXmp, which yields only strings or arrays of at least two strings, never numbers; an array reaches the invalid outcome through the missing text, and the always-true and inequality replacements stringify it into text holding a comma, which can never read back as an integer 1 to 8 (the round-trip comparison fails), so every reachable input gives the same invalid outcome. The directive covers all mutants of both mutators on the line; there is no other.",
+      "equivalenceClass": "equivalent-arithmetic",
+      "anchors": [
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000typeof raw === \"number\"\u00000",
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000typeof raw === \"number\"\u00000"
+      ],
+      "originClusterId": "metadata:src/metadata/xmp.ts:xmpOrientation:ConditionalExpression"
+    },
+    {
+      "id": "metadata:src/metadata/xmp.ts:xmpOrientation:ConditionalExpression:equivalent-02",
+      "group": "metadata",
+      "file": "src/metadata/xmp.ts",
+      "function": "xmpOrientation",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000211\u000029\u0000211\u000046"
       ],
+      "note": "A next-line ConditionalExpression disable owns the empty-text length test of xmpOrientation. An empty text is already rejected by the integer round-trip comparison below it (parsing an empty string gives NaN, whose string form never equals an empty text), so the always-false replacement returns the same invalid outcome for every input; an entry whose decoded value is only whitespace reaches that comparison and is pinned as invalid. The directive line also covers three other ConditionalExpression replacements (the whole condition and the undefined test), compile errors rather than frozen members, suppressed only as collateral because the next-line form cannot select a replacement; their anchors are listed here. The EqualityOperator mutants of the line stay active and Killed.",
+      "equivalenceClass": "equivalent-arithmetic",
       "anchors": [
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000typeof raw === \"number\"\u00000",
-        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000typeof raw === \"number\"\u00000",
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000true\u0000text === undefined || text.length === 0\u00000",
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000text === undefined || text.length === 0\u00000",
+        "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000text === undefined\u00000",
         "src/metadata/xmp.ts\u0000ConditionalExpression\u0000false\u0000text.length === 0\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "metadata:src/metadata/xmp.ts:xmpOrientation:ConditionalExpression"
     },
     {
       "id": "metadata:src/metadata/xmp.ts:xmpOrientation:EqualityOperator",
@@ -194203,15 +194470,16 @@
       "file": "src/metadata/xmp.ts",
       "function": "xmpOrientation",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/metadata/xmp.ts\u0000EqualityOperator\u0000typeof raw !== \"number\"\u0000208\u00009\u0000208\u000032"
       ],
+      "note": "A next-line ConditionalExpression, EqualityOperator disable owns the number test of the text chain in xmpOrientation. Every entry value comes from parseXmp, which yields only strings or arrays of at least two strings, never numbers; an array reaches the invalid outcome through the missing text, and the always-true and inequality replacements stringify it into text holding a comma, which can never read back as an integer 1 to 8 (the round-trip comparison fails), so every reachable input gives the same invalid outcome. The directive covers all mutants of both mutators on the line; there is no other.",
+      "equivalenceClass": "equivalent-arithmetic",
       "anchors": [
         "src/metadata/xmp.ts\u0000EqualityOperator\u0000typeof raw !== \"number\"\u0000typeof raw === \"number\"\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
       "id": "metadata:src/metadata/xmp.ts:xmpOrientation:MethodExpression",
@@ -194219,15 +194487,16 @@
       "file": "src/metadata/xmp.ts",
       "function": "xmpOrientation",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/metadata/xmp.ts\u0000MethodExpression\u0000raw\u0000207\u00009\u0000207\u000019"
       ],
-      "anchors": [
-        "src/metadata/xmp.ts\u0000MethodExpression\u0000raw\u0000raw.trim()\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-36/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-36/red.json (src/metadata/xmp.ts whole file, a real run on the unedited source with tests/isobmff_hostile.test.ts at its pre-67-35 revision) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "metadata/xmp.ts parseXmp, add and xmpOrientation clusters (67-36, metadata-6) > xmpOrientation MethodExpression, ConditionalExpression and EqualityOperator clusters: whitespace that entity decoding adds is ignored, and repeated or blank values are invalid"
+      }
     },
     {
       "id": "png:src/admission/png-handler.ts:buildOutputPlan:ArrayDeclaration",
