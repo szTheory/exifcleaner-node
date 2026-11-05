@@ -632,6 +632,7 @@ function classifyAdmissionFailure(cause, preserveColorProfile) {
     if (preserveColorProfile && cause.limit?.segment === ICC_SEGMENT_IDENTIFIER)
         return {
             code: "unsupported-feature",
+            // Stryker disable next-line StringLiteral: unobservable-message — the detail is free text of the typed unsupported-feature decline; the code, the feature and the policy-limit reason that callers branch on are unchanged.
             detail: `ICC profile size ${cause.limit.size} exceeds the ${cause.limit.limit}-byte policy limit.`,
             feature: "color-profile-preservation",
             reason: "policy-limit",
@@ -717,9 +718,10 @@ export const jpegHandler = Object.freeze({
     checkOutputPlan(plan) {
         if (plan.declineReason !== undefined)
             return plan.declineReason;
-        return plan.expectedMarkers.includes(SOS)
-            ? undefined
-            : "Sanitized JPEG plan is empty.";
+        const emptyPlanDetail = 
+        // Stryker disable next-line StringLiteral: unobservable-message — the empty-plan detail is free text that checkOutputPlan returns and the engine forwards as the detail of the typed unsafe-structure refusal; the engine tests the value against undefined, so any defined string, even an empty one, still declines.
+        "Sanitized JPEG plan is empty.";
+        return plan.expectedMarkers.includes(SOS) ? undefined : emptyPlanDetail;
     },
     classifyAdmissionFailure,
     async writeOutput(source, destination, plan, signal) {

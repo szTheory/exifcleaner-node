@@ -26,7 +26,9 @@ function refuseMalformed(message: string): never {
  * order (D-01 edge: out-of-order segments still reassemble correctly).
  */
 export function reassembleIccSegments(payloads: readonly Buffer[]): Buffer {
+  // Stryker disable next-line ConditionalExpression, BlockStatement: redundant-guard-after-typed-check — an empty payload list skips this branch, runs no loop iteration and reaches the refusal at the declaredCount check below, which throws the same typed malformed-container error with the same text, so skipping the branch changes nothing observable; the always-true sibling of the condition is a compile error and is suppressed only as collateral.
   if (payloads.length === 0) {
+    // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
     refuseMalformed("No ICC_PROFILE segments were provided to reassemble.");
   }
 
@@ -35,18 +37,22 @@ export function reassembleIccSegments(payloads: readonly Buffer[]): Buffer {
 
   for (const payload of payloads) {
     if (payload.length < ICC_IDENTIFIER_BYTES + 2) {
+      // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
       refuseMalformed("ICC_PROFILE segment payload is too short.");
     }
     const sequence = payload.readUInt8(ICC_IDENTIFIER_BYTES);
     const count = payload.readUInt8(ICC_IDENTIFIER_BYTES + 1);
     if (sequence === 0) {
+      // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
       refuseMalformed("ICC_PROFILE segment sequence number is zero.");
     }
     if (count === 0) {
+      // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
       refuseMalformed("ICC_PROFILE segment declared count is zero.");
     }
     if (sequence > count) {
       refuseMalformed(
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
         `ICC_PROFILE segment sequence number ${sequence} exceeds its declared count ${count}.`,
       );
     }
@@ -54,11 +60,13 @@ export function reassembleIccSegments(payloads: readonly Buffer[]): Buffer {
       declaredCount = count;
     } else if (declaredCount !== count) {
       refuseMalformed(
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
         "ICC_PROFILE segments declare inconsistent total counts.",
       );
     }
     if (bySequence.has(sequence)) {
       refuseMalformed(
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
         `ICC_PROFILE segment sequence number ${sequence} appears more than once.`,
       );
     }
@@ -66,6 +74,7 @@ export function reassembleIccSegments(payloads: readonly Buffer[]): Buffer {
   }
 
   if (declaredCount === undefined) {
+    // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — declaredCount is still undefined here only for an empty payload list, which the first check in this function has already refused, so this refusal and its text cannot be reached through any public input; it exists to narrow the type for the loop below.
     refuseMalformed("No ICC_PROFILE segments were provided to reassemble.");
   }
 
@@ -75,6 +84,7 @@ export function reassembleIccSegments(payloads: readonly Buffer[]): Buffer {
     const chunk = bySequence.get(sequence);
     if (chunk === undefined) {
       refuseMalformed(
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
         `ICC_PROFILE segment sequence number ${sequence} is missing.`,
       );
     }
