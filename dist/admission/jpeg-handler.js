@@ -300,7 +300,8 @@ function collectMetadata(parsed, trailerTail) {
         }
         // some() over an empty candidate list is false, so no length check is needed.
         const sourceValue = validOrientationValue(orientation);
-        const disagrees = candidates.some((candidate) => candidate === "invalid" || candidate !== sourceValue);
+        // "invalid" never equals sourceValue (a number or undefined), so it needs no test of its own.
+        const disagrees = candidates.some((candidate) => candidate !== sourceValue);
         if (disagrees) {
             orientation = {
                 status: "unsupported",
