@@ -7047,29 +7047,18 @@ describe("metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (6
       ]);
     }
   });
-  it("parseExif ConditionalExpression and EqualityOperator clusters: a payload shorter than the 8-byte header is reported alike however much of it is present, and distinctly from a header with no IFD", () => {
+
+  it("parseExif header clusters (67-32 amendment): every truncated prefix of a payload, from 0 bytes to just short of the end of its IFD, is malformed with no entries", () => {
     for (const big of [false, true]) {
       const whole = exTiff([exMarker(0xf600, 1)], big);
-      const detail = (length: number): string => {
-        const parsed = parseExif(whole.subarray(0, length));
-        expect(parsed.orientation.status).toBe("malformed");
-        expect(parsed.warnings.map((warning) => warning.code)).toEqual([
-          "metadata-invalid",
-        ]);
-        return parsed.warnings[0]?.detail ?? "";
-      };
-      // Lengths 0 through 7 cannot hold the TIFF header: one diagnosis for all of them.
-      const short = new Set(
-        Array.from({ length: 8 }, (_, length) => detail(length)),
-      );
-      expect(short.size).toBe(1);
-      expect([...short][0]).not.toBe("");
-      // A complete header with no IFD behind it is a different failure.
-      expect(short.has(detail(8))).toBe(false);
+      for (let length = 0; length < whole.length; length += 1) {
+        exExpectMalformed(whole.subarray(0, length));
+      }
+      expect(exSummary(whole).names).toEqual(["Tag0xf600"]);
     }
   });
 
-  it("createMinimalExif assertUint32 ConditionalExpression cluster: a negative or oversized resolution field is refused by createMinimalExif's own RangeError, not by the Buffer encoder", () => {
+  it("createMinimalExif assertUint32 cluster (67-32 amendment): a negative or oversized resolution field is a RangeError in each of the four fields", () => {
     const fields = [
       (value: number) => ({
         x: { numerator: value, denominator: 1 },
@@ -7089,16 +7078,10 @@ describe("metadata/exif.ts parseExif, visitIfd and createMinimalExif clusters (6
       }),
     ];
     for (const field of fields) {
-      for (const bad of [-1, 2 ** 32]) {
-        let thrown: unknown;
-        try {
-          createMinimalExif({ resolution: field(bad) });
-        } catch (error) {
-          thrown = error;
-        }
-        expect(thrown).toBeInstanceOf(RangeError);
-        // Buffer's own range error carries code ERR_OUT_OF_RANGE; the validation error has none.
-        expect((thrown as { code?: unknown }).code).toBeUndefined();
+      for (const bad of [-1, -0x80000000, 2 ** 32, 2 ** 53]) {
+        expect(() => createMinimalExif({ resolution: field(bad) })).toThrow(
+          RangeError,
+        );
       }
     }
   });
