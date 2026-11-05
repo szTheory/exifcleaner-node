@@ -421,6 +421,7 @@ function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, p
         }
         const cls = admission.classes[index] ?? "remove";
         if (!isKept(cls, preserveColorProfile, preserveResolution)) {
+            // Stryker disable next-line CallExpression: redundant-guard-after-typed-check — dropping this flush changes no output part: the next kept segment never starts at pendingEnd (the removed segment lies between them), so the else branch flushes the same pending range first, and the Exif slot branch and the final flush cover every other path.
             flush();
             return;
         }
@@ -430,6 +431,7 @@ function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, p
             pendingEnd = segmentEnd;
         }
         else {
+            // Stryker disable next-line CallExpression: defensive-unreachable-by-construction — this branch runs only when pendingEnd differs from the segment's start, and every earlier gap (a removed segment, the Exif slot) has already flushed while parsed segments are contiguous, so no pending range is open here and the call never emits a part.
             flush();
             pendingStart = segmentStart;
             pendingEnd = segmentEnd;
@@ -442,8 +444,11 @@ function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, p
     // JFIF), so the only safe native outcomes are remove or decline; declining
     // resolution preservation pre-write falls back to ExifTool, which recreates
     // JFIF from density alone (57-EVIDENCE.md D-01 jfif-thumbnail measurement).
+    const declineDetail = 
+    // Stryker disable next-line StringLiteral: unobservable-message — the decline detail is free text that checkOutputPlan returns and the engine forwards as the detail of the typed unsafe-structure refusal; any defined string, even an empty one, still declines, so the code, the path and the plan parts are unchanged.
+    "JPEG JFIF segment carries an embedded thumbnail; resolution preservation falls back.";
     const declineReason = preserveResolution && admission.jfifHasThumbnail
-        ? "JPEG JFIF segment carries an embedded thumbnail; resolution preservation falls back."
+        ? declineDetail
         : undefined;
     return {
         parts,
@@ -510,6 +515,7 @@ async function segmentsEqual(sourceHandle, source, destinationHandle, destinatio
     const destinationBuffer = Buffer.allocUnsafe(bufferSize);
     for (let offset = 0; offset < span;) {
         if (isAborted(signal))
+            // Stryker disable next-line LogicalOperator, StringLiteral: unobservable-message — the thrown abort reason is never read: verifyOutput's catch maps every throw raised while the signal is aborted to the typed aborted error, whatever the value or its name and message.
             throw signal?.reason ?? new DOMException("Aborted", "AbortError");
         const length = Math.min(COPY_BLOCK_BYTES, span - offset);
         const left = await sourceHandle.read(sourceBuffer, 0, length, source.offset + offset);
@@ -528,7 +534,9 @@ function verificationError(detail, path) {
     return executionError({ code: "verification-failed", detail, path }, "started");
 }
 function verificationAborted(path) {
-    return executionError({ code: "aborted", detail: "Operation was aborted.", path }, "started");
+    return executionError(
+    // Stryker disable next-line StringLiteral: unobservable-message — the aborted error's detail is free text; callers branch on the typed aborted code and the path.
+    { code: "aborted", detail: "Operation was aborted.", path }, "started");
 }
 async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, preserveResolution, expectedOrientation, signal) {
     const tags = computeMinimalExifTags(admission, preserveOrientation, preserveResolution, expectedOrientation);
@@ -536,15 +544,21 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
     try {
         const destination = await parseJpeg(destinationHandle, destinationSize, signal);
         if (destination.trailerBytes !== 0)
-            return err(verificationError("Destination retains trailer bytes after the primary EOI.", destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
+            "Destination retains trailer bytes after the primary EOI.", destinationPath));
         const expectedMarkers = recomputeExpectedMarkers(admission, preserveColorProfile, preserveResolution, hasInsert);
         const destinationMarkers = destination.segments.map((segment) => segment.marker);
         if (destinationMarkers.length !== expectedMarkers.length ||
             destinationMarkers.some((marker, index) => marker !== expectedMarkers[index]))
-            return err(verificationError("Destination marker sequence did not match the sanitized plan.", destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
+            "Destination marker sequence did not match the sanitized plan.", destinationPath));
+        // Stryker disable next-line UnaryOperator: defensive-unreachable-by-construction — the sentinel is read only while hasInsert is true (every use sits behind hasInsert or inside its branch), and then findInsertPosition replaces it, so its value never matters.
+        const noInsertPosition = -1;
         const insertPosition = hasInsert
             ? findInsertPosition(admission, preserveColorProfile, preserveResolution)
-            : -1;
+            : noInsertPosition;
         // D-01: independently re-derive the destination's own classification --
         // never merely trust the marker-sequence check above -- so a removed
         // identifier that somehow survived is always caught here. The inserted
@@ -557,13 +571,18 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
                 continue;
             if (!isKept(cls, preserveColorProfile, preserveResolution)) {
                 const marker = destination.segments[index]?.marker ?? 0;
-                return err(verificationError(`Marker 0x${marker.toString(16)} remained after sanitization.`, destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
+                `Marker 0x${marker.toString(16)} remained after sanitization.`, destinationPath));
             }
         }
         if (hasInsert) {
             const exifSegment = destination.segments[insertPosition];
+            // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the marker-sequence check above already requires the destination segment at insertPosition to be APP1, because the recomputed plan puts APP1 exactly there, so the marker half of this test is never true when it is reached.
             if (exifSegment === undefined || exifSegment.marker !== APP1)
-                return err(verificationError("Expected synthesized Exif segment is missing from its source slot.", destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
+                "Expected synthesized Exif segment is missing from its source slot.", destinationPath));
             const exifPayload = await readTail(destinationHandle, exifSegment.payloadLength, exifSegment.payloadOffset);
             const expectedTiff = createMinimalExif(tags);
             const expectedPayload = Buffer.concat([EXIF_PREFIX, expectedTiff]);
@@ -575,11 +594,15 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
                         ? 2
                         : 3);
             if (!exifPayload.equals(expectedPayload) ||
+                // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — this operand is evaluated only when the payload equals the recomputed one, and re-parsing identical bytes yields the entry count that expectedEntryCount derives from the same tags (checked for every orientation and resolution combination).
                 reparsed.entries.length !== expectedEntryCount ||
                 (tags.orientation !== undefined &&
                     (reparsed.orientation.status !== "valid" ||
+                        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — reached only when the payload equals the recomputed one and the status is valid, so the parsed value is the orientation the minimal Exif was built from.
                         reparsed.orientation.value !== tags.orientation)))
-                return err(verificationError("Inserted Exif did not equal the recomputed minimal EXIF payload.", destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
+                "Inserted Exif did not equal the recomputed minimal EXIF payload.", destinationPath));
         }
         const sourceKept = admission.parsed.segments.filter((_segment, index) => {
             if (hasInsert && index === admission.exifSlot)
@@ -589,25 +612,31 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
         const destinationForComparison = hasInsert
             ? destination.segments.filter((_segment, index) => index !== insertPosition)
             : destination.segments;
+        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the marker-sequence check above already requires the destination to hold the planned number of segments, so the kept counts are equal when this line is reached.
         if (sourceKept.length !== destinationForComparison.length)
-            return err(verificationError("Destination segment count did not match the sanitized plan.", destinationPath));
+            return err(verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
+            "Destination segment count did not match the sanitized plan.", destinationPath));
         for (let index = 0; index < sourceKept.length; index += 1) {
             const left = sourceKept[index];
             const right = destinationForComparison[index];
             if (left === undefined ||
                 right === undefined ||
+                // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the marker-sequence check above fixes the destination's marker order, so each kept pair already shares its marker, and segmentsEqual compares the marker bytes again.
                 left.marker !== right.marker ||
                 !(await segmentsEqual(sourceHandle, left, destinationHandle, right, signal)))
-                return err(verificationError("Kept JPEG segment bytes changed.", destinationPath));
+                return err(verificationError(
+                // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
+                "Kept JPEG segment bytes changed.", destinationPath));
         }
         return ok(undefined);
     }
     catch (cause) {
         if (isAborted(signal))
             return err(verificationAborted(destinationPath));
-        return err(verificationError(cause instanceof JpegStructureError
-            ? cause.message
-            : "Could not reopen and verify the destination.", destinationPath));
+        // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
+        const fallbackDetail = "Could not reopen and verify the destination.";
+        return err(verificationError(cause instanceof JpegStructureError ? cause.message : fallbackDetail, destinationPath));
     }
 }
 function classifyAdmissionFailure(cause, preserveColorProfile) {
