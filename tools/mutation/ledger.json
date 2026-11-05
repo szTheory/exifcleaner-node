@@ -187665,7 +187665,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u000040\u000017\u000040\u000037"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > constructor StringLiteral: a JpegStructureError is named JpegStructureError and carries its typed refusal and kind"
@@ -187678,15 +187678,13 @@
       "function": "isJpegSignature",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 5,
+      "count": 3,
       "keys": [
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u000082\u00005\u000083\u000022",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u000082\u00005\u000084\u000021",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u000083\u00005\u000083\u000022",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u000084\u00005\u000084\u000021",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u000085\u00005\u000085\u000022"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > isJpegSignature ConditionalExpression, EqualityOperator and LogicalOperator: only FF D8 FF followed by anything is a signature, at exactly three bytes too"
@@ -187694,17 +187692,21 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:isJpegSignature:ConditionalExpression"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:isJpegSignature:ConditionalExpression:pending-99",
+      "id": "jpeg:src/jpeg/parser.ts:isJpegSignature:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "isJpegSignature",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 1,
+      "disposition": "dead",
+      "count": 3,
       "keys": [
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u000082\u00005\u000082\u000022"
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u000082\u00005\u000082\u000022",
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u000082\u00005\u000083\u000022",
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u000082\u00005\u000084\u000021"
       ],
-      "note": "Pending the maintainer decision recorded in 67-27-HALTED.md (Gate 1); the member is equivalent but shares its line with an observable Killed counterpart, so no directive is allowed.",
+      "note": "Deleted by the Plan 67-27 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"magic.length >= 3\" no longer appears in its enclosing function isJpegSignature (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "magic.length >= 3",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:isJpegSignature:ConditionalExpression"
     },
     {
@@ -187713,16 +187715,14 @@
       "file": "src/jpeg/parser.ts",
       "function": "isJpegSignature",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000magic.length > 3\u000082\u00005\u000082\u000022"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > isJpegSignature ConditionalExpression, EqualityOperator and LogicalOperator: only FF D8 FF followed by anything is a signature, at exactly three bytes too"
-      }
+      "note": "Deleted by the Plan 67-27 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"magic.length >= 3\" no longer appears in its enclosing function isJpegSignature (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "magic.length >= 3",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:isJpegSignature:LogicalOperator",
@@ -187730,18 +187730,16 @@
       "file": "src/jpeg/parser.ts",
       "function": "isJpegSignature",
       "mutatorName": "LogicalOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 3,
       "keys": [
         "src/jpeg/parser.ts\u0000LogicalOperator\u0000magic.length >= 3 && magic[0] === 0xff && magic[1] === SOI || magic[2] === 0xff\u000082\u00005\u000085\u000022",
         "src/jpeg/parser.ts\u0000LogicalOperator\u0000magic.length >= 3 && magic[0] === 0xff || magic[1] === SOI\u000082\u00005\u000084\u000021",
         "src/jpeg/parser.ts\u0000LogicalOperator\u0000magic.length >= 3 || magic[0] === 0xff\u000082\u00005\u000083\u000022"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > isJpegSignature ConditionalExpression, EqualityOperator and LogicalOperator: only FF D8 FF followed by anything is a signature, at exactly three bytes too"
-      }
+      "note": "Deleted by the Plan 67-27 Gate 1 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"magic.length >= 3\" no longer appears in its enclosing function isJpegSignature (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "magic.length >= 3",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:parseDhtSlots:ArithmeticOperator",
@@ -187846,10 +187844,10 @@
       "disposition": "gap",
       "count": 2,
       "keys": [
-        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor + 1 - tableBytes\u0000197\u00009\u0000197\u000032",
-        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor - 1\u0000197\u00009\u0000197\u000019"
+        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor - 1\u0000190\u00009\u0000190\u000019",
+        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor + 1 - tableBytes\u0000197\u00009\u0000197\u000032"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Anchor ordinal shift: deleting the Gate 4 guard removed the first occurrence of the span text `cursor + 1`, so the frozen anchor of the baseline 190 `cursor - 1` member (ordinal 0) now resolves to the surviving 197 `cursor - 1` mutant (Killed by this test), and the frozen anchor of the baseline 197 `cursor - 1` member (ordinal 1) resolves to a mutant outside parseDqtSlots (the first `cursor + 1` of parseDhtSlots), which the verifier accepts for a dead row. The two members are interchangeable under the line-shift-proof identity; this swap is recorded, not a re-mapping.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > parseDqtSlots ArithmeticOperator, ConditionalExpression and BlockStatement: a DQT table is admitted at exactly its 65 or 129 bytes and refused as malformed-container one byte short, from any cursor"
@@ -187857,17 +187855,19 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ArithmeticOperator"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ArithmeticOperator:pending-99",
+      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ArithmeticOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDqtSlots",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
-        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor - 1\u0000190\u00009\u0000190\u000019"
+        "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000cursor - 1\u0000197\u00009\u0000197\u000019"
       ],
-      "note": "Pending the maintainer decision recorded in 67-27-HALTED.md (Gate 4); the member is equivalent but shares its line with an observable Killed counterpart, so no directive is allowed.",
+      "note": "Deleted by the Plan 67-27 Gate 4 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"cursor + 1 > payload.length\" no longer appears in its enclosing function parseDqtSlots (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential). Anchor ordinal shift: deleting the Gate 4 guard removed the first occurrence of the span text `cursor + 1`, so the frozen anchor of the baseline 190 `cursor - 1` member (ordinal 0) now resolves to the surviving 197 `cursor - 1` mutant (Killed by this test), and the frozen anchor of the baseline 197 `cursor - 1` member (ordinal 1) resolves to a mutant outside parseDqtSlots (the first `cursor + 1` of parseDhtSlots), which the verifier accepts for a dead row. The two members are interchangeable under the line-shift-proof identity; this swap is recorded, not a re-mapping.",
+      "symbol": "cursor + 1 > payload.length",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ArithmeticOperator"
     },
     {
@@ -187881,7 +187881,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000197\u000051\u0000199\u00006"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > parseDqtSlots ArithmeticOperator, ConditionalExpression and BlockStatement: a DQT table is admitted at exactly its 65 or 129 bytes and refused as malformed-container one byte short, from any cursor"
@@ -187889,17 +187889,19 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:BlockStatement"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:BlockStatement:pending-99",
+      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:BlockStatement:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDqtSlots",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000190\u000038\u0000192\u00006"
       ],
-      "note": "Pending the maintainer decision recorded in 67-27-HALTED.md (Gate 4); the member is equivalent but shares its line with an observable Killed counterpart, so no directive is allowed.",
+      "note": "Deleted by the Plan 67-27 Gate 4 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"cursor + 1 > payload.length\" no longer appears in its enclosing function parseDqtSlots (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "cursor + 1 > payload.length",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:BlockStatement"
     },
     {
@@ -187914,7 +187916,7 @@
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000196\u000024\u0000196\u000032",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000197\u00009\u0000197\u000049"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > parseDqtSlots ArithmeticOperator, ConditionalExpression and BlockStatement: a DQT table is admitted at exactly its 65 or 129 bytes and refused as malformed-container one byte short, from any cursor"
@@ -187922,17 +187924,19 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ConditionalExpression"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ConditionalExpression:pending-99",
+      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDqtSlots",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000190\u00009\u0000190\u000036"
       ],
-      "note": "Pending the maintainer decision recorded in 67-27-HALTED.md (Gate 4); the member is equivalent but shares its line with an observable Killed counterpart, so no directive is allowed.",
+      "note": "Deleted by the Plan 67-27 Gate 4 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"cursor + 1 > payload.length\" no longer appears in its enclosing function parseDqtSlots (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "cursor + 1 > payload.length",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:ConditionalExpression"
     },
     {
@@ -187941,26 +187945,44 @@
       "file": "src/jpeg/parser.ts",
       "function": "parseDqtSlots",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000cursor + 1 >= payload.length\u0000190\u00009\u0000190\u000036"
       ],
-      "note": "Pending the maintainer decision recorded in 67-27-HALTED.md (Gate 4); the member is equivalent but shares its line with an observable Killed counterpart, so no directive is allowed."
+      "note": "Deleted by the Plan 67-27 Gate 4 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"cursor + 1 > payload.length\" no longer appears in its enclosing function parseDqtSlots (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "cursor + 1 > payload.length",
+      "symbolScope": "function"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral",
+      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral:dead-01",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "parseDqtSlots",
+      "mutatorName": "StringLiteral",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000191\u000037\u0000191\u000069"
+      ],
+      "note": "Deleted by the Plan 67-27 Gate 4 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"cursor + 1 > payload.length\" no longer appears in its enclosing function parseDqtSlots (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "cursor + 1 > payload.length",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral"
+    },
+    {
+      "id": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral:pending-99",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "parseDqtSlots",
       "mutatorName": "StringLiteral",
       "disposition": "pending",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000191\u000037\u0000191\u000069",
         "src/jpeg/parser.ts\u0000StringLiteral\u0000\"\"\u0000198\u000037\u0000198\u000062"
       ],
-      "note": "Pending the maintainer decision recorded in 67-27-HALTED.md (Gate 4, Gate 5); the member is equivalent but shares its line with an observable Killed counterpart, so no directive is allowed."
+      "note": "Maintainer-approved residue (67-27-HALTED.md Gate 5, Option B, relayed by the coordinating agent): the member is the free-text message literal of refuse(\"malformed-container\", ...) at the DQT truncation check. It is equivalent, but a next-line StringLiteral directive would also comment-Ignore the type-invalid \"malformed-container\" mutant on the same line, which no frozen row can own, and hosting the message in a local constant moves the frozen anchor of the enclosing BlockStatement member. No rule-conforming disposition exists; carried until a tooling decision (a narrow refuse() message ignorer).",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:parseDqtSlots:StringLiteral"
     },
     {
       "id": "jpeg:src/jpeg/parser.ts:parseJpeg:ArithmeticOperator",
@@ -188298,7 +188320,7 @@
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000length + read\u0000104\u00007\u0000104\u000020",
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000position - read\u0000105\u00007\u0000105\u000022"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > readExactly ArithmeticOperator, ConditionalExpression and BlockStatement: a handle that returns three bytes per read still yields the same parse, each read asks for exactly what is left, and a file shorter than declared is a truncation"
@@ -188315,7 +188337,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000107\u000031\u0000109\u00006"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > readExactly ArithmeticOperator, ConditionalExpression and BlockStatement: a handle that returns three bytes per read still yields the same parse, each read asks for exactly what is left, and a file shorter than declared is a truncation"
@@ -188332,7 +188354,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000107\u00009\u0000107\u000029"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > readExactly ArithmeticOperator, ConditionalExpression and BlockStatement: a handle that returns three bytes per read still yields the same parse, each read asks for exactly what is left, and a file shorter than declared is a truncation"
@@ -188349,7 +188371,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000166\u00007\u0000166\u000014"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > readIdentifier MethodExpression, ConditionalExpression and EqualityOperator: an APPn identifier is the text before a NUL found in the first 32 payload bytes, empty for a leading NUL, absent otherwise"
@@ -188366,7 +188388,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000nul <= 0\u0000166\u00007\u0000166\u000014"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > readIdentifier MethodExpression, ConditionalExpression and EqualityOperator: an APPn identifier is the text before a NUL found in the first 32 payload bytes, empty for a leading NUL, absent otherwise"
@@ -188383,7 +188405,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000MethodExpression\u0000Math.max(32, payload.length)\u0000164\u000038\u0000164\u000066"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > readIdentifier MethodExpression, ConditionalExpression and EqualityOperator: an APPn identifier is the text before a NUL found in the first 32 payload bytes, empty for a leading NUL, absent otherwise"
@@ -188400,7 +188422,7 @@
       "keys": [
         "src/jpeg/parser.ts\u0000ArithmeticOperator\u0000position - windowLength\u0000142\u000018\u0000142\u000041"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. The earlier test is the first killer Stryker records for this member (hosted pre-triage status Survived or NoCoverage; reports/triage/67-27/red-full.json already shows it Killed by that test). The 67-27 read-pattern tests also fail the same mutant (checked by applying it alone and reverting).",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. The earlier test is the first killer Stryker records for this member (hosted pre-triage status Survived or NoCoverage; reports/triage/67-27/red-full.json already shows it Killed by that test). The 67-27 read-pattern tests also fail the same mutant (checked by applying it alone and reverting).",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ArithmeticOperator and MethodExpression: a segment larger than one copy block compares block by block within the buffer bound"
@@ -188412,45 +188434,47 @@
       "file": "src/jpeg/parser.ts",
       "function": "readWindowed",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/parser.ts\u0000BlockStatement\u0000{}\u0000135\u000035\u0000137\u00004"
       ],
-      "note": "Pending the maintainer decision recorded in 67-27-HALTED.md (Gate 2); the member is equivalent but shares its line with an observable Killed counterpart, so no directive is allowed."
+      "note": "Deleted by the Plan 67-27 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"length > READ_WINDOW_BYTES\" no longer appears in its enclosing function readWindowed (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "length > READ_WINDOW_BYTES",
+      "symbolScope": "function"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression:gap-01",
+      "id": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "readWindowed",
       "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 2,
-      "keys": [
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000135\u00007\u0000135\u000033",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000138\u00007\u0000138\u000064"
-      ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. The earlier test is the first killer Stryker records for this member (hosted pre-triage status Survived or NoCoverage; reports/triage/67-27/red-full.json already shows it Killed by that test). The 67-27 read-pattern tests also fail the same mutant (checked by applying it alone and reverting).",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ArithmeticOperator and MethodExpression: a segment larger than one copy block compares block by block within the buffer bound"
-      },
-      "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression"
-    },
-    {
-      "id": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression:pending-99",
-      "group": "jpeg",
-      "file": "src/jpeg/parser.ts",
-      "function": "readWindowed",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000135\u00007\u0000135\u000033",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000138\u00007\u0000138\u000030"
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000135\u00007\u0000135\u000033"
       ],
-      "note": "Pending the maintainer decision recorded in 67-27-HALTED.md (Gate 2, Gate 3); the member is equivalent but shares its line with an observable Killed counterpart, so no directive is allowed.",
+      "note": "Deleted by the Plan 67-27 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"length > READ_WINDOW_BYTES\" no longer appears in its enclosing function readWindowed (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "length > READ_WINDOW_BYTES",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression:dead-02",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "readWindowed",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 2,
+      "keys": [
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000138\u00007\u0000138\u000030",
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000138\u00007\u0000138\u000064"
+      ],
+      "note": "Deleted by the Plan 67-27 Gate 3 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"position < window.start\" no longer appears in its enclosing function readWindowed (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "position < window.start",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression"
     },
     {
@@ -188462,46 +188486,46 @@
       "disposition": "gap",
       "count": 1,
       "keys": [
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000length <= READ_WINDOW_BYTES\u0000135\u00007\u0000135\u000033"
-      ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. The earlier test is the first killer Stryker records for this member (hosted pre-triage status Survived or NoCoverage; reports/triage/67-27/red-full.json already shows it Killed by that test). The 67-27 read-pattern tests also fail the same mutant (checked by applying it alone and reverting).",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ArithmeticOperator and MethodExpression: a segment larger than one copy block compares block by block within the buffer bound"
-      },
-      "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator"
-    },
-    {
-      "id": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator:gap-02",
-      "group": "jpeg",
-      "file": "src/jpeg/parser.ts",
-      "function": "readWindowed",
-      "mutatorName": "EqualityOperator",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000position + length >= window.end\u0000138\u000034\u0000138\u000064"
       ],
-      "note": "reports/triage/67-27/green2-full.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-27/red-full.json (src/jpeg/parser.ts whole file, a real run on the unedited source and the baseline tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-27/batch-final.json (Killed); the exact named test appears in killedBy. The earlier test is the first killer Stryker records for this member (hosted pre-triage status Survived or NoCoverage; reports/triage/67-27/red-full.json already shows it Killed by that test). The 67-27 read-pattern tests also fail the same mutant (checked by applying it alone and reverting).",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "jpeg/parser.ts structure error, signature, read and DQT clusters (67-27, jpeg-5) > readExactly ArithmeticOperator, ConditionalExpression and BlockStatement: a handle that returns three bytes per read still yields the same parse, each read asks for exactly what is left, and a file shorter than declared is a truncation"
+        "name": "jpeg-handler.ts collectMetadata and helper clusters (67-23, jpeg-1) > isStructuralMarker ConditionalExpression: a DRI restart-interval segment is structural and survives sanitization byte-identically"
       },
       "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator"
     },
     {
-      "id": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator:pending-99",
+      "id": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
       "function": "readWindowed",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 2,
       "keys": [
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000length >= READ_WINDOW_BYTES\u0000135\u00007\u0000135\u000033",
+        "src/jpeg/parser.ts\u0000EqualityOperator\u0000length <= READ_WINDOW_BYTES\u0000135\u00007\u0000135\u000033",
+        "src/jpeg/parser.ts\u0000EqualityOperator\u0000length >= READ_WINDOW_BYTES\u0000135\u00007\u0000135\u000033"
+      ],
+      "note": "Deleted by the Plan 67-27 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"length > READ_WINDOW_BYTES\" no longer appears in its enclosing function readWindowed (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "length > READ_WINDOW_BYTES",
+      "symbolScope": "function",
+      "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator"
+    },
+    {
+      "id": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator:dead-02",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "readWindowed",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000position <= window.start\u0000138\u00007\u0000138\u000030"
       ],
-      "note": "Pending the maintainer decision recorded in 67-27-HALTED.md (Gate 2, Gate 3); the member is equivalent but shares its line with an observable Killed counterpart, so no directive is allowed.",
+      "note": "Deleted by the Plan 67-27 Gate 3 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"position < window.start\" no longer appears in its enclosing function readWindowed (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "position < window.start",
+      "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator"
     },
     {
@@ -188520,7 +188544,7 @@
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000detail === undefined\u00000",
         "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000detail === undefined\u00000"
       ],
-      "note": "One next-line directive per line (class unobservable-message); the detail or message operand only feeds the free-text message of a typed JpegStructureError, whose refusal literal and kind come from the first argument. The directive lines hold no other mutant of the named mutators (reports/triage/67-27/green2-full.json: every comment-Ignored mutant of parser.ts is listed in an equivalent row).",
+      "note": "One next-line directive per line (class unobservable-message); the detail or message operand only feeds the free-text message of a typed JpegStructureError, whose refusal literal and kind come from the first argument. The directive lines hold no other mutant of the named mutators (reports/triage/67-27/batch-final.json: every comment-Ignored mutant of parser.ts is listed in an equivalent row).",
       "equivalenceClass": "unobservable-message"
     },
     {
@@ -188537,7 +188561,7 @@
       "anchors": [
         "src/jpeg/parser.ts\u0000EqualityOperator\u0000detail !== undefined\u0000detail === undefined\u00000"
       ],
-      "note": "One next-line directive per line (class unobservable-message); the detail or message operand only feeds the free-text message of a typed JpegStructureError, whose refusal literal and kind come from the first argument. The directive lines hold no other mutant of the named mutators (reports/triage/67-27/green2-full.json: every comment-Ignored mutant of parser.ts is listed in an equivalent row).",
+      "note": "One next-line directive per line (class unobservable-message); the detail or message operand only feeds the free-text message of a typed JpegStructureError, whose refusal literal and kind come from the first argument. The directive lines hold no other mutant of the named mutators (reports/triage/67-27/batch-final.json: every comment-Ignored mutant of parser.ts is listed in an equivalent row).",
       "equivalenceClass": "unobservable-message"
     },
     {
@@ -188562,7 +188586,7 @@
         "src/jpeg/parser.ts\u0000StringLiteral\u0000``\u0000`Component ${component.cs} references DC Huffman table ${component.td}, which was never defined.`\u00000",
         "src/jpeg/parser.ts\u0000StringLiteral\u0000``\u0000`Component ${component.cs} references AC Huffman table ${component.ta}, which was never defined.`\u00000"
       ],
-      "note": "One next-line directive per line (class unobservable-message); the detail or message operand only feeds the free-text message of a typed JpegStructureError, whose refusal literal and kind come from the first argument. The directive lines hold no other mutant of the named mutators (reports/triage/67-27/green2-full.json: every comment-Ignored mutant of parser.ts is listed in an equivalent row).",
+      "note": "One next-line directive per line (class unobservable-message); the detail or message operand only feeds the free-text message of a typed JpegStructureError, whose refusal literal and kind come from the first argument. The directive lines hold no other mutant of the named mutators (reports/triage/67-27/batch-final.json: every comment-Ignored mutant of parser.ts is listed in an equivalent row).",
       "equivalenceClass": "unobservable-message"
     },
     {
