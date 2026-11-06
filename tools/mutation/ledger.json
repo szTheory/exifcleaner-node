@@ -196391,15 +196391,16 @@
       "file": "src/png/chunks.ts",
       "function": "constructor",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000257\u000017\u0000257\u000036"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000\"PngStructureError\"\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > constructor StringLiteral cluster: a thrown structure error carries its class name"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:consume:ArithmeticOperator",
@@ -196516,46 +196517,80 @@
       "keys": [
         "src/png/chunks.ts\u0000EqualityOperator\u0000n <= 256\u0000207\u000019\u0000207\u000026"
       ],
+      "note": "Awaiting the maintainer ruling in 67-40-HALTED.md (behavior-preserving source simplification of redundant guards and equivalent boundary comparisons in src/png/chunks.ts): this member has the same typed outcome with or without the guard or boundary, and an observable Killed sibling replacement of the same mutator shares its line or condition, so no next-line directive can own it honestly.",
       "anchors": [
         "src/png/chunks.ts\u0000EqualityOperator\u0000n <= 256\u0000n < 256\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
-      "id": "png:src/png/chunks.ts:hasValidTypeBytes:ConditionalExpression",
+      "id": "png:src/png/chunks.ts:hasValidTypeBytes:ConditionalExpression:gap-01",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "hasValidTypeBytes",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000286\u00005\u0000288\u000033"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > hasValidTypeBytes ConditionalExpression and LogicalOperator clusters: a non-letter byte at any of the four type positions is refused"
+      },
+      "originClusterId": "png:src/png/chunks.ts:hasValidTypeBytes:ConditionalExpression"
+    },
+    {
+      "id": "png:src/png/chunks.ts:hasValidTypeBytes:ConditionalExpression:pending-01",
       "group": "png",
       "file": "src/png/chunks.ts",
       "function": "hasValidTypeBytes",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000286\u00005\u0000286\u000028",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000286\u00005\u0000288\u000033"
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000286\u00005\u0000286\u000028"
       ],
+      "note": "Awaiting the maintainer ruling in 67-40-HALTED.md (behavior-preserving source simplification of redundant guards and equivalent boundary comparisons in src/png/chunks.ts): this member has the same typed outcome with or without the guard or boundary, and an observable Killed sibling replacement of the same mutator shares its line or condition, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000typeBuffer.length === 4\u00000",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000typeBuffer.length === 4 &&\n    typeBuffer[0] !== undefined &&\n    isAsciiLetter(typeBuffer[0])\u00000"
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000typeBuffer.length === 4\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/png/chunks.ts:hasValidTypeBytes:ConditionalExpression"
     },
     {
-      "id": "png:src/png/chunks.ts:hasValidTypeBytes:LogicalOperator",
+      "id": "png:src/png/chunks.ts:hasValidTypeBytes:LogicalOperator:gap-01",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "hasValidTypeBytes",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000LogicalOperator\u0000typeBuffer.length === 4 && typeBuffer[0] !== undefined && isAsciiLetter(typeBuffer[0]) || typeBuffer[1] !== undefined\u0000286\u00005\u0000289\u000032"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > hasValidTypeBytes ConditionalExpression and LogicalOperator clusters: a non-letter byte at any of the four type positions is refused"
+      },
+      "originClusterId": "png:src/png/chunks.ts:hasValidTypeBytes:LogicalOperator"
+    },
+    {
+      "id": "png:src/png/chunks.ts:hasValidTypeBytes:LogicalOperator:pending-01",
       "group": "png",
       "file": "src/png/chunks.ts",
       "function": "hasValidTypeBytes",
       "mutatorName": "LogicalOperator",
       "disposition": "pending",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/png/chunks.ts\u0000LogicalOperator\u0000typeBuffer.length === 4 && typeBuffer[0] !== undefined && isAsciiLetter(typeBuffer[0]) || typeBuffer[1] !== undefined\u0000286\u00005\u0000289\u000032",
         "src/png/chunks.ts\u0000LogicalOperator\u0000typeBuffer.length === 4 || typeBuffer[0] !== undefined\u0000286\u00005\u0000287\u000032"
       ],
+      "note": "Awaiting the maintainer ruling in 67-40-HALTED.md (behavior-preserving source simplification of redundant guards and equivalent boundary comparisons in src/png/chunks.ts): this member has the same typed outcome with or without the guard or boundary, and an observable Killed sibling replacement of the same mutator shares its line or condition, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/png/chunks.ts\u0000LogicalOperator\u0000typeBuffer.length === 4 && typeBuffer[0] !== undefined && isAsciiLetter(typeBuffer[0]) || typeBuffer[1] !== undefined\u0000typeBuffer.length === 4 &&\n    typeBuffer[0] !== undefined &&\n    isAsciiLetter(typeBuffer[0]) &&\n    typeBuffer[1] !== undefined\u00000",
         "src/png/chunks.ts\u0000LogicalOperator\u0000typeBuffer.length === 4 || typeBuffer[0] !== undefined\u0000typeBuffer.length === 4 &&\n    typeBuffer[0] !== undefined\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/png/chunks.ts:hasValidTypeBytes:LogicalOperator"
     },
     {
       "id": "png:src/png/chunks.ts:inflateBounded:ArithmeticOperator",
@@ -196595,17 +196630,17 @@
       "file": "src/png/chunks.ts",
       "function": "isAsciiLetter",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000281\u000027\u0000281\u000039",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000281\u000061\u0000281\u000073"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000byte <= 0x5a\u00000",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000byte <= 0x7a\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > isAsciiLetter ConditionalExpression and EqualityOperator clusters: type bytes outside A-Z and a-z are refused, A, Z, a and z are accepted"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:isAsciiLetter:EqualityOperator",
@@ -196613,15 +196648,16 @@
       "file": "src/png/chunks.ts",
       "function": "isAsciiLetter",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000EqualityOperator\u0000byte < 0x5a\u0000281\u000027\u0000281\u000039"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000EqualityOperator\u0000byte < 0x5a\u0000byte <= 0x5a\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > isAsciiLetter ConditionalExpression and EqualityOperator clusters: type bytes outside A-Z and a-z are refused, A, Z, a and z are accepted"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:isBufferTooLarge:ConditionalExpression",
@@ -196650,10 +196686,10 @@
       "keys": [
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000193\u00005\u0000193\u000037"
       ],
+      "note": "Awaiting the maintainer ruling in 67-40-HALTED.md (behavior-preserving source simplification of redundant guards and equivalent boundary comparisons in src/png/chunks.ts): this member has the same typed outcome with or without the guard or boundary, and an observable Killed sibling replacement of the same mutator shares its line or condition, so no next-line directive can own it honestly.",
       "anchors": [
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000magic.length >= PNG_HEADER_BYTES\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
       "id": "png:src/png/chunks.ts:isUpperFirstLetter:ConditionalExpression",
@@ -196666,10 +196702,10 @@
       "keys": [
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000300\u000010\u0000300\u000022"
       ],
+      "note": "Awaiting the maintainer ruling in 67-40-HALTED.md (behavior-preserving source simplification of redundant guards and equivalent boundary comparisons in src/png/chunks.ts): this member has the same typed outcome with or without the guard or boundary, and an observable Killed sibling replacement of the same mutator shares its line or condition, so no next-line directive can own it honestly.",
       "anchors": [
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000code >= 0x41\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
       "id": "png:src/png/chunks.ts:isUpperFirstLetter:EqualityOperator",
@@ -196677,17 +196713,17 @@
       "file": "src/png/chunks.ts",
       "function": "isUpperFirstLetter",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/png/chunks.ts\u0000EqualityOperator\u0000code > 0x41\u0000300\u000010\u0000300\u000022",
         "src/png/chunks.ts\u0000EqualityOperator\u0000code < 0x5a\u0000300\u000026\u0000300\u000038"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000EqualityOperator\u0000code > 0x41\u0000code >= 0x41\u00000",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000code < 0x5a\u0000code <= 0x5a\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > isUpperFirstLetter EqualityOperator clusters: unknown critical types starting with A or Z are refused and lowercase first letters are not"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:parsePng:ArithmeticOperator",
@@ -196889,17 +196925,17 @@
       "file": "src/png/chunks.ts",
       "function": "readExactly",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/png/chunks.ts\u0000ArithmeticOperator\u0000length + read\u0000453\u00007\u0000453\u000020",
         "src/png/chunks.ts\u0000ArithmeticOperator\u0000position - read\u0000454\u00007\u0000454\u000022"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000ArithmeticOperator\u0000length + read\u0000length - read\u00000",
-        "src/png/chunks.ts\u0000ArithmeticOperator\u0000position - read\u0000position + read\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > readExactly ArithmeticOperator cluster: a partial read continues at the next offset, remaining length and position"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:readExactly:ConditionalExpression",
@@ -196907,15 +196943,16 @@
       "file": "src/png/chunks.ts",
       "function": "readExactly",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000456\u00009\u0000456\u000029"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000next.bytesRead === 0\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > readExactly ConditionalExpression cluster: a read that reaches the end of the file stops with a malformed-file refusal after one empty read"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:readWindowed:BlockStatement",
@@ -196923,53 +196960,88 @@
       "file": "src/png/chunks.ts",
       "function": "readWindowed",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000494\u000045\u0000496\u00004"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n    return readExactly(handle, length, position);\n  }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > readWindowed BlockStatement, ConditionalExpression and EqualityOperator clusters: an ancillary chunk wider than the read window is buffered whole"
+      }
     },
     {
-      "id": "png:src/png/chunks.ts:readWindowed:ConditionalExpression",
+      "id": "png:src/png/chunks.ts:readWindowed:ConditionalExpression:gap-01",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "readWindowed",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000494\u00007\u0000494\u000043"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > readWindowed BlockStatement, ConditionalExpression and EqualityOperator clusters: an ancillary chunk wider than the read window is buffered whole"
+      },
+      "originClusterId": "png:src/png/chunks.ts:readWindowed:ConditionalExpression"
+    },
+    {
+      "id": "png:src/png/chunks.ts:readWindowed:ConditionalExpression:pending-01",
       "group": "png",
       "file": "src/png/chunks.ts",
       "function": "readWindowed",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000494\u00007\u0000494\u000043",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000497\u00007\u0000497\u000030"
       ],
+      "note": "Awaiting the maintainer ruling in 67-40-HALTED.md (behavior-preserving source simplification of redundant guards and equivalent boundary comparisons in src/png/chunks.ts): this member has the same typed outcome with or without the guard or boundary, and an observable Killed sibling replacement of the same mutator shares its line or condition, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000length > PNG_CHUNK_READ_WINDOW_BYTES\u00000",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000position < window.start\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/png/chunks.ts:readWindowed:ConditionalExpression"
     },
     {
-      "id": "png:src/png/chunks.ts:readWindowed:EqualityOperator",
+      "id": "png:src/png/chunks.ts:readWindowed:EqualityOperator:gap-01",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "readWindowed",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000EqualityOperator\u0000position + length >= window.end\u0000497\u000034\u0000497\u000064"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > readWindowed EqualityOperator cluster: a request ending exactly at the window end is served from the window"
+      },
+      "originClusterId": "png:src/png/chunks.ts:readWindowed:EqualityOperator"
+    },
+    {
+      "id": "png:src/png/chunks.ts:readWindowed:EqualityOperator:pending-01",
       "group": "png",
       "file": "src/png/chunks.ts",
       "function": "readWindowed",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 3,
+      "count": 2,
       "keys": [
         "src/png/chunks.ts\u0000EqualityOperator\u0000length >= PNG_CHUNK_READ_WINDOW_BYTES\u0000494\u00007\u0000494\u000043",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000position <= window.start\u0000497\u00007\u0000497\u000030",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000position + length >= window.end\u0000497\u000034\u0000497\u000064"
+        "src/png/chunks.ts\u0000EqualityOperator\u0000position <= window.start\u0000497\u00007\u0000497\u000030"
       ],
+      "note": "Awaiting the maintainer ruling in 67-40-HALTED.md (behavior-preserving source simplification of redundant guards and equivalent boundary comparisons in src/png/chunks.ts): this member has the same typed outcome with or without the guard or boundary, and an observable Killed sibling replacement of the same mutator shares its line or condition, so no next-line directive can own it honestly.",
       "anchors": [
         "src/png/chunks.ts\u0000EqualityOperator\u0000length >= PNG_CHUNK_READ_WINDOW_BYTES\u0000length > PNG_CHUNK_READ_WINDOW_BYTES\u00000",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000position <= window.start\u0000position < window.start\u00000",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000position + length >= window.end\u0000position + length > window.end\u00000"
+        "src/png/chunks.ts\u0000EqualityOperator\u0000position <= window.start\u0000position < window.start\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/png/chunks.ts:readWindowed:EqualityOperator"
     },
     {
       "id": "png:src/png/chunks.ts:streamChunkCrc:AssignmentOperator",
@@ -196977,17 +197049,17 @@
       "file": "src/png/chunks.ts",
       "function": "streamChunkCrc",
       "mutatorName": "AssignmentOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/png/chunks.ts\u0000AssignmentOperator\u0000position -= take\u0000520\u00005\u0000520\u000021",
         "src/png/chunks.ts\u0000AssignmentOperator\u0000remaining += take\u0000521\u00005\u0000521\u000022"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000AssignmentOperator\u0000position -= take\u0000position += take\u00000",
-        "src/png/chunks.ts\u0000AssignmentOperator\u0000remaining += take\u0000remaining -= take\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed): already detected by the Plan 67-38 test named here, which predates this plan; the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:streamChunkCrc:BlockStatement",
@@ -196995,15 +197067,16 @@
       "file": "src/png/chunks.ts",
       "function": "streamChunkCrc",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000516\u000025\u0000522\u00004"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n    const take = Math.min(IDAT_STREAM_BLOCK_BYTES, remaining);\n    const block = await readExactly(handle, take, position);\n    crc = crc32Update(crc, block);\n    position += take;\n    remaining -= take;\n  }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Timeout): already detected by the Plan 67-38 test named here, which predates this plan; the exact named test is the one covering test and the member is a Stryker hit-limit Timeout. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:streamChunkCrc:ConditionalExpression",
@@ -197011,15 +197084,16 @@
       "file": "src/png/chunks.ts",
       "function": "streamChunkCrc",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000516\u000010\u0000516\u000023"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000remaining > 0\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed): already detected by the Plan 67-38 test named here, which predates this plan; the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:streamChunkCrc:EqualityOperator",
@@ -197027,17 +197101,17 @@
       "file": "src/png/chunks.ts",
       "function": "streamChunkCrc",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/png/chunks.ts\u0000EqualityOperator\u0000remaining <= 0\u0000516\u000010\u0000516\u000023",
         "src/png/chunks.ts\u0000EqualityOperator\u0000remaining >= 0\u0000516\u000010\u0000516\u000023"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000EqualityOperator\u0000remaining <= 0\u0000remaining > 0\u00000",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000remaining >= 0\u0000remaining > 0\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed and Timeout): already detected by the Plan 67-38 test named here, which predates this plan; the exact named test is the one covering test and the member is a Stryker hit-limit Timeout. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:streamChunkCrc:MethodExpression",
@@ -197045,15 +197119,16 @@
       "file": "src/png/chunks.ts",
       "function": "streamChunkCrc",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000MethodExpression\u0000Math.max(IDAT_STREAM_BLOCK_BYTES, remaining)\u0000517\u000018\u0000517\u000062"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000MethodExpression\u0000Math.max(IDAT_STREAM_BLOCK_BYTES, remaining)\u0000Math.min(IDAT_STREAM_BLOCK_BYTES, remaining)\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed): already detected by the Plan 67-38 test named here, which predates this plan; the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
+      }
     },
     {
       "id": "png:src/png/chunks.ts:validateStructure:AssignmentOperator",
@@ -197061,129 +197136,286 @@
       "file": "src/png/chunks.ts",
       "function": "validateStructure",
       "mutatorName": "AssignmentOperator",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000AssignmentOperator\u0000nonIdatCount -= 1\u0000380\u00007\u0000380\u000024"
       ],
+      "note": "A next-line AssignmentOperator disable owns the update of the validateStructure ancillary counter. The counter feeds only the ancillary-count guard on the next line, which the identical count in parsePng already makes unreachable, so a counter that moves the other way changes no typed outcome; it is the only AssignmentOperator mutant on that line.",
+      "equivalenceClass": "redundant-guard-after-typed-check",
       "anchors": [
         "src/png/chunks.ts\u0000AssignmentOperator\u0000nonIdatCount -= 1\u0000nonIdatCount += 1\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
-      "id": "png:src/png/chunks.ts:validateStructure:BlockStatement",
+      "id": "png:src/png/chunks.ts:validateStructure:BlockStatement:gap-01",
       "group": "png",
       "file": "src/png/chunks.ts",
       "function": "validateStructure",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 6,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000317\u000028\u0000322\u00004",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000325\u000029\u0000330\u00004",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000331\u000026\u0000333\u00004",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000346\u000046\u0000351\u00006",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000381\u000052\u0000386\u00008",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000418\u000058\u0000423\u00008"
+        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000331\u000026\u0000333\u00004"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"IHDR chunk must be exactly 13 bytes.\",\n    );\n  }\u00000",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"PNG must end with an IEND chunk.\",\n    );\n  }\u00000",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\"malformed-file\", \"IEND chunk must be empty.\");\n  }\u00000",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new PngStructureError(\n        \"unsafe-structure\",\n        \"Animated PNG is not supported.\",\n      );\n    }\u00000",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n        throw new PngStructureError(\n          \"unsafe-structure\",\n          `PNG contains more than ${PNG_MAX_ANCILLARY_CHUNKS} ancillary chunks.`,\n        );\n      }\u00000",
-        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n        throw new PngStructureError(\n          \"unsafe-structure\",\n          `${type} must occur before the first IDAT chunk.`,\n        );\n      }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > validateStructure ConditionalExpression and BlockStatement clusters: the first chunk must be a 13-byte IHDR and the last an empty IEND"
+      },
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:BlockStatement"
     },
     {
-      "id": "png:src/png/chunks.ts:validateStructure:ConditionalExpression",
+      "id": "png:src/png/chunks.ts:validateStructure:BlockStatement:gap-02",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000418\u000058\u0000423\u00008"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > validateStructure ConditionalExpression, BlockStatement and EqualityOperator clusters: an after-PLTE chunk following IDAT is refused"
+      },
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:BlockStatement"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:BlockStatement:equivalent-01",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000325\u000029\u0000330\u00004"
+      ],
+      "note": "A next-line BlockStatement disable owns the refusal block of the IEND-last check of validateStructure. validateStructure is private and parsePng calls it only after its read loop: that loop sets its end flag only on reading an IEND chunk and breaks right after recording it, refuses a file that has no IEND and refuses any data after it, so the last chunk of the list handed to the check is always IEND and the block is never entered (git grep -w validateStructure over src, tests, scripts and docs finds the definition, that one call and comments). The condition's own ConditionalExpression and EqualityOperator mutants share the line and are not suppressed; they stay in their own rows.",
+      "equivalenceClass": "redundant-guard-after-typed-check",
+      "anchors": [
+        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"PNG must end with an IEND chunk.\",\n    );\n  }\u00000"
+      ],
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:BlockStatement"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:BlockStatement:equivalent-02",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000346\u000046\u0000351\u00006"
+      ],
+      "note": "A next-line BlockStatement disable owns the refusal block of the animation-chunk backstop in validateStructure. parsePng refuses acTL, fcTL and fdAT in its read loop on the type alone, before it records the chunk, so no chunk handed to validateStructure has an animation type and the block is never entered; the loop-side refusal is Killed by the APNG tests (the existing it.each over the three types). The backstop condition's own ConditionalExpression mutants share the line and are not suppressed.",
+      "equivalenceClass": "redundant-guard-after-typed-check",
+      "anchors": [
+        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new PngStructureError(\n        \"unsafe-structure\",\n        \"Animated PNG is not supported.\",\n      );\n    }\u00000"
+      ],
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:BlockStatement"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:BlockStatement:equivalent-03",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000381\u000052\u0000386\u00008"
+      ],
+      "note": "A next-line BlockStatement disable owns the refusal block of the ancillary-count guard in validateStructure. parsePng counts non-IDAT chunks with the same rule (every type except IDAT, IHDR and IEND included) and refuses when the count exceeds the same constant before it records the chunk, so the list handed to validateStructure never holds more than the limit and the block is never entered. The guard's EqualityOperator boundary mutant is Killed by the exact-limit test, and the condition's ConditionalExpression mutants share the line and are not suppressed.",
+      "equivalenceClass": "redundant-guard-after-typed-check",
+      "anchors": [
+        "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000{\n        throw new PngStructureError(\n          \"unsafe-structure\",\n          `PNG contains more than ${PNG_MAX_ANCILLARY_CHUNKS} ancillary chunks.`,\n        );\n      }\u00000"
+      ],
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:BlockStatement"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:ConditionalExpression:gap-01",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000311\u000030\u0000311\u000051",
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000317\u00007\u0000317\u000026",
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000331\u00007\u0000331\u000024"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > validateStructure ConditionalExpression and BlockStatement clusters: the first chunk must be a 13-byte IHDR and the last an empty IEND"
+      },
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:ConditionalExpression"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:ConditionalExpression:gap-02",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 4,
+      "keys": [
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000390\u000011\u0000390\u000030",
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000404\u000010\u0000404\u000029",
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000418\u000011\u0000418\u000030",
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000425\u000011\u0000425\u000030"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > validateStructure ConditionalExpression clusters: an ordering rule applies only against a chunk that is present, so a missing IDAT stays a malformed file"
+      },
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:ConditionalExpression"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:ConditionalExpression:gap-03",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000403\u000033\u0000403\u000055",
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000404\u000010\u0000404\u000055"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > validateStructure ConditionalExpression and EqualityOperator clusters: a before-PLTE chunk ahead of PLTE parses and one after IDAT is refused"
+      },
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:ConditionalExpression"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:ConditionalExpression:gap-04",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000418\u000011\u0000418\u000056"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > validateStructure ConditionalExpression, BlockStatement and EqualityOperator clusters: an after-PLTE chunk following IDAT is refused"
+      },
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:ConditionalExpression"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:ConditionalExpression:pending-01",
       "group": "png",
       "file": "src/png/chunks.ts",
       "function": "validateStructure",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 15,
+      "count": 5,
       "keys": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000311\u000030\u0000311\u000051",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000317\u00007\u0000317\u000026",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000325\u00007\u0000325\u000027",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000331\u00007\u0000331\u000024",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000346\u00009\u0000346\u000044",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000381\u000011\u0000381\u000050",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000390\u000011\u0000390\u000030",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000398\u00009\u0000398\u000043",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000403\u000033\u0000403\u000055",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000404\u000010\u0000404\u000055",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000404\u000010\u0000404\u000029",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000412\u000011\u0000412\u000030",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000418\u000011\u0000418\u000056",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000418\u000011\u0000418\u000030",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000425\u000011\u0000425\u000030"
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000412\u000011\u0000412\u000030"
       ],
+      "note": "Awaiting the maintainer ruling in 67-40-HALTED.md (behavior-preserving source simplification of redundant guards and equivalent boundary comparisons in src/png/chunks.ts): this member has the same typed outcome with or without the guard or boundary, and an observable Killed sibling replacement of the same mutator shares its line or condition, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000first.type !== \"IHDR\"\u00000",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000first.length !== 13\u00000",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000last.type !== \"IEND\"\u00000",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000last.length !== 0\u00000",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000PNG_ANIMATION_CHUNK_TYPES.has(type)\u00000",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000nonIdatCount > PNG_MAX_ANCILLARY_CHUNKS\u00000",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000firstIdatIndex >= 0\u00000",
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000PNG_CRITICAL_CHUNK_TYPES.has(type)\u00001",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000index > firstPlteIndex\u00000",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000firstIdatIndex >= 0 && index > firstIdatIndex\u00001",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000firstIdatIndex >= 0\u00001",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000firstPlteIndex >= 0\u00001",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000firstIdatIndex >= 0 && index > firstIdatIndex\u00002",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000firstIdatIndex >= 0\u00002",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000firstIdatIndex >= 0\u00003"
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000firstPlteIndex >= 0\u00001"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:ConditionalExpression"
     },
     {
-      "id": "png:src/png/chunks.ts:validateStructure:EqualityOperator",
+      "id": "png:src/png/chunks.ts:validateStructure:EqualityOperator:gap-01",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000EqualityOperator\u0000nonIdatCount >= PNG_MAX_ANCILLARY_CHUNKS\u0000381\u000011\u0000381\u000050"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > validateStructure EqualityOperator cluster: exactly PNG_MAX_ANCILLARY_CHUNKS non-IDAT chunks parse and one more is refused"
+      },
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:EqualityOperator"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:EqualityOperator:gap-02",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "validateStructure",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex < 0\u0000404\u000010\u0000404\u000029",
+        "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex < 0\u0000418\u000011\u0000418\u000030"
+      ],
+      "note": "reports/triage/67-40/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-40/red.json (src/png/chunks.ts whole file, a real run on the unedited source and the pre-67-40 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4) > validateStructure ConditionalExpression clusters: an ordering rule applies only against a chunk that is present, so a missing IDAT stays a malformed file"
+      },
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:EqualityOperator"
+    },
+    {
+      "id": "png:src/png/chunks.ts:validateStructure:EqualityOperator:pending-01",
       "group": "png",
       "file": "src/png/chunks.ts",
       "function": "validateStructure",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 15,
+      "count": 12,
       "keys": [
-        "src/png/chunks.ts\u0000EqualityOperator\u0000nonIdatCount >= PNG_MAX_ANCILLARY_CHUNKS\u0000381\u000011\u0000381\u000050",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex > 0\u0000390\u000011\u0000390\u000030",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstIdatIndex\u0000390\u000034\u0000390\u000056",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstPlteIndex > 0\u0000403\u000010\u0000403\u000029",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstPlteIndex\u0000403\u000033\u0000403\u000055",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex < 0\u0000404\u000010\u0000404\u000029",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex > 0\u0000404\u000010\u0000404\u000029",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstIdatIndex\u0000404\u000033\u0000404\u000055",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstPlteIndex > 0\u0000412\u000011\u0000412\u000030",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index <= firstPlteIndex\u0000412\u000034\u0000412\u000056",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex < 0\u0000418\u000011\u0000418\u000030",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex > 0\u0000418\u000011\u0000418\u000030",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstIdatIndex\u0000418\u000034\u0000418\u000056",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex > 0\u0000425\u000011\u0000425\u000030",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstIdatIndex\u0000425\u000034\u0000425\u000056"
       ],
+      "note": "Awaiting the maintainer ruling in 67-40-HALTED.md (behavior-preserving source simplification of redundant guards and equivalent boundary comparisons in src/png/chunks.ts): this member has the same typed outcome with or without the guard or boundary, and an observable Killed sibling replacement of the same mutator shares its line or condition, so no next-line directive can own it honestly.",
       "anchors": [
-        "src/png/chunks.ts\u0000EqualityOperator\u0000nonIdatCount >= PNG_MAX_ANCILLARY_CHUNKS\u0000nonIdatCount > PNG_MAX_ANCILLARY_CHUNKS\u00000",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex > 0\u0000firstIdatIndex >= 0\u00000",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstIdatIndex\u0000index > firstIdatIndex\u00000",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstPlteIndex > 0\u0000firstPlteIndex >= 0\u00000",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstPlteIndex\u0000index > firstPlteIndex\u00000",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex < 0\u0000firstIdatIndex >= 0\u00001",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex > 0\u0000firstIdatIndex >= 0\u00001",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstIdatIndex\u0000index > firstIdatIndex\u00001",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstPlteIndex > 0\u0000firstPlteIndex >= 0\u00001",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index <= firstPlteIndex\u0000index < firstPlteIndex\u00000",
-        "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex < 0\u0000firstIdatIndex >= 0\u00002",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex > 0\u0000firstIdatIndex >= 0\u00002",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstIdatIndex\u0000index > firstIdatIndex\u00002",
         "src/png/chunks.ts\u0000EqualityOperator\u0000firstIdatIndex > 0\u0000firstIdatIndex >= 0\u00003",
         "src/png/chunks.ts\u0000EqualityOperator\u0000index >= firstIdatIndex\u0000index > firstIdatIndex\u00003"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "png:src/png/chunks.ts:validateStructure:EqualityOperator"
     },
     {
       "id": "png:src/png/chunks.ts:validateStructure:StringLiteral",
@@ -197191,15 +197423,16 @@
       "file": "src/png/chunks.ts",
       "function": "validateStructure",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "equivalent",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000400\u000047\u0000400\u000057"
       ],
+      "note": "A next-line StringLiteral disable owns the default ordering class name in validateStructure. The value is only compared against the three class names of the branches below, and an empty string, like the default name, matches none of them and takes the same no-refusal path for every type absent from PNG_ORDER; it is the only StringLiteral mutant on that line. The class name is a sentinel, not a message, so this is a judgment item listed in the plan summary (one directive to drop if the maintainer prefers a different class).",
+      "equivalenceClass": "equivalent-arithmetic",
       "anchors": [
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000\"anywhere\"\u00007"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      ]
     },
     {
       "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:BlockStatement",
