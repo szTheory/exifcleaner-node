@@ -199274,32 +199274,79 @@
       }
     },
     {
-      "id": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression",
+      "id": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression:pending-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "chunkRank",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 7,
+      "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000104\u00007\u0000104\u000024",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000106\u00007\u0000106\u000024",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000106\u00007\u0000106\u000024",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000108\u00005\u0000108\u000022",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000108\u00005\u0000111\u000022",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000110\u00005\u0000110\u000022",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000111\u00005\u0000111\u000022"
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000108\u00005\u0000108\u000022"
       ],
+      "originClusterId": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression",
       "anchors": [
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fourCc === \"VP8X\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fourCc === \"ANIM\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000fourCc === \"ANIM\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fourCc === \"ALPH\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000fourCc === \"ALPH\" ||\n    fourCc === \"VP8 \" ||\n    fourCc === \"VP8L\" ||\n    fourCc === \"ANMF\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fourCc === \"VP8L\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fourCc === \"ANMF\"\u00000"
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fourCc === \"ALPH\"\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer ruling in 67-44-HALTED.md (Option A, a behavior-preserving source simplification): an earlier check in riff.ts already fixes the value of this construct for every reachable input, so its mutant is unobservable, and the same line holds Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-44/green2.json."
+    },
+    {
+      "id": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression:gap-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "chunkRank",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000106\u00007\u0000106\u000024",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000106\u00007\u0000106\u000024",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000111\u00005\u0000111\u000022"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > chunkRank ConditionalExpression and StringLiteral clusters: ANIM and ANMF are ordered, a chunk after ANMF cannot be an ANIM"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "chunkRank",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000108\u00005\u0000111\u000022"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > chunkRank ConditionalExpression and EqualityOperator clusters: EXIF and XMP take no part in the chunk order, ICCP may follow EXIF and XMP may follow the image"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "chunkRank",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000110\u00005\u0000110\u000022"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > chunkRank ConditionalExpression and StringLiteral clusters: a VP8L image ranks above ICCP, so an ICCP after it is refused"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:chunkRank:EqualityOperator",
@@ -199307,39 +199354,72 @@
       "file": "src/webp/riff.ts",
       "function": "chunkRank",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/webp/riff.ts\u0000EqualityOperator\u0000fourCc !== \"ANMF\"\u0000111\u00005\u0000111\u000022"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fourCc !== \"ANMF\"\u0000fourCc === \"ANMF\"\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > chunkRank ConditionalExpression and StringLiteral clusters: ANIM and ANMF are ordered, a chunk after ANMF cannot be an ANIM"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:chunkRank:StringLiteral",
+      "id": "webp:src/webp/riff.ts:chunkRank:StringLiteral:pending-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "chunkRank",
       "mutatorName": "StringLiteral",
       "disposition": "pending",
-      "count": 5,
+      "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000104\u000018\u0000104\u000024",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000106\u000018\u0000106\u000024",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000108\u000016\u0000108\u000022",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000110\u000016\u0000110\u000022",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000111\u000016\u0000111\u000022"
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000108\u000016\u0000108\u000022"
       ],
+      "originClusterId": "webp:src/webp/riff.ts:chunkRank:StringLiteral",
       "anchors": [
         "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"VP8X\"\u00002",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"ANIM\"\u00002",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"ALPH\"\u00002",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"VP8L\"\u00002",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"ANMF\"\u00001"
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"ALPH\"\u00002"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer ruling in 67-44-HALTED.md (Option A, a behavior-preserving source simplification): an earlier check in riff.ts already fixes the value of this construct for every reachable input, so its mutant is unobservable, and the same line holds Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-44/green2.json."
+    },
+    {
+      "id": "webp:src/webp/riff.ts:chunkRank:StringLiteral:gap-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "chunkRank",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000106\u000018\u0000106\u000024",
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000111\u000016\u0000111\u000022"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:chunkRank:StringLiteral",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > chunkRank ConditionalExpression and StringLiteral clusters: ANIM and ANMF are ordered, a chunk after ANMF cannot be an ANIM"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:chunkRank:StringLiteral:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "chunkRank",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000110\u000016\u0000110\u000022"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:chunkRank:StringLiteral",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > chunkRank ConditionalExpression and StringLiteral clusters: a VP8L image ranks above ICCP, so an ICCP after it is refused"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:encodeRiffHeader:BlockStatement",
@@ -199444,246 +199524,1091 @@
       "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
     },
     {
-      "id": "webp:src/webp/riff.ts:parseWebp:ArithmeticOperator",
+      "id": "webp:src/webp/riff.ts:parseWebp:ArithmeticOperator:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "parseWebp",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000fileSize + offset\u0000399\u00009\u0000399\u000026",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000fileSize + paddedSize\u0000435\u000022\u0000435\u000043",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000canvasWidth / canvasHeight\u0000504\u00009\u0000504\u000035"
+        "src/webp/riff.ts\u0000ArithmeticOperator\u0000fileSize + offset\u0000399\u00009\u0000399\u000026"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000fileSize + offset\u0000fileSize - offset\u00000",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000fileSize + paddedSize\u0000fileSize - paddedSize\u00000",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000canvasWidth / canvasHeight\u0000canvasWidth * canvasHeight\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ArithmeticOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a four-byte tail inside the RIFF size is a truncated chunk header and no read crosses the file size"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "id": "webp:src/webp/riff.ts:parseWebp:ArithmeticOperator:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ArithmeticOperator\u0000fileSize + paddedSize\u0000435\u000022\u0000435\u000043"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ArithmeticOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a chunk whose padded size runs past the RIFF bounds is refused without reading past the file size"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ArithmeticOperator:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ArithmeticOperator\u0000canvasWidth / canvasHeight\u0000504\u00009\u0000504\u000035"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ArithmeticOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, EqualityOperator, ArithmeticOperator and BlockStatement clusters: an animated canvas whose area exceeds 32 bits is refused and one of exactly 0xffffffff pixels is accepted"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "parseWebp",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 14,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000357\u000034\u0000362\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000367\u00005\u0000372\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000399\u000032\u0000404\u00006",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000435\u000045\u0000440\u00006",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000468\u000028\u0000473\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000478\u000059\u0000483\u00006",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000504\u000051\u0000509\u00006",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000514\u000045\u0000519\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000520\u000046\u0000525\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000526\u000048\u0000531\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000532\u000069\u0000537\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000538\u000044\u0000543\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000555\u00005\u0000560\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000633\u000047\u0000638\u00006"
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000357\u000034\u0000362\u00004"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"unsafe-structure\",\n      \"WebP RIFF size exceeds the 32-bit container limit.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"unsupported-format\",\n      \"File magic is not RIFF/WEBP.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"malformed-file\",\n        \"RIFF chunk header is truncated.\",\n      );\n    }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"malformed-file\",\n        `${fourCc.trim()} chunk exceeds RIFF bounds.`,\n      );\n    }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"RIFF chunks do not end at the declared boundary.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"malformed-file\",\n        \"VP8X must be the first chunk and contain 10 bytes.\",\n      );\n    }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"malformed-file\",\n        \"VP8X canvas area exceeds the 32-bit WebP limit.\",\n      );\n    }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"unsafe-structure\",\n      \"Container has both VP8 and VP8L image payloads.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"WebP container has no image or animation frame payload.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"ANIM and ANMF chunks must occur together.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"Animated WebP requires a VP8X chunk.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"unsafe-structure\",\n      \"Container mixes top-level still-image and animation payloads.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"ALPH must immediately precede VP8 in an extended WebP container.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"malformed-file\",\n        \"VP8X animation flag does not match animation chunks.\",\n      );\n    }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and BlockStatement clusters: a file one byte over the RIFF limit is refused as unsafe-structure before any read"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000367\u00005\u0000372\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and LogicalOperator clusters: a RIFX signature and a WEBQ form type are each refused as unsupported-format"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000399\u000032\u0000404\u00006"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a four-byte tail inside the RIFF size is a truncated chunk header and no read crosses the file size"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-04",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000435\u000045\u0000440\u00006"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a chunk whose padded size runs past the RIFF bounds is refused without reading past the file size"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:equivalent-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000468\u000028\u0000473\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "A next-line ConditionalExpression and BlockStatement directive owns the chunk-boundary guard after the chunk loop of parseWebp. The loop runs while offset is below fileSize, and every chunk end (dataOffset plus paddedSize) was checked against fileSize before it was added to offset, so the loop can only exit with offset equal to fileSize and the guard never throws (fileSize is at most the 32-bit RIFF maximum, so there is no overflow). The always-true sibling replacement is a TypeScript compile error suppressed only as collateral (its anchor is listed); the EqualityOperator mutant of the line stays active and Killed.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
+      "anchors": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"RIFF chunks do not end at the declared boundary.\",\n    );\n  }\u00000"
+      ]
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-05",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000478\u000059\u0000483\u00006"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, LogicalOperator and BlockStatement clusters: a VP8X that is not the first chunk, or whose size is not 10, is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-06",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000504\u000051\u0000509\u00006"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, EqualityOperator, ArithmeticOperator and BlockStatement clusters: an animated canvas whose area exceeds 32 bits is refused and one of exactly 0xffffffff pixels is accepted"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-07",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000514\u000045\u0000519\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, StringLiteral and BlockStatement clusters: a container with both VP8 and VP8L payloads is refused as unsafe-structure"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-08",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000520\u000046\u0000525\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp EqualityOperator and ConditionalExpression clusters: a file of exactly the 12-byte RIFF header has no image payload, while 11 bytes is not a WebP container"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-09",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000526\u000048\u0000531\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and BlockStatement clusters: ANIM without ANMF and ANMF without ANIM are each refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-10",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000532\u000069\u0000537\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, LogicalOperator, StringLiteral and BlockStatement clusters: an animation without a VP8X chunk is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-11",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000538\u000044\u0000543\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and BlockStatement clusters: top-level still-image and animation payloads in one container are refused as unsafe-structure"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-12",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000555\u00005\u0000560\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, EqualityOperator, LogicalOperator and BlockStatement clusters: an ALPH chunk without a VP8X, or followed by a VP8L, is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:BlockStatement:gap-13",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000633\u000047\u0000638\u00006"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and BlockStatement clusters: a VP8X animation flag that disagrees with the ANMF chunks is refused in both directions"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000349\u00007\u0000349\u000024"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and LogicalOperator clusters: a signal aborted before parsing rejects with its own reason and reads nothing"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000357\u00007\u0000357\u000032"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and BlockStatement clusters: a file one byte over the RIFF limit is refused as unsafe-structure before any read"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000365\u00005\u0000365\u000046",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000365\u00005\u0000366\u000047",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000366\u00005\u0000366\u000047"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and LogicalOperator clusters: a RIFX signature and a WEBQ form type are each refused as unsupported-format"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:equivalent-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 2,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000376\u00007\u0000376\u000034",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000376\u00007\u0000376\u000034"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "A next-line directive owns the ternary that picks the two words ending the RIFF size mismatch message (\"trailing data\" or \"truncated data\"). That reason is only interpolated into the WebpStructureError message; the malformed-file kind, offsets and bytes are the same for every choice of comparison, branch or word, and the line holds no other mutant. Every comment-Ignored mutant of the line is listed in anchors.",
+      "equivalenceClass": "unobservable-message",
+      "anchors": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000declaredFileSize < fileSize\u00000",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000declaredFileSize < fileSize\u00000"
+      ]
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-04",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000397\u00009\u0000397\u000026"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and LogicalOperator clusters: a signal aborted after the RIFF header read rejects with its own reason before any chunk header is read"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-05",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000399\u00009\u0000399\u000030"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a four-byte tail inside the RIFF size is a truncated chunk header and no read crosses the file size"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-06",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000435\u00009\u0000435\u000043"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a chunk whose padded size runs past the RIFF bounds is refused without reading past the file size"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-07",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000451\u00009\u0000451\u000035"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Earlier killer: a Plan 67-42 webp-1 test already kills this member in the red run (it is Killed there), so the hosted pre-triage status is the red evidence and that earlier test is the named killer; the Plan 67-44 tests assert the same typed observable.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > copyChunkData MethodExpression cluster: a chunk larger than one copy block is copied block by block within the buffer bound"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:equivalent-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000468\u00007\u0000468\u000026"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "A next-line ConditionalExpression and BlockStatement directive owns the chunk-boundary guard after the chunk loop of parseWebp. The loop runs while offset is below fileSize, and every chunk end (dataOffset plus paddedSize) was checked against fileSize before it was added to offset, so the loop can only exit with offset equal to fileSize and the guard never throws (fileSize is at most the 32-bit RIFF maximum, so there is no overflow). The always-true sibling replacement is a TypeScript compile error suppressed only as collateral (its anchor is listed); the EqualityOperator mutant of the line stays active and Killed.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
+      "anchors": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000offset !== fileSize\u00000",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000offset !== fileSize\u00000"
+      ]
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-08",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000478\u00009\u0000478\u000032",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000478\u00009\u0000478\u000057",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000478\u000036\u0000478\u000057"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, LogicalOperator and BlockStatement clusters: a VP8X that is not the first chunk, or whose size is not 10, is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-09",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000487\u00007\u0000487\u000027",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000488\u00007\u0000488\u000027",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000489\u00007\u0000489\u000027"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and LogicalOperator clusters: a VP8X with a non-zero reserved byte 1, 2 or 3 is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-10",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000504\u00009\u0000504\u000049"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, EqualityOperator, ArithmeticOperator and BlockStatement clusters: an animated canvas whose area exceeds 32 bits is refused and one of exactly 0xffffffff pixels is accepted"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-11",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000514\u00007\u0000514\u000043"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, StringLiteral and BlockStatement clusters: a container with both VP8 and VP8L payloads is refused as unsafe-structure"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-12",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000520\u00007\u0000520\u000044"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp EqualityOperator and ConditionalExpression clusters: a file of exactly the 12-byte RIFF header has no image payload, while 11 bytes is not a WebP container"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-13",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000526\u00007\u0000526\u000046"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and BlockStatement clusters: ANIM without ANMF and ANMF without ANIM are each refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-14",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000532\u00007\u0000532\u000067"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, LogicalOperator, StringLiteral and BlockStatement clusters: an animation without a VP8X chunk is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-15",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000538\u00007\u0000538\u000042"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and BlockStatement clusters: top-level still-image and animation payloads in one container are refused as unsafe-structure"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-16",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000553\u00005\u0000554\u000070",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000554\u00006\u0000554\u000047",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000554\u000051\u0000554\u000069"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, EqualityOperator, LogicalOperator and BlockStatement clusters: an ALPH chunk without a VP8X, or followed by a VP8L, is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:pending-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "parseWebp",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 32,
+      "count": 3,
       "keys": [
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000349\u00007\u0000349\u000024",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000357\u00007\u0000357\u000032",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000365\u00005\u0000365\u000046",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000365\u00005\u0000366\u000047",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000366\u00005\u0000366\u000047",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000376\u00007\u0000376\u000034",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000376\u00007\u0000376\u000034",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000397\u00009\u0000397\u000026",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000399\u00009\u0000399\u000030",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000435\u00009\u0000435\u000043",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000451\u00009\u0000451\u000035",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000468\u00007\u0000468\u000026",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000478\u00009\u0000478\u000032",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000478\u00009\u0000478\u000057",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000478\u000036\u0000478\u000057",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000487\u00007\u0000487\u000027",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000488\u00007\u0000488\u000027",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000489\u00007\u0000489\u000027",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000504\u00009\u0000504\u000049",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000514\u00007\u0000514\u000043",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000520\u00007\u0000520\u000044",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000526\u00007\u0000526\u000046",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000532\u00007\u0000532\u000067",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000538\u00007\u0000538\u000042",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000553\u00005\u0000554\u000070",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000554\u00006\u0000554\u000047",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000554\u000051\u0000554\u000069",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000581\u00007\u0000581\u000032",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000582\u00007\u0000582\u000033",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000583\u000039\u0000583\u000068",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000601\u000014\u0000601\u000032",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000633\u00009\u0000633\u000045"
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000601\u000014\u0000601\u000032"
       ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
       "anchors": [
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fileSize > MAX_RIFF_BYTES\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000header.toString(\"ascii\", 0, 4) !== \"RIFF\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000header.toString(\"ascii\", 0, 4) !== \"RIFF\" ||\n    header.toString(\"ascii\", 8, 12) !== \"WEBP\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000header.toString(\"ascii\", 8, 12) !== \"WEBP\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000declaredFileSize < fileSize\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000declaredFileSize < fileSize\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00001",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fileSize - offset < 8\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000dataOffset > fileSize - paddedSize\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000metadataFlag(fourCc) !== 0\u00001",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000offset !== fileSize\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000chunks[0] !== vp8xChunk\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000chunks[0] !== vp8xChunk || vp8xChunk.size !== 10\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000vp8xChunk.size !== 10\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000(data[1] ?? 0) !== 0\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000(data[2] ?? 0) !== 0\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000(data[3] ?? 0) !== 0\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000canvasWidth * canvasHeight > 0xffff_ffff\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000seen.has(\"VP8 \") && seen.has(\"VP8L\")\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000!hasStillImage && !hasAnimationFrames\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000hasAnimationFrames !== seen.has(\"ANIM\")\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000(seen.has(\"ANIM\") || seen.has(\"ANMF\")) && vp8x === undefined\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000hasStillImage && hasAnimationFrames\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000alphaIndex >= 0 &&\n    (chunks[alphaIndex + 1]?.fourCc !== \"VP8 \" || vp8x === undefined)\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000chunks[alphaIndex + 1]?.fourCc !== \"VP8 \"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000vp8x === undefined\u00001",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000canvasWidth !== undefined\u00000",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000canvasHeight !== undefined\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000image.height !== canvasHeight\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000hasAnimationFrames\u00004",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000animationFlag !== hasAnimationFrames\u00000"
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000hasAnimationFrames\u00004"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer ruling in 67-44-HALTED.md (Option A, a behavior-preserving source simplification): an earlier check in riff.ts already fixes the value of this construct for every reachable input, so its mutant is unobservable, and the same line holds Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-44/green2.json."
     },
     {
-      "id": "webp:src/webp/riff.ts:parseWebp:EqualityOperator",
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-17",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000583\u000039\u0000583\u000068"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression cluster: an image whose height alone disagrees with the VP8X canvas is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression:gap-18",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000633\u00009\u0000633\u000045"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and BlockStatement clusters: a VP8X animation flag that disagrees with the ANMF chunks is refused in both directions"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:EqualityOperator:gap-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize <= RIFF_HEADER_SIZE\u0000351\u000042\u0000351\u000069"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp EqualityOperator and ConditionalExpression clusters: a file of exactly the 12-byte RIFF header has no image payload, while 11 bytes is not a WebP container"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:EqualityOperator:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize >= MAX_RIFF_BYTES\u0000357\u00007\u0000357\u000032"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp EqualityOperator cluster: a file of exactly the RIFF limit is parsed"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:EqualityOperator:equivalent-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "EqualityOperator",
+      "disposition": "equivalent",
+      "count": 2,
+      "keys": [
+        "src/webp/riff.ts\u0000EqualityOperator\u0000declaredFileSize <= fileSize\u0000376\u00007\u0000376\u000034",
+        "src/webp/riff.ts\u0000EqualityOperator\u0000declaredFileSize >= fileSize\u0000376\u00007\u0000376\u000034"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:EqualityOperator",
+      "note": "A next-line directive owns the ternary that picks the two words ending the RIFF size mismatch message (\"trailing data\" or \"truncated data\"). That reason is only interpolated into the WebpStructureError message; the malformed-file kind, offsets and bytes are the same for every choice of comparison, branch or word, and the line holds no other mutant. Every comment-Ignored mutant of the line is listed in anchors.",
+      "equivalenceClass": "unobservable-message",
+      "anchors": [
+        "src/webp/riff.ts\u0000EqualityOperator\u0000declaredFileSize <= fileSize\u0000declaredFileSize < fileSize\u00000",
+        "src/webp/riff.ts\u0000EqualityOperator\u0000declaredFileSize >= fileSize\u0000declaredFileSize < fileSize\u00000"
+      ]
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:EqualityOperator:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize - offset <= 8\u0000399\u00009\u0000399\u000030"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp EqualityOperator cluster: an empty trailing EXIF chunk that ends the file exactly leaves eight bytes and is a complete chunk"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:EqualityOperator:gap-04",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000EqualityOperator\u0000size >= MAX_BUFFERED_METADATA_BYTES\u0000421\u000039\u0000421\u000073"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp EqualityOperator cluster: an EXIF chunk of exactly the metadata inspection limit is buffered, not refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:EqualityOperator:gap-05",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000EqualityOperator\u0000canvasWidth * canvasHeight >= 0xffff_ffff\u0000504\u00009\u0000504\u000049"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, EqualityOperator, ArithmeticOperator and BlockStatement clusters: an animated canvas whose area exceeds 32 bits is refused and one of exactly 0xffffffff pixels is accepted"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:EqualityOperator:gap-06",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000EqualityOperator\u0000alphaIndex > 0\u0000553\u00005\u0000553\u000020"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, EqualityOperator, LogicalOperator and BlockStatement clusters: an ALPH chunk without a VP8X, or followed by a VP8L, is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:EqualityOperator:pending-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "parseWebp",
       "mutatorName": "EqualityOperator",
       "disposition": "pending",
-      "count": 10,
+      "count": 2,
       "keys": [
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize <= RIFF_HEADER_SIZE\u0000351\u000042\u0000351\u000069",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize >= MAX_RIFF_BYTES\u0000357\u00007\u0000357\u000032",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000declaredFileSize <= fileSize\u0000376\u00007\u0000376\u000034",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000declaredFileSize >= fileSize\u0000376\u00007\u0000376\u000034",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize - offset <= 8\u0000399\u00009\u0000399\u000030",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000size >= MAX_BUFFERED_METADATA_BYTES\u0000421\u000039\u0000421\u000073",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000canvasWidth * canvasHeight >= 0xffff_ffff\u0000504\u00009\u0000504\u000049",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000alphaIndex > 0\u0000553\u00005\u0000553\u000020",
         "src/webp/riff.ts\u0000EqualityOperator\u0000rank <= 0\u0000564\u00009\u0000564\u000017",
         "src/webp/riff.ts\u0000EqualityOperator\u0000alphaIndex > 0\u0000590\u00009\u0000590\u000024"
       ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:EqualityOperator",
       "anchors": [
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize <= RIFF_HEADER_SIZE\u0000fileSize < RIFF_HEADER_SIZE\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize >= MAX_RIFF_BYTES\u0000fileSize > MAX_RIFF_BYTES\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000declaredFileSize <= fileSize\u0000declaredFileSize < fileSize\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000declaredFileSize >= fileSize\u0000declaredFileSize < fileSize\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize - offset <= 8\u0000fileSize - offset < 8\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000size >= MAX_BUFFERED_METADATA_BYTES\u0000size > MAX_BUFFERED_METADATA_BYTES\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000canvasWidth * canvasHeight >= 0xffff_ffff\u0000canvasWidth * canvasHeight > 0xffff_ffff\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000alphaIndex > 0\u0000alphaIndex >= 0\u00000",
         "src/webp/riff.ts\u0000EqualityOperator\u0000rank <= 0\u0000rank < 0\u00000",
         "src/webp/riff.ts\u0000EqualityOperator\u0000alphaIndex > 0\u0000alphaIndex >= 0\u00001"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer ruling in 67-44-HALTED.md (Option A, a behavior-preserving source simplification): an earlier check in riff.ts already fixes the value of this construct for every reachable input, so its mutant is unobservable, and the same line holds Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-44/green2.json."
     },
     {
-      "id": "webp:src/webp/riff.ts:parseWebp:LogicalOperator",
+      "id": "webp:src/webp/riff.ts:parseWebp:LogicalOperator:gap-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000350\u000011\u0000350\u000070"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:LogicalOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and LogicalOperator clusters: a signal aborted before parsing rejects with its own reason and reads nothing"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:LogicalOperator:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000LogicalOperator\u0000header.toString(\"ascii\", 0, 4) !== \"RIFF\" && header.toString(\"ascii\", 8, 12) !== \"WEBP\"\u0000365\u00005\u0000366\u000047"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:LogicalOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and LogicalOperator clusters: a RIFX signature and a WEBQ form type are each refused as unsupported-format"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:LogicalOperator:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000398\u000013\u0000398\u000072"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:LogicalOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and LogicalOperator clusters: a signal aborted after the RIFF header read rejects with its own reason before any chunk header is read"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:LogicalOperator:gap-04",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000LogicalOperator\u0000chunks[0] !== vp8xChunk && vp8xChunk.size !== 10\u0000478\u00009\u0000478\u000057"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:LogicalOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, LogicalOperator and BlockStatement clusters: a VP8X that is not the first chunk, or whose size is not 10, is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:LogicalOperator:gap-05",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/webp/riff.ts\u0000LogicalOperator\u0000data[1] && 0\u0000487\u00008\u0000487\u000020",
+        "src/webp/riff.ts\u0000LogicalOperator\u0000data[2] && 0\u0000488\u00008\u0000488\u000020",
+        "src/webp/riff.ts\u0000LogicalOperator\u0000data[3] && 0\u0000489\u00008\u0000489\u000020"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:LogicalOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression and LogicalOperator clusters: a VP8X with a non-zero reserved byte 1, 2 or 3 is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:LogicalOperator:pending-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "parseWebp",
       "mutatorName": "LogicalOperator",
       "disposition": "pending",
-      "count": 10,
+      "count": 2,
       "keys": [
-        "src/webp/riff.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000350\u000011\u0000350\u000070",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000header.toString(\"ascii\", 0, 4) !== \"RIFF\" && header.toString(\"ascii\", 8, 12) !== \"WEBP\"\u0000365\u00005\u0000366\u000047",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000398\u000013\u0000398\u000072",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000chunks[0] !== vp8xChunk && vp8xChunk.size !== 10\u0000478\u00009\u0000478\u000057",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000data[1] && 0\u0000487\u00008\u0000487\u000020",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000data[2] && 0\u0000488\u00008\u0000488\u000020",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000data[3] && 0\u0000489\u00008\u0000489\u000020",
         "src/webp/riff.ts\u0000LogicalOperator\u0000seen.has(\"ANIM\") && seen.has(\"ANMF\")\u0000532\u00008\u0000532\u000044",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000chunks[alphaIndex + 1]?.fourCc !== \"VP8 \" && vp8x === undefined\u0000554\u00006\u0000554\u000069",
         "src/webp/riff.ts\u0000LogicalOperator\u0000canvasWidth !== undefined || canvasHeight !== undefined\u0000581\u00007\u0000582\u000033"
       ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:LogicalOperator",
       "anchors": [
-        "src/webp/riff.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00000",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000header.toString(\"ascii\", 0, 4) !== \"RIFF\" && header.toString(\"ascii\", 8, 12) !== \"WEBP\"\u0000header.toString(\"ascii\", 0, 4) !== \"RIFF\" ||\n    header.toString(\"ascii\", 8, 12) !== \"WEBP\"\u00000",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00001",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000chunks[0] !== vp8xChunk && vp8xChunk.size !== 10\u0000chunks[0] !== vp8xChunk || vp8xChunk.size !== 10\u00000",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000data[1] && 0\u0000data[1] ?? 0\u00000",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000data[2] && 0\u0000data[2] ?? 0\u00000",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000data[3] && 0\u0000data[3] ?? 0\u00000",
         "src/webp/riff.ts\u0000LogicalOperator\u0000seen.has(\"ANIM\") && seen.has(\"ANMF\")\u0000seen.has(\"ANIM\") || seen.has(\"ANMF\")\u00000",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000chunks[alphaIndex + 1]?.fourCc !== \"VP8 \" && vp8x === undefined\u0000chunks[alphaIndex + 1]?.fourCc !== \"VP8 \" || vp8x === undefined\u00000",
         "src/webp/riff.ts\u0000LogicalOperator\u0000canvasWidth !== undefined || canvasHeight !== undefined\u0000canvasWidth !== undefined &&\n      canvasHeight !== undefined\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer ruling in 67-44-HALTED.md (Option A, a behavior-preserving source simplification): an earlier check in riff.ts already fixes the value of this construct for every reachable input, so its mutant is unobservable, and the same line holds Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-44/green2.json."
     },
     {
-      "id": "webp:src/webp/riff.ts:parseWebp:StringLiteral",
+      "id": "webp:src/webp/riff.ts:parseWebp:LogicalOperator:gap-06",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000LogicalOperator\u0000chunks[alphaIndex + 1]?.fourCc !== \"VP8 \" && vp8x === undefined\u0000554\u00006\u0000554\u000069"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:LogicalOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, EqualityOperator, LogicalOperator and BlockStatement clusters: an ALPH chunk without a VP8X, or followed by a VP8L, is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:StringLiteral:gap-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000350\u000057\u0000350\u000069"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:StringLiteral",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp LogicalOperator and StringLiteral clusters: an abort without a reason before parsing rejects with an AbortError DOMException"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:StringLiteral:equivalent-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 2,
+      "keys": [
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000376\u000037\u0000376\u000052",
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000376\u000055\u0000376\u000071"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:StringLiteral",
+      "note": "A next-line directive owns the ternary that picks the two words ending the RIFF size mismatch message (\"trailing data\" or \"truncated data\"). That reason is only interpolated into the WebpStructureError message; the malformed-file kind, offsets and bytes are the same for every choice of comparison, branch or word, and the line holds no other mutant. Every comment-Ignored mutant of the line is listed in anchors.",
+      "equivalenceClass": "unobservable-message",
+      "anchors": [
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"trailing data\"\u00000",
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"truncated data\"\u00000"
+      ]
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:StringLiteral:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000398\u000059\u0000398\u000071"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:StringLiteral",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp LogicalOperator and StringLiteral clusters: an abort without a reason inside the chunk loop rejects with an AbortError DOMException"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:StringLiteral:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000514\u000016\u0000514\u000022",
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000514\u000036\u0000514\u000042"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:StringLiteral",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp ConditionalExpression, StringLiteral and BlockStatement clusters: a container with both VP8 and VP8L payloads is refused as unsafe-structure"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:StringLiteral:pending-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "parseWebp",
       "mutatorName": "StringLiteral",
       "disposition": "pending",
-      "count": 10,
+      "count": 2,
       "keys": [
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000350\u000057\u0000350\u000069",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000376\u000037\u0000376\u000052",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000376\u000055\u0000376\u000071",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000398\u000059\u0000398\u000071",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000514\u000016\u0000514\u000022",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000514\u000036\u0000514\u000042",
         "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000532\u000017\u0000532\u000023",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000532\u000037\u0000532\u000043",
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000532\u000037\u0000532\u000043"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:StringLiteral",
+      "anchors": [
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"ANIM\"\u00004",
+        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"ANMF\"\u00003"
+      ],
+      "note": "Awaiting the maintainer ruling in 67-44-HALTED.md (Option A, a behavior-preserving source simplification): an earlier check in riff.ts already fixes the value of this construct for every reachable input, so its mutant is unobservable, and the same line holds Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-44/green2.json."
+    },
+    {
+      "id": "webp:src/webp/riff.ts:parseWebp:StringLiteral:gap-04",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "parseWebp",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000614\u000032\u0000614\u000038",
         "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000614\u000072\u0000614\u000078"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"AbortError\"\u00000",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"trailing data\"\u00000",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"truncated data\"\u00000",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"AbortError\"\u00001",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"VP8 \"\u000010",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"VP8L\"\u00008",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"ANIM\"\u00004",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"ANMF\"\u00003",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"ICCP\"\u00005",
-        "src/webp/riff.ts\u0000StringLiteral\u0000\"\"\u0000\"XMP \"\u00004"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:parseWebp:StringLiteral",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > parseWebp StringLiteral and ConditionalExpression clusters: ICCP or XMP metadata without a VP8X chunk is refused"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:readExactly:ArithmeticOperator",
@@ -199691,17 +200616,17 @@
       "file": "src/webp/riff.ts",
       "function": "readExactly",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000ArithmeticOperator\u0000length + read\u000086\u00007\u000086\u000020",
         "src/webp/riff.ts\u0000ArithmeticOperator\u0000position - read\u000087\u00007\u000087\u000022"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000length + read\u0000length - read\u00000",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000position - read\u0000position + read\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > readExactly ArithmeticOperator cluster: a short read continues at the advanced buffer offset, remaining length and file position"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:readExactly:ConditionalExpression",
@@ -199709,15 +200634,16 @@
       "file": "src/webp/riff.ts",
       "function": "readExactly",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u000089\u00009\u000089\u000029"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000next.bytesRead === 0\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > readExactly ConditionalExpression cluster: an end of file before the requested length rejects with malformed-file after a bounded number of reads"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:readUInt24LE:ArithmeticOperator",
@@ -199725,17 +200651,17 @@
       "file": "src/webp/riff.ts",
       "function": "readUInt24LE",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000ArithmeticOperator\u0000offset - 1\u0000127\u000012\u0000127\u000022",
         "src/webp/riff.ts\u0000ArithmeticOperator\u0000offset - 2\u0000128\u000012\u0000128\u000022"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000offset - 1\u0000offset + 1\u00000",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000offset - 2\u0000offset + 2\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Earlier killer: a Plan 67-42 webp-1 test already kills this member in the red run (it is Killed there), so the hosted pre-triage status is the red evidence and that earlier test is the named killer; the Plan 67-44 tests assert the same typed observable.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression cluster: payload chunks of different types with the same sizes and bytes are refused"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:validateAlphaPayload:ArithmeticOperator",
@@ -199743,87 +200669,184 @@
       "file": "src/webp/riff.ts",
       "function": "validateAlphaPayload",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/webp/riff.ts\u0000ArithmeticOperator\u0000width / height\u0000216\u000047\u0000216\u000061"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000width / height\u0000width * height\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAlphaPayload ConditionalExpression and ArithmeticOperator clusters: an uncompressed ALPH payload must be exactly 1 + width * height bytes"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:validateAlphaPayload:BlockStatement",
+      "id": "webp:src/webp/riff.ts:validateAlphaPayload:BlockStatement:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "validateAlphaPayload",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
-      "count": 4,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000200\u000018\u0000222\u00002",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000201\u000023\u0000206\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000210\u000070\u0000215\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000216\u000063\u0000221\u00004"
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000201\u000023\u0000206\u00004"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n  if (chunk.size < 2) {\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"ALPH payload is shorter than its header and image data.\",\n    );\n  }\n  const header = (await readExactly(handle, 1, chunk.dataOffset))[0] ?? 0;\n  const compression = header & 0x03;\n  const preprocessing = (header >>> 4) & 0x03;\n  if ((header & 0xc0) !== 0 || compression > 1 || preprocessing > 1) {\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"ALPH header contains reserved or unsupported values.\",\n    );\n  }\n  if (compression === 0 && chunk.size !== 1 + width * height) {\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"Uncompressed ALPH data does not match the image dimensions.\",\n    );\n  }\n}\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"ALPH payload is shorter than its header and image data.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"ALPH header contains reserved or unsupported values.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"Uncompressed ALPH data does not match the image dimensions.\",\n    );\n  }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:validateAlphaPayload:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAlphaPayload BlockStatement and ConditionalExpression clusters: an ALPH payload of one byte is refused even when its header selects compression"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:validateAlphaPayload:ConditionalExpression",
+      "id": "webp:src/webp/riff.ts:validateAlphaPayload:BlockStatement:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAlphaPayload",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000210\u000070\u0000215\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAlphaPayload:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAlphaPayload ConditionalExpression, LogicalOperator and BlockStatement clusters: reserved bits, a compression above 1 and a preprocessing above 1 are each refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAlphaPayload:BlockStatement:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAlphaPayload",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000216\u000063\u0000221\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAlphaPayload:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAlphaPayload ConditionalExpression and ArithmeticOperator clusters: an uncompressed ALPH payload must be exactly 1 + width * height bytes"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAlphaPayload:ConditionalExpression:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "validateAlphaPayload",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 8,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000201\u00007\u0000201\u000021",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000201\u00007\u0000201\u000021"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAlphaPayload:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAlphaPayload BlockStatement and ConditionalExpression clusters: an ALPH payload of one byte is refused even when its header selects compression"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAlphaPayload:ConditionalExpression:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAlphaPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 5,
+      "keys": [
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000210\u00007\u0000210\u000028",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000210\u00007\u0000210\u000047",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000210\u00007\u0000210\u000068",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000210\u000032\u0000210\u000047",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000210\u000051\u0000210\u000068",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000216\u00007\u0000216\u000061",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000216\u00007\u0000216\u000024"
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000210\u000051\u0000210\u000068"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000chunk.size < 2\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000(header & 0xc0) !== 0\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000(header & 0xc0) !== 0 || compression > 1\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000(header & 0xc0) !== 0 || compression > 1 || preprocessing > 1\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000compression > 1\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000preprocessing > 1\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000compression === 0 && chunk.size !== 1 + width * height\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000compression === 0\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:validateAlphaPayload:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAlphaPayload ConditionalExpression, LogicalOperator and BlockStatement clusters: reserved bits, a compression above 1 and a preprocessing above 1 are each refused"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:validateAlphaPayload:EqualityOperator",
+      "id": "webp:src/webp/riff.ts:validateAlphaPayload:ConditionalExpression:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAlphaPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000216\u00007\u0000216\u000061"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAlphaPayload:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAlphaPayload ConditionalExpression and ArithmeticOperator clusters: an uncompressed ALPH payload must be exactly 1 + width * height bytes"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAlphaPayload:ConditionalExpression:gap-04",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAlphaPayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000216\u00007\u0000216\u000024"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAlphaPayload:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Earlier killer: a Plan 67-42 webp-1 test already kills this member in the red run (it is Killed there), so the hosted pre-triage status is the red evidence and that earlier test is the named killer; the Plan 67-44 tests assert the same typed observable.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression cluster: payload chunks of different types with the same sizes and bytes are refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAlphaPayload:EqualityOperator:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "validateAlphaPayload",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000EqualityOperator\u0000compression >= 1\u0000210\u000032\u0000210\u000047",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000preprocessing >= 1\u0000210\u000051\u0000210\u000068",
         "src/webp/riff.ts\u0000EqualityOperator\u0000compression !== 0\u0000216\u00007\u0000216\u000024"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000EqualityOperator\u0000compression >= 1\u0000compression > 1\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000preprocessing >= 1\u0000preprocessing > 1\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000compression !== 0\u0000compression === 0\u00000"
+      "originClusterId": "webp:src/webp/riff.ts:validateAlphaPayload:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Earlier killer: a Plan 67-42 webp-1 test already kills this member in the red run (it is Killed there), so the hosted pre-triage status is the red evidence and that earlier test is the named killer; the Plan 67-44 tests assert the same typed observable.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression cluster: payload chunks of different types with the same sizes and bytes are refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAlphaPayload:EqualityOperator:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAlphaPayload",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000EqualityOperator\u0000preprocessing >= 1\u0000210\u000051\u0000210\u000068"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:validateAlphaPayload:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAlphaPayload EqualityOperator cluster: a preprocessing of 1 and a compression of 1 are accepted"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:validateAlphaPayload:LogicalOperator",
@@ -199831,143 +200854,435 @@
       "file": "src/webp/riff.ts",
       "function": "validateAlphaPayload",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000LogicalOperator\u0000((header & 0xc0) !== 0 || compression > 1) && preprocessing > 1\u0000210\u00007\u0000210\u000068",
         "src/webp/riff.ts\u0000LogicalOperator\u0000(header & 0xc0) !== 0 && compression > 1\u0000210\u00007\u0000210\u000047"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000LogicalOperator\u0000((header & 0xc0) !== 0 || compression > 1) && preprocessing > 1\u0000(header & 0xc0) !== 0 || compression > 1 || preprocessing > 1\u00000",
-        "src/webp/riff.ts\u0000LogicalOperator\u0000(header & 0xc0) !== 0 && compression > 1\u0000(header & 0xc0) !== 0 || compression > 1\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAlphaPayload ConditionalExpression, LogicalOperator and BlockStatement clusters: reserved bits, a compression above 1 and a preprocessing above 1 are each refused"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ArithmeticOperator",
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ArithmeticOperator:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "validateAnimationFrame",
       "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 5,
+      "disposition": "gap",
+      "count": 3,
       "keys": [
         "src/webp/riff.ts\u0000ArithmeticOperator\u0000readUInt24LE(header, 0) / 2\u0000244\u000013\u0000244\u000040",
         "src/webp/riff.ts\u0000ArithmeticOperator\u0000readUInt24LE(header, 3) / 2\u0000245\u000013\u0000245\u000040",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000y - height\u0000248\u000034\u0000248\u000044",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000frameEnd + offset\u0000260\u00009\u0000260\u000026",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000frameEnd + paddedSize\u0000285\u000022\u0000285\u000043"
+        "src/webp/riff.ts\u0000ArithmeticOperator\u0000y - height\u0000248\u000034\u0000248\u000044"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000readUInt24LE(header, 0) / 2\u0000readUInt24LE(header, 0) * 2\u00000",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000readUInt24LE(header, 3) / 2\u0000readUInt24LE(header, 3) * 2\u00000",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000y - height\u0000y + height\u00000",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000frameEnd + offset\u0000frameEnd - offset\u00000",
-        "src/webp/riff.ts\u0000ArithmeticOperator\u0000frameEnd + paddedSize\u0000frameEnd - paddedSize\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ArithmeticOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ArithmeticOperator and ConditionalExpression clusters: a frame offset and size beyond the VP8X canvas are refused on both axes, and the offsets are read as 24-bit values"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement",
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ArithmeticOperator:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ArithmeticOperator\u0000frameEnd + offset\u0000260\u00009\u0000260\u000026"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ArithmeticOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a stray byte inside an ANMF is a truncated nested header and the next chunk is not read as one"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ArithmeticOperator:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ArithmeticOperator\u0000frameEnd + paddedSize\u0000285\u000022\u0000285\u000043"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ArithmeticOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ArithmeticOperator, ConditionalExpression and BlockStatement clusters: a nested chunk that declares more bytes than the ANMF holds is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement:gap-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000231\u000024\u0000236\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression, EqualityOperator and BlockStatement clusters: an ANMF of 15 bytes reads no frame header, one of exactly 16 reads it"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000260\u000032\u0000265\u00006"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a stray byte inside an ANMF is a truncated nested header and the next chunk is not read as one"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000269\u000070\u0000274\u00006"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression and BlockStatement clusters: an unknown nested chunk after the image is refused as unsafe-structure"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement:gap-04",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000275\u000027\u0000280\u00006"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame CallExpression, ConditionalExpression and BlockStatement clusters: a duplicate nested image chunk is refused as unsafe-structure, not as a count of images"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement:gap-05",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000285\u000045\u0000290\u00006"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ArithmeticOperator, ConditionalExpression and BlockStatement clusters: a nested chunk that declares more bytes than the ANMF holds is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement:gap-06",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000320\u000057\u0000325\u00004"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression, LogicalOperator and BlockStatement clusters: a frame whose width or height alone disagrees with its image payload is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement:pending-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "validateAnimationFrame",
       "mutatorName": "BlockStatement",
       "disposition": "pending",
-      "count": 7,
+      "count": 1,
       "keys": [
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000231\u000024\u0000236\u00004",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000260\u000032\u0000265\u00006",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000269\u000070\u0000274\u00006",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000275\u000027\u0000280\u00006",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000285\u000045\u0000290\u00006",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000320\u000057\u0000325\u00004",
         "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000335\u000039\u0000340\u00004"
       ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:BlockStatement",
       "anchors": [
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"ANMF payload is shorter than its 16-byte frame header.\",\n    );\n  }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"malformed-file\",\n        \"ANMF contains trailing bytes instead of a nested chunk header.\",\n      );\n    }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"unsafe-structure\",\n        `Unknown nested ANMF chunk ${JSON.stringify(fourCc)} cannot be sanitized safely.`,\n      );\n    }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"unsafe-structure\",\n        `Duplicate nested ${fourCc.trim()} chunk is ambiguous.`,\n      );\n    }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"malformed-file\",\n        `${fourCc.trim()} chunk exceeds ANMF bounds.`,\n      );\n    }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"ANMF frame dimensions do not match its image payload.\",\n    );\n  }\u00000",
         "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"unsafe-structure\",\n      \"ANMF nested image chunks occur in an ambiguous order.\",\n    );\n  }\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer ruling in 67-44-HALTED.md (Option A, a behavior-preserving source simplification): an earlier check in riff.ts already fixes the value of this construct for every reachable input, so its mutant is unobservable, and the same line holds Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-44/green2.json."
     },
     {
-      "id": "webp:src/webp/riff.ts:validateAnimationFrame:CallExpression",
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:CallExpression:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "validateAnimationFrame",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/webp/riff.ts\u0000CallExpression\u0000;\u0000266\u00005\u0000266\u000027",
-        "src/webp/riff.ts\u0000CallExpression\u0000;\u0000281\u00005\u0000281\u000022"
+        "src/webp/riff.ts\u0000CallExpression\u0000;\u0000266\u00005\u0000266\u000027"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000CallExpression\u0000;\u0000incrementChunkCount();\u00000",
-        "src/webp/riff.ts\u0000CallExpression\u0000;\u0000seen.add(fourCc);\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:CallExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame CallExpression cluster: nested chunks count toward the aggregate chunk limit"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:CallExpression:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "CallExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000CallExpression\u0000;\u0000281\u00005\u0000281\u000022"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:CallExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame CallExpression, ConditionalExpression and BlockStatement clusters: a duplicate nested image chunk is refused as unsafe-structure, not as a count of images"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression:gap-01",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000231\u00007\u0000231\u000022"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression, EqualityOperator and BlockStatement clusters: an ANMF of 15 bytes reads no frame header, one of exactly 16 reads it"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000248\u000034\u0000248\u000059"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ArithmeticOperator and ConditionalExpression clusters: a frame offset and size beyond the VP8X canvas are refused on both axes, and the offsets are read as 24-bit values"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000260\u00009\u0000260\u000030"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a stray byte inside an ANMF is a truncated nested header and the next chunk is not read as one"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression:gap-04",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000269\u00009\u0000269\u000068"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression and BlockStatement clusters: an unknown nested chunk after the image is refused as unsafe-structure"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression:gap-05",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000275\u00009\u0000275\u000025"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame CallExpression, ConditionalExpression and BlockStatement clusters: a duplicate nested image chunk is refused as unsafe-structure, not as a count of images"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression:gap-06",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000285\u00009\u0000285\u000043"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ArithmeticOperator, ConditionalExpression and BlockStatement clusters: a nested chunk that declares more bytes than the ANMF holds is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression:gap-07",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000320\u00007\u0000320\u000028",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000320\u00007\u0000320\u000055",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000320\u000032\u0000320\u000055"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression, LogicalOperator and BlockStatement clusters: a frame whose width or height alone disagrees with its image payload is refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression:pending-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "validateAnimationFrame",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 12,
+      "count": 2,
       "keys": [
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000231\u00007\u0000231\u000022",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000248\u000034\u0000248\u000059",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000260\u00009\u0000260\u000030",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000269\u00009\u0000269\u000068",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000275\u00009\u0000275\u000025",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000285\u00009\u0000285\u000043",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000320\u00007\u0000320\u000028",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000320\u00007\u0000320\u000055",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000320\u000032\u0000320\u000055",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000328\u00009\u0000328\u000028",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000328\u000055\u0000328\u000078",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000335\u000014\u0000335\u000037"
       ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
       "anchors": [
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000frame.size < 16\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000y + height > canvasHeight\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000frameEnd - offset < 8\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fourCc !== \"ALPH\" && fourCc !== \"VP8 \" && fourCc !== \"VP8L\"\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000seen.has(fourCc)\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000dataOffset > frameEnd - paddedSize\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000image.width !== width\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000image.width !== width || image.height !== height\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000image.height !== height\u00000",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000nested.length !== 2\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000image.fourCc !== \"VP8 \"\u00000",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000nested[0] !== images[0]\u00000"
       ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "Awaiting the maintainer ruling in 67-44-HALTED.md (Option A, a behavior-preserving source simplification): an earlier check in riff.ts already fixes the value of this construct for every reachable input, so its mutant is unobservable, and the same line holds Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-44/green2.json."
     },
     {
-      "id": "webp:src/webp/riff.ts:validateAnimationFrame:EqualityOperator",
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression:gap-08",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000328\u000055\u0000328\u000078"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression cluster: a nested ALPH next to a VP8L image is refused as unsafe-structure"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:EqualityOperator:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "validateAnimationFrame",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/webp/riff.ts\u0000EqualityOperator\u0000frame.size <= 16\u0000231\u00007\u0000231\u000022",
+        "src/webp/riff.ts\u0000EqualityOperator\u0000frame.size <= 16\u0000231\u00007\u0000231\u000022"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression, EqualityOperator and BlockStatement clusters: an ANMF of 15 bytes reads no frame header, one of exactly 16 reads it"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateAnimationFrame:EqualityOperator:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateAnimationFrame",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/webp/riff.ts\u0000EqualityOperator\u0000frameEnd - offset <= 8\u0000260\u00009\u0000260\u000030"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000EqualityOperator\u0000frame.size <= 16\u0000frame.size < 16\u00000",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000frameEnd - offset <= 8\u0000frameEnd - offset < 8\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:validateAnimationFrame:EqualityOperator",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame EqualityOperator cluster: a nested chunk header that ends the ANMF exactly leaves eight bytes and is read as a chunk"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:validateAnimationFrame:LogicalOperator",
@@ -199975,15 +201290,16 @@
       "file": "src/webp/riff.ts",
       "function": "validateAnimationFrame",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/webp/riff.ts\u0000LogicalOperator\u0000image.width !== width && image.height !== height\u0000320\u00007\u0000320\u000055"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000LogicalOperator\u0000image.width !== width && image.height !== height\u0000image.width !== width || image.height !== height\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateAnimationFrame ConditionalExpression, LogicalOperator and BlockStatement clusters: a frame whose width or height alone disagrees with its image payload is refused"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:validateImagePayload:BlockStatement",
@@ -199991,43 +201307,74 @@
       "file": "src/webp/riff.ts",
       "function": "validateImagePayload",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000137\u000026\u0000142\u00006",
         "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000167\u000023\u0000172\u00004"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n      throw new WebpStructureError(\n        \"malformed-file\",\n        \"VP8 image payload is shorter than its key-frame header.\",\n      );\n    }\u00000",
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new WebpStructureError(\n      \"malformed-file\",\n      \"VP8L image payload is shorter than its header.\",\n    );\n  }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateImagePayload ConditionalExpression and BlockStatement clusters: a VP8 payload of 9 bytes is refused though its padding byte would complete the header, and a VP8L payload of 4 bytes is refused without reading a 5-byte header"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:validateImagePayload:ConditionalExpression",
+      "id": "webp:src/webp/riff.ts:validateImagePayload:ConditionalExpression:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "validateImagePayload",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 6,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000137\u00009\u0000137\u000024",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000167\u00007\u0000167\u000021"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateImagePayload:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateImagePayload ConditionalExpression and BlockStatement clusters: a VP8 payload of 9 bytes is refused though its padding byte would complete the header, and a VP8L payload of 4 bytes is refused without reading a 5-byte header"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateImagePayload:ConditionalExpression:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateImagePayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000150\u000031\u0000150\u000049",
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000150\u000053\u0000150\u000071",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000158\u000024\u0000158\u000036",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000167\u00007\u0000167\u000021",
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000158\u000024\u0000158\u000036"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:validateImagePayload:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3) > validateImagePayload ConditionalExpression cluster: a VP8 key-frame signature with a wrong second or third byte, and a zero height, are each refused"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:validateImagePayload:ConditionalExpression:gap-03",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "validateImagePayload",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000191\u000015\u0000191\u000040"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000chunk.size < 10\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000header[4] !== 0x01\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000header[5] !== 0x2a\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000height === 0\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000chunk.size < 5\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000true\u0000((bits >>> 28) & 1) === 1\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:validateImagePayload:ConditionalExpression",
+      "note": "reports/triage/67-44/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-44/red.json (src/webp/riff.ts, a real whole-file run on the unedited source and the pre-67-44 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Earlier killer: a Plan 67-42 webp-1 test already kills this member in the red run (it is Killed there), so the hosted pre-triage status is the red evidence and that earlier test is the named killer; the Plan 67-44 tests assert the same typed observable.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > buildOutputPlan ConditionalExpression, EqualityOperator and StringLiteral clusters: a VP8X without surviving flags over a VP8L bitstream is dropped to the simple format, as it is over a VP8 bitstream"
+      }
     },
     {
       "id": "isobmff:src/isobmff/admission.ts:admitIsobmff:ConditionalExpression:pending:receipt-523",
