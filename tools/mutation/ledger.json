@@ -196414,7 +196414,7 @@
         "src/png/chunks.ts\u0000ArithmeticOperator\u0000this.#consumed - n\u0000562\u00009\u0000562\u000027",
         "src/png/chunks.ts\u0000ArithmeticOperator\u0000this.#consumed - n\u0000566\u000033\u0000566\u000051"
       ],
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > BufferedBudget consume clusters: consumption up to the total is counted and one byte more refuses with the aggregate limit context"
@@ -196431,7 +196431,7 @@
       "keys": [
         "src/png/chunks.ts\u0000AssignmentOperator\u0000this.#consumed -= n\u0000569\u00005\u0000569\u000024"
       ],
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > BufferedBudget consume clusters: consumption up to the total is counted and one byte more refuses with the aggregate limit context"
@@ -196449,7 +196449,7 @@
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000561\u000028\u0000570\u00004",
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000562\u000043\u0000568\u00006"
       ],
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > BufferedBudget consume clusters: consumption up to the total is counted and one byte more refuses with the aggregate limit context"
@@ -196466,7 +196466,7 @@
       "keys": [
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000562\u00009\u0000562\u000041"
       ],
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > BufferedBudget consume clusters: consumption up to the total is counted and one byte more refuses with the aggregate limit context"
@@ -196484,7 +196484,7 @@
         "src/png/chunks.ts\u0000EqualityOperator\u0000this.#consumed + n >= this.#total\u0000562\u00009\u0000562\u000041"
       ],
       "originClusterId": "png:src/png/chunks.ts:consume:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > BufferedBudget consume clusters: consumption up to the total is counted and one byte more refuses with the aggregate limit context"
@@ -196502,7 +196502,7 @@
         "src/png/chunks.ts\u0000EqualityOperator\u0000n >= this.#remaining\u0000829\u00009\u0000829\u000028"
       ],
       "originClusterId": "png:src/png/chunks.ts:consume:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > InflateBudget consume clusters: consumption up to the remaining total is allowed and one byte more refuses with the aggregate limit context"
@@ -196520,7 +196520,7 @@
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000566\u000022\u0000566\u000025"
       ],
       "originClusterId": "png:src/png/chunks.ts:consume:StringLiteral",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > BufferedBudget consume clusters: consumption up to the total is counted and one byte more refuses with the aggregate limit context"
@@ -196538,7 +196538,7 @@
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000833\u000022\u0000833\u000025"
       ],
       "originClusterId": "png:src/png/chunks.ts:consume:StringLiteral",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > InflateBudget consume clusters: consumption up to the remaining total is allowed and one byte more refuses with the aggregate limit context"
@@ -196602,7 +196602,7 @@
       "keys": [
         "src/png/chunks.ts\u0000ArithmeticOperator\u0000effectiveLimit - 1\u0000894\u000028\u0000894\u000046"
       ],
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > inflateBounded clusters: output of exactly the limit is accepted and an over-limit stream refuses with the limit plus one as its size"
@@ -196619,7 +196619,7 @@
       "keys": [
         "src/png/chunks.ts\u0000EqualityOperator\u0000result.length >= effectiveLimit\u0000902\u00007\u0000902\u000037"
       ],
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > inflateBounded clusters: output of exactly the limit is accepted and an over-limit stream refuses with the limit plus one as its size"
@@ -196666,15 +196666,14 @@
       "file": "src/png/chunks.ts",
       "function": "isBufferTooLarge",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000842\u00005\u0000844\u000020"
       ],
-      "anchors": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000typeof cause === \"object\" &&\n    cause !== null &&\n    \"code\" in cause\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-41-HALTED.md (a behavior-preserving source simplification): this member survives in reports/triage/67-41/green1.json as an equivalent mutant whose line holds an observable sibling of the same mutator, so no next-line directive can own it honestly."
+      "note": "Removed or rewritten by the Plan 67-41 behavior-preserving source edit approved by the maintainer (Option A of 67-41-HALTED.md): the redundant construct containing this member was dropped or rewritten, so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-41 tests and the existing PNG tests. The witness \"\\\"code\\\" in cause\" no longer appears in the enclosing function isBufferTooLarge (scoped witness); reports/triage/67-41/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "\"code\" in cause",
+      "symbolScope": "function"
     },
     {
       "id": "png:src/png/chunks.ts:isPngSignature:ConditionalExpression",
@@ -196751,7 +196750,7 @@
       "keys": [
         "src/png/chunks.ts\u0000ArithmeticOperator\u0000size + offset\u0000639\u00009\u0000639\u000022"
       ],
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng header clusters: fewer than 8 bytes after the last chunk are a typed truncation, not a buffer range error"
@@ -196769,7 +196768,7 @@
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000614\u000063\u0000619\u00004"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:BlockStatement",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng size guard clusters: a size below 8 or that is not a safe integer is refused before any read and 8 is read"
@@ -196787,7 +196786,7 @@
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000621\u000031\u0000626\u00004"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:BlockStatement",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng signature clusters: a file whose signature differs by one byte is refused although every chunk is valid"
@@ -196805,7 +196804,7 @@
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000639\u000045\u0000644\u00006"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:BlockStatement",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng header clusters: fewer than 8 bytes after the last chunk are a typed truncation, not a buffer range error"
@@ -196823,7 +196822,7 @@
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000697\u000036\u0000702\u00006"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:BlockStatement",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng chunk length limit clusters: a declared length of 2^31-1 passes the length ceiling and 2^31 does not"
@@ -196841,7 +196840,7 @@
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000725\u000026\u0000727\u00006"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:BlockStatement",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng buffered budget clusters: only non-IDAT chunk data is charged to the budget, in full"
@@ -196859,7 +196858,7 @@
         "src/png/chunks.ts\u0000BlockStatement\u0000{}\u0000789\u000017\u0000794\u00004"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:BlockStatement",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng missing IEND clusters: a file that ends on a chunk boundary without IEND is refused even when the last chunk is empty"
@@ -196876,7 +196875,7 @@
       "keys": [
         "src/png/chunks.ts\u0000BooleanLiteral\u0000true\u0000633\u000017\u0000633\u000022"
       ],
-      "note": "Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): its frozen anchor (the false literal at that ordinal) now resolves to the new sawPlte flag literal in validateStructure, outside parsePng, because Plan 67-40 Option A added an earlier false literal; the member's own site (the sawIend initial false, replaced by true) carries the shifted ordinal and is Killed in reports/triage/67-41/green1.json by the no-IEND test. The scoped witness firstIdatIndex names the deleted twin's index variable, which is gone from parsePng (the 67-38 and 67-40 treatment of twin collisions as dead rows; the verifier was not changed). A maintainer may prefer a collision rule.",
+      "note": "Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): its frozen anchor (the false literal at that ordinal) now resolves to the new sawPlte flag literal in validateStructure, outside parsePng, because Plan 67-40 Option A added an earlier false literal; the member's own site (the sawIend initial false, replaced by true) carries the shifted ordinal and is Killed in reports/triage/67-41/batch.json by the no-IEND test. The scoped witness firstIdatIndex names the deleted twin's index variable, which is gone from parsePng (the 67-38 and 67-40 treatment of twin collisions as dead rows; the verifier was not changed). A maintainer may prefer a collision rule.",
       "symbol": "firstIdatIndex",
       "symbolScope": "function"
     },
@@ -196891,7 +196890,7 @@
       "keys": [
         "src/png/chunks.ts\u0000CallExpression\u0000;\u0000726\u00007\u0000726\u000030"
       ],
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng buffered budget clusters: only non-IDAT chunk data is charged to the budget, in full"
@@ -196909,7 +196908,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000612\u00007\u0000612\u000024"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng abort clusters: an already aborted signal is refused with its own reason before any read, even for a too small size"
@@ -196928,7 +196927,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000614\u000038\u0000614\u000061"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng size guard clusters: a size below 8 or that is not a safe integer is refused before any read and 8 is read"
@@ -196946,7 +196945,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000621\u00007\u0000621\u000029"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng signature clusters: a file whose signature differs by one byte is refused although every chunk is valid"
@@ -196964,7 +196963,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000637\u00009\u0000637\u000026"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng abort clusters: a signal aborted while the file is being read stops the chunk loop with its own reason"
@@ -196982,7 +196981,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000639\u00009\u0000639\u000043"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng header clusters: fewer than 8 bytes after the last chunk are a typed truncation, not a buffer range error"
@@ -197000,7 +196999,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000697\u00009\u0000697\u000034"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng chunk length limit clusters: a declared length of 2^31-1 passes the length ceiling and 2^31 does not"
@@ -197018,7 +197017,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000710\u00009\u0000710\u000024"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng per-chunk limit clusters: an ancillary chunk of exactly the per-chunk limit is read and an IDAT chunk above it is not refused by the limit"
@@ -197037,7 +197036,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000725\u00009\u0000725\u000024"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng buffered budget clusters: only non-IDAT chunk data is charged to the budget, in full"
@@ -197055,7 +197054,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000730\u00009\u0000730\u000024"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): its frozen anchor (the same-text occurrence with this ordinal) no longer resolves to any mutant in reports/triage/67-41/green1.json, because the earlier same-text occurrence in validateStructure was deleted by Plan 67-40 Option A; the member's own parsePng site carries the lower ordinal and is Killed in the same report (see the evidence section). The scoped witness firstIdatIndex names the deleted twin's index variable, which is gone from parsePng (the 67-38 and 67-40 treatment of twin collisions as dead rows; the verifier was not changed). A maintainer may prefer a collision rule.",
+      "note": "Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): its frozen anchor (the same-text occurrence with this ordinal) no longer resolves to any mutant in reports/triage/67-41/batch.json, because the earlier same-text occurrence in validateStructure was deleted by Plan 67-40 Option A; the member's own parsePng site carries the lower ordinal and is Killed in the same report (see the evidence section). The scoped witness firstIdatIndex names the deleted twin's index variable, which is gone from parsePng (the 67-38 and 67-40 treatment of twin collisions as dead rows; the verifier was not changed). A maintainer may prefer a collision rule.",
       "symbol": "firstIdatIndex",
       "symbolScope": "function"
     },
@@ -197071,33 +197070,31 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000737\u000011\u0000737\u000048"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
-      }
-    },
-    {
-      "id": "png:src/png/chunks.ts:parsePng:ConditionalExpression:gap-10",
-      "group": "png",
-      "file": "src/png/chunks.ts",
-      "function": "parsePng",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 2,
-      "keys": [
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000761\u00009\u0000761\u000046",
-        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000761\u00009\u0000761\u000046"
-      ],
-      "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Anchor shift (Plan 67-41 Option A, 67-41-HALTED.md): rewriting the IDAT window test removes the earlier occurrence of this member's source text, so the frozen anchor (ordinal 0) resolves to the same-text mutant of the retain test in parsePng, which is Killed by the named test; the frozen text's own site no longer exists.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng retain clusters: a chunk no longer than the read window is retained through the copy hook and a longer one is stored as read"
       }
     },
     {
-      "id": "png:src/png/chunks.ts:parsePng:ConditionalExpression:gap-11",
+      "id": "png:src/png/chunks.ts:parsePng:ConditionalExpression:dead-02",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "parsePng",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 2,
+      "keys": [
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000761\u00009\u0000761\u000046",
+        "src/png/chunks.ts\u0000ConditionalExpression\u0000true\u0000761\u00009\u0000761\u000046"
+      ],
+      "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
+      "note": "Anchor shift (Plan 67-41 Option A, 67-41-HALTED.md): rewriting the IDAT window test removes the earlier same-text occurrence, so this member's frozen anchor (ordinal 1, the retain test of parsePng) no longer resolves to any mutant in reports/triage/67-41/batch.json; the retain test's live mutants carry ordinal 0, are Killed by the named 67-41 retain test and are the targets of the two A1 rows that resolve to them. The scoped witness firstIdatIndex is gone from parsePng (the 67-40 twin-collision treatment).",
+      "symbol": "firstIdatIndex",
+      "symbolScope": "function"
+    },
+    {
+      "id": "png:src/png/chunks.ts:parsePng:ConditionalExpression:gap-10",
       "group": "png",
       "file": "src/png/chunks.ts",
       "function": "parsePng",
@@ -197108,7 +197105,7 @@
         "src/png/chunks.ts\u0000ConditionalExpression\u0000false\u0000789\u00007\u0000789\u000015"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng missing IEND clusters: a file that ends on a chunk boundary without IEND is refused even when the last chunk is empty"
@@ -197126,7 +197123,7 @@
         "src/png/chunks.ts\u0000EqualityOperator\u0000size <= PNG_HEADER_BYTES\u0000614\u000038\u0000614\u000061"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng size guard clusters: a size below 8 or that is not a safe integer is refused before any read and 8 is read"
@@ -197144,7 +197141,7 @@
         "src/png/chunks.ts\u0000EqualityOperator\u0000offset <= size\u0000636\u000010\u0000636\u000023"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng loop bound cluster: the chunk loop does not run again once the last chunk ends exactly at the file size"
@@ -197162,7 +197159,7 @@
         "src/png/chunks.ts\u0000EqualityOperator\u0000nonIdatCount >= PNG_MAX_ANCILLARY_CHUNKS\u0000678\u000011\u0000678\u000050"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:EqualityOperator",
-      "note": "Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): its frozen anchor (the same-text occurrence with this ordinal) no longer resolves to any mutant in reports/triage/67-41/green1.json, because the earlier same-text occurrence in validateStructure was deleted by Plan 67-40 Option A; the member's own parsePng site carries the lower ordinal and is Killed in the same report (see the evidence section). The scoped witness firstIdatIndex names the deleted twin's index variable, which is gone from parsePng (the 67-38 and 67-40 treatment of twin collisions as dead rows; the verifier was not changed). A maintainer may prefer a collision rule.",
+      "note": "Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): its frozen anchor (the same-text occurrence with this ordinal) no longer resolves to any mutant in reports/triage/67-41/batch.json, because the earlier same-text occurrence in validateStructure was deleted by Plan 67-40 Option A; the member's own parsePng site carries the lower ordinal and is Killed in the same report (see the evidence section). The scoped witness firstIdatIndex names the deleted twin's index variable, which is gone from parsePng (the 67-38 and 67-40 treatment of twin collisions as dead rows; the verifier was not changed). A maintainer may prefer a collision rule.",
       "symbol": "firstIdatIndex",
       "symbolScope": "function"
     },
@@ -197178,7 +197175,7 @@
         "src/png/chunks.ts\u0000EqualityOperator\u0000length >= MAX_CHUNK_LENGTH\u0000697\u00009\u0000697\u000034"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng chunk length limit clusters: a declared length of 2^31-1 passes the length ceiling and 2^31 does not"
@@ -197196,7 +197193,7 @@
         "src/png/chunks.ts\u0000EqualityOperator\u0000length >= PNG_MAX_METADATA_BYTES_PER_CHUNK\u0000710\u000028\u0000710\u000069"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng per-chunk limit clusters: an ancillary chunk of exactly the per-chunk limit is read and an IDAT chunk above it is not refused by the limit"
@@ -197214,28 +197211,11 @@
         "src/png/chunks.ts\u0000EqualityOperator\u0000type === \"IDAT\"\u0000725\u00009\u0000725\u000024"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng buffered budget clusters: only non-IDAT chunk data is charged to the budget, in full"
       }
-    },
-    {
-      "id": "png:src/png/chunks.ts:parsePng:EqualityOperator:pending-01",
-      "group": "png",
-      "file": "src/png/chunks.ts",
-      "function": "parsePng",
-      "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/png/chunks.ts\u0000EqualityOperator\u0000length < PNG_CHUNK_READ_WINDOW_BYTES\u0000737\u000011\u0000737\u000048"
-      ],
-      "originClusterId": "png:src/png/chunks.ts:parsePng:EqualityOperator",
-      "anchors": [
-        "src/png/chunks.ts\u0000EqualityOperator\u0000length < PNG_CHUNK_READ_WINDOW_BYTES\u0000length <= PNG_CHUNK_READ_WINDOW_BYTES\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-41-HALTED.md (a behavior-preserving source simplification): this member survives in reports/triage/67-41/green1.json as an equivalent mutant whose line holds an observable sibling of the same mutator, so no next-line directive can own it honestly."
     },
     {
       "id": "png:src/png/chunks.ts:parsePng:EqualityOperator:gap-06",
@@ -197244,17 +197224,33 @@
       "function": "parsePng",
       "mutatorName": "EqualityOperator",
       "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/png/chunks.ts\u0000EqualityOperator\u0000length < PNG_CHUNK_READ_WINDOW_BYTES\u0000737\u000011\u0000737\u000048"
+      ],
+      "originClusterId": "png:src/png/chunks.ts:parsePng:EqualityOperator",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Anchor shift (Plan 67-41 Option A, 67-41-HALTED.md): rewriting the IDAT window test removes the earlier occurrence of this member's source text, so the frozen anchor (ordinal 0) resolves to the same-text mutant of the retain test in parsePng, which is Killed by the named test; the frozen text's own site no longer exists.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng retain clusters: a chunk no longer than the read window is retained through the copy hook and a longer one is stored as read"
+      }
+    },
+    {
+      "id": "png:src/png/chunks.ts:parsePng:EqualityOperator:dead-02",
+      "group": "png",
+      "file": "src/png/chunks.ts",
+      "function": "parsePng",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/png/chunks.ts\u0000EqualityOperator\u0000length < PNG_CHUNK_READ_WINDOW_BYTES\u0000761\u00009\u0000761\u000046",
         "src/png/chunks.ts\u0000EqualityOperator\u0000length > PNG_CHUNK_READ_WINDOW_BYTES\u0000761\u00009\u0000761\u000046"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng retain clusters: a chunk no longer than the read window is retained through the copy hook and a longer one is stored as read"
-      }
+      "note": "Anchor shift (Plan 67-41 Option A, 67-41-HALTED.md): rewriting the IDAT window test removes the earlier same-text occurrence, so this member's frozen anchor (ordinal 1, the retain test of parsePng) no longer resolves to any mutant in reports/triage/67-41/batch.json; the retain test's live mutants carry ordinal 0, are Killed by the named 67-41 retain test and are the targets of the two A1 rows that resolve to them. The scoped witness firstIdatIndex is gone from parsePng (the 67-40 twin-collision treatment).",
+      "symbol": "firstIdatIndex",
+      "symbolScope": "function"
     },
     {
       "id": "png:src/png/chunks.ts:parsePng:LogicalOperator:gap-01",
@@ -197268,7 +197264,7 @@
         "src/png/chunks.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000613\u000011\u0000613\u000070"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:LogicalOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng abort clusters: an already aborted signal is refused with its own reason before any read, even for a too small size"
@@ -197286,7 +197282,7 @@
         "src/png/chunks.ts\u0000LogicalOperator\u0000!Number.isSafeInteger(size) && size < PNG_HEADER_BYTES\u0000614\u00007\u0000614\u000061"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:LogicalOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng size guard clusters: a size below 8 or that is not a safe integer is refused before any read and 8 is read"
@@ -197304,7 +197300,7 @@
         "src/png/chunks.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000638\u000013\u0000638\u000072"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:LogicalOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng abort clusters: a signal aborted while the file is being read stops the chunk loop with its own reason"
@@ -197322,7 +197318,7 @@
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000613\u000057\u0000613\u000069"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:StringLiteral",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng abort clusters: an aborted signal without a reason is refused as an AbortError DOMException"
@@ -197340,7 +197336,7 @@
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000638\u000059\u0000638\u000071"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:StringLiteral",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng abort clusters: a signal without a reason that flips during the read stops the chunk loop as an AbortError DOMException"
@@ -197358,7 +197354,7 @@
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000710\u000018\u0000710\u000024"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:StringLiteral",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): deleting an earlier same-text occurrence in validateStructure shifted the same-text ordinals of this member, so its frozen anchor now resolves to the mutant named in the evidence section (a gap row naming that mutant's killer, the 67-37 treatment); the member's own parsePng site is covered by the 67-41 tests (its live mutant is Killed in the same report).",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): deleting an earlier same-text occurrence in validateStructure shifted the same-text ordinals of this member, so its frozen anchor now resolves to the mutant named in the evidence section (a gap row naming that mutant's killer, the 67-37 treatment); the member's own parsePng site is covered by the 67-41 tests (its live mutant is Killed in the same report).",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > parsePng buffered budget clusters: only non-IDAT chunk data is charged to the budget, in full"
@@ -197376,7 +197372,7 @@
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000725\u000018\u0000725\u000024"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:StringLiteral",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): deleting an earlier same-text occurrence in validateStructure shifted the same-text ordinals of this member, so its frozen anchor now resolves to the mutant named in the evidence section (a gap row naming that mutant's killer, the 67-37 treatment); the member's own parsePng site is covered by the 67-41 tests (its live mutant is Killed in the same report).",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): deleting an earlier same-text occurrence in validateStructure shifted the same-text ordinals of this member, so its frozen anchor now resolves to the mutant named in the evidence section (a gap row naming that mutant's killer, the 67-37 treatment); the member's own parsePng site is covered by the 67-41 tests (its live mutant is Killed in the same report).",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
@@ -197394,7 +197390,7 @@
         "src/png/chunks.ts\u0000StringLiteral\u0000\"\"\u0000730\u000018\u0000730\u000024"
       ],
       "originClusterId": "png:src/png/chunks.ts:parsePng:StringLiteral",
-      "note": "Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): its frozen anchor (the same-text occurrence with this ordinal) no longer resolves to any mutant in reports/triage/67-41/green1.json, because the earlier same-text occurrence in validateStructure was deleted by Plan 67-40 Option A; the member's own parsePng site carries the lower ordinal and is Killed in the same report (see the evidence section). The scoped witness firstIdatIndex names the deleted twin's index variable, which is gone from parsePng (the 67-38 and 67-40 treatment of twin collisions as dead rows; the verifier was not changed). A maintainer may prefer a collision rule.",
+      "note": "Anchor collision (Plan 67-40 Option A, see 67-41-EVIDENCE-NOTES.md): its frozen anchor (the same-text occurrence with this ordinal) no longer resolves to any mutant in reports/triage/67-41/batch.json, because the earlier same-text occurrence in validateStructure was deleted by Plan 67-40 Option A; the member's own parsePng site carries the lower ordinal and is Killed in the same report (see the evidence section). The scoped witness firstIdatIndex names the deleted twin's index variable, which is gone from parsePng (the 67-38 and 67-40 treatment of twin collisions as dead rows; the verifier was not changed). A maintainer may prefer a collision rule.",
       "symbol": "firstIdatIndex",
       "symbolScope": "function"
     },
@@ -197919,39 +197915,21 @@
       ]
     },
     {
-      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:BlockStatement:gap-01",
+      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:BlockStatement",
       "group": "png",
       "file": "src/png/orientation-sources.ts",
       "function": "rawProfileExifOrientation",
       "mutatorName": "BlockStatement",
       "disposition": "gap",
-      "count": 1,
+      "count": 2,
       "keys": [
-        "src/png/orientation-sources.ts\u0000BlockStatement\u0000{}\u000046\u00005\u000051\u00004"
+        "src/png/orientation-sources.ts\u0000BlockStatement\u0000{}\u000046\u00005\u000051\u00004",
+        "src/png/orientation-sources.ts\u0000BlockStatement\u0000{}\u000067\u00005\u000072\u00004"
       ],
-      "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:BlockStatement",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the header needs four lines and a declared length that is a plain non-negative integer"
-      }
-    },
-    {
-      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:BlockStatement:gap-02",
-      "group": "png",
-      "file": "src/png/orientation-sources.ts",
-      "function": "rawProfileExifOrientation",
-      "mutatorName": "BlockStatement",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/png/orientation-sources.ts\u0000BlockStatement\u0000{}\u000067\u00005\u000072\u00004"
-      ],
-      "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:BlockStatement",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the hex must be as long as declared and made only of hex digits, and extra hex beyond the declared length is ignored"
       }
     },
     {
@@ -197964,58 +197942,39 @@
       "count": 5,
       "keys": [
         "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000034\u00007\u000034\u000023",
-        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000043\u00005\u000044\u000044",
-        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000043\u00005\u000045\u000023",
         "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000044\u00005\u000044\u000044",
-        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000true\u000076\u00007\u000076\u000044"
+        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000true\u000076\u00007\u000076\u000044",
+        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000065\u00005\u000065\u000043",
+        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000065\u00005\u000066\u000038"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the header needs four lines and a declared length that is a plain non-negative integer"
       }
     },
     {
-      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:ConditionalExpression:pending-01",
+      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:ConditionalExpression:dead-01",
       "group": "png",
       "file": "src/png/orientation-sources.ts",
       "function": "rawProfileExifOrientation",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "dead",
+      "count": 4,
       "keys": [
+        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000043\u00005\u000044\u000044",
+        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000043\u00005\u000045\u000023",
         "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000043\u00005\u000043\u000030",
         "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000045\u00005\u000045\u000023"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:ConditionalExpression",
-      "anchors": [
-        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u0000trimmedCount.length === 0\u00000",
-        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u0000declaredLength < 0\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-41-HALTED.md (a behavior-preserving source simplification): this member survives in reports/triage/67-41/green1.json as an equivalent mutant whose line holds an observable sibling of the same mutator, so no next-line directive can own it honestly."
+      "note": "Removed or rewritten by the Plan 67-41 behavior-preserving source edit approved by the maintainer (Option A of 67-41-HALTED.md): the redundant construct containing this member was dropped or rewritten, so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-41 tests and the existing PNG tests. The witness \"trimmedCount.length\" no longer appears in the enclosing function rawProfileExifOrientation (scoped witness); reports/triage/67-41/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "trimmedCount.length",
+      "symbolScope": "function"
     },
     {
       "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:ConditionalExpression:gap-02",
-      "group": "png",
-      "file": "src/png/orientation-sources.ts",
-      "function": "rawProfileExifOrientation",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 2,
-      "keys": [
-        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000065\u00005\u000065\u000043",
-        "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000065\u00005\u000066\u000038"
-      ],
-      "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the hex must be as long as declared and made only of hex digits, and extra hex beyond the declared length is ignored"
-      }
-    },
-    {
-      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:ConditionalExpression:gap-03",
       "group": "png",
       "file": "src/png/orientation-sources.ts",
       "function": "rawProfileExifOrientation",
@@ -198026,7 +197985,7 @@
         "src/png/orientation-sources.ts\u0000ConditionalExpression\u0000false\u000076\u00007\u000076\u000044"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:ConditionalExpression",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: an EXIF without an Orientation is absent, an unusable one is invalid and a valid one is its value"
@@ -198039,18 +197998,33 @@
       "function": "rawProfileExifOrientation",
       "mutatorName": "EqualityOperator",
       "disposition": "gap",
-      "count": 3,
+      "count": 2,
       "keys": [
         "src/png/orientation-sources.ts\u0000EqualityOperator\u0000lines.length <= 4\u000034\u00007\u000034\u000023",
-        "src/png/orientation-sources.ts\u0000EqualityOperator\u0000declaredLength <= 0\u000045\u00005\u000045\u000023",
         "src/png/orientation-sources.ts\u0000EqualityOperator\u0000found.orientation.status !== \"absent\"\u000076\u00007\u000076\u000044"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the header needs four lines and a declared length that is a plain non-negative integer"
       }
+    },
+    {
+      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:EqualityOperator:dead-01",
+      "group": "png",
+      "file": "src/png/orientation-sources.ts",
+      "function": "rawProfileExifOrientation",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/png/orientation-sources.ts\u0000EqualityOperator\u0000declaredLength <= 0\u000045\u00005\u000045\u000023"
+      ],
+      "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:EqualityOperator",
+      "note": "Removed or rewritten by the Plan 67-41 behavior-preserving source edit approved by the maintainer (Option A of 67-41-HALTED.md): the redundant construct containing this member was dropped or rewritten, so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-41 tests and the existing PNG tests. The witness \"trimmedCount.length\" no longer appears in the enclosing function rawProfileExifOrientation (scoped witness); reports/triage/67-41/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "trimmedCount.length",
+      "symbolScope": "function"
     },
     {
       "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:EqualityOperator:gap-02",
@@ -198064,33 +198038,31 @@
         "src/png/orientation-sources.ts\u0000EqualityOperator\u0000declaredLength >= maxBytes\u000052\u00007\u000052\u000032"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:EqualityOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: a declared length above the bound refuses with its limit context and one equal to it is read"
       }
     },
     {
-      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:LogicalOperator:gap-01",
+      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:LogicalOperator:dead-01",
       "group": "png",
       "file": "src/png/orientation-sources.ts",
       "function": "rawProfileExifOrientation",
       "mutatorName": "LogicalOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/png/orientation-sources.ts\u0000LogicalOperator\u0000(trimmedCount.length === 0 || String(declaredLength) !== trimmedCount) && declaredLength < 0\u000043\u00005\u000045\u000023",
         "src/png/orientation-sources.ts\u0000LogicalOperator\u0000trimmedCount.length === 0 && String(declaredLength) !== trimmedCount\u000043\u00005\u000044\u000044"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:LogicalOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the header needs four lines and a declared length that is a plain non-negative integer"
-      }
+      "note": "Removed or rewritten by the Plan 67-41 behavior-preserving source edit approved by the maintainer (Option A of 67-41-HALTED.md): the redundant construct containing this member was dropped or rewritten, so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-41 tests and the existing PNG tests. The witness \"trimmedCount.length\" no longer appears in the enclosing function rawProfileExifOrientation (scoped witness); reports/triage/67-41/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "trimmedCount.length",
+      "symbolScope": "function"
     },
     {
-      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:LogicalOperator:gap-02",
+      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:LogicalOperator:gap-01",
       "group": "png",
       "file": "src/png/orientation-sources.ts",
       "function": "rawProfileExifOrientation",
@@ -198101,10 +198073,10 @@
         "src/png/orientation-sources.ts\u0000LogicalOperator\u0000hexSlice.length !== declaredLength * 2 && !/^[0-9a-fA-F]*$/u.test(hexSlice)\u000065\u00005\u000066\u000038"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:LogicalOperator",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the hex must be as long as declared and made only of hex digits, and extra hex beyond the declared length is ignored"
+        "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the header needs four lines and a declared length that is a plain non-negative integer"
       }
     },
     {
@@ -198118,28 +198090,27 @@
       "keys": [
         "src/png/orientation-sources.ts\u0000MethodExpression\u0000hexChars\u000063\u000020\u000063\u000057"
       ],
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the hex must be as long as declared and made only of hex digits, and extra hex beyond the declared length is ignored"
       }
     },
     {
-      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:Regex:pending-01",
+      "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:Regex:dead-01",
       "group": "png",
       "file": "src/png/orientation-sources.ts",
       "function": "rawProfileExifOrientation",
       "mutatorName": "Regex",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/png/orientation-sources.ts\u0000Regex\u0000/[ \\t\\r]/gu\u000062\u000014\u000062\u000026"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:Regex",
-      "anchors": [
-        "src/png/orientation-sources.ts\u0000Regex\u0000/[ \\t\\r]/gu\u0000/[ \\t\\r]+/gu\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-41-HALTED.md (a behavior-preserving source simplification): this member survives in reports/triage/67-41/green1.json as an equivalent mutant whose line holds an observable sibling of the same mutator, so no next-line directive can own it honestly."
+      "note": "Removed or rewritten by the Plan 67-41 behavior-preserving source edit approved by the maintainer (Option A of 67-41-HALTED.md): the redundant construct containing this member was dropped or rewritten, so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-41 tests and the existing PNG tests. The witness \"[ \\\\t\\\\r]+\" no longer appears in the enclosing function rawProfileExifOrientation (scoped witness); reports/triage/67-41/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "[ \\t\\r]+",
+      "symbolScope": "function"
     },
     {
       "id": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:Regex:gap-01",
@@ -198154,7 +198125,7 @@
         "src/png/orientation-sources.ts\u0000Regex\u0000/^[0-9a-fA-F]*/u\u000066\u00006\u000066\u000023"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:Regex",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: the hex must be as long as declared and made only of hex digits, and extra hex beyond the declared length is ignored"
@@ -198172,7 +198143,7 @@
         "src/png/orientation-sources.ts\u0000StringLiteral\u0000\"\"\u000056\u000020\u000056\u000033"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:StringLiteral",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: a declared length above the bound refuses with its limit context and one equal to it is read"
@@ -198190,7 +198161,7 @@
         "src/png/orientation-sources.ts\u0000StringLiteral\u0000\"Stryker was here!\"\u000062\u000028\u000062\u000030"
       ],
       "originClusterId": "png:src/png/orientation-sources.ts:rawProfileExifOrientation:StringLiteral",
-      "note": "reports/triage/67-41/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-41/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-41/red-current.json (src/png/chunks.ts and src/png/orientation-sources.ts whole files, a real run at the current source, with the Plan 67-40 edit applied, and the pre-67-41 tests; the tracer cluster's red is reports/triage/67-41/red.json, a run on the unedited pre-Option-A source and baseline-era tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5) > rawProfileExifOrientation clusters: spaces, tabs and carriage returns inside the hex lines are removed and the orientation is returned"
