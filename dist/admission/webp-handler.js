@@ -269,8 +269,9 @@ export const webpHandler = Object.freeze({
     capability,
     stagingFileName: "output.webp",
     matches(magic) {
-        return (magic.length >= 12 &&
-            magic.subarray(0, 4).toString("ascii") === "RIFF" &&
+        // A magic shorter than 12 bytes yields a form-type slice shorter than four characters, which
+        // can never equal the signature, so no separate length test is needed.
+        return (magic.subarray(0, 4).toString("ascii") === "RIFF" &&
             magic.subarray(8, 12).toString("ascii") === "WEBP");
     },
     async admit(handle, size, signal) {

@@ -454,8 +454,9 @@ export const webpHandler: FormatHandler<WebpAdmission, WebpOutputPlan> =
     capability,
     stagingFileName: "output.webp",
     matches(magic: Buffer): boolean {
+      // A magic shorter than 12 bytes yields a form-type slice shorter than four characters, which
+      // can never equal the signature, so no separate length test is needed.
       return (
-        magic.length >= 12 &&
         magic.subarray(0, 4).toString("ascii") === "RIFF" &&
         magic.subarray(8, 12).toString("ascii") === "WEBP"
       );
