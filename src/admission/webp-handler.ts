@@ -104,7 +104,6 @@ function buildOutputPlan(
   const parsed = admission.parsed;
   const keepOrientation = preserveOrientation && orientation !== undefined;
   const plan: WebpOutputChunk[] = [];
-  let vp8xFlags: number | undefined;
   for (const chunk of parsed.chunks) {
     if (chunk.fourCc === "XMP ") continue;
     if (chunk.fourCc === "ICCP" && !preserveColorProfile) continue;
@@ -125,31 +124,25 @@ function buildOutputPlan(
         flags |= 0x20;
       if (keepOrientation) flags |= 0x08;
       data[0] = flags;
-      vp8xFlags = flags;
       plan.push({ fourCc: "VP8X", size: data.length, data });
       continue;
     }
     plan.push({ fourCc: chunk.fourCc, size: chunk.size, source: chunk });
   }
   // KIT-08 (D-14 amendment): when every extended feature has been stripped
-  // (the recomputed VP8X flags byte is 0) and the only remaining chunk is a
-  // single VP8 or VP8L bitstream, drop VP8X and write simple-format WebP --
-  // matching what ExifTool's own `-all=` sanitize produces. The WebP spec
-  // only allows ALPH/ANIM/ANMF/unknown chunks alongside a VP8X container, so
-  // any other surviving chunk keeps VP8X. `parseWebp` already requires the
-  // VP8X canvas dimensions to match the VP8/VP8L bitstream header exactly
-  // (src/webp/riff.ts), so dropping the canvas size here is safe: the
-  // simple-format bitstream header alone still encodes the true dimensions.
-  if (vp8xFlags === 0) {
-    const withoutVp8x = plan.filter((chunk) => chunk.fourCc !== "VP8X");
-    const onlyChunk = withoutVp8x[0];
-    if (
-      withoutVp8x.length === 1 &&
-      onlyChunk !== undefined &&
-      (onlyChunk.fourCc === "VP8 " || onlyChunk.fourCc === "VP8L")
-    )
-      return withoutVp8x;
-  }
+  // (the planned VP8X flags byte is 0) the only chunk left beside VP8X is the
+  // single VP8 or VP8L bitstream (`parseWebp` admits ALPH, ANIM and ANMF only
+  // together with the VP8X flags that keep the flags byte non-zero), so drop
+  // VP8X and write simple-format WebP -- matching what ExifTool's own `-all=`
+  // sanitize produces. Only a planned VP8X chunk can lead a plan that holds
+  // inline data (`parseWebp` requires VP8X first and admits EXIF only behind
+  // it), so the first data byte of the plan is that flags byte. `parseWebp`
+  // already requires the VP8X canvas dimensions to match the VP8/VP8L
+  // bitstream header exactly (src/webp/riff.ts), so dropping the canvas size
+  // here is safe: the simple-format bitstream header alone still encodes the
+  // true dimensions. `verifyOutput` re-parses the result, which refuses a
+  // simple-format container that holds any other chunk.
+  if (plan[0]?.data?.[0] === 0) return plan.slice(1);
   return plan;
 }
 
