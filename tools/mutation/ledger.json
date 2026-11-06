@@ -195319,7 +195319,7 @@
       "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000982\u000011\u0000982\u000043"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > checkOutputPlan ConditionalExpression and StringLiteral clusters: a plan without a decline reason is refused only when it holds no IDAT, with a non-empty reason"
@@ -195336,7 +195336,7 @@
       "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000985\u000011\u0000985\u000041"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > checkOutputPlan ConditionalExpression and StringLiteral clusters: a plan without a decline reason is refused only when it holds no IDAT, with a non-empty reason"
@@ -195353,7 +195353,7 @@
       "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000``\u0000899\u000015\u0000899\u0000105"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > classifyAdmissionFailure StringLiteral cluster: an oversized iCCP chunk under color-profile preservation is a typed policy-limit decline with a non-empty detail"
@@ -195878,11 +195878,27 @@
       "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000753\u000032\u0000753\u000056"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verificationAborted StringLiteral cluster: an aborted verification carries a non-empty detail"
       }
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:verificationError:StringLiteral:dead-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "verificationError",
+      "mutatorName": "StringLiteral",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000791\u000011\u0000791\u000073"
+      ],
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"expectedTypes\" no longer appears in the enclosing function verificationError (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "expectedTypes",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:verificationError:StringLiteral"
     },
     {
       "id": "png:src/admission/png-handler.ts:verificationError:StringLiteral:gap-01",
@@ -195893,12 +195909,12 @@
       "disposition": "gap",
       "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000791\u000011\u0000791\u000073"
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000``\u0000804\u000013\u0000804\u000051"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression and StringLiteral clusters: the inserted-orientation slot holding another chunk type is refused"
+        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression, LogicalOperator and BlockStatement clusters: a destination chunk of a removed type that the admission classes as kept is refused"
       },
       "originClusterId": "png:src/admission/png-handler.ts:verificationError:StringLiteral"
     },
@@ -195911,32 +195927,13 @@
       "disposition": "gap",
       "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000``\u0000804\u000013\u0000804\u000051"
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000815\u000013\u0000815\u000057"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression, LogicalOperator and BlockStatement clusters: a destination chunk of a removed type that the admission classes as kept is refused"
+        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression and StringLiteral clusters: the inserted-orientation slot holding another chunk type is refused"
       },
-      "originClusterId": "png:src/admission/png-handler.ts:verificationError:StringLiteral"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:verificationError:StringLiteral:pending-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "verificationError",
-      "mutatorName": "StringLiteral",
-      "disposition": "pending",
-      "count": 2,
-      "keys": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000815\u000013\u0000815\u000057",
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000853\u000011\u0000853\u000070"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-39-HALTED.md (a behavior-preserving source simplification of redundant guards in verifyOutput): this member has the same typed outcome with or without the guard, and either an observable Killed sibling replacement of the same mutator shares its line or condition, or a directive inside the condition would change the anchor of another frozen member, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"Expected eXIf chunk is missing after IHDR.\"\u00000",
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"Destination chunk count did not match the sanitized plan.\"\u00000"
-      ],
       "originClusterId": "png:src/admission/png-handler.ts:verificationError:StringLiteral"
     },
     {
@@ -195950,7 +195947,7 @@
       "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000834\u000013\u0000834\u000075"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression, LogicalOperator, BlockStatement and StringLiteral clusters: an inserted eXIf that is a valid single orientation but not the minimal payload is refused"
@@ -195966,9 +195963,27 @@
       "disposition": "gap",
       "count": 1,
       "keys": [
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000853\u000011\u0000853\u000070"
+      ],
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput StringLiteral cluster: a destination with one extra chunk is refused with a non-empty detail"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:verificationError:StringLiteral"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:verificationError:StringLiteral:gap-05",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "verificationError",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000884\u000013\u0000884\u000059"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput StringLiteral clusters: a changed kept chunk and an unreadable source each carry a non-empty detail"
@@ -195981,15 +195996,46 @@
       "file": "src/admission/png-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "ArrowFunction",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000ArrowFunction\u0000() => undefined\u0000787\u000029\u0000787\u000075"
       ],
-      "note": "Awaiting the maintainer ruling in 67-39-HALTED.md (a behavior-preserving source simplification of redundant guards in verifyOutput): this member has the same typed outcome with or without the guard, and either an observable Killed sibling replacement of the same mutator shares its line or condition, or a directive inside the condition would change the anchor of another frozen member, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ArrowFunction\u0000() => undefined\u0000(type, index) => type !== expectedTypes[index]\u00000"
-      ]
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"expectedTypes\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "expectedTypes",
+      "symbolScope": "function"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement:dead-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000796\u000061\u0000808\u00006"
+      ],
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"type === \\\"eXIf\\\"\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "type === \"eXIf\"",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement:dead-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "BlockStatement",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000810\u000028\u0000838\u00006"
+      ],
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"reparsed\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "reparsed",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement"
     },
     {
       "id": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement:gap-01",
@@ -196000,45 +196046,9 @@
       "disposition": "gap",
       "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000796\u000061\u0000808\u00006"
-      ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression, LogicalOperator and BlockStatement clusters: a destination chunk of a removed type that the admission classes as kept is refused"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement:gap-02",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "verifyOutput",
-      "mutatorName": "BlockStatement",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000810\u000028\u0000838\u00006"
-      ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression, LogicalOperator, BlockStatement and StringLiteral clusters: an inserted eXIf that is a valid single orientation but not the minimal payload is refused"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement:gap-03",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "verifyOutput",
-      "mutatorName": "BlockStatement",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
         "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000857\u000064\u0000875\u00006"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. The test is the Plan 67-38 test named below, which already kills this member; red evidence is the immutable hosted pre-triage status (Survived or NoCoverage) and reports/triage/67-39/red-baseline-tests.json, a real run with the baseline-era tests (tests/isobmff_hostile.test.ts at 217523f^) where the member is undetected.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. The test is the Plan 67-38 test named below, which already kills this member; red evidence is the immutable hosted pre-triage status (Survived or NoCoverage) and reports/triage/67-39/red-baseline-tests.json, a real run with the baseline-era tests (tests/isobmff_hostile.test.ts at 217523f^) where the member is undetected.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ConditionalExpression, EqualityOperator and BooleanLiteral clusters: one altered byte in a kept chunk fails verification while the chunk sequence is unchanged"
@@ -196046,34 +196056,21 @@
       "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:BlockStatement"
     },
     {
-      "id": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression:pending-01",
+      "id": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression:dead-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 8,
+      "disposition": "dead",
+      "count": 3,
       "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000786\u00007\u0000786\u000055",
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000786\u00007\u0000787\u000076",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000787\u000046\u0000787\u000075",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000800\u000032\u0000800\u000043",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000800\u000047\u0000800\u000062",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000812\u000038\u0000812\u000063",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000829\u00009\u0000829\u000059",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000830\u00009\u0000830\u000038"
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000787\u000046\u0000787\u000075"
       ],
-      "note": "Awaiting the maintainer ruling in 67-39-HALTED.md (a behavior-preserving source simplification of redundant guards in verifyOutput): this member has the same typed outcome with or without the guard, and either an observable Killed sibling replacement of the same mutator shares its line or condition, or a directive inside the condition would change the anchor of another frozen member, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000destinationTypes.length !== expectedTypes.length\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000destinationTypes.length !== expectedTypes.length ||\n      destinationTypes.some((type, index) => type !== expectedTypes[index])\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000type !== expectedTypes[index]\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000index === 1\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000type === \"eXIf\"\u00001",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000exifChunk.type !== \"eXIf\"\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000reparsed.orientation.value !== expectedOrientation\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000reparsed.entries.length !== 1\u00000"
-      ],
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"expectedTypes\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "expectedTypes",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression"
     },
     {
@@ -196083,17 +196080,33 @@
       "function": "verifyOutput",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 3,
+      "count": 2,
       "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000800\u000011\u0000800\u000043",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000800\u000011\u0000800\u000062",
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000801\u000011\u0000801\u000044"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression, LogicalOperator and BlockStatement clusters: a destination chunk of a removed type that the admission classes as kept is refused"
       },
+      "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression:dead-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 2,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000800\u000011\u0000800\u000062",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000800\u000047\u0000800\u000062"
+      ],
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"type === \\\"eXIf\\\"\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "type === \"eXIf\"",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression"
     },
     {
@@ -196103,16 +196116,52 @@
       "function": "verifyOutput",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000827\u00009\u0000829\u000059",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000827\u00009\u0000830\u000038"
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000800\u000032\u0000800\u000043"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression, LogicalOperator, BlockStatement and StringLiteral clusters: an inserted eXIf that is a valid single orientation but not the minimal payload is refused"
+        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression cluster: a removed-type chunk other than the inserted orientation is refused while the inserted one is accepted"
       },
+      "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression:gap-03",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000812\u000038\u0000812\u000063"
+      ],
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression and StringLiteral clusters: the inserted-orientation slot holding another chunk type is refused"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression:dead-03",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 4,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000827\u00009\u0000829\u000059",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000827\u00009\u0000830\u000038",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000829\u00009\u0000829\u000059",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000830\u00009\u0000830\u000038"
+      ],
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"reparsed\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "reparsed",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression"
     },
     {
@@ -196135,7 +196184,7 @@
       "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression"
     },
     {
-      "id": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression:gap-03",
+      "id": "png:src/admission/png-handler.ts:verifyOutput:ConditionalExpression:gap-04",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "verifyOutput",
@@ -196145,7 +196194,7 @@
       "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000861\u00009\u0000870\u000011"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. The test is the Plan 67-38 test named below, which already kills this member; red evidence is the immutable hosted pre-triage status (Survived or NoCoverage) and reports/triage/67-39/red-baseline-tests.json, a real run with the baseline-era tests (tests/isobmff_hostile.test.ts at 217523f^) where the member is undetected.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. The test is the Plan 67-38 test named below, which already kills this member; red evidence is the immutable hosted pre-triage status (Survived or NoCoverage) and reports/triage/67-39/red-baseline-tests.json, a real run with the baseline-era tests (tests/isobmff_hostile.test.ts at 217523f^) where the member is undetected.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ConditionalExpression, EqualityOperator and BooleanLiteral clusters: one altered byte in a kept chunk fails verification while the chunk sequence is unchanged"
@@ -196181,27 +196230,42 @@
       "keys": [
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000index >= sourceKept.length\u0000857\u000025\u0000857\u000050"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. The test is the Plan 67-38 test named below, which already kills this member; red evidence is the immutable hosted pre-triage status (Survived or NoCoverage) and reports/triage/67-39/red-baseline-tests.json, a real run with the baseline-era tests (tests/isobmff_hostile.test.ts at 217523f^) where the member is undetected.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. The test is the Plan 67-38 test named below, which already kills this member; red evidence is the immutable hosted pre-triage status (Survived or NoCoverage) and reports/triage/67-39/red-baseline-tests.json, a real run with the baseline-era tests (tests/isobmff_hostile.test.ts at 217523f^) where the member is undetected.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ConditionalExpression, EqualityOperator and BooleanLiteral clusters: one altered byte in a kept chunk fails verification while the chunk sequence is unchanged"
       }
     },
     {
-      "id": "png:src/admission/png-handler.ts:verifyOutput:LogicalOperator:pending-01",
+      "id": "png:src/admission/png-handler.ts:verifyOutput:LogicalOperator:dead-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000LogicalOperator\u0000destinationTypes.length !== expectedTypes.length && destinationTypes.some((type, index) => type !== expectedTypes[index])\u0000786\u00007\u0000787\u000076"
       ],
-      "note": "Awaiting the maintainer ruling in 67-39-HALTED.md (a behavior-preserving source simplification of redundant guards in verifyOutput): this member has the same typed outcome with or without the guard, and either an observable Killed sibling replacement of the same mutator shares its line or condition, or a directive inside the condition would change the anchor of another frozen member, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000LogicalOperator\u0000destinationTypes.length !== expectedTypes.length && destinationTypes.some((type, index) => type !== expectedTypes[index])\u0000destinationTypes.length !== expectedTypes.length ||\n      destinationTypes.some((type, index) => type !== expectedTypes[index])\u00000"
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"expectedTypes\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "expectedTypes",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:LogicalOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:verifyOutput:LogicalOperator:dead-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "verifyOutput",
+      "mutatorName": "LogicalOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000LogicalOperator\u0000insertOrientation && index === 1 || type === \"eXIf\"\u0000800\u000011\u0000800\u000062"
       ],
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"type === \\\"eXIf\\\"\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "type === \"eXIf\"",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:LogicalOperator"
     },
     {
@@ -196211,12 +196275,11 @@
       "function": "verifyOutput",
       "mutatorName": "LogicalOperator",
       "disposition": "gap",
-      "count": 2,
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000LogicalOperator\u0000insertOrientation && index === 1 || type === \"eXIf\"\u0000800\u000011\u0000800\u000062",
         "src/admission/png-handler.ts\u0000LogicalOperator\u0000insertOrientation || index === 1\u0000800\u000011\u0000800\u000043"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression, LogicalOperator and BlockStatement clusters: a destination chunk of a removed type that the admission classes as kept is refused"
@@ -196224,21 +196287,19 @@
       "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:LogicalOperator"
     },
     {
-      "id": "png:src/admission/png-handler.ts:verifyOutput:LogicalOperator:gap-02",
+      "id": "png:src/admission/png-handler.ts:verifyOutput:LogicalOperator:dead-03",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "LogicalOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000LogicalOperator\u0000(!exifData.equals(expectedData) || reparsed.orientation.status !== \"valid\" || reparsed.orientation.value !== expectedOrientation) && reparsed.entries.length !== 1\u0000827\u00009\u0000830\u000038"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput ConditionalExpression, LogicalOperator, BlockStatement and StringLiteral clusters: an inserted eXIf that is a valid single orientation but not the minimal payload is refused"
-      },
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"reparsed\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "reparsed",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:verifyOutput:LogicalOperator"
     },
     {
@@ -196247,15 +196308,14 @@
       "file": "src/admission/png-handler.ts",
       "function": "verifyOutput",
       "mutatorName": "MethodExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000MethodExpression\u0000destinationTypes.every((type, index) => type !== expectedTypes[index])\u0000787\u00007\u0000787\u000076"
       ],
-      "note": "Awaiting the maintainer ruling in 67-39-HALTED.md (a behavior-preserving source simplification of redundant guards in verifyOutput): this member has the same typed outcome with or without the guard, and either an observable Killed sibling replacement of the same mutator shares its line or condition, or a directive inside the condition would change the anchor of another frozen member, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000MethodExpression\u0000destinationTypes.every((type, index) => type !== expectedTypes[index])\u0000destinationTypes.some((type, index) => type !== expectedTypes[index])\u00000"
-      ]
+      "note": "Removed or rewritten by the Plan 67-39 behavior-preserving source edit (Option A of 67-39-HALTED.md, applied only after the maintainer's approval): the redundant construct containing this member was dropped or rewritten (see 67-39-OPTION-A.patch and the traces in 67-39-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-39 tests. The witness \"expectedTypes\" no longer appears in the enclosing function verifyOutput (scoped witness); the fresh unfiltered report reports/triage/67-39/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "expectedTypes",
+      "symbolScope": "function"
     },
     {
       "id": "png:src/admission/png-handler.ts:verifyOutput:StringLiteral",
@@ -196268,7 +196328,7 @@
       "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000873\u000029\u0000873\u000060"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > verifyOutput StringLiteral clusters: a changed kept chunk and an unreadable source each carry a non-empty detail"
@@ -196285,7 +196345,7 @@
       "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000996\u000013\u0000996\u000030"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > writeOutput ConditionalExpression and LogicalOperator clusters: an aborted signal stops the write and rethrows the abort reason itself"
@@ -196302,7 +196362,7 @@
       "keys": [
         "src/admission/png-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000997\u000017\u0000997\u000076"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > writeOutput ConditionalExpression and LogicalOperator clusters: an aborted signal stops the write and rethrows the abort reason itself"
@@ -196319,7 +196379,7 @@
       "keys": [
         "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000997\u000063\u0000997\u000075"
       ],
-      "note": "reports/triage/67-39/batch-interim.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-39/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-39/red-baseline-tests.json (src/admission/png-handler.ts lines 750-1005, a real run on the unedited source with the baseline-era tests/isobmff_hostile.test.ts, restored byte-for-byte) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3) > writeOutput LogicalOperator and StringLiteral clusters: an aborted signal without a reason throws an AbortError DOMException"
