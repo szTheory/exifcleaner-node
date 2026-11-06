@@ -46,7 +46,9 @@ import {
   MAX_BUFFERED_METADATA_BYTES,
   MAX_CHUNK_COUNT,
   MAX_RIFF_BYTES as WEBP_MAX_RIFF_BYTES,
+  RIFF_HEADER_SIZE as WEBP_RIFF_HEADER_SIZE,
   WebpStructureError,
+  encodeRiffHeader,
   parseWebp,
   readExactly as webpReadExactly,
 } from "../src/webp/riff.js";
@@ -12105,4 +12107,95 @@ describe("riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPay
       "unsafe-structure",
     );
   });
+});
+
+describe("riff.ts encodeRiffHeader and incrementChunkCount clusters (67-45, webp-4)", () => {
+  // The exact 12 bytes of a RIFF/WEBP header for a file of `fileSize` bytes.
+  function expectedHeader(fileSize: number): Buffer {
+    const header = Buffer.alloc(12);
+    header.write("RIFF", 0, 4, "ascii");
+    header.writeUInt32LE(fileSize - 8, 4);
+    header.write("WEBP", 8, 4, "ascii");
+    return header;
+  }
+
+  // An in-memory handle over `source`, enough for parseWebp.
+  function memoryHandle(source: Buffer): FileHandle {
+    return {
+      read: async (
+        target: Buffer,
+        offset: number,
+        length: number,
+        position: number,
+      ) => {
+        const served = Math.max(0, Math.min(length, source.length - position));
+        source.copy(target, offset, position, position + served);
+        return { bytesRead: served, buffer: target };
+      },
+    } as unknown as FileHandle;
+  }
+
+  // VP8X, ANIM and `frames` ANMF chunks that each carry one nested image, then
+  // `extra` more top-level chunks: 2 + 2 * frames + extra counted chunks.
+  function countedFile(frames: number, extra: number): Buffer {
+    const frame = animationFrame();
+    return webpFile([
+      { fourCc: "VP8X", data: vp8x(0x02) },
+      { fourCc: "ANIM", data: anim() },
+      ...Array.from({ length: frames }, () => ({
+        fourCc: "ANMF",
+        data: frame,
+      })),
+      ...Array.from({ length: extra }, () => ({
+        fourCc: "XMP ",
+        data: xmpPacket(),
+      })),
+    ]);
+  }
+
+  it("encodeRiffHeader ConditionalExpression, LogicalOperator, BlockStatement and CallExpression clusters: a size below the 12-byte RIFF header is refused with a RangeError", () => {
+    expect(WEBP_RIFF_HEADER_SIZE).toBe(12);
+    expect(() => encodeRiffHeader(WEBP_RIFF_HEADER_SIZE - 1)).toThrow(
+      RangeError,
+    );
+    expect(() => encodeRiffHeader(0)).toThrow(RangeError);
+  });
+
+  it("encodeRiffHeader ConditionalExpression, LogicalOperator, BlockStatement and CallExpression clusters: a size one byte over the RIFF limit is refused with a RangeError", () => {
+    expect(() => encodeRiffHeader(WEBP_MAX_RIFF_BYTES + 1)).toThrow(RangeError);
+  });
+
+  it("encodeRiffHeader EqualityOperator cluster: a size of exactly the 12-byte header encodes a zero-chunk RIFF header", () => {
+    const header = encodeRiffHeader(WEBP_RIFF_HEADER_SIZE);
+    expect(header).toEqual(expectedHeader(WEBP_RIFF_HEADER_SIZE));
+    expect(header.readUInt32LE(4)).toBe(4);
+  });
+
+  it("encodeRiffHeader EqualityOperator cluster: a size of exactly the RIFF limit encodes the 32-bit size field", () => {
+    const header = encodeRiffHeader(WEBP_MAX_RIFF_BYTES);
+    expect(header).toEqual(expectedHeader(WEBP_MAX_RIFF_BYTES));
+    expect(header.readUInt32LE(4)).toBe(WEBP_MAX_RIFF_BYTES - 8);
+  });
+
+  it("incrementChunkCount EqualityOperator cluster: exactly the aggregate chunk limit parses and one chunk more is refused as unsafe-structure", async () => {
+    const frames = (MAX_CHUNK_COUNT - 2) / 2;
+    expect(Number.isInteger(frames)).toBe(true);
+    const atLimit = countedFile(frames, 0);
+    const parsed = await parseWebp(memoryHandle(atLimit), atLimit.length);
+    // VP8X, ANIM and the frames are top-level; each frame holds one more.
+    expect(parsed.chunks).toHaveLength(frames + 2);
+    const overLimit = countedFile(frames, 1);
+    const error = await rfOverLimit(overLimit);
+    expect(error).toBeInstanceOf(WebpStructureError);
+    expect((error as WebpStructureError).kind).toBe("unsafe-structure");
+  });
+
+  async function rfOverLimit(source: Buffer): Promise<unknown> {
+    try {
+      await parseWebp(memoryHandle(source), source.length);
+    } catch (error) {
+      return error;
+    }
+    throw new Error("parseWebp resolved where a rejection was expected");
+  }
 });
