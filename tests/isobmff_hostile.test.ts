@@ -43,8 +43,12 @@ import {
 } from "../src/admission/webp-handler.js";
 import {
   COPY_BLOCK_BYTES as WEBP_COPY_BLOCK_BYTES,
+  MAX_BUFFERED_METADATA_BYTES,
+  MAX_CHUNK_COUNT,
   MAX_RIFF_BYTES as WEBP_MAX_RIFF_BYTES,
   WebpStructureError,
+  parseWebp,
+  readExactly as webpReadExactly,
 } from "../src/webp/riff.js";
 import {
   BufferedBudget,
@@ -134,8 +138,10 @@ import {
 } from "./isobmff-support/inventory.js";
 import {
   XMP_ITXT_KEYWORD,
+  alpha as webpAlpha,
   anim,
   animationFrame,
+  chunk as webpChunk,
   exifWithArtist,
   exifWithOrientation,
   iccProfileV2,
@@ -11295,5 +11301,792 @@ describe("webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and
       { fourCc: "VP8 ", size: 4, data: Buffer.alloc(4) },
     ]);
     expect(exact.threw).toBe(false);
+  });
+});
+
+// riff.ts clusters (67-44, webp-3). parseWebp and readExactly only call `handle.read`, so they are
+// driven here through bounded in-memory (and virtual, zero-filled) handles that log every read:
+// that exposes the bytes asked for, the file size a refusal stops at and any read that would cross
+// it. Refusals are asserted by typed kind, never by message wording. Every fixture is valid except
+// for the one property under test, so a mutant that drops the check resolves instead of rejecting.
+describe("riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPayload, validateAnimationFrame and parseWebp clusters (67-44, webp-3)", () => {
+  interface RfRead {
+    readonly offset: number;
+    readonly length: number;
+    readonly position: number;
+  }
+  interface RfHandle {
+    readonly handle: FileHandle;
+    readonly reads: RfRead[];
+  }
+  interface RfHandleOptions {
+    // Cap on the bytes served per call (a short read).
+    readonly perRead?: number;
+    // Runs after each call is logged, with the number of calls so far.
+    readonly onRead?: (count: number) => void;
+    // More calls than this fail loudly, so a loop mutant cannot spin.
+    readonly maxReads?: number;
+  }
+
+  function rfHandle(source: Buffer, options: RfHandleOptions = {}): RfHandle {
+    const reads: RfRead[] = [];
+    const handle = {
+      read: async (
+        target: Buffer,
+        offset: number,
+        length: number,
+        position: number,
+      ) => {
+        reads.push({ offset, length, position });
+        if (reads.length > (options.maxReads ?? 200_000))
+          throw new Error("runaway read loop");
+        options.onRead?.(reads.length);
+        const served = Math.max(
+          0,
+          Math.min(length, options.perRead ?? length, source.length - position),
+        );
+        source.copy(target, offset, position, position + served);
+        return { bytesRead: served, buffer: target };
+      },
+    } as unknown as FileHandle;
+    return { handle, reads };
+  }
+
+  // A file of `size` bytes that is zero except for the listed regions.
+  function rfVirtual(
+    size: number,
+    regions: readonly { readonly at: number; readonly bytes: Buffer }[],
+  ): RfHandle {
+    const reads: RfRead[] = [];
+    const handle = {
+      read: async (
+        target: Buffer,
+        offset: number,
+        length: number,
+        position: number,
+      ) => {
+        reads.push({ offset, length, position });
+        const served = Math.max(0, Math.min(length, size - position));
+        target.fill(0, offset, offset + served);
+        for (const region of regions) {
+          const from = Math.max(position, region.at);
+          const to = Math.min(
+            position + served,
+            region.at + region.bytes.length,
+          );
+          if (to > from)
+            region.bytes.copy(
+              target,
+              offset + (from - position),
+              from - region.at,
+              to - region.at,
+            );
+        }
+        return { bytesRead: served, buffer: target };
+      },
+    } as unknown as FileHandle;
+    return { handle, reads };
+  }
+
+  function rfParse(source: Buffer): ReturnType<typeof parseWebp> {
+    return parseWebp(rfHandle(source).handle, source.length);
+  }
+
+  async function rfRejection(promise: Promise<unknown>): Promise<unknown> {
+    try {
+      await promise;
+    } catch (error) {
+      return error;
+    }
+    throw new Error("parseWebp resolved where a rejection was expected");
+  }
+
+  async function rfExpectKind(
+    source: Buffer,
+    kind: WebpStructureError["kind"],
+  ): Promise<void> {
+    const error = await rfRejection(rfParse(source));
+    expect(error).toBeInstanceOf(WebpStructureError);
+    expect((error as WebpStructureError).kind).toBe(kind);
+  }
+
+  // A chunk whose declared size is chosen by the caller, followed by `data` as is.
+  function rfRaw(fourCc: string, declaredSize: number, data: Buffer): Buffer {
+    const header = Buffer.alloc(8);
+    header.write(fourCc, 0, 4, "ascii");
+    header.writeUInt32LE(declaredSize, 4);
+    return Buffer.concat([header, data]);
+  }
+
+  // The 12-byte RIFF header for `fileSize` bytes.
+  function rfRiffHeader(fileSize: number): Buffer {
+    const header = Buffer.alloc(12);
+    header.write("RIFF", 0, 4, "ascii");
+    header.writeUInt32LE(fileSize - 8, 4);
+    header.write("WEBP", 8, 4, "ascii");
+    return header;
+  }
+
+  function rfRiff(body: Buffer): Buffer {
+    return Buffer.concat([rfRiffHeader(12 + body.length), body]);
+  }
+
+  const rfStill = (): Buffer => webpFile([{ fourCc: "VP8 ", data: vp8() }]);
+
+  function rfAnimated(
+    frame: Buffer,
+    width = 1,
+    height = 1,
+    flags = 0x02,
+  ): Buffer {
+    return webpFile([
+      { fourCc: "VP8X", data: vp8x(flags, width, height) },
+      { fourCc: "ANIM", data: anim() },
+      { fourCc: "ANMF", data: frame },
+    ]);
+  }
+
+  function rfAlphaFile(alphaData: Buffer, width = 1, height = 1): Buffer {
+    return webpFile([
+      { fourCc: "VP8X", data: vp8x(0x10, width, height) },
+      { fourCc: "ALPH", data: alphaData },
+      { fourCc: "VP8 ", data: vp8(width, height) },
+    ]);
+  }
+
+  it("readExactly ArithmeticOperator cluster: a short read continues at the advanced buffer offset, remaining length and file position", async () => {
+    const source = Buffer.from(Array.from({ length: 16 }, (_, i) => i + 1));
+    const { handle, reads } = rfHandle(source, { perRead: 3, maxReads: 50 });
+    const bytes = await webpReadExactly(handle, 8, 2);
+    expect(bytes).toEqual(source.subarray(2, 10));
+    expect(reads).toEqual([
+      { offset: 0, length: 8, position: 2 },
+      { offset: 3, length: 5, position: 5 },
+      { offset: 6, length: 2, position: 8 },
+    ]);
+  });
+
+  it("readExactly ConditionalExpression cluster: an end of file before the requested length rejects with malformed-file after a bounded number of reads", async () => {
+    const { handle, reads } = rfHandle(Buffer.alloc(5, 7), { maxReads: 50 });
+    const error = await rfRejection(webpReadExactly(handle, 8, 0));
+    expect(error).toBeInstanceOf(WebpStructureError);
+    expect((error as WebpStructureError).kind).toBe("malformed-file");
+    expect(reads.map((read) => read.position)).toEqual([0, 5]);
+  });
+
+  it("parseWebp ConditionalExpression and LogicalOperator clusters: a signal aborted before parsing rejects with its own reason and reads nothing", async () => {
+    const controller = new AbortController();
+    const reason = new Error("stop before parsing");
+    controller.abort(reason);
+    const fixture = rfStill();
+    const { handle, reads } = rfHandle(fixture);
+    await expect(
+      parseWebp(handle, fixture.length, controller.signal),
+    ).rejects.toBe(reason);
+    expect(reads).toEqual([]);
+  });
+
+  it("parseWebp LogicalOperator and StringLiteral clusters: an abort without a reason before parsing rejects with an AbortError DOMException", async () => {
+    const fixture = rfStill();
+    const { handle, reads } = rfHandle(fixture);
+    const signal = {
+      aborted: true,
+      reason: undefined,
+    } as unknown as AbortSignal;
+    const error = await rfRejection(parseWebp(handle, fixture.length, signal));
+    expect(error).toBeInstanceOf(DOMException);
+    expect((error as DOMException).name).toBe("AbortError");
+    expect(reads).toEqual([]);
+  });
+
+  it("parseWebp ConditionalExpression and LogicalOperator clusters: a signal aborted after the RIFF header read rejects with its own reason before any chunk header is read", async () => {
+    const controller = new AbortController();
+    const reason = new Error("stop inside the chunk loop");
+    const fixture = rfStill();
+    const { handle, reads } = rfHandle(fixture, {
+      onRead: (count) => {
+        if (count === 1) controller.abort(reason);
+      },
+    });
+    await expect(
+      parseWebp(handle, fixture.length, controller.signal),
+    ).rejects.toBe(reason);
+    expect(reads).toHaveLength(1);
+  });
+
+  it("parseWebp LogicalOperator and StringLiteral clusters: an abort without a reason inside the chunk loop rejects with an AbortError DOMException", async () => {
+    let aborted = false;
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      reason: undefined,
+    } as unknown as AbortSignal;
+    const fixture = rfStill();
+    const { handle, reads } = rfHandle(fixture, {
+      onRead: (count) => {
+        if (count === 1) aborted = true;
+      },
+    });
+    const error = await rfRejection(parseWebp(handle, fixture.length, signal));
+    expect(error).toBeInstanceOf(DOMException);
+    expect((error as DOMException).name).toBe("AbortError");
+    expect(reads).toHaveLength(1);
+  });
+
+  it("parseWebp EqualityOperator and ConditionalExpression clusters: a file of exactly the 12-byte RIFF header has no image payload, while 11 bytes is not a WebP container", async () => {
+    const header = rfRiff(Buffer.alloc(0));
+    expect(header).toHaveLength(12);
+    await rfExpectKind(header, "malformed-file");
+    await rfExpectKind(header.subarray(0, 11), "unsupported-format");
+  });
+
+  it("parseWebp ConditionalExpression and BlockStatement clusters: a file one byte over the RIFF limit is refused as unsafe-structure before any read", async () => {
+    const { handle, reads } = rfHandle(Buffer.alloc(0), { maxReads: 10 });
+    const error = await rfRejection(parseWebp(handle, WEBP_MAX_RIFF_BYTES + 1));
+    expect(error).toBeInstanceOf(WebpStructureError);
+    expect((error as WebpStructureError).kind).toBe("unsafe-structure");
+    expect(reads).toEqual([]);
+  });
+
+  it("parseWebp EqualityOperator cluster: a file of exactly the RIFF limit is parsed", async () => {
+    const size = WEBP_MAX_RIFF_BYTES;
+    const framing = Buffer.concat([
+      rfRiffHeader(size),
+      rfRaw("VP8 ", size - 20, Buffer.alloc(0)),
+    ]);
+    const { handle } = rfVirtual(size, [
+      { at: 0, bytes: framing },
+      { at: 20, bytes: vp8() },
+    ]);
+    const parsed = await parseWebp(handle, size);
+    expect(parsed.fileSize).toBe(size);
+    expect(parsed.chunks).toEqual([
+      {
+        fourCc: "VP8 ",
+        headerOffset: 12,
+        dataOffset: 20,
+        size: size - 20,
+        paddedSize: size - 20,
+      },
+    ]);
+  });
+
+  it("parseWebp ConditionalExpression and LogicalOperator clusters: a RIFX signature and a WEBQ form type are each refused as unsupported-format", async () => {
+    const riffBad = Buffer.from(rfStill());
+    riffBad.write("RIFX", 0, 4, "ascii");
+    const formBad = Buffer.from(rfStill());
+    formBad.write("WEBQ", 8, 4, "ascii");
+    await rfExpectKind(riffBad, "unsupported-format");
+    await rfExpectKind(formBad, "unsupported-format");
+  });
+
+  it("parseWebp ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a four-byte tail inside the RIFF size is a truncated chunk header and no read crosses the file size", async () => {
+    const file = Buffer.concat([
+      webpFile([{ fourCc: "VP8 ", data: vp8() }], 4),
+      Buffer.from("JUNK", "ascii"),
+    ]);
+    const { handle, reads } = rfHandle(
+      Buffer.concat([file, Buffer.alloc(16, 0x58)]),
+    );
+    const error = await rfRejection(parseWebp(handle, file.length));
+    expect(error).toBeInstanceOf(WebpStructureError);
+    expect((error as WebpStructureError).kind).toBe("malformed-file");
+    expect(
+      reads.every((read) => read.position + read.length <= file.length),
+    ).toBe(true);
+  });
+
+  it("parseWebp EqualityOperator cluster: an empty trailing EXIF chunk that ends the file exactly leaves eight bytes and is a complete chunk", async () => {
+    const parsed = await rfParse(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x08) },
+        { fourCc: "VP8 ", data: vp8() },
+        { fourCc: "EXIF", data: Buffer.alloc(0) },
+      ]),
+    );
+    expect(parsed.chunks.map((item) => item.fourCc)).toEqual([
+      "VP8X",
+      "VP8 ",
+      "EXIF",
+    ]);
+    expect(parsed.chunks[2]?.size).toBe(0);
+    expect(parsed.chunks[2]?.metadata).toEqual(Buffer.alloc(0));
+  });
+
+  it("parseWebp EqualityOperator cluster: an EXIF chunk of exactly the metadata inspection limit is buffered, not refused", async () => {
+    const prefix = Buffer.concat([
+      webpChunk("VP8X", vp8x(0x08)),
+      webpChunk("VP8 ", vp8()),
+      rfRaw("EXIF", MAX_BUFFERED_METADATA_BYTES, Buffer.alloc(0)),
+    ]);
+    const size = 12 + prefix.length + MAX_BUFFERED_METADATA_BYTES;
+    const { handle } = rfVirtual(size, [
+      { at: 0, bytes: rfRiffHeader(size) },
+      { at: 12, bytes: prefix },
+    ]);
+    const parsed = await parseWebp(handle, size);
+    expect(parsed.chunks.map((item) => item.fourCc)).toEqual([
+      "VP8X",
+      "VP8 ",
+      "EXIF",
+    ]);
+    expect(parsed.chunks[2]?.metadata?.length).toBe(
+      MAX_BUFFERED_METADATA_BYTES,
+    );
+  });
+
+  it("parseWebp ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a chunk whose padded size runs past the RIFF bounds is refused without reading past the file size", async () => {
+    const file = rfRiff(
+      Buffer.concat([
+        webpChunk("VP8 ", vp8()),
+        rfRaw("XMP ", 5, Buffer.from([1, 2])),
+      ]),
+    );
+    const { handle, reads } = rfHandle(
+      Buffer.concat([file, Buffer.alloc(16, 0)]),
+    );
+    const error = await rfRejection(parseWebp(handle, file.length));
+    expect(error).toBeInstanceOf(WebpStructureError);
+    expect((error as WebpStructureError).kind).toBe("malformed-file");
+    expect(
+      reads.every((read) => read.position + read.length <= file.length),
+    ).toBe(true);
+  });
+
+  it("parseWebp ConditionalExpression, LogicalOperator and BlockStatement clusters: a VP8X that is not the first chunk, or whose size is not 10, is refused", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "EXIF", data: exifWithOrientation(1) },
+        { fourCc: "VP8X", data: vp8x(0x08) },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+      "malformed-file",
+    );
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: Buffer.concat([vp8x(0), Buffer.alloc(2)]) },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+      "malformed-file",
+    );
+  });
+
+  it("parseWebp ConditionalExpression and LogicalOperator clusters: a VP8X with a non-zero reserved byte 1, 2 or 3 is refused", async () => {
+    for (const index of [1, 2, 3]) {
+      const data = vp8x(0);
+      data[index] = 1;
+      await rfExpectKind(
+        webpFile([
+          { fourCc: "VP8X", data },
+          { fourCc: "VP8 ", data: vp8() },
+        ]),
+        "malformed-file",
+      );
+    }
+  });
+
+  it("parseWebp ConditionalExpression, EqualityOperator, ArithmeticOperator and BlockStatement clusters: an animated canvas whose area exceeds 32 bits is refused and one of exactly 0xffffffff pixels is accepted", async () => {
+    const frame = animationFrame();
+    await rfExpectKind(rfAnimated(frame, 65_536, 65_536), "malformed-file");
+    const parsed = await rfParse(rfAnimated(frame, 65_535, 65_537));
+    expect(parsed.chunks.map((item) => item.fourCc)).toEqual([
+      "VP8X",
+      "ANIM",
+      "ANMF",
+    ]);
+  });
+
+  it("parseWebp ConditionalExpression, StringLiteral and BlockStatement clusters: a container with both VP8 and VP8L payloads is refused as unsafe-structure", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8 ", data: vp8() },
+        { fourCc: "VP8L", data: vp8l() },
+      ]),
+      "unsafe-structure",
+    );
+  });
+
+  it("parseWebp ConditionalExpression and BlockStatement clusters: a VP8X container with no image or animation payload is refused", async () => {
+    await rfExpectKind(
+      webpFile([{ fourCc: "VP8X", data: vp8x(0) }]),
+      "malformed-file",
+    );
+  });
+
+  it("parseWebp ConditionalExpression and BlockStatement clusters: ANIM without ANMF and ANMF without ANIM are each refused", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0) },
+        { fourCc: "ANIM", data: anim() },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+      "malformed-file",
+    );
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x02) },
+        { fourCc: "ANMF", data: animationFrame() },
+      ]),
+      "malformed-file",
+    );
+  });
+
+  it("parseWebp ConditionalExpression, LogicalOperator, StringLiteral and BlockStatement clusters: an animation without a VP8X chunk is refused", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "ANIM", data: anim() },
+        { fourCc: "ANMF", data: animationFrame() },
+      ]),
+      "malformed-file",
+    );
+  });
+
+  it("parseWebp ConditionalExpression and BlockStatement clusters: top-level still-image and animation payloads in one container are refused as unsafe-structure", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x02) },
+        { fourCc: "ANIM", data: anim() },
+        { fourCc: "VP8 ", data: vp8() },
+        { fourCc: "ANMF", data: animationFrame() },
+      ]),
+      "unsafe-structure",
+    );
+  });
+
+  it("parseWebp ConditionalExpression, EqualityOperator, LogicalOperator and BlockStatement clusters: an ALPH chunk without a VP8X, or followed by a VP8L, is refused", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "ALPH", data: webpAlpha(1, 1) },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+      "malformed-file",
+    );
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x10) },
+        { fourCc: "ALPH", data: webpAlpha(1, 1) },
+        { fourCc: "VP8L", data: vp8l(1, 1, true) },
+      ]),
+      "malformed-file",
+    );
+  });
+
+  it("parseWebp ConditionalExpression and BlockStatement clusters: a VP8X animation flag that disagrees with the ANMF chunks is refused in both directions", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x02) },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+      "malformed-file",
+    );
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0) },
+        { fourCc: "ANIM", data: anim() },
+        { fourCc: "ANMF", data: animationFrame() },
+      ]),
+      "malformed-file",
+    );
+  });
+
+  it("parseWebp ConditionalExpression cluster: an image whose height alone disagrees with the VP8X canvas is refused", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0, 2, 2) },
+        { fourCc: "VP8 ", data: vp8(2, 1) },
+      ]),
+      "malformed-file",
+    );
+  });
+
+  it("parseWebp StringLiteral and ConditionalExpression clusters: ICCP or XMP metadata without a VP8X chunk is refused", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "ICCP", data: Buffer.alloc(4) },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+      "malformed-file",
+    );
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "XMP ", data: xmpPacket() },
+        { fourCc: "VP8 ", data: vp8() },
+      ]),
+      "malformed-file",
+    );
+  });
+
+  it("chunkRank ConditionalExpression and StringLiteral clusters: ANIM and ANMF are ordered, a chunk after ANMF cannot be an ANIM", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x02) },
+        { fourCc: "ANMF", data: animationFrame() },
+        { fourCc: "ANIM", data: anim() },
+      ]),
+      "unsafe-structure",
+    );
+  });
+
+  it("chunkRank ConditionalExpression and EqualityOperator clusters: EXIF and XMP take no part in the chunk order, ICCP may follow EXIF and XMP may follow the image", async () => {
+    const parsed = await rfParse(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x2c) },
+        { fourCc: "EXIF", data: exifWithOrientation(1) },
+        { fourCc: "ICCP", data: Buffer.alloc(4) },
+        { fourCc: "VP8 ", data: vp8() },
+        { fourCc: "XMP ", data: xmpPacket() },
+      ]),
+    );
+    expect(parsed.chunks.map((item) => item.fourCc)).toEqual([
+      "VP8X",
+      "EXIF",
+      "ICCP",
+      "VP8 ",
+      "XMP ",
+    ]);
+  });
+
+  it("chunkRank ConditionalExpression and StringLiteral clusters: a VP8L image ranks above ICCP, so an ICCP after it is refused", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x20) },
+        { fourCc: "VP8L", data: vp8l() },
+        { fourCc: "ICCP", data: Buffer.alloc(4) },
+      ]),
+      "unsafe-structure",
+    );
+  });
+
+  it("validateImagePayload ConditionalExpression and BlockStatement clusters: a VP8 payload of 9 bytes is refused though its padding byte would complete the header, and a VP8L payload of 4 bytes is refused without reading a 5-byte header", async () => {
+    await rfExpectKind(
+      webpFile([{ fourCc: "VP8 ", data: vp8(1, 1).subarray(0, 9) }]),
+      "malformed-file",
+    );
+    const short = webpFile([
+      { fourCc: "VP8L", data: vp8l(1, 1).subarray(0, 4) },
+    ]);
+    const { handle, reads } = rfHandle(short);
+    const error = await rfRejection(parseWebp(handle, short.length));
+    expect(error).toBeInstanceOf(WebpStructureError);
+    expect((error as WebpStructureError).kind).toBe("malformed-file");
+    expect(reads.some((read) => read.length === 5)).toBe(false);
+  });
+
+  it("validateImagePayload ConditionalExpression cluster: a VP8 key-frame signature with a wrong second or third byte, and a zero height, are each refused", async () => {
+    for (const index of [4, 5]) {
+      const data = vp8();
+      data[index] = 0;
+      await rfExpectKind(
+        webpFile([{ fourCc: "VP8 ", data }]),
+        "malformed-file",
+      );
+    }
+    await rfExpectKind(
+      webpFile([{ fourCc: "VP8 ", data: vp8(1, 0) }]),
+      "malformed-file",
+    );
+  });
+
+  it("validateAlphaPayload BlockStatement and ConditionalExpression clusters: an ALPH payload of one byte is refused even when its header selects compression", async () => {
+    await rfExpectKind(rfAlphaFile(Buffer.from([0x01])), "malformed-file");
+  });
+
+  it("validateAlphaPayload ConditionalExpression, LogicalOperator and BlockStatement clusters: reserved bits, a compression above 1 and a preprocessing above 1 are each refused", async () => {
+    for (const header of [0x40, 0x80, 0x02, 0x20]) {
+      const data = webpAlpha(1, 1);
+      data[0] = header;
+      await rfExpectKind(rfAlphaFile(data), "malformed-file");
+    }
+  });
+
+  it("validateAlphaPayload EqualityOperator cluster: a preprocessing of 1 and a compression of 1 are accepted", async () => {
+    const pre = webpAlpha(1, 1);
+    pre[0] = 0x10;
+    const compressed = Buffer.from([0x01, 0x00]);
+    for (const data of [pre, compressed]) {
+      const parsed = await rfParse(rfAlphaFile(data));
+      expect(parsed.chunks.map((item) => item.fourCc)).toEqual([
+        "VP8X",
+        "ALPH",
+        "VP8 ",
+      ]);
+    }
+  });
+
+  it("validateAlphaPayload ConditionalExpression and ArithmeticOperator clusters: an uncompressed ALPH payload must be exactly 1 + width * height bytes", async () => {
+    await rfExpectKind(rfAlphaFile(Buffer.alloc(4), 2, 2), "malformed-file");
+    await rfExpectKind(rfAlphaFile(Buffer.alloc(6), 2, 2), "malformed-file");
+    const parsed = await rfParse(rfAlphaFile(webpAlpha(2, 2), 2, 2));
+    expect(parsed.chunks[1]?.size).toBe(5);
+  });
+
+  it("validateAnimationFrame ConditionalExpression, EqualityOperator and BlockStatement clusters: an ANMF of 15 bytes reads no frame header, one of exactly 16 reads it", async () => {
+    const short = await (async () => {
+      const file = rfAnimated(animationFrame({ chunks: [] }).subarray(0, 15));
+      const { handle, reads } = rfHandle(file);
+      const error = await rfRejection(parseWebp(handle, file.length));
+      return { error, reads };
+    })();
+    expect(short.error).toBeInstanceOf(WebpStructureError);
+    expect((short.error as WebpStructureError).kind).toBe("malformed-file");
+    expect(short.reads.some((read) => read.length === 16)).toBe(false);
+
+    const exact = rfAnimated(animationFrame({ chunks: [] }));
+    const { handle, reads } = rfHandle(exact);
+    const error = await rfRejection(parseWebp(handle, exact.length));
+    expect((error as WebpStructureError).kind).toBe("malformed-file");
+    expect(
+      reads.some(
+        (read) => read.length === 16 && read.position === 12 + 18 + 14 + 8,
+      ),
+    ).toBe(true);
+  });
+
+  it("validateAnimationFrame ArithmeticOperator and ConditionalExpression clusters: a frame offset and size beyond the VP8X canvas are refused on both axes, and the offsets are read as 24-bit values", async () => {
+    await rfExpectKind(
+      rfAnimated(animationFrame({ x: 2, width: 2 }), 3, 1),
+      "malformed-file",
+    );
+    await rfExpectKind(
+      rfAnimated(animationFrame({ y: 2, height: 2 }), 1, 3),
+      "malformed-file",
+    );
+    await rfExpectKind(
+      rfAnimated(animationFrame({ x: 131_586 }), 131_586, 1),
+      "malformed-file",
+    );
+    await rfExpectKind(
+      rfAnimated(animationFrame({ y: 131_586 }), 1, 131_586),
+      "malformed-file",
+    );
+    const parsed = await rfParse(
+      rfAnimated(animationFrame({ x: 2, y: 2, width: 1, height: 1 }), 3, 3),
+    );
+    expect(parsed.chunks[2]?.fourCc).toBe("ANMF");
+  });
+
+  it("validateAnimationFrame ConditionalExpression, ArithmeticOperator and BlockStatement clusters: a stray byte inside an ANMF is a truncated nested header and the next chunk is not read as one", async () => {
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x06) },
+        { fourCc: "ANIM", data: anim() },
+        {
+          fourCc: "ANMF",
+          data: Buffer.concat([animationFrame(), Buffer.from([0x58])]),
+        },
+        { fourCc: "XMP ", data: xmpPacket() },
+      ]),
+      "malformed-file",
+    );
+  });
+
+  it("validateAnimationFrame EqualityOperator cluster: a nested chunk header that ends the ANMF exactly leaves eight bytes and is read as a chunk", async () => {
+    await rfExpectKind(
+      rfAnimated(
+        Buffer.concat([animationFrame(), webpChunk("ALPH", Buffer.alloc(0))]),
+      ),
+      "unsafe-structure",
+    );
+  });
+
+  it("validateAnimationFrame CallExpression cluster: nested chunks count toward the aggregate chunk limit", async () => {
+    const frame = animationFrame();
+    const frames = Array.from({ length: 5_000 }, () => ({
+      fourCc: "ANMF",
+      data: frame,
+    }));
+    expect(5_000 + 2).toBeLessThan(MAX_CHUNK_COUNT);
+    expect(5_000 * 2 + 2).toBeGreaterThan(MAX_CHUNK_COUNT);
+    await rfExpectKind(
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x02) },
+        { fourCc: "ANIM", data: anim() },
+        ...frames,
+      ]),
+      "unsafe-structure",
+    );
+  });
+
+  it("validateAnimationFrame ConditionalExpression and BlockStatement clusters: an unknown nested chunk after the image is refused as unsafe-structure", async () => {
+    await rfExpectKind(
+      rfAnimated(
+        animationFrame({
+          chunks: [
+            { fourCc: "VP8 ", data: vp8() },
+            { fourCc: "PRIV", data: Buffer.from("GPSLatitude=40.7128;") },
+          ],
+        }),
+      ),
+      "unsafe-structure",
+    );
+  });
+
+  it("validateAnimationFrame CallExpression, ConditionalExpression and BlockStatement clusters: a duplicate nested image chunk is refused as unsafe-structure, not as a count of images", async () => {
+    await rfExpectKind(
+      rfAnimated(
+        animationFrame({
+          chunks: [
+            { fourCc: "VP8 ", data: vp8() },
+            { fourCc: "VP8 ", data: vp8() },
+          ],
+        }),
+      ),
+      "unsafe-structure",
+    );
+  });
+
+  it("validateAnimationFrame ArithmeticOperator, ConditionalExpression and BlockStatement clusters: a nested chunk that declares more bytes than the ANMF holds is refused", async () => {
+    await rfExpectKind(
+      rfAnimated(
+        Buffer.concat([
+          animationFrame({ chunks: [] }),
+          rfRaw("VP8 ", 100, vp8()),
+        ]),
+      ),
+      "malformed-file",
+    );
+  });
+
+  it("validateAnimationFrame ConditionalExpression, LogicalOperator and BlockStatement clusters: a frame whose width or height alone disagrees with its image payload is refused", async () => {
+    await rfExpectKind(
+      rfAnimated(
+        animationFrame({
+          width: 2,
+          chunks: [{ fourCc: "VP8 ", data: vp8(1, 1) }],
+        }),
+        2,
+        1,
+      ),
+      "malformed-file",
+    );
+    await rfExpectKind(
+      rfAnimated(
+        animationFrame({
+          height: 2,
+          chunks: [{ fourCc: "VP8 ", data: vp8(1, 1) }],
+        }),
+        1,
+        2,
+      ),
+      "malformed-file",
+    );
+  });
+
+  it("validateAnimationFrame ConditionalExpression cluster: a nested ALPH next to a VP8L image is refused as unsafe-structure", async () => {
+    await rfExpectKind(
+      rfAnimated(
+        animationFrame({
+          chunks: [
+            { fourCc: "ALPH", data: webpAlpha(1, 1) },
+            { fourCc: "VP8L", data: vp8l(1, 1) },
+          ],
+        }),
+        1,
+        1,
+        0x12,
+      ),
+      "unsafe-structure",
+    );
   });
 });
