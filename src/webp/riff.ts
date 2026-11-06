@@ -101,16 +101,11 @@ function metadataFlag(fourCc: string): number {
 }
 
 function chunkRank(fourCc: string): number {
-  if (fourCc === "VP8X") return 0;
+  // The VP8X chunk is always first and an ALPH chunk is always followed directly by the VP8
+  // chunk that carries the same rank, so neither takes part in the ordering.
   if (fourCc === "ICCP") return 1;
   if (fourCc === "ANIM") return 2;
-  if (
-    fourCc === "ALPH" ||
-    fourCc === "VP8 " ||
-    fourCc === "VP8L" ||
-    fourCc === "ANMF"
-  )
-    return 3;
+  if (fourCc === "VP8 " || fourCc === "VP8L" || fourCc === "ANMF") return 3;
   return -1;
 }
 
@@ -325,18 +320,13 @@ async function validateAnimationFrame(
   }
   const alpha = nested.find((chunk) => chunk.fourCc === "ALPH");
   if (alpha !== undefined) {
-    if (nested.length !== 2 || nested[0] !== alpha || image.fourCc !== "VP8 ") {
+    if (nested[0] !== alpha || image.fourCc !== "VP8 ") {
       throw new WebpStructureError(
         "unsafe-structure",
         "Nested ALPH must immediately precede one VP8 image chunk.",
       );
     }
     await validateAlphaPayload(handle, alpha, width, height);
-  } else if (nested[0] !== images[0]) {
-    throw new WebpStructureError(
-      "unsafe-structure",
-      "ANMF nested image chunks occur in an ambiguous order.",
-    );
   }
   return alpha !== undefined || image.hasAlpha;
 }
@@ -531,7 +521,7 @@ export async function parseWebp(
       "ANIM and ANMF chunks must occur together.",
     );
   }
-  if ((seen.has("ANIM") || seen.has("ANMF")) && vp8x === undefined) {
+  if (hasAnimationFrames && vp8x === undefined) {
     throw new WebpStructureError(
       "malformed-file",
       "Animated WebP requires a VP8X chunk.",
@@ -560,10 +550,10 @@ export async function parseWebp(
       "ALPH must immediately precede VP8 in an extended WebP container.",
     );
   }
-  let previousRank = -1;
+  let previousRank = 0;
   for (const chunk of chunks) {
     const rank = chunkRank(chunk.fourCc);
-    if (rank < 0) continue;
+    if (rank === -1) continue;
     if (rank < previousRank) {
       throw new WebpStructureError(
         "unsafe-structure",
@@ -580,8 +570,7 @@ export async function parseWebp(
     );
     const image = await validateImagePayload(handle, imageChunk!);
     if (
-      canvasWidth !== undefined &&
-      canvasHeight !== undefined &&
+      vp8x !== undefined &&
       (image.width !== canvasWidth || image.height !== canvasHeight)
     ) {
       throw new WebpStructureError(
@@ -589,18 +578,14 @@ export async function parseWebp(
         "Image dimensions do not match the VP8X canvas.",
       );
     }
-    if (alphaIndex >= 0) {
-      await validateAlphaPayload(
-        handle,
-        chunks[alphaIndex]!,
-        image.width,
-        image.height,
-      );
+    const alphaChunk = chunks[alphaIndex];
+    if (alphaChunk !== undefined) {
+      await validateAlphaPayload(handle, alphaChunk, image.width, image.height);
       actualAlpha = true;
     } else {
       actualAlpha = image.hasAlpha;
     }
-  } else if (hasAnimationFrames) {
+  } else {
     for (const frame of chunks.filter((chunk) => chunk.fourCc === "ANMF")) {
       actualAlpha =
         (await validateAnimationFrame(
