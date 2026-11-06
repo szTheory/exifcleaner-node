@@ -830,7 +830,9 @@ async function verifyOutput(
       if (
         !exifData.equals(expectedData) ||
         reparsed.orientation.status !== "valid" ||
+        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — an eXIf payload equal to the freshly built minimal orientation payload reads back as that same valid orientation, so this operand is false whenever the first operand is false, and the first operand alone refuses every other payload.
         reparsed.orientation.value !== expectedOrientation ||
+        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — an eXIf payload equal to the freshly built minimal orientation payload reads back as exactly one entry, so this operand is false whenever the first operand is false, and the first operand alone refuses every other payload.
         reparsed.entries.length !== 1
       )
         return err(
@@ -851,6 +853,7 @@ async function verifyOutput(
     const destinationForComparison = insertOrientation
       ? destination.chunks.filter((_chunk, index) => index !== 1)
       : destination.chunks;
+    // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the destination ends at its single IEND chunk and the loop below pairs every kept source chunk with the destination chunk at the same position, so a count difference already fails there: a missing destination chunk is an undefined operand, and a longer destination pairs the last kept source chunk, IEND, with a chunk of another type.
     if (sourceKept.length !== destinationForComparison.length)
       return err(
         verificationError(
@@ -864,6 +867,7 @@ async function verifyOutput(
       if (
         left === undefined ||
         right === undefined ||
+        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the four type bytes of a chunk lie inside the span that chunksEqual compares, so a destination chunk of another type fails that comparison with the same refusal; a comparison that cannot complete throws and the catch returns the same typed code.
         left.type !== right.type ||
         !(await chunksEqual(
           sourceHandle,
