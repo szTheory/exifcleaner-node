@@ -37,6 +37,11 @@ import {
   type PngOutputPlan,
 } from "../src/admission/png-handler.js";
 import {
+  webpHandler,
+  type WebpAdmission,
+} from "../src/admission/webp-handler.js";
+import { COPY_BLOCK_BYTES as WEBP_COPY_BLOCK_BYTES } from "../src/webp/riff.js";
+import {
   BufferedBudget,
   InflateBudget,
   PNG_CHUNK_READ_WINDOW_BYTES,
@@ -124,12 +129,15 @@ import {
 } from "./isobmff-support/inventory.js";
 import {
   XMP_ITXT_KEYWORD,
+  anim,
+  animationFrame,
   exifWithArtist,
   exifWithOrientation,
   iccProfileV2,
   iccProfileV4,
   jpegAdobe,
   jpegExif,
+  metadataWebp,
   minimalJpeg,
   png as pngFile,
   pngBkgd,
@@ -146,6 +154,12 @@ import {
   pngWithChunksBefore,
   pngZtxtChunkData,
   rawProfileExifText,
+  readChunks as readWebpChunks,
+  vp8,
+  vp8l,
+  vp8x,
+  webp as webpFile,
+  xmpPacket,
   xmpWithOrientation,
 } from "./fixtures.js";
 import {
@@ -10391,5 +10405,725 @@ describe("png/chunks.ts and orientation-sources.ts budget, abort, bound, retain 
     expect(
       rawProfileExifOrientation(pxRawOf(exifWithOrientation(3)), 1024),
     ).toBe(3);
+  });
+});
+
+// webp-handler.ts clusters (67-42, webp-1). The shipped webpHandler is driven through the engine
+// (sanitizeFile) for planned output bytes and directly through admit, buildOutputPlan, writeOutput
+// and verifyOutput with the scripted FileHandle of the jpeg-2 tests, so read and write arguments,
+// short transfers and aborts are observable. A verification is run against an arbitrary destination
+// that differs from the planned output in exactly one dimension. A refusal is asserted by its typed
+// code and a non-empty detail, never by its wording.
+describe("webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1)", () => {
+  interface WhFlags {
+    readonly preserveOrientation: boolean;
+    readonly preserveColorProfile: boolean;
+  }
+  interface WhVerifyOptions {
+    readonly preserveOrientation?: boolean;
+    readonly preserveColorProfile?: boolean;
+    readonly expectedOrientation?: number;
+    readonly signal?: AbortSignal;
+    readonly source?: JhCallScript;
+    readonly destination?: JhCallScript;
+  }
+  interface WhWriteScripts {
+    readonly source?: JhCallScript;
+    readonly destination?: JhCallScript;
+    readonly signal?: AbortSignal;
+  }
+  interface WhRiffChunk {
+    readonly fourCc: string;
+    readonly data: Buffer;
+  }
+
+  async function whDirectory(): Promise<string> {
+    const directory = await mkdtemp(
+      join(tmpdir(), "exifcleaner-webp-handler-"),
+    );
+    cleanupDirectories.push(directory);
+    return directory;
+  }
+  async function whWriteBytes(name: string, bytes: Buffer): Promise<string> {
+    const path = join(await whDirectory(), name);
+    await writeFile(path, bytes);
+    return path;
+  }
+  async function whAdmit(bytes: Buffer): Promise<WebpAdmission> {
+    const handle = await open(await whWriteBytes("source.webp", bytes), "r");
+    try {
+      return await webpHandler.admit(handle, bytes.length);
+    } finally {
+      await handle.close();
+    }
+  }
+  function whPlan(admission: WebpAdmission, flags: WhFlags) {
+    const orientation =
+      admission.orientation.status === "valid"
+        ? admission.orientation.value
+        : undefined;
+    return webpHandler.buildOutputPlan(
+      admission,
+      flags.preserveOrientation,
+      flags.preserveColorProfile,
+      false,
+      orientation,
+    );
+  }
+  async function whSanitize(
+    source: Buffer,
+    preserveOrientation = false,
+    preserveColorProfile = false,
+  ): Promise<Buffer> {
+    const sourcePath = await whWriteBytes("source.webp", source);
+    const destinationPath = join(await whDirectory(), "destination.webp");
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation,
+      preserveColorProfile,
+      preserveTimestamps: false,
+      preserveResolution: false,
+    });
+    expect(result.ok).toBe(true);
+    return readFile(destinationPath);
+  }
+  function whTypes(bytes: Buffer): string[] {
+    return readWebpChunks(bytes).map((item) => item.fourCc);
+  }
+  function whDataOf(bytes: Buffer, fourCc: string): Buffer {
+    const found = readWebpChunks(bytes).find((item) => item.fourCc === fourCc);
+    if (found === undefined) throw new Error(`no ${fourCc} chunk`);
+    return found.data;
+  }
+  function whRiff(chunks: readonly WhRiffChunk[]): Buffer {
+    return webpFile(chunks);
+  }
+  function whVp8Data(): Buffer {
+    return vp8(1, 1, Buffer.from([1, 2, 3, 4]));
+  }
+  function whPlainSource(): Buffer {
+    return whRiff([{ fourCc: "VP8 ", data: whVp8Data() }]);
+  }
+  // VP8X, ICCP, VP8, EXIF (orientation 6 and a second entry) and XMP.
+  function whFullSource(): Buffer {
+    return metadataWebp(whVp8Data());
+  }
+  function whAnimatedSource(frames = 1): Buffer {
+    return whRiff([
+      { fourCc: "VP8X", data: vp8x(0x02) },
+      { fourCc: "ANIM", data: anim() },
+      ...Array.from({ length: frames }, () => ({
+        fourCc: "ANMF",
+        data: animationFrame(),
+      })),
+    ]);
+  }
+  function whWithByteFlipped(data: Buffer, index: number): Buffer {
+    const copy = Buffer.from(data);
+    copy[index] = copy[index]! ^ 0x01;
+    return copy;
+  }
+  function whLargeVp8Source(): Buffer {
+    const filler = Buffer.alloc(WEBP_COPY_BLOCK_BYTES + 5000);
+    for (let index = 0; index < filler.length; index += 1)
+      filler[index] = (index * 7 + 3) % 251;
+    return whRiff([{ fourCc: "VP8 ", data: vp8(1, 1, filler) }]);
+  }
+  async function whVerify(
+    source: Buffer,
+    destination: Buffer,
+    options: WhVerifyOptions = {},
+  ) {
+    const sourceHandle = await open(
+      await whWriteBytes("source.webp", source),
+      "r",
+    );
+    const destinationPath = await whWriteBytes("destination.webp", destination);
+    const destinationHandle = await open(destinationPath, "r");
+    try {
+      const admission = await webpHandler.admit(sourceHandle, source.length);
+      const scriptedSource = jhScriptedHandle(sourceHandle, options.source);
+      const scriptedDestination = jhScriptedHandle(
+        destinationHandle,
+        options.destination,
+      );
+      const result: Result<void> = await webpHandler.verifyOutput(
+        scriptedSource.handle,
+        admission,
+        scriptedDestination.handle,
+        destination.length,
+        destinationPath,
+        options.preserveOrientation ?? false,
+        options.preserveColorProfile ?? false,
+        false,
+        options.expectedOrientation,
+        options.signal,
+      );
+      return {
+        result,
+        sourceReads: scriptedSource.reads,
+        destinationReads: scriptedDestination.reads,
+      };
+    } finally {
+      await sourceHandle.close();
+      await destinationHandle.close();
+    }
+  }
+  function whRefusal(result: Result<void>, code: string): string {
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.error.code).toBe(code);
+    return result.error.detail;
+  }
+  function whExpectRefused(outcome: { readonly result: Result<void> }): void {
+    const detail = whRefusal(outcome.result, "verification-failed");
+    expect(detail.length).toBeGreaterThan(0);
+  }
+  async function whWriteDirect(
+    source: Buffer,
+    flags: WhFlags,
+    scripts: WhWriteScripts = {},
+  ) {
+    const sourceHandle = await open(
+      await whWriteBytes("source.webp", source),
+      "r",
+    );
+    const destinationPath = join(await whDirectory(), "destination.webp");
+    const destinationHandle = await open(destinationPath, "wx");
+    let threw = false;
+    let thrown: unknown;
+    let plan: ReturnType<typeof whPlan>;
+    let scriptedSource: ReturnType<typeof jhScriptedHandle>;
+    let scriptedDestination: ReturnType<typeof jhScriptedHandle>;
+    try {
+      plan = whPlan(
+        await webpHandler.admit(sourceHandle, source.length),
+        flags,
+      );
+      scriptedSource = jhScriptedHandle(sourceHandle, scripts.source);
+      scriptedDestination = jhScriptedHandle(
+        destinationHandle,
+        scripts.destination,
+      );
+      try {
+        await webpHandler.writeOutput(
+          scriptedSource.handle,
+          scriptedDestination.handle,
+          plan,
+          scripts.signal,
+        );
+      } catch (cause) {
+        threw = true;
+        thrown = cause;
+      }
+    } finally {
+      await sourceHandle.close();
+      await destinationHandle.close();
+    }
+    return {
+      threw,
+      thrown,
+      plan,
+      reads: scriptedSource.reads,
+      writes: scriptedDestination.writes,
+      bytes: await readFile(destinationPath),
+    };
+  }
+  // The (offset, length, position) calls a write of `total` bytes at `position` makes when the
+  // handle transfers at most `step` bytes per call.
+  function whPartialCalls(
+    total: number,
+    position: number,
+    step: number,
+  ): [number, number, number][] {
+    const calls: [number, number, number][] = [];
+    for (let done = 0; done < total; done += Math.min(step, total - done))
+      calls.push([done, total - done, position + done]);
+    return calls;
+  }
+  function whFlippingSignal(): AbortSignal {
+    let reads = 0;
+    return {
+      get aborted() {
+        reads += 1;
+        return reads > 1;
+      },
+      reason: undefined,
+    } as unknown as AbortSignal;
+  }
+  function whAlphaPolyglotPair(): { source: Buffer; destination: Buffer } {
+    // 34 bytes that are both a VP8 key frame header (1 x 256) and an ANMF payload (a 2 x 2 frame at
+    // x 32, y 5505850 whose nested VP8 chunk fills the rest), and 6 bytes that are both a
+    // compressed ALPH payload and an ANIM payload: same sizes and bytes, different chunk types.
+    const nested = Buffer.alloc(8);
+    nested.write("VP8 ", 0, 4, "ascii");
+    nested.writeUInt32LE(10, 4);
+    const header = Buffer.alloc(16);
+    header[0] = 0x10;
+    header.set([0x9d, 0x01, 0x2a], 3);
+    header.writeUInt16LE(1, 6);
+    header[8] = 0;
+    header[9] = 1;
+    const both = Buffer.concat([header, nested, vp8(2, 2)]);
+    const six = Buffer.from([1, 0, 0, 0, 0, 0]);
+    return {
+      source: whRiff([
+        { fourCc: "VP8X", data: vp8x(0x10, 1, 256) },
+        { fourCc: "ALPH", data: six },
+        { fourCc: "VP8 ", data: both },
+      ]),
+      destination: whRiff([
+        { fourCc: "VP8X", data: vp8x(0x02, 34, 5505852) },
+        { fourCc: "ANIM", data: six },
+        { fourCc: "ANMF", data: both },
+      ]),
+    };
+  }
+
+  it("buildOutputPlan ConditionalExpression cluster: a VP8X whose alpha flag survives keeps its VP8X chunk", async () => {
+    const source = whRiff([
+      { fourCc: "VP8X", data: vp8x(0x10) },
+      { fourCc: "VP8L", data: vp8l(1, 1, true) },
+    ]);
+    const output = await whSanitize(source);
+    expect(whTypes(output)).toEqual(["VP8X", "VP8L"]);
+    expect(whDataOf(output, "VP8X")[0]).toBe(0x10);
+    expect(output).toEqual(source);
+  });
+
+  it("buildOutputPlan ConditionalExpression, EqualityOperator and StringLiteral clusters: a VP8X without surviving flags over a VP8L bitstream is dropped to the simple format, as it is over a VP8 bitstream", async () => {
+    const lossless = await whSanitize(
+      whRiff([
+        { fourCc: "VP8X", data: vp8x(0x00) },
+        { fourCc: "VP8L", data: vp8l() },
+      ]),
+    );
+    expect(whTypes(lossless)).toEqual(["VP8L"]);
+    expect(lossless).toEqual(whRiff([{ fourCc: "VP8L", data: vp8l() }]));
+
+    const lossy = await whSanitize(
+      whRiff([
+        { fourCc: "VP8X", data: vp8x(0x00) },
+        { fourCc: "VP8 ", data: whVp8Data() },
+      ]),
+    );
+    expect(whTypes(lossy)).toEqual(["VP8 "]);
+
+    const withMetadata = await whSanitize(
+      whRiff([
+        { fourCc: "VP8X", data: vp8x(0x04) },
+        { fourCc: "VP8L", data: vp8l() },
+        { fourCc: "XMP ", data: xmpPacket() },
+      ]),
+    );
+    expect(whTypes(withMetadata)).toEqual(["VP8L"]);
+  });
+
+  it("writeAll ArithmeticOperator cluster: a partial write continues at the next unwritten byte with only the remainder", async () => {
+    const source = whFullSource();
+    const flags = { preserveOrientation: true, preserveColorProfile: true };
+    const outcome = await whWriteDirect(source, flags, {
+      destination: () => ({ transfer: 2 }),
+    });
+    expect(outcome.threw).toBe(false);
+    expect(outcome.bytes).toEqual(await whSanitize(source, true, true));
+    const expected: [number, number, number][] = whPartialCalls(12, 0, 2);
+    let position = 12;
+    for (const item of outcome.plan) {
+      expected.push(...whPartialCalls(8, position, 2));
+      position += 8;
+      expected.push(...whPartialCalls(item.size, position, 2));
+      position += item.size;
+      if (item.size & 1) {
+        expected.push(...whPartialCalls(1, position, 2));
+        position += 1;
+      }
+    }
+    expect(
+      outcome.writes.map((call) => [call.offset, call.length, call.position]),
+    ).toEqual(expected);
+  });
+
+  it("writeAll ConditionalExpression cluster: a write that makes no progress fails after exactly one attempt", async () => {
+    const destination = await open(
+      join(await whDirectory(), "destination.webp"),
+      "wx",
+    );
+    try {
+      const scripted = jhScriptedHandle(destination, (_call, index) =>
+        index === 0 ? { stall: true } : { fail: true },
+      );
+      await expect(
+        webpHandler.writeOutput(
+          undefined as unknown as FileHandle,
+          scripted.handle,
+          [],
+        ),
+      ).rejects.toBeInstanceOf(Error);
+      expect(scripted.writes).toHaveLength(1);
+    } finally {
+      await destination.close();
+    }
+  });
+
+  it("copyChunkData ArithmeticOperator cluster: a partial write while copying a chunk continues at the next unwritten byte", async () => {
+    const source = whPlainSource();
+    const flags = { preserveOrientation: false, preserveColorProfile: false };
+    const outcome = await whWriteDirect(source, flags, {
+      destination: () => ({ transfer: 3 }),
+    });
+    expect(outcome.threw).toBe(false);
+    expect(outcome.bytes).toEqual(source);
+    const size = whVp8Data().length;
+    expect(
+      outcome.writes.map((call) => [call.offset, call.length, call.position]),
+    ).toEqual([
+      ...whPartialCalls(12, 0, 3),
+      ...whPartialCalls(8, 12, 3),
+      ...whPartialCalls(size, 20, 3),
+    ]);
+  });
+
+  it("copyChunkData ConditionalExpression cluster: a copy write that makes no progress fails after exactly one attempt", async () => {
+    const source = whPlainSource();
+    const size = whVp8Data().length;
+    let attempts = 0;
+    const outcome = await whWriteDirect(
+      source,
+      { preserveOrientation: false, preserveColorProfile: false },
+      {
+        destination: (call) => {
+          if (call.bufferLength !== size) return undefined;
+          attempts += 1;
+          return attempts === 1 ? { stall: true } : { fail: true };
+        },
+      },
+    );
+    expect(outcome.threw).toBe(true);
+    expect(outcome.thrown).toBeInstanceOf(Error);
+    expect(attempts).toBe(1);
+  });
+
+  it("copyChunkData ConditionalExpression cluster: a source that returns fewer bytes than asked fails the write", async () => {
+    const outcome = await whWriteDirect(
+      whPlainSource(),
+      { preserveOrientation: false, preserveColorProfile: false },
+      { source: () => ({ underReport: 1 }) },
+    );
+    expect(outcome.threw).toBe(true);
+    expect(outcome.thrown).toBeInstanceOf(Error);
+  });
+
+  it("copyChunkData MethodExpression cluster: a chunk larger than one copy block is copied block by block within the buffer bound", async () => {
+    const source = whLargeVp8Source();
+    const spy = vi.spyOn(Buffer, "allocUnsafe");
+    let allocated: number[];
+    let outcome;
+    try {
+      outcome = await whWriteDirect(source, {
+        preserveOrientation: false,
+        preserveColorProfile: false,
+      });
+      allocated = spy.mock.calls.map((call) => call[0]);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(outcome.threw).toBe(false);
+    expect(outcome.bytes).toEqual(source);
+    expect(Math.max(...allocated)).toBeLessThanOrEqual(WEBP_COPY_BLOCK_BYTES);
+    const size = whDataOf(source, "VP8 ").length;
+    expect(outcome.reads.map((call) => [call.length, call.position])).toEqual([
+      [WEBP_COPY_BLOCK_BYTES, 20],
+      [size - WEBP_COPY_BLOCK_BYTES, 20 + WEBP_COPY_BLOCK_BYTES],
+    ]);
+  });
+
+  it("copyChunkData ConditionalExpression and LogicalOperator clusters: an abort raised during a chunk copy rejects with the abort reason itself", async () => {
+    const reason = new Error("custom abort reason");
+    const controller = new AbortController();
+    const outcome = await whWriteDirect(
+      whLargeVp8Source(),
+      { preserveOrientation: false, preserveColorProfile: false },
+      {
+        source: (_call, index) => {
+          if (index === 0) controller.abort(reason);
+          return undefined;
+        },
+        signal: controller.signal,
+      },
+    );
+    expect(outcome.threw).toBe(true);
+    expect(outcome.thrown).toBe(reason);
+    expect(outcome.reads).toHaveLength(1);
+  });
+
+  it("copyChunkData LogicalOperator and StringLiteral clusters: an abort without a reason inside a chunk copy rejects with an AbortError DOMException", async () => {
+    const outcome = await whWriteDirect(
+      whPlainSource(),
+      { preserveOrientation: false, preserveColorProfile: false },
+      { signal: whFlippingSignal() },
+    );
+    expect(outcome.threw).toBe(true);
+    expect(outcome.thrown).toBeInstanceOf(DOMException);
+    expect((outcome.thrown as DOMException).name).toBe("AbortError");
+    expect(outcome.reads).toHaveLength(0);
+  });
+
+  it("verifyOutput ConditionalExpression, MethodExpression, ArrowFunction and StringLiteral clusters: an XMP chunk left in the destination is refused", async () => {
+    const source = whFullSource();
+    const control = await whVerify(source, await whSanitize(source));
+    expect(control.result.ok).toBe(true);
+    const withXmp = whRiff([
+      { fourCc: "VP8X", data: vp8x(0x04) },
+      { fourCc: "VP8 ", data: whVp8Data() },
+      { fourCc: "XMP ", data: xmpPacket() },
+    ]);
+    expect(whTypes(withXmp)).toEqual(["VP8X", "VP8 ", "XMP "]);
+    whExpectRefused(await whVerify(source, withXmp));
+  });
+
+  it("verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved ICC profile that is missing or changed is refused", async () => {
+    const source = whFullSource();
+    const flags = { preserveColorProfile: true };
+    const kept = await whSanitize(source, false, true);
+    expect(whTypes(kept)).toEqual(["VP8X", "ICCP", "VP8 "]);
+    expect((await whVerify(source, kept, flags)).result.ok).toBe(true);
+
+    const missing = await whSanitize(source);
+    expect(whTypes(missing)).toEqual(["VP8 "]);
+    whExpectRefused(await whVerify(source, missing, flags));
+
+    const changed = whRiff([
+      { fourCc: "VP8X", data: vp8x(0x20) },
+      { fourCc: "ICCP", data: whWithByteFlipped(whDataOf(kept, "ICCP"), 100) },
+      { fourCc: "VP8 ", data: whVp8Data() },
+    ]);
+    expect(changed.length).toBe(kept.length);
+    whExpectRefused(await whVerify(source, changed, flags));
+  });
+
+  it("verifyOutput ConditionalExpression and StringLiteral clusters: an ICC profile that remains when none is to be kept is refused", async () => {
+    const source = whFullSource();
+    const kept = await whSanitize(source, false, true);
+    whExpectRefused(await whVerify(source, kept));
+
+    const plain = whPlainSource();
+    expect(
+      (
+        await whVerify(plain, await whSanitize(plain), {
+          preserveColorProfile: true,
+        })
+      ).result.ok,
+    ).toBe(true);
+    const added = whRiff([
+      { fourCc: "VP8X", data: vp8x(0x20) },
+      { fourCc: "ICCP", data: iccProfileV4() },
+      { fourCc: "VP8 ", data: whVp8Data() },
+    ]);
+    whExpectRefused(
+      await whVerify(plain, added, { preserveColorProfile: true }),
+    );
+  });
+
+  it("verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved Orientation that is missing, different or stored with another entry is refused", async () => {
+    const source = whFullSource();
+    const flags = { preserveOrientation: true, expectedOrientation: 6 };
+    const kept = await whSanitize(source, true);
+    expect(whTypes(kept)).toEqual(["VP8X", "VP8 ", "EXIF"]);
+    expect((await whVerify(source, kept, flags)).result.ok).toBe(true);
+
+    const missing = await whSanitize(source);
+    expect(whTypes(missing)).toEqual(["VP8 "]);
+    whExpectRefused(await whVerify(source, missing, flags));
+
+    const withExif = (exif: Buffer): Buffer =>
+      whRiff([
+        { fourCc: "VP8X", data: vp8x(0x08) },
+        { fourCc: "VP8 ", data: whVp8Data() },
+        { fourCc: "EXIF", data: exif },
+      ]);
+    const other = createOrientationExif(8);
+    expect(parseExif(other).orientation).toEqual({ status: "valid", value: 8 });
+    expect(parseExif(other).entries).toHaveLength(1);
+    whExpectRefused(await whVerify(source, withExif(other), flags));
+
+    const full = exifWithOrientation(6);
+    expect(parseExif(full).orientation).toEqual({ status: "valid", value: 6 });
+    expect(parseExif(full).entries.length).toBeGreaterThan(1);
+    whExpectRefused(await whVerify(source, withExif(full), flags));
+  });
+
+  it("verifyOutput ConditionalExpression and StringLiteral clusters: an EXIF chunk that remains when no Orientation is to be kept is refused", async () => {
+    const source = whFullSource();
+    const withExif = whRiff([
+      { fourCc: "VP8X", data: vp8x(0x08) },
+      { fourCc: "VP8 ", data: whVp8Data() },
+      { fourCc: "EXIF", data: createOrientationExif(6) },
+    ]);
+    whExpectRefused(await whVerify(source, withExif));
+    whExpectRefused(
+      await whVerify(source, withExif, { preserveOrientation: true }),
+    );
+  });
+
+  it("verifyOutput ConditionalExpression and StringLiteral clusters: a destination with an extra animation frame is refused", async () => {
+    const source = whAnimatedSource(1);
+    const output = await whSanitize(source);
+    expect(whTypes(output)).toEqual(["VP8X", "ANIM", "ANMF"]);
+    expect((await whVerify(source, output)).result.ok).toBe(true);
+    const extra = whAnimatedSource(2);
+    expect(whTypes(extra)).toEqual(["VP8X", "ANIM", "ANMF", "ANMF"]);
+    whExpectRefused(await whVerify(source, extra));
+  });
+
+  it("verifyOutput BlockStatement, EqualityOperator, ConditionalExpression and StringLiteral clusters: one changed payload byte or a chunk of another length is refused while the chunk sequence is unchanged", async () => {
+    const source = whPlainSource();
+    const output = await whSanitize(source);
+    expect((await whVerify(source, output)).result.ok).toBe(true);
+    expect(whTypes(output)).toEqual(["VP8 "]);
+
+    const altered = whRiff([
+      { fourCc: "VP8 ", data: whWithByteFlipped(whVp8Data(), 12) },
+    ]);
+    expect(altered.length).toBe(output.length);
+    whExpectRefused(await whVerify(source, altered));
+
+    const longer = whRiff([
+      {
+        fourCc: "VP8 ",
+        data: Buffer.concat([whVp8Data(), Buffer.from([0, 0])]),
+      },
+    ]);
+    expect(whTypes(longer)).toEqual(["VP8 "]);
+    whExpectRefused(await whVerify(source, longer));
+
+    const shorter = whRiff([{ fourCc: "VP8 ", data: vp8() }]);
+    whExpectRefused(await whVerify(source, shorter));
+  });
+
+  it("verifyOutput ConditionalExpression cluster: payload chunks of different types with the same sizes and bytes are refused", async () => {
+    const pair = whAlphaPolyglotPair();
+    expect(whTypes(pair.source)).toEqual(["VP8X", "ALPH", "VP8 "]);
+    expect(whTypes(pair.destination)).toEqual(["VP8X", "ANIM", "ANMF"]);
+    expect(whDataOf(pair.source, "ALPH")).toEqual(
+      whDataOf(pair.destination, "ANIM"),
+    );
+    expect(whDataOf(pair.source, "VP8 ")).toEqual(
+      whDataOf(pair.destination, "ANMF"),
+    );
+    expect((await whAdmit(pair.source)).parsed.chunks).toHaveLength(3);
+    expect((await whAdmit(pair.destination)).parsed.chunks).toHaveLength(3);
+    expect((await whVerify(pair.source, pair.source)).result.ok).toBe(true);
+    expect((await whVerify(pair.destination, pair.destination)).result.ok).toBe(
+      true,
+    );
+    whExpectRefused(await whVerify(pair.source, pair.destination));
+  });
+
+  it("verifyOutput StringLiteral cluster: a destination that cannot be read is refused with a non-empty detail", async () => {
+    const source = whPlainSource();
+    const outcome = await whVerify(source, await whSanitize(source), {
+      destination: () => ({ fail: true }),
+    });
+    whExpectRefused(outcome);
+  });
+
+  it("verificationAborted StringLiteral and chunksEqual ConditionalExpression clusters: an abort between two chunk comparisons reports the typed aborted error with a non-empty detail", async () => {
+    const source = whFullSource();
+    const kept = await whSanitize(source, false, true);
+    const controller = new AbortController();
+    const outcome = await whVerify(source, kept, {
+      preserveColorProfile: true,
+      source: (_call, index) => {
+        if (index === 0) controller.abort();
+        return undefined;
+      },
+      signal: controller.signal,
+    });
+    const detail = whRefusal(outcome.result, "aborted");
+    expect(detail.length).toBeGreaterThan(0);
+    expect(outcome.sourceReads).toHaveLength(1);
+  });
+
+  it("chunksEqual ConditionalExpression, EqualityOperator and BooleanLiteral clusters: a changed byte in a copied chunk and a chunk of another size fail verification", async () => {
+    const source = whFullSource();
+    const kept = await whSanitize(source, false, true);
+    const flags = { preserveColorProfile: true };
+    const firstByte = whRiff([
+      { fourCc: "VP8X", data: vp8x(0x20) },
+      { fourCc: "ICCP", data: whWithByteFlipped(whDataOf(kept, "ICCP"), 0) },
+      { fourCc: "VP8 ", data: whVp8Data() },
+    ]);
+    whExpectRefused(await whVerify(source, firstByte, flags));
+    const longerIcc = whRiff([
+      { fourCc: "VP8X", data: vp8x(0x20) },
+      {
+        fourCc: "ICCP",
+        data: Buffer.concat([whDataOf(kept, "ICCP"), Buffer.from([0, 0])]),
+      },
+      { fourCc: "VP8 ", data: whVp8Data() },
+    ]);
+    whExpectRefused(await whVerify(source, longerIcc, flags));
+    const shorterIcc = whRiff([
+      { fourCc: "VP8X", data: vp8x(0x20) },
+      {
+        fourCc: "ICCP",
+        data: whDataOf(kept, "ICCP").subarray(
+          0,
+          whDataOf(kept, "ICCP").length - 2,
+        ),
+      },
+      { fourCc: "VP8 ", data: whVp8Data() },
+    ]);
+    whExpectRefused(await whVerify(source, shorterIcc, flags));
+  });
+
+  it("chunksEqual ConditionalExpression and LogicalOperator clusters: a short source read or a short destination read fails verification", async () => {
+    const source = whPlainSource();
+    const output = await whSanitize(source);
+
+    const shortSource = await whVerify(source, output, {
+      source: () => ({ underReport: 1 }),
+    });
+    whExpectRefused(shortSource);
+
+    let sourceReadCount = 0;
+    const shortDestination = await whVerify(source, output, {
+      source: () => {
+        sourceReadCount += 1;
+        return undefined;
+      },
+      destination: () => (sourceReadCount > 0 ? { underReport: 1 } : undefined),
+    });
+    whExpectRefused(shortDestination);
+  });
+
+  it("chunksEqual MethodExpression cluster: a chunk larger than one copy block is compared block by block within the buffer bound", async () => {
+    const source = whLargeVp8Source();
+    const spy = vi.spyOn(Buffer, "allocUnsafe");
+    let allocated: number[];
+    let outcome;
+    try {
+      outcome = await whVerify(source, source);
+      allocated = spy.mock.calls.map((call) => call[0]);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(outcome.result.ok).toBe(true);
+    expect(Math.max(...allocated)).toBeLessThanOrEqual(WEBP_COPY_BLOCK_BYTES);
+    const size = whDataOf(source, "VP8 ").length;
+    const expected = [
+      [WEBP_COPY_BLOCK_BYTES, 20],
+      [size - WEBP_COPY_BLOCK_BYTES, 20 + WEBP_COPY_BLOCK_BYTES],
+    ];
+    expect(
+      outcome.sourceReads.map((call) => [call.length, call.position]),
+    ).toEqual(expected);
+    expect(
+      outcome.destinationReads
+        .slice(-2)
+        .map((call) => [call.length, call.position]),
+    ).toEqual(expected);
   });
 });
