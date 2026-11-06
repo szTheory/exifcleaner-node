@@ -198168,61 +198168,39 @@
       }
     },
     {
-      "id": "webp:src/admission/webp-handler.ts:buildOutputPlan:ConditionalExpression:gap-01",
+      "id": "webp:src/admission/webp-handler.ts:buildOutputPlan:ConditionalExpression:dead-01",
       "group": "webp",
       "file": "src/admission/webp-handler.ts",
       "function": "buildOutputPlan",
       "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000143\u00007\u0000143\u000022"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:buildOutputPlan:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > buildOutputPlan ConditionalExpression cluster: a VP8X whose alpha flag survives keeps its VP8X chunk"
-      }
+      "note": "Removed or rewritten by the Plan 67-42 behavior-preserving source edit approved by the maintainer (Option A of 67-42-HALTED.md): the redundant guard and the vp8xFlags side variable of buildOutputPlan were replaced by one test of the planned VP8X flags byte, so this member's frozen text vanished with them and the typed behavior stays pinned by the 67-42 tests and the existing WebP tests (the new test's own mutants are Killed). The witness \"vp8xFlags\" no longer appears in the enclosing function buildOutputPlan (scoped witness); reports/triage/67-42/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "vp8xFlags",
+      "symbolScope": "function"
     },
     {
-      "id": "webp:src/admission/webp-handler.ts:buildOutputPlan:ConditionalExpression:pending-01",
+      "id": "webp:src/admission/webp-handler.ts:buildOutputPlan:ConditionalExpression:dead-02",
       "group": "webp",
       "file": "src/admission/webp-handler.ts",
       "function": "buildOutputPlan",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "dead",
+      "count": 4,
       "keys": [
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000147\u00007\u0000147\u000031",
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000147\u00007\u0000149\u000067",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000149\u00008\u0000149\u000066"
-      ],
-      "originClusterId": "webp:src/admission/webp-handler.ts:buildOutputPlan:ConditionalExpression",
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000withoutVp8x.length === 1\u00000",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000withoutVp8x.length === 1 &&\n      onlyChunk !== undefined &&\n      (onlyChunk.fourCc === \"VP8 \" || onlyChunk.fourCc === \"VP8L\")\u00000",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000onlyChunk.fourCc === \"VP8 \" || onlyChunk.fourCc === \"VP8L\"\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-42-HALTED.md (a behavior-preserving source simplification): the recomputed VP8X flags byte is 0 only when no ALPH, ANIM, ANMF, ICCP, kept EXIF or alpha chunk survives, so the plan then holds exactly one VP8 or VP8L chunk next to VP8X and this guard operand is always true; its line also holds the Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-42/green2.json."
-    },
-    {
-      "id": "webp:src/admission/webp-handler.ts:buildOutputPlan:ConditionalExpression:gap-02",
-      "group": "webp",
-      "file": "src/admission/webp-handler.ts",
-      "function": "buildOutputPlan",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
+        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000149\u00008\u0000149\u000066",
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000149\u000039\u0000149\u000066"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:buildOutputPlan:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > buildOutputPlan ConditionalExpression, EqualityOperator and StringLiteral clusters: a VP8X without surviving flags over a VP8L bitstream is dropped to the simple format, as it is over a VP8 bitstream"
-      }
+      "note": "Removed or rewritten by the Plan 67-42 behavior-preserving source edit approved by the maintainer (Option A of 67-42-HALTED.md): the redundant guard and the vp8xFlags side variable of buildOutputPlan were replaced by one test of the planned VP8X flags byte, so this member's frozen text vanished with them and the typed behavior stays pinned by the 67-42 tests and the existing WebP tests (the new test's own mutants are Killed). The witness \"onlyChunk\" no longer appears in the enclosing function buildOutputPlan (scoped witness); reports/triage/67-42/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "onlyChunk",
+      "symbolScope": "function"
     },
     {
       "id": "webp:src/admission/webp-handler.ts:buildOutputPlan:EqualityOperator",
@@ -198230,16 +198208,14 @@
       "file": "src/admission/webp-handler.ts",
       "function": "buildOutputPlan",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000EqualityOperator\u0000onlyChunk.fourCc !== \"VP8L\"\u0000149\u000039\u0000149\u000066"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > buildOutputPlan ConditionalExpression, EqualityOperator and StringLiteral clusters: a VP8X without surviving flags over a VP8L bitstream is dropped to the simple format, as it is over a VP8 bitstream"
-      }
+      "note": "Removed or rewritten by the Plan 67-42 behavior-preserving source edit approved by the maintainer (Option A of 67-42-HALTED.md): the redundant guard and the vp8xFlags side variable of buildOutputPlan were replaced by one test of the planned VP8X flags byte, so this member's frozen text vanished with them and the typed behavior stays pinned by the 67-42 tests and the existing WebP tests (the new test's own mutants are Killed). The witness \"onlyChunk\" no longer appears in the enclosing function buildOutputPlan (scoped witness); reports/triage/67-42/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "onlyChunk",
+      "symbolScope": "function"
     },
     {
       "id": "webp:src/admission/webp-handler.ts:buildOutputPlan:LogicalOperator",
@@ -198247,15 +198223,14 @@
       "file": "src/admission/webp-handler.ts",
       "function": "buildOutputPlan",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000LogicalOperator\u0000withoutVp8x.length === 1 || onlyChunk !== undefined\u0000147\u00007\u0000148\u000030"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000LogicalOperator\u0000withoutVp8x.length === 1 || onlyChunk !== undefined\u0000withoutVp8x.length === 1 &&\n      onlyChunk !== undefined\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-42-HALTED.md (a behavior-preserving source simplification): the recomputed VP8X flags byte is 0 only when no ALPH, ANIM, ANMF, ICCP, kept EXIF or alpha chunk survives, so the plan then holds exactly one VP8 or VP8L chunk next to VP8X and this guard operand is always true; its line also holds the Killed observable siblings of the same mutator, so no next-line directive can own it honestly. The member survives in reports/triage/67-42/green2.json."
+      "note": "Removed or rewritten by the Plan 67-42 behavior-preserving source edit approved by the maintainer (Option A of 67-42-HALTED.md): the redundant guard and the vp8xFlags side variable of buildOutputPlan were replaced by one test of the planned VP8X flags byte, so this member's frozen text vanished with them and the typed behavior stays pinned by the 67-42 tests and the existing WebP tests (the new test's own mutants are Killed). The witness \"onlyChunk\" no longer appears in the enclosing function buildOutputPlan (scoped witness); reports/triage/67-42/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "onlyChunk",
+      "symbolScope": "function"
     },
     {
       "id": "webp:src/admission/webp-handler.ts:buildOutputPlan:StringLiteral",
@@ -198263,16 +198238,14 @@
       "file": "src/admission/webp-handler.ts",
       "function": "buildOutputPlan",
       "mutatorName": "StringLiteral",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000149\u000060\u0000149\u000066"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > buildOutputPlan ConditionalExpression, EqualityOperator and StringLiteral clusters: a VP8X without surviving flags over a VP8L bitstream is dropped to the simple format, as it is over a VP8 bitstream"
-      }
+      "note": "Removed or rewritten by the Plan 67-42 behavior-preserving source edit approved by the maintainer (Option A of 67-42-HALTED.md): the redundant guard and the vp8xFlags side variable of buildOutputPlan were replaced by one test of the planned VP8X flags byte, so this member's frozen text vanished with them and the typed behavior stays pinned by the 67-42 tests and the existing WebP tests (the new test's own mutants are Killed). The witness \"onlyChunk\" no longer appears in the enclosing function buildOutputPlan (scoped witness); reports/triage/67-42/batch.json shows no mutant for this member's frozen text.",
+      "symbol": "onlyChunk",
+      "symbolScope": "function"
     },
     {
       "id": "webp:src/admission/webp-handler.ts:checkOutputPlan:ConditionalExpression",
@@ -198354,7 +198327,7 @@
         "src/admission/webp-handler.ts\u0000BooleanLiteral\u0000true\u0000230\u000048\u0000230\u000053"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:chunksEqual:BooleanLiteral",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, EqualityOperator, ConditionalExpression and StringLiteral clusters: one changed payload byte or a chunk of another length is refused while the chunk sequence is unchanged"
@@ -198372,7 +198345,7 @@
         "src/admission/webp-handler.ts\u0000BooleanLiteral\u0000true\u0000262\u000014\u0000262\u000019"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:chunksEqual:BooleanLiteral",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved ICC profile that is missing or changed is refused"
@@ -198390,7 +198363,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000230\u00007\u0000230\u000039"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:chunksEqual:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, EqualityOperator, ConditionalExpression and StringLiteral clusters: one changed payload byte or a chunk of another length is refused while the chunk sequence is unchanged"
@@ -198409,7 +198382,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000258\u00007\u0000260\u000055"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:chunksEqual:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved ICC profile that is missing or changed is refused"
@@ -198427,7 +198400,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000235\u00009\u0000235\u000026"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:chunksEqual:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verificationAborted StringLiteral and chunksEqual ConditionalExpression clusters: an abort between two chunk comparisons reports the typed aborted error with a non-empty detail"
@@ -198447,7 +198420,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000253\u000038\u0000253\u000064"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:chunksEqual:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > chunksEqual ConditionalExpression and LogicalOperator clusters: a short source read or a short destination read fails verification"
@@ -198464,7 +198437,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000EqualityOperator\u0000offset >= source.size\u0000234\u000024\u0000234\u000044"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved ICC profile that is missing or changed is refused"
@@ -198500,7 +198473,7 @@
         "src/admission/webp-handler.ts\u0000LogicalOperator\u0000left.bytesRead !== length && right.bytesRead !== length\u0000253\u00009\u0000253\u000064"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:chunksEqual:LogicalOperator",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > chunksEqual ConditionalExpression and LogicalOperator clusters: a short source read or a short destination read fails verification"
@@ -198517,7 +198490,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000MethodExpression\u0000Math.max(COPY_BLOCK_BYTES, Math.max(source.size, 1))\u0000231\u000022\u0000231\u000074"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > chunksEqual MethodExpression cluster: a chunk larger than one copy block is compared block by block within the buffer bound"
@@ -198569,7 +198542,7 @@
         "src/admission/webp-handler.ts\u0000ArithmeticOperator\u0000length + written\u0000211\u00009\u0000211\u000025",
         "src/admission/webp-handler.ts\u0000ArithmeticOperator\u0000position + copied - written\u0000212\u00009\u0000212\u000036"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > writeAll ArithmeticOperator cluster: a partial write continues at the next unwritten byte with only the remainder"
@@ -198587,7 +198560,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000195\u00009\u0000195\u000026"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:copyChunkData:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > copyChunkData ConditionalExpression and LogicalOperator clusters: an abort raised during a chunk copy rejects with the abort reason itself"
@@ -198605,7 +198578,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000204\u00009\u0000204\u000034"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:copyChunkData:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > copyChunkData ConditionalExpression cluster: a source that returns fewer bytes than asked fails the write"
@@ -198623,7 +198596,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000214\u000011\u0000214\u000036"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:copyChunkData:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > copyChunkData ConditionalExpression cluster: a copy write that makes no progress fails after exactly one attempt"
@@ -198640,7 +198613,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000196\u000013\u0000196\u000072"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > copyChunkData ConditionalExpression and LogicalOperator clusters: an abort raised during a chunk copy rejects with the abort reason itself"
@@ -198657,7 +198630,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000MethodExpression\u0000Math.max(COPY_BLOCK_BYTES, Math.max(chunk.size, 1))\u0000191\u00005\u0000191\u000056"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > copyChunkData ConditionalExpression cluster: a copy write that makes no progress fails after exactly one attempt"
@@ -198674,7 +198647,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000196\u000059\u0000196\u000071"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > copyChunkData LogicalOperator and StringLiteral clusters: an abort without a reason inside a chunk copy rejects with an AbortError DOMException"
@@ -198747,7 +198720,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000279\u000032\u0000279\u000056"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verificationAborted StringLiteral and chunksEqual ConditionalExpression clusters: an abort between two chunk comparisons reports the typed aborted error with a non-empty detail"
@@ -198765,7 +198738,7 @@
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000324\u000013\u0000324\u000065"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verificationError:StringLiteral",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved ICC profile that is missing or changed is refused"
@@ -198783,7 +198756,7 @@
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000331\u000011\u0000331\u000054"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verificationError:StringLiteral",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression and StringLiteral clusters: an ICC profile that remains when none is to be kept is refused"
@@ -198801,7 +198774,7 @@
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000350\u000013\u0000350\u000050"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verificationError:StringLiteral",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved Orientation that is missing, different or stored with another entry is refused"
@@ -198819,7 +198792,7 @@
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000357\u000011\u0000357\u000055"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verificationError:StringLiteral",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression and StringLiteral clusters: an EXIF chunk that remains when no Orientation is to be kept is refused"
@@ -198837,7 +198810,7 @@
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000370\u000011\u0000370\u000052"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verificationError:StringLiteral",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression and StringLiteral clusters: a destination with an extra animation frame is refused"
@@ -198855,7 +198828,7 @@
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000391\u000013\u0000391\u000056"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verificationError:StringLiteral",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, EqualityOperator, ConditionalExpression and StringLiteral clusters: one changed payload byte or a chunk of another length is refused while the chunk sequence is unchanged"
@@ -198873,7 +198846,7 @@
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000403\u000013\u0000403\u000059"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verificationError:StringLiteral",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput StringLiteral cluster: a destination that cannot be read is refused with a non-empty detail"
@@ -198890,7 +198863,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000ArrowFunction\u0000() => undefined\u0000303\u000033\u0000303\u000067"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression, MethodExpression, ArrowFunction and StringLiteral clusters: an XMP chunk left in the destination is refused"
@@ -198908,7 +198881,7 @@
         "src/admission/webp-handler.ts\u0000BlockStatement\u0000{}\u0000311\u000058\u0000328\u00006"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:BlockStatement",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved ICC profile that is missing or changed is refused"
@@ -198926,7 +198899,7 @@
         "src/admission/webp-handler.ts\u0000BlockStatement\u0000{}\u0000338\u000067\u0000354\u00006"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:BlockStatement",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved Orientation that is missing, different or stored with another entry is refused"
@@ -198944,7 +198917,7 @@
         "src/admission/webp-handler.ts\u0000BlockStatement\u0000{}\u0000374\u000067\u0000395\u00006"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:BlockStatement",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, EqualityOperator, ConditionalExpression and StringLiteral clusters: one changed payload byte or a chunk of another length is refused while the chunk sequence is unchanged"
@@ -198963,7 +198936,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000303\u000044\u0000303\u000067"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression, MethodExpression, ArrowFunction and StringLiteral clusters: an XMP chunk left in the destination is refused"
@@ -198981,7 +198954,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000313\u00009\u0000320\u000011"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved ICC profile that is missing or changed is refused"
@@ -198999,7 +198972,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000328\u000016\u0000328\u000044"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression and StringLiteral clusters: an ICC profile that remains when none is to be kept is refused"
@@ -199019,7 +198992,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000346\u00009\u0000346\u000040"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, ConditionalExpression and StringLiteral clusters: a preserved Orientation that is missing, different or stored with another entry is refused"
@@ -199037,7 +199010,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000354\u000016\u0000354\u000045"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression and StringLiteral clusters: an EXIF chunk that remains when no Orientation is to be kept is refused"
@@ -199055,7 +199028,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000367\u00009\u0000367\u000059"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression and StringLiteral clusters: a destination with an extra animation frame is refused"
@@ -199073,7 +199046,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000378\u00009\u0000387\u000011"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, EqualityOperator, ConditionalExpression and StringLiteral clusters: one changed payload byte or a chunk of another length is refused while the chunk sequence is unchanged"
@@ -199091,7 +199064,7 @@
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000380\u00009\u0000380\u000037"
       ],
       "originClusterId": "webp:src/admission/webp-handler.ts:verifyOutput:ConditionalExpression",
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression cluster: payload chunks of different types with the same sizes and bytes are refused"
@@ -199108,7 +199081,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000EqualityOperator\u0000index >= sourcePayload.length\u0000374\u000025\u0000374\u000053"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput BlockStatement, EqualityOperator, ConditionalExpression and StringLiteral clusters: one changed payload byte or a chunk of another length is refused while the chunk sequence is unchanged"
@@ -199125,7 +199098,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000MethodExpression\u0000destination.chunks.every(chunk => chunk.fourCc === \"XMP \")\u0000303\u00009\u0000303\u000068"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression, MethodExpression, ArrowFunction and StringLiteral clusters: an XMP chunk left in the destination is refused"
@@ -199143,7 +199116,7 @@
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000303\u000061\u0000303\u000067",
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000305\u000027\u0000305\u000061"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > verifyOutput ConditionalExpression, MethodExpression, ArrowFunction and StringLiteral clusters: an XMP chunk left in the destination is refused"
@@ -199161,7 +199134,7 @@
         "src/admission/webp-handler.ts\u0000ArithmeticOperator\u0000data.length + written\u0000173\u00007\u0000173\u000028",
         "src/admission/webp-handler.ts\u0000ArithmeticOperator\u0000position - written\u0000174\u00007\u0000174\u000025"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > writeAll ArithmeticOperator cluster: a partial write continues at the next unwritten byte with only the remainder"
@@ -199178,7 +199151,7 @@
       "keys": [
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000176\u00009\u0000176\u000032"
       ],
-      "note": "reports/triage/67-42/green2.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "reports/triage/67-42/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-42/red-current.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-42 tests, every one of the 60 frozen members Survived or NoCoverage; the tracer cluster's red is reports/triage/67-42/red.json, lines 303-387) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > writeAll ConditionalExpression cluster: a write that makes no progress fails after exactly one attempt"
