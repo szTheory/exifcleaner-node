@@ -198248,24 +198248,41 @@
       "symbolScope": "function"
     },
     {
-      "id": "webp:src/admission/webp-handler.ts:checkOutputPlan:ConditionalExpression",
+      "id": "webp:src/admission/webp-handler.ts:checkOutputPlan:ConditionalExpression:gap-01",
       "group": "webp",
       "file": "src/admission/webp-handler.ts",
       "function": "checkOutputPlan",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000486\u000014\u0000486\u000031",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000486\u000014\u0000486\u000072",
+        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000486\u000014\u0000486\u000072"
+      ],
+      "originClusterId": "webp:src/admission/webp-handler.ts:checkOutputPlan:ConditionalExpression",
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > checkOutputPlan ConditionalExpression and LogicalOperator clusters: an empty plan is refused with a non-empty message"
+      }
+    },
+    {
+      "id": "webp:src/admission/webp-handler.ts:checkOutputPlan:ConditionalExpression:gap-02",
+      "group": "webp",
+      "file": "src/admission/webp-handler.ts",
+      "function": "checkOutputPlan",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000486\u000035\u0000486\u000072"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000plan.length === 0\u00000",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000plan.length === 0 || webpOutputSize(plan) > MAX_RIFF_BYTES\u00000",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000webpOutputSize(plan) > MAX_RIFF_BYTES\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/admission/webp-handler.ts:checkOutputPlan:ConditionalExpression",
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > checkOutputPlan ConditionalExpression and LogicalOperator clusters: a plan that is too long for a RIFF container is refused with a non-empty message"
+      }
     },
     {
       "id": "webp:src/admission/webp-handler.ts:checkOutputPlan:EqualityOperator",
@@ -198273,15 +198290,16 @@
       "file": "src/admission/webp-handler.ts",
       "function": "checkOutputPlan",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000EqualityOperator\u0000webpOutputSize(plan) >= MAX_RIFF_BYTES\u0000486\u000035\u0000486\u000072"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000EqualityOperator\u0000webpOutputSize(plan) >= MAX_RIFF_BYTES\u0000webpOutputSize(plan) > MAX_RIFF_BYTES\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > checkOutputPlan EqualityOperator cluster: a plan whose RIFF output is exactly the maximum size is accepted, one that is smaller too"
+      }
     },
     {
       "id": "webp:src/admission/webp-handler.ts:checkOutputPlan:LogicalOperator",
@@ -198289,15 +198307,16 @@
       "file": "src/admission/webp-handler.ts",
       "function": "checkOutputPlan",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000LogicalOperator\u0000plan.length === 0 && webpOutputSize(plan) > MAX_RIFF_BYTES\u0000486\u000014\u0000486\u000072"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000LogicalOperator\u0000plan.length === 0 && webpOutputSize(plan) > MAX_RIFF_BYTES\u0000plan.length === 0 || webpOutputSize(plan) > MAX_RIFF_BYTES\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > checkOutputPlan ConditionalExpression and LogicalOperator clusters: an empty plan is refused with a non-empty message"
+      }
     },
     {
       "id": "webp:src/admission/webp-handler.ts:checkOutputPlan:StringLiteral",
@@ -198305,15 +198324,16 @@
       "file": "src/admission/webp-handler.ts",
       "function": "checkOutputPlan",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000487\u000011\u0000487\u000050"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"Sanitized output exceeds RIFF limits.\"\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > checkOutputPlan ConditionalExpression and LogicalOperator clusters: an empty plan is refused with a non-empty message"
+      }
     },
     {
       "id": "webp:src/admission/webp-handler.ts:chunksEqual:BooleanLiteral:gap-01",
@@ -198520,15 +198540,16 @@
       "file": "src/admission/webp-handler.ts",
       "function": "classifyAdmissionFailure",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000``\u0000498\u000019\u0000498\u0000125"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000StringLiteral\u0000``\u0000`ICC profile size ${cause.metadataLimit.size} exceeds the ${cause.metadataLimit.limit}-byte policy limit.`\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > classifyAdmissionFailure StringLiteral cluster: an oversized ICC profile under the preservation policy is declined as a policy-limit feature with a non-empty detail"
+      }
     },
     {
       "id": "webp:src/admission/webp-handler.ts:copyChunkData:ArithmeticOperator",
@@ -198654,26 +198675,58 @@
       }
     },
     {
-      "id": "webp:src/admission/webp-handler.ts:matches:ConditionalExpression",
+      "id": "webp:src/admission/webp-handler.ts:matches:ConditionalExpression:pending-01",
       "group": "webp",
       "file": "src/admission/webp-handler.ts",
       "function": "matches",
       "mutatorName": "ConditionalExpression",
       "disposition": "pending",
-      "count": 4,
+      "count": 1,
       "keys": [
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000464\u00009\u0000464\u000027",
+        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000464\u00009\u0000464\u000027"
+      ],
+      "originClusterId": "webp:src/admission/webp-handler.ts:matches:ConditionalExpression",
+      "anchors": [
+        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000magic.length >= 12\u00000"
+      ],
+      "note": "Awaiting the maintainer ruling in 67-43-HALTED.md (a behavior-preserving source simplification): the magic.length >= 12 operand of webpHandler.matches is redundant, since a shorter magic cannot carry WEBP at bytes 8 to 12, so the ConditionalExpression true replacement is unobservable; its line also holds the Killed observable siblings of the same mutator (the chain conditions and the length comparison), so no next-line directive can own it honestly. The member survives in reports/triage/67-43/green1.json."
+    },
+    {
+      "id": "webp:src/admission/webp-handler.ts:matches:ConditionalExpression:gap-01",
+      "group": "webp",
+      "file": "src/admission/webp-handler.ts",
+      "function": "matches",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000464\u00009\u0000465\u000058",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000465\u00009\u0000465\u000058",
+        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000465\u00009\u0000465\u000058"
+      ],
+      "originClusterId": "webp:src/admission/webp-handler.ts:matches:ConditionalExpression",
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > matches ConditionalExpression and LogicalOperator clusters: a WEBP form type behind a signature other than RIFF is refused"
+      }
+    },
+    {
+      "id": "webp:src/admission/webp-handler.ts:matches:ConditionalExpression:gap-02",
+      "group": "webp",
+      "file": "src/admission/webp-handler.ts",
+      "function": "matches",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000466\u00009\u0000466\u000059"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000magic.length >= 12\u00000",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000magic.length >= 12 &&\n        magic.subarray(0, 4).toString(\"ascii\") === \"RIFF\"\u00000",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000magic.subarray(0, 4).toString(\"ascii\") === \"RIFF\"\u00000",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000true\u0000magic.subarray(8, 12).toString(\"ascii\") === \"WEBP\"\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/admission/webp-handler.ts:matches:ConditionalExpression",
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > matches ConditionalExpression and LogicalOperator clusters: a form type other than WEBP behind a RIFF signature is refused"
+      }
     },
     {
       "id": "webp:src/admission/webp-handler.ts:matches:EqualityOperator",
@@ -198681,33 +198734,52 @@
       "file": "src/admission/webp-handler.ts",
       "function": "matches",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000EqualityOperator\u0000magic.length > 12\u0000464\u00009\u0000464\u000027"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000EqualityOperator\u0000magic.length > 12\u0000magic.length >= 12\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > matches ConditionalExpression, EqualityOperator and LogicalOperator clusters: a RIFF header of exactly 12 bytes with a WEBP form type is recognized, with or without trailing bytes"
+      }
     },
     {
-      "id": "webp:src/admission/webp-handler.ts:matches:LogicalOperator",
+      "id": "webp:src/admission/webp-handler.ts:matches:LogicalOperator:gap-01",
       "group": "webp",
       "file": "src/admission/webp-handler.ts",
       "function": "matches",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/webp-handler.ts\u0000LogicalOperator\u0000magic.length >= 12 && magic.subarray(0, 4).toString(\"ascii\") === \"RIFF\" || magic.subarray(8, 12).toString(\"ascii\") === \"WEBP\"\u0000464\u00009\u0000466\u000059",
+        "src/admission/webp-handler.ts\u0000LogicalOperator\u0000magic.length >= 12 && magic.subarray(0, 4).toString(\"ascii\") === \"RIFF\" || magic.subarray(8, 12).toString(\"ascii\") === \"WEBP\"\u0000464\u00009\u0000466\u000059"
+      ],
+      "originClusterId": "webp:src/admission/webp-handler.ts:matches:LogicalOperator",
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > matches ConditionalExpression and LogicalOperator clusters: a form type other than WEBP behind a RIFF signature is refused"
+      }
+    },
+    {
+      "id": "webp:src/admission/webp-handler.ts:matches:LogicalOperator:gap-02",
+      "group": "webp",
+      "file": "src/admission/webp-handler.ts",
+      "function": "matches",
+      "mutatorName": "LogicalOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/admission/webp-handler.ts\u0000LogicalOperator\u0000magic.length >= 12 || magic.subarray(0, 4).toString(\"ascii\") === \"RIFF\"\u0000464\u00009\u0000465\u000058"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000LogicalOperator\u0000magic.length >= 12 && magic.subarray(0, 4).toString(\"ascii\") === \"RIFF\" || magic.subarray(8, 12).toString(\"ascii\") === \"WEBP\"\u0000magic.length >= 12 &&\n        magic.subarray(0, 4).toString(\"ascii\") === \"RIFF\" &&\n        magic.subarray(8, 12).toString(\"ascii\") === \"WEBP\"\u00000",
-        "src/admission/webp-handler.ts\u0000LogicalOperator\u0000magic.length >= 12 || magic.subarray(0, 4).toString(\"ascii\") === \"RIFF\"\u0000magic.length >= 12 &&\n        magic.subarray(0, 4).toString(\"ascii\") === \"RIFF\"\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/admission/webp-handler.ts:matches:LogicalOperator",
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > matches ConditionalExpression and LogicalOperator clusters: a WEBP form type behind a signature other than RIFF is refused"
+      }
     },
     {
       "id": "webp:src/admission/webp-handler.ts:verificationAborted:StringLiteral",
@@ -199158,22 +199230,40 @@
       }
     },
     {
-      "id": "webp:src/admission/webp-handler.ts:writeOutput:ConditionalExpression",
+      "id": "webp:src/admission/webp-handler.ts:writeOutput:ConditionalExpression:gap-01",
       "group": "webp",
       "file": "src/admission/webp-handler.ts",
       "function": "writeOutput",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000513\u000013\u0000513\u000030",
+        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000513\u000013\u0000513\u000030"
+      ],
+      "originClusterId": "webp:src/admission/webp-handler.ts:writeOutput:ConditionalExpression",
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Earlier killer: the Plan 67-42 copyChunkData abort test already kills this member in the red run (its isAborted check in writeOutput is the same expression the flipping signal reaches), so the hosted pre-triage status is the red evidence and that earlier test is the named killer; the Plan 67-43 pre-first-chunk abort tests assert the same member's typed observable (the abort reason itself and a reason-less AbortError).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > copyChunkData LogicalOperator and StringLiteral clusters: an abort without a reason inside a chunk copy rejects with an AbortError DOMException"
+      }
+    },
+    {
+      "id": "webp:src/admission/webp-handler.ts:writeOutput:ConditionalExpression:gap-02",
+      "group": "webp",
+      "file": "src/admission/webp-handler.ts",
+      "function": "writeOutput",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000539\u000011\u0000539\u000028"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000isAborted(signal)\u00003",
-        "src/admission/webp-handler.ts\u0000ConditionalExpression\u0000false\u0000position !== size\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/admission/webp-handler.ts:writeOutput:ConditionalExpression",
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > writeOutput ConditionalExpression cluster: a plan whose chunk data does not fill its declared size fails with the declared RIFF size unmet"
+      }
     },
     {
       "id": "webp:src/admission/webp-handler.ts:writeOutput:LogicalOperator",
@@ -199181,15 +199271,16 @@
       "file": "src/admission/webp-handler.ts",
       "function": "writeOutput",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000514\u000017\u0000514\u000076"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000LogicalOperator\u0000signal?.reason && new DOMException(\"Aborted\", \"AbortError\")\u0000signal?.reason ?? new DOMException(\"Aborted\", \"AbortError\")\u00002"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > writeOutput ConditionalExpression and LogicalOperator clusters: an abort raised before the first chunk rejects with the abort reason itself"
+      }
     },
     {
       "id": "webp:src/admission/webp-handler.ts:writeOutput:StringLiteral",
@@ -199197,15 +199288,16 @@
       "file": "src/admission/webp-handler.ts",
       "function": "writeOutput",
       "mutatorName": "StringLiteral",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000514\u000063\u0000514\u000075"
       ],
-      "anchors": [
-        "src/admission/webp-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"AbortError\"\u00002"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-43/green1.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-43/red.json (src/admission/webp-handler.ts, a real whole-file run on the unedited source and the pre-67-43 tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2) > writeOutput LogicalOperator and StringLiteral clusters: an abort without a reason before the first chunk rejects with an AbortError DOMException"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:chunkRank:ConditionalExpression",
