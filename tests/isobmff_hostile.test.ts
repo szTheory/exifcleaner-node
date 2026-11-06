@@ -39,8 +39,13 @@ import {
 import {
   webpHandler,
   type WebpAdmission,
+  type WebpOutputChunk,
 } from "../src/admission/webp-handler.js";
-import { COPY_BLOCK_BYTES as WEBP_COPY_BLOCK_BYTES } from "../src/webp/riff.js";
+import {
+  COPY_BLOCK_BYTES as WEBP_COPY_BLOCK_BYTES,
+  MAX_RIFF_BYTES as WEBP_MAX_RIFF_BYTES,
+  WebpStructureError,
+} from "../src/webp/riff.js";
 import {
   BufferedBudget,
   InflateBudget,
@@ -11125,5 +11130,170 @@ describe("webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual 
         .slice(-2)
         .map((call) => [call.length, call.position]),
     ).toEqual(expected);
+  });
+});
+
+// webp-handler.ts clusters (67-43, webp-2). webpHandler.matches, checkOutputPlan,
+// classifyAdmissionFailure and writeOutput are called directly with the byte strings, plans, errors
+// and signals the engine would hand them, so the signature bytes, the RIFF size limit, the typed
+// context and the abort path are observable. A refusal message is asserted to be non-empty, never
+// by its wording.
+describe("webp-handler.ts matches, checkOutputPlan, classifyAdmissionFailure and writeOutput clusters (67-43, webp-2)", () => {
+  // A 12-byte RIFF header whose form type is `form`, padded with `extra` further bytes.
+  function wmMagic(riff: string, form: string, extra = 0): Buffer {
+    return Buffer.concat([
+      Buffer.from(riff, "ascii"),
+      Buffer.alloc(4, 0x20),
+      Buffer.from(form, "ascii"),
+      Buffer.alloc(extra, 0x20),
+    ]);
+  }
+  // A plan of one VP8 chunk whose padded RIFF output is exactly `riffBytes` long (even sizes only).
+  function wmPlanOf(riffBytes: number): readonly WebpOutputChunk[] {
+    return [{ fourCc: "VP8 ", size: riffBytes - 20 }];
+  }
+  async function wmWriteOutput(
+    plan: readonly WebpOutputChunk[],
+    signal?: AbortSignal,
+  ) {
+    const directory = await mkdtemp(
+      join(tmpdir(), "exifcleaner-webp-handler-"),
+    );
+    cleanupDirectories.push(directory);
+    const destination = await open(join(directory, "destination.webp"), "wx");
+    const scripted = jhScriptedHandle(destination);
+    let threw = false;
+    let thrown: unknown;
+    try {
+      await webpHandler.writeOutput(
+        undefined as unknown as FileHandle,
+        scripted.handle,
+        plan,
+        signal,
+      );
+    } catch (cause) {
+      threw = true;
+      thrown = cause;
+    } finally {
+      await destination.close();
+    }
+    return { threw, thrown, writes: scripted.writes };
+  }
+
+  it("matches ConditionalExpression, EqualityOperator and LogicalOperator clusters: a RIFF header of exactly 12 bytes with a WEBP form type is recognized, with or without trailing bytes", () => {
+    expect(webpHandler.matches(wmMagic("RIFF", "WEBP"))).toBe(true);
+    expect(webpHandler.matches(wmMagic("RIFF", "WEBP", 4))).toBe(true);
+  });
+
+  it("matches ConditionalExpression and LogicalOperator clusters: a form type other than WEBP behind a RIFF signature is refused", () => {
+    expect(webpHandler.matches(wmMagic("RIFF", "WAVE"))).toBe(false);
+    expect(webpHandler.matches(wmMagic("RIFF", "WEBQ", 4))).toBe(false);
+  });
+
+  it("matches ConditionalExpression and LogicalOperator clusters: a WEBP form type behind a signature other than RIFF is refused", () => {
+    expect(webpHandler.matches(wmMagic("RIFX", "WEBP"))).toBe(false);
+    expect(webpHandler.matches(wmMagic("RIFG", "WEBP", 4))).toBe(false);
+  });
+
+  it("matches ConditionalExpression and EqualityOperator clusters: a magic shorter than 12 bytes is refused, whatever its prefix", () => {
+    const full = wmMagic("RIFF", "WEBP");
+    expect(webpHandler.matches(full.subarray(0, 11))).toBe(false);
+    expect(webpHandler.matches(full.subarray(0, 8))).toBe(false);
+    expect(webpHandler.matches(Buffer.alloc(0))).toBe(false);
+  });
+
+  it("checkOutputPlan ConditionalExpression and LogicalOperator clusters: an empty plan is refused with a non-empty message", () => {
+    const message = webpHandler.checkOutputPlan([]);
+    expect(typeof message).toBe("string");
+    expect(message?.length).toBeGreaterThan(0);
+  });
+
+  it("checkOutputPlan ConditionalExpression and LogicalOperator clusters: a plan that is too long for a RIFF container is refused with a non-empty message", () => {
+    const message = webpHandler.checkOutputPlan(
+      wmPlanOf(WEBP_MAX_RIFF_BYTES + 2),
+    );
+    expect(typeof message).toBe("string");
+    expect(message?.length).toBeGreaterThan(0);
+    // The padding byte of an odd chunk counts towards the limit.
+    const padded = webpHandler.checkOutputPlan([
+      { fourCc: "VP8 ", size: WEBP_MAX_RIFF_BYTES - 19 },
+    ]);
+    expect(typeof padded).toBe("string");
+  });
+
+  it("checkOutputPlan EqualityOperator cluster: a plan whose RIFF output is exactly the maximum size is accepted, one that is smaller too", () => {
+    expect(
+      webpHandler.checkOutputPlan(wmPlanOf(WEBP_MAX_RIFF_BYTES)),
+    ).toBeUndefined();
+    expect(
+      webpHandler.checkOutputPlan(wmPlanOf(WEBP_MAX_RIFF_BYTES - 2)),
+    ).toBeUndefined();
+    expect(
+      webpHandler.checkOutputPlan([{ fourCc: "VP8 ", size: 4 }]),
+    ).toBeUndefined();
+  });
+
+  it("classifyAdmissionFailure StringLiteral cluster: an oversized ICC profile under the preservation policy is declined as a policy-limit feature with a non-empty detail", () => {
+    const decline = webpHandler.classifyAdmissionFailure(
+      new WebpStructureError("unsafe-structure", "metadata limit", {
+        fourCc: "ICCP",
+        size: 4_097,
+        limit: 4_096,
+      }),
+      true,
+    );
+    expect(decline).toMatchObject({
+      code: "unsupported-feature",
+      feature: "color-profile-preservation",
+      reason: "policy-limit",
+    });
+    expect(typeof decline?.detail).toBe("string");
+    expect(decline?.detail.length).toBeGreaterThan(0);
+  });
+
+  it("writeOutput ConditionalExpression and LogicalOperator clusters: an abort raised before the first chunk rejects with the abort reason itself", async () => {
+    const reason = new Error("custom abort reason");
+    const controller = new AbortController();
+    controller.abort(reason);
+    const outcome = await wmWriteOutput(
+      [{ fourCc: "VP8 ", size: 4, data: Buffer.alloc(4) }],
+      controller.signal,
+    );
+    expect(outcome.threw).toBe(true);
+    expect(outcome.thrown).toBe(reason);
+    // Only the 12-byte RIFF header was written before the abort was seen.
+    expect(outcome.writes.map((call) => [call.length, call.position])).toEqual([
+      [12, 0],
+    ]);
+  });
+
+  it("writeOutput LogicalOperator and StringLiteral clusters: an abort without a reason before the first chunk rejects with an AbortError DOMException", async () => {
+    const outcome = await wmWriteOutput(
+      [{ fourCc: "VP8 ", size: 4, data: Buffer.alloc(4) }],
+      { aborted: true, reason: undefined } as unknown as AbortSignal,
+    );
+    expect(outcome.threw).toBe(true);
+    expect(outcome.thrown).toBeInstanceOf(DOMException);
+    expect((outcome.thrown as DOMException).name).toBe("AbortError");
+    expect(outcome.writes.map((call) => [call.length, call.position])).toEqual([
+      [12, 0],
+    ]);
+  });
+
+  it("writeOutput ConditionalExpression cluster: a plan whose chunk data does not fill its declared size fails with the declared RIFF size unmet", async () => {
+    const short = await wmWriteOutput([
+      { fourCc: "VP8 ", size: 6, data: Buffer.alloc(4) },
+    ]);
+    expect(short.threw).toBe(true);
+    expect(short.thrown).toBeInstanceOf(Error);
+    const long = await wmWriteOutput([
+      { fourCc: "VP8 ", size: 2, data: Buffer.alloc(4) },
+    ]);
+    expect(long.threw).toBe(true);
+    expect(long.thrown).toBeInstanceOf(Error);
+    const exact = await wmWriteOutput([
+      { fourCc: "VP8 ", size: 4, data: Buffer.alloc(4) },
+    ]);
+    expect(exact.threw).toBe(false);
   });
 });
