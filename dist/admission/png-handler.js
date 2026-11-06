@@ -540,9 +540,7 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
             const reparsed = parseExif(exifData);
             if (!exifData.equals(expectedData) ||
                 reparsed.orientation.status !== "valid" ||
-                // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — an eXIf payload equal to the freshly built minimal orientation payload reads back as that same valid orientation, so this operand is false whenever the first operand is false, and the first operand alone refuses every other payload.
                 reparsed.orientation.value !== expectedOrientation ||
-                // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — an eXIf payload equal to the freshly built minimal orientation payload reads back as exactly one entry, so this operand is false whenever the first operand is false, and the first operand alone refuses every other payload.
                 reparsed.entries.length !== 1)
                 return err(verificationError("Inserted eXIf did not equal the minimal orientation payload.", destinationPath));
         }
