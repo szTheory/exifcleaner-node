@@ -194499,6 +194499,462 @@
       }
     },
     {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:ArrayDeclaration",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ArrayDeclaration",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ArrayDeclaration\u0000[\"Stryker was here\"]\u0000335\u000042\u0000335\u000044"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ArrayDeclaration, BooleanLiteral and ConditionalExpression clusters: unregistered private chunk types are listed once each in order of first appearance"
+      }
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:CallExpression",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "CallExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/admission/png-handler.ts\u0000CallExpression\u0000;\u0000377\u00009\u0000377\u000042",
+        "src/admission/png-handler.ts\u0000CallExpression\u0000;\u0000414\u00009\u0000414\u000042"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata CallExpression clusters: ICC and EXIF parse warnings reach the inspection"
+      }
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:BooleanLiteral:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "BooleanLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BooleanLiteral\u0000unregisteredStripped.includes(type)\u0000398\u000011\u0000398\u000047"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ArrayDeclaration, BooleanLiteral and ConditionalExpression clusters: unregistered private chunk types are listed once each in order of first appearance"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BooleanLiteral"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:BooleanLiteral:gap-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "BooleanLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BooleanLiteral\u0000false\u0000509\u000061\u0000509\u000065"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BooleanLiteral, ObjectLiteral, BlockStatement and StringLiteral clusters: an iTXt text that is not valid UTF-8 warns instead of becoming an entry"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BooleanLiteral"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000398\u000011\u0000398\u000047",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000398\u000011\u0000398\u000047"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ArrayDeclaration, BooleanLiteral and ConditionalExpression clusters: unregistered private chunk types are listed once each in order of first appearance"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:gap-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000428\u000033\u0000428\u000049"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ConditionalExpression cluster: a tIME chunk shorter than seven bytes yields no ModifyDate entry"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:gap-03",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 3,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000437\u00009\u0000437\u000024",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000437\u00009\u0000437\u000043",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000437\u000028\u0000437\u000043"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BlockStatement, ConditionalExpression and StringLiteral clusters: gAMA and sRGB chunks widen the PNG namespace without an entry"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:gap-04",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000479\u000013\u0000479\u000020"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ConditionalExpression cluster: an XMP packet in a zTXt chunk is routed to XMP and adds no PNG entry"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:equivalent-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000492\u00009\u0000492\u000024"
+      ],
+      "note": "A next-line ConditionalExpression disable owns the type test that opens the iTXt branch of collectMetadata. PNG_REMOVED_CHUNK_TYPES holds exactly eight types and every one except iTXt returns above this point, while every non-removed type returned or threw earlier, so only an iTXt chunk reaches the test and it is always true. The always-false sibling on the line is a TypeScript compile error (error TS2345), suppressed only as collateral because the next-line form cannot select a replacement; its anchor is listed here. The EqualityOperator, StringLiteral and BlockStatement mutants of the line stay active and Killed.",
+      "equivalenceClass": "redundant-guard-after-typed-check",
+      "anchors": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000type === \"iTXt\"\u00000",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000type === \"iTXt\"\u00000"
+      ],
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:dead-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000526\u00007\u0000526\u000035"
+      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"otherOrientations.length > 0\" no longer appears in the enclosing function collectMetadata (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "otherOrientations.length > 0",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:dead-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000529\u000018\u0000529\u000037"
+      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"other === \\\"invalid\\\"\" no longer appears in the enclosing function collectMetadata (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "other === \"invalid\"",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000437\u000045\u0000442\u00006"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BlockStatement, ConditionalExpression and StringLiteral clusters: gAMA and sRGB chunks widen the PNG namespace without an entry"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement:equivalent-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000458\u000014\u0000460\u00008"
+      ],
+      "note": "A next-line BlockStatement disable owns the data-less fallback of the tEXt branch in collectMetadata. parsePng stores the data of every chunk except IDAT in the buffered map, so a tEXt chunk always has data and the else block that would add the PNG namespace without data is never reached through any public input. The directive sits after the else keyword under a prettier-ignore line, because Prettier moves a comment placed before the else onto the closing brace of the previous block, where Stryker never reads it; the line holds no other mutant.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
+      "anchors": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n        namespaces.add(\"PNG\");\n      }\u00000"
+      ],
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement:equivalent-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "BlockStatement",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000487\u000014\u0000489\u00008"
+      ],
+      "note": "A next-line BlockStatement disable owns the data-less fallback of the zTXt branch in collectMetadata. parsePng stores the data of every chunk except IDAT in the buffered map, so a zTXt chunk always has data and the else block that would add the PNG namespace without data is never reached through any public input. The directive sits after the else keyword under a prettier-ignore line, because Prettier moves a comment placed before the else onto the closing brace of the previous block, where Stryker never reads it; the line holds no other mutant.",
+      "equivalenceClass": "defensive-unreachable-by-construction",
+      "anchors": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n        namespaces.add(\"PNG\");\n      }\u00001"
+      ],
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement:gap-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000513\u000017\u0000518\u000010"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BooleanLiteral, ObjectLiteral, BlockStatement and StringLiteral clusters: an iTXt text that is not valid UTF-8 warns instead of becoming an entry"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000437\u000018\u0000437\u000024",
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000437\u000037\u0000437\u000043"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BlockStatement, ConditionalExpression and StringLiteral clusters: gAMA and sRGB chunks widen the PNG namespace without an entry"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral:gap-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000``\u0000516\u000021\u0000516\u000069"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BooleanLiteral, ObjectLiteral, BlockStatement and StringLiteral clusters: an iTXt text that is not valid UTF-8 warns instead of becoming an entry"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral:gap-03",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "StringLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000535\u000011\u0000535\u000078"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata MethodExpression and StringLiteral clusters: one disagreeing non-eXIf Orientation among agreeing ones makes the orientation unsupported"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:EqualityOperator:dead-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000keywordNul <= 0\u0000468\u000011\u0000468\u000025"
+      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"keywordNul < 0\" no longer appears in the enclosing function collectMetadata (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "keywordNul < 0",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:EqualityOperator:dead-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000otherOrientations.length >= 0\u0000526\u00007\u0000526\u000035"
+      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"otherOrientations.length > 0\" no longer appears in the enclosing function collectMetadata (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "otherOrientations.length > 0",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:ObjectLiteral",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "ObjectLiteral",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ObjectLiteral\u0000{}\u0000509\u000052\u0000509\u000067"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BooleanLiteral, ObjectLiteral, BlockStatement and StringLiteral clusters: an iTXt text that is not valid UTF-8 warns instead of becoming an entry"
+      }
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:collectMetadata:MethodExpression",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "collectMetadata",
+      "mutatorName": "MethodExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000MethodExpression\u0000otherOrientations.every(other => other === \"invalid\" || other !== sourceValue)\u0000528\u000023\u0000530\u00006"
+      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"other === \\\"invalid\\\"\" no longer appears in the enclosing function collectMetadata (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "other === \"invalid\"",
+      "symbolScope": "function"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:EqualityOperator:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "findIdotAdjacencyDecline",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 2,
+      "keys": [
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000idotIndex <= 0\u0000577\u00007\u0000577\u000020",
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000index <= firstIdatIndex\u0000581\u000035\u0000581\u000057"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > findIdotAdjacencyDecline EqualityOperator clusters: an iDOT in the first chunk position still declines when a removed chunk follows it, and the first IDAT itself is not part of the span"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:EqualityOperator:dead-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "findIdotAdjacencyDecline",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 2,
+      "keys": [
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000firstIdatIndex <= 0\u0000579\u00007\u0000579\u000025",
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000firstIdatIndex < idotIndex\u0000579\u000029\u0000579\u000056"
+      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"firstIdatIndex < 0\" no longer appears in the enclosing function findIdotAdjacencyDecline (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "firstIdatIndex < 0",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:ConditionalExpression",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "findIdotAdjacencyDecline",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 3,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000579\u00007\u0000579\u000025",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000579\u00007\u0000579\u000056",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000579\u000029\u0000579\u000056"
+      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"firstIdatIndex < 0\" no longer appears in the enclosing function findIdotAdjacencyDecline (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "firstIdatIndex < 0",
+      "symbolScope": "function"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:LogicalOperator",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "findIdotAdjacencyDecline",
+      "mutatorName": "LogicalOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000LogicalOperator\u0000firstIdatIndex < 0 && firstIdatIndex <= idotIndex\u0000579\u00007\u0000579\u000056"
+      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"firstIdatIndex < 0\" no longer appears in the enclosing function findIdotAdjacencyDecline (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "firstIdatIndex < 0",
+      "symbolScope": "function"
+    },
+    {
       "id": "png:src/admission/png-handler.ts:buildOutputPlan:ArrayDeclaration",
       "group": "png",
       "file": "src/admission/png-handler.ts",
@@ -194604,22 +195060,38 @@
       }
     },
     {
-      "id": "png:src/admission/png-handler.ts:chunksEqual:ArithmeticOperator",
+      "id": "png:src/admission/png-handler.ts:writeAll:ArithmeticOperator",
       "group": "png",
       "file": "src/admission/png-handler.ts",
-      "function": "chunksEqual",
+      "function": "writeAll",
       "mutatorName": "ArithmeticOperator",
       "disposition": "gap",
-      "count": 3,
+      "count": 2,
       "keys": [
-        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000sourceSpan + offset\u0000716\u000047\u0000716\u000066",
-        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000source.offset - offset\u0000721\u00007\u0000721\u000029",
-        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000destination.offset - offset\u0000727\u00007\u0000727\u000034"
+        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000data.length + written\u0000690\u00007\u0000690\u000028",
+        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000position - written\u0000691\u00007\u0000691\u000025"
       ],
       "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > writeAll ArithmeticOperator cluster: a partial write continues at the next unwritten byte with only the remainder"
+      }
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:writeAll:ConditionalExpression",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "writeAll",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000693\u00009\u0000693\u000032"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > writeAll ConditionalExpression cluster: a write that makes no progress fails after exactly one attempt"
       }
     },
     {
@@ -194636,43 +195108,40 @@
       "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual BooleanLiteral cluster: a kept chunk of a different length fails verification"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:chunksEqual:BooleanLiteral"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:chunksEqual:BooleanLiteral:gap-02",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "chunksEqual",
-      "mutatorName": "BooleanLiteral",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BooleanLiteral\u0000true\u0000738\u000014\u0000738\u000019"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ConditionalExpression, EqualityOperator and BooleanLiteral clusters: one altered byte in a kept chunk fails verification while the chunk sequence is unchanged"
       },
       "originClusterId": "png:src/admission/png-handler.ts:chunksEqual:BooleanLiteral"
     },
     {
-      "id": "png:src/admission/png-handler.ts:chunksEqual:ConditionalExpression:pending-01",
+      "id": "png:src/admission/png-handler.ts:chunksEqual:BooleanLiteral:dead-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "chunksEqual",
+      "mutatorName": "BooleanLiteral",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BooleanLiteral\u0000true\u0000738\u000014\u0000738\u000019"
+      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"destinationSpan\" no longer appears in the enclosing function chunksEqual (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "destinationSpan",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:chunksEqual:BooleanLiteral"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:chunksEqual:ConditionalExpression:dead-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "chunksEqual",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000709\u00007\u0000709\u000037"
       ],
-      "note": "Awaiting the maintainer ruling in 67-38-HALTED.md (a behavior-preserving source simplification of redundant guards in collectMetadata, findIdotAdjacencyDecline and chunksEqual): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed or the member's anchor collides with another batch's, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000sourceSpan !== destinationSpan\u00000"
-      ],
+      "note": "Removed or rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant construct containing this member was dropped or rewritten (see 67-38-OPTION-A.patch and the traces in 67-38-HALTED.md), so its frozen text changed or vanished with it and the typed outcome stays pinned by the named 67-38 tests. The witness \"sourceSpan !== destinationSpan\" no longer appears in the enclosing function chunksEqual (scoped witness); the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "sourceSpan !== destinationSpan",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:chunksEqual:ConditionalExpression"
     },
     {
@@ -194733,6 +195202,23 @@
       "originClusterId": "png:src/admission/png-handler.ts:chunksEqual:ConditionalExpression"
     },
     {
+      "id": "png:src/admission/png-handler.ts:chunksEqual:MethodExpression",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "chunksEqual",
+      "mutatorName": "MethodExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000MethodExpression\u0000Math.max(COPY_BLOCK_BYTES, Math.max(sourceSpan, 1))\u0000710\u000022\u0000710\u000073"
+      ],
+      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
+      }
+    },
+    {
       "id": "png:src/admission/png-handler.ts:chunksEqual:EqualityOperator",
       "group": "png",
       "file": "src/admission/png-handler.ts",
@@ -194786,23 +195272,6 @@
       "originClusterId": "png:src/admission/png-handler.ts:chunksEqual:LogicalOperator"
     },
     {
-      "id": "png:src/admission/png-handler.ts:chunksEqual:MethodExpression",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "chunksEqual",
-      "mutatorName": "MethodExpression",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000MethodExpression\u0000Math.max(COPY_BLOCK_BYTES, Math.max(sourceSpan, 1))\u0000710\u000022\u0000710\u000073"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
-      }
-    },
-    {
       "id": "png:src/admission/png-handler.ts:chunksEqual:StringLiteral",
       "group": "png",
       "file": "src/admission/png-handler.ts",
@@ -194821,491 +195290,22 @@
       ]
     },
     {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:ArrayDeclaration",
+      "id": "png:src/admission/png-handler.ts:chunksEqual:ArithmeticOperator",
       "group": "png",
       "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "ArrayDeclaration",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ArrayDeclaration\u0000[\"Stryker was here\"]\u0000335\u000042\u0000335\u000044"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ArrayDeclaration, BooleanLiteral and ConditionalExpression clusters: unregistered private chunk types are listed once each in order of first appearance"
-      }
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement:gap-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "BlockStatement",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000437\u000045\u0000442\u00006"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BlockStatement, ConditionalExpression and StringLiteral clusters: gAMA and sRGB chunks widen the PNG namespace without an entry"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement:equivalent-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "BlockStatement",
-      "disposition": "equivalent",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000458\u000014\u0000460\u00008"
-      ],
-      "note": "A next-line BlockStatement disable owns the data-less fallback of the tEXt branch in collectMetadata. parsePng stores the data of every chunk except IDAT in the buffered map, so a tEXt chunk always has data and the else block that would add the PNG namespace without data is never reached through any public input. The directive sits after the else keyword under a prettier-ignore line, because Prettier moves a comment placed before the else onto the closing brace of the previous block, where Stryker never reads it; the line holds no other mutant.",
-      "equivalenceClass": "defensive-unreachable-by-construction",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n        namespaces.add(\"PNG\");\n      }\u00000"
-      ],
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement:equivalent-02",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "BlockStatement",
-      "disposition": "equivalent",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000487\u000014\u0000489\u00008"
-      ],
-      "note": "A next-line BlockStatement disable owns the data-less fallback of the zTXt branch in collectMetadata. parsePng stores the data of every chunk except IDAT in the buffered map, so a zTXt chunk always has data and the else block that would add the PNG namespace without data is never reached through any public input. The directive sits after the else keyword under a prettier-ignore line, because Prettier moves a comment placed before the else onto the closing brace of the previous block, where Stryker never reads it; the line holds no other mutant.",
-      "equivalenceClass": "defensive-unreachable-by-construction",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n        namespaces.add(\"PNG\");\n      }\u00001"
-      ],
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement:gap-02",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "BlockStatement",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000513\u000017\u0000518\u000010"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BooleanLiteral, ObjectLiteral, BlockStatement and StringLiteral clusters: an iTXt text that is not valid UTF-8 warns instead of becoming an entry"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BlockStatement"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:BooleanLiteral:gap-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "BooleanLiteral",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BooleanLiteral\u0000unregisteredStripped.includes(type)\u0000398\u000011\u0000398\u000047"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ArrayDeclaration, BooleanLiteral and ConditionalExpression clusters: unregistered private chunk types are listed once each in order of first appearance"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BooleanLiteral"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:BooleanLiteral:gap-02",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "BooleanLiteral",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BooleanLiteral\u0000false\u0000509\u000061\u0000509\u000065"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BooleanLiteral, ObjectLiteral, BlockStatement and StringLiteral clusters: an iTXt text that is not valid UTF-8 warns instead of becoming an entry"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:BooleanLiteral"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:CallExpression",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "CallExpression",
-      "disposition": "gap",
-      "count": 2,
-      "keys": [
-        "src/admission/png-handler.ts\u0000CallExpression\u0000;\u0000377\u00009\u0000377\u000042",
-        "src/admission/png-handler.ts\u0000CallExpression\u0000;\u0000414\u00009\u0000414\u000042"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata CallExpression clusters: ICC and EXIF parse warnings reach the inspection"
-      }
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:gap-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 2,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000398\u000011\u0000398\u000047",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000398\u000011\u0000398\u000047"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ArrayDeclaration, BooleanLiteral and ConditionalExpression clusters: unregistered private chunk types are listed once each in order of first appearance"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:gap-02",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000428\u000033\u0000428\u000049"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ConditionalExpression cluster: a tIME chunk shorter than seven bytes yields no ModifyDate entry"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:gap-03",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 3,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000437\u00009\u0000437\u000024",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000437\u00009\u0000437\u000043",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000437\u000028\u0000437\u000043"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BlockStatement, ConditionalExpression and StringLiteral clusters: gAMA and sRGB chunks widen the PNG namespace without an entry"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:gap-04",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000479\u000013\u0000479\u000020"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata ConditionalExpression cluster: an XMP packet in a zTXt chunk is routed to XMP and adds no PNG entry"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:equivalent-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "equivalent",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000492\u00009\u0000492\u000024"
-      ],
-      "note": "A next-line ConditionalExpression disable owns the type test that opens the iTXt branch of collectMetadata. PNG_REMOVED_CHUNK_TYPES holds exactly eight types and every one except iTXt returns above this point, while every non-removed type returned or threw earlier, so only an iTXt chunk reaches the test and it is always true. The always-false sibling on the line is a TypeScript compile error (error TS2345), suppressed only as collateral because the next-line form cannot select a replacement; its anchor is listed here. The EqualityOperator, StringLiteral and BlockStatement mutants of the line stay active and Killed.",
-      "equivalenceClass": "redundant-guard-after-typed-check",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000type === \"iTXt\"\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000type === \"iTXt\"\u00000"
-      ],
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression:pending-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 2,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000526\u00007\u0000526\u000035",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000529\u000018\u0000529\u000037"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-38-HALTED.md (a behavior-preserving source simplification of redundant guards in collectMetadata, findIdotAdjacencyDecline and chunksEqual): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed or the member's anchor collides with another batch's, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000true\u0000otherOrientations.length > 0\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000other === \"invalid\"\u00000"
-      ],
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:ConditionalExpression"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:EqualityOperator:pending-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000keywordNul <= 0\u0000468\u000011\u0000468\u000025"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-38-HALTED.md (a behavior-preserving source simplification of redundant guards in collectMetadata, findIdotAdjacencyDecline and chunksEqual): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed or the member's anchor collides with another batch's, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000keywordNul <= 0\u0000keywordNul < 0\u00001"
-      ],
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:EqualityOperator"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:EqualityOperator:pending-02",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000otherOrientations.length >= 0\u0000526\u00007\u0000526\u000035"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-38-HALTED.md (a behavior-preserving source simplification of redundant guards in collectMetadata, findIdotAdjacencyDecline and chunksEqual): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed or the member's anchor collides with another batch's, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000otherOrientations.length >= 0\u0000otherOrientations.length > 0\u00000"
-      ],
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:EqualityOperator"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:MethodExpression",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "MethodExpression",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000MethodExpression\u0000otherOrientations.every(other => other === \"invalid\" || other !== sourceValue)\u0000528\u000023\u0000530\u00006"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata MethodExpression and StringLiteral clusters: one disagreeing non-eXIf Orientation among agreeing ones makes the orientation unsupported"
-      }
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:ObjectLiteral",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "ObjectLiteral",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ObjectLiteral\u0000{}\u0000509\u000052\u0000509\u000067"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BooleanLiteral, ObjectLiteral, BlockStatement and StringLiteral clusters: an iTXt text that is not valid UTF-8 warns instead of becoming an entry"
-      }
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral:gap-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "StringLiteral",
-      "disposition": "gap",
-      "count": 2,
-      "keys": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000437\u000018\u0000437\u000024",
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000437\u000037\u0000437\u000043"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BlockStatement, ConditionalExpression and StringLiteral clusters: gAMA and sRGB chunks widen the PNG namespace without an entry"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral:gap-02",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "StringLiteral",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000``\u0000516\u000021\u0000516\u000069"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata BooleanLiteral, ObjectLiteral, BlockStatement and StringLiteral clusters: an iTXt text that is not valid UTF-8 warns instead of becoming an entry"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral:gap-03",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "collectMetadata",
-      "mutatorName": "StringLiteral",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000535\u000011\u0000535\u000078"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > collectMetadata MethodExpression and StringLiteral clusters: one disagreeing non-eXIf Orientation among agreeing ones makes the orientation unsupported"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:collectMetadata:StringLiteral"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:ConditionalExpression",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "findIdotAdjacencyDecline",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 3,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000579\u00007\u0000579\u000025",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000579\u00007\u0000579\u000056",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000579\u000029\u0000579\u000056"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-38-HALTED.md (a behavior-preserving source simplification of redundant guards in collectMetadata, findIdotAdjacencyDecline and chunksEqual): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed or the member's anchor collides with another batch's, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000firstIdatIndex < 0\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000firstIdatIndex < 0 || firstIdatIndex <= idotIndex\u00000",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000firstIdatIndex <= idotIndex\u00000"
-      ]
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:EqualityOperator:gap-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "findIdotAdjacencyDecline",
-      "mutatorName": "EqualityOperator",
-      "disposition": "gap",
-      "count": 2,
-      "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000idotIndex <= 0\u0000577\u00007\u0000577\u000020",
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000index <= firstIdatIndex\u0000581\u000035\u0000581\u000057"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > findIdotAdjacencyDecline EqualityOperator clusters: an iDOT in the first chunk position still declines when a removed chunk follows it, and the first IDAT itself is not part of the span"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:EqualityOperator"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:EqualityOperator:pending-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "findIdotAdjacencyDecline",
-      "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 2,
-      "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000firstIdatIndex <= 0\u0000579\u00007\u0000579\u000025",
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000firstIdatIndex < idotIndex\u0000579\u000029\u0000579\u000056"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-38-HALTED.md (a behavior-preserving source simplification of redundant guards in collectMetadata, findIdotAdjacencyDecline and chunksEqual): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed or the member's anchor collides with another batch's, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000firstIdatIndex <= 0\u0000firstIdatIndex < 0\u00000",
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000firstIdatIndex < idotIndex\u0000firstIdatIndex <= idotIndex\u00000"
-      ],
-      "originClusterId": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:EqualityOperator"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:findIdotAdjacencyDecline:LogicalOperator",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "findIdotAdjacencyDecline",
-      "mutatorName": "LogicalOperator",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000LogicalOperator\u0000firstIdatIndex < 0 && firstIdatIndex <= idotIndex\u0000579\u00007\u0000579\u000056"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-38-HALTED.md (a behavior-preserving source simplification of redundant guards in collectMetadata, findIdotAdjacencyDecline and chunksEqual): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed or the member's anchor collides with another batch's, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000LogicalOperator\u0000firstIdatIndex < 0 && firstIdatIndex <= idotIndex\u0000firstIdatIndex < 0 || firstIdatIndex <= idotIndex\u00000"
-      ]
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:writeAll:ArithmeticOperator",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "writeAll",
+      "function": "chunksEqual",
       "mutatorName": "ArithmeticOperator",
       "disposition": "gap",
-      "count": 2,
+      "count": 3,
       "keys": [
-        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000data.length + written\u0000690\u00007\u0000690\u000028",
-        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000position - written\u0000691\u00007\u0000691\u000025"
+        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000sourceSpan + offset\u0000716\u000047\u0000716\u000066",
+        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000source.offset - offset\u0000721\u00007\u0000721\u000029",
+        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000destination.offset - offset\u0000727\u00007\u0000727\u000034"
       ],
       "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > writeAll ArithmeticOperator cluster: a partial write continues at the next unwritten byte with only the remainder"
-      }
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:writeAll:ConditionalExpression",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "writeAll",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000693\u00009\u0000693\u000032"
-      ],
-      "note": "reports/triage/67-38/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-38/red.json (src/admission/png-handler.ts lines 330-745, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > writeAll ConditionalExpression cluster: a write that makes no progress fails after exactly one attempt"
+        "name": "png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2) > chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound"
       }
     },
     {
@@ -195737,17 +195737,15 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseItxtChunk",
       "mutatorName": "EqualityOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000keywordNul <= 0\u0000219\u00007\u0000219\u000021"
       ],
-      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator"
+      "note": "Rewritten by the Plan 67-38 behavior-preserving source edit approved by the maintainer (Option A of 67-38-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the dead ternary arm in the zTXt branch of collectMetadata was the only remaining occurrence of this member's frozen text, and the live mutant this row used to resolve to (Killed by a 67-37 test) disappeared with it. The witness \"keywordNul < 0\" does not appear in parseItxtChunk (scoped witness) and the fresh unfiltered report reports/triage/67-38/batch.json shows no mutant for this member's frozen text. This row was a gap row naming the killer of that collided mutant; it is now dead. Reachable behavior is unchanged.",
+      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator",
+      "symbol": "keywordNul < 0",
+      "symbolScope": "function"
     },
     {
       "id": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator:dead-01",
