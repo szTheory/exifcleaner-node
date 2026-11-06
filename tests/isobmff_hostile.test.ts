@@ -32,6 +32,12 @@ import {
   type JpegOutputPlan,
 } from "../src/admission/jpeg-handler.js";
 import {
+  pngHandler,
+  type PngAdmission,
+  type PngOutputPlan,
+} from "../src/admission/png-handler.js";
+import { PNG_SIGNATURE } from "../src/png/chunks.js";
+import {
   isJpegSignature,
   JpegStructureError,
   parseJpeg,
@@ -112,9 +118,22 @@ import {
   jpegAdobe,
   jpegExif,
   minimalJpeg,
+  png as pngFile,
+  pngBkgd,
+  pngChrm,
+  pngChunk,
+  pngGama,
   pngIccp,
+  pngIdat,
+  pngIhdr,
   pngItxt,
+  pngSrgb,
+  pngTextChunkData,
+  pngTime,
   pngWithChunksBefore,
+  pngZtxtChunkData,
+  rawProfileExifText,
+  xmpWithOrientation,
 } from "./fixtures.js";
 import {
   appSegment,
@@ -8589,5 +8608,590 @@ describe("png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTe
       (await acceptedOf([["iTXt", pngItxt(XMP_ITXT_KEYWORD, rooted)]]))
         .warnings,
     ).toEqual([]);
+  });
+});
+
+describe("png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputPlan, writeAll and chunksEqual clusters (67-38, png-2)", () => {
+  type PngChunkSpec = readonly [string, Buffer];
+
+  async function phDirectory(): Promise<string> {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-png-handler-"));
+    cleanupDirectories.push(directory);
+    return directory;
+  }
+  async function phWriteSource(bytes: Buffer): Promise<string> {
+    const path = join(await phDirectory(), "source.png");
+    await writeFile(path, bytes);
+    return path;
+  }
+  async function phAdmit(bytes: Buffer): Promise<PngAdmission> {
+    const handle = await open(await phWriteSource(bytes), "r");
+    try {
+      return await pngHandler.admit(handle, bytes.length);
+    } finally {
+      await handle.close();
+    }
+  }
+  async function phAdmitChunks(
+    chunks: readonly PngChunkSpec[],
+  ): Promise<PngAdmission> {
+    return phAdmit(pngWithChunksBefore(chunks));
+  }
+  function phPngEntries(admission: PngAdmission): readonly [string, unknown][] {
+    return admission.entries
+      .filter((entry) => entry.namespace === "PNG")
+      .map((entry) => [entry.name, entry.value]);
+  }
+  function phSpan(chunk: { readonly length: number }): number {
+    return chunk.length + 12;
+  }
+  function phChunkList(bytes: Buffer): PngChunkSpec[] {
+    const list: PngChunkSpec[] = [];
+    let offset = PNG_SIGNATURE.length;
+    while (offset < bytes.length) {
+      const length = bytes.readUInt32BE(offset);
+      list.push([
+        bytes.toString("latin1", offset + 4, offset + 8),
+        bytes.subarray(offset + 8, offset + 8 + length),
+      ]);
+      offset += length + 12;
+    }
+    return list;
+  }
+  function phRebuild(chunks: readonly PngChunkSpec[]): Buffer {
+    return pngFile(chunks.map(([type, data]) => pngChunk(type, data)));
+  }
+  async function phSanitizedBytes(source: Buffer): Promise<Buffer> {
+    const sourcePath = await phWriteSource(source);
+    const destinationPath = join(await phDirectory(), "destination.png");
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation: false,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: false,
+    });
+    expect(result.ok).toBe(true);
+    return readFile(destinationPath);
+  }
+  interface PhVerifyScripts {
+    readonly source?: JhCallScript;
+    readonly destination?: JhCallScript;
+    readonly signal?: AbortSignal;
+  }
+  async function phVerify(
+    source: Buffer,
+    destination: Buffer,
+    scripts: PhVerifyScripts = {},
+  ) {
+    const sourcePath = await phWriteSource(source);
+    const destinationPath = join(await phDirectory(), "destination.png");
+    await writeFile(destinationPath, destination);
+    const sourceHandle = await open(sourcePath, "r");
+    const destinationHandle = await open(destinationPath, "r");
+    try {
+      const admission = await pngHandler.admit(sourceHandle, source.length);
+      const scriptedSource = jhScriptedHandle(sourceHandle, scripts.source);
+      const scriptedDestination = jhScriptedHandle(
+        destinationHandle,
+        scripts.destination,
+      );
+      const result: Result<void> = await pngHandler.verifyOutput(
+        scriptedSource.handle,
+        admission,
+        scriptedDestination.handle,
+        destination.length,
+        destinationPath,
+        false,
+        false,
+        false,
+        undefined,
+        scripts.signal,
+      );
+      return {
+        result,
+        sourceReads: scriptedSource.reads,
+        destinationReads: scriptedDestination.reads,
+      };
+    } finally {
+      await sourceHandle.close();
+      await destinationHandle.close();
+    }
+  }
+  function phExpectVerificationFailed(result: Result<void>): void {
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.error.code).toBe("verification-failed");
+  }
+  // A PNG whose IDAT is longer than one copy block and holds no removable chunk.
+  function phLargeIdatPng(): Buffer {
+    const filler = Buffer.alloc(COPY_BLOCK_BYTES + 5000);
+    for (let index = 0; index < filler.length; index += 1)
+      filler[index] = (index * 7 + 3) % 251;
+    return pngFile([
+      pngChunk("IHDR", pngIhdr()),
+      pngChunk("IDAT", filler),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]);
+  }
+  function phKeptSource(): Buffer {
+    return pngWithChunksBefore([
+      ["cHRM", pngChrm()],
+      ["tEXt", pngTextChunkData("Comment", "private")],
+    ]);
+  }
+
+  it("collectMetadata ArrayDeclaration, BooleanLiteral and ConditionalExpression clusters: unregistered private chunk types are listed once each in order of first appearance", async () => {
+    const none = await phAdmitChunks([["cHRM", pngChrm()]]);
+    expect(none.unregisteredStripped).toEqual([]);
+    expect(none.namespaces).toEqual([]);
+
+    const several = await phAdmitChunks([
+      ["prVt", Buffer.from("first")],
+      ["prVb", Buffer.from("second")],
+      ["prVt", Buffer.from("third")],
+    ]);
+    expect(several.unregisteredStripped).toEqual(["prVt", "prVb"]);
+    expect(several.namespaces).toEqual(["PNG"]);
+    expect(several.classes).toEqual([
+      "keep",
+      "remove",
+      "remove",
+      "remove",
+      "keep",
+      "keep",
+    ]);
+  });
+
+  it("collectMetadata CallExpression clusters: ICC and EXIF parse warnings reach the inspection", async () => {
+    const broken = Buffer.from(iccProfileV4());
+    broken.write("nope", 36, 4, "ascii");
+    const iccWarned = await phAdmitChunks([["iCCP", pngIccp(broken)]]);
+    expect(iccWarned.warnings.map((warning) => warning.code)).toContain(
+      "metadata-invalid",
+    );
+    const iccClean = await phAdmitChunks([["iCCP", pngIccp(iccProfileV4())]]);
+    expect(iccClean.warnings).toEqual([]);
+
+    const exifWarned = await phAdmitChunks([
+      ["eXIf", Buffer.from("not a tiff structure at all", "latin1")],
+    ]);
+    expect(exifWarned.warnings.length).toBeGreaterThan(0);
+    const exifClean = await phAdmitChunks([["eXIf", exifWithOrientation(6)]]);
+    expect(exifClean.warnings).toEqual([]);
+  });
+
+  it("collectMetadata ConditionalExpression cluster: a tIME chunk shorter than seven bytes yields no ModifyDate entry", async () => {
+    const full = pngTime();
+    const entriesFor = async (data: Buffer) =>
+      phPngEntries(await phAdmitChunks([["tIME", data]]));
+    expect(await entriesFor(full.subarray(0, 6))).toEqual([]);
+    expect(await entriesFor(full)).toEqual([
+      ["ModifyDate", "2026:09:25 12:00:00"],
+    ]);
+    expect(await entriesFor(Buffer.concat([full, Buffer.from([0])]))).toEqual([
+      ["ModifyDate", "2026:09:25 12:00:00"],
+    ]);
+  });
+
+  it("collectMetadata BlockStatement, ConditionalExpression and StringLiteral clusters: gAMA and sRGB chunks widen the PNG namespace without an entry", async () => {
+    for (const [type, data] of [
+      ["gAMA", pngGama()],
+      ["sRGB", pngSrgb()],
+    ] as const) {
+      const admission = await phAdmitChunks([[type, data]]);
+      expect(admission.namespaces, type).toEqual(["PNG"]);
+      expect(admission.entries, type).toEqual([]);
+      expect(admission.unregisteredStripped, type).toEqual([]);
+    }
+  });
+
+  it("collectMetadata ConditionalExpression cluster: an XMP packet in a zTXt chunk is routed to XMP and adds no PNG entry", async () => {
+    const packet = Buffer.from(
+      "<x:xmpmeta><dc:title>t</dc:title></x:xmpmeta>",
+      "utf8",
+    );
+    const routed = await phAdmitChunks([
+      ["zTXt", pngZtxtChunkData(XMP_ITXT_KEYWORD, packet.toString("utf8"))],
+    ]);
+    expect(routed.namespaces).toEqual(["XMP"]);
+    expect(phPngEntries(routed)).toEqual([]);
+    expect(
+      routed.entries.map((entry) => [entry.namespace, entry.name]),
+    ).toEqual([["XMP", "dc:title"]]);
+
+    const plain = await phAdmitChunks([
+      ["zTXt", pngZtxtChunkData("Author", "someone")],
+    ]);
+    expect(plain.namespaces).toEqual(["PNG"]);
+    expect(phPngEntries(plain)).toEqual([["Author", "someone"]]);
+  });
+
+  it("collectMetadata BooleanLiteral, ObjectLiteral, BlockStatement and StringLiteral clusters: an iTXt text that is not valid UTF-8 warns instead of becoming an entry", async () => {
+    const invalid = await phAdmitChunks([
+      ["iTXt", pngItxt("Comment", Buffer.from([0xff, 0xfe, 0xfd]))],
+    ]);
+    expect(phPngEntries(invalid)).toEqual([]);
+    expect(invalid.namespaces).toEqual(["PNG"]);
+    expect(invalid.warnings).toEqual([
+      { code: "metadata-invalid", detail: expect.stringMatching(/\S/u) },
+    ]);
+
+    const valid = await phAdmitChunks([
+      ["iTXt", pngItxt("Comment", Buffer.from("héllo", "utf8"))],
+    ]);
+    expect(phPngEntries(valid)).toEqual([["Comment", "héllo"]]);
+    expect(valid.warnings).toEqual([]);
+  });
+
+  it("collectMetadata MethodExpression and StringLiteral clusters: one disagreeing non-eXIf Orientation among agreeing ones makes the orientation unsupported", async () => {
+    const agreeing = await phAdmitChunks([
+      ["eXIf", exifWithOrientation(6)],
+      ["iTXt", pngItxt(XMP_ITXT_KEYWORD, xmpWithOrientation(6))],
+    ]);
+    expect(agreeing.orientation).toEqual({ status: "valid", value: 6 });
+
+    const mixed = await phAdmitChunks([
+      ["eXIf", exifWithOrientation(6)],
+      ["iTXt", pngItxt(XMP_ITXT_KEYWORD, xmpWithOrientation(6))],
+      [
+        "tEXt",
+        pngTextChunkData(
+          "Raw profile type exif",
+          rawProfileExifText(exifWithOrientation(3)),
+        ),
+      ],
+    ]);
+    expect(mixed.orientation).toEqual({
+      status: "unsupported",
+      detail: expect.stringMatching(/\S/u),
+    });
+  });
+
+  it("buildOutputPlan ArrayDeclaration, CallExpression, ConditionalExpression and StringLiteral clusters: adjacent kept chunks coalesce, removed chunks split the ranges, and the expected types and copied chunks follow the plan", async () => {
+    const source = pngWithChunksBefore([
+      ["cHRM", pngChrm()],
+      ["tEXt", pngTextChunkData("Comment", "private")],
+      ["bKGD", pngBkgd()],
+      ["tIME", pngTime()],
+    ]);
+    const admission = await phAdmit(source);
+    const [ihdr, chrm, , bkgd, , idat, iend] = admission.parsed.chunks;
+    const plan = pngHandler.buildOutputPlan(
+      admission,
+      false,
+      false,
+      false,
+      undefined,
+    );
+    expect(plan.parts).toEqual([
+      {
+        kind: "copy",
+        sourceOffset: ihdr!.offset,
+        length: phSpan(ihdr!) + phSpan(chrm!),
+      },
+      { kind: "copy", sourceOffset: bkgd!.offset, length: phSpan(bkgd!) },
+      {
+        kind: "copy",
+        sourceOffset: idat!.offset,
+        length: phSpan(idat!) + phSpan(iend!),
+      },
+    ]);
+    const keptTypes = ["IHDR", "cHRM", "bKGD", "IDAT", "IEND"];
+    expect(plan.expectedTypes).toEqual(keptTypes);
+    expect(plan.copiedChunks.map((chunk) => chunk.type)).toEqual(keptTypes);
+    expect(plan.declineReason).toBeUndefined();
+
+    const withOrientation = pngHandler.buildOutputPlan(
+      admission,
+      true,
+      false,
+      false,
+      6,
+    );
+    expect(withOrientation.expectedTypes).toEqual([
+      "IHDR",
+      "eXIf",
+      "cHRM",
+      "bKGD",
+      "IDAT",
+      "IEND",
+    ]);
+    expect(withOrientation.parts.map((part) => part.kind)).toEqual([
+      "copy",
+      "insert",
+      "copy",
+      "copy",
+      "copy",
+    ]);
+    expect(withOrientation.copiedChunks.map((chunk) => chunk.type)).toEqual(
+      keptTypes,
+    );
+  });
+
+  it("findIdotAdjacencyDecline EqualityOperator clusters: an iDOT in the first chunk position still declines when a removed chunk follows it, and the first IDAT itself is not part of the span", async () => {
+    const withRemoved = await phAdmitChunks([
+      ["iDOT", Buffer.alloc(28)],
+      ["tEXt", pngTextChunkData("Comment", "private")],
+    ]);
+    const control = pngHandler.buildOutputPlan(
+      withRemoved,
+      false,
+      false,
+      false,
+      undefined,
+    );
+    expect(control.declineReason).toBeDefined();
+
+    // The same chunks with IHDR taken off the front put the iDOT at index 0.
+    const idotFirst: PngAdmission = {
+      ...withRemoved,
+      parsed: {
+        ...withRemoved.parsed,
+        chunks: withRemoved.parsed.chunks.slice(1),
+      },
+      classes: withRemoved.classes.slice(1),
+    };
+    expect(idotFirst.parsed.chunks[0]?.type).toBe("iDOT");
+    expect(
+      pngHandler.buildOutputPlan(idotFirst, false, false, false, undefined)
+        .declineReason,
+    ).toBeDefined();
+
+    // Nothing lies between the iDOT and the first IDAT, so even a removed
+    // classification on the IDAT itself declines nothing.
+    const adjacent = await phAdmitChunks([["iDOT", Buffer.alloc(28)]]);
+    expect(adjacent.parsed.chunks.map((chunk) => chunk.type)).toEqual([
+      "IHDR",
+      "iDOT",
+      "IDAT",
+      "IEND",
+    ]);
+    const idatRemoved: PngAdmission = {
+      ...adjacent,
+      classes: adjacent.classes.map((cls, index) =>
+        index === 2 ? ("remove" as const) : cls,
+      ),
+    };
+    expect(
+      pngHandler.buildOutputPlan(idatRemoved, false, false, false, undefined)
+        .declineReason,
+    ).toBeUndefined();
+  });
+
+  it("writeAll ArithmeticOperator cluster: a partial write continues at the next unwritten byte with only the remainder", async () => {
+    const directory = await phDirectory();
+    const path = join(directory, "destination.png");
+    const destination = await open(path, "wx");
+    try {
+      const scripted = jhScriptedHandle(destination, () => ({ transfer: 2 }));
+      const plan: PngOutputPlan = {
+        parts: [{ kind: "insert", data: Buffer.from([1, 2, 3, 4, 5, 6]) }],
+        expectedTypes: [],
+        copiedChunks: [],
+      };
+      await pngHandler.writeOutput(
+        undefined as unknown as FileHandle,
+        scripted.handle,
+        plan,
+      );
+      const signatureLength = PNG_SIGNATURE.length;
+      expect(
+        scripted.writes.map((call) => [
+          call.offset,
+          call.length,
+          call.position,
+        ]),
+      ).toEqual([
+        [0, signatureLength, 0],
+        [2, signatureLength - 2, 2],
+        [4, signatureLength - 4, 4],
+        [6, signatureLength - 6, 6],
+        [0, 6, signatureLength],
+        [2, 4, signatureLength + 2],
+        [4, 2, signatureLength + 4],
+      ]);
+    } finally {
+      await destination.close();
+    }
+    expect([...(await readFile(path))]).toEqual([
+      ...PNG_SIGNATURE,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+    ]);
+  });
+
+  it("writeAll ConditionalExpression cluster: a write that makes no progress fails after exactly one attempt", async () => {
+    const directory = await phDirectory();
+    const destination = await open(join(directory, "destination.png"), "wx");
+    try {
+      const scripted = jhScriptedHandle(destination, (_call, index) =>
+        index === 0 ? { stall: true } : { fail: true },
+      );
+      const plan: PngOutputPlan = {
+        parts: [],
+        expectedTypes: [],
+        copiedChunks: [],
+      };
+      await expect(
+        pngHandler.writeOutput(
+          undefined as unknown as FileHandle,
+          scripted.handle,
+          plan,
+        ),
+      ).rejects.toBeInstanceOf(Error);
+      expect(scripted.writes).toHaveLength(1);
+    } finally {
+      await destination.close();
+    }
+  });
+
+  it("chunksEqual ConditionalExpression, EqualityOperator and BooleanLiteral clusters: one altered byte in a kept chunk fails verification while the chunk sequence is unchanged", async () => {
+    const source = phKeptSource();
+    const output = await phSanitizedBytes(source);
+    const control = await phVerify(source, output);
+    expect(control.result.ok).toBe(true);
+
+    const chunks = phChunkList(output);
+    expect(chunks.map(([type]) => type)).toEqual([
+      "IHDR",
+      "cHRM",
+      "IDAT",
+      "IEND",
+    ]);
+    const alteredData = Buffer.from(pngChrm());
+    alteredData[31] = alteredData[31]! ^ 0x01;
+    const altered = phRebuild(
+      chunks.map(([type, data]) =>
+        type === "cHRM" ? ([type, alteredData] as const) : [type, data],
+      ),
+    );
+    expect(altered.length).toBe(output.length);
+    phExpectVerificationFailed((await phVerify(source, altered)).result);
+
+    const alteredFirst = Buffer.from(pngChrm());
+    alteredFirst[0] = alteredFirst[0]! ^ 0x01;
+    const firstByte = phRebuild(
+      chunks.map(([type, data]) =>
+        type === "cHRM" ? ([type, alteredFirst] as const) : [type, data],
+      ),
+    );
+    phExpectVerificationFailed((await phVerify(source, firstByte)).result);
+  });
+
+  it("chunksEqual BooleanLiteral cluster: a kept chunk of a different length fails verification", async () => {
+    const source = phKeptSource();
+    const output = await phSanitizedBytes(source);
+    const longer = phRebuild(
+      phChunkList(output).map(([type, data]) =>
+        type === "IDAT"
+          ? ([type, Buffer.concat([data, Buffer.alloc(6, 0x11)])] as const)
+          : [type, data],
+      ),
+    );
+    expect(phChunkList(longer).map(([type]) => type)).toEqual(
+      phChunkList(output).map(([type]) => type),
+    );
+    phExpectVerificationFailed((await phVerify(source, longer)).result);
+  });
+
+  it("chunksEqual ArithmeticOperator, MethodExpression and EqualityOperator clusters: a chunk larger than one copy block is compared block by block within the buffer bound", async () => {
+    const source = phLargeIdatPng();
+    const admission = await phAdmit(source);
+    const idat = admission.parsed.chunks.find(
+      (chunk) => chunk.type === "IDAT",
+    )!;
+    expect(phSpan(idat)).toBeGreaterThan(COPY_BLOCK_BYTES);
+
+    const spy = vi.spyOn(Buffer, "allocUnsafe");
+    let allocated: number[];
+    let outcome;
+    try {
+      outcome = await phVerify(source, source);
+      allocated = spy.mock.calls.map((call) => call[0]);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(outcome.result.ok).toBe(true);
+    expect(Math.max(...allocated)).toBeLessThanOrEqual(COPY_BLOCK_BYTES);
+
+    const expected = admission.parsed.chunks.flatMap((chunk) => {
+      const span = phSpan(chunk);
+      const blocks: [number, number][] = [];
+      for (let done = 0; done < span; done += COPY_BLOCK_BYTES)
+        blocks.push([
+          Math.min(COPY_BLOCK_BYTES, span - done),
+          chunk.offset + done,
+        ]);
+      return blocks;
+    });
+    expect(expected.length).toBe(admission.parsed.chunks.length + 1);
+    const sourceBlocks = outcome.sourceReads.map((call) => [
+      call.length,
+      call.position,
+    ]);
+    expect(sourceBlocks).toEqual(expected);
+    const destinationBlocks = outcome.destinationReads
+      .slice(-outcome.sourceReads.length)
+      .map((call) => [call.length, call.position]);
+    expect(destinationBlocks).toEqual(expected);
+
+    const lastByte = idat.dataOffset + idat.length - 1;
+    const changed = phRebuild(
+      phChunkList(source).map(([type, data]) =>
+        type === "IDAT"
+          ? ([
+              type,
+              Buffer.concat([
+                data.subarray(0, data.length - 1),
+                Buffer.from([data[data.length - 1]! ^ 0x01]),
+              ]),
+            ] as const)
+          : [type, data],
+      ),
+    );
+    expect(changed[lastByte]).not.toBe(source[lastByte]);
+    phExpectVerificationFailed((await phVerify(source, changed)).result);
+  });
+
+  it("chunksEqual ConditionalExpression and LogicalOperator clusters: a short source read or a short destination read fails verification", async () => {
+    const source = phKeptSource();
+    const output = await phSanitizedBytes(source);
+
+    const shortSource = await phVerify(source, output, {
+      source: () => ({ underReport: 1 }),
+    });
+    phExpectVerificationFailed(shortSource.result);
+
+    let sourceReadCount = 0;
+    const shortDestination = await phVerify(source, output, {
+      source: () => {
+        sourceReadCount += 1;
+        return undefined;
+      },
+      destination: () => (sourceReadCount > 0 ? { underReport: 1 } : undefined),
+    });
+    phExpectVerificationFailed(shortDestination.result);
+  });
+
+  it("chunksEqual ConditionalExpression cluster: an abort during chunk comparison reports the typed aborted error", async () => {
+    const source = phKeptSource();
+    const output = await phSanitizedBytes(source);
+    const controller = new AbortController();
+    const outcome = await phVerify(source, output, {
+      source: (_call, index) => {
+        if (index === 0) controller.abort();
+        return undefined;
+      },
+      signal: controller.signal,
+    });
+    expect(outcome.result.ok).toBe(false);
+    if (outcome.result.ok) throw new Error("unreachable");
+    expect(outcome.result.error.code).toBe("aborted");
   });
 });
