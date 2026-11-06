@@ -194985,69 +194985,15 @@
       "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseIccpChunk:ArithmeticOperator",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseIccpChunk",
-      "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000177\u00005\u0000177\u000012"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000nul + 1\u00000"
-      ]
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement:gap-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseIccpChunk",
-      "mutatorName": "BlockStatement",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000178\u00005\u0000183\u00004"
-      ],
-      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional, Equality and Logical clusters: a profile name of 1 to 79 bytes is read and any other length refuses the chunk"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement:gap-02",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseIccpChunk",
-      "mutatorName": "BlockStatement",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000185\u000021\u0000190\u00004"
-      ],
-      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional and Block clusters: only compression method zero is read"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement"
-    },
-    {
       "id": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression:gap-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseIccpChunk",
       "mutatorName": "ConditionalExpression",
       "disposition": "gap",
-      "count": 4,
+      "count": 2,
       "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000175\u000033",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000176\u000033",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000177\u000027",
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000176\u00005\u0000176\u000033"
       ],
       "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
@@ -195058,20 +195004,21 @@
       "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression:pending-01",
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression:dead-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseIccpChunk",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 1,
+      "disposition": "dead",
+      "count": 3,
       "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000176\u000033",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000175\u00005\u0000177\u000027",
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000177\u00005\u0000177\u000027"
       ],
-      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul + 1 >= data.length\u00000"
-      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant `nul + 1 >= data.length` terminator-position operand was dropped from the guard that contained this member, so its frozen text changed or vanished with it (the following method check or inflateBounded already refuses a terminator in the last byte with the same kind malformed-file; only the free-text detail changes). Traced to every consumer in 67-37-HALTED.md. The witness \"data.length\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "data.length",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:ConditionalExpression"
     },
     {
@@ -195112,20 +195059,19 @@
       "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:EqualityOperator"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseIccpChunk:EqualityOperator:pending-01",
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:EqualityOperator:dead-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseIccpChunk",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul + 1 > data.length\u0000177\u00005\u0000177\u000027"
       ],
-      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul + 1 > data.length\u0000nul + 1 >= data.length\u00000"
-      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant `nul + 1 >= data.length` terminator-position operand was dropped from the guard that contained this member, so its frozen text changed or vanished with it (the following method check or inflateBounded already refuses a terminator in the last byte with the same kind malformed-file; only the free-text detail changes). Traced to every consumer in 67-37-HALTED.md. The witness \"data.length\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "data.length",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:EqualityOperator"
     },
     {
@@ -195134,33 +195080,216 @@
       "file": "src/admission/png-handler.ts",
       "function": "parseIccpChunk",
       "mutatorName": "LogicalOperator",
-      "disposition": "gap",
+      "disposition": "dead",
       "count": 2,
       "keys": [
         "src/admission/png-handler.ts\u0000LogicalOperator\u0000(nul < ICCP_MIN_KEYWORD_BYTES || nul > ICCP_MAX_KEYWORD_BYTES) && nul + 1 >= data.length\u0000175\u00005\u0000177\u000027",
         "src/admission/png-handler.ts\u0000LogicalOperator\u0000nul < ICCP_MIN_KEYWORD_BYTES && nul > ICCP_MAX_KEYWORD_BYTES\u0000175\u00005\u0000176\u000033"
       ],
-      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant `nul + 1 >= data.length` terminator-position operand was dropped from the guard that contained this member, so its frozen text changed or vanished with it (the following method check or inflateBounded already refuses a terminator in the last byte with the same kind malformed-file; only the free-text detail changes). Traced to every consumer in 67-37-HALTED.md. The witness \"data.length\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "data.length",
+      "symbolScope": "function"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:ArithmeticOperator",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseIccpChunk",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000177\u00005\u0000177\u000012"
+      ],
+      "note": "Judgment item (see 67-EVIDENCE.md section 67-37): the frozen member is the arithmetic replacement of the removed terminator-position operand of parseIccpChunk, which Plan 67-37 Option A deleted (witness data.length is gone from the function). The scoped dead proof cannot hold because the frozen anchor (mutator, replacement, text and ordinal 0) now resolves to the same-text replacement at the method byte read of the same function, which cannot be outside the function. The row therefore records that resolved mutant: reports/triage/67-37/batch.json shows it Killed by the named test (it appears in killedBy), and the removed expression itself no longer exists. A maintainer may prefer a dead disposition if the verifier gains a collision rule.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional, Equality and Logical clusters: a profile name of 1 to 79 bytes is read and any other length refuses the chunk"
       }
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseItxtChunk:BlockStatement:pending-01",
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseIccpChunk",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000178\u00005\u0000183\u00004"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional, Equality and Logical clusters: a profile name of 1 to 79 bytes is read and any other length refuses the chunk"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement:gap-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseIccpChunk",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000185\u000021\u0000190\u00004"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseIccpChunk Conditional and Block clusters: only compression method zero is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseIccpChunk:BlockStatement"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ArithmeticOperator",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "ArithmeticOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000197\u000018\u0000197\u000025"
+      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant `nul + 1 >= data.length` terminator-position operand was dropped from the guard that contained this member, so its frozen text changed or vanished with it (the following method check or inflateBounded already refuses a terminator in the last byte with the same kind malformed-file; only the free-text detail changes). Traced to every consumer in 67-37-HALTED.md. The witness \"data.length\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "data.length",
+      "symbolScope": "function"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:BlockStatement",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "BlockStatement",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000197\u000042\u0000202\u00004"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
+      }
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u00007\u0000197\u000014"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression:dead-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 2,
+      "keys": [
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u00007\u0000197\u000040",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u000018\u0000197\u000040"
+      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant `nul + 1 >= data.length` terminator-position operand was dropped from the guard that contained this member, so its frozen text changed or vanished with it (the following method check or inflateBounded already refuses a terminator in the last byte with the same kind malformed-file; only the free-text detail changes). Traced to every consumer in 67-37-HALTED.md. The witness \"data.length\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "data.length",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator:gap-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= 0\u0000197\u00007\u0000197\u000014"
+      ],
+      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
+      },
+      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator:dead-01",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul + 1 > data.length\u0000197\u000018\u0000197\u000040"
+      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant `nul + 1 >= data.length` terminator-position operand was dropped from the guard that contained this member, so its frozen text changed or vanished with it (the following method check or inflateBounded already refuses a terminator in the last byte with the same kind malformed-file; only the free-text detail changes). Traced to every consumer in 67-37-HALTED.md. The witness \"data.length\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "data.length",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:LogicalOperator",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "LogicalOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000LogicalOperator\u0000nul < 0 && nul + 1 >= data.length\u0000197\u00007\u0000197\u000040"
+      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant `nul + 1 >= data.length` terminator-position operand was dropped from the guard that contained this member, so its frozen text changed or vanished with it (the following method check or inflateBounded already refuses a terminator in the last byte with the same kind malformed-file; only the free-text detail changes). Traced to every consumer in 67-37-HALTED.md. The witness \"data.length\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "data.length",
+      "symbolScope": "function"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:StringLiteral",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseZtxtChunk",
+      "mutatorName": "StringLiteral",
+      "disposition": "equivalent",
+      "count": 1,
+      "keys": [
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000206\u00005\u0000206\u000011"
+      ],
+      "note": "A next-line StringLiteral disable owns the chunk label passed to inflateBounded for zTXt. The label reaches only the text of the PngStructureError messages and the typed limit chunkType, whose only consumer is the comparison with the iCCP label in classifyAdmissionFailure, so an empty label selects no different outcome for a zTXt chunk. The directive line holds no other mutant.",
+      "equivalenceClass": "unobservable-message",
+      "anchors": [
+        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"zTXt\"\u00001"
+      ]
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:BlockStatement:dead-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseItxtChunk",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000219\u000023\u0000224\u00004"
       ],
-      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new PngStructureError(\n      \"malformed-file\",\n      \"iTXt chunk is missing its keyword terminator.\",\n    );\n  }\u00000"
-      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant `keywordNul < 0` guard of parseItxtChunk was dropped (data with no zero byte is refused by the language-tag search with the same kind malformed-file; only the free-text detail changes). Traced to every consumer in 67-37-HALTED.md. The witness \"keywordNul < 0\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "keywordNul < 0",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:BlockStatement"
     },
     {
@@ -195183,39 +195312,51 @@
       "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:BlockStatement"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression:pending-01",
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression:dead-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseItxtChunk",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000219\u00007\u0000219\u000021"
       ],
-      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000keywordNul < 0\u00000"
-      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the redundant `keywordNul < 0` guard of parseItxtChunk was dropped (data with no zero byte is refused by the language-tag search with the same kind malformed-file; only the free-text detail changes). Traced to every consumer in 67-37-HALTED.md. The witness \"keywordNul < 0\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text, and its frozen anchor now resolves to unrelated code (see 67-EVIDENCE.md section 67-37). Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "keywordNul < 0",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression:gap-01",
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression:dead-02",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseItxtChunk",
       "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 2,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000229\u00007\u0000229\u000022",
+        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000229\u00007\u0000229\u000022"
+      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the `< 0` test of the iTXt terminator search was rewritten as `=== -1` (indexOf returns -1 or a non-negative index, so both forms are equal and the typed outcome and text are unchanged). Traced to every consumer in 67-37-HALTED.md. The witness \"languageNul < 0\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "languageNul < 0",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression:dead-03",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseItxtChunk",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000237\u00007\u0000237\u000024"
       ],
-      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseItxtChunk BlockStatement, Conditional and Equality clusters: the language tag and translated keyword terminators are required, and an empty keyword is read"
-      },
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the `< 0` test of the iTXt terminator search was rewritten as `=== -1` (indexOf returns -1 or a non-negative index, so both forms are equal and the typed outcome and text are unchanged). Traced to every consumer in 67-37-HALTED.md. The witness \"translatedNul < 0\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "translatedNul < 0",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:ConditionalExpression"
     },
     {
@@ -195232,27 +195373,40 @@
       "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
       "test": {
         "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseItxtChunk BlockStatement, Conditional and Equality clusters: the language tag and translated keyword terminators are required, and an empty keyword is read"
+        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
       },
       "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator"
     },
     {
-      "id": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator:pending-01",
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator:dead-01",
       "group": "png",
       "file": "src/admission/png-handler.ts",
       "function": "parseItxtChunk",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "dead",
+      "count": 1,
       "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000languageNul <= 0\u0000229\u00007\u0000229\u000022",
+        "src/admission/png-handler.ts\u0000EqualityOperator\u0000languageNul <= 0\u0000229\u00007\u0000229\u000022"
+      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the `< 0` test of the iTXt terminator search was rewritten as `=== -1` (indexOf returns -1 or a non-negative index, so both forms are equal and the typed outcome and text are unchanged). Traced to every consumer in 67-37-HALTED.md. The witness \"languageNul < 0\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "languageNul < 0",
+      "symbolScope": "function",
+      "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator"
+    },
+    {
+      "id": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator:dead-02",
+      "group": "png",
+      "file": "src/admission/png-handler.ts",
+      "function": "parseItxtChunk",
+      "mutatorName": "EqualityOperator",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
         "src/admission/png-handler.ts\u0000EqualityOperator\u0000translatedNul <= 0\u0000237\u00007\u0000237\u000024"
       ],
-      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000languageNul <= 0\u0000languageNul < 0\u00000",
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000translatedNul <= 0\u0000translatedNul < 0\u00000"
-      ],
+      "note": "Removed or rewritten by the Plan 67-37 behavior-preserving source edit approved by the maintainer (Option A of 67-37-HALTED.md: \"approve (Option A)\", relayed by the coordinating agent; the relay could not be verified independently by the executor): the `< 0` test of the iTXt terminator search was rewritten as `=== -1` (indexOf returns -1 or a non-negative index, so both forms are equal and the typed outcome and text are unchanged). Traced to every consumer in 67-37-HALTED.md. The witness \"translatedNul < 0\" no longer appears in the enclosing function (scoped witness); the fresh unfiltered report reports/triage/67-37/batch.json shows no mutant for this member's frozen text. Reachable behavior is unchanged (full suite, qualification and native differential).",
+      "symbol": "translatedNul < 0",
+      "symbolScope": "function",
       "originClusterId": "png:src/admission/png-handler.ts:parseItxtChunk:EqualityOperator"
     },
     {
@@ -195322,144 +195476,6 @@
         "file": "tests/isobmff_hostile.test.ts",
         "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseTextChunkData Conditional, Equality and String clusters: a tEXt chunk without a terminator is all keyword with empty text, and an empty keyword is read"
       }
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ArithmeticOperator",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseZtxtChunk",
-      "mutatorName": "ArithmeticOperator",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000197\u000018\u0000197\u000025"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ArithmeticOperator\u0000nul - 1\u0000nul + 1\u00002"
-      ]
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:BlockStatement",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseZtxtChunk",
-      "mutatorName": "BlockStatement",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000BlockStatement\u0000{}\u0000197\u000042\u0000202\u00004"
-      ],
-      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
-      }
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression:gap-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseZtxtChunk",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "gap",
-      "count": 2,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u00007\u0000197\u000014",
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u00007\u0000197\u000040"
-      ],
-      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression:pending-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseZtxtChunk",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000197\u000018\u0000197\u000040"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000ConditionalExpression\u0000false\u0000nul + 1 >= data.length\u00001"
-      ],
-      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:ConditionalExpression"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator:gap-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseZtxtChunk",
-      "mutatorName": "EqualityOperator",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul <= 0\u0000197\u00007\u0000197\u000014"
-      ],
-      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
-      },
-      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator:pending-01",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseZtxtChunk",
-      "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul + 1 > data.length\u0000197\u000018\u0000197\u000040"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-37-HALTED.md (a behavior-preserving source simplification of the redundant terminator guards in parseIccpChunk, parseZtxtChunk and parseItxtChunk): this member has the same typed outcome with or without the guard, and an observable sibling replacement on the same line or in the same condition is Killed, so no next-line directive can own it honestly.",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000EqualityOperator\u0000nul + 1 > data.length\u0000nul + 1 >= data.length\u00001"
-      ],
-      "originClusterId": "png:src/admission/png-handler.ts:parseZtxtChunk:EqualityOperator"
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:LogicalOperator",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseZtxtChunk",
-      "mutatorName": "LogicalOperator",
-      "disposition": "gap",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000LogicalOperator\u0000nul < 0 && nul + 1 >= data.length\u0000197\u00007\u0000197\u000040"
-      ],
-      "note": "reports/triage/67-37/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-37/red.json (src/admission/png-handler.ts lines 165-312, a real run on the unedited source and the current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
-      "test": {
-        "file": "tests/isobmff_hostile.test.ts",
-        "name": "png-handler.ts parseIccpChunk, parseZtxtChunk, parseItxtChunk, parseTextChunkData and routeTextKeyword clusters (67-37, png-1) > parseZtxtChunk Block, Conditional, Equality and Logical clusters: a keyword terminator is required, and an empty keyword is read"
-      }
-    },
-    {
-      "id": "png:src/admission/png-handler.ts:parseZtxtChunk:StringLiteral",
-      "group": "png",
-      "file": "src/admission/png-handler.ts",
-      "function": "parseZtxtChunk",
-      "mutatorName": "StringLiteral",
-      "disposition": "equivalent",
-      "count": 1,
-      "keys": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000206\u00005\u0000206\u000011"
-      ],
-      "note": "A next-line StringLiteral disable owns the chunk label passed to inflateBounded for zTXt. The label reaches only the text of the PngStructureError messages and the typed limit chunkType, whose only consumer is the comparison with the iCCP label in classifyAdmissionFailure, so an empty label selects no different outcome for a zTXt chunk. The directive line holds no other mutant.",
-      "equivalenceClass": "unobservable-message",
-      "anchors": [
-        "src/admission/png-handler.ts\u0000StringLiteral\u0000\"\"\u0000\"zTXt\"\u00001"
-      ]
     },
     {
       "id": "png:src/admission/png-handler.ts:routeTextKeyword:CallExpression",
