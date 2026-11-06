@@ -36,7 +36,15 @@ import {
   type PngAdmission,
   type PngOutputPlan,
 } from "../src/admission/png-handler.js";
-import { PNG_SIGNATURE, PngStructureError } from "../src/png/chunks.js";
+import {
+  PNG_CHUNK_READ_WINDOW_BYTES,
+  PNG_MAX_ANCILLARY_CHUNKS,
+  PNG_SIGNATURE,
+  PngStructureError,
+  crc32,
+  parsePng,
+  readExactly,
+} from "../src/png/chunks.js";
 import {
   isJpegSignature,
   JpegStructureError,
@@ -124,6 +132,7 @@ import {
   pngChunk,
   pngGama,
   pngIccp,
+  pngIdat,
   pngIhdr,
   pngItxt,
   pngSrgb,
@@ -9658,5 +9667,262 @@ describe("png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message 
     } finally {
       await destination.close();
     }
+  });
+});
+
+describe("png/chunks.ts type-byte, structure, read and error clusters (67-40, png-4)", () => {
+  async function pcDirectory(): Promise<string> {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-png-chunks-"));
+    cleanupDirectories.push(directory);
+    return directory;
+  }
+  async function pcWrite(bytes: Buffer): Promise<string> {
+    const path = join(await pcDirectory(), "input.png");
+    await writeFile(path, bytes);
+    return path;
+  }
+  async function pcParse(bytes: Buffer, script?: JhCallScript) {
+    const handle = await open(await pcWrite(bytes), "r");
+    const scripted = jhScriptedHandle(handle, script);
+    try {
+      const parsed = await parsePng(scripted.handle, bytes.length);
+      return { parsed, reads: scripted.reads };
+    } finally {
+      await handle.close();
+    }
+  }
+  async function pcOutcome(bytes: Buffer): Promise<string> {
+    try {
+      await pcParse(bytes);
+      return "parsed";
+    } catch (cause) {
+      return cause instanceof PngStructureError
+        ? cause.kind
+        : `unexpected ${String(cause)}`;
+    }
+  }
+  async function pcTypes(bytes: Buffer): Promise<string[]> {
+    return (await pcParse(bytes)).parsed.chunks.map((chunk) => chunk.type);
+  }
+  function pcRawChunk(typeBytes: readonly number[], data: Buffer): Buffer {
+    const header = Buffer.alloc(8);
+    header.writeUInt32BE(data.length, 0);
+    Buffer.from(typeBytes).copy(header, 4);
+    const trailer = Buffer.alloc(4);
+    trailer.writeUInt32BE(crc32(header.subarray(4, 8), data), 0);
+    return Buffer.concat([header, data, trailer]);
+  }
+  function pcEnd(): Buffer {
+    return pngChunk("IEND", Buffer.alloc(0));
+  }
+  function pcImage(...middle: readonly Buffer[]): Buffer {
+    return pngFile([
+      pngChunk("IHDR", pngIhdr()),
+      ...middle,
+      pngChunk("IDAT", pngIdat()),
+      pcEnd(),
+    ]);
+  }
+  function pcBytes(length: number): Buffer {
+    const out = Buffer.alloc(length);
+    let state = 0x2545f491;
+    for (let index = 0; index < length; index += 1) {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      out[index] = state >>> 24;
+    }
+    return out;
+  }
+  function pcPlte(): Buffer {
+    return pngChunk("PLTE", Buffer.from([0, 0, 0]));
+  }
+
+  it("isAsciiLetter ConditionalExpression and EqualityOperator clusters: type bytes outside A-Z and a-z are refused, A, Z, a and z are accepted", async () => {
+    for (const byte of [0x40, 0x5b, 0x5c, 0x60, 0x7b, 0x7e, 0xff]) {
+      const fixture = pcImage(
+        pcRawChunk([0x63, 0x61, 0x42, byte], Buffer.alloc(0)),
+      );
+      expect(await pcOutcome(fixture)).toBe("malformed-file");
+    }
+    for (const type of ["caBA", "caBZ", "caBa", "caBz"]) {
+      const fixture = pcImage(pngChunk(type, Buffer.alloc(0)));
+      expect(await pcTypes(fixture)).toEqual(["IHDR", type, "IDAT", "IEND"]);
+    }
+  });
+
+  it("hasValidTypeBytes ConditionalExpression and LogicalOperator clusters: a non-letter byte at any of the four type positions is refused", async () => {
+    for (let position = 0; position < 4; position += 1) {
+      const bytes = [0x63, 0x61, 0x42, 0x58];
+      bytes[position] = 0x33;
+      const fixture = pcImage(pcRawChunk(bytes, Buffer.alloc(0)));
+      expect(await pcOutcome(fixture)).toBe("malformed-file");
+    }
+    expect(await pcOutcome(pcImage(pngChunk("caBX", Buffer.alloc(0))))).toBe(
+      "parsed",
+    );
+  });
+
+  it("isUpperFirstLetter EqualityOperator clusters: unknown critical types starting with A or Z are refused and lowercase first letters are not", async () => {
+    for (const type of ["Abcd", "Zabc", "Mabc"]) {
+      const fixture = pcImage(pngChunk(type, Buffer.alloc(0)));
+      expect(await pcOutcome(fixture)).toBe("unsafe-structure");
+    }
+    for (const type of ["abcd", "zabc"]) {
+      const fixture = pcImage(pngChunk(type, Buffer.alloc(0)));
+      expect(await pcOutcome(fixture)).toBe("parsed");
+    }
+  });
+
+  it("constructor StringLiteral cluster: a thrown structure error carries its class name", async () => {
+    let thrown: unknown;
+    try {
+      await pcParse(Buffer.concat([minimalJpeg(), Buffer.alloc(8)]));
+    } catch (cause) {
+      thrown = cause;
+    }
+    expect(thrown).toBeInstanceOf(PngStructureError);
+    expect((thrown as PngStructureError).name).toBe("PngStructureError");
+  });
+
+  it("validateStructure ConditionalExpression and BlockStatement clusters: the first chunk must be a 13-byte IHDR and the last an empty IEND", async () => {
+    const notHeader = pngFile([
+      pngChunk("tEXt", Buffer.alloc(13, 0x41)),
+      pngChunk("IDAT", pngIdat()),
+      pcEnd(),
+    ]);
+    expect(await pcOutcome(notHeader)).toBe("malformed-file");
+    for (const size of [12, 14]) {
+      const shortOrLong = pngFile([
+        pngChunk("IHDR", Buffer.alloc(size)),
+        pngChunk("IDAT", pngIdat()),
+        pcEnd(),
+      ]);
+      expect(await pcOutcome(shortOrLong)).toBe("malformed-file");
+    }
+    const fullEnd = pngFile([
+      pngChunk("IHDR", pngIhdr()),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("IEND", Buffer.from([0])),
+    ]);
+    expect(await pcOutcome(fullEnd)).toBe("malformed-file");
+    expect(await pcOutcome(pcImage())).toBe("parsed");
+  });
+
+  it("validateStructure EqualityOperator cluster: exactly PNG_MAX_ANCILLARY_CHUNKS non-IDAT chunks parse and one more is refused", async () => {
+    const text = pngChunk("tEXt", Buffer.from("k\0v"));
+    // IHDR and IEND count as non-IDAT chunks, so the fillers fill the remainder.
+    const atLimit = pcImage(
+      ...Array.from({ length: PNG_MAX_ANCILLARY_CHUNKS - 2 }, () => text),
+    );
+    const { parsed } = await pcParse(atLimit);
+    expect(parsed.chunks.length).toBe(PNG_MAX_ANCILLARY_CHUNKS + 1);
+    const overLimit = pcImage(
+      ...Array.from({ length: PNG_MAX_ANCILLARY_CHUNKS - 1 }, () => text),
+    );
+    expect(await pcOutcome(overLimit)).toBe("unsafe-structure");
+  });
+
+  it("validateStructure ConditionalExpression clusters: an ordering rule applies only against a chunk that is present, so a missing IDAT stays a malformed file", async () => {
+    const noIdat = (...middle: readonly Buffer[]) =>
+      pngFile([pngChunk("IHDR", pngIhdr()), ...middle, pcEnd()]);
+    expect(await pcOutcome(noIdat(pcPlte()))).toBe("malformed-file");
+    expect(await pcOutcome(noIdat(pngChunk("cHRM", pngChrm())))).toBe(
+      "malformed-file",
+    );
+    expect(await pcOutcome(noIdat(pcPlte(), pngChunk("bKGD", pngBkgd())))).toBe(
+      "malformed-file",
+    );
+    expect(await pcOutcome(noIdat(pngChunk("pHYs", Buffer.alloc(9))))).toBe(
+      "malformed-file",
+    );
+  });
+
+  it("validateStructure ConditionalExpression and EqualityOperator clusters: a before-PLTE chunk ahead of PLTE parses and one after IDAT is refused", async () => {
+    const before = pcImage(pngChunk("cHRM", pngChrm()), pcPlte());
+    expect(await pcTypes(before)).toEqual([
+      "IHDR",
+      "cHRM",
+      "PLTE",
+      "IDAT",
+      "IEND",
+    ]);
+    const afterIdat = pngFile([
+      pngChunk("IHDR", pngIhdr()),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("cHRM", pngChrm()),
+      pcEnd(),
+    ]);
+    expect(await pcOutcome(afterIdat)).toBe("unsafe-structure");
+  });
+
+  it("validateStructure ConditionalExpression, BlockStatement and EqualityOperator clusters: an after-PLTE chunk following IDAT is refused", async () => {
+    const afterIdat = pngFile([
+      pngChunk("IHDR", pngIhdr()),
+      pcPlte(),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("bKGD", pngBkgd()),
+      pcEnd(),
+    ]);
+    expect(await pcOutcome(afterIdat)).toBe("unsafe-structure");
+    const ordered = pcImage(pcPlte(), pngChunk("bKGD", pngBkgd()));
+    expect(await pcOutcome(ordered)).toBe("parsed");
+  });
+
+  it("readExactly ArithmeticOperator cluster: a partial read continues at the next offset, remaining length and position", async () => {
+    const content = pcBytes(300);
+    const handle = await open(await pcWrite(content), "r");
+    try {
+      const scripted = jhScriptedHandle(handle, () => ({ transfer: 4 }));
+      const result = await readExactly(scripted.handle, 10, 100);
+      expect(result.equals(content.subarray(100, 110))).toBe(true);
+      expect(
+        scripted.reads.map(({ offset, length, position }) => [
+          offset,
+          length,
+          position,
+        ]),
+      ).toEqual([
+        [0, 10, 100],
+        [4, 6, 104],
+        [8, 2, 108],
+      ]);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("readExactly ConditionalExpression cluster: a read that reaches the end of the file stops with a malformed-file refusal after one empty read", async () => {
+    const handle = await open(await pcWrite(pcBytes(10)), "r");
+    try {
+      const scripted = jhScriptedHandle(handle, (_call, index) =>
+        index >= 6 ? { fail: true } : undefined,
+      );
+      await expect(readExactly(scripted.handle, 20, 0)).rejects.toMatchObject({
+        kind: "malformed-file",
+      });
+      expect(scripted.reads.length).toBe(2);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("readWindowed BlockStatement, ConditionalExpression and EqualityOperator clusters: an ancillary chunk wider than the read window is buffered whole", async () => {
+    const data = pcBytes(PNG_CHUNK_READ_WINDOW_BYTES + 4464);
+    const { parsed } = await pcParse(pcImage(pngChunk("caBX", data)));
+    expect(parsed.chunks[1]?.length).toBe(data.length);
+    expect(parsed.buffered.get(1)?.equals(data)).toBe(true);
+  });
+
+  it("readWindowed EqualityOperator cluster: a request ending exactly at the window end is served from the window", async () => {
+    // The first window covers bytes 8 to 65544; the filler's CRC ends exactly there.
+    const fillerLength = PNG_CHUNK_READ_WINDOW_BYTES - 37;
+    const fixture = pcImage(pngChunk("caBX", pcBytes(fillerLength)));
+    const { reads } = await pcParse(fixture);
+    // Read 0 is the signature; read 1 refills the window; read 2 is the next refill.
+    expect(reads.map((read) => read.position)).toEqual([
+      0,
+      PNG_SIGNATURE.length,
+      PNG_SIGNATURE.length + PNG_CHUNK_READ_WINDOW_BYTES,
+    ]);
+    expect(reads[1]?.length).toBe(PNG_CHUNK_READ_WINDOW_BYTES);
   });
 });
