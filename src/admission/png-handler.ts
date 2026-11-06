@@ -473,10 +473,7 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
       if (data !== undefined) {
         const keywordNul = data.indexOf(0);
         const text = parseZtxtChunk(data, budget);
-        const keyword =
-          keywordNul < 0
-            ? data.toString("latin1")
-            : data.toString("latin1", 0, keywordNul);
+        const keyword = data.toString("latin1", 0, keywordNul);
         const wasXmp = routeTextKeyword(
           keyword,
           text,
@@ -535,18 +532,13 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
   // D-11: decline (route to ExifTool) only when a non-eXIf Orientation is
   // missing from eXIf or disagrees with it. An agreeing non-eXIf Orientation,
   // or a non-eXIf block carrying no Orientation, does not decline.
-  if (otherOrientations.length > 0) {
-    const sourceValue = validOrientationValue(orientation);
-    const disagrees = otherOrientations.some(
-      (other) => other === "invalid" || other !== sourceValue,
-    );
-    if (disagrees) {
-      orientation = {
-        status: "unsupported",
-        detail:
-          "A non-eXIf Orientation is missing from eXIf or disagrees with it.",
-      };
-    }
+  const sourceValue = validOrientationValue(orientation);
+  if (otherOrientations.some((other) => other !== sourceValue)) {
+    orientation = {
+      status: "unsupported",
+      detail:
+        "A non-eXIf Orientation is missing from eXIf or disagrees with it.",
+    };
   }
 
   return {
@@ -588,7 +580,6 @@ function findIdotAdjacencyDecline(
   const idotIndex = chunks.findIndex((item) => item.type === "iDOT");
   if (idotIndex < 0) return undefined;
   const firstIdatIndex = chunks.findIndex((item) => item.type === "IDAT");
-  if (firstIdatIndex < 0 || firstIdatIndex <= idotIndex) return undefined;
 
   for (let index = idotIndex + 1; index < firstIdatIndex; index += 1) {
     const chunk = chunks[index]!;
@@ -719,8 +710,6 @@ async function chunksEqual(
   signal?: AbortSignal,
 ): Promise<boolean> {
   const sourceSpan = chunkSpan(source);
-  const destinationSpan = chunkSpan(destination);
-  if (sourceSpan !== destinationSpan) return false;
   const bufferSize = Math.min(COPY_BLOCK_BYTES, Math.max(sourceSpan, 1));
   const sourceBuffer = Buffer.allocUnsafe(bufferSize);
   const destinationBuffer = Buffer.allocUnsafe(bufferSize);
