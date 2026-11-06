@@ -37,14 +37,19 @@ import {
   type PngOutputPlan,
 } from "../src/admission/png-handler.js";
 import {
+  BufferedBudget,
+  InflateBudget,
   PNG_CHUNK_READ_WINDOW_BYTES,
   PNG_MAX_ANCILLARY_CHUNKS,
+  PNG_MAX_METADATA_BYTES_PER_CHUNK,
   PNG_SIGNATURE,
   PngStructureError,
   crc32,
+  inflateBounded,
   parsePng,
   readExactly,
 } from "../src/png/chunks.js";
+import { rawProfileExifOrientation } from "../src/png/orientation-sources.js";
 import {
   isJpegSignature,
   JpegStructureError,
@@ -9947,5 +9952,392 @@ describe("png/chunks.ts type-byte, structure, read and error clusters (67-40, pn
       [PNG_SIGNATURE.length, PNG_CHUNK_READ_WINDOW_BYTES],
       [dataOffset, PNG_CHUNK_READ_WINDOW_BYTES],
     ]);
+  });
+});
+
+describe("png/chunks.ts and orientation-sources.ts budget, abort, bound, retain and raw-profile clusters (67-41, png-5)", () => {
+  interface PxOptions {
+    readonly size?: number;
+    readonly signal?: AbortSignal;
+    readonly script?: JhCallScript;
+    readonly budget?: BufferedBudget;
+    readonly retain?: (view: Buffer) => Buffer;
+  }
+  async function pxWrite(bytes: Buffer): Promise<string> {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-png-budget-"));
+    cleanupDirectories.push(directory);
+    const path = join(directory, "input.png");
+    await writeFile(path, bytes);
+    return path;
+  }
+  async function pxAttempt(bytes: Buffer, options: PxOptions = {}) {
+    const handle = await open(await pxWrite(bytes), "r");
+    const scripted = jhScriptedHandle(handle, options.script);
+    try {
+      const parsed = await parsePng(
+        scripted.handle,
+        options.size ?? bytes.length,
+        options.signal,
+        options.budget,
+        options.retain,
+      );
+      return { parsed, thrown: undefined as unknown, reads: scripted.reads };
+    } catch (cause) {
+      return { parsed: undefined, thrown: cause, reads: scripted.reads };
+    } finally {
+      await handle.close();
+    }
+  }
+  function pxKind(thrown: unknown): string {
+    return thrown instanceof PngStructureError ? thrown.kind : "not-typed";
+  }
+  function pxBytes(length: number): Buffer {
+    const out = Buffer.alloc(length);
+    let state = 0x1badf00d;
+    for (let index = 0; index < length; index += 1) {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      out[index] = state >>> 24;
+    }
+    return out;
+  }
+  function pxEnd(): Buffer {
+    return pngChunk("IEND", Buffer.alloc(0));
+  }
+  function pxImage(...middle: readonly Buffer[]): Buffer {
+    return pngFile([
+      pngChunk("IHDR", pngIhdr()),
+      ...middle,
+      pngChunk("IDAT", pngIdat()),
+      pxEnd(),
+    ]);
+  }
+  // A real 64 KiB file that starts with a signature and one chunk header declaring
+  // `length` bytes. parsePng is told the larger declared size, so no payload is allocated.
+  function pxDeclaredHeader(type: string, length: number): Buffer {
+    const header = Buffer.alloc(8);
+    header.writeUInt32BE(length, 0);
+    header.write(type, 4, 4, "ascii");
+    return Buffer.concat([PNG_SIGNATURE, header, Buffer.alloc(65536)]);
+  }
+  function pxDeclaredSize(length: number): number {
+    return PNG_SIGNATURE.length + 8 + length + 4;
+  }
+  function pxRaw(count: string, hex: string): string {
+    return `\nexif\n${count}\n${hex}`;
+  }
+  function pxRawOf(exif: Buffer): string {
+    return pxRaw(String(exif.length), exif.toString("hex"));
+  }
+  function pxRawThrows(text: string, maxBytes = 1024): PngStructureError {
+    try {
+      rawProfileExifOrientation(text, maxBytes);
+    } catch (cause) {
+      expect(cause).toBeInstanceOf(PngStructureError);
+      return cause as PngStructureError;
+    }
+    throw new Error("expected a PngStructureError");
+  }
+
+  it("BufferedBudget consume clusters: consumption up to the total is counted and one byte more refuses with the aggregate limit context", () => {
+    const budget = new BufferedBudget(10);
+    budget.consume(4);
+    expect(budget.consumed()).toBe(4);
+    budget.consume(6);
+    expect(budget.consumed()).toBe(10);
+    let thrown: unknown;
+    try {
+      budget.consume(1);
+    } catch (cause) {
+      thrown = cause;
+    }
+    expect(thrown).toBeInstanceOf(PngStructureError);
+    expect(thrown).toMatchObject({
+      kind: "unsafe-structure",
+      limit: { chunkType: "*", size: 11, limit: 10 },
+    });
+    expect(budget.consumed()).toBe(10);
+  });
+
+  it("InflateBudget consume clusters: consumption up to the remaining total is allowed and one byte more refuses with the aggregate limit context", () => {
+    const budget = new InflateBudget(10);
+    budget.consume(10);
+    expect(budget.remaining()).toBe(0);
+    let thrown: unknown;
+    try {
+      budget.consume(1);
+    } catch (cause) {
+      thrown = cause;
+    }
+    expect(thrown).toBeInstanceOf(PngStructureError);
+    expect(thrown).toMatchObject({
+      kind: "unsafe-structure",
+      limit: { chunkType: "*", size: 1, limit: 0 },
+    });
+    expect(budget.remaining()).toBe(0);
+  });
+
+  it("parsePng abort clusters: an already aborted signal is refused with its own reason before any read, even for a too small size", async () => {
+    const reason = new Error("stop before reading");
+    const controller = new AbortController();
+    controller.abort(reason);
+    const outcome = await pxAttempt(pxImage(), {
+      size: 3,
+      signal: controller.signal,
+    });
+    expect(outcome.thrown).toBe(reason);
+    expect(outcome.reads.length).toBe(0);
+  });
+
+  it("parsePng abort clusters: an aborted signal without a reason is refused as an AbortError DOMException", async () => {
+    const signal = { aborted: true } as unknown as AbortSignal;
+    const outcome = await pxAttempt(pxImage(), { size: 3, signal });
+    expect(outcome.thrown).toBeInstanceOf(DOMException);
+    expect((outcome.thrown as DOMException).name).toBe("AbortError");
+    expect(outcome.reads.length).toBe(0);
+  });
+
+  it("parsePng abort clusters: a signal aborted while the file is being read stops the chunk loop with its own reason", async () => {
+    const reason = new Error("stop inside the loop");
+    const controller = new AbortController();
+    const outcome = await pxAttempt(pxImage(), {
+      signal: controller.signal,
+      script: (_call, index) => {
+        if (index === 0) controller.abort(reason);
+        return undefined;
+      },
+    });
+    expect(outcome.thrown).toBe(reason);
+  });
+
+  it("parsePng abort clusters: a signal without a reason that flips during the read stops the chunk loop as an AbortError DOMException", async () => {
+    const fake = { aborted: false };
+    const outcome = await pxAttempt(pxImage(), {
+      signal: fake as unknown as AbortSignal,
+      script: (_call, index) => {
+        if (index === 0) fake.aborted = true;
+        return undefined;
+      },
+    });
+    expect(outcome.thrown).toBeInstanceOf(DOMException);
+    expect((outcome.thrown as DOMException).name).toBe("AbortError");
+  });
+
+  it("parsePng loop bound cluster: the chunk loop does not run again once the last chunk ends exactly at the file size", async () => {
+    // No IEND: the file ends with a 70,000-byte chunk read straight from the handle. The
+    // signal flips during that read, after the loop-top abort check of that iteration, so
+    // only a loop that ran once more would observe the abort.
+    const reason = new Error("abort after the last chunk");
+    const controller = new AbortController();
+    const bytes = pngFile([
+      pngChunk("IHDR", pngIhdr()),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("caBX", pxBytes(70000)),
+    ]);
+    const outcome = await pxAttempt(bytes, {
+      signal: controller.signal,
+      script: (call) => {
+        if (call.length === 70000) controller.abort(reason);
+        return undefined;
+      },
+    });
+    expect(outcome.thrown).not.toBe(reason);
+    expect(pxKind(outcome.thrown)).toBe("malformed-file");
+  });
+
+  it("parsePng size guard clusters: a size below 8 or that is not a safe integer is refused before any read and 8 is read", async () => {
+    for (const size of [7, 0, Number.NaN, 8.5, Number.MAX_SAFE_INTEGER + 2]) {
+      const outcome = await pxAttempt(pxImage(), { size });
+      expect(pxKind(outcome.thrown)).toBe("malformed-file");
+      expect(outcome.reads.length).toBe(0);
+    }
+    const eight = await pxAttempt(PNG_SIGNATURE);
+    expect(pxKind(eight.thrown)).toBe("malformed-file");
+    expect(eight.reads.length).toBe(1);
+  });
+
+  it("parsePng signature clusters: a file whose signature differs by one byte is refused although every chunk is valid", async () => {
+    const bytes = pxImage();
+    expect((await pxAttempt(bytes)).parsed?.chunks.length).toBe(3);
+    const bad = Buffer.from(bytes);
+    bad[1] = bad[1]! ^ 0x01;
+    const outcome = await pxAttempt(bad);
+    expect(outcome.parsed).toBeUndefined();
+    expect(pxKind(outcome.thrown)).toBe("malformed-file");
+  });
+
+  it("parsePng header clusters: fewer than 8 bytes after the last chunk are a typed truncation, not a buffer range error", async () => {
+    const bytes = Buffer.concat([pxImage().subarray(0, -12), Buffer.alloc(3)]);
+    const outcome = await pxAttempt(bytes);
+    expect(outcome.parsed).toBeUndefined();
+    expect(pxKind(outcome.thrown)).toBe("malformed-file");
+  });
+
+  it("parsePng missing IEND clusters: a file that ends on a chunk boundary without IEND is refused even when the last chunk is empty", async () => {
+    const bytes = pngFile([
+      pngChunk("IHDR", pngIhdr()),
+      pngChunk("IDAT", pngIdat()),
+      pngChunk("caBX", Buffer.alloc(0)),
+    ]);
+    const outcome = await pxAttempt(bytes);
+    expect(outcome.parsed).toBeUndefined();
+    expect(pxKind(outcome.thrown)).toBe("malformed-file");
+  });
+
+  it("parsePng chunk length limit clusters: a declared length of 2^31-1 passes the length ceiling and 2^31 does not", async () => {
+    const atCeiling = 0x7fffffff;
+    const first = await pxAttempt(pxDeclaredHeader("caBX", atCeiling), {
+      size: pxDeclaredSize(atCeiling),
+    });
+    expect(pxKind(first.thrown)).toBe("unsafe-structure");
+    const overCeiling = 0x80000000;
+    const second = await pxAttempt(pxDeclaredHeader("caBX", overCeiling), {
+      size: pxDeclaredSize(overCeiling),
+    });
+    expect(pxKind(second.thrown)).toBe("malformed-file");
+    expect((second.thrown as PngStructureError).limit).toBeUndefined();
+  });
+
+  it("parsePng per-chunk limit clusters: an ancillary chunk of exactly the per-chunk limit is read and an IDAT chunk above it is not refused by the limit", async () => {
+    const atLimit = PNG_MAX_METADATA_BYTES_PER_CHUNK;
+    const exact = await pxAttempt(pxDeclaredHeader("caBX", atLimit), {
+      size: pxDeclaredSize(atLimit),
+    });
+    // The limit passes, so the read of the data stops at the end of the real file.
+    expect(pxKind(exact.thrown)).toBe("malformed-file");
+    expect((exact.thrown as PngStructureError).limit).toBeUndefined();
+    const over = await pxAttempt(pxDeclaredHeader("caBX", atLimit + 1), {
+      size: pxDeclaredSize(atLimit + 1),
+    });
+    expect(pxKind(over.thrown)).toBe("unsafe-structure");
+    const idat = await pxAttempt(pxDeclaredHeader("IDAT", atLimit + 1), {
+      size: pxDeclaredSize(atLimit + 1),
+    });
+    expect(pxKind(idat.thrown)).toBe("malformed-file");
+    expect((idat.thrown as PngStructureError).limit).toBeUndefined();
+  });
+
+  it("parsePng buffered budget clusters: only non-IDAT chunk data is charged to the budget, in full", async () => {
+    const bytes = pxImage(pngChunk("caBX", pxBytes(10)));
+    const budget = new BufferedBudget(1000);
+    const outcome = await pxAttempt(bytes, { budget });
+    expect(outcome.parsed?.chunks.length).toBe(4);
+    // IHDR is 13 bytes, caBX 10 and IEND 0; the IDAT data is not counted.
+    expect(budget.consumed()).toBe(23);
+    const tight = await pxAttempt(bytes, { budget: new BufferedBudget(22) });
+    expect(tight.thrown).toMatchObject({
+      kind: "unsafe-structure",
+      limit: { chunkType: "*" },
+    });
+  });
+
+  it("parsePng IDAT buffering clusters: IDAT data is never buffered and every other chunk is, by chunk index", async () => {
+    const data = pxBytes(10);
+    const outcome = await pxAttempt(pxImage(pngChunk("caBX", data)));
+    const parsed = outcome.parsed;
+    expect(parsed?.chunks.map((chunk) => chunk.type)).toEqual([
+      "IHDR",
+      "caBX",
+      "IDAT",
+      "IEND",
+    ]);
+    expect([...(parsed?.buffered.keys() ?? [])]).toEqual([0, 1, 3]);
+    expect(parsed?.buffered.get(1)?.equals(data)).toBe(true);
+  });
+
+  it("parsePng retain clusters: a chunk no longer than the read window is retained through the copy hook and a longer one is stored as read", async () => {
+    const retained: number[] = [];
+    const bytes = pxImage(
+      pngChunk("caBX", pxBytes(10)),
+      pngChunk("caBY", pxBytes(PNG_CHUNK_READ_WINDOW_BYTES)),
+      pngChunk("caBZ", pxBytes(PNG_CHUNK_READ_WINDOW_BYTES + 1)),
+    );
+    const outcome = await pxAttempt(bytes, {
+      retain: (view) => {
+        retained.push(view.length);
+        return Buffer.from(view);
+      },
+    });
+    expect(outcome.parsed?.chunks.length).toBe(6);
+    expect(retained).toEqual([13, 10, PNG_CHUNK_READ_WINDOW_BYTES, 0]);
+    expect(outcome.parsed?.buffered.get(3)?.length).toBe(
+      PNG_CHUNK_READ_WINDOW_BYTES + 1,
+    );
+  });
+
+  it("inflateBounded clusters: output of exactly the limit is accepted and an over-limit stream refuses with the limit plus one as its size", () => {
+    const exact = Buffer.alloc(100, 7);
+    const budget = new InflateBudget(1000);
+    const result = inflateBounded(deflateSync(exact), "zTXt", 100, budget);
+    expect(result.equals(exact)).toBe(true);
+    expect(budget.remaining()).toBe(900);
+    const refusal = (data: Buffer): unknown => {
+      try {
+        inflateBounded(deflateSync(data), "zTXt", 100, new InflateBudget(1000));
+      } catch (cause) {
+        return cause;
+      }
+      return undefined;
+    };
+    expect(refusal(Buffer.alloc(101, 7))).toMatchObject({
+      kind: "unsafe-structure",
+      limit: { chunkType: "zTXt", size: 101, limit: 100 },
+    });
+    expect(refusal(Buffer.alloc(5000, 7))).toMatchObject({
+      kind: "unsafe-structure",
+      limit: { chunkType: "zTXt", size: 101, limit: 100 },
+    });
+  });
+
+  it("rawProfileExifOrientation clusters: the header needs four lines and a declared length that is a plain non-negative integer", () => {
+    const exif = exifWithOrientation(6);
+    expect(rawProfileExifOrientation(pxRawOf(exif), 1024)).toBe(6);
+    expect(pxRawThrows("\nexif\n0").kind).toBe("malformed-file");
+    expect(pxRawThrows("\nexif").kind).toBe("malformed-file");
+    for (const count of ["", "abc", "12abc", "-5", "1.5"]) {
+      const error = pxRawThrows(pxRaw(count, "00".repeat(12)));
+      expect(error.kind).toBe("malformed-file");
+      expect(error.limit).toBeUndefined();
+    }
+    expect(rawProfileExifOrientation(pxRaw("0", ""), 1024)).toBe("invalid");
+  });
+
+  it("rawProfileExifOrientation clusters: a declared length above the bound refuses with its limit context and one equal to it is read", () => {
+    const over = pxRawThrows(pxRaw("5", "00".repeat(5)), 4);
+    expect(over.kind).toBe("unsafe-structure");
+    expect(over.limit).toEqual({ chunkType: "raw-profile", size: 5, limit: 4 });
+    expect(rawProfileExifOrientation(pxRaw("4", "00".repeat(4)), 4)).toBe(
+      "invalid",
+    );
+  });
+
+  it("rawProfileExifOrientation clusters: the hex must be as long as declared and made only of hex digits, and extra hex beyond the declared length is ignored", () => {
+    expect(pxRawThrows(pxRaw("4", "aabb")).kind).toBe("malformed-file");
+    expect(pxRawThrows(pxRaw("2", "ZZZZ")).kind).toBe("malformed-file");
+    expect(pxRawThrows(pxRaw("2", "aaZZ")).kind).toBe("malformed-file");
+    expect(pxRawThrows(pxRaw("2", "ZZaa")).kind).toBe("malformed-file");
+    expect(rawProfileExifOrientation(pxRaw("2", "aabbccdd"), 1024)).toBe(
+      "invalid",
+    );
+  });
+
+  it("rawProfileExifOrientation clusters: spaces, tabs and carriage returns inside the hex lines are removed and the orientation is returned", () => {
+    const exif = exifWithOrientation(6);
+    const split = exif.toString("hex").match(/.{1,6}/gu) ?? [];
+    const text = pxRaw(`  ${exif.length}\r`, `${split.join("  \t")}\r`);
+    expect(rawProfileExifOrientation(text, 1024)).toBe(6);
+    const lines = pxRaw(String(exif.length), split.join("\r\n \r\n"));
+    expect(rawProfileExifOrientation(lines, 1024)).toBe(6);
+  });
+
+  it("rawProfileExifOrientation clusters: an EXIF without an Orientation is absent, an unusable one is invalid and a valid one is its value", () => {
+    expect(
+      rawProfileExifOrientation(pxRawOf(exifWithArtist("someone")), 1024),
+    ).toBeUndefined();
+    expect(
+      rawProfileExifOrientation(pxRawOf(exifWithOrientation(9)), 1024),
+    ).toBe("invalid");
+    expect(
+      rawProfileExifOrientation(pxRawOf(exifWithOrientation(3)), 1024),
+    ).toBe(3);
   });
 });
