@@ -444,6 +444,8 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
       return;
     }
     if (type === "tEXt") {
+      // Prettier would move the comment before the else onto the closing brace above it, where Stryker never reads it, so this statement is left as written.
+      // prettier-ignore
       if (data !== undefined) {
         const { keyword, text } = parseTextChunkData(data);
         const wasXmp = routeTextKeyword(
@@ -458,12 +460,16 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
           namespaces.add("PNG");
           entries.push({ namespace: "PNG", name: keyword, value: text });
         }
-      } else {
+      } else
+      // Stryker disable next-line BlockStatement: defensive-unreachable-by-construction — parsePng stores the data of every chunk except IDAT in the buffered map, so a tEXt chunk always has data and this fallback is never reached.
+      {
         namespaces.add("PNG");
       }
       return;
     }
     if (type === "zTXt") {
+      // Prettier would move the comment before the else onto the closing brace above it, where Stryker never reads it, so this statement is left as written.
+      // prettier-ignore
       if (data !== undefined) {
         const keywordNul = data.indexOf(0);
         const text = parseZtxtChunk(data, budget);
@@ -487,11 +493,14 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
             value: text.toString("latin1"),
           });
         }
-      } else {
+      } else
+      // Stryker disable next-line BlockStatement: defensive-unreachable-by-construction — parsePng stores the data of every chunk except IDAT in the buffered map, so a zTXt chunk always has data and this fallback is never reached.
+      {
         namespaces.add("PNG");
       }
       return;
     }
+    // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — every other removed chunk type returned above and every other type returned or threw earlier, so only an iTXt chunk reaches this test and it is always true; the always-false sibling is a TypeScript compile error and is suppressed only as collateral.
     if (type === "iTXt") {
       if (data === undefined) {
         namespaces.add("PNG");
@@ -626,6 +635,7 @@ function buildOutputPlan(
   admission.parsed.chunks.forEach((chunk, index) => {
     const cls = admission.classes[index] ?? "remove";
     if (!isKept(cls, preserveColorProfile, preserveResolution)) {
+      // Stryker disable next-line CallExpression: redundant-guard-after-typed-check — a removed chunk always has a positive span, so the next kept chunk never starts where the pending range ends and the non-adjacent branch below flushes that range first; the final flush covers a removed chunk at the end.
       flush();
       return;
     }
@@ -634,6 +644,7 @@ function buildOutputPlan(
     if (pendingEnd === chunkStart) {
       pendingEnd = chunkEnd;
     } else {
+      // Stryker disable next-line CallExpression: redundant-guard-after-typed-check — a pending range is only open here when the previous chunk was kept and adjacent in the file, and the removed-chunk branch above already flushed it otherwise, so this flush never has a range to write.
       flush();
       pendingStart = chunkStart;
       pendingEnd = chunkEnd;
@@ -715,6 +726,7 @@ async function chunksEqual(
   const destinationBuffer = Buffer.allocUnsafe(bufferSize);
   for (let offset = 0; offset < sourceSpan;) {
     if (isAborted(signal))
+      // Stryker disable next-line LogicalOperator, StringLiteral: unobservable-message — verifyOutput is the only caller and its catch discards the cause whenever the signal is aborted, reporting the typed aborted error; neither the abort reason nor the fallback exception's name or message reaches any result.
       throw signal?.reason ?? new DOMException("Aborted", "AbortError");
     const length = Math.min(COPY_BLOCK_BYTES, sourceSpan - offset);
     const left = await sourceHandle.read(
