@@ -147,6 +147,7 @@ async function chunksEqual(sourceHandle, source, destinationHandle, destination,
     const destinationBuffer = Buffer.allocUnsafe(bufferSize);
     for (let offset = 0; offset < source.size;) {
         if (isAborted(signal))
+            // Stryker disable next-line LogicalOperator, StringLiteral: unobservable-message — verifyOutput is the only caller and its catch discards the cause whenever the signal is aborted, reporting the typed aborted error; neither the abort reason nor the fallback exception's name or message reaches any result.
             throw signal?.reason ?? new DOMException("Aborted", "AbortError");
         const length = Math.min(COPY_BLOCK_BYTES, source.size - offset);
         // Keep the two bounded reads serialized.  Concurrent MiB reads make the
