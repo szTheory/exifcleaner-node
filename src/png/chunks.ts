@@ -322,6 +322,7 @@ function validateStructure(chunks: readonly PngChunk[]): void {
   }
 
   const last = chunks[chunks.length - 1]!;
+  // Stryker disable next-line BlockStatement: redundant-guard-after-typed-check — parsePng accepts a file only after reading an IEND chunk and stops there, so the last chunk passed to this check is always IEND and the refusal block is never entered.
   if (last.type !== "IEND") {
     throw new PngStructureError(
       "malformed-file",
@@ -343,6 +344,7 @@ function validateStructure(chunks: readonly PngChunk[]): void {
   for (const [index, item] of chunks.entries()) {
     const { type } = item;
 
+    // Stryker disable next-line BlockStatement: redundant-guard-after-typed-check — parsePng refuses every animation chunk type in its read loop before the chunk is recorded, so no recorded chunk reaches this refusal block.
     if (PNG_ANIMATION_CHUNK_TYPES.has(type)) {
       throw new PngStructureError(
         "unsafe-structure",
@@ -377,7 +379,9 @@ function validateStructure(chunks: readonly PngChunk[]): void {
       sawIdat = true;
     } else {
       if (sawIdat) idatEnded = true;
+      // Stryker disable next-line AssignmentOperator: redundant-guard-after-typed-check — the counter feeds only the ancillary-count guard on the next line, which the identical count in parsePng already makes unreachable, so a different update changes no outcome.
       nonIdatCount += 1;
+      // Stryker disable next-line BlockStatement: redundant-guard-after-typed-check — parsePng counts non-IDAT chunks the same way and refuses at the same limit before it records the chunk, so this refusal block is never entered.
       if (nonIdatCount > PNG_MAX_ANCILLARY_CHUNKS) {
         throw new PngStructureError(
           "unsafe-structure",
@@ -397,6 +401,7 @@ function validateStructure(chunks: readonly PngChunk[]): void {
     }
     if (PNG_CRITICAL_CHUNK_TYPES.has(type)) continue;
 
+    // Stryker disable next-line StringLiteral: equivalent-arithmetic — the default class name is only compared against the three ordering class names below, so any other default takes the same no-refusal path.
     const orderClass = PNG_ORDER.get(type) ?? "anywhere";
     if (orderClass === "before-plte-and-idat") {
       if (
