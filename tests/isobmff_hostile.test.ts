@@ -36,7 +36,7 @@ import {
   type PngAdmission,
   type PngOutputPlan,
 } from "../src/admission/png-handler.js";
-import { PNG_SIGNATURE } from "../src/png/chunks.js";
+import { PNG_SIGNATURE, PngStructureError } from "../src/png/chunks.js";
 import {
   isJpegSignature,
   JpegStructureError,
@@ -9192,5 +9192,457 @@ describe("png-handler.ts collectMetadata, findIdotAdjacencyDecline, buildOutputP
     expect(outcome.result.ok).toBe(false);
     if (outcome.result.ok) throw new Error("unreachable");
     expect(outcome.result.error.code).toBe("aborted");
+  });
+});
+
+describe("png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message clusters (67-39, png-3)", () => {
+  type PngChunkSpec = readonly [string, Buffer];
+  interface PvOptions {
+    readonly admission?: (admitted: PngAdmission) => PngAdmission;
+    readonly preserveOrientation?: boolean;
+    readonly expectedOrientation?: number;
+    readonly signal?: AbortSignal;
+    readonly source?: JhCallScript;
+    readonly destination?: JhCallScript;
+  }
+
+  async function pvDirectory(): Promise<string> {
+    const directory = await mkdtemp(join(tmpdir(), "exifcleaner-png-verify-"));
+    cleanupDirectories.push(directory);
+    return directory;
+  }
+  async function pvWriteBytes(name: string, bytes: Buffer): Promise<string> {
+    const path = join(await pvDirectory(), name);
+    await writeFile(path, bytes);
+    return path;
+  }
+  function pvKeepAll(admitted: PngAdmission): PngAdmission {
+    return {
+      ...admitted,
+      classes: admitted.classes.map(() => "keep" as const),
+    };
+  }
+  function pvChunkList(bytes: Buffer): PngChunkSpec[] {
+    const list: PngChunkSpec[] = [];
+    let offset = PNG_SIGNATURE.length;
+    while (offset < bytes.length) {
+      const length = bytes.readUInt32BE(offset);
+      list.push([
+        bytes.toString("latin1", offset + 4, offset + 8),
+        bytes.subarray(offset + 8, offset + 8 + length),
+      ]);
+      offset += length + 12;
+    }
+    return list;
+  }
+  function pvTypes(bytes: Buffer): string[] {
+    return pvChunkList(bytes).map(([type]) => type);
+  }
+  function pvRebuild(chunks: readonly PngChunkSpec[]): Buffer {
+    return pngFile(chunks.map(([type, data]) => pngChunk(type, data)));
+  }
+  async function pvSanitized(
+    source: Buffer,
+    preserveOrientation: boolean,
+  ): Promise<Buffer> {
+    const sourcePath = await pvWriteBytes("source.png", source);
+    const destinationPath = join(await pvDirectory(), "destination.png");
+    const result = await sanitizeFile({
+      sourcePath,
+      destinationPath,
+      preserveOrientation,
+      preserveColorProfile: false,
+      preserveTimestamps: false,
+      preserveResolution: false,
+    });
+    expect(result.ok).toBe(true);
+    return readFile(destinationPath);
+  }
+  // The destination the shipped plan writes for an admission the test adjusted.
+  async function pvPlannedDestination(
+    source: Buffer,
+    adjust: (admitted: PngAdmission) => PngAdmission,
+    preserveOrientation: boolean,
+    orientation: number | undefined,
+  ): Promise<Buffer> {
+    const sourceHandle = await open(
+      await pvWriteBytes("source.png", source),
+      "r",
+    );
+    const destinationPath = join(await pvDirectory(), "destination.png");
+    const destinationHandle = await open(destinationPath, "wx");
+    try {
+      const admission = adjust(
+        await pngHandler.admit(sourceHandle, source.length),
+      );
+      const plan = pngHandler.buildOutputPlan(
+        admission,
+        preserveOrientation,
+        false,
+        false,
+        orientation,
+      );
+      await pngHandler.writeOutput(sourceHandle, destinationHandle, plan);
+    } finally {
+      await sourceHandle.close();
+      await destinationHandle.close();
+    }
+    return readFile(destinationPath);
+  }
+  async function pvVerify(
+    source: Buffer,
+    destination: Buffer,
+    options: PvOptions = {},
+  ): Promise<Result<void>> {
+    const sourceHandle = await open(
+      await pvWriteBytes("source.png", source),
+      "r",
+    );
+    const destinationPath = await pvWriteBytes("destination.png", destination);
+    const destinationHandle = await open(destinationPath, "r");
+    try {
+      const admitted = await pngHandler.admit(sourceHandle, source.length);
+      const admission = options.admission?.(admitted) ?? admitted;
+      return await pngHandler.verifyOutput(
+        jhScriptedHandle(sourceHandle, options.source).handle,
+        admission,
+        jhScriptedHandle(destinationHandle, options.destination).handle,
+        destination.length,
+        destinationPath,
+        options.preserveOrientation ?? false,
+        false,
+        false,
+        options.expectedOrientation,
+        options.signal,
+      );
+    } finally {
+      await sourceHandle.close();
+      await destinationHandle.close();
+    }
+  }
+  function pvExpectRefusal(result: Result<void>, code: string): string {
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.error.code).toBe(code);
+    return result.error.detail;
+  }
+  function pvKeptSource(): Buffer {
+    return pngWithChunksBefore([
+      ["cHRM", pngChrm()],
+      ["tEXt", pngTextChunkData("Comment", "private")],
+    ]);
+  }
+  function pvOrientedSource(): Buffer {
+    return pngWithChunksBefore([["eXIf", exifWithOrientation(6)]]);
+  }
+  // A big-endian TIFF with one valid Orientation entry of 6: a payload that
+  // parseExif reads exactly as the minimal one but whose bytes differ from it.
+  function pvBigEndianOrientation(): Buffer {
+    return Buffer.from(
+      "4d4d002a00000008000101120003000000010006000000000000",
+      "hex",
+    );
+  }
+  function pvEmptyPlan(types: readonly string[]): PngOutputPlan {
+    return { parts: [], expectedTypes: types, copiedChunks: [] };
+  }
+
+  it("verifyOutput ConditionalExpression, LogicalOperator and BlockStatement clusters: a destination chunk of a removed type that the admission classes as kept is refused", async () => {
+    const source = pvOrientedSource();
+    expect(pvTypes(source)).toEqual(["IHDR", "eXIf", "IDAT", "IEND"]);
+    const destination = await pvPlannedDestination(
+      source,
+      pvKeepAll,
+      false,
+      undefined,
+    );
+    expect(pvTypes(destination)).toEqual(["IHDR", "eXIf", "IDAT", "IEND"]);
+
+    const detail = pvExpectRefusal(
+      await pvVerify(source, destination, { admission: pvKeepAll }),
+      "verification-failed",
+    );
+    expect(detail.length).toBeGreaterThan(0);
+
+    // Control: the same source under its real classes drops the eXIf and verifies.
+    const sanitized = await pvSanitized(source, false);
+    expect(pvTypes(sanitized)).toEqual(["IHDR", "IDAT", "IEND"]);
+    expect((await pvVerify(source, sanitized)).ok).toBe(true);
+  });
+
+  it("verifyOutput ConditionalExpression cluster: a removed-type chunk other than the inserted orientation is refused while the inserted one is accepted", async () => {
+    const source = pngWithChunksBefore([
+      ["cHRM", pngChrm()],
+      ["eXIf", exifWithOrientation(6)],
+    ]);
+    expect(pvTypes(source)).toEqual(["IHDR", "cHRM", "eXIf", "IDAT", "IEND"]);
+    const withOrientation = {
+      preserveOrientation: true,
+      expectedOrientation: 6,
+    };
+    const destination = await pvPlannedDestination(source, pvKeepAll, true, 6);
+    expect(pvTypes(destination)).toEqual([
+      "IHDR",
+      "eXIf",
+      "cHRM",
+      "eXIf",
+      "IDAT",
+      "IEND",
+    ]);
+    pvExpectRefusal(
+      await pvVerify(source, destination, {
+        ...withOrientation,
+        admission: pvKeepAll,
+      }),
+      "verification-failed",
+    );
+
+    // Control: under the real classes the inserted orientation is the only eXIf.
+    const sanitized = await pvSanitized(source, true);
+    expect(pvTypes(sanitized)).toEqual([
+      "IHDR",
+      "eXIf",
+      "cHRM",
+      "IDAT",
+      "IEND",
+    ]);
+    expect((await pvVerify(source, sanitized, withOrientation)).ok).toBe(true);
+  });
+
+  it("verifyOutput ConditionalExpression, LogicalOperator, BlockStatement and StringLiteral clusters: an inserted eXIf that is a valid single orientation but not the minimal payload is refused", async () => {
+    const source = pvOrientedSource();
+    const output = await pvSanitized(source, true);
+    expect(pvTypes(output)).toEqual(["IHDR", "eXIf", "IDAT", "IEND"]);
+    const withOrientation = {
+      preserveOrientation: true,
+      expectedOrientation: 6,
+    };
+    expect((await pvVerify(source, output, withOrientation)).ok).toBe(true);
+
+    const bigEndian = pvBigEndianOrientation();
+    const reparsed = parseExif(bigEndian);
+    expect(reparsed.orientation).toEqual({ status: "valid", value: 6 });
+    expect(reparsed.entries).toHaveLength(1);
+    expect(bigEndian.equals(createOrientationExif(6))).toBe(false);
+
+    const altered = pvRebuild(
+      pvChunkList(output).map(([type, data]) =>
+        type === "eXIf" ? ([type, bigEndian] as const) : [type, data],
+      ),
+    );
+    expect(pvTypes(altered)).toEqual(pvTypes(output));
+    const detail = pvExpectRefusal(
+      await pvVerify(source, altered, withOrientation),
+      "verification-failed",
+    );
+    expect(detail.length).toBeGreaterThan(0);
+  });
+
+  it("verifyOutput ConditionalExpression and StringLiteral clusters: the inserted-orientation slot holding another chunk type is refused", async () => {
+    const source = pvOrientedSource();
+    const output = await pvSanitized(source, true);
+    const withOrientation = {
+      preserveOrientation: true,
+      expectedOrientation: 6,
+    };
+    const minimal = createOrientationExif(6);
+    expect(pvChunkList(output)[1]?.[1].equals(minimal)).toBe(true);
+
+    const moved = pvRebuild(
+      pvChunkList(output).map(([type, data]) =>
+        type === "eXIf" ? (["prVt", data] as const) : [type, data],
+      ),
+    );
+    expect(pvTypes(moved)).toEqual(["IHDR", "prVt", "IDAT", "IEND"]);
+    const detail = pvExpectRefusal(
+      await pvVerify(source, moved, withOrientation),
+      "verification-failed",
+    );
+    expect(detail.length).toBeGreaterThan(0);
+
+    const missing = pvRebuild(
+      pvChunkList(output).filter(([type]) => type !== "eXIf"),
+    );
+    pvExpectRefusal(
+      await pvVerify(source, missing, withOrientation),
+      "verification-failed",
+    );
+  });
+
+  it("verifyOutput support: a minimal orientation payload reads back as one valid entry for every orientation", () => {
+    for (const orientation of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const payload = createOrientationExif(orientation);
+      const reparsed = parseExif(payload);
+      expect(reparsed.orientation, `orientation ${orientation}`).toEqual({
+        status: "valid",
+        value: orientation,
+      });
+      expect(reparsed.entries, `orientation ${orientation}`).toHaveLength(1);
+    }
+  });
+
+  it("verifyOutput StringLiteral clusters: a changed kept chunk and an unreadable source each carry a non-empty detail", async () => {
+    const source = pvKeptSource();
+    const output = await pvSanitized(source, false);
+    expect((await pvVerify(source, output)).ok).toBe(true);
+
+    const alteredData = Buffer.from(pngChrm());
+    alteredData[31] = alteredData[31]! ^ 0x01;
+    const altered = pvRebuild(
+      pvChunkList(output).map(([type, data]) =>
+        type === "cHRM" ? ([type, alteredData] as const) : [type, data],
+      ),
+    );
+    const changed = pvExpectRefusal(
+      await pvVerify(source, altered),
+      "verification-failed",
+    );
+    expect(changed.length).toBeGreaterThan(0);
+
+    const unreadable = pvExpectRefusal(
+      await pvVerify(source, output, { source: () => ({ underReport: 1 }) }),
+      "verification-failed",
+    );
+    expect(unreadable.length).toBeGreaterThan(0);
+  });
+
+  it("verifyOutput StringLiteral cluster: a destination with one extra chunk is refused with a non-empty detail", async () => {
+    const source = pvKeptSource();
+    const output = await pvSanitized(source, false);
+    const extra = pvRebuild(
+      pvChunkList(output).flatMap(([type, data]) =>
+        type === "IDAT"
+          ? [["prVt", Buffer.from("extra")] as const, [type, data] as const]
+          : [[type, data] as const],
+      ),
+    );
+    expect(pvTypes(extra)).toEqual(["IHDR", "cHRM", "prVt", "IDAT", "IEND"]);
+    const detail = pvExpectRefusal(
+      await pvVerify(source, extra),
+      "verification-failed",
+    );
+    expect(detail.length).toBeGreaterThan(0);
+  });
+
+  it("verificationAborted StringLiteral cluster: an aborted verification carries a non-empty detail", async () => {
+    const source = pvKeptSource();
+    const output = await pvSanitized(source, false);
+    const controller = new AbortController();
+    const detail = pvExpectRefusal(
+      await pvVerify(source, output, {
+        source: (_call, index) => {
+          if (index === 0) controller.abort();
+          return undefined;
+        },
+        signal: controller.signal,
+      }),
+      "aborted",
+    );
+    expect(detail.length).toBeGreaterThan(0);
+  });
+
+  it("checkOutputPlan ConditionalExpression and StringLiteral clusters: a plan without a decline reason is refused only when it holds no IDAT, with a non-empty reason", () => {
+    const empty = pngHandler.checkOutputPlan(pvEmptyPlan(["IHDR", "IEND"]));
+    expect(empty).toBeDefined();
+    expect(empty?.length).toBeGreaterThan(0);
+    expect(
+      pngHandler.checkOutputPlan(pvEmptyPlan(["IHDR", "IDAT", "IEND"])),
+    ).toBeUndefined();
+
+    const declined = pngHandler.checkOutputPlan({
+      ...pvEmptyPlan(["IHDR", "IDAT", "IEND"]),
+      declineReason: "declined by the plan",
+    });
+    expect(declined).toBe("declined by the plan");
+    expect(
+      pngHandler.checkOutputPlan({
+        ...pvEmptyPlan(["IHDR", "IEND"]),
+        declineReason: "declined by the plan",
+      }),
+    ).toBe("declined by the plan");
+  });
+
+  it("classifyAdmissionFailure StringLiteral cluster: an oversized iCCP chunk under color-profile preservation is a typed policy-limit decline with a non-empty detail", () => {
+    const limit = { chunkType: "iCCP", size: 4096, limit: 1024 };
+    const decline = pngHandler.classifyAdmissionFailure(
+      new PngStructureError("unsafe-structure", "iCCP is too large.", limit),
+      true,
+    );
+    expect(decline).toMatchObject({
+      code: "unsupported-feature",
+      feature: "color-profile-preservation",
+      reason: "policy-limit",
+    });
+    expect(decline?.detail.length).toBeGreaterThan(0);
+
+    expect(
+      pngHandler.classifyAdmissionFailure(
+        new PngStructureError("unsafe-structure", "iCCP is too large.", limit),
+        false,
+      ),
+    ).toMatchObject({ code: "unsafe-structure" });
+    expect(
+      pngHandler.classifyAdmissionFailure(new Error("unrelated"), true),
+    ).toBeUndefined();
+  });
+
+  it("writeOutput ConditionalExpression and LogicalOperator clusters: an aborted signal stops the write and rethrows the abort reason itself", async () => {
+    const reason = new Error("custom abort reason");
+    const controller = new AbortController();
+    controller.abort(reason);
+    const destination = await open(
+      join(await pvDirectory(), "destination.png"),
+      "wx",
+    );
+    try {
+      const plan: PngOutputPlan = {
+        parts: [{ kind: "insert", data: Buffer.from([1, 2, 3]) }],
+        expectedTypes: [],
+        copiedChunks: [],
+      };
+      const written = pngHandler.writeOutput(
+        undefined as unknown as FileHandle,
+        destination,
+        plan,
+        controller.signal,
+      );
+      await expect(written).rejects.toBe(reason);
+      expect((await destination.stat()).size).toBe(PNG_SIGNATURE.length);
+    } finally {
+      await destination.close();
+    }
+  });
+
+  it("writeOutput LogicalOperator and StringLiteral clusters: an aborted signal without a reason throws an AbortError DOMException", async () => {
+    const signal = {
+      aborted: true,
+      reason: undefined,
+    } as unknown as AbortSignal;
+    const destination = await open(
+      join(await pvDirectory(), "destination.png"),
+      "wx",
+    );
+    try {
+      const plan: PngOutputPlan = {
+        parts: [{ kind: "insert", data: Buffer.from([1, 2, 3]) }],
+        expectedTypes: [],
+        copiedChunks: [],
+      };
+      let thrown: unknown;
+      try {
+        await pngHandler.writeOutput(
+          undefined as unknown as FileHandle,
+          destination,
+          plan,
+          signal,
+        );
+      } catch (cause) {
+        thrown = cause;
+      }
+      expect(thrown).toBeInstanceOf(DOMException);
+      expect((thrown as DOMException).name).toBe("AbortError");
+    } finally {
+      await destination.close();
+    }
   });
 });
