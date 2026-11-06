@@ -10288,6 +10288,58 @@ describe("png/chunks.ts and orientation-sources.ts budget, abort, bound, retain 
     });
   });
 
+  it("parsePng IDAT window boundary clusters: an IDAT of one byte under, exactly and one byte over the read window is read through the window, the window and the streamed path", async () => {
+    const readsOf = async (length: number) => {
+      const bytes = pngFile([
+        pngChunk("IHDR", pngIhdr()),
+        pngChunk("IDAT", pxBytes(length)),
+        pxEnd(),
+      ]);
+      const outcome = await pxAttempt(bytes);
+      expect(outcome.parsed?.chunks.length).toBe(3);
+      return outcome.reads.map(({ position, length: read }) => [
+        position,
+        read,
+      ]);
+    };
+    const window = PNG_CHUNK_READ_WINDOW_BYTES;
+    const dataOffset = PNG_SIGNATURE.length + 25 + 8;
+    const head = [
+      [0, PNG_SIGNATURE.length],
+      [PNG_SIGNATURE.length, window],
+    ];
+    expect(await readsOf(window - 1)).toEqual([
+      ...head,
+      [dataOffset, window],
+      [dataOffset + window - 1, 16],
+    ]);
+    expect(await readsOf(window)).toEqual([
+      ...head,
+      [dataOffset, window],
+      [dataOffset + window, 16],
+    ]);
+    expect(await readsOf(window + 1)).toEqual([
+      ...head,
+      [dataOffset, window],
+      [dataOffset + window, 1],
+      [dataOffset + window + 1, 16],
+    ]);
+  });
+
+  it("parsePng IDAT window boundary clusters: a small IDAT is served from the window with no read of its own", async () => {
+    const bytes = pngFile([
+      pngChunk("IHDR", pngIhdr()),
+      pngChunk("IDAT", pxBytes(5)),
+      pxEnd(),
+    ]);
+    const outcome = await pxAttempt(bytes);
+    expect(outcome.parsed?.chunks.length).toBe(3);
+    expect(outcome.reads.map((read) => read.position)).toEqual([
+      0,
+      PNG_SIGNATURE.length,
+    ]);
+  });
+
   it("rawProfileExifOrientation clusters: the header needs four lines and a declared length that is a plain non-negative integer", () => {
     const exif = exifWithOrientation(6);
     expect(rawProfileExifOrientation(pxRawOf(exif), 1024)).toBe(6);

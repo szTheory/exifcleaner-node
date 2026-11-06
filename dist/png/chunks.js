@@ -511,7 +511,7 @@ export async function parsePng(handle, size, signal, budget = new BufferedBudget
             // count. The bytes are used only to compute the CRC and are discarded immediately;
             // they are never stored in `buffered`. A longer IDAT keeps the pre-existing streamed
             // `streamChunkCrc` path (bounded 64 KiB blocks, no buffering either).
-            if (length <= PNG_CHUNK_READ_WINDOW_BYTES) {
+            if (length < PNG_CHUNK_READ_WINDOW_BYTES + 1) {
                 const data = await readWindowed(handle, window, length, dataOffset, size);
                 computedCrc = crc32(typeBuffer, data);
             }
@@ -575,10 +575,7 @@ export class InflateBudget {
     }
 }
 function isBufferTooLarge(cause) {
-    return (typeof cause === "object" &&
-        cause !== null &&
-        "code" in cause &&
-        cause.code === "ERR_BUFFER_TOO_LARGE");
+    return cause.code === "ERR_BUFFER_TOO_LARGE";
 }
 /**
  * Inflates a zlib-compressed chunk payload under a hard output cap, both per chunk and

@@ -699,7 +699,7 @@ export async function parsePng(
       // count. The bytes are used only to compute the CRC and are discarded immediately;
       // they are never stored in `buffered`. A longer IDAT keeps the pre-existing streamed
       // `streamChunkCrc` path (bounded 64 KiB blocks, no buffering either).
-      if (length <= PNG_CHUNK_READ_WINDOW_BYTES) {
+      if (length < PNG_CHUNK_READ_WINDOW_BYTES + 1) {
         const data = await readWindowed(
           handle,
           window,
@@ -803,12 +803,7 @@ export class InflateBudget {
 }
 
 function isBufferTooLarge(cause: unknown): boolean {
-  return (
-    typeof cause === "object" &&
-    cause !== null &&
-    "code" in cause &&
-    (cause as { code?: unknown }).code === "ERR_BUFFER_TOO_LARGE"
-  );
+  return (cause as { code?: unknown }).code === "ERR_BUFFER_TOO_LARGE";
 }
 
 /** Narrow local shape for zlib's `inflateSync(data, { info: true })` return value --
