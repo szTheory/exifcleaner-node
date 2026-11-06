@@ -9374,25 +9374,39 @@ describe("png-handler.ts verifyOutput, checkOutputPlan, writeOutput and message 
     const source = pngWithChunksBefore([
       ["cHRM", pngChrm()],
       ["eXIf", exifWithOrientation(6)],
+      ["tEXt", pngTextChunkData("Comment", "private")],
     ]);
-    expect(pvTypes(source)).toEqual(["IHDR", "cHRM", "eXIf", "IDAT", "IEND"]);
+    expect(pvTypes(source)).toEqual([
+      "IHDR",
+      "cHRM",
+      "eXIf",
+      "tEXt",
+      "IDAT",
+      "IEND",
+    ]);
     const withOrientation = {
       preserveOrientation: true,
       expectedOrientation: 6,
     };
-    const destination = await pvPlannedDestination(source, pvKeepAll, true, 6);
+    const keepText = (admitted: PngAdmission): PngAdmission => ({
+      ...admitted,
+      classes: admitted.classes.map((cls, index) =>
+        admitted.parsed.chunks[index]?.type === "tEXt" ? "keep" : cls,
+      ),
+    });
+    const destination = await pvPlannedDestination(source, keepText, true, 6);
     expect(pvTypes(destination)).toEqual([
       "IHDR",
       "eXIf",
       "cHRM",
-      "eXIf",
+      "tEXt",
       "IDAT",
       "IEND",
     ]);
     pvExpectRefusal(
       await pvVerify(source, destination, {
         ...withOrientation,
-        admission: pvKeepAll,
+        admission: keepText,
       }),
       "verification-failed",
     );
