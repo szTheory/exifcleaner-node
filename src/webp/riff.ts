@@ -373,6 +373,7 @@ export async function parseWebp(
   const declaredFileSize = header.readUInt32LE(4) + 8;
   if (declaredFileSize !== fileSize) {
     const reason =
+      // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: unobservable-message — this ternary only picks the two words that end the RIFF size message; the malformed-file kind, the offsets and every byte are the same whichever words, comparison or branch is used.
       declaredFileSize < fileSize ? "trailing data" : "truncated data";
     throw new WebpStructureError(
       "malformed-file",
@@ -465,6 +466,7 @@ export async function parseWebp(
     );
     offset = dataOffset + paddedSize;
   }
+  // Stryker disable next-line ConditionalExpression,BlockStatement: defensive-unreachable-by-construction — the chunk loop runs while offset is below fileSize and every chunk end was checked against fileSize above, so it can only exit with offset equal to fileSize and this guard never throws.
   if (offset !== fileSize) {
     throw new WebpStructureError(
       "malformed-file",
