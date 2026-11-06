@@ -199436,15 +199436,16 @@
       "file": "src/webp/riff.ts",
       "function": "encodeRiffHeader",
       "mutatorName": "BlockStatement",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000658\u000065\u0000660\u00004"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000BlockStatement\u0000{}\u0000{\n    throw new RangeError(\"Output cannot be represented as a RIFF container\");\n  }\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-45/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-45/red-baseline.json (src/webp/riff.ts lines 379 and 645-647, a real run on the unedited source with the pre-Plan-42 tests swapped in, all 9 members undetected), reports/triage/67-45/red.json (current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts encodeRiffHeader and incrementChunkCount clusters (67-45, webp-4) > encodeRiffHeader ConditionalExpression, LogicalOperator, BlockStatement and CallExpression clusters: a size below the 12-byte RIFF header is refused with a RangeError"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:encodeRiffHeader:CallExpression",
@@ -199452,53 +199453,89 @@
       "file": "src/webp/riff.ts",
       "function": "encodeRiffHeader",
       "mutatorName": "CallExpression",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/webp/riff.ts\u0000CallExpression\u0000;\u0000659\u00005\u0000659\u000078"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000CallExpression\u0000;\u0000throw new RangeError(\"Output cannot be represented as a RIFF container\");\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-45/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-45/red-baseline.json (src/webp/riff.ts lines 379 and 645-647, a real run on the unedited source with the pre-Plan-42 tests swapped in, all 9 members undetected), reports/triage/67-45/red.json (current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts encodeRiffHeader and incrementChunkCount clusters (67-45, webp-4) > encodeRiffHeader ConditionalExpression, LogicalOperator, BlockStatement and CallExpression clusters: a size below the 12-byte RIFF header is refused with a RangeError"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:encodeRiffHeader:ConditionalExpression",
+      "id": "webp:src/webp/riff.ts:encodeRiffHeader:ConditionalExpression:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "encodeRiffHeader",
       "mutatorName": "ConditionalExpression",
-      "disposition": "pending",
-      "count": 3,
+      "disposition": "gap",
+      "count": 2,
       "keys": [
         "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000658\u00007\u0000658\u000034",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000658\u00007\u0000658\u000063",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000658\u000038\u0000658\u000063"
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000658\u00007\u0000658\u000063"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fileSize < RIFF_HEADER_SIZE\u00001",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fileSize < RIFF_HEADER_SIZE || fileSize > MAX_RIFF_BYTES\u00000",
-        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000fileSize > MAX_RIFF_BYTES\u00001"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:encodeRiffHeader:ConditionalExpression",
+      "note": "reports/triage/67-45/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-45/red-baseline.json (src/webp/riff.ts lines 379 and 645-647, a real run on the unedited source with the pre-Plan-42 tests swapped in, all 9 members undetected), reports/triage/67-45/red.json (current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts encodeRiffHeader and incrementChunkCount clusters (67-45, webp-4) > encodeRiffHeader ConditionalExpression, LogicalOperator, BlockStatement and CallExpression clusters: a size below the 12-byte RIFF header is refused with a RangeError"
+      }
     },
     {
-      "id": "webp:src/webp/riff.ts:encodeRiffHeader:EqualityOperator",
+      "id": "webp:src/webp/riff.ts:encodeRiffHeader:ConditionalExpression:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "encodeRiffHeader",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/webp/riff.ts\u0000ConditionalExpression\u0000false\u0000658\u000038\u0000658\u000063"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:encodeRiffHeader:ConditionalExpression",
+      "note": "reports/triage/67-45/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-45/red-baseline.json (src/webp/riff.ts lines 379 and 645-647, a real run on the unedited source with the pre-Plan-42 tests swapped in, all 9 members undetected), reports/triage/67-45/red.json (current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts encodeRiffHeader and incrementChunkCount clusters (67-45, webp-4) > encodeRiffHeader ConditionalExpression, LogicalOperator, BlockStatement and CallExpression clusters: a size one byte over the RIFF limit is refused with a RangeError"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:encodeRiffHeader:EqualityOperator:gap-01",
       "group": "webp",
       "file": "src/webp/riff.ts",
       "function": "encodeRiffHeader",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
-      "count": 2,
+      "disposition": "gap",
+      "count": 1,
       "keys": [
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize <= RIFF_HEADER_SIZE\u0000658\u00007\u0000658\u000034",
+        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize <= RIFF_HEADER_SIZE\u0000658\u00007\u0000658\u000034"
+      ],
+      "originClusterId": "webp:src/webp/riff.ts:encodeRiffHeader:EqualityOperator",
+      "note": "reports/triage/67-45/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-45/red-baseline.json (src/webp/riff.ts lines 379 and 645-647, a real run on the unedited source with the pre-Plan-42 tests swapped in, all 9 members undetected), reports/triage/67-45/red.json (current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member. Earlier killer: a Plan 67-42 webp-1 test already kills this member in the current-test red run (reports/triage/67-45/red.json shows it Killed by \"webp-handler.ts buildOutputPlan, writeAll, copyChunkData, chunksEqual and verifyOutput clusters (67-42, webp-1) > writeAll ConditionalExpression cluster: a write that makes no progress fails after exactly one attempt\"), so the hosted pre-triage status (Survived) and red-baseline.json (all 9 members undetected with the pre-Plan-42 tests) are the red evidence; the Plan 67-45 test is the named killer and also kills it in this report (--disableBail lists every failing test).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts encodeRiffHeader and incrementChunkCount clusters (67-45, webp-4) > encodeRiffHeader EqualityOperator cluster: a size of exactly the 12-byte header encodes a zero-chunk RIFF header"
+      }
+    },
+    {
+      "id": "webp:src/webp/riff.ts:encodeRiffHeader:EqualityOperator:gap-02",
+      "group": "webp",
+      "file": "src/webp/riff.ts",
+      "function": "encodeRiffHeader",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
         "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize >= MAX_RIFF_BYTES\u0000658\u000038\u0000658\u000063"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize <= RIFF_HEADER_SIZE\u0000fileSize < RIFF_HEADER_SIZE\u00001",
-        "src/webp/riff.ts\u0000EqualityOperator\u0000fileSize >= MAX_RIFF_BYTES\u0000fileSize > MAX_RIFF_BYTES\u00001"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "originClusterId": "webp:src/webp/riff.ts:encodeRiffHeader:EqualityOperator",
+      "note": "reports/triage/67-45/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-45/red-baseline.json (src/webp/riff.ts lines 379 and 645-647, a real run on the unedited source with the pre-Plan-42 tests swapped in, all 9 members undetected), reports/triage/67-45/red.json (current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts encodeRiffHeader and incrementChunkCount clusters (67-45, webp-4) > encodeRiffHeader EqualityOperator cluster: a size of exactly the RIFF limit encodes the 32-bit size field"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:encodeRiffHeader:LogicalOperator",
@@ -199506,15 +199543,16 @@
       "file": "src/webp/riff.ts",
       "function": "encodeRiffHeader",
       "mutatorName": "LogicalOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/webp/riff.ts\u0000LogicalOperator\u0000fileSize < RIFF_HEADER_SIZE && fileSize > MAX_RIFF_BYTES\u0000658\u00007\u0000658\u000063"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000LogicalOperator\u0000fileSize < RIFF_HEADER_SIZE && fileSize > MAX_RIFF_BYTES\u0000fileSize < RIFF_HEADER_SIZE || fileSize > MAX_RIFF_BYTES\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-45/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-45/red-baseline.json (src/webp/riff.ts lines 379 and 645-647, a real run on the unedited source with the pre-Plan-42 tests swapped in, all 9 members undetected), reports/triage/67-45/red.json (current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts encodeRiffHeader and incrementChunkCount clusters (67-45, webp-4) > encodeRiffHeader ConditionalExpression, LogicalOperator, BlockStatement and CallExpression clusters: a size below the 12-byte RIFF header is refused with a RangeError"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:incrementChunkCount:EqualityOperator",
@@ -199522,15 +199560,16 @@
       "file": "src/webp/riff.ts",
       "function": "incrementChunkCount",
       "mutatorName": "EqualityOperator",
-      "disposition": "pending",
+      "disposition": "gap",
       "count": 1,
       "keys": [
         "src/webp/riff.ts\u0000EqualityOperator\u0000chunkCount >= MAX_CHUNK_COUNT\u0000388\u00009\u0000388\u000037"
       ],
-      "anchors": [
-        "src/webp/riff.ts\u0000EqualityOperator\u0000chunkCount >= MAX_CHUNK_COUNT\u0000chunkCount > MAX_CHUNK_COUNT\u00000"
-      ],
-      "note": "Awaiting the maintainer ruling in 67-33-HALTED.md (a behavior-preserving source simplification of the redundant tiff.length < 8 guard in readIfd0Resolution): this member has the same typed outcome with or without the guard, and its sibling replacement on the same line is observable and Killed, so no next-line directive can own it honestly."
+      "note": "reports/triage/67-45/batch.json (Killed); the exact named test appears in killedBy. Red: reports/triage/67-45/red-baseline.json (src/webp/riff.ts lines 379 and 645-647, a real run on the unedited source with the pre-Plan-42 tests swapped in, all 9 members undetected), reports/triage/67-45/red.json (current tests) and the immutable hosted pre-triage status (Survived or NoCoverage) for this member.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "riff.ts encodeRiffHeader and incrementChunkCount clusters (67-45, webp-4) > incrementChunkCount EqualityOperator cluster: exactly the aggregate chunk limit parses and one chunk more is refused as unsafe-structure"
+      }
     },
     {
       "id": "webp:src/webp/riff.ts:parseWebp:ArithmeticOperator:gap-01",
