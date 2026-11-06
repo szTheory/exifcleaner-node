@@ -124,7 +124,6 @@ import {
   pngChunk,
   pngGama,
   pngIccp,
-  pngIdat,
   pngIhdr,
   pngItxt,
   pngSrgb,
