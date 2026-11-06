@@ -42,7 +42,6 @@ export function rawProfileExifOrientation(
   if (
     trimmedCount.length === 0 ||
     String(declaredLength) !== trimmedCount ||
-    // Stryker disable next-line ConditionalExpression: unobservable-message — a negative declared count also fails the hex length check below (a slice length is never negative, so it never equals twice a negative count) with the same malformed-file refusal and no limit context, so only the diagnostic text differs.
     declaredLength < 0
   ) {
     throw new PngStructureError(
