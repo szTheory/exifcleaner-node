@@ -11817,6 +11817,22 @@ describe("riff.ts readExactly, chunkRank, validateImagePayload, validateAlphaPay
     );
   });
 
+  it("parseWebp StringLiteral cluster: an ANIM chunk of 7 bytes is refused as malformed-file, one of 6 bytes is accepted", async () => {
+    const withAnim = (data: Buffer): Buffer =>
+      webpFile([
+        { fourCc: "VP8X", data: vp8x(0x02) },
+        { fourCc: "ANIM", data },
+        { fourCc: "ANMF", data: animationFrame() },
+      ]);
+    await rfExpectKind(withAnim(Buffer.alloc(7)), "malformed-file");
+    const parsed = await rfParse(withAnim(anim()));
+    expect(parsed.chunks.map((item) => item.fourCc)).toEqual([
+      "VP8X",
+      "ANIM",
+      "ANMF",
+    ]);
+  });
+
   it("chunkRank ConditionalExpression and StringLiteral clusters: ANIM and ANMF are ordered, a chunk after ANMF cannot be an ANIM", async () => {
     await rfExpectKind(
       webpFile([
