@@ -540,7 +540,9 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
             const reparsed = parseExif(exifData);
             if (!exifData.equals(expectedData) ||
                 reparsed.orientation.status !== "valid" ||
+                // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — an eXIf payload equal to the freshly built minimal orientation payload reads back as that same valid orientation, so this operand is false whenever the first operand is false, and the first operand alone refuses every other payload.
                 reparsed.orientation.value !== expectedOrientation ||
+                // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — an eXIf payload equal to the freshly built minimal orientation payload reads back as exactly one entry, so this operand is false whenever the first operand is false, and the first operand alone refuses every other payload.
                 reparsed.entries.length !== 1)
                 return err(verificationError("Inserted eXIf did not equal the minimal orientation payload.", destinationPath));
         }
@@ -548,6 +550,7 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
         const destinationForComparison = insertOrientation
             ? destination.chunks.filter((_chunk, index) => index !== 1)
             : destination.chunks;
+        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the destination ends at its single IEND chunk and the loop below pairs every kept source chunk with the destination chunk at the same position, so a count difference already fails there: a missing destination chunk is an undefined operand, and a longer destination pairs the last kept source chunk, IEND, with a chunk of another type.
         if (sourceKept.length !== destinationForComparison.length)
             return err(verificationError("Destination chunk count did not match the sanitized plan.", destinationPath));
         for (let index = 0; index < sourceKept.length; index += 1) {
@@ -555,6 +558,7 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
             const right = destinationForComparison[index];
             if (left === undefined ||
                 right === undefined ||
+                // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the four type bytes of a chunk lie inside the span that chunksEqual compares, so a destination chunk of another type fails that comparison with the same refusal; a comparison that cannot complete throws and the catch returns the same typed code.
                 left.type !== right.type ||
                 !(await chunksEqual(sourceHandle, left, destinationHandle, right, signal)))
                 return err(verificationError("Kept PNG chunk bytes changed.", destinationPath));
