@@ -9925,4 +9925,27 @@ describe("png/chunks.ts type-byte, structure, read and error clusters (67-40, pn
     ]);
     expect(reads[1]?.length).toBe(PNG_CHUNK_READ_WINDOW_BYTES);
   });
+
+  it("readWindowed EqualityOperator cluster: a chunk one byte over the read window is read directly and buffered whole", async () => {
+    const data = pcBytes(PNG_CHUNK_READ_WINDOW_BYTES + 1);
+    const { parsed } = await pcParse(pcImage(pngChunk("caBX", data)));
+    expect(parsed.chunks[1]?.length).toBe(data.length);
+    expect(parsed.buffered.get(1)?.equals(data)).toBe(true);
+  });
+
+  it("readWindowed ArithmeticOperator cluster: a chunk one byte under the read window is served by refilling the whole window", async () => {
+    const data = pcBytes(PNG_CHUNK_READ_WINDOW_BYTES - 1);
+    const fixture = pcImage(pngChunk("caBX", data));
+    const { parsed, reads } = await pcParse(fixture);
+    expect(parsed.buffered.get(1)?.equals(data)).toBe(true);
+    // Signature, then the first window, then the refill that starts at the chunk data.
+    const dataOffset = PNG_SIGNATURE.length + 25 + 8;
+    expect(
+      reads.slice(0, 3).map((read) => [read.position, read.length]),
+    ).toEqual([
+      [0, PNG_SIGNATURE.length],
+      [PNG_SIGNATURE.length, PNG_CHUNK_READ_WINDOW_BYTES],
+      [dataOffset, PNG_CHUNK_READ_WINDOW_BYTES],
+    ]);
+  });
 });
