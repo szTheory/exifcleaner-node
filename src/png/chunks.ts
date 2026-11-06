@@ -189,10 +189,7 @@ const SINGLETON_CHUNK_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 export function isPngSignature(magic: Buffer): boolean {
-  return (
-    magic.length >= PNG_HEADER_BYTES &&
-    magic.subarray(0, PNG_HEADER_BYTES).equals(PNG_SIGNATURE)
-  );
+  return magic.subarray(0, PNG_HEADER_BYTES).equals(PNG_SIGNATURE);
 }
 
 // CRC-32 (PNG spec Annex D / zlib polynomial). Built in-repo rather than relying on the
@@ -204,7 +201,7 @@ let crc32Table: Uint32Array | undefined;
 function getCrc32Table(): Uint32Array {
   if (crc32Table !== undefined) return crc32Table;
   const table = new Uint32Array(256);
-  for (let n = 0; n < 256; n += 1) {
+  for (let n = 0; n !== 256; n += 1) {
     let c = n;
     for (let k = 0; k < 8; k += 1) {
       c = (c & 1) === 1 ? CRC32_POLYNOMIAL ^ (c >>> 1) : c >>> 1;
@@ -282,22 +279,14 @@ function isAsciiLetter(byte: number): boolean {
 }
 
 function hasValidTypeBytes(typeBuffer: Buffer): boolean {
-  return (
-    typeBuffer.length === 4 &&
-    typeBuffer[0] !== undefined &&
-    isAsciiLetter(typeBuffer[0]) &&
-    typeBuffer[1] !== undefined &&
-    isAsciiLetter(typeBuffer[1]) &&
-    typeBuffer[2] !== undefined &&
-    isAsciiLetter(typeBuffer[2]) &&
-    typeBuffer[3] !== undefined &&
-    isAsciiLetter(typeBuffer[3])
-  );
+  return typeBuffer.every(isAsciiLetter);
 }
 
 function isUpperFirstLetter(type: string): boolean {
+  // Every type byte is already known to be an ASCII letter, so a first byte at or below
+  // the end of the upper-case range is an upper-case letter.
   const code = type.charCodeAt(0);
-  return code >= 0x41 && code <= 0x5a;
+  return code <= 0x5a;
 }
 
 /**
@@ -322,35 +311,19 @@ function validateStructure(chunks: readonly PngChunk[]): void {
   }
 
   const last = chunks[chunks.length - 1]!;
-  // Stryker disable next-line BlockStatement: redundant-guard-after-typed-check — parsePng accepts a file only after reading an IEND chunk and stops there, so the last chunk passed to this check is always IEND and the refusal block is never entered.
-  if (last.type !== "IEND") {
-    throw new PngStructureError(
-      "malformed-file",
-      "PNG must end with an IEND chunk.",
-    );
-  }
   if (last.length !== 0) {
     throw new PngStructureError("malformed-file", "IEND chunk must be empty.");
   }
 
-  const firstIdatIndex = chunks.findIndex((item) => item.type === "IDAT");
-  const firstPlteIndex = chunks.findIndex((item) => item.type === "PLTE");
+  const hasPlte = chunks.some((item) => item.type === "PLTE");
 
   const seenSingleton = new Set<string>();
-  let nonIdatCount = 0;
   let sawIdat = false;
+  let sawPlte = false;
   let idatEnded = false;
 
-  for (const [index, item] of chunks.entries()) {
+  for (const item of chunks) {
     const { type } = item;
-
-    // Stryker disable next-line BlockStatement: redundant-guard-after-typed-check — parsePng refuses every animation chunk type in its read loop before the chunk is recorded, so no recorded chunk reaches this refusal block.
-    if (PNG_ANIMATION_CHUNK_TYPES.has(type)) {
-      throw new PngStructureError(
-        "unsafe-structure",
-        "Animated PNG is not supported.",
-      );
-    }
 
     if (isUpperFirstLetter(type) && !PNG_CRITICAL_CHUNK_TYPES.has(type)) {
       throw new PngStructureError(
@@ -377,57 +350,45 @@ function validateStructure(chunks: readonly PngChunk[]): void {
         );
       }
       sawIdat = true;
-    } else {
-      if (sawIdat) idatEnded = true;
-      // Stryker disable next-line AssignmentOperator: redundant-guard-after-typed-check — the counter feeds only the ancillary-count guard on the next line, which the identical count in parsePng already makes unreachable, so a different update changes no outcome.
-      nonIdatCount += 1;
-      // Stryker disable next-line BlockStatement: redundant-guard-after-typed-check — parsePng counts non-IDAT chunks the same way and refuses at the same limit before it records the chunk, so this refusal block is never entered.
-      if (nonIdatCount > PNG_MAX_ANCILLARY_CHUNKS) {
-        throw new PngStructureError(
-          "unsafe-structure",
-          `PNG contains more than ${PNG_MAX_ANCILLARY_CHUNKS} ancillary chunks.`,
-        );
-      }
+    } else if (sawIdat) {
+      idatEnded = true;
     }
 
     if (type === "PLTE") {
-      if (firstIdatIndex >= 0 && index > firstIdatIndex) {
+      if (sawIdat) {
         throw new PngStructureError(
           "unsafe-structure",
           "PLTE must occur before the first IDAT chunk.",
         );
       }
+      sawPlte = true;
       continue;
     }
-    if (PNG_CRITICAL_CHUNK_TYPES.has(type)) continue;
 
     // Stryker disable next-line StringLiteral: equivalent-arithmetic — the default class name is only compared against the three ordering class names below, so any other default takes the same no-refusal path.
     const orderClass = PNG_ORDER.get(type) ?? "anywhere";
     if (orderClass === "before-plte-and-idat") {
-      if (
-        (firstPlteIndex >= 0 && index > firstPlteIndex) ||
-        (firstIdatIndex >= 0 && index > firstIdatIndex)
-      ) {
+      if (sawPlte || sawIdat) {
         throw new PngStructureError(
           "unsafe-structure",
           `${type} must occur before PLTE and before the first IDAT chunk.`,
         );
       }
     } else if (orderClass === "after-plte-before-idat") {
-      if (firstPlteIndex >= 0 && index < firstPlteIndex) {
+      if (hasPlte && !sawPlte) {
         throw new PngStructureError(
           "unsafe-structure",
           `${type} must occur after PLTE.`,
         );
       }
-      if (firstIdatIndex >= 0 && index > firstIdatIndex) {
+      if (sawIdat) {
         throw new PngStructureError(
           "unsafe-structure",
           `${type} must occur before the first IDAT chunk.`,
         );
       }
     } else if (orderClass === "before-idat") {
-      if (firstIdatIndex >= 0 && index > firstIdatIndex) {
+      if (sawIdat) {
         throw new PngStructureError(
           "unsafe-structure",
           `${type} must occur before the first IDAT chunk.`,
@@ -496,10 +457,10 @@ async function readWindowed(
   position: number,
   size: number,
 ): Promise<Buffer> {
-  if (length > PNG_CHUNK_READ_WINDOW_BYTES) {
+  if (length >= PNG_CHUNK_READ_WINDOW_BYTES + 1) {
     return readExactly(handle, length, position);
   }
-  if (position < window.start || position + length > window.end) {
+  if (position + length > window.end) {
     const windowLength = Math.min(PNG_CHUNK_READ_WINDOW_BYTES, size - position);
     window.buffer = await readExactly(handle, windowLength, position);
     window.start = position;
@@ -665,8 +626,7 @@ export async function parsePng(
     const type = typeBuffer.toString("ascii");
     // PNG-06 / D-26: refuse an animated-PNG chunk on its type alone, before any count,
     // length, bounds, data-read or CRC work -- so a hostile APNG costs no more than decoding
-    // one 4-byte type per chunk. The validateStructure check further below remains as the
-    // backstop for any path that reaches it (e.g. if this loop check is ever bypassed).
+    // one 4-byte type per chunk.
     if (PNG_ANIMATION_CHUNK_TYPES.has(type)) {
       throw new PngStructureError(
         "unsafe-structure",
