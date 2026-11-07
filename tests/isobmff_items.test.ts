@@ -1630,3 +1630,151 @@ describe("parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperat
     expect(Object.hasOwn(model, "colorProfile")).toBe(false);
   });
 });
+
+// --- Plan 67-46 Task 0b: a field truncated at exactly the read each `ensureBytes` guards -------
+//
+// Each case feeds `parseIsobmff` a structurally framed box whose payload ends exactly where (or
+// one byte before) the guarded field ends, and expects the typed `box-framing` refusal. Where the
+// guarded read is a Buffer accessor, removing the bounds check surfaces a raw RangeError instead;
+// where it is a lenient slice (`colr` colour_type, the `iinf`/`dref` entry counts) removing it
+// lets parsing continue and either admit the box or decline with a different class. Only the
+// refusal's class and kind are asserted, never its wording.
+describe("items.ts bounds checks decline box-framing for a field cut short", () => {
+  const declineFraming = (file: Buffer) =>
+    expectDecline(file, "box-framing", "malformed-file");
+  const withoutPitm = (child: Buffer) =>
+    buildMinimalFile({ omitPitm: true, extraMetaChildren: [child] });
+  const withIref = (version: 0 | 1, body: Buffer) =>
+    buildMinimalFile({
+      extraMetaChildren: [fullBox("iref", version, 0, box("dimg", body))],
+    });
+
+  it("parses the complete pitm, iref, grpl and dref boxes these cases truncate", async () => {
+    const model = await parseFixtureBytes(
+      buildMinimalFile({
+        extraMetaChildren: [
+          irefBox(0, [{ type: "dimg", fromItemId: 1, toItemIds: [1] }]),
+          grplBox([{ type: "altr", groupId: 9, entityIds: [1] }]),
+          box(
+            "dinf",
+            drefWithEntries([fullBox("url ", 0, 1, Buffer.alloc(0))]),
+          ),
+        ],
+      }),
+    );
+    expect(model.primaryItemId).toBe(1);
+    expect(model.references).toEqual([
+      { type: "dimg", fromItemId: 1, toItemIds: [1] },
+    ]);
+    expect(model.groups).toEqual([
+      { type: "altr", groupId: 9, entityIds: [1] },
+    ]);
+  });
+
+  it("pitm item_ID: version 0 with one byte and version 1 with three bytes", async () => {
+    await declineFraming(withoutPitm(fullBox("pitm", 0, 0, Buffer.alloc(1))));
+    await declineFraming(withoutPitm(fullBox("pitm", 1, 0, Buffer.alloc(3))));
+  });
+
+  it("infe item_ID: version 2 with one byte and version 3 with three bytes", async () => {
+    await declineFraming(
+      buildMinimalFile({
+        iinfChild: iinfBox(0, [fullBox("infe", 2, 0, Buffer.alloc(1))]),
+      }),
+    );
+    await declineFraming(
+      buildMinimalFile({
+        iinfChild: iinfBox(0, [fullBox("infe", 3, 0, Buffer.alloc(3))]),
+      }),
+    );
+  });
+
+  it("iinf entry_count: version 0 with one byte and version 1 with three bytes", async () => {
+    await declineFraming(
+      buildMinimalFile({ iinfChild: fullBox("iinf", 0, 0, Buffer.alloc(1)) }),
+    );
+    await declineFraming(
+      buildMinimalFile({
+        iinfChild: fullBox("iinf", 1, 0, Buffer.alloc(3)),
+        infeVersion: 3,
+      }),
+    );
+  });
+
+  it("iref from_item_ID: version 0 with one byte and version 1 with three bytes", async () => {
+    await declineFraming(withIref(0, Buffer.alloc(1)));
+    await declineFraming(withIref(1, Buffer.alloc(3)));
+  });
+
+  it("iref reference_count: absent or one byte short after a complete from_item_ID", async () => {
+    await declineFraming(withIref(0, Buffer.from([0x00, 0x01])));
+    await declineFraming(withIref(0, Buffer.from([0x00, 0x01, 0x00])));
+    await declineFraming(withIref(1, Buffer.from([0x00, 0x00, 0x00, 0x01])));
+  });
+
+  it("iref to_item_ID: a declared reference with no id bytes or one byte short", async () => {
+    await declineFraming(withIref(0, Buffer.from([0x00, 0x01, 0x00, 0x01])));
+    await declineFraming(
+      withIref(0, Buffer.from([0x00, 0x01, 0x00, 0x01, 0x00])),
+    );
+    await declineFraming(withIref(1, Buffer.from([0, 0, 0, 1, 0, 1, 0, 0, 0])));
+  });
+
+  it("colr colour_type: a payload shorter than four bytes", async () => {
+    for (const bytes of [0, 2, 3]) {
+      await declineFraming(
+        buildMinimalFile({
+          ipcoProperties: [
+            ispe(32, 32),
+            hvcC(),
+            box("colr", Buffer.from("prof", "ascii").subarray(0, bytes)),
+          ],
+          ipmaAssociations: [
+            { propertyIndex: 1, essential: false },
+            { propertyIndex: 3, essential: false },
+          ],
+        }),
+      );
+    }
+  });
+
+  it("grpl group_id and num_entities_in_group: fewer than eight payload bytes", async () => {
+    for (const bytes of [0, 3, 7]) {
+      await declineFraming(
+        buildMinimalFile({
+          extraMetaChildren: [
+            box("grpl", fullBox("altr", 0, 0, Buffer.alloc(bytes))),
+          ],
+        }),
+      );
+    }
+  });
+
+  it("grpl entity_id: a declared entity with no id bytes or one byte short", async () => {
+    const header = Buffer.from([0, 0, 0, 42, 0, 0, 0, 1]);
+    for (const tail of [[], [0, 0, 0]]) {
+      await declineFraming(
+        buildMinimalFile({
+          extraMetaChildren: [
+            box(
+              "grpl",
+              fullBox("altr", 0, 0, Buffer.concat([header, Buffer.from(tail)])),
+            ),
+          ],
+        }),
+      );
+    }
+  });
+
+  it("dref entry_count: fewer than four payload bytes after the FullBox header", async () => {
+    for (const bytes of [0, 3]) {
+      await declineFraming(
+        buildMinimalFile({
+          extraMetaChildren: [
+            box("dinf", fullBox("dref", 0, 0, Buffer.alloc(bytes))),
+          ],
+        }),
+      );
+    }
+  });
+});
