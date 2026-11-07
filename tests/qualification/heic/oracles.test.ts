@@ -878,7 +878,7 @@ describe("HEIC 62.1-09 maintainer decisions: pure negative controls (no ExifTool
         [C034_RECORD]: {
           code: "unsupported-feature",
           feature: "orientation-preservation",
-          detail: "EXIF TIFF header is truncated",
+          detail: "EXIF byte order is invalid",
         },
       });
     });
