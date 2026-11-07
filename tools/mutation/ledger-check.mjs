@@ -17,6 +17,7 @@ import {
   validateDeletion,
   validateReadCStringBoundary,
   containsWholeWord,
+  declaredTestStatus,
   enclosingFunctionSpan,
 } from "./deletion-proof.mjs";
 
@@ -138,6 +139,7 @@ export function checkLedger({
         readTest: (file) => readFileSync(join(root, file), "utf8"),
         survivors: immutableSurvivors,
         requireFinal: mode === "final" && finalReport !== null,
+        measuredHeadReport: mode === "final" && finalReport !== null,
       });
       problems.push(...proof.problems);
     }
@@ -156,6 +158,7 @@ export function checkLedger({
       readTest: (file) => readFileSync(join(root, file), "utf8"),
       survivors: immutableSurvivors,
       requireFinal: finalReport !== null,
+      measuredHeadReport: mode === "final" && finalReport !== null,
     });
     problems.push(...proof.problems);
   }
@@ -174,14 +177,37 @@ export function checkLedger({
         const path = typeof file === "string" ? join(root, file) : null;
         if (path === null || !existsSync(path))
           problems.push(`${c.id}: gap test file ${file} is missing`);
-        else if (
-          typeof name !== "string" ||
-          name === "" ||
-          !readFileSync(path, "utf8").includes(name)
-        )
-          problems.push(
-            `${c.id}: gap test ${file} does not contain test name ${JSON.stringify(name)}`,
-          );
+        else {
+          // Plan 67-46 amendment 1: structural resolution of the describe > it path in the parsed
+          // test file (never a substring); a generated or modified registration must be
+          // corroborated by exactly one test of the measured report whose test source is the file.
+          const source = readFileSync(path, "utf8");
+          const found = declaredTestStatus(source, name);
+          const table = finalReport?.testFiles?.[file];
+          const corroborated =
+            found.status === "unsupported" &&
+            table?.source === source &&
+            Array.isArray(table.tests) &&
+            table.tests.filter(
+              (test) => test.name === name || test.name.endsWith(` > ${name}`),
+            ).length === 1;
+          if (found.status === "ambiguous")
+            problems.push(
+              `${c.id}: gap test ${file} names an ambiguous test ${JSON.stringify(name)} (${found.paths.length} static declarations)`,
+            );
+          else if (found.status === "modified")
+            problems.push(
+              `${c.id}: gap test ${file} name ${JSON.stringify(name)} is skipped, exclusive, conditional or otherwise modified and cannot be corroborated`,
+            );
+          else if (found.status === "unsupported" && !corroborated)
+            problems.push(
+              `${c.id}: gap test ${file} name ${JSON.stringify(name)} is generated and the measured report does not show exactly one such test`,
+            );
+          else if (found.status === "absent")
+            problems.push(
+              `${c.id}: gap test ${file} does not contain test name ${JSON.stringify(name)}`,
+            );
+        }
       } else if (c.disposition === "dead") {
         if (typeof c.symbol !== "string" || c.symbol === "")
           problems.push(`${c.id}: dead row has no symbol`);

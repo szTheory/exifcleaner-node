@@ -833,9 +833,19 @@ function readCommittedReportFixture(root, relative, label) {
   return readFileSync(expected);
 }
 
-function selectIlocReportBinding(receipt, finalReport, root) {
+function selectIlocReportBinding(
+  receipt,
+  finalReport,
+  root,
+  measuredHeadReport = false,
+) {
   const reportFiles = Object.keys(finalReport?.files ?? {}).sort();
   if (reportFiles.length === 1 && reportFiles[0] === "src/isobmff/iloc.ts")
+    return null;
+  // Plan 67-46 amendment 1: a hosted whole-run report measured on the committed head has no
+  // registered report-specific binding to select; its iloc entry is checked by
+  // assertIlocFinalEvidence exactly as the single-file report's is.
+  if (measuredHeadReport && finalReport?.files?.["src/isobmff/iloc.ts"])
     return null;
   if (canonical(reportFiles) !== canonical([...ISOBMFF3_SOURCE_FILES].sort()))
     throw new Error(
@@ -1339,6 +1349,7 @@ export function validateDeletion({
   readTest = null,
   survivors = null,
   requireFinal = false,
+  measuredHeadReport = false,
 }) {
   const problems = [],
     anchors = [],
@@ -1599,7 +1610,12 @@ export function validateDeletion({
 
     if (finalReport && finalEntry) {
       const reportBinding = ilocBoundary
-        ? selectIlocReportBinding(receipt, finalReport, root)
+        ? selectIlocReportBinding(
+            receipt,
+            finalReport,
+            root,
+            measuredHeadReport,
+          )
         : null;
       if (ilocBoundary)
         assertIlocFinalEvidence(finalEntry, finalReport, root, readTest, row);
@@ -1959,16 +1975,21 @@ export function validateDeletion({
               "detected successor test source is absent or stale",
             );
           const killedBy = resolvedTests(finalReport, mutant);
-          if (
-            reportBinding
-              ? !mutant.killedBy?.some((id) => String(id) === expectedTest.id)
-              : !killedBy.some(
+          // Plan 67-46 amendment 1: a hosted whole-run report records its own first failing test,
+          // which need not be the receipt's named test. In measured-head mode the named test must
+          // be present once in the report table with the committed source (checked above) and the
+          // successor must be detected by some recorded test (a Timeout may record none).
+          const namesRealTest = measuredHeadReport
+            ? killedBy.length > 0 || mutant.status === "Timeout"
+            : reportBinding
+              ? mutant.killedBy?.some((id) => String(id) === expectedTest.id)
+              : killedBy.some(
                   (test) =>
                     test.file === expectedTest.file &&
                     (test.name === expectedTest.name ||
                       test.name.endsWith(` > ${expectedTest.name}`)),
-                )
-          )
+                );
+          if (!namesRealTest)
             throw new Error(
               "detected successor killedBy does not name the real test",
             );
@@ -2175,6 +2196,104 @@ function cstringEquivalentReport(actual, measured) {
     };
   };
   return canonical(evidence(actual, "current")) === canonical(evidence(measured, "measured"));
+}
+
+/**
+ * Plan 67-46 amendment 1: the receipt's claims, checked against a hosted whole-run report of the
+ * committed head. Returns true only when the live raw file keeps the exact single
+ * ArithmeticOperator directive layout inside readCString, and the report's items.ts entry (alone;
+ * other files are ignored) shows, for the operation site, the same mutants with detected or
+ * ignored statuses the sealed candidate showed. Killed-by attribution is not compared: it
+ * legitimately moves when later plans add tests; the named killers' own source closures stay bound
+ * by cstringDirectKill.
+ */
+function cstringMeasuredHeadHolds({
+  row,
+  finalEntry,
+  finalReport,
+  diskSource,
+}) {
+  try {
+    const span = enclosingFunctionSpan(diskSource, CSTRING_OPERATION.function);
+    const lines = span.text.split("\n");
+    const directives = lines.flatMap((line, index) =>
+      DIRECTIVE.test(line) ? [index] : [],
+    );
+    if (
+      directives.length !== 1 ||
+      lines[directives[0]].trim() !== CSTRING_EQUIVALENT_DIRECTIVE ||
+      lines[directives[0] + 1]?.trim() !==
+        `while (${CSTRING_OPERATION.after} && buffer[end] !== 0) end += 1;`
+    )
+      return false;
+    const live = cstringRecords(
+      {
+        files: { [CSTRING_OPERATION.file]: finalEntry },
+        testFiles: finalReport.testFiles ?? {},
+      },
+      "live",
+    );
+    const start = cstringExpressionOffset(live.source, CSTRING_OPERATION.after);
+    const end = start + CSTRING_OPERATION.after.length;
+    const site = live.records.filter(
+      (record) =>
+        (record.start <= start && record.end >= end) ||
+        (record.start < end && record.end > start),
+    );
+    if (
+      site.some(
+        (record) =>
+          record.status === "Survived" || record.status === "NoCoverage",
+      )
+    )
+      return false;
+    const detected = (record) =>
+      record.status === "Killed" || record.status === "Timeout";
+    const expectations = [
+      [
+        site,
+        "BlockStatement",
+        "{}",
+        (record) => record.status === "CompileError",
+      ],
+      [site, "ConditionalExpression", "false", detected],
+      [
+        site,
+        "LogicalOperator",
+        "end <= buffer.length - 1 || buffer[end] !== 0",
+        detected,
+      ],
+      [site, "ConditionalExpression", "true", detected],
+      [site, "EqualityOperator", "end > buffer.length - 1", detected],
+      // The NUL-predicate opposite lies outside the operation span; the receipt finds it by
+      // mutator and replacement over the whole file.
+      [live.records, "EqualityOperator", "buffer[end] === 0", detected],
+    ];
+    for (const [pool, mutatorName, replacement, accepts] of expectations) {
+      const found = pool.filter(
+        (record) =>
+          record.mutatorName === mutatorName &&
+          record.replacement === replacement,
+      );
+      if (found.length !== 1 || !accepts(found[0])) return false;
+    }
+    const equivalent = site.filter(
+      (record) =>
+        record.mutatorName === "ArithmeticOperator" &&
+        record.replacement === "buffer.length + 1",
+    );
+    return (
+      equivalent.length === 1 &&
+      equivalent[0].status === "Ignored" &&
+      /^equivalent-arithmetic — \S/.test(
+        String(equivalent[0].mutant.statusReason ?? ""),
+      ) &&
+      row.anchors?.length === 1 &&
+      row.anchors[0] === equivalent[0].rawAnchor
+    );
+  } catch {
+    return false;
+  }
 }
 
 function cstringExpressionOffset(source, expression) {
@@ -2666,6 +2785,244 @@ export function namedKillerBinding(source, fullTestName) {
   return digest;
 }
 
+/**
+ * Plan 67-46 amendment 1: structural resolution of a gap row's test name against the parsed
+ * test file. `describe`/`it`/`test` statements with static titles and function callbacks form
+ * full paths joined with " > " (Vitest's own naming). A row name matches a path when it equals it
+ * or equals a suffix that starts at a segment boundary (the leaf-only spelling several rows use).
+ * Statuses: "declared" (exactly one static path matches), "absent", "ambiguous" (two or more
+ * static paths match), "unsupported" (a dynamic, templated, looped or modified registration
+ * could generate the name, or the source does not parse); callers must corroborate
+ * "unsupported" against the measured report and fail closed otherwise.
+ */
+export function declaredTestStatus(source, name) {
+  const unsupported = { status: "unsupported", paths: [] };
+  if (
+    typeof source !== "string" ||
+    typeof name !== "string" ||
+    name === "" ||
+    name.split(" > ").some((part) => part === "")
+  )
+    return unsupported;
+  let index;
+  try {
+    index = declaredTestIndex(source);
+  } catch {
+    return unsupported;
+  }
+  if (index === null) return unsupported;
+  const matches = index.paths.filter(
+    (path) => path === name || path.endsWith(` > ${name}`),
+  );
+  const leaf = name.includes(" > ")
+    ? name.slice(name.lastIndexOf(" > ") + 3)
+    : name;
+  const reaches = (title) =>
+    title.kind === "exact"
+      ? title.text === leaf
+      : (title.head !== "" || title.tail !== "") &&
+        leaf.startsWith(title.head) &&
+        leaf.endsWith(title.tail);
+  // A skipped, todo, conditional, exclusive, failing-expected or x/f-prefixed registration that
+  // could carry the name is never corroborable: the runner may list a test it does not run.
+  if (index.titles.some((title) => title.modified && reaches(title)))
+    return { status: "modified", paths: matches };
+  if (index.generatesAny || index.titles.some(reaches))
+    return { status: "unsupported", paths: matches };
+  if (matches.length === 0) return { status: "absent", paths: [] };
+  if (matches.length > 1) return { status: "ambiguous", paths: matches };
+  return { status: "declared", paths: matches };
+}
+
+const declaredTestCache = new Map();
+
+/**
+ * The static describe/it/test paths of one test source plus the titles of every other
+ * registration (so a looped, templated, modified or wrapped registration can be matched against a
+ * requested name). Memoized per source digest in a bounded map (64 entries).
+ */
+function declaredTestIndex(source) {
+  const key = hash(source);
+  if (declaredTestCache.has(key)) return declaredTestCache.get(key);
+  const ts = loadTypeScriptForBinding();
+  const sf = ts.createSourceFile(
+    "declared-test.test.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  let index = null;
+  if (sf.parseDiagnostics.length === 0) {
+    const unwrap = (node) => {
+      while (
+        ts.isParenthesizedExpression(node) ||
+        ts.isNonNullExpression(node) ||
+        ts.isAsExpression(node) ||
+        ts.isSatisfiesExpression(node) ||
+        ts.isTypeAssertionExpression(node)
+      )
+        node = node.expression;
+      return node;
+    };
+    const registrationRoot = (callee) => {
+      let node = callee;
+      for (;;) {
+        node = unwrap(node);
+        if (
+          ts.isPropertyAccessExpression(node) ||
+          ts.isElementAccessExpression(node)
+        )
+          node = node.expression;
+        else if (ts.isCallExpression(node)) node = node.expression;
+        else if (ts.isTaggedTemplateExpression(node)) node = node.tag;
+        else break;
+      }
+      return ts.isIdentifier(node) ? node.text : null;
+    };
+    const containsRegistration = (node) => {
+      let found = false;
+      const visit = (child) => {
+        if (found) return;
+        if (
+          ts.isCallExpression(child) &&
+          KILLER_REGISTRATION_ROOTS.has(registrationRoot(child.expression))
+        ) {
+          found = true;
+          return;
+        }
+        ts.forEachChild(child, visit);
+      };
+      visit(node);
+      return found;
+    };
+    const staticTitle = (node) =>
+      node &&
+      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+        ? node.text
+        : null;
+    const isFunctionNode = (node) =>
+      ts.isArrowFunction(node) || ts.isFunctionExpression(node);
+    const staticRegistration = (statement) => {
+      if (!ts.isExpressionStatement(statement)) return null;
+      const call = statement.expression;
+      if (
+        !ts.isCallExpression(call) ||
+        !ts.isIdentifier(call.expression) ||
+        !KILLER_PLAIN_ROOTS.has(call.expression.text) ||
+        (call.typeArguments && call.typeArguments.length > 0)
+      )
+        return null;
+      const [first, ...rest] = call.arguments;
+      const title = first === undefined ? null : staticTitle(first);
+      if (title === null || rest.filter(isFunctionNode).length !== 1)
+        return null;
+      return {
+        kind: call.expression.text,
+        title,
+        callback: rest.find(isFunctionNode),
+      };
+    };
+    const titles = [];
+    const MODIFIER_PROPERTIES = new Set([
+      "skip",
+      "todo",
+      "skipIf",
+      "runIf",
+      "only",
+      "fails",
+    ]);
+    const MODIFIER_ROOTS = new Set([
+      "xit",
+      "xtest",
+      "xdescribe",
+      "fit",
+      "fdescribe",
+    ]);
+    // True when the callee chain carries a modifier property or a modifier root identifier.
+    const hasModifier = (callee) => {
+      let node = callee;
+      for (;;) {
+        node = unwrap(node);
+        if (ts.isPropertyAccessExpression(node)) {
+          if (MODIFIER_PROPERTIES.has(node.name.text)) return true;
+          node = node.expression;
+        } else if (ts.isElementAccessExpression(node)) {
+          if (
+            ts.isStringLiteralLike(node.argumentExpression) &&
+            MODIFIER_PROPERTIES.has(node.argumentExpression.text)
+          )
+            return true;
+          node = node.expression;
+        } else if (ts.isCallExpression(node)) node = node.expression;
+        else if (ts.isTaggedTemplateExpression(node)) node = node.tag;
+        else break;
+      }
+      return ts.isIdentifier(node) && MODIFIER_ROOTS.has(node.text);
+    };
+    // Titles of every it/test registration inside a statement that is not a plain static one;
+    // a modifier on the registration or on any enclosing registration marks the title modified.
+    const collectTitles = (statement) => {
+      const visit = (child, inherited) => {
+        let modified = inherited;
+        if (
+          ts.isCallExpression(child) &&
+          KILLER_REGISTRATION_ROOTS.has(registrationRoot(child.expression))
+        ) {
+          modified = inherited || hasModifier(child.expression);
+          if (
+            ["it", "test", "xit", "xtest", "fit"].includes(
+              registrationRoot(child.expression),
+            ) &&
+            child.arguments.length > 0
+          ) {
+            const titleNode = child.arguments[0];
+            const exact = staticTitle(titleNode);
+            if (exact !== null)
+              titles.push({ kind: "exact", text: exact, modified });
+            else if (ts.isTemplateExpression(titleNode))
+              titles.push({
+                kind: "template",
+                head: titleNode.head.text,
+                tail: titleNode.templateSpans.at(-1).literal.text,
+                modified,
+              });
+          }
+        }
+        ts.forEachChild(child, (next) => visit(next, modified));
+      };
+      visit(statement, false);
+    };
+    const paths = [];
+    let generatesAny = false;
+    const walk = (statements, prefix) => {
+      for (const statement of statements) {
+        const registration = staticRegistration(statement);
+        if (registration) {
+          const full =
+            prefix === null
+              ? registration.title
+              : `${prefix} > ${registration.title}`;
+          if (registration.kind === "describe") {
+            if (ts.isBlock(registration.callback.body))
+              walk([...registration.callback.body.statements], full);
+            else if (containsRegistration(registration.callback.body))
+              generatesAny = true;
+          } else paths.push(full);
+          continue;
+        }
+        if (containsRegistration(statement)) collectTitles(statement);
+      }
+    };
+    walk([...sf.statements], null);
+    index = { paths, titles, generatesAny };
+  }
+  if (declaredTestCache.size >= NAMED_KILLER_CACHE_LIMIT)
+    declaredTestCache.delete(declaredTestCache.keys().next().value);
+  declaredTestCache.set(key, index);
+  return index;
+}
+
 function cstringDirectKill(report, record, expectedTest, readTest, label) {
   if (record.status !== "Killed")
     throw new Error(`${label} is ${record.status}, not Killed`);
@@ -2716,6 +3073,7 @@ export function validateReadCStringBoundary({
   survivors = null,
   requireFinal = false,
   allowLiveReport = false,
+  measuredHeadReport = false,
 }) {
   const problems = [];
   const anchors = [];
@@ -3129,7 +3487,30 @@ export function validateReadCStringBoundary({
     if (requireFinal) {
       const diskSource = readFileSync(trackedPath, "utf8");
       const selectedSource = typeof currentSource === "string" ? currentSource : diskSource;
-      if (
+      if (measuredHeadReport) {
+        // Plan 67-46 amendment 1: a hosted whole-run report measured on the committed head. Every
+        // code byte stays pinned (directive-normalized digest); the raw bytes and the report are
+        // bound to the committed file and to the receipt's semantic claims instead of to the
+        // sealed single-file candidate report.
+        if (
+          selectedSource !== diskSource ||
+          hash(normalizeDirectives(selectedSource)) !==
+            CSTRING_CANDIDATE_SOURCE_SHA256 ||
+          !finalEntry ||
+          !finalReport ||
+          finalReport.files?.[CSTRING_OPERATION.file] !== finalEntry ||
+          finalEntry.source !== diskSource ||
+          !cstringMeasuredHeadHolds({
+            row,
+            finalEntry,
+            finalReport,
+            diskSource,
+          })
+        )
+          throw new Error(
+            "live sourceOperation source/report differs from the exact measured candidate",
+          );
+      } else if (
         selectedSource !== diskSource ||
         hash(selectedSource) !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
         hash(normalizeDirectives(selectedSource)) !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
