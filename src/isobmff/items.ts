@@ -258,11 +258,11 @@ function parseInfe(buffer: Buffer, header: BoxHeader): RawInfeEntry {
       ? payload.readUInt16BE(position)
       : payload.readUInt32BE(position);
   position += idBytes;
-  // item_protection_index (2 bytes) and item_type (4 bytes) carry no bounds check of their own:
-  // `toString` clamps a short slice, and a payload that ends inside either field leaves `position`
-  // at or past the end, so the readCString below declines the same typed box-framing refusal
-  // ("not NUL-terminated"). A check here could never change the outcome.
+  // Stryker disable next-line StringLiteral: unobservable-message — the protection-index label only reaches ensureBytes' diagnostic text; parsing and the typed error kind are unchanged.
+  ensureBytes(payload, position, 2, "infe item_protection_index");
   position += 2;
+  // Stryker disable next-line StringLiteral: unobservable-message — the item_type label only reaches ensureBytes' diagnostic text; FourCC decoding is unchanged.
+  ensureBytes(payload, position, 4, "infe item_type");
   const itemType = payload.toString("ascii", position, position + 4);
   position += 4;
   // Stryker disable next-line StringLiteral: unobservable-message — the item_name label only reaches readCString's diagnostic text; parsed names and typed errors are unchanged.
