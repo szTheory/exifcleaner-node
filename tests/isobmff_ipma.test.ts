@@ -11,6 +11,7 @@ import { open } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { IsobmffStructureError } from "../src/isobmff/errors.js";
 import { IPMA_LAYOUTS, parseIpma } from "../src/isobmff/ipma.js";
 import { parseIsobmff } from "../src/isobmff/parse.js";
 import { inventoryIsobmff } from "./isobmff-support/inventory.js";
@@ -245,5 +246,69 @@ describe("parseIsobmff model.ipma on heif-enc-grid.heic", () => {
     } finally {
       await handle.close();
     }
+  });
+});
+
+// --- Plan 67-46 Task 0b: truncation at the item_ID and association_count of an entry ----------
+//
+// With `entry_count` = 1 and the payload ending exactly where (or one byte before) the named
+// field starts, the typed `box-framing` refusal is the only thing standing between the input and
+// the raw RangeError of the Buffer read that follows each bounds check. Only the refusal's class
+// and kind are asserted, never its wording.
+describe("parseIpma: an entry truncated at item_ID or association_count declines box-framing", () => {
+  const expectFramingRefusal = (
+    payload: Buffer,
+    version: number,
+    flags: number,
+  ): void => {
+    let actual: unknown;
+    try {
+      parseIpma(payload, version, flags);
+    } catch (error) {
+      actual = error;
+    }
+    expect(actual).toBeInstanceOf(IsobmffStructureError);
+    expect(actual).toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+  };
+  const entryCountOne = [0x00, 0x00, 0x00, 0x01];
+
+  it("parses the complete one-entry payloads for both item_ID widths", () => {
+    expect(
+      parseIpma(Buffer.from([...entryCountOne, 0x00, 0x07, 0x01, 0x81]), 0, 0),
+    ).toEqual([
+      { itemId: 7, associations: [{ essential: true, propertyIndex: 1 }] },
+    ]);
+    expect(
+      parseIpma(
+        Buffer.from([...entryCountOne, 0x00, 0x00, 0x00, 0x07, 0x01, 0x81]),
+        1,
+        0,
+      ),
+    ).toEqual([
+      { itemId: 7, associations: [{ essential: true, propertyIndex: 1 }] },
+    ]);
+  });
+
+  it("declines when item_ID is absent or one byte short (16-bit and 32-bit)", () => {
+    expectFramingRefusal(Buffer.from(entryCountOne), 0, 0);
+    expectFramingRefusal(Buffer.from([...entryCountOne, 0x00]), 0, 0);
+    expectFramingRefusal(Buffer.from(entryCountOne), 1, 0);
+    expectFramingRefusal(
+      Buffer.from([...entryCountOne, 0x00, 0x00, 0x00]),
+      1,
+      0,
+    );
+  });
+
+  it("declines when association_count is absent after a complete item_ID (16-bit and 32-bit)", () => {
+    expectFramingRefusal(Buffer.from([...entryCountOne, 0x00, 0x07]), 0, 0);
+    expectFramingRefusal(
+      Buffer.from([...entryCountOne, 0x00, 0x00, 0x00, 0x07]),
+      1,
+      1,
+    );
   });
 });
