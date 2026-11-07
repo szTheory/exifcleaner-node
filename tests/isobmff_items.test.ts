@@ -10,6 +10,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { IsobmffStructureError } from "../src/isobmff/errors.js";
+import { parseIloc } from "../src/isobmff/iloc.js";
 import { parseIsobmff } from "../src/isobmff/parse.js";
 import { buildItemModel } from "../src/isobmff/items.js";
 import { inventoryIsobmff } from "./isobmff-support/inventory.js";
@@ -1777,4 +1779,164 @@ describe("items.ts bounds checks decline box-framing for a field cut short", () 
       );
     }
   });
+});
+
+// --- Plan 67-46 Task 0b: a later iloc item truncated at exactly one field ---------------------
+//
+// Every `ensureBytes` call of `parseIloc`'s per-item loop is redundant for the first item (the
+// `item_count * minimum item bytes` floor check already guarantees those bytes), so each call is
+// observable only when a LATER item runs out of bytes at that field. The first item below carries
+// three extents so the floor check passes for any truncation of the second item. Removing any one
+// call turns the typed `box-framing` refusal into the raw RangeError of the Buffer read that
+// follows it. Only the refusal's class and kind are asserted, never its wording.
+//
+// These tests live here and not in `tests/isobmff_iloc.test.ts`: the sealed isobmff-3 report
+// fixtures pin that file's exact bytes.
+describe("parseIloc: a later item truncated at one field declines box-framing", () => {
+  interface IlocCut {
+    readonly field: string;
+    /** Byte offset of the field inside the second item (hand-written for the configuration). */
+    readonly at: number;
+    readonly width: number;
+  }
+  interface IlocShape {
+    readonly version: 0 | 1 | 2;
+    readonly width: 4 | 8;
+    readonly index: boolean;
+  }
+
+  /** The iloc payload after the FullBox version/flags: a hand-rolled writer for this file only.
+   * Every offset, length and index field is `width` bytes; absent fields are not written. */
+  const writeIloc = (
+    shape: IlocShape,
+    items: readonly { id: number; extents: number }[],
+  ): Buffer => {
+    const idBytes = shape.version === 2 ? 4 : 2;
+    const number = (value: number, bytes: number): Buffer => {
+      const buffer = Buffer.alloc(bytes);
+      buffer.writeUIntBE(value, bytes - Math.min(bytes, 6), Math.min(bytes, 6));
+      return buffer;
+    };
+    const parts: Buffer[] = [
+      // offset_size/length_size nibbles, then base_offset_size/index_size nibbles
+      Buffer.from([
+        (shape.width << 4) | shape.width,
+        (shape.width << 4) | (shape.index ? shape.width : 0),
+      ]),
+      number(items.length, idBytes),
+    ];
+    for (const item of items) {
+      parts.push(number(item.id, idBytes));
+      if (shape.version !== 0) parts.push(number(0, 2)); // construction_method
+      parts.push(number(0, 2)); // data_reference_index
+      parts.push(number(0, shape.width)); // base_offset
+      parts.push(number(item.extents, 2)); // extent_count
+      for (let extent = 0; extent < item.extents; extent += 1) {
+        if (shape.index) parts.push(number(0, shape.width)); // extent_index
+        parts.push(number(20 + extent, shape.width)); // extent_offset
+        parts.push(number(5, shape.width)); // extent_length
+      }
+    }
+    return Buffer.concat(parts);
+  };
+  const expectFramingRefusal = (payload: Buffer, version: number): void => {
+    let actual: unknown;
+    try {
+      parseIloc(payload, version, 0);
+    } catch (error) {
+      actual = error;
+    }
+    expect(actual).toBeInstanceOf(IsobmffStructureError);
+    expect(actual).toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+  };
+
+  const configurations: readonly {
+    readonly label: string;
+    readonly shape: IlocShape;
+    /** Length of everything before the second item (header, count, the first item). */
+    readonly secondItemStart: number;
+    readonly cuts: readonly IlocCut[];
+  }[] = [
+    {
+      label: "v0, 4-byte offset/length/base, no index",
+      shape: { version: 0, width: 4, index: false },
+      // 2 nibbles + 2 count + first item (2 id + 2 dri + 4 base + 2 count + 3 x 8 extents)
+      secondItemStart: 2 + 2 + (2 + 2 + 4 + 2 + 24),
+      cuts: [
+        { field: "item_ID", at: 0, width: 2 },
+        { field: "data_reference_index", at: 2, width: 2 },
+        { field: "base_offset", at: 4, width: 4 },
+        { field: "extent_count", at: 8, width: 2 },
+        { field: "extent_offset", at: 10, width: 4 },
+        { field: "extent_length", at: 14, width: 4 },
+      ],
+    },
+    {
+      label: "v1, 4-byte offset/length/base/index",
+      shape: { version: 1, width: 4, index: true },
+      // 2 nibbles + 2 count + first item (2 id + 2 cm + 2 dri + 4 base + 2 count + 3 x 12)
+      secondItemStart: 2 + 2 + (2 + 2 + 2 + 4 + 2 + 36),
+      cuts: [
+        { field: "item_ID", at: 0, width: 2 },
+        { field: "construction_method", at: 2, width: 2 },
+        { field: "data_reference_index", at: 4, width: 2 },
+        { field: "base_offset", at: 6, width: 4 },
+        { field: "extent_count", at: 10, width: 2 },
+        { field: "extent_index", at: 12, width: 4 },
+        { field: "extent_offset", at: 16, width: 4 },
+        { field: "extent_length", at: 20, width: 4 },
+      ],
+    },
+    {
+      label: "v2, 8-byte offset/length/base/index",
+      shape: { version: 2, width: 8, index: true },
+      // 2 nibbles + 4 count + first item (4 id + 2 cm + 2 dri + 8 base + 2 count + 3 x 24)
+      secondItemStart: 2 + 4 + (4 + 2 + 2 + 8 + 2 + 72),
+      cuts: [
+        { field: "item_ID", at: 0, width: 4 },
+        { field: "construction_method", at: 4, width: 2 },
+        { field: "data_reference_index", at: 6, width: 2 },
+        { field: "base_offset", at: 8, width: 8 },
+        { field: "extent_count", at: 16, width: 2 },
+        { field: "extent_index", at: 18, width: 8 },
+        { field: "extent_offset", at: 26, width: 8 },
+        { field: "extent_length", at: 34, width: 8 },
+      ],
+    },
+  ];
+
+  for (const { label, shape, secondItemStart, cuts } of configurations) {
+    describe(label, () => {
+      const full = writeIloc(shape, [
+        { id: 1, extents: 3 },
+        { id: 2, extents: 1 },
+      ]);
+
+      it("parses the untruncated two-item payload", () => {
+        const table = parseIloc(full, shape.version, 0);
+        expect(table.items.map((item) => item.itemId)).toEqual([1, 2]);
+        expect(table.items[1]?.extents).toEqual([
+          { index: 0, offset: 20, length: 5 },
+        ]);
+      });
+
+      for (const { field, at, width } of cuts) {
+        it(`${field} absent at its first byte`, () => {
+          expectFramingRefusal(
+            full.subarray(0, secondItemStart + at),
+            shape.version,
+          );
+        });
+        it(`${field} one byte short`, () => {
+          expectFramingRefusal(
+            full.subarray(0, secondItemStart + at + width - 1),
+            shape.version,
+          );
+        });
+      }
+    });
+  }
 });
