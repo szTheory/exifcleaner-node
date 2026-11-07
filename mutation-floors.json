@@ -6,22 +6,76 @@
       "tier": "trust",
       "targetTenths": 900,
       "globs": ["src/webp/**", "src/admission/webp-handler.ts"],
-      "floorTenths": 0,
-      "measured": null
+      "floorTenths": 1000,
+      "measured": {
+        "runId": 42393888540,
+        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "scoresTenths": [1000, 1000, 1000],
+        "counts": {
+          "Killed": 728,
+          "Timeout": 9,
+          "Survived": 0,
+          "NoCoverage": 0,
+          "CompileError": 310,
+          "RuntimeError": 0,
+          "Ignored": 118
+        },
+        "timeout": 9,
+        "commentIgnored": 12,
+        "pluginIgnored": 70,
+        "staticIgnored": 36,
+        "coveredScoreTenths": 1000
+      }
     },
     "png": {
       "tier": "trust",
       "targetTenths": 900,
       "globs": ["src/png/**", "src/admission/png-handler.ts"],
-      "floorTenths": 0,
-      "measured": null
+      "floorTenths": 1000,
+      "measured": {
+        "runId": 42393888540,
+        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "scoresTenths": [1000, 1000, 1000],
+        "counts": {
+          "Killed": 625,
+          "Timeout": 12,
+          "Survived": 0,
+          "NoCoverage": 0,
+          "CompileError": 375,
+          "RuntimeError": 0,
+          "Ignored": 284
+        },
+        "timeout": 12,
+        "commentIgnored": 15,
+        "pluginIgnored": 47,
+        "staticIgnored": 222,
+        "coveredScoreTenths": 1000
+      }
     },
     "jpeg": {
       "tier": "trust",
       "targetTenths": 900,
       "globs": ["src/jpeg/**", "src/admission/jpeg-handler.ts"],
-      "floorTenths": 0,
-      "measured": null
+      "floorTenths": 1000,
+      "measured": {
+        "runId": 42393888540,
+        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "scoresTenths": [1000, 1000, 1000],
+        "counts": {
+          "Killed": 1043,
+          "Timeout": 16,
+          "Survived": 0,
+          "NoCoverage": 0,
+          "CompileError": 651,
+          "RuntimeError": 0,
+          "Ignored": 155
+        },
+        "timeout": 16,
+        "commentIgnored": 53,
+        "pluginIgnored": 35,
+        "staticIgnored": 67,
+        "coveredScoreTenths": 1000
+      }
     },
     "isobmff": {
       "tier": "trust",
@@ -30,43 +84,151 @@
         "src/isobmff/**",
         "src/admission/{isobmff,heic,avif}-handler.ts"
       ],
-      "floorTenths": 0,
-      "measured": null
+      "floorTenths": 1000,
+      "measured": {
+        "runId": 42393888540,
+        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "scoresTenths": [1000, 1000, 1000],
+        "counts": {
+          "Killed": 1921,
+          "Timeout": 14,
+          "Survived": 0,
+          "NoCoverage": 0,
+          "CompileError": 883,
+          "RuntimeError": 0,
+          "Ignored": 388
+        },
+        "timeout": 14,
+        "commentIgnored": 136,
+        "pluginIgnored": 78,
+        "staticIgnored": 174,
+        "coveredScoreTenths": 1000
+      }
     },
     "metadata": {
       "tier": "trust",
       "targetTenths": 900,
       "globs": ["src/metadata/**"],
-      "floorTenths": 0,
-      "measured": null
+      "floorTenths": 1000,
+      "measured": {
+        "runId": 42393888540,
+        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "scoresTenths": [1000, 1000, 1000],
+        "counts": {
+          "Killed": 927,
+          "Timeout": 0,
+          "Survived": 0,
+          "NoCoverage": 0,
+          "CompileError": 342,
+          "RuntimeError": 0,
+          "Ignored": 94
+        },
+        "timeout": 0,
+        "commentIgnored": 37,
+        "pluginIgnored": 15,
+        "staticIgnored": 42,
+        "coveredScoreTenths": 1000
+      }
     },
     "engine": {
       "tier": "orchestration",
       "targetTenths": 800,
       "globs": ["src/{engine,fallback,result,errors,types,index}.ts"],
-      "floorTenths": 0,
-      "measured": null
+      "floorTenths": 340,
+      "measured": {
+        "runId": 42393888540,
+        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "scoresTenths": [340, 340, 340],
+        "counts": {
+          "Killed": 30,
+          "Timeout": 0,
+          "Survived": 44,
+          "NoCoverage": 14,
+          "CompileError": 192,
+          "RuntimeError": 0,
+          "Ignored": 0
+        },
+        "timeout": 0,
+        "commentIgnored": 0,
+        "pluginIgnored": 0,
+        "staticIgnored": 0,
+        "coveredScoreTenths": 405
+      }
     },
     "transaction": {
       "tier": "orchestration",
       "targetTenths": 800,
       "globs": ["src/transaction/**"],
-      "floorTenths": 0,
-      "measured": null
+      "floorTenths": 410,
+      "measured": {
+        "runId": 42393888540,
+        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "scoresTenths": [410, 410, 410],
+        "counts": {
+          "Killed": 222,
+          "Timeout": 0,
+          "Survived": 178,
+          "NoCoverage": 141,
+          "CompileError": 414,
+          "RuntimeError": 0,
+          "Ignored": 31
+        },
+        "timeout": 0,
+        "commentIgnored": 0,
+        "pluginIgnored": 17,
+        "staticIgnored": 14,
+        "coveredScoreTenths": 555
+      }
     },
     "io": {
       "tier": "orchestration",
       "targetTenths": 800,
       "globs": ["src/io/**"],
-      "floorTenths": 0,
-      "measured": null
+      "floorTenths": 933,
+      "measured": {
+        "runId": 42393888540,
+        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "scoresTenths": [933, 933, 933],
+        "counts": {
+          "Killed": 24,
+          "Timeout": 4,
+          "Survived": 1,
+          "NoCoverage": 1,
+          "CompileError": 7,
+          "RuntimeError": 0,
+          "Ignored": 4
+        },
+        "timeout": 4,
+        "commentIgnored": 0,
+        "pluginIgnored": 3,
+        "staticIgnored": 1,
+        "coveredScoreTenths": 965
+      }
     },
     "admission-core": {
       "tier": "orchestration",
       "targetTenths": 800,
       "globs": ["src/admission/{handler,registry}.ts"],
-      "floorTenths": 0,
-      "measured": null
+      "floorTenths": 333,
+      "measured": {
+        "runId": 42393888540,
+        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "scoresTenths": [333, 333, 333],
+        "counts": {
+          "Killed": 2,
+          "Timeout": 0,
+          "Survived": 4,
+          "NoCoverage": 0,
+          "CompileError": 12,
+          "RuntimeError": 0,
+          "Ignored": 1
+        },
+        "timeout": 0,
+        "commentIgnored": 0,
+        "pluginIgnored": 0,
+        "staticIgnored": 1,
+        "coveredScoreTenths": 333
+      }
     }
   }
 }

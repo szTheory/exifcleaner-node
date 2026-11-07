@@ -123,4 +123,38 @@ Measured settings (2026-10-26, hosted ubuntu-24.04, webp group, runs 40329815032
 
 ## Current floors
 
-The floors are measured in Phase 67; plan 67-14 records the measured values here.
+Measured on hosted ubuntu-24.04 by three attempts of one run on one head: run
+[42393888540](https://github.com/szTheory/exifcleaner-node/actions/runs/42393888540), head
+`1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc`, dispatched 2026-11-07 (`mode=baseline`, `group=all`,
+`attempts=3`; the aggregate reports zero flakes over 10221 mutants, four Killed/Timeout swaps that
+are not flakes). Each floor is `floor(min of the three attempts' recomputed scores)`, entered by a
+manual edit of `mutation-floors.json`; there is no slack.
+
+| Group          | Tier          | Floor | Target (within six months) |
+| -------------- | ------------- | ----- | -------------------------- |
+| webp           | trust         | 100.0 | 90.0                       |
+| png            | trust         | 100.0 | 90.0                       |
+| jpeg           | trust         | 100.0 | 90.0                       |
+| isobmff        | trust         | 100.0 | 90.0                       |
+| metadata       | trust         | 100.0 | 90.0                       |
+| engine         | orchestration | 34.0  | 80.0                       |
+| transaction    | orchestration | 41.0  | 80.0                       |
+| io             | orchestration | 93.3  | 80.0                       |
+| admission-core | orchestration | 33.3  | 80.0                       |
+
+Scores are percentages with one decimal (`floorTenths` is tenths of a percent). The trust groups
+have no undetected mutant (every pre-triage survivor is killed, deleted or recorded as equivalent in
+`tools/mutation/ledger.json`); the orchestration groups were not triaged in Phase 67 and keep their
+pre-triage scores, so engine, transaction and admission-core are the headroom to the 80.0 target.
+
+The D-14 caps measurement (`mode=caps`, `ignoreStatic` off) is recorded once per milestone close
+under `caps` in `mutation-floors.json`; it is not a floor. No caps measurement is recorded yet: the
+first dispatch (run 42401057745) failed before Stryker started because `baseline.mjs` passes
+`--ignoreStatic false`, which the Stryker CLI rejects (the flag only turns the option on; the base
+config already sets it, so caps mode needs a config without it).
+
+To raise a floor: download the artifacts of a hosted `mode=baseline attempts=3` run, run
+`node tools/mutation/floors.mjs scores <attempt-1> <attempt-2> <attempt-3>`, and edit
+`floorTenths` and `measured` in `mutation-floors.json` by hand to `floor(min of the three
+scores)`. `node tools/mutation/floors.mjs monotonic` rejects any change that lowers a floor, drops
+a group or drops a glob.
