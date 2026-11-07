@@ -10524,7 +10524,21 @@ describe(
 
 describe("workspace guard (Plan 67-46 amendment 3)", () => {
   it("skips nothing when the planning workspace is present", () => {
+    // An independently derived anchor: the phase directory next to this repository. A wrong
+    // phaseVerifierPath would otherwise skip every workspace suite without a failure.
+    const phaseDirectory = join(
+      packageRoot,
+      "..",
+      ".planning",
+      "phases",
+      "67-mutation-baseline",
+    );
     expect(workspaceAvailable).toBe(existsSync(phaseVerifierPath));
+    // Set EXIFCLEANER_REQUIRE_WORKSPACE=1 where the workspace must be present (phase verification):
+    // a missing workspace then fails here instead of skipping the suites.
+    if (process.env.EXIFCLEANER_REQUIRE_WORKSPACE === "1")
+      expect(workspaceAvailable).toBe(true);
+    if (existsSync(phaseDirectory)) expect(workspaceAvailable).toBe(true);
     if (!workspaceAvailable) return;
     expect(describeWorkspace).toBe(describe);
     expect(itWorkspace).toBe(it);
