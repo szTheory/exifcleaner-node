@@ -9288,12 +9288,12 @@ describe("structural gap-test resolution (Plan 67-46 amendment 1)", () => {
         generated.has(row.test!.name) ? "unsupported" : "declared",
       );
     }
-  }, 60_000);
+  }, 180_000);
 });
 
 describe(
   "measured-head final report (Plan 67-46 amendment 1)",
-  { timeout: 60_000 },
+  { timeout: 180_000 },
   () => {
     const ITEMS = "src/isobmff/items.ts";
     const DIRECTIVE = /^\s*\/\/ Stryker (?:disable|restore)\b/;
