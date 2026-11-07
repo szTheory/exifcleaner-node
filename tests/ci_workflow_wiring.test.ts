@@ -472,7 +472,8 @@ describe("ci.yml and package.json Node 26 / check:dist wiring (TEST-11, D-03, D-
     );
     for (const name of ["quality", "test-node26"]) {
       for (const depth of ["", "1", "2"]) {
-        const replacement = depth === "" ? "" : `          fetch-depth: ${depth}\n`;
+        const replacement =
+          depth === "" ? "" : `          fetch-depth: ${depth}\n`;
         expectProblem(
           mutateJob(name, "          fetch-depth: 0\n", replacement),
           `${name} checkout must use fetch-depth: 0`,

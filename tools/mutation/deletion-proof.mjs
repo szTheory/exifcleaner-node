@@ -761,14 +761,16 @@ function assertIlocFinalEvidence(finalEntry, finalReport, root, readTest, row) {
     throw new Error(
       "iloc final evidence lacks the exact next-line ConditionalExpression directive",
     );
-  const currentTestFiles = new Set([
-    ...(row.deletion?.detectedSuccessors ?? []).map((successor) =>
-      successor.test?.file,
-    ),
-    ...(row.deletion?.reportBindings ?? []).flatMap((binding) =>
-      (binding.successors ?? []).map((successor) => successor.test?.file),
-    ),
-  ].filter((file) => typeof file === "string"));
+  const currentTestFiles = new Set(
+    [
+      ...(row.deletion?.detectedSuccessors ?? []).map(
+        (successor) => successor.test?.file,
+      ),
+      ...(row.deletion?.reportBindings ?? []).flatMap((binding) =>
+        (binding.successors ?? []).map((successor) => successor.test?.file),
+      ),
+    ].filter((file) => typeof file === "string"),
+  );
   const testIds = new Map();
   for (const [file, entry] of Object.entries(finalReport.testFiles ?? {})) {
     if (
@@ -2097,7 +2099,9 @@ function cstringRecords(report, label) {
     typeof entry.source !== "string" ||
     !Array.isArray(entry.mutants)
   )
-    throw new Error(`${label} report is not a complete single-file items.ts report`);
+    throw new Error(
+      `${label} report is not a complete single-file items.ts report`,
+    );
   const source = normalizeDirectives(entry.source);
   const records = entry.mutants.map((mutant) => {
     const location = toNormalizedLocation(entry.source, mutant.location);
@@ -2140,7 +2144,10 @@ function cstringStatusCounts(records) {
 function cstringEquivalentReport(actual, measured) {
   const evidence = (report, label) => {
     const { entry, source, records } = cstringRecords(report, label);
-    const operationStart = cstringExpressionOffset(source, CSTRING_OPERATION.after);
+    const operationStart = cstringExpressionOffset(
+      source,
+      CSTRING_OPERATION.after,
+    );
     const operationEnd = operationStart + CSTRING_OPERATION.after.length;
     const operationAffected = new Set(
       records
@@ -2155,38 +2162,50 @@ function cstringEquivalentReport(actual, measured) {
     for (const [file, testFile] of Object.entries(report.testFiles ?? {}))
       for (const test of testFile.tests ?? [])
         testsById.set(String(test.id), { file, name: test.name });
-    const references = (mutant, field) => (mutant[field] ?? [])
-      .map((id) => testsById.get(String(id)))
-      .map((test) => {
-        if (!test) throw new Error(`${label} report has an unresolved ${field} test id`);
-        return test;
+    const references = (mutant, field) =>
+      (mutant[field] ?? [])
+        .map((id) => testsById.get(String(id)))
+        .map((test) => {
+          if (!test)
+            throw new Error(
+              `${label} report has an unresolved ${field} test id`,
+            );
+          return test;
+        })
+        .sort(
+          (left, right) =>
+            left.file.localeCompare(right.file) ||
+            left.name.localeCompare(right.name),
+        );
+    const mutants = records
+      .map((record) => {
+        const nonlocalKilled =
+          record.status === "Killed" && !operationAffected.has(record.anchor);
+        // Resolve every reference even when nonlocal first-failure attribution is omitted.
+        const killedBy = references(record.mutant, "killedBy");
+        const coveredBy = references(record.mutant, "coveredBy");
+        return {
+          anchor: record.anchor,
+          rawAnchor: record.rawAnchor,
+          status: record.status,
+          ...(nonlocalKilled
+            ? {}
+            : {
+                statusReason: record.mutant.statusReason ?? null,
+                killedBy,
+              }),
+          static: record.mutant.static ?? null,
+          coveredBy,
+        };
       })
-      .sort((left, right) => left.file.localeCompare(right.file) || left.name.localeCompare(right.name));
-    const mutants = records.map((record) => {
-      const nonlocalKilled =
-        record.status === "Killed" && !operationAffected.has(record.anchor);
-      // Resolve every reference even when nonlocal first-failure attribution is omitted.
-      const killedBy = references(record.mutant, "killedBy");
-      const coveredBy = references(record.mutant, "coveredBy");
-      return {
-        anchor: record.anchor,
-        rawAnchor: record.rawAnchor,
-        status: record.status,
-        ...(nonlocalKilled
-          ? {}
-          : {
-              statusReason: record.mutant.statusReason ?? null,
-              killedBy,
-            }),
-        static: record.mutant.static ?? null,
-        coveredBy,
-      };
-    }).sort((left, right) => left.anchor.localeCompare(right.anchor));
-    const tests = Object.entries(report.testFiles ?? {}).map(([file, testFile]) => ({
-      file,
-      source: testFile.source,
-      tests: (testFile.tests ?? []).map((test) => test.name).sort(),
-    })).sort((left, right) => left.file.localeCompare(right.file));
+      .sort((left, right) => left.anchor.localeCompare(right.anchor));
+    const tests = Object.entries(report.testFiles ?? {})
+      .map(([file, testFile]) => ({
+        file,
+        source: testFile.source,
+        tests: (testFile.tests ?? []).map((test) => test.name).sort(),
+      }))
+      .sort((left, right) => left.file.localeCompare(right.file));
     return {
       file: CSTRING_OPERATION.file,
       language: entry.language,
@@ -2195,7 +2214,10 @@ function cstringEquivalentReport(actual, measured) {
       tests,
     };
   };
-  return canonical(evidence(actual, "current")) === canonical(evidence(measured, "measured"));
+  return (
+    canonical(evidence(actual, "current")) ===
+    canonical(evidence(measured, "measured"))
+  );
 }
 
 // Plan 67-46 amendment 2: the directive-normalized digests of src/isobmff/items.ts that the
@@ -2310,7 +2332,9 @@ function cstringMeasuredHeadHolds({
 function cstringExpressionOffset(source, expression) {
   const declarations = [...source.matchAll(/\bfunction\s+readCString\s*\(/g)];
   if (declarations.length !== 1)
-    throw new Error(`readCString declaration is ${declarations.length === 0 ? "missing" : "ambiguous"}`);
+    throw new Error(
+      `readCString declaration is ${declarations.length === 0 ? "missing" : "ambiguous"}`,
+    );
   const start = declarations[0].index;
   const nextDeclaration = source.indexOf("\nfunction ", start + 1);
   const end = nextDeclaration < 0 ? source.length : nextDeclaration;
@@ -2321,7 +2345,9 @@ function cstringExpressionOffset(source, expression) {
     from += expression.length;
   }
   if (positions.length !== 1)
-    throw new Error(`readCString expression ${JSON.stringify(expression)} is ${positions.length === 0 ? "missing" : "ambiguous"}`);
+    throw new Error(
+      `readCString expression ${JSON.stringify(expression)} is ${positions.length === 0 ? "missing" : "ambiguous"}`,
+    );
   return positions[0];
 }
 
@@ -2382,7 +2408,15 @@ function loadTypeScriptForBinding() {
 
 const KILLER_PLAIN_ROOTS = new Set(["describe", "it", "test"]);
 const KILLER_REGISTRATION_ROOTS = new Set([
-  "describe", "it", "test", "fit", "fdescribe", "xit", "xdescribe", "xtest", "suite",
+  "describe",
+  "it",
+  "test",
+  "fit",
+  "fdescribe",
+  "xit",
+  "xdescribe",
+  "xtest",
+  "suite",
 ]);
 
 function namedKillerClosure(source, fullName) {
@@ -2416,7 +2450,10 @@ function namedKillerClosure(source, fullName) {
     let node = callee;
     for (;;) {
       node = unwrap(node);
-      if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+      if (
+        ts.isPropertyAccessExpression(node) ||
+        ts.isElementAccessExpression(node)
+      )
         node = node.expression;
       else if (ts.isCallExpression(node)) node = node.expression;
       else if (ts.isTaggedTemplateExpression(node)) node = node.tag;
@@ -2444,10 +2481,12 @@ function namedKillerClosure(source, fullName) {
     return found;
   };
   const staticTitle = (node) =>
-    node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+    node &&
+    (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
       ? node.text
       : null;
-  const isFunctionNode = (node) => ts.isArrowFunction(node) || ts.isFunctionExpression(node);
+  const isFunctionNode = (node) =>
+    ts.isArrowFunction(node) || ts.isFunctionExpression(node);
   // describe/it/test(<static title>, <one function>[, options]) as a statement.
   const staticRegistration = (statement) => {
     if (!ts.isExpressionStatement(statement)) return null;
@@ -2474,12 +2513,14 @@ function namedKillerClosure(source, fullName) {
       plain: rest.length === 1,
     };
   };
-  const isPlainRegistration = (statement) => staticRegistration(statement)?.plain === true;
+  const isPlainRegistration = (statement) =>
+    staticRegistration(statement)?.plain === true;
 
   // A non-plain statement holding a registration may generate or wrap the killer: refuse when a
   // registration inside it carries the killer's own last title segment or a templated title
   // whose literal parts are compatible with it.
-  const lastTitleMatches = (title) => fullName === title || fullName.endsWith(` > ${title}`);
+  const lastTitleMatches = (title) =>
+    fullName === title || fullName.endsWith(` > ${title}`);
   const mayGenerateKiller = (statement) => {
     let found = false;
     const visit = (child) => {
@@ -2498,7 +2539,10 @@ function namedKillerClosure(source, fullName) {
           const last = fullName.includes(" > ")
             ? fullName.slice(fullName.lastIndexOf(" > ") + 3)
             : fullName;
-          found = (head !== "" || tail !== "") && last.startsWith(head) && last.endsWith(tail);
+          found =
+            (head !== "" || tail !== "") &&
+            last.startsWith(head) &&
+            last.endsWith(tail);
         }
         if (found) return;
       }
@@ -2520,14 +2564,22 @@ function namedKillerClosure(source, fullName) {
     for (const statement of statements) {
       const registration = staticRegistration(statement);
       if (registration) {
-        const full = prefix === null ? registration.title : `${prefix} > ${registration.title}`;
+        const full =
+          prefix === null
+            ? registration.title
+            : `${prefix} > ${registration.title}`;
         if (registration.kind === "describe") {
           if (fullName.startsWith(`${full} > `))
-            walk(bodyStatements(registration.callback), full, [...chain, registration]);
-        } else if (full === fullName) candidates.push({ chain, leaf: registration });
+            walk(bodyStatements(registration.callback), full, [
+              ...chain,
+              registration,
+            ]);
+        } else if (full === fullName)
+          candidates.push({ chain, leaf: registration });
         continue;
       }
-      if (containsRegistration(statement) && mayGenerateKiller(statement)) unsupported = true;
+      if (containsRegistration(statement) && mayGenerateKiller(statement))
+        unsupported = true;
     }
   };
   walk(sf.statements, null, []);
@@ -2547,7 +2599,10 @@ function namedKillerClosure(source, fullName) {
       `named killer registration is ambiguous: ${candidates.length} registrations share ${JSON.stringify(fullName)}`,
     );
   const { chain, leaf } = candidates[0];
-  const pathStatements = new Set([...chain.map((entry) => entry.statement), leaf.statement]);
+  const pathStatements = new Set([
+    ...chain.map((entry) => entry.statement),
+    leaf.statement,
+  ]);
 
   // --- declarations and import bindings ---
   const bindingNames = (name, out) => {
@@ -2597,10 +2652,20 @@ function namedKillerClosure(source, fullName) {
       if (!declarationTypeOnly) runtimeSpecifiers.add(module);
       if (!clause) continue;
       if (clause.name)
-        imports.push({ module, imported: "default", local: clause.name.text, typeOnly: declarationTypeOnly });
+        imports.push({
+          module,
+          imported: "default",
+          local: clause.name.text,
+          typeOnly: declarationTypeOnly,
+        });
       const named = clause.namedBindings;
       if (named && ts.isNamespaceImport(named))
-        imports.push({ module, imported: "*", local: named.name.text, typeOnly: declarationTypeOnly });
+        imports.push({
+          module,
+          imported: "*",
+          local: named.name.text,
+          typeOnly: declarationTypeOnly,
+        });
       else if (named)
         for (const element of named.elements)
           imports.push({
@@ -2613,7 +2678,12 @@ function namedKillerClosure(source, fullName) {
       if (ts.isExternalModuleReference(statement.moduleReference)) {
         const module = statement.moduleReference.expression.text;
         if (!statement.isTypeOnly) runtimeSpecifiers.add(module);
-        imports.push({ module, imported: "=", local: statement.name.text, typeOnly: statement.isTypeOnly === true });
+        imports.push({
+          module,
+          imported: "=",
+          local: statement.name.text,
+          typeOnly: statement.isTypeOnly === true,
+        });
       }
     } else if (
       ts.isExportDeclaration(statement) &&
@@ -2642,7 +2712,8 @@ function namedKillerClosure(source, fullName) {
         ts.isAwaitExpression(child) ||
         ts.isTaggedTemplateExpression(child) ||
         ts.isDeleteExpression(child) ||
-        ((ts.isPrefixUnaryExpression(child) || ts.isPostfixUnaryExpression(child)) &&
+        ((ts.isPrefixUnaryExpression(child) ||
+          ts.isPostfixUnaryExpression(child)) &&
           (child.operator === ts.SyntaxKind.PlusPlusToken ||
             child.operator === ts.SyntaxKind.MinusMinusToken)) ||
         (ts.isBinaryExpression(child) &&
@@ -2658,19 +2729,33 @@ function namedKillerClosure(source, fullName) {
     return found;
   };
   const declarationHasLoadEffect = (statement) => {
-    if (ts.isVariableStatement(statement)) return hasLoadEffect(statement.declarationList);
+    if (ts.isVariableStatement(statement))
+      return hasLoadEffect(statement.declarationList);
     if (ts.isEnumDeclaration(statement))
-      return statement.members.some((member) => member.initializer && hasLoadEffect(member.initializer));
+      return statement.members.some(
+        (member) => member.initializer && hasLoadEffect(member.initializer),
+      );
     if (ts.isClassDeclaration(statement)) {
       if ((ts.getDecorators(statement) ?? []).length > 0) return true;
-      if ((statement.heritageClauses ?? []).some((clause) => hasLoadEffect(clause))) return true;
+      if (
+        (statement.heritageClauses ?? []).some((clause) =>
+          hasLoadEffect(clause),
+        )
+      )
+        return true;
       return statement.members.some((member) => {
         if (ts.isClassStaticBlockDeclaration(member)) return true;
-        if (member.name && ts.isComputedPropertyName(member.name) && hasLoadEffect(member.name))
+        if (
+          member.name &&
+          ts.isComputedPropertyName(member.name) &&
+          hasLoadEffect(member.name)
+        )
           return true;
         return (
           ts.isPropertyDeclaration(member) &&
-          (member.modifiers ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.StaticKeyword) &&
+          (member.modifiers ?? []).some(
+            (modifier) => modifier.kind === ts.SyntaxKind.StaticKeyword,
+          ) &&
           member.initializer !== undefined &&
           hasLoadEffect(member.initializer)
         );
@@ -2682,18 +2767,25 @@ function namedKillerClosure(source, fullName) {
   // --- the six parts ---
   const target = raw(leaf.statement);
   const scope = chain.map((entry, depth) => {
-    const next = depth + 1 < chain.length ? chain[depth + 1].statement : leaf.statement;
-    const callbackStatements = ts.isBlock(entry.callback.body) ? [...entry.callback.body.statements] : [];
+    const next =
+      depth + 1 < chain.length ? chain[depth + 1].statement : leaf.statement;
+    const callbackStatements = ts.isBlock(entry.callback.body)
+      ? [...entry.callback.body.statements]
+      : [];
     return {
       title: entry.title,
       callee: raw(entry.call.expression),
       options: entry.options.map(raw),
       statements: callbackStatements
-        .filter((statement) => statement !== next && !isPlainRegistration(statement))
+        .filter(
+          (statement) => statement !== next && !isPlainRegistration(statement),
+        )
         .map(raw),
       nodes: [
         ...entry.options,
-        ...callbackStatements.filter((statement) => statement !== next && !isPlainRegistration(statement)),
+        ...callbackStatements.filter(
+          (statement) => statement !== next && !isPlainRegistration(statement),
+        ),
       ],
     };
   });
@@ -2723,7 +2815,11 @@ function namedKillerClosure(source, fullName) {
     for (const node of nodes) visit(node);
     return names;
   };
-  const seedNodes = [leaf.statement, ...scope.flatMap((entry) => entry.nodes), ...effectNodes];
+  const seedNodes = [
+    leaf.statement,
+    ...scope.flatMap((entry) => entry.nodes),
+    ...effectNodes,
+  ];
   const included = new Set();
   let frontier = seedNodes;
   while (frontier.length > 0) {
@@ -2771,10 +2867,18 @@ function namedKillerClosure(source, fullName) {
   return {
     name: fullName,
     target,
-    scope: scope.map(({ title, callee, options, statements }) => ({ title, callee, options, statements })),
+    scope: scope.map(({ title, callee, options, statements }) => ({
+      title,
+      callee,
+      options,
+      statements,
+    })),
     effects,
     declarations,
-    imports: { bindings: importRecords, runtimeSpecifiers: [...runtimeSpecifiers].sort() },
+    imports: {
+      bindings: importRecords,
+      runtimeSpecifiers: [...runtimeSpecifiers].sort(),
+    },
     flags: { only: hasOnly, pragmas },
   };
 }
@@ -2785,7 +2889,10 @@ function namedKillerClosure(source, fullName) {
  */
 export function namedKillerBinding(source, fullTestName) {
   if (typeof source !== "string" || typeof fullTestName !== "string")
-    throw new NamedKillerBindingError("syntax", "named killer binding needs source text and a test name");
+    throw new NamedKillerBindingError(
+      "syntax",
+      "named killer binding needs source text and a test name",
+    );
   const key = `${hash(source)}\0${fullTestName}`;
   const cached = namedKillerCache.get(key);
   if (cached !== undefined) return cached;
@@ -3050,7 +3157,9 @@ function cstringDirectKill(report, record, expectedTest, readTest, label) {
     !Array.isArray(tableEntry.tests) ||
     !tableEntry.tests.some((test) => test.name === expectedTest.name)
   )
-    throw new Error(`${label} named killer is absent from its report test table`);
+    throw new Error(
+      `${label} named killer is absent from its report test table`,
+    );
   if (readTest) {
     // The named killer's own closure is compared, never whole test-file bytes (Plan 67-59).
     let embedded;
@@ -3063,7 +3172,8 @@ function cstringDirectKill(report, record, expectedTest, readTest, label) {
         throw new Error(`${label} ${error.message}`);
       throw error;
     }
-    if (embedded !== live) throw new Error(`${label} named killer source is stale`);
+    if (embedded !== live)
+      throw new Error(`${label} named killer source is stale`);
   }
   return { file: expectedTest.file, name: expectedTest.name };
 }
@@ -3090,7 +3200,8 @@ export function validateReadCStringBoundary({
   const anchors = [];
   let equivalentPair = null;
   const counterpartProofs = [];
-  const fail = (message) => problems.push(`${row?.id ?? "source operation"}: ${message}`);
+  const fail = (message) =>
+    problems.push(`${row?.id ?? "source operation"}: ${message}`);
   try {
     const receipt = row?.sourceOperation;
     if (!receipt || receipt.version !== 1)
@@ -3107,7 +3218,9 @@ export function validateReadCStringBoundary({
       row.count !== 1 ||
       canonical(row.keys) !== canonical([CSTRING_EQUIVALENT_KEY])
     )
-      throw new Error("sourceOperation row differs from the immutable EOF-only owner");
+      throw new Error(
+        "sourceOperation row differs from the immutable EOF-only owner",
+      );
     if (
       receipt.operation !== CSTRING_OPERATION.operation ||
       receipt.file !== CSTRING_OPERATION.file ||
@@ -3120,37 +3233,87 @@ export function validateReadCStringBoundary({
       receipt.originalOrigin !== CSTRING_EQUIVALENT_ORIGIN ||
       receipt.beforeSourceSha256 !== CSTRING_BOUNDARY_SOURCE_SHA256
     )
-      throw new Error("sourceOperation site, original key or permanent source binding differs");
+      throw new Error(
+        "sourceOperation site, original key or permanent source binding differs",
+      );
     const expectedReceiptFields = [
-      "version", "operation", "file", "function", "occurrence", "before", "after",
-      "beforeRef", "beforeSourceSha256", "originalKey", "originalOrigin",
-      "reports", "candidateSourceSha256", "candidateRawSourceSha256",
-      "anchorMappings", "beforeAffected", "candidateAffected", "equivalentPair",
-      "counterpartProofs", "counterfactuals", "campaignLogs", "referenceTrace",
+      "version",
+      "operation",
+      "file",
+      "function",
+      "occurrence",
+      "before",
+      "after",
+      "beforeRef",
+      "beforeSourceSha256",
+      "originalKey",
+      "originalOrigin",
+      "reports",
+      "candidateSourceSha256",
+      "candidateRawSourceSha256",
+      "anchorMappings",
+      "beforeAffected",
+      "candidateAffected",
+      "equivalentPair",
+      "counterpartProofs",
+      "counterfactuals",
+      "campaignLogs",
+      "referenceTrace",
     ].sort();
-    if (canonical(Object.keys(receipt).sort()) !== canonical(expectedReceiptFields))
-      throw new Error("sourceOperation receipt has missing or unexpected fields");
+    if (
+      canonical(Object.keys(receipt).sort()) !==
+      canonical(expectedReceiptFields)
+    )
+      throw new Error(
+        "sourceOperation receipt has missing or unexpected fields",
+      );
     if (receipt.referenceTrace !== CSTRING_REFERENCE_TRACE)
-      throw new Error("sourceOperation caller and integer-bound reference trace differs");
+      throw new Error(
+        "sourceOperation caller and integer-bound reference trace differs",
+      );
 
-    const trackedPath = safeRelative(root, CSTRING_OPERATION.file, "sourceOperation source");
-    const beforeSource = gitSource(root, receipt.beforeRef, CSTRING_OPERATION.file);
-    if (hash(normalizeDirectives(beforeSource)) !== CSTRING_BOUNDARY_SOURCE_SHA256)
-      throw new Error("sourceOperation permanent Git source differs from the measured ancestor");
+    const trackedPath = safeRelative(
+      root,
+      CSTRING_OPERATION.file,
+      "sourceOperation source",
+    );
+    const beforeSource = gitSource(
+      root,
+      receipt.beforeRef,
+      CSTRING_OPERATION.file,
+    );
+    if (
+      hash(normalizeDirectives(beforeSource)) !== CSTRING_BOUNDARY_SOURCE_SHA256
+    )
+      throw new Error(
+        "sourceOperation permanent Git source differs from the measured ancestor",
+      );
     const normalizedBefore = normalizeDirectives(beforeSource);
     if (receipt.occurrence !== 0)
-      throw new Error("sourceOperation expression is missing or ambiguous in readCString");
-    const beforeExpression = cstringExpressionOffset(normalizedBefore, CSTRING_OPERATION.before);
+      throw new Error(
+        "sourceOperation expression is missing or ambiguous in readCString",
+      );
+    const beforeExpression = cstringExpressionOffset(
+      normalizedBefore,
+      CSTRING_OPERATION.before,
+    );
     const normalizedCandidate =
       normalizedBefore.slice(0, beforeExpression) +
       CSTRING_OPERATION.after +
-      normalizedBefore.slice(beforeExpression + CSTRING_OPERATION.before.length);
+      normalizedBefore.slice(
+        beforeExpression + CSTRING_OPERATION.before.length,
+      );
 
     if (!receipt.reports || typeof receipt.reports !== "object")
       throw new Error("sourceOperation report bindings are missing");
     const expectedReportNames = ["before", "unannotated", "final"].sort();
-    if (canonical(Object.keys(receipt.reports).sort()) !== canonical(expectedReportNames))
-      throw new Error("sourceOperation report binding set differs from the measured campaigns");
+    if (
+      canonical(Object.keys(receipt.reports).sort()) !==
+      canonical(expectedReportNames)
+    )
+      throw new Error(
+        "sourceOperation report binding set differs from the measured campaigns",
+      );
     const expectedCanonicalReportDigests = {
       before: CSTRING_BEFORE_REPORT_CANONICAL_SHA256,
       unannotated: CSTRING_UNANNOTATED_REPORT_CANONICAL_SHA256,
@@ -3167,23 +3330,33 @@ export function validateReadCStringBoundary({
         hash(binding.raw) !== binding.sha256 ||
         binding.canonicalSha256 !== expectedCanonicalReportDigests[name]
       )
-        throw new Error(`${name} sourceOperation report bytes differ from the retained real report`);
+        throw new Error(
+          `${name} sourceOperation report bytes differ from the retained real report`,
+        );
       let report;
       try {
         report = JSON.parse(binding.raw);
       } catch (error) {
-        throw new Error(`${name} sourceOperation report is invalid JSON: ${error.message}`);
+        throw new Error(
+          `${name} sourceOperation report is invalid JSON: ${error.message}`,
+        );
       }
       if (hash(canonical(report)) !== binding.canonicalSha256)
-        throw new Error(`${name} sourceOperation canonical report digest mismatch`);
+        throw new Error(
+          `${name} sourceOperation canonical report digest mismatch`,
+        );
       parsedReports[name] = report;
     }
     const before = cstringRecords(parsedReports.before, "before");
-    const unannotated = cstringRecords(parsedReports.unannotated, "unannotated");
+    const unannotated = cstringRecords(
+      parsedReports.unannotated,
+      "unannotated",
+    );
     const candidate = cstringRecords(parsedReports.final, "final");
     if (
       hash(before.source) !== CSTRING_BOUNDARY_SOURCE_SHA256 ||
-      before.source !== normalizeDirectives(normalizeDirectives(before.entry.source)) ||
+      before.source !==
+        normalizeDirectives(normalizeDirectives(before.entry.source)) ||
       hash(unannotated.source) !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
       hash(candidate.source) !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
       receipt.candidateSourceSha256 !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
@@ -3193,104 +3366,197 @@ export function validateReadCStringBoundary({
       unannotated.source !== normalizedCandidate ||
       candidate.source !== normalizedCandidate
     )
-      throw new Error("sourceOperation before/candidate source differs from the exact single-site edit");
+      throw new Error(
+        "sourceOperation before/candidate source differs from the exact single-site edit",
+      );
     if (
       before.records.length !== 593 ||
       unannotated.records.length !== 594 ||
       candidate.records.length !== 594 ||
-      canonical(cstringStatusCounts(before.records)) !== canonical({
-        Ignored: 53, Killed: 319, CompileError: 193, Timeout: 3, Survived: 24, NoCoverage: 1,
-      }) ||
-      canonical(cstringStatusCounts(unannotated.records)) !== canonical({
-        Ignored: 53, Killed: 320, CompileError: 193, Timeout: 3, Survived: 24, NoCoverage: 1,
-      }) ||
-      canonical(cstringStatusCounts(candidate.records)) !== canonical({
-        Ignored: 54, Killed: 320, CompileError: 193, Timeout: 3, Survived: 23, NoCoverage: 1,
-      })
+      canonical(cstringStatusCounts(before.records)) !==
+        canonical({
+          Ignored: 53,
+          Killed: 319,
+          CompileError: 193,
+          Timeout: 3,
+          Survived: 24,
+          NoCoverage: 1,
+        }) ||
+      canonical(cstringStatusCounts(unannotated.records)) !==
+        canonical({
+          Ignored: 53,
+          Killed: 320,
+          CompileError: 193,
+          Timeout: 3,
+          Survived: 24,
+          NoCoverage: 1,
+        }) ||
+      canonical(cstringStatusCounts(candidate.records)) !==
+        canonical({
+          Ignored: 54,
+          Killed: 320,
+          CompileError: 193,
+          Timeout: 3,
+          Survived: 23,
+          NoCoverage: 1,
+        })
     )
-      throw new Error("sourceOperation full-file mutant counts differ from the measured reports");
+      throw new Error(
+        "sourceOperation full-file mutant counts differ from the measured reports",
+      );
     const directives = candidate.entry.source
       .split("\n")
-      .flatMap((line, index) => line.trim() === CSTRING_EQUIVALENT_DIRECTIVE ? [index] : []);
+      .flatMap((line, index) =>
+        line.trim() === CSTRING_EQUIVALENT_DIRECTIVE ? [index] : [],
+      );
     if (
       directives.length !== 1 ||
       candidate.entry.source.split("\n")[directives[0] + 1]?.trim() !==
         `while (${CSTRING_OPERATION.after} && buffer[end] !== 0) end += 1;` ||
-      candidate.entry.source.includes("Stryker disable next-line EqualityOperator")
+      candidate.entry.source.includes(
+        "Stryker disable next-line EqualityOperator",
+      )
     )
-      throw new Error("candidate source lacks the exact ArithmeticOperator-only directive layout");
+      throw new Error(
+        "candidate source lacks the exact ArithmeticOperator-only directive layout",
+      );
 
     const mappings = [];
-    const currentByAnchor = new Map(candidate.records.map((record) => [record.anchor, record]));
+    const currentByAnchor = new Map(
+      candidate.records.map((record) => [record.anchor, record]),
+    );
     for (const record of before.records)
       if (currentByAnchor.has(record.anchor))
         mappings.push({ current: record.anchor, original: record.anchor });
     const oldEquivalent = cstringUnique(
       before.records,
-      (record) => record.mutatorName === "EqualityOperator" &&
-        record.replacement === "end <= buffer.length" && record.status === "Survived",
+      (record) =>
+        record.mutatorName === "EqualityOperator" &&
+        record.replacement === "end <= buffer.length" &&
+        record.status === "Survived",
       "original EOF-only equality survivor",
     );
     const currentEquivalent = cstringUnique(
       candidate.records,
-      (record) => record.mutatorName === "ArithmeticOperator" &&
-        record.replacement === "buffer.length + 1" && record.status === "Ignored" &&
-        /^equivalent-arithmetic — \S/.test(String(record.mutant.statusReason ?? "")),
+      (record) =>
+        record.mutatorName === "ArithmeticOperator" &&
+        record.replacement === "buffer.length + 1" &&
+        record.status === "Ignored" &&
+        /^equivalent-arithmetic — \S/.test(
+          String(record.mutant.statusReason ?? ""),
+        ),
       "comment-owned current arithmetic equivalent",
     );
-    const beforeEdit = cstringExpressionOffset(before.source, CSTRING_OPERATION.before);
-    const afterEdit = beforeEdit + CSTRING_OPERATION.before.length;
-    const candidateEdit = cstringExpressionOffset(candidate.source, CSTRING_OPERATION.after);
-    const candidateEnd = candidateEdit + CSTRING_OPERATION.after.length;
-    const impact = (records, start, end) => records
-      .filter((record) => (record.start <= start && record.end >= end) ||
-        (record.start < end && record.end > start))
-      .map((record) => ({
-        anchor: record.anchor,
-        mutatorName: record.mutatorName,
-        replacement: record.replacement,
-        status: record.status,
-        killedBy: record.killedBy,
-      }))
-      .sort((left, right) => left.anchor.localeCompare(right.anchor));
-    const beforeSite = before.records.filter((record) =>
-      (record.start <= beforeEdit && record.end >= afterEdit) ||
-      (record.start < afterEdit && record.end > beforeEdit),
+    const beforeEdit = cstringExpressionOffset(
+      before.source,
+      CSTRING_OPERATION.before,
     );
-    const candidateSite = candidate.records.filter((record) =>
-      (record.start <= candidateEdit && record.end >= candidateEnd) ||
-      (record.start < candidateEnd && record.end > candidateEdit),
+    const afterEdit = beforeEdit + CSTRING_OPERATION.before.length;
+    const candidateEdit = cstringExpressionOffset(
+      candidate.source,
+      CSTRING_OPERATION.after,
+    );
+    const candidateEnd = candidateEdit + CSTRING_OPERATION.after.length;
+    const impact = (records, start, end) =>
+      records
+        .filter(
+          (record) =>
+            (record.start <= start && record.end >= end) ||
+            (record.start < end && record.end > start),
+        )
+        .map((record) => ({
+          anchor: record.anchor,
+          mutatorName: record.mutatorName,
+          replacement: record.replacement,
+          status: record.status,
+          killedBy: record.killedBy,
+        }))
+        .sort((left, right) => left.anchor.localeCompare(right.anchor));
+    const beforeSite = before.records.filter(
+      (record) =>
+        (record.start <= beforeEdit && record.end >= afterEdit) ||
+        (record.start < afterEdit && record.end > beforeEdit),
+    );
+    const candidateSite = candidate.records.filter(
+      (record) =>
+        (record.start <= candidateEdit && record.end >= candidateEnd) ||
+        (record.start < candidateEnd && record.end > candidateEdit),
     );
     const sitePairs = [
       {
-        old: (record) => record.mutatorName === "BlockStatement" && record.replacement === "{}" && record.status === "CompileError",
-        current: (record) => record.mutatorName === "BlockStatement" && record.replacement === "{}" && record.status === "CompileError",
+        old: (record) =>
+          record.mutatorName === "BlockStatement" &&
+          record.replacement === "{}" &&
+          record.status === "CompileError",
+        current: (record) =>
+          record.mutatorName === "BlockStatement" &&
+          record.replacement === "{}" &&
+          record.status === "CompileError",
       },
       {
-        old: (record) => record.mutatorName === "ConditionalExpression" && record.replacement === "false" && record.status === "Killed",
-        current: (record) => record.mutatorName === "ConditionalExpression" && record.replacement === "false" && record.status === "Killed",
+        old: (record) =>
+          record.mutatorName === "ConditionalExpression" &&
+          record.replacement === "false" &&
+          record.status === "Killed",
+        current: (record) =>
+          record.mutatorName === "ConditionalExpression" &&
+          record.replacement === "false" &&
+          record.status === "Killed",
       },
       {
-        old: (record) => record.mutatorName === "LogicalOperator" && record.replacement === "end < buffer.length || buffer[end] !== 0" && record.status === "Timeout",
-        current: (record) => record.mutatorName === "LogicalOperator" && record.replacement === "end <= buffer.length - 1 || buffer[end] !== 0" && record.status === "Timeout",
+        old: (record) =>
+          record.mutatorName === "LogicalOperator" &&
+          record.replacement === "end < buffer.length || buffer[end] !== 0" &&
+          record.status === "Timeout",
+        current: (record) =>
+          record.mutatorName === "LogicalOperator" &&
+          record.replacement ===
+            "end <= buffer.length - 1 || buffer[end] !== 0" &&
+          record.status === "Timeout",
       },
       {
-        old: (record) => record.mutatorName === "ConditionalExpression" && record.replacement === "true" && record.status === "Timeout",
-        current: (record) => record.mutatorName === "ConditionalExpression" && record.replacement === "true" && record.status === "Timeout",
+        old: (record) =>
+          record.mutatorName === "ConditionalExpression" &&
+          record.replacement === "true" &&
+          record.status === "Timeout",
+        current: (record) =>
+          record.mutatorName === "ConditionalExpression" &&
+          record.replacement === "true" &&
+          record.status === "Timeout",
       },
       {
-        old: (record) => record.mutatorName === "EqualityOperator" && record.replacement === "end >= buffer.length" && record.status === "Killed",
-        current: (record) => record.mutatorName === "EqualityOperator" && record.replacement === "end > buffer.length - 1" && record.status === "Killed",
+        old: (record) =>
+          record.mutatorName === "EqualityOperator" &&
+          record.replacement === "end >= buffer.length" &&
+          record.status === "Killed",
+        current: (record) =>
+          record.mutatorName === "EqualityOperator" &&
+          record.replacement === "end > buffer.length - 1" &&
+          record.status === "Killed",
       },
     ];
     for (const [index, pair] of sitePairs.entries()) {
-      const old = cstringUnique(beforeSite, pair.old, `site mapping ${index + 1} original`);
-      const current = cstringUnique(candidateSite, pair.current, `site mapping ${index + 1} current`);
+      const old = cstringUnique(
+        beforeSite,
+        pair.old,
+        `site mapping ${index + 1} original`,
+      );
+      const current = cstringUnique(
+        candidateSite,
+        pair.current,
+        `site mapping ${index + 1} current`,
+      );
       if (
         old.anchor === current.anchor ||
-        mappings.some((mapping) => mapping.original === old.anchor || mapping.current === current.anchor)
+        mappings.some(
+          (mapping) =>
+            mapping.original === old.anchor ||
+            mapping.current === current.anchor,
+        )
       )
-        throw new Error(`site mapping ${index + 1} collides with another correspondence`);
+        throw new Error(
+          `site mapping ${index + 1} collides with another correspondence`,
+        );
       mappings.push({ current: current.anchor, original: old.anchor });
     }
     const survivorMatches = Array.isArray(survivors)
@@ -3304,17 +3570,31 @@ export function validateReadCStringBoundary({
       survivorMatches[0].anchorKey !== oldEquivalent.anchor ||
       survivorMatches[0].status !== "Survived"
     )
-      throw new Error("original EOF-only key differs from its immutable survivor snapshot");
-    if (row.anchors?.length !== 1 || row.anchors[0] !== currentEquivalent.rawAnchor)
-      throw new Error("equivalent owner does not name the one actual current raw comment anchor");
+      throw new Error(
+        "original EOF-only key differs from its immutable survivor snapshot",
+      );
+    if (
+      row.anchors?.length !== 1 ||
+      row.anchors[0] !== currentEquivalent.rawAnchor
+    )
+      throw new Error(
+        "equivalent owner does not name the one actual current raw comment anchor",
+      );
     const currentCanonicalKeys = new Set(mappings.map((pair) => pair.current));
-    const originalCanonicalKeys = new Set(mappings.map((pair) => pair.original));
+    const originalCanonicalKeys = new Set(
+      mappings.map((pair) => pair.original),
+    );
     if (
       currentCanonicalKeys.has(currentEquivalent.anchor) ||
       originalCanonicalKeys.has(oldEquivalent.anchor)
     )
-      throw new Error("cross-mutator equivalent pair collides with an exact anchor mapping");
-    mappings.push({ current: currentEquivalent.anchor, original: oldEquivalent.anchor });
+      throw new Error(
+        "cross-mutator equivalent pair collides with an exact anchor mapping",
+      );
+    mappings.push({
+      current: currentEquivalent.anchor,
+      original: oldEquivalent.anchor,
+    });
     mappings.sort((left, right) => left.current.localeCompare(right.current));
     if (
       canonical(
@@ -3325,30 +3605,42 @@ export function validateReadCStringBoundary({
       new Set(mappings.map((pair) => pair.current)).size !== mappings.length ||
       new Set(mappings.map((pair) => pair.original)).size !== mappings.length
     )
-      throw new Error("sourceOperation anchor mapping is incomplete, non-injective or forged");
+      throw new Error(
+        "sourceOperation anchor mapping is incomplete, non-injective or forged",
+      );
     anchors.push(...mappings);
     equivalentPair = {
       current: currentEquivalent.anchor,
       original: oldEquivalent.anchor,
     };
     if (
-      canonical(receipt.equivalentPair) !== canonical({
+      canonical(receipt.equivalentPair) !==
+      canonical({
         current: currentEquivalent.rawAnchor,
         currentCanonical: currentEquivalent.anchor,
         originalKey: CSTRING_EQUIVALENT_KEY,
         original: oldEquivalent.anchor,
       })
     )
-      throw new Error("sourceOperation cross-mutator pair differs from the measured unique EOF survivor");
+      throw new Error(
+        "sourceOperation cross-mutator pair differs from the measured unique EOF survivor",
+      );
 
     const beforeAffected = impact(before.records, beforeEdit, afterEdit);
-    const candidateAffected = impact(candidate.records, candidateEdit, candidateEnd);
+    const candidateAffected = impact(
+      candidate.records,
+      candidateEdit,
+      candidateEnd,
+    );
     if (
-      beforeAffected.length !== 6 || candidateAffected.length !== 7 ||
+      beforeAffected.length !== 6 ||
+      candidateAffected.length !== 7 ||
       canonical(receipt.beforeAffected) !== canonical(beforeAffected) ||
       canonical(receipt.candidateAffected) !== canonical(candidateAffected)
     )
-      throw new Error("sourceOperation complete affected inventories differ from full reports");
+      throw new Error(
+        "sourceOperation complete affected inventories differ from full reports",
+      );
 
     const testBindings = [
       {
@@ -3399,7 +3691,8 @@ export function validateReadCStringBoundary({
     const expectedCounterparts = testBindings.map((binding) => {
       const record = cstringUnique(
         binding.records,
-        (candidateRecord) => candidateRecord.mutatorName === binding.mutator &&
+        (candidateRecord) =>
+          candidateRecord.mutatorName === binding.mutator &&
           candidateRecord.replacement === binding.replacement,
         binding.label,
       );
@@ -3429,11 +3722,18 @@ export function validateReadCStringBoundary({
         current: expectedCounterparts[3],
       },
     ];
-    if (canonical(receipt.counterpartProofs) !== canonical(semanticCounterparts))
-      throw new Error("sourceOperation counterpart proofs do not match direct real killedBy evidence");
+    if (
+      canonical(receipt.counterpartProofs) !== canonical(semanticCounterparts)
+    )
+      throw new Error(
+        "sourceOperation counterpart proofs do not match direct real killedBy evidence",
+      );
     counterpartProofs.push(...semanticCounterparts);
 
-    if (!Array.isArray(receipt.counterfactuals) || receipt.counterfactuals.length !== CSTRING_COUNTERFACTUALS.length)
+    if (
+      !Array.isArray(receipt.counterfactuals) ||
+      receipt.counterfactuals.length !== CSTRING_COUNTERFACTUALS.length
+    )
       throw new Error("sourceOperation counterfactual inventory is incomplete");
     const verifiedCounterfactuals = [];
     for (let index = 0; index < CSTRING_COUNTERFACTUALS.length; index++) {
@@ -3441,18 +3741,40 @@ export function validateReadCStringBoundary({
       const actual = receipt.counterfactuals[index];
       if (
         !actual ||
-        canonical(Object.keys(actual).sort()) !== canonical([
-          "id", "alteredSource", "sourceSha256", "greenTestLog", "greenTestLogSha256", "greenExitCode", "testLog", "testLogSha256", "exitCode", "testFile", "testName", "assertion",
-        ].sort()) ||
-        actual.id !== expected.id || actual.sourceSha256 !== expected.sourceSha256 ||
-        actual.testLogSha256 !== expected.testLogSha256 || hash(actual.testLog ?? "") !== expected.testLogSha256 ||
-        actual.greenTestLogSha256 !== expected.greenTestLogSha256 || hash(actual.greenTestLog ?? "") !== expected.greenTestLogSha256 ||
-        actual.greenExitCode !== 0 || !String(actual.greenTestLog).includes("Tests  1 passed") ||
-        actual.exitCode !== 1 || actual.testFile !== expected.testFile ||
-        actual.testName !== expected.testName || actual.assertion !== expected.assertion ||
+        canonical(Object.keys(actual).sort()) !==
+          canonical(
+            [
+              "id",
+              "alteredSource",
+              "sourceSha256",
+              "greenTestLog",
+              "greenTestLogSha256",
+              "greenExitCode",
+              "testLog",
+              "testLogSha256",
+              "exitCode",
+              "testFile",
+              "testName",
+              "assertion",
+            ].sort(),
+          ) ||
+        actual.id !== expected.id ||
+        actual.sourceSha256 !== expected.sourceSha256 ||
+        actual.testLogSha256 !== expected.testLogSha256 ||
+        hash(actual.testLog ?? "") !== expected.testLogSha256 ||
+        actual.greenTestLogSha256 !== expected.greenTestLogSha256 ||
+        hash(actual.greenTestLog ?? "") !== expected.greenTestLogSha256 ||
+        actual.greenExitCode !== 0 ||
+        !String(actual.greenTestLog).includes("Tests  1 passed") ||
+        actual.exitCode !== 1 ||
+        actual.testFile !== expected.testFile ||
+        actual.testName !== expected.testName ||
+        actual.assertion !== expected.assertion ||
         !String(actual.testLog).includes(expected.assertion)
       )
-        throw new Error(`${expected.id} executed counterfactual evidence is missing or stale`);
+        throw new Error(
+          `${expected.id} executed counterfactual evidence is missing or stale`,
+        );
       const alteredPositions = [];
       let at = 0;
       while ((at = before.entry.source.indexOf(expected.before, at)) !== -1) {
@@ -3460,15 +3782,21 @@ export function validateReadCStringBoundary({
         at += expected.before.length;
       }
       if (alteredPositions.length !== 1)
-        throw new Error(`${expected.id} counterfactual source site is ambiguous`);
-      const alteredSource = before.entry.source.slice(0, alteredPositions[0]) +
-        expected.after + before.entry.source.slice(alteredPositions[0] + expected.before.length);
+        throw new Error(
+          `${expected.id} counterfactual source site is ambiguous`,
+        );
+      const alteredSource =
+        before.entry.source.slice(0, alteredPositions[0]) +
+        expected.after +
+        before.entry.source.slice(alteredPositions[0] + expected.before.length);
       if (
         actual.alteredSource !== alteredSource ||
         hash(actual.alteredSource) !== expected.sourceSha256 ||
         !actual.testLog.includes(expected.testName)
       )
-        throw new Error(`${expected.id} altered source bytes or named failing test differ from the executed counterfactual`);
+        throw new Error(
+          `${expected.id} altered source bytes or named failing test differ from the executed counterfactual`,
+        );
       verifiedCounterfactuals.push({
         id: expected.id,
         sourceSha256: expected.sourceSha256,
@@ -3479,25 +3807,67 @@ export function validateReadCStringBoundary({
       });
     }
     const expectedLogBindings = {
-      before: { sha256: "344a079d505629c126fdc892fc9da01de26ef924983ffd7732a82fe134ef5377" },
-      unannotated: { sha256: "84c3a37250ae62416191be2b3d7187112f74378f51a266f44148136a1cf6645c" },
-      final: { sha256: "8330735b0bca891e0dab0bb996ee1bdff9ac7db31f442e05dd05fbb41ad5159f" },
+      before: {
+        sha256:
+          "344a079d505629c126fdc892fc9da01de26ef924983ffd7732a82fe134ef5377",
+      },
+      unannotated: {
+        sha256:
+          "84c3a37250ae62416191be2b3d7187112f74378f51a266f44148136a1cf6645c",
+      },
+      final: {
+        sha256:
+          "8330735b0bca891e0dab0bb996ee1bdff9ac7db31f442e05dd05fbb41ad5159f",
+      },
     };
     if (
-      !receipt.campaignLogs || canonical(Object.keys(receipt.campaignLogs).sort()) !== canonical(["before", "final", "unannotated"].sort()) ||
-      ["before", "unannotated", "final"].some((name) =>
-        receipt.campaignLogs[name]?.sha256 !== expectedLogBindings[name].sha256 ||
-        hash(receipt.campaignLogs[name]?.raw ?? "") !== expectedLogBindings[name].sha256 ||
-        !receipt.campaignLogs[name].raw.includes("Initial test run succeeded. Ran 1187 tests")
+      !receipt.campaignLogs ||
+      canonical(Object.keys(receipt.campaignLogs).sort()) !==
+        canonical(["before", "final", "unannotated"].sort()) ||
+      ["before", "unannotated", "final"].some(
+        (name) =>
+          receipt.campaignLogs[name]?.sha256 !==
+            expectedLogBindings[name].sha256 ||
+          hash(receipt.campaignLogs[name]?.raw ?? "") !==
+            expectedLogBindings[name].sha256 ||
+          !receipt.campaignLogs[name].raw.includes(
+            "Initial test run succeeded. Ran 1187 tests",
+          ),
       )
     )
-      throw new Error("sourceOperation green full-suite campaign logs are absent or stale");
-    if (canonical(verifiedCounterfactuals) !== canonical(receipt.counterfactuals.map(({ id, sourceSha256, greenTestLogSha256, greenExitCode, testLogSha256, exitCode }) => ({ id, sourceSha256, greenTestLogSha256, greenExitCode, testLogSha256, exitCode }))))
-      throw new Error("sourceOperation counterfactual verification table differs");
+      throw new Error(
+        "sourceOperation green full-suite campaign logs are absent or stale",
+      );
+    if (
+      canonical(verifiedCounterfactuals) !==
+      canonical(
+        receipt.counterfactuals.map(
+          ({
+            id,
+            sourceSha256,
+            greenTestLogSha256,
+            greenExitCode,
+            testLogSha256,
+            exitCode,
+          }) => ({
+            id,
+            sourceSha256,
+            greenTestLogSha256,
+            greenExitCode,
+            testLogSha256,
+            exitCode,
+          }),
+        ),
+      )
+    )
+      throw new Error(
+        "sourceOperation counterfactual verification table differs",
+      );
 
     if (requireFinal) {
       const diskSource = readFileSync(trackedPath, "utf8");
-      const selectedSource = typeof currentSource === "string" ? currentSource : diskSource;
+      const selectedSource =
+        typeof currentSource === "string" ? currentSource : diskSource;
       if (measuredHeadReport) {
         // Plan 67-46 amendment 1: a hosted whole-run report measured on the committed head. Every
         // code byte stays pinned (directive-normalized digest); the raw bytes and the report are
@@ -3525,16 +3895,23 @@ export function validateReadCStringBoundary({
       } else if (
         selectedSource !== diskSource ||
         hash(selectedSource) !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
-        hash(normalizeDirectives(selectedSource)) !== CSTRING_CANDIDATE_SOURCE_SHA256 ||
-        !finalEntry || hash(finalEntry.source ?? "") !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
-        !finalReport || (allowLiveReport
+        hash(normalizeDirectives(selectedSource)) !==
+          CSTRING_CANDIDATE_SOURCE_SHA256 ||
+        !finalEntry ||
+        hash(finalEntry.source ?? "") !== CSTRING_FINAL_RAW_SOURCE_SHA256 ||
+        !finalReport ||
+        (allowLiveReport
           ? !cstringEquivalentReport(finalReport, parsedReports.final)
           : canonical(finalReport) !== canonical(parsedReports.final))
       )
-        throw new Error("live sourceOperation source/report differs from the exact measured candidate");
+        throw new Error(
+          "live sourceOperation source/report differs from the exact measured candidate",
+        );
       for (const [file, entry] of Object.entries(finalReport.testFiles ?? {})) {
         if (typeof entry.source !== "string" || !Array.isArray(entry.tests))
-          throw new Error(`final sourceOperation test table is incomplete for ${file}`);
+          throw new Error(
+            `final sourceOperation test table is incomplete for ${file}`,
+          );
         // Structural completeness only. Named-killer closures are enforced in
         // cstringDirectKill; a test file that holds no named killer carries no receipt claim,
         // so its bytes are not compared here (Plan 67-59).
@@ -3543,7 +3920,12 @@ export function validateReadCStringBoundary({
     return { problems, anchors, equivalentPair, counterpartProofs };
   } catch (error) {
     fail(error.message);
-    return { problems, anchors: [], equivalentPair: null, counterpartProofs: [] };
+    return {
+      problems,
+      anchors: [],
+      equivalentPair: null,
+      counterpartProofs: [],
+    };
   }
 }
 
@@ -3583,17 +3965,29 @@ export function containsWholeWord(text, symbol) {
  */
 export function enclosingFunctionSpan(source, name) {
   if (typeof source !== "string" || typeof name !== "string" || name === "")
-    throw new Error("scoped dead witness needs a source text and a function name");
+    throw new Error(
+      "scoped dead witness needs a source text and a function name",
+    );
   const ts = loadTypeScriptForBinding();
-  const sf = ts.createSourceFile("scoped-dead.ts", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const sf = ts.createSourceFile(
+    "scoped-dead.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
   if (sf.parseDiagnostics.length > 0)
     throw new Error("scoped dead witness source has a syntax error");
   const found = sf.statements.filter(
     (statement) =>
-      ts.isFunctionDeclaration(statement) && statement.name?.text === name && statement.body,
+      ts.isFunctionDeclaration(statement) &&
+      statement.name?.text === name &&
+      statement.body,
   );
   if (found.length !== 1)
-    throw new Error(`scoped dead function ${name} is not declared exactly once at the top level`);
+    throw new Error(
+      `scoped dead function ${name} is not declared exactly once at the top level`,
+    );
   const node = found[0];
   return {
     startLine: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
