@@ -153,6 +153,7 @@ interface DeletionProof {
     readTest(file: string): string;
     survivors: Survivor[];
     requireFinal: boolean;
+    measuredHeadReport?: boolean;
   }): {
     problems: string[];
     anchors: { current: string; original: string }[];
@@ -163,6 +164,13 @@ interface DeletionProof {
       status: string;
       killedBy: { file: string; name: string }[];
     }[];
+  };
+  declaredTestStatus(
+    source: string,
+    name: string,
+  ): {
+    status: "declared" | "absent" | "ambiguous" | "unsupported" | "modified";
+    paths: string[];
   };
   validateReadCStringBoundary(input: unknown): {
     problems: string[];
@@ -1917,8 +1925,10 @@ function deletionFixture(removeBeforeReport = false) {
   const testSource = [
     'import assert from "node:assert/strict";',
     'import { f } from "../src/example.mjs";',
-    `// ${testName}`,
-    "assert.deepEqual(f(false), []);",
+    "const it = (_name, run) => run();",
+    `it(${JSON.stringify(testName)}, () => {`,
+    "  assert.deepEqual(f(false), []);",
+    "});",
     "",
   ].join("\n");
   const root = tempRoot({
@@ -3827,11 +3837,31 @@ describe("real iloc boundary receipt", () => {
               : null;
           if (path === null || !existsSync(path))
             return [`${row.id}: gap test file ${file} is missing`];
-          if (
-            typeof name !== "string" ||
-            name === "" ||
-            !readFileSync(path, "utf8").includes(name)
-          )
+          const found = deletionProof.declaredTestStatus(
+            readFileSync(path, "utf8"),
+            name as string,
+          );
+          const table = finalReport.testFiles[file as string];
+          const corroborated =
+            found.status === "unsupported" &&
+            table?.source === readFileSync(path, "utf8") &&
+            Array.isArray(table.tests) &&
+            table.tests.filter(
+              (test) => test.name === name || test.name.endsWith(` > ${name}`),
+            ).length === 1;
+          if (found.status === "ambiguous")
+            return [
+              `${row.id}: gap test ${file} names an ambiguous test ${JSON.stringify(name)} (${found.paths.length} static declarations)`,
+            ];
+          if (found.status === "modified")
+            return [
+              `${row.id}: gap test ${file} name ${JSON.stringify(name)} is skipped, exclusive, conditional or otherwise modified and cannot be corroborated`,
+            ];
+          if (found.status === "unsupported" && !corroborated)
+            return [
+              `${row.id}: gap test ${file} name ${JSON.stringify(name)} is generated and the measured report does not show exactly one such test`,
+            ];
+          if (found.status === "absent")
             return [
               `${row.id}: gap test ${file} does not contain test name ${JSON.stringify(name)}`,
             ];
@@ -9041,3 +9071,598 @@ describe("named-killer approval binding", () => {
     expect(verifier).toContain("requireSchedule(plan, plan + 11, plan === 18 ? 59 : plan - 1);");
   });
 });
+
+describe("structural gap-test resolution (Plan 67-46 amendment 1)", () => {
+  const status = (source: string, name: string) =>
+    deletionProof.declaredTestStatus(source, name).status;
+  const NESTED = 'describe("A", () => { it("b", () => {}); });';
+  const clean = reportOf([mutant("1", 1, 11, "Killed")]);
+  const gapProblems = (
+    source: string,
+    name: string,
+    finalReport: Report | null = clean,
+  ) =>
+    checkLedger({
+      ledger: ledgerOf([
+        cluster("c1", {
+          disposition: "gap",
+          test: { file: "tests/k.test.ts", name },
+        }),
+      ]),
+      finalReport,
+      root: tempRoot({ "tests/k.test.ts": source }),
+      groups,
+      mode: "final",
+    });
+  const withTable = (source: string, names: string[], tableSource = source) =>
+    ({
+      ...clean,
+      testFiles: {
+        "tests/k.test.ts": {
+          source: tableSource,
+          tests: names.map((name, index) => ({ id: `t${index}`, name })),
+        },
+      },
+    }) as Report;
+
+  it("resolves a joined path, a leaf-only name and a top-level name by declaration", () => {
+    expect(status(NESTED, "A > b")).toBe("declared");
+    expect(status(NESTED, "b")).toBe("declared");
+    expect(status('it("kills it", () => {});', "kills it")).toBe("declared");
+    expect(
+      status('test("kills it", async () => { await 1; });', "kills it"),
+    ).toBe("declared");
+    expect(
+      status(
+        'describe("A", () => { describe("B", () => { it("c", () => {}); }); });',
+        "A > B > c",
+      ),
+    ).toBe("declared");
+  });
+
+  it("rejects a missing, renamed, partial, comment-only, string-only, wrong-suite and mid-segment name", () => {
+    expect(status('it("other", () => {});', "kills it")).toBe("absent");
+    expect(status('it("kills it v2", () => {});', "kills it")).toBe("absent");
+    expect(status('it("kills it", () => {});', "kills")).toBe("absent");
+    expect(status('// kills it\nit("other", () => {});', "kills it")).toBe(
+      "absent",
+    );
+    expect(
+      status('const s = "kills it"; it("other", () => {});', "kills it"),
+    ).toBe("absent");
+    expect(status(NESTED, "B > b")).toBe("absent");
+    expect(status(NESTED, "A > b2")).toBe("absent");
+    expect(
+      status(
+        'describe("A", () => { describe("B", () => { it("c", () => {}); }); });',
+        "A > c",
+      ),
+    ).toBe("absent");
+  });
+
+  it("reports a duplicated path as ambiguous and lets the joined path disambiguate a repeated leaf", () => {
+    expect(status('it("b", () => {}); it("b", () => {});', "b")).toBe(
+      "ambiguous",
+    );
+    expect(
+      status(
+        'describe("A", () => { it("b", () => {}); it("b", () => {}); });',
+        "A > b",
+      ),
+    ).toBe("ambiguous");
+    const twice =
+      'describe("A", () => { it("b", () => {}); }); describe("C", () => { it("b", () => {}); });';
+    expect(status(twice, "b")).toBe("ambiguous");
+    expect(status(twice, "C > b")).toBe("declared");
+  });
+
+  it("classifies skipped, todo, conditional, exclusive, failing-expected and x or f registrations as modified, never declared", () => {
+    const modified: [string, string][] = [
+      ['it.skip("b", () => {});', "b"],
+      ['describe("A", () => { it.only("b", () => {}); });', "A > b"],
+      ['describe.skip("A", () => { it("b", () => {}); });', "A > b"],
+      ['it.todo("b");', "b"],
+      ['it.skipIf(true)("b", () => {});', "b"],
+      ['it.runIf(false)("b", () => {});', "b"],
+      ['it.fails("b", () => {});', "b"],
+      ['xit("b", () => {});', "b"],
+      ['fit("b", () => {});', "b"],
+      ['xdescribe("A", () => { it("b", () => {}); });', "A > b"],
+      ['it("other", () => {}); it.skip("b", () => {});', "b"],
+    ];
+    for (const [source, name] of modified)
+      expect(status(source, name), source).toBe("modified");
+    expect(status('it.skip("other", () => {}); it("b", () => {});', "b")).toBe(
+      "declared",
+    );
+  });
+
+  it("treats looped, templated, callback-less and unparsable registrations as unsupported, never as declared", () => {
+    expect(status('it("b");', "b")).toBe("unsupported");
+    expect(
+      status("for (const v of [0, 1]) { it(`v${v} x`, () => {}); }", "v0 x"),
+    ).toBe("unsupported");
+    expect(status('describe("A", () => it("b", () => {}));', "A > b")).toBe(
+      "unsupported",
+    );
+    expect(status('it("kills it",', "kills it")).toBe("unsupported");
+    expect(status(NESTED, "")).toBe("unsupported");
+    expect(status(NESTED, "A >  > b")).toBe("unsupported");
+    // Registrations that cannot produce the requested name do not make it unsupported.
+    expect(
+      status(
+        'it.each([1])("e %s", () => {}); it("kills it", () => {});',
+        "kills it",
+      ),
+    ).toBe("declared");
+  });
+
+  it("accepts a declared name through checkLedger and rejects a missing, renamed, duplicated or comment-only one", () => {
+    expect(
+      gapProblems('describe("A", () => { it("b", () => {}); });', "A > b"),
+    ).toEqual([]);
+    expect(gapProblems('it("kills it", () => {});', "kills it")).toEqual([]);
+    expect(gapProblems('it("other", () => {});', "kills it")).toEqual([
+      'c1: gap test tests/k.test.ts does not contain test name "kills it"',
+    ]);
+    expect(
+      gapProblems('// kills it\nit("other", () => {});', "kills it"),
+    ).toEqual([
+      'c1: gap test tests/k.test.ts does not contain test name "kills it"',
+    ]);
+    expect(
+      gapProblems('describe("B", () => { it("b", () => {}); });', "A > b"),
+    ).toEqual([
+      'c1: gap test tests/k.test.ts does not contain test name "A > b"',
+    ]);
+    expect(gapProblems('it("b", () => {}); it("b", () => {});', "b")).toEqual([
+      'c1: gap test tests/k.test.ts names an ambiguous test "b" (2 static declarations)',
+    ]);
+  });
+
+  it("accepts a generated or modified name only when exactly one measured test of the same file source shows it", () => {
+    const looped = "for (const v of [0, 1]) { it(`v${v} x`, () => {}); }";
+    const generated =
+      'c1: gap test tests/k.test.ts name "v0 x" is generated and the measured report does not show exactly one such test';
+    expect(
+      gapProblems(looped, "v0 x", withTable(looped, ["v0 x", "v1 x"])),
+    ).toEqual([]);
+    expect(gapProblems(looped, "v0 x", withTable(looped, ["v1 x"]))).toEqual([
+      generated,
+    ]);
+    expect(
+      gapProblems(looped, "v0 x", withTable(looped, ["v0 x", "v0 x"])),
+    ).toEqual([generated]);
+    expect(
+      gapProblems(looped, "v0 x", withTable(looped, ["v0 x"], `${looped}\n`)),
+    ).toEqual([generated]);
+    expect(gapProblems(looped, "v0 x", clean)).toEqual([generated]);
+    expect(gapProblems(looped, "v0 x", null)).toEqual([generated]);
+  });
+
+  it("never corroborates a skipped, todo, conditional or exclusive name, even when the report table lists it once", () => {
+    const modified = (name: string) =>
+      `c1: gap test tests/k.test.ts name "${name}" is skipped, exclusive, conditional or otherwise modified and cannot be corroborated`;
+    const cases: [string, string][] = [
+      ['it.skip("kills it", () => {});', "kills it"],
+      ['describe.skip("A", () => { it("b", () => {}); });', "A > b"],
+      ['it.todo("kills it");', "kills it"],
+      ['it.skipIf(true)("kills it", () => {});', "kills it"],
+      ['it.only("kills it", () => {}); it("other", () => {});', "kills it"],
+      ['it.runIf(false)("kills it", () => {});', "kills it"],
+      ['it.fails("kills it", () => {});', "kills it"],
+      ['xit("kills it", () => {});', "kills it"],
+    ];
+    for (const [source, name] of cases) {
+      expect(
+        gapProblems(source, name, withTable(source, [name])),
+        source,
+      ).toEqual([modified(name)]);
+      expect(gapProblems(source, name, withTable(source, [])), source).toEqual([
+        modified(name),
+      ]);
+    }
+  });
+
+  it("resolves every non-compiler-killed gap row of the committed ledger on the live test files", () => {
+    const ledger = JSON.parse(
+      readFileSync(
+        join(packageRoot, "tools", "mutation", "ledger.json"),
+        "utf8",
+      ),
+    ) as { clusters: Cluster[] };
+    const generated = new Set([
+      "iloc boundary preservation > v0 payload length 0 keeps the typed framing refusal",
+      "iloc boundary preservation > v0 payload length 2 keeps the typed framing refusal",
+    ]);
+    const rows = ledger.clusters.filter(
+      (row) => row.disposition === "gap" && row.compilerKilled !== true,
+    );
+    expect(rows.length).toBeGreaterThan(800);
+    for (const row of rows) {
+      const found = deletionProof.declaredTestStatus(
+        readFileSync(join(packageRoot, row.test!.file), "utf8"),
+        row.test!.name,
+      );
+      expect(found.status, `${row.id}: ${row.test!.name}`).toBe(
+        generated.has(row.test!.name) ? "unsupported" : "declared",
+      );
+    }
+  }, 60_000);
+});
+
+describe(
+  "measured-head final report (Plan 67-46 amendment 1)",
+  { timeout: 60_000 },
+  () => {
+    const ITEMS = "src/isobmff/items.ts";
+    const DIRECTIVE = /^\s*\/\/ Stryker (?:disable|restore)\b/;
+    const directiveLines = (source: string) =>
+      source
+        .split("\n")
+        .flatMap((line, index) => (DIRECTIVE.test(line) ? [index + 1] : []));
+    const load = () => {
+      const { bundle, finalReport } = loadCStringBoundaryBundle();
+      const row = bundle.candidateRows.find(
+        (candidate) => candidate.sourceOperation,
+      )!;
+      const survivors = JSON.parse(
+        readFileSync(
+          join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+          "utf8",
+        ),
+      ).survivors as Survivor[];
+      return { row, survivors, sealed: finalReport as Report };
+    };
+    /** The sealed single-file report re-expressed for a raw source that differs from the sealed
+     * raw source only by directive lines: every mutant keeps its normalized position. */
+    const reshaped = (sealed: Report, source: string): Report => {
+      const report = structuredClone(sealed);
+      const entry = report.files[ITEMS]!;
+      const before = directiveLines(entry.source);
+      const after = directiveLines(source);
+      const move = (line: number) => {
+        let moved = line - before.filter((at) => at < line).length;
+        for (const at of after) if (at <= moved) moved += 1;
+        return moved;
+      };
+      for (const m of entry.mutants) {
+        m.location.start.line = move(m.location.start.line);
+        m.location.end.line = move(m.location.end.line);
+      }
+      entry.source = source;
+      return report;
+    };
+    const gitDir = execFileSync("git", ["rev-parse", "--absolute-git-dir"], {
+      cwd: packageRoot,
+      encoding: "utf8",
+    }).trim();
+    const problemsFor = (
+      report: Report,
+      root: string,
+      row: Cluster,
+      survivors: Survivor[],
+    ) =>
+      deletionProof.validateReadCStringBoundary({
+        row,
+        root,
+        finalEntry: report.files[ITEMS] ?? null,
+        finalReport: report,
+        readTest: (file: string) =>
+          readFileSync(join(packageRoot, file), "utf8"),
+        survivors,
+        requireFinal: true,
+        measuredHeadReport: true,
+      }).problems;
+    const LIVE =
+      "live sourceOperation source/report differs from the exact measured candidate";
+    const itemsRoot = (source: string) =>
+      tempRoot({ [ITEMS]: source, ".git": `gitdir: ${gitDir}\n` });
+    const site = (report: Report, mutator: string, replacement: string) =>
+      report.files[ITEMS]!.mutants.find(
+        (m) => m.mutatorName === mutator && m.replacement === replacement,
+      )!;
+
+    it("accepts the sealed bytes, the committed live bytes and a directive-only difference", () => {
+      const { row, survivors, sealed } = load();
+      const sealedSource = sealed.files[ITEMS]!.source;
+      expect(
+        problemsFor(sealed, itemsRoot(sealedSource), row, survivors),
+      ).toEqual([]);
+      const liveSource = readFileSync(join(packageRoot, ITEMS), "utf8");
+      expect(
+        problemsFor(reshaped(sealed, liveSource), packageRoot, row, survivors),
+      ).toEqual([]);
+      const extra = `${sealedSource}// Stryker disable next-line StringLiteral: unobservable-message — a later directive elsewhere\n`;
+      expect(
+        problemsFor(reshaped(sealed, extra), itemsRoot(extra), row, survivors),
+      ).toEqual([]);
+      const timeout = reshaped(sealed, liveSource);
+      site(timeout, "EqualityOperator", "end > buffer.length - 1").status =
+        "Timeout";
+      expect(problemsFor(timeout, packageRoot, row, survivors)).toEqual([]);
+    });
+
+    it("rejects a report that is not the committed bytes or lacks the items.ts entry", () => {
+      const { row, survivors, sealed } = load();
+      const liveSource = readFileSync(join(packageRoot, ITEMS), "utf8");
+      const stale = reshaped(sealed, liveSource);
+      stale.files[ITEMS]!.source += "\n";
+      expect(problemsFor(stale, packageRoot, row, survivors)).toEqual([
+        `${row.id}: ${LIVE}`,
+      ]);
+      const absent = reshaped(sealed, liveSource);
+      delete absent.files[ITEMS];
+      expect(problemsFor(absent, packageRoot, row, survivors)).toEqual([
+        `${row.id}: ${LIVE}`,
+      ]);
+      const copied = reshaped(sealed, liveSource);
+      const detached = deletionProof.validateReadCStringBoundary({
+        row,
+        root: packageRoot,
+        finalEntry: structuredClone(copied.files[ITEMS]),
+        finalReport: copied,
+        readTest: (file: string) =>
+          readFileSync(join(packageRoot, file), "utf8"),
+        survivors,
+        requireFinal: true,
+        measuredHeadReport: true,
+      }).problems;
+      expect(detached).toEqual([`${row.id}: ${LIVE}`]);
+    });
+
+    it("rejects an undetected, unignored, duplicated or missing site mutant", () => {
+      const { row, survivors, sealed } = load();
+      const liveSource = readFileSync(join(packageRoot, ITEMS), "utf8");
+      const variants: [string, (report: Report) => void][] = [
+        [
+          "loop opposite Survived",
+          (r) => {
+            site(r, "EqualityOperator", "end > buffer.length - 1").status =
+              "Survived";
+          },
+        ],
+        [
+          "NUL opposite NoCoverage",
+          (r) => {
+            site(r, "EqualityOperator", "buffer[end] === 0").status =
+              "NoCoverage";
+          },
+        ],
+        [
+          "block mutant no longer a compile error",
+          (r) => {
+            const line =
+              r.files[ITEMS]!.source.split("\n").findIndex((text) =>
+                text.includes("while (end <= buffer.length - 1"),
+              ) + 1;
+            r.files[ITEMS]!.mutants.find(
+              (m) =>
+                m.mutatorName === "BlockStatement" &&
+                m.replacement === "{}" &&
+                m.status === "CompileError" &&
+                m.location.start.line <= line &&
+                m.location.end.line >= line,
+            )!.status = "Killed";
+          },
+        ],
+        [
+          "equivalent arithmetic not Ignored",
+          (r) => {
+            site(r, "ArithmeticOperator", "buffer.length + 1").status =
+              "Killed";
+          },
+        ],
+        [
+          "equivalent reason without a class",
+          (r) => {
+            site(r, "ArithmeticOperator", "buffer.length + 1").statusReason =
+              "Ignored using a comment";
+          },
+        ],
+        [
+          "unlisted undetected mutant over the site",
+          (r) => {
+            const loop = site(r, "EqualityOperator", "end > buffer.length - 1");
+            r.files[ITEMS]!.mutants.push({
+              id: "extra",
+              mutatorName: "StringLiteral",
+              replacement: '""',
+              status: "Survived",
+              location: structuredClone(loop.location),
+            });
+          },
+        ],
+        [
+          "duplicated loop opposite",
+          (r) => {
+            r.files[ITEMS]!.mutants.push({
+              ...structuredClone(
+                site(r, "EqualityOperator", "end > buffer.length - 1"),
+              ),
+              id: "dup",
+            });
+          },
+        ],
+        [
+          "missing logical mutant",
+          (r) => {
+            r.files[ITEMS]!.mutants = r.files[ITEMS]!.mutants.filter(
+              (m) =>
+                !(
+                  m.mutatorName === "LogicalOperator" &&
+                  m.replacement ===
+                    "end <= buffer.length - 1 || buffer[end] !== 0"
+                ),
+            );
+          },
+        ],
+      ];
+      for (const [label, tamper] of variants) {
+        const report = reshaped(sealed, liveSource);
+        tamper(report);
+        expect(problemsFor(report, packageRoot, row, survivors), label).toEqual(
+          [`${row.id}: ${LIVE}`],
+        );
+      }
+    });
+
+    it("keeps every code byte and the single directive layout pinned on the committed file", () => {
+      const { row, survivors, sealed } = load();
+      const sealedSource = sealed.files[ITEMS]!.source;
+      const edits: [string, string][] = [
+        [
+          "operation reverted",
+          sealedSource.replace(
+            "end <= buffer.length - 1 &&",
+            "end < buffer.length &&",
+          ),
+        ],
+        ["code appended", `${sealedSource}export const tamper = 1;\n`],
+        [
+          "equivalent directive removed",
+          sealedSource.replace(
+            /^\s*\/\/ Stryker disable next-line ArithmeticOperator:.*\n/m,
+            "",
+          ),
+        ],
+        [
+          "second directive inside readCString",
+          sealedSource.replace(
+            "  while (end <= buffer.length - 1",
+            "  // Stryker disable next-line EqualityOperator: equivalent-arithmetic — extra\n  while (end <= buffer.length - 1",
+          ),
+        ],
+      ];
+      for (const [label, source] of edits) {
+        expect(
+          problemsFor(
+            reshaped(sealed, source),
+            itemsRoot(source),
+            row,
+            survivors,
+          ),
+          label,
+        ).toEqual([`${row.id}: ${LIVE}`]);
+      }
+    });
+
+    it("accepts a whole-run shaped report for both iloc rows and keeps the sealed inventory rule otherwise", () => {
+      const { bundle, finalReport } = loadIlocBoundaryBundle();
+      const root = materializeIlocBoundaryBundle(bundle, finalReport);
+      const wide: typeof finalReport = {
+        ...finalReport,
+        files: {
+          ...finalReport.files,
+          "src/isobmff/caps.ts": {
+            language: "typescript",
+            source: "export {};\n",
+            mutants: [],
+          },
+        },
+      };
+      const input = (measuredHeadReport: boolean, row: Cluster) => ({
+        row,
+        root,
+        currentSource: wide.files["src/isobmff/iloc.ts"]!.source,
+        finalEntry: wide.files["src/isobmff/iloc.ts"]!,
+        finalReport: wide,
+        readTest: (file: string) => readFileSync(join(root, file), "utf8"),
+        survivors: bundle.selectedMembers,
+        requireFinal: true,
+        measuredHeadReport,
+      });
+      for (const row of bundle.candidateRows.filter(
+        (candidate) => candidate.disposition === "dead",
+      )) {
+        expect(
+          deletionProof.validateDeletion(input(false, row)).problems.join("\n"),
+        ).toMatch(/complete measured isobmff-3 source inventory/);
+        const proof = deletionProof.validateDeletion(input(true, row));
+        expect(proof.problems, row.id).toEqual([]);
+        expect(proof.anchors).toHaveLength(154);
+      }
+      // A hosted run records its own first failing test: re-attribute every detected iloc mutant to
+      // an unrelated recorded test. The named successor tests stay in the table; the rows still pass.
+      const reattributed = structuredClone(wide);
+      const otherFile = Object.keys(reattributed.testFiles)[0]!;
+      reattributed.testFiles[otherFile]!.tests.push({
+        id: "reattributed-1",
+        name: "an unrelated recorded test",
+      });
+      for (const m of reattributed.files["src/isobmff/iloc.ts"]!.mutants)
+        if (
+          ["Killed", "Timeout"].includes(m.status) &&
+          (m.killedBy?.length ?? 0) > 0
+        )
+          m.killedBy = ["reattributed-1"];
+      for (const row of bundle.candidateRows.filter(
+        (candidate) => candidate.disposition === "dead",
+      )) {
+        const proof = deletionProof.validateDeletion({
+          ...input(true, row),
+          finalEntry: reattributed.files["src/isobmff/iloc.ts"]!,
+          finalReport: reattributed,
+        });
+        expect(proof.problems, row.id).toEqual([]);
+      }
+      const tampered = structuredClone(wide);
+      tampered.files["src/isobmff/iloc.ts"]!.source += "\n";
+      const deadRow = bundle.candidateRows.find(
+        (candidate) => candidate.disposition === "dead",
+      )!;
+      expect(
+        deletionProof.validateDeletion({
+          ...input(true, deadRow),
+          currentSource: tampered.files["src/isobmff/iloc.ts"]!.source,
+          finalEntry: tampered.files["src/isobmff/iloc.ts"]!,
+          finalReport: tampered,
+        }).problems.length,
+      ).toBeGreaterThan(0);
+    });
+
+    it("accepts a re-attributed first failing test for a deletion successor only in measured-head mode, and still needs the named test and a recorded killer", () => {
+      const fixture = deletionFixture();
+      const run = (
+        report: typeof fixture.finalReport,
+        measuredHeadReport: boolean,
+      ) =>
+        deletionProof.validateDeletion({
+          row: fixture.row,
+          root: fixture.root,
+          currentSource: fixture.afterSource,
+          finalEntry: report.files[fixture.file]!,
+          finalReport: report,
+          readTest: fixture.readTest,
+          survivors: fixture.survivors,
+          requireFinal: true,
+          measuredHeadReport,
+        }).problems;
+      const shifted = structuredClone(fixture.finalReport);
+      shifted.testFiles["tests/other.mjs"] = {
+        source: "export {};\n",
+        tests: [{ id: "t2", name: "an unrelated recorded test" }],
+      };
+      shifted.files[fixture.file]!.mutants.find(
+        (m) => m.id === "successor",
+      )!.killedBy = ["t2"];
+      expect(run(fixture.finalReport, false)).toEqual([]);
+      expect(run(shifted, false).join("\n")).toMatch(
+        /does not name the real test/,
+      );
+      expect(run(shifted, true)).toEqual([]);
+      const unnamed = structuredClone(shifted);
+      unnamed.testFiles[fixture.testFile]!.tests = [];
+      expect(run(unnamed, true).join("\n")).toMatch(
+        /test source is absent or stale/,
+      );
+      const unrecorded = structuredClone(shifted);
+      unrecorded.files[fixture.file]!.mutants.find(
+        (m) => m.id === "successor",
+      )!.killedBy = [];
+      expect(run(unrecorded, true).join("\n")).toMatch(
+        /does not name the real test/,
+      );
+    });
+  },
+);
