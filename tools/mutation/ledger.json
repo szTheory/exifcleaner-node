@@ -187029,17 +187029,15 @@
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "BlockStatement",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u000029\u000030\u000031\u00004"
       ],
-      "anchors": [
-        "src/jpeg/icc.ts\u0000BlockStatement\u0000{}\u0000{\n    // Stryker disable next-line StringLiteral: unobservable-message \u2014 the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.\n    refuseMalformed(\"No ICC_PROFILE segments were provided to reassemble.\");\n  }\u00000"
-      ],
-      "note": "The block of if (payloads.length === 0) in reassembleIccSegments. Replacing it with {} lets an empty list fall through to the declaredCount refusal below, which throws the same typed malformed-container error with the same text. See the ConditionalExpression row for the trace; one next-line directive on the if line names ConditionalExpression and BlockStatement.",
+      "note": "Deleted by the Plan 67-46 Option A source edit (node 85c97e4): the block of the redundant if (payloads.length === 0) guard; the symbol \"payloads.length === 0\" no longer appears in its enclosing function reassembleIccSegments (Plan 59 amendment 2 scoped witness). The maintainer approved Option A of 67-46-HALTED.md (reply \"approve\", relayed to the executor by the coordinator). Reachable behavior is unchanged (full suite; an empty payload list is refused by the declaredCount === undefined check with the same typed malformed-container error and the same text).",
       "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement",
-      "equivalenceClass": "redundant-guard-after-typed-check"
+      "symbol": "payloads.length === 0",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:BlockStatement:gap-02",
@@ -187117,18 +187115,15 @@
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "ConditionalExpression",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u000029\u00007\u000029\u000028"
       ],
-      "anchors": [
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000false\u0000payloads.length === 0\u00000",
-        "src/jpeg/icc.ts\u0000ConditionalExpression\u0000true\u0000payloads.length === 0\u00000"
-      ],
-      "note": "The payloads.length === 0 test in reassembleIccSegments. An empty list runs no loop iteration and reaches the declaredCount === undefined refusal, which throws the same typed malformed-container error with the same text, so skipping the branch (the false mutant, and the BlockStatement {} mutant that falls through) changes nothing observable; the 67-25 test asserts the typed refusal for an empty list and passes on both. The directive names ConditionalExpression and BlockStatement; the always-true sibling at the same position is a compile error and is suppressed only as collateral, listed as the second anchor so no suppression lacks an owner. The EqualityOperator mutant of the same test stays active (Killed).",
+      "note": "Deleted by the Plan 67-46 Option A source edit (node 85c97e4): the redundant payloads.length === 0 test (the false mutant, and its always-true compile-error sibling); the symbol \"payloads.length === 0\" no longer appears in its enclosing function reassembleIccSegments (Plan 59 amendment 2 scoped witness). The maintainer approved Option A of 67-46-HALTED.md (reply \"approve\", relayed to the executor by the coordinator). Reachable behavior is unchanged (full suite; an empty payload list is refused by the declaredCount === undefined check with the same typed malformed-container error and the same text).",
       "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression",
-      "equivalenceClass": "redundant-guard-after-typed-check"
+      "symbol": "payloads.length === 0",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:ConditionalExpression:gap-02",
@@ -187260,17 +187255,15 @@
       "file": "src/jpeg/icc.ts",
       "function": "reassembleIccSegments",
       "mutatorName": "StringLiteral",
-      "disposition": "equivalent",
+      "disposition": "dead",
       "count": 1,
       "keys": [
         "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000030\u000021\u000030\u000075"
       ],
-      "anchors": [
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"No ICC_PROFILE segments were provided to reassemble.\"\u00000"
-      ],
-      "note": "The message of the empty-list refusal. refuseMalformed throws JpegStructureError malformed-container; callers branch on the refusal and kind, never on the wording, and no test asserts it. One next-line StringLiteral directive; that line holds no other mutant.",
+      "note": "Deleted by the Plan 67-46 Option A source edit (node 85c97e4): the message of the deleted empty-list refusal; the symbol \"payloads.length === 0\" no longer appears in its enclosing function reassembleIccSegments (Plan 59 amendment 2 scoped witness). The maintainer approved Option A of 67-46-HALTED.md (reply \"approve\", relayed to the executor by the coordinator). Reachable behavior is unchanged (full suite; an empty payload list is refused by the declaredCount === undefined check with the same typed malformed-container error and the same text).",
       "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral",
-      "equivalenceClass": "unobservable-message"
+      "symbol": "payloads.length === 0",
+      "symbolScope": "function"
     },
     {
       "id": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral:equivalent-02",
@@ -187336,11 +187329,11 @@
         "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u000069\u000021\u000069\u000075"
       ],
       "anchors": [
-        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"No ICC_PROFILE segments were provided to reassemble.\"\u00001"
+        "src/jpeg/icc.ts\u0000StringLiteral\u0000\"\"\u0000\"No ICC_PROFILE segments were provided to reassemble.\"\u00000"
       ],
-      "note": "The message of the declaredCount === undefined refusal after the loop. declaredCount stays undefined only for an empty payload list, which the first check in the function already refuses, so no public input reaches this line (the Stryker report shows NoCoverage); the check exists to narrow the type for the loop below. One next-line StringLiteral directive; that line holds no other mutant.",
+      "note": "The message of the declaredCount === undefined refusal after the loop, now the single refusal for an empty payload list (the first guard was deleted by the Plan 67-46 Option A source edit, node 85c97e4). refuseMalformed throws JpegStructureError malformed-container; callers branch on the refusal and kind, never on the wording, and no test asserts it. One next-line StringLiteral directive of class unobservable-message (it was defensive-unreachable-by-construction while the deleted guard fronted this line); that line holds no other mutant. Its frozen anchor is now the first and only occurrence of the literal in the function.",
       "originClusterId": "jpeg:src/jpeg/icc.ts:reassembleIccSegments:StringLiteral",
-      "equivalenceClass": "defensive-unreachable-by-construction"
+      "equivalenceClass": "unobservable-message"
     },
     {
       "id": "jpeg:src/jpeg/icc.ts:refuseMalformed:StringLiteral:equivalent-01",
