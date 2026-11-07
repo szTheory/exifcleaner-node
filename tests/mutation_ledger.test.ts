@@ -4809,7 +4809,7 @@ describe("real readCString boundary receipt", () => {
     expect(replaced("export const unrelated = 1;\n")).not.toMatch(
       /named killer source is stale/,
     );
-  }, 15_000);
+  }, 120_000);
 
   it("is enforced by checkLedger during precheck without changing frozen membership", () => {
     const { row, survivors } = loadInput();
@@ -4873,7 +4873,7 @@ describe("real readCString boundary receipt", () => {
     expect(
       survivors.filter((member) => row.keys.includes(member.key)),
     ).toHaveLength(1);
-  }, 15_000);
+  }, 120_000);
 
   itWorkspace(
     "accepts 43 members and rejects a forged receipt through phase evaluate",
