@@ -387,7 +387,17 @@ const phaseVerifierPath = join(
   "67-mutation-baseline",
   "67-triage-verify.mjs",
 );
-const phaseVerifier = (await import(pathToFileURL(phaseVerifierPath).href)) as {
+// Plan 67-46 amendment 3: the planning workspace is a sibling of this repository on a developer
+// machine and absent from a node-only checkout (the repository's own CI). The suites that read it
+// are skipped there; with the workspace present nothing is skipped and nothing is relaxed.
+const workspaceAvailable = existsSync(phaseVerifierPath);
+const describeWorkspace = workspaceAvailable ? describe : describe.skip;
+const itWorkspace = workspaceAvailable ? it : it.skip;
+const phaseVerifier = (
+  workspaceAvailable
+    ? await import(pathToFileURL(phaseVerifierPath).href)
+    : undefined
+) as {
   canonicalAnchor(file: string, mutant: Mutant, source: string): string;
   vitestDeclarationStatus(
     source: string,
@@ -2997,54 +3007,57 @@ describe("deletion proof lexical and interval controls", () => {
     expect(deletionProof.affectedBy(interval(4, 6), source, edit)).toBe(false);
   });
 
-  it("coalesces only identical anchor maps and rejects conflicting or non-injective maps", () => {
-    const shared = phaseVerifier.reconcileAnchorMappings([
-      {
-        id: "receipt-a",
-        anchors: [{ current: "current", original: "original" }],
-      },
-      {
-        id: "receipt-b",
-        anchors: [{ current: "current", original: "original" }],
-      },
-    ]);
-    expect([...shared]).toEqual([["current", "original"]]);
-    expect(() =>
-      phaseVerifier.reconcileAnchorMappings([
+  itWorkspace(
+    "coalesces only identical anchor maps and rejects conflicting or non-injective maps",
+    () => {
+      const shared = phaseVerifier.reconcileAnchorMappings([
         {
           id: "receipt-a",
-          anchors: [{ current: "current", original: "original-a" }],
+          anchors: [{ current: "current", original: "original" }],
         },
         {
           id: "receipt-b",
-          anchors: [{ current: "current", original: "original-b" }],
+          anchors: [{ current: "current", original: "original" }],
         },
-      ]),
-    ).toThrow(/conflicting current-to-original anchor mapping/);
-    expect(() =>
-      phaseVerifier.reconcileAnchorMappings([
-        {
-          id: "receipt-a",
-          anchors: [{ current: "current-a", original: "original" }],
-        },
-        {
-          id: "receipt-b",
-          anchors: [{ current: "current-b", original: "original" }],
-        },
-      ]),
-    ).toThrow(/non-injective original anchor mapping/);
-    expect(() =>
-      phaseVerifier.evaluate({
-        clusters: [],
-        survivors: [],
-        report: { files: {}, testFiles: {} },
-        mode: "batch",
-        readTest: () => "",
-        symbolAbsent: () => false,
-        root: "/tmp/empty-mutation-report",
-      }),
-    ).toThrow(/empty mutation report/);
-  });
+      ]);
+      expect([...shared]).toEqual([["current", "original"]]);
+      expect(() =>
+        phaseVerifier.reconcileAnchorMappings([
+          {
+            id: "receipt-a",
+            anchors: [{ current: "current", original: "original-a" }],
+          },
+          {
+            id: "receipt-b",
+            anchors: [{ current: "current", original: "original-b" }],
+          },
+        ]),
+      ).toThrow(/conflicting current-to-original anchor mapping/);
+      expect(() =>
+        phaseVerifier.reconcileAnchorMappings([
+          {
+            id: "receipt-a",
+            anchors: [{ current: "current-a", original: "original" }],
+          },
+          {
+            id: "receipt-b",
+            anchors: [{ current: "current-b", original: "original" }],
+          },
+        ]),
+      ).toThrow(/non-injective original anchor mapping/);
+      expect(() =>
+        phaseVerifier.evaluate({
+          clusters: [],
+          survivors: [],
+          report: { files: {}, testFiles: {} },
+          mode: "batch",
+          readTest: () => "",
+          symbolAbsent: () => false,
+          root: "/tmp/empty-mutation-report",
+        }),
+      ).toThrow(/empty mutation report/);
+    },
+  );
 });
 
 describe("scoped deletion receipt proof (D-18, D-21)", () => {
@@ -3117,73 +3130,76 @@ describe("scoped deletion receipt proof (D-18, D-21)", () => {
     ).toThrow(expected);
   };
 
-  it("proves an exact function-local deletion in both consumers and preserves mapped siblings", () => {
-    const fixture = deletionFixture();
-    const proof = deletionProof.validateDeletion(inputFor(fixture));
-    expect(proof.problems).toEqual([]);
-    expect(proof.anchors).toHaveLength(2);
-    expect(fixture.afterSource).toContain("export function other(flag)");
-    expect(fixture.afterSource).toContain("  if (flag) {");
+  itWorkspace(
+    "proves an exact function-local deletion in both consumers and preserves mapped siblings",
+    () => {
+      const fixture = deletionFixture();
+      const proof = deletionProof.validateDeletion(inputFor(fixture));
+      expect(proof.problems).toEqual([]);
+      expect(proof.anchors).toHaveLength(2);
+      expect(fixture.afterSource).toContain("export function other(flag)");
+      expect(fixture.afterSource).toContain("  if (flag) {");
 
-    const problems = checkLedger({
-      ledger: ledgerFor(fixture),
-      finalReport: fixture.finalReport,
-      root: fixture.root,
-      groups,
-      mode: "final",
-    });
-    expect(problems).toEqual([]);
-    expect(
-      checkLedger({
+      const problems = checkLedger({
         ledger: ledgerFor(fixture),
         finalReport: fixture.finalReport,
         root: fixture.root,
         groups,
         mode: "final",
-      }),
-    ).toEqual([]);
-    expect(
-      checkLedger({
-        ledger: ledgerFor(fixture, fixture.row, true),
-        finalReport: fixture.finalReport,
-        root: fixture.root,
-        groups,
-        mode: "final",
-      }),
-    ).toEqual([]);
-    expect(
-      checkLedger({
-        ledger: ledgerFor(fixture),
-        root: fixture.root,
-        groups,
-        mode: "pre",
-      }),
-    ).toEqual([]);
+      });
+      expect(problems).toEqual([]);
+      expect(
+        checkLedger({
+          ledger: ledgerFor(fixture),
+          finalReport: fixture.finalReport,
+          root: fixture.root,
+          groups,
+          mode: "final",
+        }),
+      ).toEqual([]);
+      expect(
+        checkLedger({
+          ledger: ledgerFor(fixture, fixture.row, true),
+          finalReport: fixture.finalReport,
+          root: fixture.root,
+          groups,
+          mode: "final",
+        }),
+      ).toEqual([]);
+      expect(
+        checkLedger({
+          ledger: ledgerFor(fixture),
+          root: fixture.root,
+          groups,
+          mode: "pre",
+        }),
+      ).toEqual([]);
 
-    const reordered = structuredClone(fixture.row);
-    reordered.deletion!.removedMutants = (
-      reordered.deletion!.removedMutants as unknown[]
-    ).toReversed();
-    expect(
-      deletionProof.validateDeletion({ ...inputFor(fixture), row: reordered })
-        .problems,
-    ).toEqual([]);
+      const reordered = structuredClone(fixture.row);
+      reordered.deletion!.removedMutants = (
+        reordered.deletion!.removedMutants as unknown[]
+      ).toReversed();
+      expect(
+        deletionProof.validateDeletion({ ...inputFor(fixture), row: reordered })
+          .problems,
+      ).toEqual([]);
 
-    const result = phaseVerifier.evaluate({
-      clusters: [fixture.row],
-      survivors: fixture.survivors,
-      report: fixture.finalReport,
-      mode: "batch",
-      readTest: fixture.readTest,
-      symbolAbsent: () => false,
-      root: fixture.root,
-    });
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      key: fixture.row.keys[0],
-      status: "deleted",
-    });
-  });
+      const result = phaseVerifier.evaluate({
+        clusters: [fixture.row],
+        survivors: fixture.survivors,
+        report: fixture.finalReport,
+        mode: "batch",
+        readTest: fixture.readTest,
+        symbolAbsent: () => false,
+        root: fixture.root,
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        key: fixture.row.keys[0],
+        status: "deleted",
+      });
+    },
+  );
 
   it("validates embedded evidence when the ignored raw before report is absent", () => {
     const fixture = deletionFixture(true);
@@ -3271,332 +3287,343 @@ describe("scoped deletion receipt proof (D-18, D-21)", () => {
     );
   });
 
-  it("rejects a restored guard, a changed sibling, a wrong function and stale hashes", () => {
-    const fixture = deletionFixture();
-    writeFileSync(join(fixture.root, fixture.file), fixture.beforeSource);
-    const restored = {
-      ...cloneInput(fixture),
-      currentSource: fixture.beforeSource,
-      finalEntry: {
-        ...fixture.finalReport.files[fixture.file]!,
-        source: fixture.beforeSource,
-      },
-    };
-    expect(
-      deletionProof.validateDeletion(restored).problems.join("\n"),
-    ).toMatch(/exact ordered edit chain/);
-
-    const changedSibling = fixture.afterSource.replace(
-      'out.push("other")',
-      'out.push("changed")',
-    );
-    writeFileSync(join(fixture.root, fixture.file), changedSibling);
-    const sibling = { ...cloneInput(fixture), currentSource: changedSibling };
-    expect(deletionProof.validateDeletion(sibling).problems.join("\n")).toMatch(
-      /exact ordered edit chain/,
-    );
-    const changedReport = structuredClone(fixture.finalReport);
-    changedReport.files[fixture.file]!.source = changedSibling;
-    const ledgerRejected = checkLedger({
-      ledger: ledgerFor(fixture),
-      finalReport: fixture.finalReport,
-      root: fixture.root,
-      groups,
-      mode: "final",
-    });
-    expect(ledgerRejected.join("\n")).toMatch(/exact ordered edit chain/);
-    expect(() =>
-      phaseVerifier.evaluate({
-        clusters: [fixture.row],
-        survivors: fixture.survivors,
-        report: changedReport,
-        mode: "batch",
-        readTest: fixture.readTest,
-        symbolAbsent: () => false,
-        root: fixture.root,
-      }),
-    ).toThrow(/exact ordered edit chain/);
-
-    writeFileSync(join(fixture.root, fixture.file), fixture.afterSource);
-
-    const wrongFunction = cloneInput(fixture);
-    wrongFunction.row.deletion!.function = "other";
-    expect(
-      deletionProof.validateDeletion(wrongFunction).problems.join("\n"),
-    ).toMatch(/does not match owned row/);
-
-    const wrongEditFunction = cloneInput(fixture);
-    (
-      wrongEditFunction.row.deletion!.edits as { function: string }[]
-    )[0]!.function = "other";
-    expect(
-      deletionProof.validateDeletion(wrongEditFunction).problems.join("\n"),
-    ).toMatch(/required dead symbol/);
-
-    const wrongOccurrence = cloneInput(fixture);
-    (
-      wrongOccurrence.row.deletion!.edits as { occurrence: number }[]
-    )[0]!.occurrence = 1;
-    expect(
-      deletionProof.validateDeletion(wrongOccurrence).problems.join("\n"),
-    ).toMatch(/occurrence 1 is missing/);
-
-    const otherOnly = fixture.beforeSource.replace(
-      /(export function other[\s\S]*?)  if \(flag\) \{/,
-      "$1  {",
-    );
-    writeFileSync(join(fixture.root, fixture.file), otherOnly);
-    expect(
-      deletionProof
-        .validateDeletion({
-          ...cloneInput(fixture),
-          currentSource: otherOnly,
-          finalEntry: {
-            ...fixture.finalReport.files[fixture.file]!,
-            source: otherOnly,
-          },
-        })
-        .problems.join("\n"),
-    ).toMatch(/exact ordered edit chain/);
-    writeFileSync(join(fixture.root, fixture.file), fixture.afterSource);
-
-    const stale = cloneInput(fixture);
-    stale.row.deletion!.beforeSourceSha256 = "0".repeat(64);
-    expect(deletionProof.validateDeletion(stale).problems.join("\n")).toMatch(
-      /before source hash mismatch/,
-    );
-
-    const unavailable = cloneInput(fixture);
-    unavailable.row.deletion!.beforeRef =
-      "0000000000000000000000000000000000000000";
-    expect(
-      deletionProof.validateDeletion(unavailable).problems.join("\n"),
-    ).toMatch(/beforeRef source unavailable/);
-
-    const noEdits = cloneInput(fixture);
-    noEdits.row.deletion!.edits = [];
-    expect(deletionProof.validateDeletion(noEdits).problems.join("\n")).toMatch(
-      /required dead symbol/,
-    );
-  });
-
-  it("rejects incomplete affected inventory, duplicate edits and a missing detected successor", () => {
-    const fixture = deletionFixture();
-    const inventory = cloneInput(fixture);
-    inventory.row.deletion!.removedMutants = (
-      inventory.row.deletion!.removedMutants as unknown[]
-    ).slice(1);
-    expect(
-      deletionProof.validateDeletion(inventory).problems.join("\n"),
-    ).toMatch(/does not exactly account/);
-    rejectBothConsumers(
-      fixture,
-      inventory.row,
-      inventory.finalReport,
-      /does not exactly account/,
-    );
-
-    const duplicate = cloneInput(fixture);
-    duplicate.row.deletion!.edits = [
-      ...(duplicate.row.deletion!.edits as unknown[]),
-      ...(duplicate.row.deletion!.edits as unknown[]),
-    ];
-    expect(
-      deletionProof.validateDeletion(duplicate).problems.join("\n"),
-    ).toMatch(/occurrence 0 is missing|overlaps an earlier edit/);
-    rejectBothConsumers(
-      fixture,
-      duplicate.row,
-      duplicate.finalReport,
-      /occurrence 0 is missing|overlaps an earlier edit/,
-    );
-
-    const counterpart = cloneInput(fixture);
-    counterpart.row.deletion!.detectedSuccessors = [];
-    expect(
-      deletionProof.validateDeletion(counterpart).problems.join("\n"),
-    ).toMatch(/exactly one successor or counterfactual/);
-    rejectBothConsumers(
-      fixture,
-      counterpart.row,
-      counterpart.finalReport,
-      /exactly one successor or counterfactual/,
-    );
-
-    const emptyFinal = {
-      ...cloneInput(fixture),
-      finalEntry: null,
-      finalReport: {
-        files: {} as Report["files"],
-        testFiles: fixture.finalReport.testFiles,
-      },
-    };
-    expect(
-      deletionProof.validateDeletion(emptyFinal).problems.join("\n"),
-    ).toMatch(/final report entry is required/);
-    const emptyReport = {
-      files: {} as Report["files"],
-      testFiles: fixture.finalReport.testFiles,
-    };
-    expect(
-      checkLedger({
-        ledger: ledgerFor(fixture),
-        finalReport: emptyReport,
-        root: fixture.root,
-        groups,
-        mode: "final",
-      }).join("\n"),
-    ).toMatch(/final report entry is required/);
-    expect(() =>
-      phaseVerifier.evaluate({
-        clusters: [fixture.row],
-        survivors: fixture.survivors,
-        report: emptyReport,
-        mode: "batch",
-        readTest: fixture.readTest,
-        symbolAbsent: () => false,
-        root: fixture.root,
-      }),
-    ).toThrow(/final report entry is required/);
-
-    for (const status of ["Survived", "NoCoverage", "Ignored"]) {
-      const invalid = cloneInput(fixture);
-      invalid.finalReport.files[fixture.file]!.mutants[0]!.status = status;
+  itWorkspace(
+    "rejects a restored guard, a changed sibling, a wrong function and stale hashes",
+    () => {
+      const fixture = deletionFixture();
+      writeFileSync(join(fixture.root, fixture.file), fixture.beforeSource);
+      const restored = {
+        ...cloneInput(fixture),
+        currentSource: fixture.beforeSource,
+        finalEntry: {
+          ...fixture.finalReport.files[fixture.file]!,
+          source: fixture.beforeSource,
+        },
+      };
       expect(
-        deletionProof.validateDeletion(invalid).problems.join("\n"),
-      ).toMatch(new RegExp(`detected successor is ${status}`));
-      if (status === "Ignored")
-        invalid.finalReport.files[fixture.file]!.mutants[0]!.statusReason =
-          "Ignored using a comment";
-      rejectBothConsumers(
-        fixture,
-        invalid.row,
-        invalid.finalReport,
-        new RegExp(`detected successor is ${status}`),
+        deletionProof.validateDeletion(restored).problems.join("\n"),
+      ).toMatch(/exact ordered edit chain/);
+
+      const changedSibling = fixture.afterSource.replace(
+        'out.push("other")',
+        'out.push("changed")',
       );
-    }
-    const noKilledBy = cloneInput(fixture);
-    noKilledBy.finalReport.files[fixture.file]!.mutants[0]!.killedBy = [];
-    expect(
-      deletionProof.validateDeletion(noKilledBy).problems.join("\n"),
-    ).toMatch(/killedBy does not name the real test/);
-    rejectBothConsumers(
-      fixture,
-      noKilledBy.row,
-      noKilledBy.finalReport,
-      /killedBy does not name the real test/,
-    );
-
-    const staleTest = cloneInput(fixture);
-    staleTest.finalReport.testFiles![fixture.testFile]!.source +=
-      "// stale report test\n";
-    rejectBothConsumers(
-      fixture,
-      staleTest.row,
-      staleTest.finalReport,
-      /detected successor test source is absent or stale/,
-    );
-    const wrongTest = cloneInput(fixture);
-    (
-      wrongTest.row.deletion!.detectedSuccessors as { test: { name: string } }[]
-    )[0]!.test.name = "missing named assertion";
-    rejectBothConsumers(
-      fixture,
-      wrongTest.row,
-      wrongTest.finalReport,
-      /detected successor test source is absent or stale/,
-    );
-  });
-
-  it("rejects altered embedded evidence, stale raw report, missing ownership and ignored opposite", () => {
-    const fixture = deletionFixture();
-    const evidence = cloneInput(fixture);
-    (evidence.row.deletion!.beforeEvidence as { source: string }).source +=
-      "// tampered\n";
-    expect(
-      deletionProof.validateDeletion(evidence).problems.join("\n"),
-    ).toMatch(/canonical digest mismatch/);
-
-    const reportHash = cloneInput(fixture);
-    reportHash.row.deletion!.beforeReportSha256 = "f".repeat(64);
-    expect(
-      deletionProof.validateDeletion(reportHash).problems.join("\n"),
-    ).toMatch(/retained before report hash mismatch/);
-
-    const changedSlice = cloneInput(fixture);
-    const rawPath = join(fixture.root, "reports/before.json");
-    const rawReport = JSON.parse(readFileSync(rawPath, "utf8"));
-    rawReport.files[fixture.file].source += "// raw-only change\n";
-    const changedBytes = `${JSON.stringify(rawReport, null, 2)}\n`;
-    writeFileSync(rawPath, changedBytes);
-    changedSlice.row.deletion!.beforeReportSha256 = sha256(changedBytes);
-    expect(
-      deletionProof.validateDeletion(changedSlice).problems.join("\n"),
-    ).toMatch(/slice differs from embedded evidence/);
-    writeFileSync(rawPath, fixture.reportBytes);
-
-    const membership = cloneInput(fixture);
-    membership.row.keys = ["foreign\u0000key"];
-    membership.row.count = 1;
-    expect(
-      deletionProof.validateDeletion(membership).problems.join("\n"),
-    ).toMatch(/absent from its immutable origin/);
-
-    const ignored = structuredClone(fixture.finalReport);
-    const opposite = ignored.files[fixture.file]!.mutants[1]!;
-    opposite.status = "Ignored";
-    opposite.statusReason = "Ignored using a comment";
-    expect(
-      checkLedger({
+      writeFileSync(join(fixture.root, fixture.file), changedSibling);
+      const sibling = { ...cloneInput(fixture), currentSource: changedSibling };
+      expect(
+        deletionProof.validateDeletion(sibling).problems.join("\n"),
+      ).toMatch(/exact ordered edit chain/);
+      const changedReport = structuredClone(fixture.finalReport);
+      changedReport.files[fixture.file]!.source = changedSibling;
+      const ledgerRejected = checkLedger({
         ledger: ledgerFor(fixture),
-        finalReport: ignored,
-        root: fixture.root,
-        groups,
-        mode: "final",
-      }).join("\n"),
-    ).toMatch(/comment-Ignored mutant matches no equivalent row/);
-    expect(() =>
-      phaseVerifier.evaluate({
-        clusters: [fixture.row],
-        survivors: fixture.survivors,
-        report: ignored,
-        mode: "batch",
-        readTest: fixture.readTest,
-        symbolAbsent: () => false,
-        root: fixture.root,
-      }),
-    ).toThrow(/comment-Ignored mutant has no valid equivalent owner/);
-
-    const duplicateOwner = {
-      ...structuredClone(fixture.row),
-      id: "scoped-dead-duplicate-owner",
-    };
-    const duplicateLedger = ledgerOf([
-      fixture.row,
-      duplicateOwner,
-      gapRowFor(fixture),
-    ]);
-    expect(
-      checkLedger({
-        ledger: duplicateLedger,
         finalReport: fixture.finalReport,
         root: fixture.root,
         groups,
         mode: "final",
-      }).join("\n"),
-    ).toMatch(/in 2 clusters/);
-    expect(() =>
-      phaseVerifier.evaluate({
-        clusters: [fixture.row, duplicateOwner],
-        survivors: fixture.survivors,
-        report: fixture.finalReport,
-        mode: "batch",
-        readTest: fixture.readTest,
-        symbolAbsent: () => false,
-        root: fixture.root,
-      }),
-    ).toThrow(/duplicate owned key/);
-  });
+      });
+      expect(ledgerRejected.join("\n")).toMatch(/exact ordered edit chain/);
+      expect(() =>
+        phaseVerifier.evaluate({
+          clusters: [fixture.row],
+          survivors: fixture.survivors,
+          report: changedReport,
+          mode: "batch",
+          readTest: fixture.readTest,
+          symbolAbsent: () => false,
+          root: fixture.root,
+        }),
+      ).toThrow(/exact ordered edit chain/);
+
+      writeFileSync(join(fixture.root, fixture.file), fixture.afterSource);
+
+      const wrongFunction = cloneInput(fixture);
+      wrongFunction.row.deletion!.function = "other";
+      expect(
+        deletionProof.validateDeletion(wrongFunction).problems.join("\n"),
+      ).toMatch(/does not match owned row/);
+
+      const wrongEditFunction = cloneInput(fixture);
+      (
+        wrongEditFunction.row.deletion!.edits as { function: string }[]
+      )[0]!.function = "other";
+      expect(
+        deletionProof.validateDeletion(wrongEditFunction).problems.join("\n"),
+      ).toMatch(/required dead symbol/);
+
+      const wrongOccurrence = cloneInput(fixture);
+      (
+        wrongOccurrence.row.deletion!.edits as { occurrence: number }[]
+      )[0]!.occurrence = 1;
+      expect(
+        deletionProof.validateDeletion(wrongOccurrence).problems.join("\n"),
+      ).toMatch(/occurrence 1 is missing/);
+
+      const otherOnly = fixture.beforeSource.replace(
+        /(export function other[\s\S]*?)  if \(flag\) \{/,
+        "$1  {",
+      );
+      writeFileSync(join(fixture.root, fixture.file), otherOnly);
+      expect(
+        deletionProof
+          .validateDeletion({
+            ...cloneInput(fixture),
+            currentSource: otherOnly,
+            finalEntry: {
+              ...fixture.finalReport.files[fixture.file]!,
+              source: otherOnly,
+            },
+          })
+          .problems.join("\n"),
+      ).toMatch(/exact ordered edit chain/);
+      writeFileSync(join(fixture.root, fixture.file), fixture.afterSource);
+
+      const stale = cloneInput(fixture);
+      stale.row.deletion!.beforeSourceSha256 = "0".repeat(64);
+      expect(deletionProof.validateDeletion(stale).problems.join("\n")).toMatch(
+        /before source hash mismatch/,
+      );
+
+      const unavailable = cloneInput(fixture);
+      unavailable.row.deletion!.beforeRef =
+        "0000000000000000000000000000000000000000";
+      expect(
+        deletionProof.validateDeletion(unavailable).problems.join("\n"),
+      ).toMatch(/beforeRef source unavailable/);
+
+      const noEdits = cloneInput(fixture);
+      noEdits.row.deletion!.edits = [];
+      expect(
+        deletionProof.validateDeletion(noEdits).problems.join("\n"),
+      ).toMatch(/required dead symbol/);
+    },
+  );
+
+  itWorkspace(
+    "rejects incomplete affected inventory, duplicate edits and a missing detected successor",
+    () => {
+      const fixture = deletionFixture();
+      const inventory = cloneInput(fixture);
+      inventory.row.deletion!.removedMutants = (
+        inventory.row.deletion!.removedMutants as unknown[]
+      ).slice(1);
+      expect(
+        deletionProof.validateDeletion(inventory).problems.join("\n"),
+      ).toMatch(/does not exactly account/);
+      rejectBothConsumers(
+        fixture,
+        inventory.row,
+        inventory.finalReport,
+        /does not exactly account/,
+      );
+
+      const duplicate = cloneInput(fixture);
+      duplicate.row.deletion!.edits = [
+        ...(duplicate.row.deletion!.edits as unknown[]),
+        ...(duplicate.row.deletion!.edits as unknown[]),
+      ];
+      expect(
+        deletionProof.validateDeletion(duplicate).problems.join("\n"),
+      ).toMatch(/occurrence 0 is missing|overlaps an earlier edit/);
+      rejectBothConsumers(
+        fixture,
+        duplicate.row,
+        duplicate.finalReport,
+        /occurrence 0 is missing|overlaps an earlier edit/,
+      );
+
+      const counterpart = cloneInput(fixture);
+      counterpart.row.deletion!.detectedSuccessors = [];
+      expect(
+        deletionProof.validateDeletion(counterpart).problems.join("\n"),
+      ).toMatch(/exactly one successor or counterfactual/);
+      rejectBothConsumers(
+        fixture,
+        counterpart.row,
+        counterpart.finalReport,
+        /exactly one successor or counterfactual/,
+      );
+
+      const emptyFinal = {
+        ...cloneInput(fixture),
+        finalEntry: null,
+        finalReport: {
+          files: {} as Report["files"],
+          testFiles: fixture.finalReport.testFiles,
+        },
+      };
+      expect(
+        deletionProof.validateDeletion(emptyFinal).problems.join("\n"),
+      ).toMatch(/final report entry is required/);
+      const emptyReport = {
+        files: {} as Report["files"],
+        testFiles: fixture.finalReport.testFiles,
+      };
+      expect(
+        checkLedger({
+          ledger: ledgerFor(fixture),
+          finalReport: emptyReport,
+          root: fixture.root,
+          groups,
+          mode: "final",
+        }).join("\n"),
+      ).toMatch(/final report entry is required/);
+      expect(() =>
+        phaseVerifier.evaluate({
+          clusters: [fixture.row],
+          survivors: fixture.survivors,
+          report: emptyReport,
+          mode: "batch",
+          readTest: fixture.readTest,
+          symbolAbsent: () => false,
+          root: fixture.root,
+        }),
+      ).toThrow(/final report entry is required/);
+
+      for (const status of ["Survived", "NoCoverage", "Ignored"]) {
+        const invalid = cloneInput(fixture);
+        invalid.finalReport.files[fixture.file]!.mutants[0]!.status = status;
+        expect(
+          deletionProof.validateDeletion(invalid).problems.join("\n"),
+        ).toMatch(new RegExp(`detected successor is ${status}`));
+        if (status === "Ignored")
+          invalid.finalReport.files[fixture.file]!.mutants[0]!.statusReason =
+            "Ignored using a comment";
+        rejectBothConsumers(
+          fixture,
+          invalid.row,
+          invalid.finalReport,
+          new RegExp(`detected successor is ${status}`),
+        );
+      }
+      const noKilledBy = cloneInput(fixture);
+      noKilledBy.finalReport.files[fixture.file]!.mutants[0]!.killedBy = [];
+      expect(
+        deletionProof.validateDeletion(noKilledBy).problems.join("\n"),
+      ).toMatch(/killedBy does not name the real test/);
+      rejectBothConsumers(
+        fixture,
+        noKilledBy.row,
+        noKilledBy.finalReport,
+        /killedBy does not name the real test/,
+      );
+
+      const staleTest = cloneInput(fixture);
+      staleTest.finalReport.testFiles![fixture.testFile]!.source +=
+        "// stale report test\n";
+      rejectBothConsumers(
+        fixture,
+        staleTest.row,
+        staleTest.finalReport,
+        /detected successor test source is absent or stale/,
+      );
+      const wrongTest = cloneInput(fixture);
+      (
+        wrongTest.row.deletion!.detectedSuccessors as {
+          test: { name: string };
+        }[]
+      )[0]!.test.name = "missing named assertion";
+      rejectBothConsumers(
+        fixture,
+        wrongTest.row,
+        wrongTest.finalReport,
+        /detected successor test source is absent or stale/,
+      );
+    },
+  );
+
+  itWorkspace(
+    "rejects altered embedded evidence, stale raw report, missing ownership and ignored opposite",
+    () => {
+      const fixture = deletionFixture();
+      const evidence = cloneInput(fixture);
+      (evidence.row.deletion!.beforeEvidence as { source: string }).source +=
+        "// tampered\n";
+      expect(
+        deletionProof.validateDeletion(evidence).problems.join("\n"),
+      ).toMatch(/canonical digest mismatch/);
+
+      const reportHash = cloneInput(fixture);
+      reportHash.row.deletion!.beforeReportSha256 = "f".repeat(64);
+      expect(
+        deletionProof.validateDeletion(reportHash).problems.join("\n"),
+      ).toMatch(/retained before report hash mismatch/);
+
+      const changedSlice = cloneInput(fixture);
+      const rawPath = join(fixture.root, "reports/before.json");
+      const rawReport = JSON.parse(readFileSync(rawPath, "utf8"));
+      rawReport.files[fixture.file].source += "// raw-only change\n";
+      const changedBytes = `${JSON.stringify(rawReport, null, 2)}\n`;
+      writeFileSync(rawPath, changedBytes);
+      changedSlice.row.deletion!.beforeReportSha256 = sha256(changedBytes);
+      expect(
+        deletionProof.validateDeletion(changedSlice).problems.join("\n"),
+      ).toMatch(/slice differs from embedded evidence/);
+      writeFileSync(rawPath, fixture.reportBytes);
+
+      const membership = cloneInput(fixture);
+      membership.row.keys = ["foreign\u0000key"];
+      membership.row.count = 1;
+      expect(
+        deletionProof.validateDeletion(membership).problems.join("\n"),
+      ).toMatch(/absent from its immutable origin/);
+
+      const ignored = structuredClone(fixture.finalReport);
+      const opposite = ignored.files[fixture.file]!.mutants[1]!;
+      opposite.status = "Ignored";
+      opposite.statusReason = "Ignored using a comment";
+      expect(
+        checkLedger({
+          ledger: ledgerFor(fixture),
+          finalReport: ignored,
+          root: fixture.root,
+          groups,
+          mode: "final",
+        }).join("\n"),
+      ).toMatch(/comment-Ignored mutant matches no equivalent row/);
+      expect(() =>
+        phaseVerifier.evaluate({
+          clusters: [fixture.row],
+          survivors: fixture.survivors,
+          report: ignored,
+          mode: "batch",
+          readTest: fixture.readTest,
+          symbolAbsent: () => false,
+          root: fixture.root,
+        }),
+      ).toThrow(/comment-Ignored mutant has no valid equivalent owner/);
+
+      const duplicateOwner = {
+        ...structuredClone(fixture.row),
+        id: "scoped-dead-duplicate-owner",
+      };
+      const duplicateLedger = ledgerOf([
+        fixture.row,
+        duplicateOwner,
+        gapRowFor(fixture),
+      ]);
+      expect(
+        checkLedger({
+          ledger: duplicateLedger,
+          finalReport: fixture.finalReport,
+          root: fixture.root,
+          groups,
+          mode: "final",
+        }).join("\n"),
+      ).toMatch(/in 2 clusters/);
+      expect(() =>
+        phaseVerifier.evaluate({
+          clusters: [fixture.row, duplicateOwner],
+          survivors: fixture.survivors,
+          report: fixture.finalReport,
+          mode: "batch",
+          readTest: fixture.readTest,
+          symbolAbsent: () => false,
+          root: fixture.root,
+        }),
+      ).toThrow(/duplicate owned key/);
+    },
+  );
 });
 
 describe("real iloc boundary receipt", () => {
@@ -3629,730 +3656,769 @@ describe("real iloc boundary receipt", () => {
     ).toThrow(/non-deletion edit/);
   });
 
-  it("proves both real receipts through validation, evaluate, and ledger checks without claiming a global final pass", () => {
-    const { bundle, finalReport } = loadIlocBoundaryBundle();
-    const root = materializeIlocBoundaryBundle(bundle, finalReport);
-    const finalEntry = finalReport.files["src/isobmff/iloc.ts"]!;
-    const readTest = (file: string) => readFileSync(join(root, file), "utf8");
-    const deadRows = bundle.candidateRows.filter(
-      (row) => row.disposition === "dead",
-    );
-    const proofs = deadRows.map((row) =>
-      deletionProof.validateDeletion({
-        row,
-        root,
-        currentSource: finalEntry.source,
-        finalEntry,
-        finalReport,
-        readTest,
-        survivors: bundle.selectedMembers,
-        requireFinal: true,
-      }),
-    );
+  itWorkspace(
+    "proves both real receipts through validation, evaluate, and ledger checks without claiming a global final pass",
+    () => {
+      const { bundle, finalReport } = loadIlocBoundaryBundle();
+      const root = materializeIlocBoundaryBundle(bundle, finalReport);
+      const finalEntry = finalReport.files["src/isobmff/iloc.ts"]!;
+      const readTest = (file: string) => readFileSync(join(root, file), "utf8");
+      const deadRows = bundle.candidateRows.filter(
+        (row) => row.disposition === "dead",
+      );
+      const proofs = deadRows.map((row) =>
+        deletionProof.validateDeletion({
+          row,
+          root,
+          currentSource: finalEntry.source,
+          finalEntry,
+          finalReport,
+          readTest,
+          survivors: bundle.selectedMembers,
+          requireFinal: true,
+        }),
+      );
 
-    expect(deadRows).toHaveLength(2);
-    for (const [index, proof] of proofs.entries()) {
-      expect(proof.problems, deadRows[index]!.id).toEqual([]);
-      expect(proof.anchors).toHaveLength(154);
-      expect(proof.removedMutants).toHaveLength(4);
-      expect(proof.auxiliaryMutants).toHaveLength(3);
+      expect(deadRows).toHaveLength(2);
+      for (const [index, proof] of proofs.entries()) {
+        expect(proof.problems, deadRows[index]!.id).toEqual([]);
+        expect(proof.anchors).toHaveLength(154);
+        expect(proof.removedMutants).toHaveLength(4);
+        expect(proof.auxiliaryMutants).toHaveLength(3);
+        expect(
+          proof.anchors.some((pair) =>
+            pair.original.includes("payload.length <= 2"),
+          ),
+        ).toBe(false);
+        expect(
+          proof.anchors.some((pair) =>
+            pair.original.includes("indexSize >= 0"),
+          ),
+        ).toBe(false);
+        expect(
+          proof.auxiliaryMutants.every(
+            (mutant) =>
+              mutant.status === "Killed" && mutant.killedBy.length > 0,
+          ),
+        ).toBe(true);
+        expect(
+          proof.auxiliaryMutants
+            .map((mutant) =>
+              deletionProof.normalizeReceiptSource(mutant.replacement),
+            )
+            .sort(),
+        ).toEqual([
+          "indexSize === 0",
+          "payload.length < 1",
+          "payload.length > 1",
+        ]);
+        expect(
+          proof.removedMutants
+            .filter((mutant) => mutant.status === "Killed")
+            .map((mutant) => mutant.replacement)
+            .sort(),
+        ).toEqual(["indexSize <= 0", "payload.length >= 2"]);
+      }
+      expect(proofs[0]!.anchors).toEqual(proofs[1]!.anchors);
       expect(
-        proof.anchors.some((pair) =>
-          pair.original.includes("payload.length <= 2"),
+        proofs[0]!.removedMutants.filter(
+          (mutant) => mutant.status === "Killed",
         ),
-      ).toBe(false);
+      ).toHaveLength(2);
+
+      const scopedLedger = {
+        schemaVersion: 1,
+        preTriage: null,
+        clusters: bundle.candidateRows,
+      };
+      const scopedGroups = {
+        isobmff: { tier: "trust", globs: ["src/isobmff/**"] },
+      };
       expect(
-        proof.anchors.some((pair) => pair.original.includes("indexSize >= 0")),
-      ).toBe(false);
+        checkLedger({
+          ledger: scopedLedger,
+          finalReport,
+          root,
+          groups: scopedGroups,
+          mode: "pre",
+        }),
+      ).toEqual([]);
+
+      const evaluated = phaseVerifier.evaluate({
+        clusters: bundle.candidateRows,
+        survivors: bundle.selectedMembers,
+        report: finalReport,
+        mode: "batch",
+        readTest,
+        symbolAbsent: () => true,
+        root,
+        ledgerClusters: bundle.candidateRows,
+        selectedFiles: ["src/isobmff/iloc.ts"],
+      });
+      expect(evaluated).toHaveLength(12);
       expect(
-        proof.auxiliaryMutants.every(
-          (mutant) => mutant.status === "Killed" && mutant.killedBy.length > 0,
+        evaluated.filter((member) => member.status === "deleted"),
+      ).toHaveLength(2);
+      expect(
+        evaluated.filter((member) => member.status === "Ignored"),
+      ).toHaveLength(10);
+      const outerConditionals = finalEntry.mutants.filter(
+        (mutant) =>
+          mutant.mutatorName === "ConditionalExpression" &&
+          ["true", "false"].includes(mutant.replacement ?? "") &&
+          mutant.status === "Killed" &&
+          mutant.location.start.line === 233,
+      );
+      const outerLogical = finalEntry.mutants.filter(
+        (mutant) =>
+          mutant.mutatorName === "LogicalOperator" &&
+          deletionProof.normalizeReceiptSource(mutant.replacement ?? "") ===
+            "layout.hasIndexSize ||\nindexSize !== 0" &&
+          mutant.status === "Killed",
+      );
+      expect(outerConditionals).toHaveLength(2);
+      expect(outerLogical).toHaveLength(1);
+      expect(
+        [...outerConditionals, ...outerLogical].every(
+          (mutant) => (mutant.killedBy ?? []).length > 0,
         ),
       ).toBe(true);
-      expect(
-        proof.auxiliaryMutants
-          .map((mutant) =>
-            deletionProof.normalizeReceiptSource(mutant.replacement),
-          )
-          .sort(),
-      ).toEqual([
-        "indexSize === 0",
-        "payload.length < 1",
-        "payload.length > 1",
-      ]);
-      expect(
-        proof.removedMutants
-          .filter((mutant) => mutant.status === "Killed")
-          .map((mutant) => mutant.replacement)
-          .sort(),
-      ).toEqual(["indexSize <= 0", "payload.length >= 2"]);
-    }
-    expect(proofs[0]!.anchors).toEqual(proofs[1]!.anchors);
-    expect(
-      proofs[0]!.removedMutants.filter((mutant) => mutant.status === "Killed"),
-    ).toHaveLength(2);
 
-    const scopedLedger = {
-      schemaVersion: 1,
-      preTriage: null,
-      clusters: bundle.candidateRows,
-    };
-    const scopedGroups = {
-      isobmff: { tier: "trust", globs: ["src/isobmff/**"] },
-    };
-    expect(
-      checkLedger({
-        ledger: scopedLedger,
+      const fullFixture = createRealAdmissionCliFixture();
+      writeIlocCliStage(fullFixture, bundle, "final");
+      const fullLedger = JSON.parse(
+        readFileSync(
+          join(packageRoot, "tools", "mutation", "ledger.json"),
+          "utf8",
+        ),
+      ) as CliLedger;
+      const candidateOverlay = overlayIlocCandidateRows(
+        fullLedger,
+        bundle.candidateRows,
+      );
+      const floors = JSON.parse(
+        readFileSync(join(packageRoot, "mutation-floors.json"), "utf8"),
+      ) as {
+        groups: Record<string, { tier: string; globs: string[] }>;
+      };
+      expect(candidateOverlay.clusters.flatMap((row) => row.keys)).toHaveLength(
+        1919,
+      );
+      const fullFinalProblems = checkLedger({
+        ledger: candidateOverlay,
         finalReport,
-        root,
-        groups: scopedGroups,
-        mode: "pre",
-      }),
-    ).toEqual([]);
-
-    const evaluated = phaseVerifier.evaluate({
-      clusters: bundle.candidateRows,
-      survivors: bundle.selectedMembers,
-      report: finalReport,
-      mode: "batch",
-      readTest,
-      symbolAbsent: () => true,
-      root,
-      ledgerClusters: bundle.candidateRows,
-      selectedFiles: ["src/isobmff/iloc.ts"],
-    });
-    expect(evaluated).toHaveLength(12);
-    expect(
-      evaluated.filter((member) => member.status === "deleted"),
-    ).toHaveLength(2);
-    expect(
-      evaluated.filter((member) => member.status === "Ignored"),
-    ).toHaveLength(10);
-    const outerConditionals = finalEntry.mutants.filter(
-      (mutant) =>
-        mutant.mutatorName === "ConditionalExpression" &&
-        ["true", "false"].includes(mutant.replacement ?? "") &&
-        mutant.status === "Killed" &&
-        mutant.location.start.line === 233,
-    );
-    const outerLogical = finalEntry.mutants.filter(
-      (mutant) =>
-        mutant.mutatorName === "LogicalOperator" &&
-        deletionProof.normalizeReceiptSource(mutant.replacement ?? "") ===
-          "layout.hasIndexSize ||\nindexSize !== 0" &&
-        mutant.status === "Killed",
-    );
-    expect(outerConditionals).toHaveLength(2);
-    expect(outerLogical).toHaveLength(1);
-    expect(
-      [...outerConditionals, ...outerLogical].every(
-        (mutant) => (mutant.killedBy ?? []).length > 0,
-      ),
-    ).toBe(true);
-
-    const fullFixture = createRealAdmissionCliFixture();
-    writeIlocCliStage(fullFixture, bundle, "final");
-    const fullLedger = JSON.parse(
-      readFileSync(
-        join(packageRoot, "tools", "mutation", "ledger.json"),
-        "utf8",
-      ),
-    ) as CliLedger;
-    const candidateOverlay = overlayIlocCandidateRows(
-      fullLedger,
-      bundle.candidateRows,
-    );
-    const floors = JSON.parse(
-      readFileSync(join(packageRoot, "mutation-floors.json"), "utf8"),
-    ) as {
-      groups: Record<string, { tier: string; globs: string[] }>;
-    };
-    expect(candidateOverlay.clusters.flatMap((row) => row.keys)).toHaveLength(
-      1919,
-    );
-    const fullFinalProblems = checkLedger({
-      ledger: candidateOverlay,
-      finalReport,
-      root: fullFixture.productRoot,
-      groups: floors.groups,
-      mode: "final",
-    });
-    const targetReceiptIds = new Set(deadRows.map((row) => row.id));
-    expect(
-      fullFinalProblems.filter((problem) =>
-        [...targetReceiptIds].some((id) => problem.startsWith(`${id}:`)),
-      ),
-    ).toEqual([]);
-    const survivorSuffix = ": Survived in a trust group in the final report";
-    const actualSurvivors = fullFinalProblems
-      .filter((problem) => problem.endsWith(survivorSuffix))
-      .sort();
-    const expectedSurvivors = finalEntry.mutants
-      .filter((mutant) => ["Survived", "NoCoverage"].includes(mutant.status))
-      .map(
-        (mutant) =>
-          `${identity.mutantKey("src/isobmff/iloc.ts", mutant).replaceAll("\u0000", "|")}${survivorSuffix}`,
-      )
-      .sort();
-    expect(expectedSurvivors).toHaveLength(7);
-    expect(actualSurvivors).toEqual(expectedSurvivors);
-
-    // This complete historical iloc stage also replaces a shared test file. The receipt binds
-    // the named killer's own closure (Plan 67-59), and the historical file's killer closure
-    // equals the receipt's, so no named-killer problem is reported for it. Staleness stays
-    // covered by the "named-killer closure binding" controls.
-    const cstringOwner = candidateOverlay.clusters.find(
-      (row) => row.sourceOperation,
-    )!;
-    const cstringReport = JSON.parse(
-      (cstringOwner.sourceOperation!.reports as Record<string, { raw: string }>)
-        .final!.raw,
-    ) as Report;
-    const sharedTestFile = "tests/isobmff_items.test.ts";
-    const currentKillerSource =
-      cstringReport.testFiles![sharedTestFile]!.source;
-    expect(
-      readFileSync(join(fullFixture.productRoot, sharedTestFile), "utf8"),
-    ).toBe(finalReport.testFiles[sharedTestFile]!.source);
-    expect(finalReport.testFiles[sharedTestFile]!.source).not.toBe(
-      currentKillerSource,
-    );
-    expect(
-      deletionProof.namedKillerBinding(
-        finalReport.testFiles[sharedTestFile]!.source,
-        ITEMS_KILLER_NAME,
-      ),
-    ).toBe(
-      deletionProof.namedKillerBinding(currentKillerSource, ITEMS_KILLER_NAME),
-    );
-    const staleCStringProblem = `${cstringOwner.id}: current loop opposite named killer source is stale`;
-    const scopedReportProblem = `${cstringOwner.id}: live sourceOperation source/report differs from the exact measured candidate`;
-    expect(fullFinalProblems).not.toContain(staleCStringProblem);
-    expect(
-      fullFinalProblems.filter((problem) =>
-        problem.startsWith(`${cstringOwner.id}:`),
-      ),
-    ).toEqual([scopedReportProblem]);
-    const restoredCStringProblems = withCliFileMutation(
-      fullFixture,
-      `exifcleaner-node/${sharedTestFile}`,
-      () => Buffer.from(currentKillerSource),
-      () =>
-        checkLedger({
-          ledger: candidateOverlay,
-          finalReport,
-          root: fullFixture.productRoot,
-          groups: floors.groups,
-          mode: "final",
-        }).filter((problem) => problem.startsWith(`${cstringOwner.id}:`)),
-    );
-    // With the test source restored, only the scoped report's missing cstring
-    // entry remains; the historical named-killer error must be gone.
-    expect(restoredCStringProblems).toEqual([
-      `${cstringOwner.id}: live sourceOperation source/report differs from the exact measured candidate`,
-    ]);
-
-    const expectedPreexistingIncomplete = candidateOverlay.clusters
-      .flatMap((row) => {
-        if (row.disposition === "pending")
-          return [`${row.id}: cluster is pending`];
-        if (
-          row.disposition === "dead" &&
-          row.deletion &&
-          row.file !== "src/isobmff/iloc.ts"
+        root: fullFixture.productRoot,
+        groups: floors.groups,
+        mode: "final",
+      });
+      const targetReceiptIds = new Set(deadRows.map((row) => row.id));
+      expect(
+        fullFinalProblems.filter((problem) =>
+          [...targetReceiptIds].some((id) => problem.startsWith(`${id}:`)),
+        ),
+      ).toEqual([]);
+      const survivorSuffix = ": Survived in a trust group in the final report";
+      const actualSurvivors = fullFinalProblems
+        .filter((problem) => problem.endsWith(survivorSuffix))
+        .sort();
+      const expectedSurvivors = finalEntry.mutants
+        .filter((mutant) => ["Survived", "NoCoverage"].includes(mutant.status))
+        .map(
+          (mutant) =>
+            `${identity.mutantKey("src/isobmff/iloc.ts", mutant).replaceAll("\u0000", "|")}${survivorSuffix}`,
         )
-          return [
-            `${row.id}: final report entry is required for scoped deletion proof`,
-          ];
-        if (row.disposition === "gap" && row.compilerKilled === true)
-          return row.test === undefined
-            ? []
-            : [`${row.id}: compiler-killed gap row must not name a test`];
-        if (row.disposition === "gap") {
-          const file = row.test?.file;
-          const name = row.test?.name;
-          const path =
-            typeof file === "string"
-              ? join(fullFixture.productRoot, file)
-              : null;
-          if (path === null || !existsSync(path))
-            return [`${row.id}: gap test file ${file} is missing`];
-          const found = deletionProof.declaredTestStatus(
-            readFileSync(path, "utf8"),
-            name as string,
-          );
-          const table = finalReport.testFiles[file as string];
-          const corroborated =
-            found.status === "unsupported" &&
-            table?.source === readFileSync(path, "utf8") &&
-            Array.isArray(table.tests) &&
-            table.tests.filter(
-              (test) => test.name === name || test.name.endsWith(` > ${name}`),
-            ).length === 1;
-          if (found.status === "ambiguous")
-            return [
-              `${row.id}: gap test ${file} names an ambiguous test ${JSON.stringify(name)} (${found.paths.length} static declarations)`,
-            ];
-          if (found.status === "modified")
-            return [
-              `${row.id}: gap test ${file} name ${JSON.stringify(name)} is skipped, exclusive, conditional or otherwise modified and cannot be corroborated`,
-            ];
-          if (found.status === "unsupported" && !corroborated)
-            return [
-              `${row.id}: gap test ${file} name ${JSON.stringify(name)} is generated and the measured report does not show exactly one such test`,
-            ];
-          if (found.status === "absent")
-            return [
-              `${row.id}: gap test ${file} does not contain test name ${JSON.stringify(name)}`,
-            ];
-        }
-        return [];
-      })
-      .concat(scopedReportProblem)
-      .sort();
-    expect(
-      fullFinalProblems
-        .filter((problem) => !actualSurvivors.includes(problem))
-        .sort(),
-    ).toEqual(expectedPreexistingIncomplete);
-  }, 30_000);
+        .sort();
+      expect(expectedSurvivors).toHaveLength(7);
+      expect(actualSurvivors).toEqual(expectedSurvivors);
 
-  it("accepts the real header and final candidate stages through the copied read-only CLI", () => {
-    const { bundle } = loadIlocBoundaryBundle();
-    const packetPath =
-      "exifcleaner-node/tests/fixtures/mutation/iloc-boundary-reports.json.gz";
+      // This complete historical iloc stage also replaces a shared test file. The receipt binds
+      // the named killer's own closure (Plan 67-59), and the historical file's killer closure
+      // equals the receipt's, so no named-killer problem is reported for it. Staleness stays
+      // covered by the "named-killer closure binding" controls.
+      const cstringOwner = candidateOverlay.clusters.find(
+        (row) => row.sourceOperation,
+      )!;
+      const cstringReport = JSON.parse(
+        (
+          cstringOwner.sourceOperation!.reports as Record<
+            string,
+            { raw: string }
+          >
+        ).final!.raw,
+      ) as Report;
+      const sharedTestFile = "tests/isobmff_items.test.ts";
+      const currentKillerSource =
+        cstringReport.testFiles![sharedTestFile]!.source;
+      expect(
+        readFileSync(join(fullFixture.productRoot, sharedTestFile), "utf8"),
+      ).toBe(finalReport.testFiles[sharedTestFile]!.source);
+      expect(finalReport.testFiles[sharedTestFile]!.source).not.toBe(
+        currentKillerSource,
+      );
+      expect(
+        deletionProof.namedKillerBinding(
+          finalReport.testFiles[sharedTestFile]!.source,
+          ITEMS_KILLER_NAME,
+        ),
+      ).toBe(
+        deletionProof.namedKillerBinding(
+          currentKillerSource,
+          ITEMS_KILLER_NAME,
+        ),
+      );
+      const staleCStringProblem = `${cstringOwner.id}: current loop opposite named killer source is stale`;
+      const scopedReportProblem = `${cstringOwner.id}: live sourceOperation source/report differs from the exact measured candidate`;
+      expect(fullFinalProblems).not.toContain(staleCStringProblem);
+      expect(
+        fullFinalProblems.filter((problem) =>
+          problem.startsWith(`${cstringOwner.id}:`),
+        ),
+      ).toEqual([scopedReportProblem]);
+      const restoredCStringProblems = withCliFileMutation(
+        fullFixture,
+        `exifcleaner-node/${sharedTestFile}`,
+        () => Buffer.from(currentKillerSource),
+        () =>
+          checkLedger({
+            ledger: candidateOverlay,
+            finalReport,
+            root: fullFixture.productRoot,
+            groups: floors.groups,
+            mode: "final",
+          }).filter((problem) => problem.startsWith(`${cstringOwner.id}:`)),
+      );
+      // With the test source restored, only the scoped report's missing cstring
+      // entry remains; the historical named-killer error must be gone.
+      expect(restoredCStringProblems).toEqual([
+        `${cstringOwner.id}: live sourceOperation source/report differs from the exact measured candidate`,
+      ]);
 
-    const headerFixture = createRealAdmissionCliFixture();
-    const headerReportPath = writeIlocCliStage(headerFixture, bundle, "header");
-    const header = runRealCli(headerFixture, [
-      "--iloc-candidate",
-      "--report",
-      headerReportPath,
-      "--stage",
-      "header",
-      "--packet",
-      packetPath,
-    ]);
-    expect(String(header.error?.message ?? header.stderr)).toBe("");
-    expect(header.status, String(header.stdout)).toBe(0);
-    const headerProof = JSON.parse(String(header.stdout)) as {
-      mode: string;
-      stage: string;
-      originalKeys: string[];
-      auxiliary: { replacement: string; status: string; killedBy: unknown[] }[];
-    };
-    expect(headerProof).toMatchObject({
-      mode: "candidate-only",
-      stage: "header",
-    });
-    expect(
-      headerProof.originalKeys.some((key) =>
-        key.includes("payload.length <= 2"),
-      ),
-    ).toBe(true);
-    expect(
-      headerProof.originalKeys.some((key) => key.includes("indexSize >= 0")),
-    ).toBe(true);
-    expect(
-      headerProof.auxiliary.map(({ replacement, status }) => ({
-        replacement,
-        status,
-      })),
-    ).toEqual(
-      expect.arrayContaining([
-        { replacement: "payload.length < 1", status: "Killed" },
-        { replacement: "payload.length > 1", status: "Killed" },
-      ]),
-    );
-    expect(
-      headerProof.auxiliary.every((mutant) => mutant.killedBy.length > 0),
-    ).toBe(true);
+      const expectedPreexistingIncomplete = candidateOverlay.clusters
+        .flatMap((row) => {
+          if (row.disposition === "pending")
+            return [`${row.id}: cluster is pending`];
+          if (
+            row.disposition === "dead" &&
+            row.deletion &&
+            row.file !== "src/isobmff/iloc.ts"
+          )
+            return [
+              `${row.id}: final report entry is required for scoped deletion proof`,
+            ];
+          if (row.disposition === "gap" && row.compilerKilled === true)
+            return row.test === undefined
+              ? []
+              : [`${row.id}: compiler-killed gap row must not name a test`];
+          if (row.disposition === "gap") {
+            const file = row.test?.file;
+            const name = row.test?.name;
+            const path =
+              typeof file === "string"
+                ? join(fullFixture.productRoot, file)
+                : null;
+            if (path === null || !existsSync(path))
+              return [`${row.id}: gap test file ${file} is missing`];
+            const found = deletionProof.declaredTestStatus(
+              readFileSync(path, "utf8"),
+              name as string,
+            );
+            const table = finalReport.testFiles[file as string];
+            const corroborated =
+              found.status === "unsupported" &&
+              table?.source === readFileSync(path, "utf8") &&
+              Array.isArray(table.tests) &&
+              table.tests.filter(
+                (test) =>
+                  test.name === name || test.name.endsWith(` > ${name}`),
+              ).length === 1;
+            if (found.status === "ambiguous")
+              return [
+                `${row.id}: gap test ${file} names an ambiguous test ${JSON.stringify(name)} (${found.paths.length} static declarations)`,
+              ];
+            if (found.status === "modified")
+              return [
+                `${row.id}: gap test ${file} name ${JSON.stringify(name)} is skipped, exclusive, conditional or otherwise modified and cannot be corroborated`,
+              ];
+            if (found.status === "unsupported" && !corroborated)
+              return [
+                `${row.id}: gap test ${file} name ${JSON.stringify(name)} is generated and the measured report does not show exactly one such test`,
+              ];
+            if (found.status === "absent")
+              return [
+                `${row.id}: gap test ${file} does not contain test name ${JSON.stringify(name)}`,
+              ];
+          }
+          return [];
+        })
+        .concat(scopedReportProblem)
+        .sort();
+      expect(
+        fullFinalProblems
+          .filter((problem) => !actualSurvivors.includes(problem))
+          .sort(),
+      ).toEqual(expectedPreexistingIncomplete);
+    },
+    30_000,
+  );
 
-    const finalFixture = createRealAdmissionCliFixture();
-    const finalReportPath = writeIlocCliStage(finalFixture, bundle, "final");
-    const finalArgs = [
-      "--iloc-candidate",
-      "--report",
-      finalReportPath,
-      "--stage",
-      "final",
-      "--packet",
-      packetPath,
-    ];
-    const final = runRealCli(finalFixture, finalArgs);
-    expect(String(final.error?.message ?? final.stderr)).toBe("");
-    expect(final.status, String(final.stdout)).toBe(0);
-    const finalProof = JSON.parse(String(final.stdout)) as {
-      mode: string;
-      stage: string;
-      reportSha256: string;
-      sourceSha256: string;
-      mappedPerReceipt: number;
-      originalKeys: string[];
-      receipts: {
-        id: string;
-        keys: string[];
-        mapped: number;
-        removed: { anchor: string; status: string }[];
+  itWorkspace(
+    "accepts the real header and final candidate stages through the copied read-only CLI",
+    () => {
+      const { bundle } = loadIlocBoundaryBundle();
+      const packetPath =
+        "exifcleaner-node/tests/fixtures/mutation/iloc-boundary-reports.json.gz";
+
+      const headerFixture = createRealAdmissionCliFixture();
+      const headerReportPath = writeIlocCliStage(
+        headerFixture,
+        bundle,
+        "header",
+      );
+      const header = runRealCli(headerFixture, [
+        "--iloc-candidate",
+        "--report",
+        headerReportPath,
+        "--stage",
+        "header",
+        "--packet",
+        packetPath,
+      ]);
+      expect(String(header.error?.message ?? header.stderr)).toBe("");
+      expect(header.status, String(header.stdout)).toBe(0);
+      const headerProof = JSON.parse(String(header.stdout)) as {
+        mode: string;
+        stage: string;
+        originalKeys: string[];
         auxiliary: {
-          anchor: string;
           replacement: string;
           status: string;
           killedBy: unknown[];
         }[];
-      }[];
-      batchProof: Record<string, unknown>[];
-    };
-    expect(finalProof.stage).toBe("final");
-    expect(finalProof.mappedPerReceipt).toBe(154);
-    expect(finalProof.receipts).toHaveLength(2);
-    expect(
-      finalProof.receipts.every(
-        (receipt) =>
-          receipt.removed.length === 4 &&
-          receipt.auxiliary.length === 3 &&
-          receipt.auxiliary.every(
-            (mutant) =>
-              mutant.status === "Killed" && mutant.killedBy.length > 0,
-          ),
-      ),
-    ).toBe(true);
-    expect(finalProof.batchProof).toHaveLength(12);
-    expect(
-      finalProof.batchProof.filter((member) => member.status === "deleted"),
-    ).toHaveLength(2);
-    expect(
-      finalProof.batchProof.filter((member) => member.status === "Ignored"),
-    ).toHaveLength(10);
+      };
+      expect(headerProof).toMatchObject({
+        mode: "candidate-only",
+        stage: "header",
+      });
+      expect(
+        headerProof.originalKeys.some((key) =>
+          key.includes("payload.length <= 2"),
+        ),
+      ).toBe(true);
+      expect(
+        headerProof.originalKeys.some((key) => key.includes("indexSize >= 0")),
+      ).toBe(true);
+      expect(
+        headerProof.auxiliary.map(({ replacement, status }) => ({
+          replacement,
+          status,
+        })),
+      ).toEqual(
+        expect.arrayContaining([
+          { replacement: "payload.length < 1", status: "Killed" },
+          { replacement: "payload.length > 1", status: "Killed" },
+        ]),
+      );
+      expect(
+        headerProof.auxiliary.every((mutant) => mutant.killedBy.length > 0),
+      ).toBe(true);
 
-    const permuted = withCliFileMutation(
-      finalFixture,
-      packetPath,
-      (original) => {
-        const packet = JSON.parse(
-          gunzipSync(original).toString("utf8"),
-        ) as IlocBoundaryBundle;
-        packet.candidateRows = [...packet.candidateRows]
-          .reverse()
-          .map((row) => {
-            const anchors = row.anchors ?? [];
-            if (anchors.length === 0)
-              return { ...row, keys: [...row.keys].reverse() };
-            const pairs = row.keys
-              .map((key, index) => ({ key, anchor: anchors[index]! }))
-              .reverse();
-            return {
-              ...row,
-              keys: pairs.map((pair) => pair.key),
-              anchors: pairs.map((pair) => pair.anchor),
-            };
-          });
-        packet.selectedMembers.reverse();
-        return gzipSync(Buffer.from(JSON.stringify(packet)));
-      },
-      () => runRealCli(finalFixture, finalArgs),
-    );
-    expect(String(permuted.error?.message ?? permuted.stderr)).toBe("");
-    expect(permuted.status, String(permuted.stdout)).toBe(0);
-    const permutedProof = JSON.parse(
-      String(permuted.stdout),
-    ) as typeof finalProof;
-    const compareText = (left: string, right: string) =>
-      left < right ? -1 : left > right ? 1 : 0;
-    const normalizeProof = (proof: typeof finalProof) => ({
-      mode: proof.mode,
-      stage: proof.stage,
-      reportSha256: proof.reportSha256,
-      sourceSha256: proof.sourceSha256,
-      mappedPerReceipt: proof.mappedPerReceipt,
-      originalKeys: [...proof.originalKeys].sort(),
-      receipts: proof.receipts
-        .map((receipt) => ({
-          ...receipt,
-          keys: [...receipt.keys].sort(),
-          removed: [...receipt.removed].sort((left, right) =>
-            compareText(left.anchor, right.anchor),
-          ),
-          auxiliary: [...receipt.auxiliary].sort((left, right) =>
-            compareText(left.anchor, right.anchor),
-          ),
-        }))
-        .sort((left, right) => compareText(left.id, right.id)),
-      batchProof: proof.batchProof
-        .map((member) => JSON.stringify(member))
-        .sort(),
-    });
-    expect(normalizeProof(permutedProof)).toEqual(normalizeProof(finalProof));
-
-    expectCliRejection(
-      runRealCli(finalFixture, [
+      const finalFixture = createRealAdmissionCliFixture();
+      const finalReportPath = writeIlocCliStage(finalFixture, bundle, "final");
+      const finalArgs = [
         "--iloc-candidate",
         "--report",
         finalReportPath,
         "--stage",
-        "other",
+        "final",
         "--packet",
         packetPath,
-      ]),
-      "stage must be header or final",
-    );
-    expectCliRejection(
-      withCliFileRemoval(finalFixture, packetPath, () =>
-        runRealCli(finalFixture, finalArgs),
-      ),
-      "ENOENT",
-    );
-    expectCliRejection(
-      withCliFileMutation(
-        finalFixture,
-        finalReportPath,
-        (original) => Buffer.concat([original, Buffer.from("\n")]),
-        () => runRealCli(finalFixture, finalArgs),
-      ),
-      "report bytes differ from the retained actual Stryker report",
-    );
-    expectCliRejection(
-      withCliFileRemoval(finalFixture, finalReportPath, () =>
-        runRealCli(finalFixture, finalArgs),
-      ),
-      "ENOENT",
-    );
-    expectCliRejection(
-      withCliFileMutation(
-        finalFixture,
-        "exifcleaner-node/src/isobmff/iloc.ts",
-        (original) => Buffer.concat([original, Buffer.from("\n")]),
-        () => runRealCli(finalFixture, finalArgs),
-      ),
-      "report source differs from the contained candidate copy",
-    );
-    expectCliRejection(
-      withCliFileMutation(
-        finalFixture,
-        packetPath,
-        (original) => {
-          const packet = JSON.parse(
-            gunzipSync(original).toString("utf8"),
-          ) as IlocBoundaryBundle;
-          packet.provenance.stageReports.final.sourceSha256 = "0".repeat(64);
-          return gzipSync(Buffer.from(JSON.stringify(packet)));
-        },
-        () => runRealCli(finalFixture, finalArgs),
-      ),
-      "packet bindings differ from actual Stryker evidence",
-    );
-    expectCliRejection(
-      withCliFileMutation(
-        finalFixture,
-        packetPath,
-        (original) => {
-          const packet = JSON.parse(
-            gunzipSync(original).toString("utf8"),
-          ) as IlocBoundaryBundle;
-          packet.candidateRows[0]!.keys[0] = "forged original key";
-          return gzipSync(Buffer.from(JSON.stringify(packet)));
-        },
-        () => runRealCli(finalFixture, finalArgs),
-      ),
-      "row inventory differs from the pinned four-row, 12-key candidate",
-    );
-    expectCliRejection(
-      withCliFileMutation(
-        finalFixture,
-        packetPath,
-        (original) => {
-          const packet = JSON.parse(
-            gunzipSync(original).toString("utf8"),
-          ) as IlocBoundaryBundle;
-          packet.selectedMembers[0]!.key = "forged immutable key";
-          return gzipSync(Buffer.from(JSON.stringify(packet)));
-        },
-        () => runRealCli(finalFixture, finalArgs),
-      ),
-      "immutable member inventory differs from the pinned 12 original keys",
-    );
-  }, 45_000);
-
-  it("rejects widened or stale receipts through both consumers and preserves order-independent proof", () => {
-    const { bundle, finalReport } = loadIlocBoundaryBundle();
-    const root = materializeIlocBoundaryBundle(bundle, finalReport);
-    const finalEntry = finalReport.files["src/isobmff/iloc.ts"]!;
-    const readTest = (file: string) => readFileSync(join(root, file), "utf8");
-    const deadIndex = bundle.candidateRows.findIndex(
-      (row) => row.disposition === "dead",
-    );
-    const makeInput = (row: Cluster, report = finalReport) => ({
-      row,
-      root,
-      currentSource: report.files["src/isobmff/iloc.ts"]!.source,
-      finalEntry: report.files["src/isobmff/iloc.ts"]!,
-      finalReport: report,
-      readTest,
-      survivors: bundle.selectedMembers,
-      requireFinal: true,
-    });
-    const rejectThroughConsumers = (
-      row: Cluster,
-      report: typeof finalReport,
-      pattern: RegExp,
-    ) => {
-      const rows = structuredClone(bundle.candidateRows);
-      rows[deadIndex] = row;
-      const groups = { isobmff: { tier: "trust", globs: ["src/isobmff/**"] } };
+      ];
+      const final = runRealCli(finalFixture, finalArgs);
+      expect(String(final.error?.message ?? final.stderr)).toBe("");
+      expect(final.status, String(final.stdout)).toBe(0);
+      const finalProof = JSON.parse(String(final.stdout)) as {
+        mode: string;
+        stage: string;
+        reportSha256: string;
+        sourceSha256: string;
+        mappedPerReceipt: number;
+        originalKeys: string[];
+        receipts: {
+          id: string;
+          keys: string[];
+          mapped: number;
+          removed: { anchor: string; status: string }[];
+          auxiliary: {
+            anchor: string;
+            replacement: string;
+            status: string;
+            killedBy: unknown[];
+          }[];
+        }[];
+        batchProof: Record<string, unknown>[];
+      };
+      expect(finalProof.stage).toBe("final");
+      expect(finalProof.mappedPerReceipt).toBe(154);
+      expect(finalProof.receipts).toHaveLength(2);
       expect(
-        checkLedger({
-          ledger: { schemaVersion: 1, preTriage: null, clusters: rows },
-          finalReport: report,
-          root,
-          groups,
-          mode: "pre",
-        }).join("\n"),
-      ).toMatch(pattern);
-      expect(() =>
-        phaseVerifier.evaluate({
-          clusters: rows,
-          survivors: bundle.selectedMembers,
-          report,
-          mode: "batch",
-          readTest,
-          symbolAbsent: () => true,
-          root,
-          ledgerClusters: rows,
-          selectedFiles: ["src/isobmff/iloc.ts"],
-        }),
-      ).toThrow(pattern);
-    };
-    const base = bundle.candidateRows[deadIndex]!;
+        finalProof.receipts.every(
+          (receipt) =>
+            receipt.removed.length === 4 &&
+            receipt.auxiliary.length === 3 &&
+            receipt.auxiliary.every(
+              (mutant) =>
+                mutant.status === "Killed" && mutant.killedBy.length > 0,
+            ),
+        ),
+      ).toBe(true);
+      expect(finalProof.batchProof).toHaveLength(12);
+      expect(
+        finalProof.batchProof.filter((member) => member.status === "deleted"),
+      ).toHaveLength(2);
+      expect(
+        finalProof.batchProof.filter((member) => member.status === "Ignored"),
+      ).toHaveLength(10);
 
-    const widened = structuredClone(base);
-    const widenedEdit = (widened.deletion!.edits as { after: string }[])[0]!;
-    widenedEdit.after = "payload.length <= 0";
-    expect(
-      deletionProof.validateDeletion(makeInput(widened)).problems.join("\n"),
-    ).toMatch(/exact ordered two-operation chain/);
-    rejectThroughConsumers(
-      widened,
-      finalReport,
-      /exact ordered two-operation chain/,
-    );
+      const permuted = withCliFileMutation(
+        finalFixture,
+        packetPath,
+        (original) => {
+          const packet = JSON.parse(
+            gunzipSync(original).toString("utf8"),
+          ) as IlocBoundaryBundle;
+          packet.candidateRows = [...packet.candidateRows]
+            .reverse()
+            .map((row) => {
+              const anchors = row.anchors ?? [];
+              if (anchors.length === 0)
+                return { ...row, keys: [...row.keys].reverse() };
+              const pairs = row.keys
+                .map((key, index) => ({ key, anchor: anchors[index]! }))
+                .reverse();
+              return {
+                ...row,
+                keys: pairs.map((pair) => pair.key),
+                anchors: pairs.map((pair) => pair.anchor),
+              };
+            });
+          packet.selectedMembers.reverse();
+          return gzipSync(Buffer.from(JSON.stringify(packet)));
+        },
+        () => runRealCli(finalFixture, finalArgs),
+      );
+      expect(String(permuted.error?.message ?? permuted.stderr)).toBe("");
+      expect(permuted.status, String(permuted.stdout)).toBe(0);
+      const permutedProof = JSON.parse(
+        String(permuted.stdout),
+      ) as typeof finalProof;
+      const compareText = (left: string, right: string) =>
+        left < right ? -1 : left > right ? 1 : 0;
+      const normalizeProof = (proof: typeof finalProof) => ({
+        mode: proof.mode,
+        stage: proof.stage,
+        reportSha256: proof.reportSha256,
+        sourceSha256: proof.sourceSha256,
+        mappedPerReceipt: proof.mappedPerReceipt,
+        originalKeys: [...proof.originalKeys].sort(),
+        receipts: proof.receipts
+          .map((receipt) => ({
+            ...receipt,
+            keys: [...receipt.keys].sort(),
+            removed: [...receipt.removed].sort((left, right) =>
+              compareText(left.anchor, right.anchor),
+            ),
+            auxiliary: [...receipt.auxiliary].sort((left, right) =>
+              compareText(left.anchor, right.anchor),
+            ),
+          }))
+          .sort((left, right) => compareText(left.id, right.id)),
+        batchProof: proof.batchProof
+          .map((member) => JSON.stringify(member))
+          .sort(),
+      });
+      expect(normalizeProof(permutedProof)).toEqual(normalizeProof(finalProof));
 
-    const wrongFile = structuredClone(base);
-    wrongFile.file = "src/isobmff/admission.ts";
-    expect(
-      deletionProof.validateDeletion(makeInput(wrongFile)).problems.join("\n"),
-    ).toMatch(/restricted to src\/isobmff\/iloc\.ts/);
+      expectCliRejection(
+        runRealCli(finalFixture, [
+          "--iloc-candidate",
+          "--report",
+          finalReportPath,
+          "--stage",
+          "other",
+          "--packet",
+          packetPath,
+        ]),
+        "stage must be header or final",
+      );
+      expectCliRejection(
+        withCliFileRemoval(finalFixture, packetPath, () =>
+          runRealCli(finalFixture, finalArgs),
+        ),
+        "ENOENT",
+      );
+      expectCliRejection(
+        withCliFileMutation(
+          finalFixture,
+          finalReportPath,
+          (original) => Buffer.concat([original, Buffer.from("\n")]),
+          () => runRealCli(finalFixture, finalArgs),
+        ),
+        "report bytes differ from the retained actual Stryker report",
+      );
+      expectCliRejection(
+        withCliFileRemoval(finalFixture, finalReportPath, () =>
+          runRealCli(finalFixture, finalArgs),
+        ),
+        "ENOENT",
+      );
+      expectCliRejection(
+        withCliFileMutation(
+          finalFixture,
+          "exifcleaner-node/src/isobmff/iloc.ts",
+          (original) => Buffer.concat([original, Buffer.from("\n")]),
+          () => runRealCli(finalFixture, finalArgs),
+        ),
+        "report source differs from the contained candidate copy",
+      );
+      expectCliRejection(
+        withCliFileMutation(
+          finalFixture,
+          packetPath,
+          (original) => {
+            const packet = JSON.parse(
+              gunzipSync(original).toString("utf8"),
+            ) as IlocBoundaryBundle;
+            packet.provenance.stageReports.final.sourceSha256 = "0".repeat(64);
+            return gzipSync(Buffer.from(JSON.stringify(packet)));
+          },
+          () => runRealCli(finalFixture, finalArgs),
+        ),
+        "packet bindings differ from actual Stryker evidence",
+      );
+      expectCliRejection(
+        withCliFileMutation(
+          finalFixture,
+          packetPath,
+          (original) => {
+            const packet = JSON.parse(
+              gunzipSync(original).toString("utf8"),
+            ) as IlocBoundaryBundle;
+            packet.candidateRows[0]!.keys[0] = "forged original key";
+            return gzipSync(Buffer.from(JSON.stringify(packet)));
+          },
+          () => runRealCli(finalFixture, finalArgs),
+        ),
+        "row inventory differs from the pinned four-row, 12-key candidate",
+      );
+      expectCliRejection(
+        withCliFileMutation(
+          finalFixture,
+          packetPath,
+          (original) => {
+            const packet = JSON.parse(
+              gunzipSync(original).toString("utf8"),
+            ) as IlocBoundaryBundle;
+            packet.selectedMembers[0]!.key = "forged immutable key";
+            return gzipSync(Buffer.from(JSON.stringify(packet)));
+          },
+          () => runRealCli(finalFixture, finalArgs),
+        ),
+        "immutable member inventory differs from the pinned 12 original keys",
+      );
+    },
+    45_000,
+  );
 
-    const wrongFunction = structuredClone(base);
-    wrongFunction.function = "classifyIloc";
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(wrongFunction))
-        .problems.join("\n"),
-    ).toMatch(/receipt function does not match owned row/);
+  itWorkspace(
+    "rejects widened or stale receipts through both consumers and preserves order-independent proof",
+    () => {
+      const { bundle, finalReport } = loadIlocBoundaryBundle();
+      const root = materializeIlocBoundaryBundle(bundle, finalReport);
+      const finalEntry = finalReport.files["src/isobmff/iloc.ts"]!;
+      const readTest = (file: string) => readFileSync(join(root, file), "utf8");
+      const deadIndex = bundle.candidateRows.findIndex(
+        (row) => row.disposition === "dead",
+      );
+      const makeInput = (row: Cluster, report = finalReport) => ({
+        row,
+        root,
+        currentSource: report.files["src/isobmff/iloc.ts"]!.source,
+        finalEntry: report.files["src/isobmff/iloc.ts"]!,
+        finalReport: report,
+        readTest,
+        survivors: bundle.selectedMembers,
+        requireFinal: true,
+      });
+      const rejectThroughConsumers = (
+        row: Cluster,
+        report: typeof finalReport,
+        pattern: RegExp,
+      ) => {
+        const rows = structuredClone(bundle.candidateRows);
+        rows[deadIndex] = row;
+        const groups = {
+          isobmff: { tier: "trust", globs: ["src/isobmff/**"] },
+        };
+        expect(
+          checkLedger({
+            ledger: { schemaVersion: 1, preTriage: null, clusters: rows },
+            finalReport: report,
+            root,
+            groups,
+            mode: "pre",
+          }).join("\n"),
+        ).toMatch(pattern);
+        expect(() =>
+          phaseVerifier.evaluate({
+            clusters: rows,
+            survivors: bundle.selectedMembers,
+            report,
+            mode: "batch",
+            readTest,
+            symbolAbsent: () => true,
+            root,
+            ledgerClusters: rows,
+            selectedFiles: ["src/isobmff/iloc.ts"],
+          }),
+        ).toThrow(pattern);
+      };
+      const base = bundle.candidateRows[deadIndex]!;
 
-    const wrongOccurrence = structuredClone(base);
-    (
-      wrongOccurrence.deletion!.edits as { occurrence: number }[]
-    )[0]!.occurrence = 1;
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(wrongOccurrence))
-        .problems.join("\n"),
-    ).toMatch(/exact ordered two-operation chain/);
+      const widened = structuredClone(base);
+      const widenedEdit = (widened.deletion!.edits as { after: string }[])[0]!;
+      widenedEdit.after = "payload.length <= 0";
+      expect(
+        deletionProof.validateDeletion(makeInput(widened)).problems.join("\n"),
+      ).toMatch(/exact ordered two-operation chain/);
+      rejectThroughConsumers(
+        widened,
+        finalReport,
+        /exact ordered two-operation chain/,
+      );
 
-    const wrongLayoutToken = structuredClone(base);
-    (wrongLayoutToken.deletion!.edits as { before: string }[])[1]!.before =
-      "if (layout.hasIndexSize || indexSize > 0)";
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(wrongLayoutToken))
-        .problems.join("\n"),
-    ).toMatch(/exact ordered two-operation chain/);
+      const wrongFile = structuredClone(base);
+      wrongFile.file = "src/isobmff/admission.ts";
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(wrongFile))
+          .problems.join("\n"),
+      ).toMatch(/restricted to src\/isobmff\/iloc\.ts/);
 
-    const emptyOwner = structuredClone(base);
-    emptyOwner.keys = [];
-    emptyOwner.count = 0;
-    expect(
-      deletionProof.validateDeletion(makeInput(emptyOwner)).problems.join("\n"),
-    ).toMatch(/single-key children of the immutable origin/);
+      const wrongFunction = structuredClone(base);
+      wrongFunction.function = "classifyIloc";
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(wrongFunction))
+          .problems.join("\n"),
+      ).toMatch(/receipt function does not match owned row/);
 
-    const duplicateOwner = structuredClone(base);
-    duplicateOwner.keys = [base.keys[0]!, base.keys[0]!];
-    duplicateOwner.count = 2;
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(duplicateOwner))
-        .problems.join("\n"),
-    ).toMatch(/single-key children of the immutable origin/);
+      const wrongOccurrence = structuredClone(base);
+      (
+        wrongOccurrence.deletion!.edits as { occurrence: number }[]
+      )[0]!.occurrence = 1;
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(wrongOccurrence))
+          .problems.join("\n"),
+      ).toMatch(/exact ordered two-operation chain/);
 
-    const wrongOrigin = structuredClone(base);
-    wrongOrigin.originClusterId = "forged-origin";
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(wrongOrigin))
-        .problems.join("\n"),
-    ).toMatch(/single-key children of the immutable origin/);
+      const wrongLayoutToken = structuredClone(base);
+      (wrongLayoutToken.deletion!.edits as { before: string }[])[1]!.before =
+        "if (layout.hasIndexSize || indexSize > 0)";
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(wrongLayoutToken))
+          .problems.join("\n"),
+      ).toMatch(/exact ordered two-operation chain/);
 
-    const staleSource = structuredClone(base);
-    staleSource.deletion!.beforeSourceSha256 = "0".repeat(64);
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(staleSource))
-        .problems.join("\n"),
-    ).toMatch(/before source hash mismatch/);
+      const emptyOwner = structuredClone(base);
+      emptyOwner.keys = [];
+      emptyOwner.count = 0;
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(emptyOwner))
+          .problems.join("\n"),
+      ).toMatch(/single-key children of the immutable origin/);
 
-    const missingAffected = structuredClone(base);
-    (missingAffected.deletion!.removedMutants as unknown[]).pop();
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(missingAffected))
-        .problems.join("\n"),
-    ).toMatch(/removedMutants does not exactly account/);
+      const duplicateOwner = structuredClone(base);
+      duplicateOwner.keys = [base.keys[0]!, base.keys[0]!];
+      duplicateOwner.count = 2;
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(duplicateOwner))
+          .problems.join("\n"),
+      ).toMatch(/single-key children of the immutable origin/);
 
-    const missingSuccessor = structuredClone(base);
-    missingSuccessor.deletion!.detectedSuccessors = [];
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(missingSuccessor))
-        .problems.join("\n"),
-    ).toMatch(/exactly one successor or counterfactual/);
+      const wrongOrigin = structuredClone(base);
+      wrongOrigin.originClusterId = "forged-origin";
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(wrongOrigin))
+          .problems.join("\n"),
+      ).toMatch(/single-key children of the immutable origin/);
 
-    const missingKiller = structuredClone(finalReport);
-    const headerOpposite = missingKiller.files[
-      "src/isobmff/iloc.ts"
-    ]!.mutants.find((mutant) => mutant.replacement === "payload.length > 1")!;
-    headerOpposite.killedBy = [];
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(base, missingKiller))
-        .problems.join("\n"),
-    ).toMatch(/unresolved killedBy test evidence/);
+      const staleSource = structuredClone(base);
+      staleSource.deletion!.beforeSourceSha256 = "0".repeat(64);
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(staleSource))
+          .problems.join("\n"),
+      ).toMatch(/before source hash mismatch/);
 
-    const staleTest = structuredClone(finalReport);
-    staleTest.testFiles["tests/isobmff_writer.test.ts"]!.source +=
-      "// stale candidate source\n";
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(base, staleTest))
-        .problems.join("\n"),
-    ).toMatch(/final test source is absent or stale/);
+      const missingAffected = structuredClone(base);
+      (missingAffected.deletion!.removedMutants as unknown[]).pop();
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(missingAffected))
+          .problems.join("\n"),
+      ).toMatch(/removedMutants does not exactly account/);
 
-    const permuted = structuredClone(finalReport);
-    permuted.files["src/isobmff/iloc.ts"]!.mutants.reverse();
-    for (const entry of Object.values(permuted.testFiles))
-      entry.tests.reverse();
-    const proof = deletionProof.validateDeletion(makeInput(base, permuted));
-    expect(proof.problems).toEqual([]);
-    expect(
-      proof.anchors.map((pair) => `${pair.current}\n${pair.original}`).sort(),
-    ).toEqual(
-      deletionProof
-        .validateDeletion(makeInput(base))
-        .anchors.map((pair) => `${pair.current}\n${pair.original}`)
-        .sort(),
-    );
-    expect(finalEntry.mutants).toHaveLength(157);
-  }, 30_000);
+      const missingSuccessor = structuredClone(base);
+      missingSuccessor.deletion!.detectedSuccessors = [];
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(missingSuccessor))
+          .problems.join("\n"),
+      ).toMatch(/exactly one successor or counterfactual/);
+
+      const missingKiller = structuredClone(finalReport);
+      const headerOpposite = missingKiller.files[
+        "src/isobmff/iloc.ts"
+      ]!.mutants.find((mutant) => mutant.replacement === "payload.length > 1")!;
+      headerOpposite.killedBy = [];
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(base, missingKiller))
+          .problems.join("\n"),
+      ).toMatch(/unresolved killedBy test evidence/);
+
+      const staleTest = structuredClone(finalReport);
+      staleTest.testFiles["tests/isobmff_writer.test.ts"]!.source +=
+        "// stale candidate source\n";
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(base, staleTest))
+          .problems.join("\n"),
+      ).toMatch(/final test source is absent or stale/);
+
+      const permuted = structuredClone(finalReport);
+      permuted.files["src/isobmff/iloc.ts"]!.mutants.reverse();
+      for (const entry of Object.values(permuted.testFiles))
+        entry.tests.reverse();
+      const proof = deletionProof.validateDeletion(makeInput(base, permuted));
+      expect(proof.problems).toEqual([]);
+      expect(
+        proof.anchors.map((pair) => `${pair.current}\n${pair.original}`).sort(),
+      ).toEqual(
+        deletionProof
+          .validateDeletion(makeInput(base))
+          .anchors.map((pair) => `${pair.current}\n${pair.original}`)
+          .sort(),
+      );
+      expect(finalEntry.mutants).toHaveLength(157);
+    },
+    30_000,
+  );
 });
 
 describe("real readCString boundary receipt", () => {
@@ -4408,115 +4474,119 @@ describe("real readCString boundary receipt", () => {
     expect(proof.counterpartProofs).toHaveLength(2);
   });
 
-  it("tolerates only nonlocal killed attribution drift while retaining boundary and 43-owner checks", () => {
-    const { bundle, row, survivors, finalReport } = loadInput();
-    const receipt = row.sourceOperation as {
-      anchorMappings: { current: string; original: string }[];
-      candidateAffected: { anchor: string }[];
-    };
-    const file = "src/isobmff/items.ts";
-    const report = structuredClone(finalReport);
-    const entry = report.files[file]!;
-    const selectedOriginalAnchors = new Set(
-      bundle.selectedMembers.map((member) => member.anchorKey),
-    );
-    const selectedCurrentAnchors = new Set(
-      receipt.anchorMappings
-        .filter((mapping) => selectedOriginalAnchors.has(mapping.original))
-        .map((mapping) => mapping.current),
-    );
-    const affectedAnchors = new Set(
-      receipt.candidateAffected.map((mutant) => mutant.anchor),
-    );
-    const anchorOf = (mutant: Mutant) =>
-      phaseVerifier.canonicalAnchor(file, mutant, entry.source);
-    const nonlocal = entry.mutants.find(
-      (mutant) =>
-        mutant.status === "Killed" &&
-        (mutant.killedBy?.length ?? 0) > 0 &&
-        mutant.coveredBy?.some((id) => !mutant.killedBy?.includes(id)) &&
-        !affectedAnchors.has(anchorOf(mutant)) &&
-        !selectedCurrentAnchors.has(anchorOf(mutant)),
-    );
-    expect(nonlocal).toBeDefined();
-    const nonlocalAnchor = anchorOf(nonlocal!);
-    const alternateCoveredTest = nonlocal!.coveredBy!.find(
-      (id) => !nonlocal!.killedBy!.includes(id),
-    );
-    expect(alternateCoveredTest).toBeDefined();
-    nonlocal!.killedBy = [alternateCoveredTest!];
-    nonlocal!.statusReason = "a different covered test failed first";
+  itWorkspace(
+    "tolerates only nonlocal killed attribution drift while retaining boundary and 43-owner checks",
+    () => {
+      const { bundle, row, survivors, finalReport } = loadInput();
+      const receipt = row.sourceOperation as {
+        anchorMappings: { current: string; original: string }[];
+        candidateAffected: { anchor: string }[];
+      };
+      const file = "src/isobmff/items.ts";
+      const report = structuredClone(finalReport);
+      const entry = report.files[file]!;
+      const selectedOriginalAnchors = new Set(
+        bundle.selectedMembers.map((member) => member.anchorKey),
+      );
+      const selectedCurrentAnchors = new Set(
+        receipt.anchorMappings
+          .filter((mapping) => selectedOriginalAnchors.has(mapping.original))
+          .map((mapping) => mapping.current),
+      );
+      const affectedAnchors = new Set(
+        receipt.candidateAffected.map((mutant) => mutant.anchor),
+      );
+      const anchorOf = (mutant: Mutant) =>
+        phaseVerifier.canonicalAnchor(file, mutant, entry.source);
+      const nonlocal = entry.mutants.find(
+        (mutant) =>
+          mutant.status === "Killed" &&
+          (mutant.killedBy?.length ?? 0) > 0 &&
+          mutant.coveredBy?.some((id) => !mutant.killedBy?.includes(id)) &&
+          !affectedAnchors.has(anchorOf(mutant)) &&
+          !selectedCurrentAnchors.has(anchorOf(mutant)),
+      );
+      expect(nonlocal).toBeDefined();
+      const nonlocalAnchor = anchorOf(nonlocal!);
+      const alternateCoveredTest = nonlocal!.coveredBy!.find(
+        (id) => !nonlocal!.killedBy!.includes(id),
+      );
+      expect(alternateCoveredTest).toBeDefined();
+      nonlocal!.killedBy = [alternateCoveredTest!];
+      nonlocal!.statusReason = "a different covered test failed first";
 
-    // A contained fixture root (Plan 67-59) holds the receipt's candidate items.ts and serves
-    // its embedded test sources, so a legitimate later edit of the live items.ts or items test
-    // cannot fail this evaluation. Its controls below are unchanged.
-    const nonlocalFixture = createEmbeddedReceiptFixture(finalReport);
-    const evaluate = (candidateReport: typeof report) =>
-      phaseVerifier.evaluate({
-        clusters: bundle.candidateRows,
-        survivors,
-        report: candidateReport,
-        mode: "batch",
-        root: nonlocalFixture.productRoot,
-        readTest: embeddedReadTest(finalReport),
-        symbolAbsent: () => true,
-        allowLiveReport: true,
-      });
+      // A contained fixture root (Plan 67-59) holds the receipt's candidate items.ts and serves
+      // its embedded test sources, so a legitimate later edit of the live items.ts or items test
+      // cannot fail this evaluation. Its controls below are unchanged.
+      const nonlocalFixture = createEmbeddedReceiptFixture(finalReport);
+      const evaluate = (candidateReport: typeof report) =>
+        phaseVerifier.evaluate({
+          clusters: bundle.candidateRows,
+          survivors,
+          report: candidateReport,
+          mode: "batch",
+          root: nonlocalFixture.productRoot,
+          readTest: embeddedReadTest(finalReport),
+          symbolAbsent: () => true,
+          allowLiveReport: true,
+        });
 
-    expect(evaluate(report)).toHaveLength(43);
+      expect(evaluate(report)).toHaveLength(43);
 
-    const ownerRow = bundle.candidateRows.find(
-      (candidate) =>
-        candidate.disposition === "gap" && !candidate.sourceOperation,
-    )!;
-    const ownerMember = bundle.selectedMembers.find((member) =>
-      ownerRow.keys.includes(member.key),
-    )!;
-    const ownerVariant = structuredClone(report);
-    const ownerMutant = ownerVariant.files[file]!.mutants.find(
-      (mutant) => anchorOf(mutant) === ownerMember.anchorKey,
-    )!;
-    const alternateOwnerTest = ownerMutant.coveredBy!.find(
-      (id) => !ownerMutant.killedBy?.includes(id),
-    );
-    expect(alternateOwnerTest).toBeDefined();
-    ownerMutant.killedBy = [alternateOwnerTest!];
-    expect(() => evaluate(ownerVariant)).toThrow(/does not name/);
+      const ownerRow = bundle.candidateRows.find(
+        (candidate) =>
+          candidate.disposition === "gap" && !candidate.sourceOperation,
+      )!;
+      const ownerMember = bundle.selectedMembers.find((member) =>
+        ownerRow.keys.includes(member.key),
+      )!;
+      const ownerVariant = structuredClone(report);
+      const ownerMutant = ownerVariant.files[file]!.mutants.find(
+        (mutant) => anchorOf(mutant) === ownerMember.anchorKey,
+      )!;
+      const alternateOwnerTest = ownerMutant.coveredBy!.find(
+        (id) => !ownerMutant.killedBy?.includes(id),
+      );
+      expect(alternateOwnerTest).toBeDefined();
+      ownerMutant.killedBy = [alternateOwnerTest!];
+      expect(() => evaluate(ownerVariant)).toThrow(/does not name/);
 
-    const localVariant = structuredClone(report);
-    const localOpposite = localVariant.files[file]!.mutants.find(
-      (mutant) =>
-        mutant.mutatorName === "EqualityOperator" &&
-        mutant.replacement === "end > buffer.length - 1",
-    )!;
-    const alternateLocalTest = localOpposite.coveredBy!.find(
-      (id) => !localOpposite.killedBy?.includes(id),
-    );
-    expect(alternateLocalTest).toBeDefined();
-    localOpposite.killedBy = [alternateLocalTest!];
-    expect(() => evaluate(localVariant)).toThrow(
-      /live sourceOperation source\/report differs from the exact measured candidate/,
-    );
+      const localVariant = structuredClone(report);
+      const localOpposite = localVariant.files[file]!.mutants.find(
+        (mutant) =>
+          mutant.mutatorName === "EqualityOperator" &&
+          mutant.replacement === "end > buffer.length - 1",
+      )!;
+      const alternateLocalTest = localOpposite.coveredBy!.find(
+        (id) => !localOpposite.killedBy?.includes(id),
+      );
+      expect(alternateLocalTest).toBeDefined();
+      localOpposite.killedBy = [alternateLocalTest!];
+      expect(() => evaluate(localVariant)).toThrow(
+        /live sourceOperation source\/report differs from the exact measured candidate/,
+      );
 
-    const statusVariant = structuredClone(report);
-    const statusMutant = statusVariant.files[file]!.mutants.find(
-      (mutant) => anchorOf(mutant) === nonlocalAnchor,
-    )!;
-    statusMutant.status = "Survived";
-    statusMutant.killedBy = [];
-    expect(() => evaluate(statusVariant)).toThrow(
-      /live sourceOperation source\/report differs from the exact measured candidate/,
-    );
+      const statusVariant = structuredClone(report);
+      const statusMutant = statusVariant.files[file]!.mutants.find(
+        (mutant) => anchorOf(mutant) === nonlocalAnchor,
+      )!;
+      statusMutant.status = "Survived";
+      statusMutant.killedBy = [];
+      expect(() => evaluate(statusVariant)).toThrow(
+        /live sourceOperation source\/report differs from the exact measured candidate/,
+      );
 
-    const coverageVariant = structuredClone(report);
-    const coverageMutant = coverageVariant.files[file]!.mutants.find(
-      (mutant) => anchorOf(mutant) === nonlocalAnchor,
-    )!;
-    coverageMutant.coveredBy = coverageMutant.coveredBy!.slice(1);
-    expect(() => evaluate(coverageVariant)).toThrow(
-      /live sourceOperation source\/report differs from the exact measured candidate/,
-    );
-  }, 30_000);
+      const coverageVariant = structuredClone(report);
+      const coverageMutant = coverageVariant.files[file]!.mutants.find(
+        (mutant) => anchorOf(mutant) === nonlocalAnchor,
+      )!;
+      coverageMutant.coveredBy = coverageMutant.coveredBy!.slice(1);
+      expect(() => evaluate(coverageVariant)).toThrow(
+        /live sourceOperation source\/report differs from the exact measured candidate/,
+      );
+    },
+    30_000,
+  );
 
   it("fails closed on altered site, origin, ownership, report, mapping and counterpart evidence", () => {
     const { row, survivors } = loadInput();
@@ -4805,509 +4875,539 @@ describe("real readCString boundary receipt", () => {
     ).toHaveLength(1);
   }, 15_000);
 
-  it("accepts 43 members and rejects a forged receipt through phase evaluate", () => {
-    const { bundle } = loadCStringBoundaryBundle();
-    const report = JSON.parse(bundle.reports.final) as Report & {
-      testFiles: NonNullable<Report["testFiles"]>;
-    };
-    // The fixture carries the receipt's candidate items.ts and embedded test sources (Plan
-    // 67-59), after its live-shaped copies drifted, so a later live edit cannot fail this test.
-    const fixture = createEmbeddedReceiptFixture(report);
+  itWorkspace(
+    "accepts 43 members and rejects a forged receipt through phase evaluate",
+    () => {
+      const { bundle } = loadCStringBoundaryBundle();
+      const report = JSON.parse(bundle.reports.final) as Report & {
+        testFiles: NonNullable<Report["testFiles"]>;
+      };
+      // The fixture carries the receipt's candidate items.ts and embedded test sources (Plan
+      // 67-59), after its live-shaped copies drifted, so a later live edit cannot fail this test.
+      const fixture = createEmbeddedReceiptFixture(report);
 
-    const evaluate = (clusters: Cluster[]) =>
-      phaseVerifier.evaluate({
-        clusters,
-        survivors: bundle.selectedMembers,
-        report,
-        mode: "batch",
-        root: fixture.productRoot,
-        readTest: embeddedReadTest(report),
-        symbolAbsent: () => true,
-      });
-    expect(evaluate(bundle.candidateRows)).toHaveLength(43);
+      const evaluate = (clusters: Cluster[]) =>
+        phaseVerifier.evaluate({
+          clusters,
+          survivors: bundle.selectedMembers,
+          report,
+          mode: "batch",
+          root: fixture.productRoot,
+          readTest: embeddedReadTest(report),
+          symbolAbsent: () => true,
+        });
+      expect(evaluate(bundle.candidateRows)).toHaveLength(43);
 
-    const forged = structuredClone(bundle.candidateRows);
-    const owner = forged.find((candidate) => candidate.sourceOperation)!;
-    owner.sourceOperation!.anchorMappings = [];
-    expect(() => evaluate(forged)).toThrow(
-      /mapping is incomplete, non-injective or forged/,
-    );
-    expectLiveInputsUnchanged();
-  }, 30_000);
+      const forged = structuredClone(bundle.candidateRows);
+      const owner = forged.find((candidate) => candidate.sourceOperation)!;
+      owner.sourceOperation!.anchorMappings = [];
+      expect(() => evaluate(forged)).toThrow(
+        /mapping is incomplete, non-injective or forged/,
+      );
+      expectLiveInputsUnchanged();
+    },
+    30_000,
+  );
 
-  it("rejects a forged receipt through the actual copied candidate CLI", () => {
-    const { bundle } = loadCStringBoundaryBundle();
-    const finalReport = JSON.parse(bundle.reports.final) as Report;
-    const fixture = createEmbeddedReceiptFixture(finalReport);
-    const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
-    const packetPath =
-      "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
-    writeFixtureFile(fixture.root, reportPath, bundle.reports.final);
-    const forged = structuredClone(bundle);
-    const owner = forged.candidateRows.find(
-      (candidate) => candidate.sourceOperation,
-    )!;
-    owner.sourceOperation!.anchorMappings = [];
-    writeFixtureFile(
-      fixture.root,
-      packetPath,
-      gzipSync(Buffer.from(JSON.stringify(forged)), { level: 9 }),
-    );
+  itWorkspace(
+    "rejects a forged receipt through the actual copied candidate CLI",
+    () => {
+      const { bundle } = loadCStringBoundaryBundle();
+      const finalReport = JSON.parse(bundle.reports.final) as Report;
+      const fixture = createEmbeddedReceiptFixture(finalReport);
+      const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
+      const packetPath =
+        "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
+      writeFixtureFile(fixture.root, reportPath, bundle.reports.final);
+      const forged = structuredClone(bundle);
+      const owner = forged.candidateRows.find(
+        (candidate) => candidate.sourceOperation,
+      )!;
+      owner.sourceOperation!.anchorMappings = [];
+      writeFixtureFile(
+        fixture.root,
+        packetPath,
+        gzipSync(Buffer.from(JSON.stringify(forged)), { level: 9 }),
+      );
 
-    const result = runRealCli(fixture, [
-      "--cstring-candidate",
-      "--report",
-      reportPath,
-      "--packet",
-      packetPath,
-    ]);
-    expect(result.error?.message).toBeUndefined();
-    expect(result.status).toBe(1);
-    expect(`${result.stdout}\n${result.stderr}`).toMatch(
-      /mapping is incomplete, non-injective or forged/,
-    );
-    expectLiveInputsUnchanged();
-  }, 60_000);
+      const result = runRealCli(fixture, [
+        "--cstring-candidate",
+        "--report",
+        reportPath,
+        "--packet",
+        packetPath,
+      ]);
+      expect(result.error?.message).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}\n${result.stderr}`).toMatch(
+        /mapping is incomplete, non-injective or forged/,
+      );
+      expectLiveInputsUnchanged();
+    },
+    60_000,
+  );
 
-  it("accepts reordered independent rows, keys, mappings and test report tables", () => {
-    const { bundle, finalReport } = loadCStringBoundaryBundle();
-    const reordered = structuredClone(bundle);
-    const owner = reordered.candidateRows.find(
-      (candidate) => candidate.sourceOperation,
-    )!;
-    const receipt = owner.sourceOperation! as {
-      anchorMappings: { current: string; original: string }[];
-      reports: Record<
-        string,
-        { raw: string; sha256: string; canonicalSha256: string }
-      >;
-    };
-    const parsedFinal = JSON.parse(reordered.reports.final) as Report;
-    parsedFinal.testFiles = Object.fromEntries(
-      Object.entries(parsedFinal.testFiles ?? {}).reverse(),
-    );
-    const reorderedRaw = JSON.stringify(parsedFinal);
-    const finalBinding = receipt.reports.final!;
-    finalBinding.raw = reorderedRaw;
-    finalBinding.sha256 = sha256(reorderedRaw);
-    reordered.reports.final = reorderedRaw;
-    reordered.provenance.reportSha256.final = finalBinding.sha256;
-    reordered.provenance.campaigns.final!.reportSha256 = finalBinding.sha256;
-    reordered.provenance.campaigns.final!.reportBytes =
-      Buffer.byteLength(reorderedRaw);
-    reordered.provenance.campaignStreams.final!.reportSha256 =
-      finalBinding.sha256;
-    reordered.provenance.campaignStreams.final!.reportBytes =
-      Buffer.byteLength(reorderedRaw);
-    receipt.anchorMappings.reverse();
-    for (const candidate of reordered.candidateRows) candidate.keys.reverse();
-    reordered.candidateRows.reverse();
-    reordered.selectedMembers.reverse();
+  itWorkspace(
+    "accepts reordered independent rows, keys, mappings and test report tables",
+    () => {
+      const { bundle, finalReport } = loadCStringBoundaryBundle();
+      const reordered = structuredClone(bundle);
+      const owner = reordered.candidateRows.find(
+        (candidate) => candidate.sourceOperation,
+      )!;
+      const receipt = owner.sourceOperation! as {
+        anchorMappings: { current: string; original: string }[];
+        reports: Record<
+          string,
+          { raw: string; sha256: string; canonicalSha256: string }
+        >;
+      };
+      const parsedFinal = JSON.parse(reordered.reports.final) as Report;
+      parsedFinal.testFiles = Object.fromEntries(
+        Object.entries(parsedFinal.testFiles ?? {}).reverse(),
+      );
+      const reorderedRaw = JSON.stringify(parsedFinal);
+      const finalBinding = receipt.reports.final!;
+      finalBinding.raw = reorderedRaw;
+      finalBinding.sha256 = sha256(reorderedRaw);
+      reordered.reports.final = reorderedRaw;
+      reordered.provenance.reportSha256.final = finalBinding.sha256;
+      reordered.provenance.campaigns.final!.reportSha256 = finalBinding.sha256;
+      reordered.provenance.campaigns.final!.reportBytes =
+        Buffer.byteLength(reorderedRaw);
+      reordered.provenance.campaignStreams.final!.reportSha256 =
+        finalBinding.sha256;
+      reordered.provenance.campaignStreams.final!.reportBytes =
+        Buffer.byteLength(reorderedRaw);
+      receipt.anchorMappings.reverse();
+      for (const candidate of reordered.candidateRows) candidate.keys.reverse();
+      reordered.candidateRows.reverse();
+      reordered.selectedMembers.reverse();
 
-    const survivors = JSON.parse(
-      readFileSync(
-        join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
-        "utf8",
-      ),
-    ).survivors as Survivor[];
-    expect(
-      validate(owner, survivors, embeddedReadTest(finalReport)).problems,
-    ).toEqual([]);
-
-    const fixture = createEmbeddedReceiptFixture(finalReport);
-    const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
-    const packetPath =
-      "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
-    writeFixtureFile(fixture.root, reportPath, reorderedRaw);
-    writeFixtureFile(
-      fixture.root,
-      packetPath,
-      gzipSync(Buffer.from(JSON.stringify(reordered)), { level: 9 }),
-    );
-    const result = runRealCli(fixture, [
-      "--cstring-candidate",
-      "--report",
-      reportPath,
-      "--packet",
-      packetPath,
-    ]);
-    expect(result.error?.message).toBeUndefined();
-    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    expect(JSON.parse(String(result.stdout)).proof).toHaveLength(43);
-    expectLiveInputsUnchanged();
-  }, 60_000);
-
-  it("passes the copied full-inventory batch CLI with independent Git history and no live writes", () => {
-    const { bundle } = loadCStringBoundaryBundle();
-    const finalReport = JSON.parse(bundle.reports.final) as Report;
-    const fixture = createEmbeddedReceiptFixture(finalReport);
-    const gitMetadata = lstatSync(join(fixture.productRoot, ".git"));
-    expect(gitMetadata.isDirectory()).toBe(true);
-    expect(
-      execFileSync("git", ["remote"], {
-        cwd: fixture.productRoot,
-        encoding: "utf8",
-      }).trim(),
-    ).toBe("");
-
-    const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
-    const packetPath =
-      "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
-    writeFixtureFile(fixture.root, reportPath, bundle.reports.final);
-    writeFixtureFile(
-      fixture.root,
-      packetPath,
-      readFileSync(
-        join(
-          packageRoot,
-          "tests",
-          "fixtures",
-          "mutation",
-          "isobmff-4-cstring-boundary.json.gz",
+      const survivors = JSON.parse(
+        readFileSync(
+          join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+          "utf8",
         ),
-      ),
-    );
-    const result = runRealCli(fixture, [
-      "--cstring-candidate",
-      "--report",
-      reportPath,
-      "--packet",
-      packetPath,
-    ]);
-    expect(result.error?.message).toBeUndefined();
-    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    const proof = JSON.parse(String(result.stdout)) as {
-      mode: string;
-      batch: string;
-      proof: unknown[];
-      originalKeys: string[];
-    };
-    expect(proof).toMatchObject({ mode: "candidate-only", batch: "isobmff-4" });
-    expect(proof.proof).toHaveLength(43);
-    expect(proof.originalKeys).toHaveLength(43);
+      ).survivors as Survivor[];
+      expect(
+        validate(owner, survivors, embeddedReadTest(finalReport)).problems,
+      ).toEqual([]);
 
-    // The same projection is valid before and after the receipt is applied.
-    const owner = bundle.candidateRows.find((row) => row.sourceOperation)!;
-    const beforeReceipt = withCliLedgerMutation(
-      fixture,
-      (ledger) => {
-        const original = ledger.clusters.find((row) => row.id === owner.id)!;
-        delete original.sourceOperation;
-        original.anchors = bundle.selectedMembers
-          .filter((member) => original.keys.includes(member.key))
-          .map((member) => member.anchorKey);
-      },
-      () =>
-        runRealCli(fixture, [
-          "--cstring-candidate",
-          "--report",
-          reportPath,
-          "--packet",
-          packetPath,
-        ]),
-    );
-    expect(beforeReceipt.error?.message).toBeUndefined();
-    expect(
-      beforeReceipt.status,
-      `${beforeReceipt.stdout}\n${beforeReceipt.stderr}`,
-    ).toBe(0);
-    expect(JSON.parse(String(beforeReceipt.stdout)).proof).toHaveLength(43);
+      const fixture = createEmbeddedReceiptFixture(finalReport);
+      const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
+      const packetPath =
+        "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
+      writeFixtureFile(fixture.root, reportPath, reorderedRaw);
+      writeFixtureFile(
+        fixture.root,
+        packetPath,
+        gzipSync(Buffer.from(JSON.stringify(reordered)), { level: 9 }),
+      );
+      const result = runRealCli(fixture, [
+        "--cstring-candidate",
+        "--report",
+        reportPath,
+        "--packet",
+        packetPath,
+      ]);
+      expect(result.error?.message).toBeUndefined();
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      expect(JSON.parse(String(result.stdout)).proof).toHaveLength(43);
+      expectLiveInputsUnchanged();
+    },
+    60_000,
+  );
 
-    // Receipt normalization must not exempt changes to unrelated owner fields.
-    const changedOwner = withCliFileMutation(
-      fixture,
-      packetPath,
-      (bytes) => {
-        const changed = JSON.parse(
-          gunzipSync(bytes).toString("utf8"),
-        ) as CStringBoundaryBundle;
-        changed.candidateRows.find((row) => row.id === owner.id)!.note +=
-          " unauthorized change";
-        return gzipSync(Buffer.from(JSON.stringify(changed)));
-      },
-      () =>
-        runRealCli(fixture, [
-          "--cstring-candidate",
-          "--report",
-          reportPath,
-          "--packet",
-          packetPath,
-        ]),
-    );
-    expect(changedOwner.status).toBe(1);
-    expect(`${changedOwner.stdout}\n${changedOwner.stderr}`).toMatch(
-      /candidate projection changed fields outside its exact sourceOperation receipt and anchor/,
-    );
-    const batchResult = runRealCli(fixture, [
-      "--batch",
-      "isobmff-4",
-      "--mode",
-      "batch",
-      "--report",
-      reportPath,
-      "--source-operation-packet",
-      packetPath,
-    ]);
-    expect(batchResult.error?.message).toBeUndefined();
-    expect(
-      batchResult.status,
-      `${batchResult.stdout}\n${batchResult.stderr}`,
-    ).toBe(0);
-    expect(JSON.parse(String(batchResult.stdout)).proof).toHaveLength(43);
-    expectLiveInputsUnchanged();
-  }, 60_000);
+  itWorkspace(
+    "passes the copied full-inventory batch CLI with independent Git history and no live writes",
+    () => {
+      const { bundle } = loadCStringBoundaryBundle();
+      const finalReport = JSON.parse(bundle.reports.final) as Report;
+      const fixture = createEmbeddedReceiptFixture(finalReport);
+      const gitMetadata = lstatSync(join(fixture.productRoot, ".git"));
+      expect(gitMetadata.isDirectory()).toBe(true);
+      expect(
+        execFileSync("git", ["remote"], {
+          cwd: fixture.productRoot,
+          encoding: "utf8",
+        }).trim(),
+      ).toBe("");
 
-  it("gates the exact source decision through the copied approval CLI and rejects stale authority", () => {
-    const { bundle } = loadCStringBoundaryBundle();
-    const fixture = createRealAdmissionCliFixture({ independentHistory: true });
-    const { packetPath, record: initialRecord } = createCStringApprovalPacket(
-      fixture,
-      bundle,
-    );
-    const record = structuredClone(initialRecord) as {
-      decision: { status: string; responseText: string; recordedAt: string };
-      review: {
-        verdict: string;
-        blockingFindings: number;
-        reviewer: string;
-        reviewedAt: string;
-        reviewedFiles: Record<string, string>;
+      const reportPath = "exifcleaner-node/reports/triage/67-56/candidate.json";
+      const packetPath =
+        "exifcleaner-node/tests/fixtures/mutation/isobmff-4-cstring-boundary.json.gz";
+      writeFixtureFile(fixture.root, reportPath, bundle.reports.final);
+      writeFixtureFile(
+        fixture.root,
+        packetPath,
+        readFileSync(
+          join(
+            packageRoot,
+            "tests",
+            "fixtures",
+            "mutation",
+            "isobmff-4-cstring-boundary.json.gz",
+          ),
+        ),
+      );
+      const result = runRealCli(fixture, [
+        "--cstring-candidate",
+        "--report",
+        reportPath,
+        "--packet",
+        packetPath,
+      ]);
+      expect(result.error?.message).toBeUndefined();
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      const proof = JSON.parse(String(result.stdout)) as {
+        mode: string;
+        batch: string;
+        proof: unknown[];
+        originalKeys: string[];
       };
-      bindings: {
-        fixtureSha256: string;
-        candidateSourceSha256: string;
-        reviewedFiles: Record<string, string>;
+      expect(proof).toMatchObject({
+        mode: "candidate-only",
+        batch: "isobmff-4",
+      });
+      expect(proof.proof).toHaveLength(43);
+      expect(proof.originalKeys).toHaveLength(43);
+
+      // The same projection is valid before and after the receipt is applied.
+      const owner = bundle.candidateRows.find((row) => row.sourceOperation)!;
+      const beforeReceipt = withCliLedgerMutation(
+        fixture,
+        (ledger) => {
+          const original = ledger.clusters.find((row) => row.id === owner.id)!;
+          delete original.sourceOperation;
+          original.anchors = bundle.selectedMembers
+            .filter((member) => original.keys.includes(member.key))
+            .map((member) => member.anchorKey);
+        },
+        () =>
+          runRealCli(fixture, [
+            "--cstring-candidate",
+            "--report",
+            reportPath,
+            "--packet",
+            packetPath,
+          ]),
+      );
+      expect(beforeReceipt.error?.message).toBeUndefined();
+      expect(
+        beforeReceipt.status,
+        `${beforeReceipt.stdout}\n${beforeReceipt.stderr}`,
+      ).toBe(0);
+      expect(JSON.parse(String(beforeReceipt.stdout)).proof).toHaveLength(43);
+
+      // Receipt normalization must not exempt changes to unrelated owner fields.
+      const changedOwner = withCliFileMutation(
+        fixture,
+        packetPath,
+        (bytes) => {
+          const changed = JSON.parse(
+            gunzipSync(bytes).toString("utf8"),
+          ) as CStringBoundaryBundle;
+          changed.candidateRows.find((row) => row.id === owner.id)!.note +=
+            " unauthorized change";
+          return gzipSync(Buffer.from(JSON.stringify(changed)));
+        },
+        () =>
+          runRealCli(fixture, [
+            "--cstring-candidate",
+            "--report",
+            reportPath,
+            "--packet",
+            packetPath,
+          ]),
+      );
+      expect(changedOwner.status).toBe(1);
+      expect(`${changedOwner.stdout}\n${changedOwner.stderr}`).toMatch(
+        /candidate projection changed fields outside its exact sourceOperation receipt and anchor/,
+      );
+      const batchResult = runRealCli(fixture, [
+        "--batch",
+        "isobmff-4",
+        "--mode",
+        "batch",
+        "--report",
+        reportPath,
+        "--source-operation-packet",
+        packetPath,
+      ]);
+      expect(batchResult.error?.message).toBeUndefined();
+      expect(
+        batchResult.status,
+        `${batchResult.stdout}\n${batchResult.stderr}`,
+      ).toBe(0);
+      expect(JSON.parse(String(batchResult.stdout)).proof).toHaveLength(43);
+      expectLiveInputsUnchanged();
+    },
+    60_000,
+  );
+
+  itWorkspace(
+    "gates the exact source decision through the copied approval CLI and rejects stale authority",
+    () => {
+      const { bundle } = loadCStringBoundaryBundle();
+      const fixture = createRealAdmissionCliFixture({
+        independentHistory: true,
+      });
+      const { packetPath, record: initialRecord } = createCStringApprovalPacket(
+        fixture,
+        bundle,
+      );
+      const record = structuredClone(initialRecord) as {
+        decision: { status: string; responseText: string; recordedAt: string };
+        review: {
+          verdict: string;
+          blockingFindings: number;
+          reviewer: string;
+          reviewedAt: string;
+          reviewedFiles: Record<string, string>;
+        };
+        bindings: {
+          fixtureSha256: string;
+          candidateSourceSha256: string;
+          reviewedFiles: Record<string, string>;
+        };
       };
-    };
-    const renderRawPacket = (payload: string) =>
-      [
-        "# ReadCString approval CLI test packet",
-        "",
-        "<!-- readcstring-approval-v2",
-        payload,
-        "-->",
-        "",
-      ].join("\n");
-    const renderPacket = (value: typeof record) =>
-      renderRawPacket(JSON.stringify(value, null, 2));
-    const args = ["--cstring-approval", "--packet", packetPath];
-    const accepted = runRealCli(fixture, args);
-    expect(accepted.error?.message).toBeUndefined();
-    expect(accepted.status, `${accepted.stdout}\n${accepted.stderr}`).toBe(0);
-    expect(JSON.parse(String(accepted.stdout))).toMatchObject({
-      mode: "pre-operation-approval",
-      decision: "approved",
-      operation: "cstring-integer-boundary",
-      originalKeys: 43,
-      sourceBytesChanged: false,
-    });
+      const renderRawPacket = (payload: string) =>
+        [
+          "# ReadCString approval CLI test packet",
+          "",
+          "<!-- readcstring-approval-v2",
+          payload,
+          "-->",
+          "",
+        ].join("\n");
+      const renderPacket = (value: typeof record) =>
+        renderRawPacket(JSON.stringify(value, null, 2));
+      const args = ["--cstring-approval", "--packet", packetPath];
+      const accepted = runRealCli(fixture, args);
+      expect(accepted.error?.message).toBeUndefined();
+      expect(accepted.status, `${accepted.stdout}\n${accepted.stderr}`).toBe(0);
+      expect(JSON.parse(String(accepted.stdout))).toMatchObject({
+        mode: "pre-operation-approval",
+        decision: "approved",
+        operation: "cstring-integer-boundary",
+        originalKeys: 43,
+        sourceBytesChanged: false,
+      });
 
-    const rejected = structuredClone(record);
-    rejected.decision.status = "rejected";
-    writeFixtureFile(fixture.root, packetPath, renderPacket(rejected));
-    const rejectedResult = runRealCli(fixture, args);
-    expect(rejectedResult.status).toBe(1);
-    expect(`${rejectedResult.stdout}\n${rejectedResult.stderr}`).toMatch(
-      /source decision is missing, rejected or unrecorded/,
-    );
+      const rejected = structuredClone(record);
+      rejected.decision.status = "rejected";
+      writeFixtureFile(fixture.root, packetPath, renderPacket(rejected));
+      const rejectedResult = runRealCli(fixture, args);
+      expect(rejectedResult.status).toBe(1);
+      expect(`${rejectedResult.stdout}\n${rejectedResult.stderr}`).toMatch(
+        /source decision is missing, rejected or unrecorded/,
+      );
 
-    const staleReview = structuredClone(record);
-    staleReview.review.verdict = "BLOCKED";
-    writeFixtureFile(fixture.root, packetPath, renderPacket(staleReview));
-    const staleReviewResult = runRealCli(fixture, args);
-    expect(staleReviewResult.status).toBe(1);
-    expect(`${staleReviewResult.stdout}\n${staleReviewResult.stderr}`).toMatch(
-      /independent review is not PASS/,
-    );
+      const staleReview = structuredClone(record);
+      staleReview.review.verdict = "BLOCKED";
+      writeFixtureFile(fixture.root, packetPath, renderPacket(staleReview));
+      const staleReviewResult = runRealCli(fixture, args);
+      expect(staleReviewResult.status).toBe(1);
+      expect(
+        `${staleReviewResult.stdout}\n${staleReviewResult.stderr}`,
+      ).toMatch(/independent review is not PASS/);
 
-    const staleFixture = structuredClone(record);
-    staleFixture.bindings.fixtureSha256 = "0".repeat(64);
-    writeFixtureFile(fixture.root, packetPath, renderPacket(staleFixture));
-    const staleFixtureResult = runRealCli(fixture, args);
-    expect(staleFixtureResult.status).toBe(1);
-    expect(
-      `${staleFixtureResult.stdout}\n${staleFixtureResult.stderr}`,
-    ).toMatch(/fixture binding is stale/);
+      const staleFixture = structuredClone(record);
+      staleFixture.bindings.fixtureSha256 = "0".repeat(64);
+      writeFixtureFile(fixture.root, packetPath, renderPacket(staleFixture));
+      const staleFixtureResult = runRealCli(fixture, args);
+      expect(staleFixtureResult.status).toBe(1);
+      expect(
+        `${staleFixtureResult.stdout}\n${staleFixtureResult.stderr}`,
+      ).toMatch(/fixture binding is stale/);
 
-    const duplicateDecisionStatus = JSON.stringify(record, null, 2).replace(
-      '"status": "approved",',
-      '"status": "rejected",\n      "status": "approved",',
-    );
-    writeFixtureFile(
-      fixture.root,
-      packetPath,
-      renderRawPacket(duplicateDecisionStatus),
-    );
-    const duplicateStatusResult = runRealCli(fixture, args);
-    expect(duplicateStatusResult.status).toBe(1);
-    expect(
-      `${duplicateStatusResult.stdout}\n${duplicateStatusResult.stderr}`,
-    ).toMatch(/duplicate property "decision.status"/);
+      const duplicateDecisionStatus = JSON.stringify(record, null, 2).replace(
+        '"status": "approved",',
+        '"status": "rejected",\n      "status": "approved",',
+      );
+      writeFixtureFile(
+        fixture.root,
+        packetPath,
+        renderRawPacket(duplicateDecisionStatus),
+      );
+      const duplicateStatusResult = runRealCli(fixture, args);
+      expect(duplicateStatusResult.status).toBe(1);
+      expect(
+        `${duplicateStatusResult.stdout}\n${duplicateStatusResult.stderr}`,
+      ).toMatch(/duplicate property "decision.status"/);
 
-    const duplicateTopLevel = JSON.stringify(record, null, 2).replace(
-      '"schema": "exifcleaner.readcstring-boundary-approval.v2",',
-      `"decision": ${JSON.stringify(record.decision)},\n  "schema": "exifcleaner.readcstring-boundary-approval.v2",`,
-    );
-    writeFixtureFile(
-      fixture.root,
-      packetPath,
-      renderRawPacket(duplicateTopLevel),
-    );
-    const duplicateTopLevelResult = runRealCli(fixture, args);
-    expect(duplicateTopLevelResult.status).toBe(1);
-    expect(
-      `${duplicateTopLevelResult.stdout}\n${duplicateTopLevelResult.stderr}`,
-    ).toMatch(/duplicate property "decision"/);
+      const duplicateTopLevel = JSON.stringify(record, null, 2).replace(
+        '"schema": "exifcleaner.readcstring-boundary-approval.v2",',
+        `"decision": ${JSON.stringify(record.decision)},\n  "schema": "exifcleaner.readcstring-boundary-approval.v2",`,
+      );
+      writeFixtureFile(
+        fixture.root,
+        packetPath,
+        renderRawPacket(duplicateTopLevel),
+      );
+      const duplicateTopLevelResult = runRealCli(fixture, args);
+      expect(duplicateTopLevelResult.status).toBe(1);
+      expect(
+        `${duplicateTopLevelResult.stdout}\n${duplicateTopLevelResult.stderr}`,
+      ).toMatch(/duplicate property "decision"/);
 
-    const sourcePath = join(fixture.productRoot, "src", "isobmff", "items.ts");
-    const originalSource = readFileSync(sourcePath);
-    const finalReport = JSON.parse(bundle.reports.final) as Report;
-    const liveReportPath =
-      "exifcleaner-node/reports/triage/67-56/live-candidate.json";
-    const relocatedReport = structuredClone(finalReport) as Report & {
-      projectRoot?: string;
-    };
-    relocatedReport.projectRoot = "/private/tmp/fresh-live-run";
-    writeFixtureFile(
-      fixture.root,
-      liveReportPath,
-      JSON.stringify(relocatedReport),
-    );
-    chmodSync(sourcePath, 0o644);
-    writeFileSync(
-      sourcePath,
-      finalReport.files["src/isobmff/items.ts"]!.source,
-    );
-    chmodSync(sourcePath, 0o444);
-    writeFixtureFile(fixture.root, packetPath, renderPacket(record));
-    mkdirSync(join(fixture.root, ".git"), { recursive: true });
-    const liveWithoutApproval = runRealCli(fixture, [
-      "--cstring-candidate",
-      "--report",
-      liveReportPath,
-      "--packet",
-      cstringFixtureRelativePath,
-    ]);
-    expect(liveWithoutApproval.status).toBe(1);
-    expect(
-      `${liveWithoutApproval.stdout}\n${liveWithoutApproval.stderr}`,
-    ).toMatch(
-      /live workspace readCString candidate proof requires the reviewed approval packet/,
-    );
-    const approvedLiveCandidate = runRealCli(fixture, [
-      "--cstring-candidate",
-      "--report",
-      liveReportPath,
-      "--packet",
-      packetPath,
-    ]);
-    expect(approvedLiveCandidate.error?.message).toBeUndefined();
-    expect(
-      approvedLiveCandidate.status,
-      `${approvedLiveCandidate.stdout}\n${approvedLiveCandidate.stderr}`,
-    ).toBe(0);
-    expect(JSON.parse(String(approvedLiveCandidate.stdout)).proof).toHaveLength(
-      43,
-    );
-    const approvedBatchRoute = runRealCli(fixture, [
-      "--batch",
-      "isobmff-4",
-      "--mode",
-      "batch",
-      "--report",
-      liveReportPath,
-      "--source-operation-packet",
-      packetPath,
-    ]);
-    expect(approvedBatchRoute.error?.message).toBeUndefined();
-    expect(
-      approvedBatchRoute.status,
-      `${approvedBatchRoute.stdout}\n${approvedBatchRoute.stderr}`,
-    ).toBe(0);
-    expect(JSON.parse(String(approvedBatchRoute.stdout)).proof).toHaveLength(
-      43,
-    );
-    const staleSourceResult = runRealCli(fixture, args);
-    expect(staleSourceResult.status).toBe(1);
-    expect(`${staleSourceResult.stdout}\n${staleSourceResult.stderr}`).toMatch(
-      /exact measured before-source stage/,
-    );
-    chmodSync(sourcePath, 0o644);
-    writeFileSync(sourcePath, originalSource);
-    chmodSync(sourcePath, 0o444);
-
-    // The old whole-file "// drift" control, re-derived (Plan 67-59). Appended bytes outside
-    // every closure part leave the closure-bound --cstring-approval before stage valid, while
-    // --cstring-candidate always runs phase evaluate and keeps its strict fresh-report check. A
-    // killer-closure edit is stale on both routes.
-    const itemTestPath = join(
-      fixture.productRoot,
-      "tests",
-      "isobmff_items.test.ts",
-    );
-    const originalTest = readFileSync(itemTestPath);
-    const setItemsTest = (bytes: Buffer) => {
-      chmodSync(itemTestPath, 0o644);
-      writeFileSync(itemTestPath, bytes);
-      chmodSync(itemTestPath, 0o444);
-    };
-    const setCandidateItems = (bytes: Buffer) => {
+      const sourcePath = join(
+        fixture.productRoot,
+        "src",
+        "isobmff",
+        "items.ts",
+      );
+      const originalSource = readFileSync(sourcePath);
+      const finalReport = JSON.parse(bundle.reports.final) as Report;
+      const liveReportPath =
+        "exifcleaner-node/reports/triage/67-56/live-candidate.json";
+      const relocatedReport = structuredClone(finalReport) as Report & {
+        projectRoot?: string;
+      };
+      relocatedReport.projectRoot = "/private/tmp/fresh-live-run";
+      writeFixtureFile(
+        fixture.root,
+        liveReportPath,
+        JSON.stringify(relocatedReport),
+      );
       chmodSync(sourcePath, 0o644);
-      writeFileSync(sourcePath, bytes);
+      writeFileSync(
+        sourcePath,
+        finalReport.files["src/isobmff/items.ts"]!.source,
+      );
       chmodSync(sourcePath, 0o444);
-    };
-    const candidateRoute = () =>
-      runRealCli(fixture, [
+      writeFixtureFile(fixture.root, packetPath, renderPacket(record));
+      mkdirSync(join(fixture.root, ".git"), { recursive: true });
+      const liveWithoutApproval = runRealCli(fixture, [
+        "--cstring-candidate",
+        "--report",
+        liveReportPath,
+        "--packet",
+        cstringFixtureRelativePath,
+      ]);
+      expect(liveWithoutApproval.status).toBe(1);
+      expect(
+        `${liveWithoutApproval.stdout}\n${liveWithoutApproval.stderr}`,
+      ).toMatch(
+        /live workspace readCString candidate proof requires the reviewed approval packet/,
+      );
+      const approvedLiveCandidate = runRealCli(fixture, [
         "--cstring-candidate",
         "--report",
         liveReportPath,
         "--packet",
         packetPath,
       ]);
-    setItemsTest(Buffer.concat([originalTest, Buffer.from("\n// drift\n")]));
-    const appendedApproval = runRealCli(fixture, args);
-    expect(
-      appendedApproval.status,
-      `${appendedApproval.stdout}\n${appendedApproval.stderr}`,
-    ).toBe(0);
-    setCandidateItems(
-      Buffer.from(finalReport.files["src/isobmff/items.ts"]!.source),
-    );
-    const appendedCandidate = candidateRoute();
-    expect(appendedCandidate.status).toBe(1);
-    expect(`${appendedCandidate.stdout}\n${appendedCandidate.stderr}`).toMatch(
-      /stale or missing killing-test source in report/,
-    );
-    setCandidateItems(originalSource);
-    setItemsTest(
-      Buffer.from(
-        replaceOnce(
-          originalTest.toString("utf8"),
-          "    await expectModelMatchesInventory(HEIC_PATH);\n  });",
-          "    await expectModelMatchesInventory(HEIC_PATH);\n    expect(true).toBe(true);\n  });",
+      expect(approvedLiveCandidate.error?.message).toBeUndefined();
+      expect(
+        approvedLiveCandidate.status,
+        `${approvedLiveCandidate.stdout}\n${approvedLiveCandidate.stderr}`,
+      ).toBe(0);
+      expect(
+        JSON.parse(String(approvedLiveCandidate.stdout)).proof,
+      ).toHaveLength(43);
+      const approvedBatchRoute = runRealCli(fixture, [
+        "--batch",
+        "isobmff-4",
+        "--mode",
+        "batch",
+        "--report",
+        liveReportPath,
+        "--source-operation-packet",
+        packetPath,
+      ]);
+      expect(approvedBatchRoute.error?.message).toBeUndefined();
+      expect(
+        approvedBatchRoute.status,
+        `${approvedBatchRoute.stdout}\n${approvedBatchRoute.stderr}`,
+      ).toBe(0);
+      expect(JSON.parse(String(approvedBatchRoute.stdout)).proof).toHaveLength(
+        43,
+      );
+      const staleSourceResult = runRealCli(fixture, args);
+      expect(staleSourceResult.status).toBe(1);
+      expect(
+        `${staleSourceResult.stdout}\n${staleSourceResult.stderr}`,
+      ).toMatch(/exact measured before-source stage/);
+      chmodSync(sourcePath, 0o644);
+      writeFileSync(sourcePath, originalSource);
+      chmodSync(sourcePath, 0o444);
+
+      // The old whole-file "// drift" control, re-derived (Plan 67-59). Appended bytes outside
+      // every closure part leave the closure-bound --cstring-approval before stage valid, while
+      // --cstring-candidate always runs phase evaluate and keeps its strict fresh-report check. A
+      // killer-closure edit is stale on both routes.
+      const itemTestPath = join(
+        fixture.productRoot,
+        "tests",
+        "isobmff_items.test.ts",
+      );
+      const originalTest = readFileSync(itemTestPath);
+      const setItemsTest = (bytes: Buffer) => {
+        chmodSync(itemTestPath, 0o644);
+        writeFileSync(itemTestPath, bytes);
+        chmodSync(itemTestPath, 0o444);
+      };
+      const setCandidateItems = (bytes: Buffer) => {
+        chmodSync(sourcePath, 0o644);
+        writeFileSync(sourcePath, bytes);
+        chmodSync(sourcePath, 0o444);
+      };
+      const candidateRoute = () =>
+        runRealCli(fixture, [
+          "--cstring-candidate",
+          "--report",
+          liveReportPath,
+          "--packet",
+          packetPath,
+        ]);
+      setItemsTest(Buffer.concat([originalTest, Buffer.from("\n// drift\n")]));
+      const appendedApproval = runRealCli(fixture, args);
+      expect(
+        appendedApproval.status,
+        `${appendedApproval.stdout}\n${appendedApproval.stderr}`,
+      ).toBe(0);
+      setCandidateItems(
+        Buffer.from(finalReport.files["src/isobmff/items.ts"]!.source),
+      );
+      const appendedCandidate = candidateRoute();
+      expect(appendedCandidate.status).toBe(1);
+      expect(
+        `${appendedCandidate.stdout}\n${appendedCandidate.stderr}`,
+      ).toMatch(/stale or missing killing-test source in report/);
+      setCandidateItems(originalSource);
+      setItemsTest(
+        Buffer.from(
+          replaceOnce(
+            originalTest.toString("utf8"),
+            "    await expectModelMatchesInventory(HEIC_PATH);\n  });",
+            "    await expectModelMatchesInventory(HEIC_PATH);\n    expect(true).toBe(true);\n  });",
+          ),
         ),
-      ),
-    );
-    const staleTestResult = runRealCli(fixture, args);
-    expect(staleTestResult.status).toBe(1);
-    expect(`${staleTestResult.stdout}\n${staleTestResult.stderr}`).toMatch(
-      /named killer source is stale/,
-    );
-    setCandidateItems(
-      Buffer.from(finalReport.files["src/isobmff/items.ts"]!.source),
-    );
-    const staleCandidate = candidateRoute();
-    expect(staleCandidate.status).toBe(1);
-    expect(`${staleCandidate.stdout}\n${staleCandidate.stderr}`).toMatch(
-      /named killer source is stale/,
-    );
-    setCandidateItems(originalSource);
-    setItemsTest(originalTest);
-    expectLiveInputsUnchanged();
-  }, 60_000);
+      );
+      const staleTestResult = runRealCli(fixture, args);
+      expect(staleTestResult.status).toBe(1);
+      expect(`${staleTestResult.stdout}\n${staleTestResult.stderr}`).toMatch(
+        /named killer source is stale/,
+      );
+      setCandidateItems(
+        Buffer.from(finalReport.files["src/isobmff/items.ts"]!.source),
+      );
+      const staleCandidate = candidateRoute();
+      expect(staleCandidate.status).toBe(1);
+      expect(`${staleCandidate.stdout}\n${staleCandidate.stderr}`).toMatch(
+        /named killer source is stale/,
+      );
+      setCandidateItems(originalSource);
+      setItemsTest(originalTest);
+      expectLiveInputsUnchanged();
+    },
+    60_000,
+  );
 });
 
-describe("copied Phase 67 schedule inventory controls", () => {
+describeWorkspace("copied Phase 67 schedule inventory controls", () => {
   it("accepts the exact live prerequisite schedule without plan metadata normalization", () => {
     const fixture = createRealAdmissionCliFixture();
     expect(
@@ -5564,103 +5664,110 @@ describe("real isobmff-3 multi-source final report", () => {
     }
   });
 
-  it("proves every registered report fixture through both receipts and the copied batch CLI", () => {
-    const { rows, reports } = loadRegisteredIsobmff3Reports();
-    const survivors = JSON.parse(
-      readFileSync(
-        join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
-        "utf8",
-      ),
-    ).survivors as Survivor[];
-    expect(reports.length).toBeGreaterThanOrEqual(2);
-    for (const registered of reports) {
-      const { binding, variant, fixture: reportFixture, report } = registered;
-      const cliFixture = createRealIsobmff3BatchCliFixture(
-        registered.compressed,
-      );
-      const reportPath = resolve(cliFixture.root, cliFixture.reportPath);
-      const copiedReport = JSON.parse(
-        readFileSync(reportPath, "utf8"),
-      ) as Report;
-      expect(deletionProof.canonicalReceiptJson(copiedReport)).toBe(
-        deletionProof.canonicalReceiptJson(report),
-      );
-      const finalEntry = copiedReport.files["src/isobmff/iloc.ts"]!;
-      const readTest = (file: string) =>
-        readFileSync(join(cliFixture.productRoot, file), "utf8");
-      for (const row of rows) {
-        const proof = deletionProof.validateDeletion({
-          row,
-          root: cliFixture.productRoot,
-          currentSource: finalEntry.source,
-          finalEntry,
-          finalReport: copiedReport as Report & {
-            testFiles: NonNullable<Report["testFiles"]>;
-          },
-          readTest,
-          survivors,
-          requireFinal: true,
-        });
-        expect(proof.problems, `${reportFixture.path} / ${row.id}`).toEqual([]);
-      }
+  itWorkspace(
+    "proves every registered report fixture through both receipts and the copied batch CLI",
+    () => {
+      const { rows, reports } = loadRegisteredIsobmff3Reports();
+      const survivors = JSON.parse(
+        readFileSync(
+          join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+          "utf8",
+        ),
+      ).survivors as Survivor[];
+      expect(reports.length).toBeGreaterThanOrEqual(2);
+      for (const registered of reports) {
+        const { binding, variant, fixture: reportFixture, report } = registered;
+        const cliFixture = createRealIsobmff3BatchCliFixture(
+          registered.compressed,
+        );
+        const reportPath = resolve(cliFixture.root, cliFixture.reportPath);
+        const copiedReport = JSON.parse(
+          readFileSync(reportPath, "utf8"),
+        ) as Report;
+        expect(deletionProof.canonicalReceiptJson(copiedReport)).toBe(
+          deletionProof.canonicalReceiptJson(report),
+        );
+        const finalEntry = copiedReport.files["src/isobmff/iloc.ts"]!;
+        const readTest = (file: string) =>
+          readFileSync(join(cliFixture.productRoot, file), "utf8");
+        for (const row of rows) {
+          const proof = deletionProof.validateDeletion({
+            row,
+            root: cliFixture.productRoot,
+            currentSource: finalEntry.source,
+            finalEntry,
+            finalReport: copiedReport as Report & {
+              testFiles: NonNullable<Report["testFiles"]>;
+            },
+            readTest,
+            survivors,
+            requireFinal: true,
+          });
+          expect(proof.problems, `${reportFixture.path} / ${row.id}`).toEqual(
+            [],
+          );
+        }
 
-      const result = runRealCli(cliFixture, [
-        "--batch",
-        "isobmff-3",
-        "--mode",
-        "batch",
-        "--report",
-        cliFixture.reportPath,
-      ]);
-      expect(
-        result.error,
-        `CLI spawn error: ${result.error?.message ?? "none"}`,
-      ).toBeUndefined();
-      expect(
-        result.status,
-        `CLI stdout:\n${result.stdout}\nCLI stderr:\n${result.stderr}`,
-      ).toBe(0);
-      const output = JSON.parse(String(result.stdout)) as {
-        batch: string;
-        mode: string;
-        reportSha256: string;
-        clusters: number;
-        members: number;
-        proof: { key: string; status: string }[];
-      };
-      const batch = cliFixture.manifest.batches.find(
-        (candidate) => candidate.id === "isobmff-3",
-      )!;
-      const copiedLedger = JSON.parse(
-        readFileSync(resolve(cliFixture.root, cliFixture.ledgerPath), "utf8"),
-      ) as CliLedger;
-      const selectedRows = copiedLedger.clusters.filter((row) =>
-        batch.clusterIds.includes(row.originClusterId ?? row.id),
-      );
-      const expectedKeys = selectedRows.flatMap((row) => row.keys).sort();
-      expect(batch.clusterIds).toHaveLength(15);
-      expect(
-        new Set(selectedRows.map((row) => row.originClusterId ?? row.id)).size,
-      ).toBe(15);
-      expect(Object.keys(report.files).sort()).toEqual(
-        batch.sourceFiles.slice().sort(),
-      );
-      expect(output).toMatchObject({
-        batch: "isobmff-3",
-        mode: "batch",
-        reportSha256: variant.rawSha256,
-        clusters: selectedRows.length,
-        members: 45,
-      });
-      expect(output.proof).toHaveLength(45);
-      expect(output.proof.map((member) => member.key).sort()).toEqual(
-        expectedKeys,
-      );
-      expect(binding.canonicalSha256).toBe(
-        sha256(deletionProof.canonicalReceiptJson(report)),
-      );
-    }
-  }, 60_000);
+        const result = runRealCli(cliFixture, [
+          "--batch",
+          "isobmff-3",
+          "--mode",
+          "batch",
+          "--report",
+          cliFixture.reportPath,
+        ]);
+        expect(
+          result.error,
+          `CLI spawn error: ${result.error?.message ?? "none"}`,
+        ).toBeUndefined();
+        expect(
+          result.status,
+          `CLI stdout:\n${result.stdout}\nCLI stderr:\n${result.stderr}`,
+        ).toBe(0);
+        const output = JSON.parse(String(result.stdout)) as {
+          batch: string;
+          mode: string;
+          reportSha256: string;
+          clusters: number;
+          members: number;
+          proof: { key: string; status: string }[];
+        };
+        const batch = cliFixture.manifest.batches.find(
+          (candidate) => candidate.id === "isobmff-3",
+        )!;
+        const copiedLedger = JSON.parse(
+          readFileSync(resolve(cliFixture.root, cliFixture.ledgerPath), "utf8"),
+        ) as CliLedger;
+        const selectedRows = copiedLedger.clusters.filter((row) =>
+          batch.clusterIds.includes(row.originClusterId ?? row.id),
+        );
+        const expectedKeys = selectedRows.flatMap((row) => row.keys).sort();
+        expect(batch.clusterIds).toHaveLength(15);
+        expect(
+          new Set(selectedRows.map((row) => row.originClusterId ?? row.id))
+            .size,
+        ).toBe(15);
+        expect(Object.keys(report.files).sort()).toEqual(
+          batch.sourceFiles.slice().sort(),
+        );
+        expect(output).toMatchObject({
+          batch: "isobmff-3",
+          mode: "batch",
+          reportSha256: variant.rawSha256,
+          clusters: selectedRows.length,
+          members: 45,
+        });
+        expect(output.proof).toHaveLength(45);
+        expect(output.proof.map((member) => member.key).sort()).toEqual(
+          expectedKeys,
+        );
+        expect(binding.canonicalSha256).toBe(
+          sha256(deletionProof.canonicalReceiptJson(report)),
+        );
+      }
+    },
+    60_000,
+  );
 
   it("discovers added registry rows and refuses missing registered fixture bytes", () => {
     const { rows, bindings } = loadIsobmff3ReportRegistry();
@@ -5700,381 +5807,410 @@ describe("real isobmff-3 multi-source final report", () => {
     expect(() => loadRegisteredIsobmff3Reports(disposableRoot)).toThrow();
   });
 
-  it("rejects missing, duplicate, unknown, stale, substituted and escaped report bindings", () => {
-    const { rows, reports } = loadRegisteredIsobmff3Reports();
-    const registered = reports[0]!;
-    const fixture = createRealIsobmff3BatchCliFixture(registered.compressed);
-    const survivors = JSON.parse(
-      readFileSync(
-        join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
-        "utf8",
-      ),
-    ).survivors as Survivor[];
-    const report = registered.report as Report & {
-      testFiles: NonNullable<Report["testFiles"]>;
-    };
-    const finalEntry = report.files["src/isobmff/iloc.ts"]!;
-    const makeInput = (row: Cluster, productRoot = fixture.productRoot) => ({
-      row,
-      root: productRoot,
-      currentSource: finalEntry.source,
-      finalEntry,
-      finalReport: report,
-      readTest: (file: string) => readFileSync(join(productRoot, file), "utf8"),
-      survivors,
-      requireFinal: true,
-    });
-    const bindingIndex = (row: Cluster) =>
+  itWorkspace(
+    "rejects missing, duplicate, unknown, stale, substituted and escaped report bindings",
+    () => {
+      const { rows, reports } = loadRegisteredIsobmff3Reports();
+      const registered = reports[0]!;
+      const fixture = createRealIsobmff3BatchCliFixture(registered.compressed);
+      const survivors = JSON.parse(
+        readFileSync(
+          join(packageRoot, "tools", "mutation", "pre-triage-survivors.json"),
+          "utf8",
+        ),
+      ).survivors as Survivor[];
+      const report = registered.report as Report & {
+        testFiles: NonNullable<Report["testFiles"]>;
+      };
+      const finalEntry = report.files["src/isobmff/iloc.ts"]!;
+      const makeInput = (row: Cluster, productRoot = fixture.productRoot) => ({
+        row,
+        root: productRoot,
+        currentSource: finalEntry.source,
+        finalEntry,
+        finalReport: report,
+        readTest: (file: string) =>
+          readFileSync(join(productRoot, file), "utf8"),
+        survivors,
+        requireFinal: true,
+      });
+      const bindingIndex = (row: Cluster) =>
+        (
+          row.deletion as { reportBindings: Isobmff3ReportBinding[] }
+        ).reportBindings.findIndex(
+          (binding) =>
+            binding.canonicalSha256 === registered.binding.canonicalSha256,
+        );
+
+      const empty = structuredClone(rows[0]!);
       (
-        row.deletion as { reportBindings: Isobmff3ReportBinding[] }
-      ).reportBindings.findIndex(
-        (binding) =>
-          binding.canonicalSha256 === registered.binding.canonicalSha256,
-      );
-
-    const empty = structuredClone(rows[0]!);
-    (
-      empty.deletion as { reportBindings: Isobmff3ReportBinding[] }
-    ).reportBindings = [];
-    expect(
-      deletionProof.validateDeletion(makeInput(empty)).problems.join("\n"),
-    ).toMatch(/no committed report-specific bindings/);
-
-    const missing = structuredClone(rows[0]!);
-    (
-      missing.deletion as { reportBindings: Isobmff3ReportBinding[] }
-    ).reportBindings.splice(bindingIndex(missing), 1);
-    expect(
-      deletionProof.validateDeletion(makeInput(missing)).problems.join("\n"),
-    ).toMatch(/selects 0 committed report-specific bindings/);
-
-    const duplicate = structuredClone(rows[0]!);
-    const duplicateBindings = (
-      duplicate.deletion as { reportBindings: Isobmff3ReportBinding[] }
-    ).reportBindings;
-    duplicateBindings.push(
-      structuredClone(duplicateBindings[bindingIndex(duplicate)]!),
-    );
-    expect(
-      deletionProof.validateDeletion(makeInput(duplicate)).problems.join("\n"),
-    ).toMatch(/duplicate report identity/);
-
-    const unknown = structuredClone(rows[0]!);
-    (
-      unknown.deletion as { reportBindings: Isobmff3ReportBinding[] }
-    ).reportBindings[bindingIndex(unknown)]!.canonicalSha256 = "0".repeat(64);
-    expect(
-      deletionProof.validateDeletion(makeInput(unknown)).problems.join("\n"),
-    ).toMatch(/selects 0 committed report-specific bindings/);
-
-    const staleRawDigest = structuredClone(rows[0]!);
-    const staleBinding = (
-      staleRawDigest.deletion as { reportBindings: Isobmff3ReportBinding[] }
-    ).reportBindings[bindingIndex(staleRawDigest)]!;
-    staleBinding.variants[0]!.rawSha256 = "0".repeat(64);
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(staleRawDigest))
-        .problems.join("\n"),
-    ).toMatch(/registered report fixture raw bytes or digest mismatch/);
-
-    const changedBytesFixture = createRealIsobmff3BatchCliFixture(
-      registered.compressed,
-    );
-    const changedBytes = structuredClone(rows[0]!);
-    const changedBytesBinding = (
-      changedBytes.deletion as { reportBindings: Isobmff3ReportBinding[] }
-    ).reportBindings[bindingIndex(changedBytes)]!;
-    const changedBytesPath = join(
-      changedBytesFixture.productRoot,
-      changedBytesBinding.variants[0]!.fixtures[0]!.path,
-    );
-    const changedCompressed = readFileSync(changedBytesPath);
-    const lastByteIndex = changedCompressed.length - 1;
-    changedCompressed[lastByteIndex] = changedCompressed[lastByteIndex]! ^ 1;
-    writeFileSync(changedBytesPath, changedCompressed);
-    expect(
-      deletionProof
-        .validateDeletion(
-          makeInput(changedBytes, changedBytesFixture.productRoot),
-        )
-        .problems.join("\n"),
-    ).toMatch(/registered report fixture compressed bytes or digest mismatch/);
-
-    const changedContentFixture = createRealIsobmff3BatchCliFixture(
-      registered.compressed,
-    );
-    const changedContent = structuredClone(rows[0]!);
-    const changedContentBinding = (
-      changedContent.deletion as { reportBindings: Isobmff3ReportBinding[] }
-    ).reportBindings[bindingIndex(changedContent)]!;
-    const changedContentVariant = changedContentBinding.variants[0]!;
-    const changedContentFixtureRecord = changedContentVariant.fixtures[0]!;
-    const changedReport = structuredClone(report);
-    changedReport.files["src/isobmff/iloc.ts"]!.source += "\n";
-    const changedRaw = Buffer.from(JSON.stringify(changedReport));
-    const changedGzip = gzipSync(changedRaw, { level: 9 });
-    writeFileSync(
-      join(changedContentFixture.productRoot, changedContentFixtureRecord.path),
-      changedGzip,
-    );
-    changedContentVariant.rawBytes = changedRaw.length;
-    changedContentVariant.rawSha256 = sha256(changedRaw);
-    changedContentFixtureRecord.gzipBytes = changedGzip.length;
-    changedContentFixtureRecord.gzipSha256 = sha256(changedGzip);
-    expect(
-      deletionProof
-        .validateDeletion(
-          makeInput(changedContent, changedContentFixture.productRoot),
-        )
-        .problems.join("\n"),
-    ).toMatch(
-      /registered fixture does not match the complete supplied report identity/,
-    );
-
-    const wrongDirect = structuredClone(rows[0]!);
-    const wrongBinding = (
-      wrongDirect.deletion as { reportBindings: Isobmff3ReportBinding[] }
-    ).reportBindings[bindingIndex(wrongDirect)]!;
-    const firstOldAnchor = wrongBinding.successors[0]!.oldAnchor;
-    const first = wrongBinding.successors.find(
-      (successor) => successor.oldAnchor === firstOldAnchor,
-    )!;
-    const actualMutant = finalEntry.mutants.find(
-      (mutant) =>
-        identity.anchorKey("src/isobmff/iloc.ts", mutant, finalEntry.source) ===
-        first.finalAnchor,
-    )!;
-    const killed = new Set((actualMutant.killedBy ?? []).map(String));
-    const unrelated = Object.entries(report.testFiles).flatMap(
-      ([file, entry]) =>
-        entry.tests
-          .filter((test) => !killed.has(String(test.id)))
-          .map((test) => ({
-            id: String(test.id),
-            file,
-            name: test.name,
-            sourceSha256: sha256(entry.source),
-          })),
-    )[0]!;
-    first.test = unrelated;
-    expect(
-      deletionProof
-        .validateDeletion(makeInput(wrongDirect))
-        .problems.join("\n"),
-    ).toMatch(/detected successor killedBy does not name the real test/);
-
-    const traversal = structuredClone(rows[0]!);
-    (
-      traversal.deletion as { reportBindings: Isobmff3ReportBinding[] }
-    ).reportBindings[bindingIndex(traversal)]!.variants[0]!.fixtures[0]!.path =
-      "../../outside.json.gz";
-    expect(
-      deletionProof.validateDeletion(makeInput(traversal)).problems.join("\n"),
-    ).toMatch(/unsafe relative path/);
-
-    const evidencePath = join(
-      fixture.productRoot,
-      "tests",
-      "fixtures",
-      "mutation",
-      "a1-report-escape.json.gz",
-    );
-    const outsideRoot = mkdtempSync(
-      join(tmpdir(), "exifcleaner-a1-report-escape-"),
-    );
-    const outside = join(outsideRoot, "outside.json.gz");
-    writeFileSync(outside, registered.compressed);
-    try {
-      symlinkSync(outside, evidencePath);
-      const escaped = structuredClone(rows[0]!);
-      (
-        escaped.deletion as { reportBindings: Isobmff3ReportBinding[] }
-      ).reportBindings[bindingIndex(escaped)]!.variants[0]!.fixtures[0]!.path =
-        "tests/fixtures/mutation/a1-report-escape.json.gz";
+        empty.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings = [];
       expect(
-        deletionProof.validateDeletion(makeInput(escaped)).problems.join("\n"),
-      ).toMatch(/symlink escapes root/);
-    } finally {
-      rmSync(outsideRoot, { recursive: true, force: true });
-    }
-  }, 60_000);
+        deletionProof.validateDeletion(makeInput(empty)).problems.join("\n"),
+      ).toMatch(/no committed report-specific bindings/);
 
-  it("rejects stale and malformed evidence independently through the copied batch CLI", () => {
-    const { bytes } = loadIsobmff3BatchReport();
-    const fixture = createRealIsobmff3BatchCliFixture(bytes);
-    const resealReportProvenance = (report: Report, raw: Buffer) => {
-      const canonicalSha256 = sha256(
-        deletionProof.canonicalReceiptJson(report),
+      const missing = structuredClone(rows[0]!);
+      (
+        missing.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings.splice(bindingIndex(missing), 1);
+      expect(
+        deletionProof.validateDeletion(makeInput(missing)).problems.join("\n"),
+      ).toMatch(/selects 0 committed report-specific bindings/);
+
+      const duplicate = structuredClone(rows[0]!);
+      const duplicateBindings = (
+        duplicate.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings;
+      duplicateBindings.push(
+        structuredClone(duplicateBindings[bindingIndex(duplicate)]!),
       );
-      const reportFixturePath = `tests/fixtures/mutation/a1-negative-control-${canonicalSha256.slice(0, 12)}.json.gz`;
-      const compressed = gzipSync(raw, { level: 9 });
-      writeFixtureFile(
-        fixture.root,
-        `exifcleaner-node/${reportFixturePath}`,
-        compressed,
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(duplicate))
+          .problems.join("\n"),
+      ).toMatch(/duplicate report identity/);
+
+      const unknown = structuredClone(rows[0]!);
+      (
+        unknown.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings[bindingIndex(unknown)]!.canonicalSha256 = "0".repeat(64);
+      expect(
+        deletionProof.validateDeletion(makeInput(unknown)).problems.join("\n"),
+      ).toMatch(/selects 0 committed report-specific bindings/);
+
+      const staleRawDigest = structuredClone(rows[0]!);
+      const staleBinding = (
+        staleRawDigest.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings[bindingIndex(staleRawDigest)]!;
+      staleBinding.variants[0]!.rawSha256 = "0".repeat(64);
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(staleRawDigest))
+          .problems.join("\n"),
+      ).toMatch(/registered report fixture raw bytes or digest mismatch/);
+
+      const changedBytesFixture = createRealIsobmff3BatchCliFixture(
+        registered.compressed,
       );
-      const ledgerPath = resolve(fixture.root, fixture.ledgerPath);
-      chmodSync(ledgerPath, 0o644);
-      const ledger = JSON.parse(readFileSync(ledgerPath, "utf8")) as CliLedger;
-      const rows = ledger.clusters.filter(
-        (row) =>
-          (row.deletion?.edits as { operation?: string }[] | undefined)?.[0]
-            ?.operation === "iloc-header-integer-boundary",
+      const changedBytes = structuredClone(rows[0]!);
+      const changedBytesBinding = (
+        changedBytes.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings[bindingIndex(changedBytes)]!;
+      const changedBytesPath = join(
+        changedBytesFixture.productRoot,
+        changedBytesBinding.variants[0]!.fixtures[0]!.path,
       );
-      expect(rows).toHaveLength(2);
-      const binding = {
-        canonicalSha256,
-        variants: [
-          {
-            rawSha256: sha256(raw),
-            rawBytes: raw.length,
-            fixtures: [
-              {
-                path: reportFixturePath,
-                gzipSha256: sha256(compressed),
-                gzipBytes: compressed.length,
-              },
-            ],
-          },
-        ],
-        successors: (
-          rows[0]!.deletion as { reportBindings: Isobmff3ReportBinding[] }
-        ).reportBindings[0]!.successors,
-      } satisfies Isobmff3ReportBinding;
-      for (const row of rows) {
-        const deletion = row.deletion as {
-          reportBindings: Isobmff3ReportBinding[];
-        };
-        deletion.reportBindings = [
-          ...deletion.reportBindings.filter(
-            (existing) => existing.canonicalSha256 !== canonicalSha256,
-          ),
-          structuredClone(binding),
-        ];
+      const changedCompressed = readFileSync(changedBytesPath);
+      const lastByteIndex = changedCompressed.length - 1;
+      changedCompressed[lastByteIndex] = changedCompressed[lastByteIndex]! ^ 1;
+      writeFileSync(changedBytesPath, changedCompressed);
+      expect(
+        deletionProof
+          .validateDeletion(
+            makeInput(changedBytes, changedBytesFixture.productRoot),
+          )
+          .problems.join("\n"),
+      ).toMatch(
+        /registered report fixture compressed bytes or digest mismatch/,
+      );
+
+      const changedContentFixture = createRealIsobmff3BatchCliFixture(
+        registered.compressed,
+      );
+      const changedContent = structuredClone(rows[0]!);
+      const changedContentBinding = (
+        changedContent.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings[bindingIndex(changedContent)]!;
+      const changedContentVariant = changedContentBinding.variants[0]!;
+      const changedContentFixtureRecord = changedContentVariant.fixtures[0]!;
+      const changedReport = structuredClone(report);
+      changedReport.files["src/isobmff/iloc.ts"]!.source += "\n";
+      const changedRaw = Buffer.from(JSON.stringify(changedReport));
+      const changedGzip = gzipSync(changedRaw, { level: 9 });
+      writeFileSync(
+        join(
+          changedContentFixture.productRoot,
+          changedContentFixtureRecord.path,
+        ),
+        changedGzip,
+      );
+      changedContentVariant.rawBytes = changedRaw.length;
+      changedContentVariant.rawSha256 = sha256(changedRaw);
+      changedContentFixtureRecord.gzipBytes = changedGzip.length;
+      changedContentFixtureRecord.gzipSha256 = sha256(changedGzip);
+      expect(
+        deletionProof
+          .validateDeletion(
+            makeInput(changedContent, changedContentFixture.productRoot),
+          )
+          .problems.join("\n"),
+      ).toMatch(
+        /registered fixture does not match the complete supplied report identity/,
+      );
+
+      const wrongDirect = structuredClone(rows[0]!);
+      const wrongBinding = (
+        wrongDirect.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings[bindingIndex(wrongDirect)]!;
+      const firstOldAnchor = wrongBinding.successors[0]!.oldAnchor;
+      const first = wrongBinding.successors.find(
+        (successor) => successor.oldAnchor === firstOldAnchor,
+      )!;
+      const actualMutant = finalEntry.mutants.find(
+        (mutant) =>
+          identity.anchorKey(
+            "src/isobmff/iloc.ts",
+            mutant,
+            finalEntry.source,
+          ) === first.finalAnchor,
+      )!;
+      const killed = new Set((actualMutant.killedBy ?? []).map(String));
+      const unrelated = Object.entries(report.testFiles).flatMap(
+        ([file, entry]) =>
+          entry.tests
+            .filter((test) => !killed.has(String(test.id)))
+            .map((test) => ({
+              id: String(test.id),
+              file,
+              name: test.name,
+              sourceSha256: sha256(entry.source),
+            })),
+      )[0]!;
+      first.test = unrelated;
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(wrongDirect))
+          .problems.join("\n"),
+      ).toMatch(/detected successor killedBy does not name the real test/);
+
+      const traversal = structuredClone(rows[0]!);
+      (
+        traversal.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings[
+        bindingIndex(traversal)
+      ]!.variants[0]!.fixtures[0]!.path = "../../outside.json.gz";
+      expect(
+        deletionProof
+          .validateDeletion(makeInput(traversal))
+          .problems.join("\n"),
+      ).toMatch(/unsafe relative path/);
+
+      const evidencePath = join(
+        fixture.productRoot,
+        "tests",
+        "fixtures",
+        "mutation",
+        "a1-report-escape.json.gz",
+      );
+      const outsideRoot = mkdtempSync(
+        join(tmpdir(), "exifcleaner-a1-report-escape-"),
+      );
+      const outside = join(outsideRoot, "outside.json.gz");
+      writeFileSync(outside, registered.compressed);
+      try {
+        symlinkSync(outside, evidencePath);
+        const escaped = structuredClone(rows[0]!);
+        (
+          escaped.deletion as { reportBindings: Isobmff3ReportBinding[] }
+        ).reportBindings[
+          bindingIndex(escaped)
+        ]!.variants[0]!.fixtures[0]!.path =
+          "tests/fixtures/mutation/a1-report-escape.json.gz";
+        expect(
+          deletionProof
+            .validateDeletion(makeInput(escaped))
+            .problems.join("\n"),
+        ).toMatch(/symlink escapes root/);
+      } finally {
+        rmSync(outsideRoot, { recursive: true, force: true });
       }
-      writeFileSync(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`);
-      chmodSync(ledgerPath, 0o444);
-    };
-    const runReportMutation = (mutate: (report: Report) => void) =>
-      withCliFileMutation(
+    },
+    60_000,
+  );
+
+  itWorkspace(
+    "rejects stale and malformed evidence independently through the copied batch CLI",
+    () => {
+      const { bytes } = loadIsobmff3BatchReport();
+      const fixture = createRealIsobmff3BatchCliFixture(bytes);
+      const resealReportProvenance = (report: Report, raw: Buffer) => {
+        const canonicalSha256 = sha256(
+          deletionProof.canonicalReceiptJson(report),
+        );
+        const reportFixturePath = `tests/fixtures/mutation/a1-negative-control-${canonicalSha256.slice(0, 12)}.json.gz`;
+        const compressed = gzipSync(raw, { level: 9 });
+        writeFixtureFile(
+          fixture.root,
+          `exifcleaner-node/${reportFixturePath}`,
+          compressed,
+        );
+        const ledgerPath = resolve(fixture.root, fixture.ledgerPath);
+        chmodSync(ledgerPath, 0o644);
+        const ledger = JSON.parse(
+          readFileSync(ledgerPath, "utf8"),
+        ) as CliLedger;
+        const rows = ledger.clusters.filter(
+          (row) =>
+            (row.deletion?.edits as { operation?: string }[] | undefined)?.[0]
+              ?.operation === "iloc-header-integer-boundary",
+        );
+        expect(rows).toHaveLength(2);
+        const binding = {
+          canonicalSha256,
+          variants: [
+            {
+              rawSha256: sha256(raw),
+              rawBytes: raw.length,
+              fixtures: [
+                {
+                  path: reportFixturePath,
+                  gzipSha256: sha256(compressed),
+                  gzipBytes: compressed.length,
+                },
+              ],
+            },
+          ],
+          successors: (
+            rows[0]!.deletion as { reportBindings: Isobmff3ReportBinding[] }
+          ).reportBindings[0]!.successors,
+        } satisfies Isobmff3ReportBinding;
+        for (const row of rows) {
+          const deletion = row.deletion as {
+            reportBindings: Isobmff3ReportBinding[];
+          };
+          deletion.reportBindings = [
+            ...deletion.reportBindings.filter(
+              (existing) => existing.canonicalSha256 !== canonicalSha256,
+            ),
+            structuredClone(binding),
+          ];
+        }
+        writeFileSync(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`);
+        chmodSync(ledgerPath, 0o444);
+      };
+      const runReportMutation = (mutate: (report: Report) => void) =>
+        withCliFileMutation(
+          fixture,
+          fixture.reportPath,
+          (original) => {
+            const report = JSON.parse(original.toString("utf8")) as Report;
+            mutate(report);
+            const raw = Buffer.from(JSON.stringify(report));
+            resealReportProvenance(report, raw);
+            return raw;
+          },
+          () =>
+            runRealCli(fixture, [
+              "--batch",
+              "isobmff-3",
+              "--mode",
+              "batch",
+              "--report",
+              fixture.reportPath,
+            ]),
+        );
+
+      const sourcePath = "exifcleaner-node/src/isobmff/iloc.ts";
+      const oldExplanation = "validated nibble width is nonnegative";
+      const newExplanation = "the validated nibble width cannot be negative";
+      const updateExplanation = (source: string) => {
+        expect(source).toContain(
+          "// Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check",
+        );
+        expect(source).toContain(oldExplanation);
+        const updated = source.replace(oldExplanation, newExplanation);
+        expect(updated).not.toBe(source);
+        return updated;
+      };
+      let changedSource = "";
+      const equivalentCommentOnly = withCliFileMutation(
         fixture,
-        fixture.reportPath,
+        sourcePath,
         (original) => {
-          const report = JSON.parse(original.toString("utf8")) as Report;
-          mutate(report);
-          const raw = Buffer.from(JSON.stringify(report));
-          resealReportProvenance(report, raw);
-          return raw;
+          changedSource = updateExplanation(original.toString("utf8"));
+          return Buffer.from(changedSource);
         },
         () =>
-          runRealCli(fixture, [
-            "--batch",
-            "isobmff-3",
-            "--mode",
-            "batch",
-            "--report",
-            fixture.reportPath,
-          ]),
+          runReportMutation((report) => {
+            const entry = report.files["src/isobmff/iloc.ts"]!;
+            const updated = updateExplanation(entry.source);
+            expect(updated).toBe(changedSource);
+            entry.source = updated;
+          }),
+      );
+      expectCliRejection(
+        equivalentCommentOnly,
+        "iloc final evidence differs from the measured 157-mutant source stage",
       );
 
-    const sourcePath = "exifcleaner-node/src/isobmff/iloc.ts";
-    const oldExplanation = "validated nibble width is nonnegative";
-    const newExplanation = "the validated nibble width cannot be negative";
-    const updateExplanation = (source: string) => {
-      expect(source).toContain(
-        "// Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check",
-      );
-      expect(source).toContain(oldExplanation);
-      const updated = source.replace(oldExplanation, newExplanation);
-      expect(updated).not.toBe(source);
-      return updated;
-    };
-    let changedSource = "";
-    const equivalentCommentOnly = withCliFileMutation(
-      fixture,
-      sourcePath,
-      (original) => {
-        changedSource = updateExplanation(original.toString("utf8"));
-        return Buffer.from(changedSource);
-      },
-      () =>
+      expectCliRejection(
         runReportMutation((report) => {
-          const entry = report.files["src/isobmff/iloc.ts"]!;
-          const updated = updateExplanation(entry.source);
-          expect(updated).toBe(changedSource);
-          entry.source = updated;
+          report.files["src/isobmff/iloc.ts"]!.source +=
+            "\n// stale report source\n";
         }),
-    );
-    expectCliRejection(
-      equivalentCommentOnly,
-      "iloc final evidence differs from the measured 157-mutant source stage",
-    );
+        "src/isobmff/iloc.ts: stale report source",
+      );
 
-    expectCliRejection(
-      runReportMutation((report) => {
-        report.files["src/isobmff/iloc.ts"]!.source +=
-          "\n// stale report source\n";
-      }),
-      "src/isobmff/iloc.ts: stale report source",
-    );
+      expectCliRejection(
+        runReportMutation((report) => {
+          const removed = report.files["src/isobmff/iloc.ts"]!.mutants.pop();
+          expect(removed).toBeDefined();
+        }),
+        "iloc final evidence differs from the measured 157-mutant source stage",
+      );
 
-    expectCliRejection(
-      runReportMutation((report) => {
-        const removed = report.files["src/isobmff/iloc.ts"]!.mutants.pop();
-        expect(removed).toBeDefined();
-      }),
-      "iloc final evidence differs from the measured 157-mutant source stage",
-    );
+      expectCliRejection(
+        runReportMutation((report) => {
+          const testFile = report.testFiles?.["tests/isobmff_writer.test.ts"];
+          expect(testFile).toBeDefined();
+          testFile!.source += "\n// stale current test source\n";
+        }),
+        "iloc final test source is absent or stale",
+      );
 
-    expectCliRejection(
-      runReportMutation((report) => {
-        const testFile = report.testFiles?.["tests/isobmff_writer.test.ts"];
-        expect(testFile).toBeDefined();
-        testFile!.source += "\n// stale current test source\n";
-      }),
-      "iloc final test source is absent or stale",
-    );
+      expectCliRejection(
+        runReportMutation((report) => {
+          const tests =
+            report.testFiles?.["tests/isobmff_writer.test.ts"]?.tests;
+          expect(tests && tests.length).toBeGreaterThan(1);
+          tests![1]!.id = tests![0]!.id;
+        }),
+        "iloc final test table has an empty, unnamed or duplicate row",
+      );
 
-    expectCliRejection(
-      runReportMutation((report) => {
-        const tests = report.testFiles?.["tests/isobmff_writer.test.ts"]?.tests;
-        expect(tests && tests.length).toBeGreaterThan(1);
-        tests![1]!.id = tests![0]!.id;
-      }),
-      "iloc final test table has an empty, unnamed or duplicate row",
-    );
+      expectCliRejection(
+        runReportMutation((report) => {
+          const mutants = report.files["src/isobmff/iloc.ts"]!.mutants;
+          const detected = mutants.find(
+            (mutant) =>
+              mutant.status === "Killed" && (mutant.killedBy?.length ?? 0) > 0,
+          );
+          expect(detected).toBeDefined();
+          detected!.killedBy = [];
+        }),
+        "has unresolved killedBy test evidence",
+      );
 
-    expectCliRejection(
-      runReportMutation((report) => {
-        const mutants = report.files["src/isobmff/iloc.ts"]!.mutants;
-        const detected = mutants.find(
-          (mutant) =>
-            mutant.status === "Killed" && (mutant.killedBy?.length ?? 0) > 0,
-        );
-        expect(detected).toBeDefined();
-        detected!.killedBy = [];
-      }),
-      "has unresolved killedBy test evidence",
-    );
-
-    expect(readFileSync(join(fixture.root, fixture.reportPath))).toEqual(
-      gunzipSync(bytes),
-    );
-    const fixturePath = join(
-      packageRoot,
-      "tests",
-      "fixtures",
-      "mutation",
-      "isobmff-3-multisource-final.json.gz",
-    );
-    expect(sha256(readFileSync(fixturePath))).toBe(
-      "75acf56c7337c99043dde6c56903dcd3240998bc0ab33a32ced4442da4a4903c",
-    );
-  }, 120_000);
+      expect(readFileSync(join(fixture.root, fixture.reportPath))).toEqual(
+        gunzipSync(bytes),
+      );
+      const fixturePath = join(
+        packageRoot,
+        "tests",
+        "fixtures",
+        "mutation",
+        "isobmff-3-multisource-final.json.gz",
+      );
+      expect(sha256(readFileSync(fixturePath))).toBe(
+        "75acf56c7337c99043dde6c56903dcd3240998bc0ab33a32ced4442da4a4903c",
+      );
+    },
+    120_000,
+  );
 });
 
-describe("phase verifier Vitest declaration paths", () => {
+describeWorkspace("phase verifier Vitest declaration paths", () => {
   const withVitest = (source: string) =>
     /^\s*import\b/m.test(source)
       ? source
@@ -7048,7 +7184,7 @@ describe("suite", () => { it("present case", () => {}); });`);
   });
 });
 
-describe("first isobmff-3 successor attribution (D-13)", () => {
+describeWorkspace("first isobmff-3 successor attribution (D-13)", () => {
   type SuccessorReceipt = Cluster & {
     deletion?: {
       detectedSuccessors?: {
@@ -7319,7 +7455,7 @@ describe("first isobmff-3 successor attribution (D-13)", () => {
   }, 60_000);
 });
 
-describe("real admission scoped deletion receipt proof", () => {
+describeWorkspace("real admission scoped deletion receipt proof", () => {
   it("validates the measured four-edit chain through both real consumers", () => {
     const { bundle, finalReport } = loadAdmissionReceiptBundle();
     const root = materializeAdmissionReceiptBundle(bundle, finalReport);
@@ -7536,7 +7672,7 @@ describe("real admission scoped deletion receipt proof", () => {
   }, 30_000);
 });
 
-describe("real admission batch CLI provenance", () => {
+describeWorkspace("real admission batch CLI provenance", () => {
   it("preflights the full inventory and accepts the measured 51-member batch through main", () => {
     const fixture = createRealAdmissionCliFixture();
     const inventory = runRealCli(fixture, ["--inventory"]);
@@ -8313,47 +8449,60 @@ describe("named-killer closure binding", () => {
     throw new Error("namedKillerBinding unexpectedly succeeded");
   };
 
-  it("accepts a Plan-18-shaped items test through the receipt check, checkLedger pre mode and the real ledger-check --pre", () => {
-    const s = sources();
-    const extended = `${s.items}${planEighteenAppendix()}`;
-    expect(
-      extended.split("\n").length - s.items.split("\n").length,
-    ).toBeGreaterThan(230);
-    // Consumers first: under the whole-file comparison this is where "named killer source is
-    // stale" is reported.
-    const { proof, requested } = validateWith(extended);
-    expect(proof.problems.join("\n")).toBe("");
-    expect([...new Set(requested)].sort()).toEqual([
-      ITEMS_TEST_FILE,
-      WRITER_TEST_FILE,
-    ]);
-    expect(bind(extended)).toBe(bind(s.items));
+  itWorkspace(
+    "accepts a Plan-18-shaped items test through the receipt check, checkLedger pre mode and the real ledger-check --pre",
+    () => {
+      const s = sources();
+      const extended = `${s.items}${planEighteenAppendix()}`;
+      expect(
+        extended.split("\n").length - s.items.split("\n").length,
+      ).toBeGreaterThan(230);
+      // Consumers first: under the whole-file comparison this is where "named killer source is
+      // stale" is reported.
+      const { proof, requested } = validateWith(extended);
+      expect(proof.problems.join("\n")).toBe("");
+      expect([...new Set(requested)].sort()).toEqual([
+        ITEMS_TEST_FILE,
+        WRITER_TEST_FILE,
+      ]);
+      expect(bind(extended)).toBe(bind(s.items));
 
-    const { product } = createProductTreeCopy({ [ITEMS_TEST_FILE]: extended });
-    expect(readFileSync(join(product, ITEMS_TEST_FILE), "utf8")).toBe(extended);
-    const preJson = JSON.parse(
-      readFileSync(
-        join(product, "tools", "mutation", "pre-triage-survivors.json"),
-        "utf8",
-      ),
-    );
-    const problems = checkLedger({
-      ledger: JSON.parse(
-        readFileSync(join(product, "tools", "mutation", "ledger.json"), "utf8"),
-      ),
-      preReport: asReport(preJson),
-      root: product,
-      groups: JSON.parse(
-        readFileSync(join(product, "mutation-floors.json"), "utf8"),
-      ).groups,
-      mode: "pre",
-    });
-    expect(problems.join("\n")).toBe("");
-    const cli = runLedgerCheckPre(product);
-    expect(cli.stderr).toBe("");
-    expect(cli.status).toBe(0);
-    expect(String(cli.stdout).trimEnd().split("\n").at(-1)).toBe("ledger: ok");
-  }, 120_000);
+      const { product } = createProductTreeCopy({
+        [ITEMS_TEST_FILE]: extended,
+      });
+      expect(readFileSync(join(product, ITEMS_TEST_FILE), "utf8")).toBe(
+        extended,
+      );
+      const preJson = JSON.parse(
+        readFileSync(
+          join(product, "tools", "mutation", "pre-triage-survivors.json"),
+          "utf8",
+        ),
+      );
+      const problems = checkLedger({
+        ledger: JSON.parse(
+          readFileSync(
+            join(product, "tools", "mutation", "ledger.json"),
+            "utf8",
+          ),
+        ),
+        preReport: asReport(preJson),
+        root: product,
+        groups: JSON.parse(
+          readFileSync(join(product, "mutation-floors.json"), "utf8"),
+        ).groups,
+        mode: "pre",
+      });
+      expect(problems.join("\n")).toBe("");
+      const cli = runLedgerCheckPre(product);
+      expect(cli.stderr).toBe("");
+      expect(cli.status).toBe(0);
+      expect(String(cli.stdout).trimEnd().split("\n").at(-1)).toBe(
+        "ledger: ok",
+      );
+    },
+    120_000,
+  );
 
   it("accepts every edit outside the six closure parts", () => {
     const s = sources();
@@ -8492,377 +8641,384 @@ describe("named-killer closure binding", () => {
     ).toBe(true);
   }, 120_000);
 
-  it("rejects a weakening of every closure part with the stale-killer problem", () => {
-    const s = sources();
-    const items = s.items;
-    // --- target, scope, effects, non-plain registrations, declarations, imports, exclusivity ---
-    const single: [string, string][] = [
-      [
-        "target: killer body changed",
-        replaceOnce(
-          items,
-          "    await expectModelMatchesInventory(HEIC_PATH);\n  });",
-          "    await expectModelMatchesInventory(HEIC_PATH);\n    expect(true).toBe(true);\n  });",
-        ),
-      ],
-      [
-        "scope: a hook added to an enclosing describe",
-        insideHeicDescribe(
-          items,
-          "  beforeEach(() => {\n    scratch = 1;\n  });",
-        ),
-      ],
-      [
-        "scope: an enclosing describe gains an options argument",
-        replaceOnce(
-          items,
-          "  });\n});\n\n// --- Task 2: AVIF oracle",
-          "  });\n}, { timeout: 5000 });\n\n// --- Task 2: AVIF oracle",
-        ),
-      ],
-      [
-        "scope: a for loop holding a hook and an it, directly inside the enclosing describe",
-        beforeItemsKiller(
-          items,
-          "  for (const n of [1]) {\n    beforeEach(() => {\n      scratch = n;\n    });\n    it(`loop ${n}`, () => {});\n  }",
-        ),
-      ],
-      [
-        "scope: a block holding a hook and an it, directly inside the enclosing describe",
-        beforeItemsKiller(
-          items,
-          '  {\n    beforeEach(() => {\n      scratch = 1;\n    });\n    it("block", () => {});\n  }',
-        ),
-      ],
-      [
-        "scope: an it.each directly inside the enclosing describe",
-        afterItemsKiller(items, '  it.each([1, 2])("case %s", () => {});'),
-      ],
-      [
-        "scope: an it.skip directly inside the enclosing describe",
-        afterItemsKiller(items, '  it.skip("skipped sibling", () => {});'),
-      ],
-      [
-        "scope: a dynamically titled it directly inside the enclosing describe",
-        afterItemsKiller(items, "  it(`dynamic ${1}`, () => {});"),
-      ],
-      [
-        "effects: a top-level hook",
-        appendText(items, "beforeAll(() => {\n  scratch = 1;\n});"),
-      ],
-      [
-        "effects: a top-level mock call",
-        appendText(items, 'vi.mock("../src/isobmff/parse.js");'),
-      ],
-      [
-        "effects: a top-level assignment statement",
-        appendText(items, "cleanupDirectories.length = 0;"),
-      ],
-      [
-        "effects: an unreferenced call-initialized top-level const",
-        appendText(items, "const UNREFERENCED_STAMP = Date.now();"),
-      ],
-      [
-        "effects: the afterEach body changed",
-        replaceOnce(
-          items,
-          "await rm(directory, { recursive: true, force: true });",
-          "await rm(directory, { recursive: false, force: true });",
-        ),
-      ],
-      [
-        "non-plain: a top-level for loop holding a hook and an it",
-        appendText(
-          items,
-          "for (const n of [1]) {\n  beforeEach(() => {\n    scratch = n;\n  });\n  it(`loop ${n}`, () => {});\n}",
-        ),
-      ],
-      [
-        "non-plain: a top-level block holding a hook and an it",
-        appendText(
-          items,
-          '{\n  beforeEach(() => {\n    scratch = 1;\n  });\n  it("block", () => {});\n}',
-        ),
-      ],
-      [
-        "non-plain: a top-level describe.each",
-        appendText(items, 'describe.each([1])("each %s", () => {});'),
-      ],
-      [
-        "non-plain: a top-level describe.skip",
-        appendText(items, 'describe.skip("skipped describe", () => {});'),
-      ],
-      [
-        "non-plain: a top-level it.skip",
-        appendText(items, 'it.skip("skipped it", () => {});'),
-      ],
-      [
-        "non-plain: a top-level test.concurrent",
-        appendText(items, 'test.concurrent("concurrent", async () => {});'),
-      ],
-      [
-        "non-plain: a top-level describe with a dynamic title",
-        appendText(items, "describe(dynamicTitle(), () => {});"),
-      ],
-      [
-        "non-plain: a top-level describe with a substitution title",
-        appendText(items, "describe(`tpl ${1} title`, () => {});"),
-      ],
-      [
-        "non-plain: a top-level wrapper call containing a registration",
-        appendText(items, 'register(() => {\n  it("wrapped", () => {});\n});'),
-      ],
-      [
-        "non-plain: a top-level it with an options argument",
-        appendText(items, 'it("with options", () => {}, 1000);'),
-      ],
-      [
-        "declarations: the referenced helper loses one expectation",
-        replaceOnce(
-          items,
-          "    expect(model.primaryItemId).toBe(inventory.primaryItemId);\n",
-          "",
-        ),
-      ],
-      [
-        "declarations: the referenced constant HEIC_PATH changes",
-        replaceOnce(
-          items,
-          'join(FIXTURES_DIR, "heic", "heif-enc-grid.heic")',
-          'join(FIXTURES_DIR, "heic", "heif-enc-grid-2.heic")',
-        ),
-      ],
-      [
-        "imports: the module specifier of a used binding changed",
-        replaceOnce(
-          items,
-          'from "./isobmff-support/inventory.js"',
-          'from "./isobmff-support/inventory-2.js"',
-        ),
-      ],
-      [
-        "imports: the imported name changed, the local name kept",
-        replaceOnce(
-          items,
-          "import { inventoryIsobmff } from",
-          "import { inventoryIsobmffTwo as inventoryIsobmff } from",
-        ),
-      ],
-      [
-        "imports: the local name renamed, the imported name kept",
-        replaceOnce(
-          items,
-          "import { inventoryIsobmff } from",
-          "import { inventoryIsobmff as inventoryRenamed } from",
-        ),
-      ],
-      [
-        "imports: the type-only flag flipped",
-        replaceOnce(
-          items,
-          'import { readFileSync } from "node:fs";',
-          'import { type readFileSync } from "node:fs";',
-        ),
-      ],
-      [
-        "imports: default versus named swapped",
-        replaceOnce(
-          items,
-          'import { dirname, join } from "node:path";',
-          'import dirname, { join } from "node:path";',
-        ),
-      ],
-      [
-        "imports: a side-effect-only import added",
-        replaceOnce(
-          items,
-          'import { readFileSync } from "node:fs";',
-          'import { readFileSync } from "node:fs";\nimport "./side-effect.js";',
-        ),
-      ],
-      [
-        "imports: an unreferenced named import from a new module",
-        replaceOnce(
-          items,
-          'import { readFileSync } from "node:fs";',
-          'import { readFileSync } from "node:fs";\nimport { neverUsed } from "./new-runtime-module.js";',
-        ),
-      ],
-      [
-        "imports: an export-from of a new module",
-        appendText(items, 'export { other } from "./re-exported-module.js";'),
-      ],
-      [
-        "exclusivity: a sibling it.only at top level",
-        appendText(items, 'it.only("exclusive it", () => {});'),
-      ],
-      [
-        "exclusivity: a sibling test.only at top level",
-        appendText(items, 'test.only("exclusive test", () => {});'),
-      ],
-      [
-        "exclusivity: a sibling describe.only at top level",
-        appendText(items, 'describe.only("exclusive describe", () => {});'),
-      ],
-      [
-        "exclusivity: an it.only nested in a non-killer describe",
-        replaceOnce(
-          items,
-          'describe("buildItemModel exports (acceptance: items.ts exports buildItemModel and the four types)", () => {\n',
-          'describe("buildItemModel exports (acceptance: items.ts exports buildItemModel and the four types)", () => {\n  it.only("nested exclusive", () => {});\n',
-        ),
-      ],
-      [
-        "environment: a file-level environment pragma added",
+  itWorkspace(
+    "rejects a weakening of every closure part with the stale-killer problem",
+    () => {
+      const s = sources();
+      const items = s.items;
+      // --- target, scope, effects, non-plain registrations, declarations, imports, exclusivity ---
+      const single: [string, string][] = [
+        [
+          "target: killer body changed",
+          replaceOnce(
+            items,
+            "    await expectModelMatchesInventory(HEIC_PATH);\n  });",
+            "    await expectModelMatchesInventory(HEIC_PATH);\n    expect(true).toBe(true);\n  });",
+          ),
+        ],
+        [
+          "scope: a hook added to an enclosing describe",
+          insideHeicDescribe(
+            items,
+            "  beforeEach(() => {\n    scratch = 1;\n  });",
+          ),
+        ],
+        [
+          "scope: an enclosing describe gains an options argument",
+          replaceOnce(
+            items,
+            "  });\n});\n\n// --- Task 2: AVIF oracle",
+            "  });\n}, { timeout: 5000 });\n\n// --- Task 2: AVIF oracle",
+          ),
+        ],
+        [
+          "scope: a for loop holding a hook and an it, directly inside the enclosing describe",
+          beforeItemsKiller(
+            items,
+            "  for (const n of [1]) {\n    beforeEach(() => {\n      scratch = n;\n    });\n    it(`loop ${n}`, () => {});\n  }",
+          ),
+        ],
+        [
+          "scope: a block holding a hook and an it, directly inside the enclosing describe",
+          beforeItemsKiller(
+            items,
+            '  {\n    beforeEach(() => {\n      scratch = 1;\n    });\n    it("block", () => {});\n  }',
+          ),
+        ],
+        [
+          "scope: an it.each directly inside the enclosing describe",
+          afterItemsKiller(items, '  it.each([1, 2])("case %s", () => {});'),
+        ],
+        [
+          "scope: an it.skip directly inside the enclosing describe",
+          afterItemsKiller(items, '  it.skip("skipped sibling", () => {});'),
+        ],
+        [
+          "scope: a dynamically titled it directly inside the enclosing describe",
+          afterItemsKiller(items, "  it(`dynamic ${1}`, () => {});"),
+        ],
+        [
+          "effects: a top-level hook",
+          appendText(items, "beforeAll(() => {\n  scratch = 1;\n});"),
+        ],
+        [
+          "effects: a top-level mock call",
+          appendText(items, 'vi.mock("../src/isobmff/parse.js");'),
+        ],
+        [
+          "effects: a top-level assignment statement",
+          appendText(items, "cleanupDirectories.length = 0;"),
+        ],
+        [
+          "effects: an unreferenced call-initialized top-level const",
+          appendText(items, "const UNREFERENCED_STAMP = Date.now();"),
+        ],
+        [
+          "effects: the afterEach body changed",
+          replaceOnce(
+            items,
+            "await rm(directory, { recursive: true, force: true });",
+            "await rm(directory, { recursive: false, force: true });",
+          ),
+        ],
+        [
+          "non-plain: a top-level for loop holding a hook and an it",
+          appendText(
+            items,
+            "for (const n of [1]) {\n  beforeEach(() => {\n    scratch = n;\n  });\n  it(`loop ${n}`, () => {});\n}",
+          ),
+        ],
+        [
+          "non-plain: a top-level block holding a hook and an it",
+          appendText(
+            items,
+            '{\n  beforeEach(() => {\n    scratch = 1;\n  });\n  it("block", () => {});\n}',
+          ),
+        ],
+        [
+          "non-plain: a top-level describe.each",
+          appendText(items, 'describe.each([1])("each %s", () => {});'),
+        ],
+        [
+          "non-plain: a top-level describe.skip",
+          appendText(items, 'describe.skip("skipped describe", () => {});'),
+        ],
+        [
+          "non-plain: a top-level it.skip",
+          appendText(items, 'it.skip("skipped it", () => {});'),
+        ],
+        [
+          "non-plain: a top-level test.concurrent",
+          appendText(items, 'test.concurrent("concurrent", async () => {});'),
+        ],
+        [
+          "non-plain: a top-level describe with a dynamic title",
+          appendText(items, "describe(dynamicTitle(), () => {});"),
+        ],
+        [
+          "non-plain: a top-level describe with a substitution title",
+          appendText(items, "describe(`tpl ${1} title`, () => {});"),
+        ],
+        [
+          "non-plain: a top-level wrapper call containing a registration",
+          appendText(
+            items,
+            'register(() => {\n  it("wrapped", () => {});\n});',
+          ),
+        ],
+        [
+          "non-plain: a top-level it with an options argument",
+          appendText(items, 'it("with options", () => {}, 1000);'),
+        ],
+        [
+          "declarations: the referenced helper loses one expectation",
+          replaceOnce(
+            items,
+            "    expect(model.primaryItemId).toBe(inventory.primaryItemId);\n",
+            "",
+          ),
+        ],
+        [
+          "declarations: the referenced constant HEIC_PATH changes",
+          replaceOnce(
+            items,
+            'join(FIXTURES_DIR, "heic", "heif-enc-grid.heic")',
+            'join(FIXTURES_DIR, "heic", "heif-enc-grid-2.heic")',
+          ),
+        ],
+        [
+          "imports: the module specifier of a used binding changed",
+          replaceOnce(
+            items,
+            'from "./isobmff-support/inventory.js"',
+            'from "./isobmff-support/inventory-2.js"',
+          ),
+        ],
+        [
+          "imports: the imported name changed, the local name kept",
+          replaceOnce(
+            items,
+            "import { inventoryIsobmff } from",
+            "import { inventoryIsobmffTwo as inventoryIsobmff } from",
+          ),
+        ],
+        [
+          "imports: the local name renamed, the imported name kept",
+          replaceOnce(
+            items,
+            "import { inventoryIsobmff } from",
+            "import { inventoryIsobmff as inventoryRenamed } from",
+          ),
+        ],
+        [
+          "imports: the type-only flag flipped",
+          replaceOnce(
+            items,
+            'import { readFileSync } from "node:fs";',
+            'import { type readFileSync } from "node:fs";',
+          ),
+        ],
+        [
+          "imports: default versus named swapped",
+          replaceOnce(
+            items,
+            'import { dirname, join } from "node:path";',
+            'import dirname, { join } from "node:path";',
+          ),
+        ],
+        [
+          "imports: a side-effect-only import added",
+          replaceOnce(
+            items,
+            'import { readFileSync } from "node:fs";',
+            'import { readFileSync } from "node:fs";\nimport "./side-effect.js";',
+          ),
+        ],
+        [
+          "imports: an unreferenced named import from a new module",
+          replaceOnce(
+            items,
+            'import { readFileSync } from "node:fs";',
+            'import { readFileSync } from "node:fs";\nimport { neverUsed } from "./new-runtime-module.js";',
+          ),
+        ],
+        [
+          "imports: an export-from of a new module",
+          appendText(items, 'export { other } from "./re-exported-module.js";'),
+        ],
+        [
+          "exclusivity: a sibling it.only at top level",
+          appendText(items, 'it.only("exclusive it", () => {});'),
+        ],
+        [
+          "exclusivity: a sibling test.only at top level",
+          appendText(items, 'test.only("exclusive test", () => {});'),
+        ],
+        [
+          "exclusivity: a sibling describe.only at top level",
+          appendText(items, 'describe.only("exclusive describe", () => {});'),
+        ],
+        [
+          "exclusivity: an it.only nested in a non-killer describe",
+          replaceOnce(
+            items,
+            'describe("buildItemModel exports (acceptance: items.ts exports buildItemModel and the four types)", () => {\n',
+            'describe("buildItemModel exports (acceptance: items.ts exports buildItemModel and the four types)", () => {\n  it.only("nested exclusive", () => {});\n',
+          ),
+        ],
+        [
+          "environment: a file-level environment pragma added",
+          `// ${ENV_PRAGMA} jsdom\n${items}`,
+        ],
+      ];
+      for (const [label, variant] of single) {
+        expect(
+          variant,
+          `${label}: variant must differ from the receipt bytes`,
+        ).not.toBe(items);
+        expectRejected(label, variant);
+      }
+      // Environment pragma changed (baseline already carries one).
+      const withNode = `// ${ENV_PRAGMA} node\n${items}`;
+      expectDigestsDiffer(
+        "environment: pragma changed",
+        withNode,
         `// ${ENV_PRAGMA} jsdom\n${items}`,
-      ],
-    ];
-    for (const [label, variant] of single) {
+      );
+      // Existing non-plain statements edited.
+      const withLoop = appendText(
+        items,
+        "for (const n of [1]) {\n  beforeEach(() => {\n    scratch = n;\n  });\n  it(`loop ${n}`, () => {});\n}",
+      );
+      expectDigestsDiffer(
+        "non-plain: an existing top-level loop edited",
+        withLoop,
+        withLoop.replace("scratch = n;", "scratch = n + 1;"),
+      );
+      const withScopedLoop = beforeItemsKiller(
+        items,
+        "  for (const n of [1]) {\n    beforeEach(() => {\n      scratch = n;\n    });\n    it(`loop ${n}`, () => {});\n  }",
+      );
+      expectDigestsDiffer(
+        "scope: an existing loop in the enclosing describe edited",
+        withScopedLoop,
+        withScopedLoop.replace("scratch = n;", "scratch = n + 1;"),
+      );
+      const withLocalHook = insideHeicDescribe(
+        items,
+        "  beforeEach(() => {\n    scratch = 1;\n  });",
+      );
+      expectDigestsDiffer(
+        "scope: an existing local hook edited",
+        withLocalHook,
+        withLocalHook.replace("scratch = 1;", "scratch = 2;"),
+      );
+      const withOptions = replaceOnce(
+        items,
+        "  });\n});\n\n// --- Task 2: AVIF oracle",
+        "  });\n}, { timeout: 5000 });\n\n// --- Task 2: AVIF oracle",
+      );
+      expectDigestsDiffer(
+        "scope: the options argument changed",
+        withOptions,
+        withOptions.replace("timeout: 5000", "timeout: 6000"),
+      );
+      // Fixed point: a helper reachable only through another helper.
+      const nested = replaceOnce(
+        appendText(
+          items,
+          "function outerHelper(): number {\n  return innerHelper();\n}\nfunction innerHelper(): number {\n  return 1;\n}",
+        ),
+        "  const inventory = inventoryIsobmff(bytes);\n",
+        "  const inventory = inventoryIsobmff(bytes);\n  outerHelper();\n",
+      );
+      expectDigestsDiffer(
+        "declarations: a helper reachable through another helper",
+        nested,
+        nested.replace("return 1;", "return 2;"),
+      );
+      // Destructured declaration the killer references (no call, so only reachability binds it).
+      const destructured = replaceOnce(
+        appendText(
+          items,
+          "const { alpha, beta } = { alpha: 1, beta: 2 };\nconst { gamma } = { gamma: 1 };",
+        ),
+        "  const inventory = inventoryIsobmff(bytes);\n",
+        "  const inventory = inventoryIsobmff(bytes);\n  void alpha;\n",
+      );
+      expectDigestsDiffer(
+        "declarations: a destructured name the killer references",
+        destructured,
+        destructured.replace("{ alpha: 1, beta: 2 }", "{ alpha: 3, beta: 2 }"),
+      );
       expect(
-        variant,
-        `${label}: variant must differ from the receipt bytes`,
-      ).not.toBe(items);
-      expectRejected(label, variant);
-    }
-    // Environment pragma changed (baseline already carries one).
-    const withNode = `// ${ENV_PRAGMA} node\n${items}`;
-    expectDigestsDiffer(
-      "environment: pragma changed",
-      withNode,
-      `// ${ENV_PRAGMA} jsdom\n${items}`,
-    );
-    // Existing non-plain statements edited.
-    const withLoop = appendText(
-      items,
-      "for (const n of [1]) {\n  beforeEach(() => {\n    scratch = n;\n  });\n  it(`loop ${n}`, () => {});\n}",
-    );
-    expectDigestsDiffer(
-      "non-plain: an existing top-level loop edited",
-      withLoop,
-      withLoop.replace("scratch = n;", "scratch = n + 1;"),
-    );
-    const withScopedLoop = beforeItemsKiller(
-      items,
-      "  for (const n of [1]) {\n    beforeEach(() => {\n      scratch = n;\n    });\n    it(`loop ${n}`, () => {});\n  }",
-    );
-    expectDigestsDiffer(
-      "scope: an existing loop in the enclosing describe edited",
-      withScopedLoop,
-      withScopedLoop.replace("scratch = n;", "scratch = n + 1;"),
-    );
-    const withLocalHook = insideHeicDescribe(
-      items,
-      "  beforeEach(() => {\n    scratch = 1;\n  });",
-    );
-    expectDigestsDiffer(
-      "scope: an existing local hook edited",
-      withLocalHook,
-      withLocalHook.replace("scratch = 1;", "scratch = 2;"),
-    );
-    const withOptions = replaceOnce(
-      items,
-      "  });\n});\n\n// --- Task 2: AVIF oracle",
-      "  });\n}, { timeout: 5000 });\n\n// --- Task 2: AVIF oracle",
-    );
-    expectDigestsDiffer(
-      "scope: the options argument changed",
-      withOptions,
-      withOptions.replace("timeout: 5000", "timeout: 6000"),
-    );
-    // Fixed point: a helper reachable only through another helper.
-    const nested = replaceOnce(
-      appendText(
+        bind(destructured.replace("{ gamma: 1 }", "{ gamma: 5 }")),
+        "an unreferenced non-call declaration stays unbound",
+      ).toBe(bind(destructured));
+      // Overloaded function: each overload signature and the implementation.
+      const overloaded = replaceOnce(
+        appendText(
+          items,
+          "function overloaded(value: string): string;\nfunction overloaded(value: number): number;\nfunction overloaded(value: string | number): string | number {\n  return value;\n}",
+        ),
+        "  const inventory = inventoryIsobmff(bytes);\n",
+        '  const inventory = inventoryIsobmff(bytes);\n  overloaded("x");\n',
+      );
+      expectDigestsDiffer(
+        "declarations: overload signature",
+        overloaded,
+        overloaded.replace(
+          "(value: number): number;",
+          "(value: bigint): bigint;",
+        ),
+      );
+      expectDigestsDiffer(
+        "declarations: overload implementation",
+        overloaded,
+        overloaded.replace("  return value;", "  return value as string;"),
+      );
+      // Writer killer: a referenced helper and constant changed.
+      const writer = s.writer;
+      expectRejected(
+        "writer: a referenced constant changed",
         items,
-        "function outerHelper(): number {\n  return innerHelper();\n}\nfunction innerHelper(): number {\n  return 1;\n}",
-      ),
-      "  const inventory = inventoryIsobmff(bytes);\n",
-      "  const inventory = inventoryIsobmff(bytes);\n  outerHelper();\n",
-    );
-    expectDigestsDiffer(
-      "declarations: a helper reachable through another helper",
-      nested,
-      nested.replace("return 1;", "return 2;"),
-    );
-    // Destructured declaration the killer references (no call, so only reachability binds it).
-    const destructured = replaceOnce(
-      appendText(
+        replaceOnce(
+          writer,
+          'new Set(["grid", "hvc1"])',
+          'new Set(["grid", "hvc1", "av01"])',
+        ),
+        WRITER_KILLER_NAME,
+      );
+      expectRejected(
+        "writer: a referenced helper changed",
         items,
-        "const { alpha, beta } = { alpha: 1, beta: 2 };\nconst { gamma } = { gamma: 1 };",
-      ),
-      "  const inventory = inventoryIsobmff(bytes);\n",
-      "  const inventory = inventoryIsobmff(bytes);\n  void alpha;\n",
-    );
-    expectDigestsDiffer(
-      "declarations: a destructured name the killer references",
-      destructured,
-      destructured.replace("{ alpha: 1, beta: 2 }", "{ alpha: 3, beta: 2 }"),
-    );
-    expect(
-      bind(destructured.replace("{ gamma: 1 }", "{ gamma: 5 }")),
-      "an unreferenced non-call declaration stays unbound",
-    ).toBe(bind(destructured));
-    // Overloaded function: each overload signature and the implementation.
-    const overloaded = replaceOnce(
-      appendText(
+        replaceOnce(
+          writer,
+          "return inventory.items.find((item) => item.id === id);",
+          "return inventory.items.find((item) => item.id !== id);",
+        ),
+        WRITER_KILLER_NAME,
+      );
+      expectRejected(
+        "writer: the killer body changed",
         items,
-        "function overloaded(value: string): string;\nfunction overloaded(value: number): number;\nfunction overloaded(value: string | number): string | number {\n  return value;\n}",
-      ),
-      "  const inventory = inventoryIsobmff(bytes);\n",
-      '  const inventory = inventoryIsobmff(bytes);\n  overloaded("x");\n',
-    );
-    expectDigestsDiffer(
-      "declarations: overload signature",
-      overloaded,
-      overloaded.replace(
-        "(value: number): number;",
-        "(value: bigint): bigint;",
-      ),
-    );
-    expectDigestsDiffer(
-      "declarations: overload implementation",
-      overloaded,
-      overloaded.replace("  return value;", "  return value as string;"),
-    );
-    // Writer killer: a referenced helper and constant changed.
-    const writer = s.writer;
-    expectRejected(
-      "writer: a referenced constant changed",
-      items,
-      replaceOnce(
-        writer,
-        'new Set(["grid", "hvc1"])',
-        'new Set(["grid", "hvc1", "av01"])',
-      ),
-      WRITER_KILLER_NAME,
-    );
-    expectRejected(
-      "writer: a referenced helper changed",
-      items,
-      replaceOnce(
-        writer,
-        "return inventory.items.find((item) => item.id === id);",
-        "return inventory.items.find((item) => item.id !== id);",
-      ),
-      WRITER_KILLER_NAME,
-    );
-    expectRejected(
-      "writer: the killer body changed",
-      items,
-      replaceOnce(
-        writer,
-        "expect(removedIds.size).toBe(2);",
-        "expect(removedIds.size).toBe(3);",
-      ),
-      WRITER_KILLER_NAME,
-    );
-    // The real CLI rejects a killer-body change on a contained copy of the product tree.
-    const { product } = createProductTreeCopy({
-      [ITEMS_TEST_FILE]: single[0]![1],
-    });
-    const cli = runLedgerCheckPre(product);
-    expect(cli.status).toBe(1);
-    expect(cli.stderr).toContain(STALE_KILLER);
-  }, 300_000);
+        replaceOnce(
+          writer,
+          "expect(removedIds.size).toBe(2);",
+          "expect(removedIds.size).toBe(3);",
+        ),
+        WRITER_KILLER_NAME,
+      );
+      // The real CLI rejects a killer-body change on a contained copy of the product tree.
+      const { product } = createProductTreeCopy({
+        [ITEMS_TEST_FILE]: single[0]![1],
+      });
+      const cli = runLedgerCheckPre(product);
+      expect(cli.status).toBe(1);
+      expect(cli.stderr).toContain(STALE_KILLER);
+    },
+    300_000,
+  );
 
   it("fails closed with a distinct problem for every unresolvable killer, never falling back to bytes", () => {
     const s = sources();
@@ -8990,112 +9146,116 @@ describe("named-killer closure binding", () => {
     }
   }, 120_000);
 
-  it("loads TypeScript lazily, throws a typed error when it is unavailable, and memoizes per source digest and name", () => {
-    const s = sources();
-    // --- typed failure when the package cannot be resolved, in a copy with no typescript ---
-    const root = realpathSync(
-      mkdtempSync(join(tmpdir(), "named-killer-no-ts-")),
-    );
-    temporaryRoots.push(root);
-    mkdirSync(join(root, "tools", "mutation"), { recursive: true });
-    for (const file of [
-      "deletion-proof.mjs",
-      "identity.mjs",
-      "cluster.mjs",
-      "groups.mjs",
-    ])
-      copyFileSync(
-        join(packageRoot, "tools", "mutation", file),
-        join(root, "tools", "mutation", file),
+  itWorkspace(
+    "loads TypeScript lazily, throws a typed error when it is unavailable, and memoizes per source digest and name",
+    () => {
+      const s = sources();
+      // --- typed failure when the package cannot be resolved, in a copy with no typescript ---
+      const root = realpathSync(
+        mkdtempSync(join(tmpdir(), "named-killer-no-ts-")),
       );
-    writeFileSync(
-      join(root, "package.json"),
-      '{"name":"no-typescript-here","type":"module"}\n',
-    );
-    writeFileSync(join(root, "row.json"), JSON.stringify(s.row));
-    writeFileSync(join(root, "survivors.json"), JSON.stringify(s.survivors));
-    const probe = [
-      'import { readFileSync } from "node:fs";',
-      'const mod = await import(new URL("./tools/mutation/deletion-proof.mjs", import.meta.url).href);',
-      "const out = {};",
-      'try { mod.namedKillerBinding("describe(\\"a\\", () => { it(\\"b\\", () => {}); });", "a > b"); out.direct = "no error"; }',
-      "catch (error) { out.direct = { name: error.name, code: error.code, message: error.message }; }",
-      'const row = JSON.parse(readFileSync(new URL("./row.json", import.meta.url), "utf8"));',
-      'const survivors = JSON.parse(readFileSync(new URL("./survivors.json", import.meta.url), "utf8"));',
-      "const finalReport = JSON.parse(row.sourceOperation.reports.final.raw);",
-      "const proof = mod.validateReadCStringBoundary({ row, root: process.argv[2], survivors, readTest: (file) => finalReport.testFiles[file].source });",
-      "out.problems = proof.problems;",
-      "process.stdout.write(JSON.stringify(out));",
-    ].join("\n");
-    writeFileSync(join(root, "probe.mjs"), probe);
-    const run = spawnSync(
-      process.execPath,
-      [join(root, "probe.mjs"), packageRoot],
-      {
-        cwd: root,
-        encoding: "utf8",
-        env: { ...process.env, NODE_PATH: "" },
-      },
-    );
-    expect(run.stderr).toBe("");
-    expect(run.status).toBe(0);
-    const out = JSON.parse(run.stdout) as {
-      direct: { name: string; code: string; message: string };
-      problems: string[];
-    };
-    expect(out.direct.name).toBe("NamedKillerBindingError");
-    expect(out.direct.code).toBe("typescript-unavailable");
-    expect(out.direct.message).toContain("typescript");
-    // The receipt check also fails closed: identical bytes would have passed a byte comparison.
-    expect(out.problems.length).toBeGreaterThan(0);
-    expect(
-      out.problems.every((problem) => problem.includes("typescript")),
-    ).toBe(true);
-    expect(out.problems.some((problem) => problem.includes(STALE_KILLER))).toBe(
-      false,
-    );
+      temporaryRoots.push(root);
+      mkdirSync(join(root, "tools", "mutation"), { recursive: true });
+      for (const file of [
+        "deletion-proof.mjs",
+        "identity.mjs",
+        "cluster.mjs",
+        "groups.mjs",
+      ])
+        copyFileSync(
+          join(packageRoot, "tools", "mutation", file),
+          join(root, "tools", "mutation", file),
+        );
+      writeFileSync(
+        join(root, "package.json"),
+        '{"name":"no-typescript-here","type":"module"}\n',
+      );
+      writeFileSync(join(root, "row.json"), JSON.stringify(s.row));
+      writeFileSync(join(root, "survivors.json"), JSON.stringify(s.survivors));
+      const probe = [
+        'import { readFileSync } from "node:fs";',
+        'const mod = await import(new URL("./tools/mutation/deletion-proof.mjs", import.meta.url).href);',
+        "const out = {};",
+        'try { mod.namedKillerBinding("describe(\\"a\\", () => { it(\\"b\\", () => {}); });", "a > b"); out.direct = "no error"; }',
+        "catch (error) { out.direct = { name: error.name, code: error.code, message: error.message }; }",
+        'const row = JSON.parse(readFileSync(new URL("./row.json", import.meta.url), "utf8"));',
+        'const survivors = JSON.parse(readFileSync(new URL("./survivors.json", import.meta.url), "utf8"));',
+        "const finalReport = JSON.parse(row.sourceOperation.reports.final.raw);",
+        "const proof = mod.validateReadCStringBoundary({ row, root: process.argv[2], survivors, readTest: (file) => finalReport.testFiles[file].source });",
+        "out.problems = proof.problems;",
+        "process.stdout.write(JSON.stringify(out));",
+      ].join("\n");
+      writeFileSync(join(root, "probe.mjs"), probe);
+      const run = spawnSync(
+        process.execPath,
+        [join(root, "probe.mjs"), packageRoot],
+        {
+          cwd: root,
+          encoding: "utf8",
+          env: { ...process.env, NODE_PATH: "" },
+        },
+      );
+      expect(run.stderr).toBe("");
+      expect(run.status).toBe(0);
+      const out = JSON.parse(run.stdout) as {
+        direct: { name: string; code: string; message: string };
+        problems: string[];
+      };
+      expect(out.direct.name).toBe("NamedKillerBindingError");
+      expect(out.direct.code).toBe("typescript-unavailable");
+      expect(out.direct.message).toContain("typescript");
+      // The receipt check also fails closed: identical bytes would have passed a byte comparison.
+      expect(out.problems.length).toBeGreaterThan(0);
+      expect(
+        out.problems.every((problem) => problem.includes("typescript")),
+      ).toBe(true);
+      expect(
+        out.problems.some((problem) => problem.includes(STALE_KILLER)),
+      ).toBe(false);
 
-    // --- the copied --inventory route needs no typescript in its fixture. (The verifier's own
-    // --self-test needs the parser for its Vitest-declaration examples, before and after this
-    // plan, so only the live workspace run covers it.) ---
-    const fixture = createRealAdmissionCliFixture();
-    expect(
-      existsSync(
-        join(fixture.root, "exifcleaner-node", "node_modules", "typescript"),
-      ),
-    ).toBe(false);
-    const inventory = runRealCli(fixture, ["--inventory"]);
-    expect(inventory.status, String(inventory.stderr)).toBe(0);
-    expect(String(inventory.stdout)).toContain(
-      "triage inventory: 32 batches, 586 clusters, 1919 members",
-    );
+      // --- the copied --inventory route needs no typescript in its fixture. (The verifier's own
+      // --self-test needs the parser for its Vitest-declaration examples, before and after this
+      // plan, so only the live workspace run covers it.) ---
+      const fixture = createRealAdmissionCliFixture();
+      expect(
+        existsSync(
+          join(fixture.root, "exifcleaner-node", "node_modules", "typescript"),
+        ),
+      ).toBe(false);
+      const inventory = runRealCli(fixture, ["--inventory"]);
+      expect(inventory.status, String(inventory.stderr)).toBe(0);
+      expect(String(inventory.stdout)).toContain(
+        "triage inventory: 32 batches, 586 clusters, 1919 members",
+      );
 
-    // --- memoization is keyed by source digest and name, and bounded ---
-    const small = (value: number) =>
-      `describe("a", () => { it("b", () => { expect(${value}).toBe(${value}); }); });`;
-    expect(namedKillerBinding(small(1), "a > b")).toBe(
-      namedKillerBinding(small(1), "a > b"),
-    );
-    expect(namedKillerBinding(small(1), "a > b")).not.toBe(
-      namedKillerBinding(small(2), "a > b"),
-    );
-    const withSecond = `${small(1)}\ndescribe("c", () => { it("d", () => { expect(1).toBe(1); }); });`;
-    expect(namedKillerBinding(withSecond, "a > b")).toBe(
-      namedKillerBinding(small(1), "a > b"),
-    );
-    expect(namedKillerBinding(withSecond, "c > d")).not.toBe(
-      namedKillerBinding(withSecond, "a > b"),
-    );
-    const first = namedKillerBinding(small(0), "a > b");
-    const digests = new Set<string>();
-    for (let value = 1; value <= 70; value++)
-      digests.add(namedKillerBinding(small(value), "a > b"));
-    expect(digests.size).toBe(70);
-    expect(namedKillerBinding(small(0), "a > b")).toBe(first);
-    expect(namedKillerBinding(small(35), "a > b")).toBe(
-      namedKillerBinding(small(35), "a > b"),
-    );
-  }, 120_000);
+      // --- memoization is keyed by source digest and name, and bounded ---
+      const small = (value: number) =>
+        `describe("a", () => { it("b", () => { expect(${value}).toBe(${value}); }); });`;
+      expect(namedKillerBinding(small(1), "a > b")).toBe(
+        namedKillerBinding(small(1), "a > b"),
+      );
+      expect(namedKillerBinding(small(1), "a > b")).not.toBe(
+        namedKillerBinding(small(2), "a > b"),
+      );
+      const withSecond = `${small(1)}\ndescribe("c", () => { it("d", () => { expect(1).toBe(1); }); });`;
+      expect(namedKillerBinding(withSecond, "a > b")).toBe(
+        namedKillerBinding(small(1), "a > b"),
+      );
+      expect(namedKillerBinding(withSecond, "c > d")).not.toBe(
+        namedKillerBinding(withSecond, "a > b"),
+      );
+      const first = namedKillerBinding(small(0), "a > b");
+      const digests = new Set<string>();
+      for (let value = 1; value <= 70; value++)
+        digests.add(namedKillerBinding(small(value), "a > b"));
+      expect(digests.size).toBe(70);
+      expect(namedKillerBinding(small(0), "a > b")).toBe(first);
+      expect(namedKillerBinding(small(35), "a > b")).toBe(
+        namedKillerBinding(small(35), "a > b"),
+      );
+    },
+    120_000,
+  );
 
   it("keeps the Plan 56 semantics: CSTRING block, fixture, 43 immutable keys, strict ownership and forged-receipt rejection", () => {
     const text = readFileSync(
@@ -9145,7 +9305,7 @@ describe("named-killer closure binding", () => {
 // ---------------------------------------------------------------------------
 // Plan 67-59 Task 2: receipt fixtures supply embedded sources where phase evaluate stays strict.
 // ---------------------------------------------------------------------------
-describe("named-killer receipt fixtures", () => {
+describeWorkspace("named-killer receipt fixtures", () => {
   const candidateReportPath =
     "exifcleaner-node/reports/triage/67-56/candidate.json";
   const loadFinal = () => {
@@ -9316,7 +9476,7 @@ describe("named-killer receipt fixtures", () => {
 // ---------------------------------------------------------------------------
 // Plan 67-59 Task 3: the approval packet binds the two unique named killers' closures (v2).
 // ---------------------------------------------------------------------------
-describe("named-killer approval binding", () => {
+describeWorkspace("named-killer approval binding", () => {
   const SCHEMA_V2 = "exifcleaner.readcstring-boundary-approval.v2";
   const SCHEMA_V1 = "exifcleaner.readcstring-boundary-approval.v1";
   type ApprovalRecord = {
@@ -10361,3 +10521,13 @@ describe(
     });
   },
 );
+
+describe("workspace guard (Plan 67-46 amendment 3)", () => {
+  it("skips nothing when the planning workspace is present", () => {
+    expect(workspaceAvailable).toBe(existsSync(phaseVerifierPath));
+    if (!workspaceAvailable) return;
+    expect(describeWorkspace).toBe(describe);
+    expect(itWorkspace).toBe(it);
+    expect(typeof phaseVerifier.evaluate).toBe("function");
+  });
+});
