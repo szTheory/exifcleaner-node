@@ -2198,6 +2198,17 @@ function cstringEquivalentReport(actual, measured) {
   return canonical(evidence(actual, "current")) === canonical(evidence(measured, "measured"));
 }
 
+// Plan 67-46 amendment 2: the directive-normalized digests of src/isobmff/items.ts that the
+// measured-head (hosted whole-run) readCString check accepts. The first is the sealed approved
+// candidate; the second is the same file after the maintainer-approved Option A edit of
+// parseInfe (two redundant bounds checks removed, reviewed in 67-59-REVIEW-AMENDMENT-4.md), whose
+// only difference from the sealed candidate is that hunk. The sealed single-file path above is
+// unchanged.
+const CSTRING_MEASURED_HEAD_SOURCE_SHA256S = Object.freeze([
+  CSTRING_CANDIDATE_SOURCE_SHA256,
+  "e11e2ea209ceda36812db942bb9c4ced9a54223aefa5364d6ec4b734ef510ca7",
+]);
+
 /**
  * Plan 67-46 amendment 1: the receipt's claims, checked against a hosted whole-run report of the
  * committed head. Returns true only when the live raw file keeps the exact single
@@ -3494,8 +3505,9 @@ export function validateReadCStringBoundary({
         // sealed single-file candidate report.
         if (
           selectedSource !== diskSource ||
-          hash(normalizeDirectives(selectedSource)) !==
-            CSTRING_CANDIDATE_SOURCE_SHA256 ||
+          !CSTRING_MEASURED_HEAD_SOURCE_SHA256S.includes(
+            hash(normalizeDirectives(selectedSource)),
+          ) ||
           !finalEntry ||
           !finalReport ||
           finalReport.files?.[CSTRING_OPERATION.file] !== finalEntry ||

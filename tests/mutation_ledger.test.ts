@@ -9315,21 +9315,45 @@ describe(
       return { row, survivors, sealed: finalReport as Report };
     };
     /** The sealed single-file report re-expressed for a raw source that differs from the sealed
-     * raw source only by directive lines: every mutant keeps its normalized position. */
+     * raw source only by directive lines, or additionally by the one reviewed Option A parseInfe
+     * hunk (Plan 67-46 amendment 2): every other mutant keeps its normalized position, and the
+     * mutants of the two deleted bounds checks no longer exist. */
     const reshaped = (sealed: Report, source: string): Report => {
       const report = structuredClone(sealed);
       const entry = report.files[ITEMS]!;
       const before = directiveLines(entry.source);
       const after = directiveLines(source);
-      const move = (line: number) => {
+      const sealedCode = normalize(entry.source);
+      const hunk =
+        normalize(source).includes(OPTION_A_NEW) &&
+        sealedCode.includes(OPTION_A_OLD)
+          ? sealedCode.slice(0, sealedCode.indexOf(OPTION_A_OLD)).split("\n")
+              .length
+          : null;
+      const oldLines = OPTION_A_OLD.split("\n").length;
+      const newLines = OPTION_A_NEW.split("\n").length;
+      const move = (line: number): number | null => {
         let moved = line - before.filter((at) => at < line).length;
+        if (hunk !== null) {
+          if (moved >= hunk + oldLines) moved += newLines - oldLines;
+          else if (moved >= hunk) {
+            // old lines: 0 ensureBytes(protection), 1 position += 2, 2 ensureBytes(type), 3 itemType
+            if (moved - hunk === 1) moved = hunk + 4;
+            else if (moved - hunk === 3) moved = hunk + 5;
+            else return null;
+          }
+        }
         for (const at of after) if (at <= moved) moved += 1;
         return moved;
       };
-      for (const m of entry.mutants) {
-        m.location.start.line = move(m.location.start.line);
-        m.location.end.line = move(m.location.end.line);
-      }
+      entry.mutants = entry.mutants.flatMap((m) => {
+        const start = move(m.location.start.line);
+        const end = move(m.location.end.line);
+        if (start === null || end === null) return [];
+        m.location.start.line = start;
+        m.location.end.line = end;
+        return [m];
+      });
       entry.source = source;
       return report;
     };
@@ -9663,6 +9687,74 @@ describe(
       expect(run(unrecorded, true).join("\n")).toMatch(
         /does not name the real test/,
       );
+    });
+
+    // Plan 67-46 amendment 2: the measured-head pin after the Option A edit of parseInfe.
+    const NORMALIZED_SEALED =
+      "be06b8a71401be7a6d54058f4af6699389a5b3ee6b150844805260da6541c2db";
+    const NORMALIZED_OPTION_A =
+      "e11e2ea209ceda36812db942bb9c4ced9a54223aefa5364d6ec4b734ef510ca7";
+    const normalize = (source: string) =>
+      source
+        .split("\n")
+        .filter((line) => !DIRECTIVE.test(line))
+        .join("\n");
+    // The parseInfe hunk of 67-46-OPTION-A.patch, written out: what Option A removed and what it
+    // left in its place (comment lines are code bytes for the pin; only Stryker directives are not).
+    const OPTION_A_NEW = [
+      "  // item_protection_index (2 bytes) and item_type (4 bytes) carry no bounds check of their own:",
+      "  // `toString` clamps a short slice, and a payload that ends inside either field leaves `position`",
+      "  // at or past the end, so the readCString below declines the same typed box-framing refusal",
+      '  // ("not NUL-terminated"). A check here could never change the outcome.',
+      "  position += 2;",
+      '  const itemType = payload.toString("ascii", position, position + 4);',
+    ].join("\n");
+    const OPTION_A_OLD = [
+      '  ensureBytes(payload, position, 2, "infe item_protection_index");',
+      "  position += 2;",
+      '  ensureBytes(payload, position, 4, "infe item_type");',
+      '  const itemType = payload.toString("ascii", position, position + 4);',
+    ].join("\n");
+
+    it("pins the committed items.ts to the sealed candidate plus exactly the Option A parseInfe hunk", () => {
+      const live = readFileSync(join(packageRoot, ITEMS), "utf8");
+      expect(sha256(normalize(live))).toBe(NORMALIZED_OPTION_A);
+      expect(normalize(live).split(OPTION_A_NEW).length - 1).toBe(1);
+      const reversed = normalize(live).replace(OPTION_A_NEW, OPTION_A_OLD);
+      expect(sha256(reversed)).toBe(NORMALIZED_SEALED);
+      const { sealed } = load();
+      expect(sha256(normalize(sealed.files[ITEMS]!.source))).toBe(
+        NORMALIZED_SEALED,
+      );
+    });
+
+    it("accepts the Option A items.ts through a re-shaped whole-run report and rejects any other code byte", () => {
+      const { row, survivors, sealed } = load();
+      const live = readFileSync(join(packageRoot, ITEMS), "utf8");
+      expect(
+        problemsFor(reshaped(sealed, live), itemsRoot(live), row, survivors),
+      ).toEqual([]);
+      for (const [label, edited] of [
+        [
+          "an offset advance changed",
+          live.replace("position += 4;", "position += 5;"),
+        ],
+        ["code appended", `${live}export const tamper = 1;\n`],
+        [
+          "comment word changed",
+          live.replace("could never change", "could not change"),
+        ],
+      ] as const) {
+        expect(
+          problemsFor(
+            reshaped(sealed, edited),
+            itemsRoot(edited),
+            row,
+            survivors,
+          ),
+          label,
+        ).toEqual([`${row.id}: ${LIVE}`]);
+      }
     });
   },
 );
