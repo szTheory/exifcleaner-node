@@ -178783,11 +178783,9 @@
       "function": "parseInfe",
       "mutatorName": "StringLiteral",
       "disposition": "equivalent",
-      "count": 7,
+      "count": 5,
       "keys": [
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000251\u000043\u0000251\u000057",
-        "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000257\u000037\u0000257\u000065",
-        "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000259\u000037\u0000259\u000053",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000262\u000047\u0000262\u000063",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000269\u000047\u0000269\u000066",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000280\u000049\u0000280\u000072",
@@ -178797,14 +178795,44 @@
       "originClusterId": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral",
       "anchors": [
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe item_ID\"\u00000",
-        "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe item_protection_index\"\u00000",
-        "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe item_type\"\u00000",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe item_name\"\u00000",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe content_type\"\u00000",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe content_encoding\"\u00000",
         "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000\"infe item_uri_type\"\u00000"
       ],
       "equivalenceClass": "unobservable-message"
+    },
+    {
+      "id": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral:dead-01",
+      "group": "isobmff",
+      "file": "src/isobmff/items.ts",
+      "function": "parseInfe",
+      "mutatorName": "StringLiteral",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000257\u000037\u0000257\u000065"
+      ],
+      "note": "Deleted by the Plan 67-46 Option A source edit (node 85c97e4): the label of the bounds check that parseInfe no longer performs; readCString (item_name) declines the same typed box-framing error for a payload ending inside item_protection_index or item_type, the maintainer approved Option A of 67-46-HALTED.md (reply \"approve\", relayed to the executor by the coordinator). The symbol \"infe item_protection_index\" no longer appears in its enclosing function parseInfe (Plan 59 amendment 2 scoped witness). Reachable behavior is unchanged (61-prefix infe equivalence experiment, full suite); only the diagnostic wording of an already-refused malformed payload changes.",
+      "originClusterId": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral",
+      "symbol": "infe item_protection_index",
+      "symbolScope": "function"
+    },
+    {
+      "id": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral:dead-02",
+      "group": "isobmff",
+      "file": "src/isobmff/items.ts",
+      "function": "parseInfe",
+      "mutatorName": "StringLiteral",
+      "disposition": "dead",
+      "count": 1,
+      "keys": [
+        "src/isobmff/items.ts\u0000StringLiteral\u0000\"\"\u0000259\u000037\u0000259\u000053"
+      ],
+      "note": "Deleted by the Plan 67-46 Option A source edit (node 85c97e4): the label of the bounds check that parseInfe no longer performs; readCString (item_name) declines the same typed box-framing error for a payload ending inside item_protection_index or item_type, the maintainer approved Option A of 67-46-HALTED.md (reply \"approve\", relayed to the executor by the coordinator). The symbol \"infe item_type\" no longer appears in its enclosing function parseInfe (Plan 59 amendment 2 scoped witness). Reachable behavior is unchanged (61-prefix infe equivalence experiment, full suite); only the diagnostic wording of an already-refused malformed payload changes.",
+      "originClusterId": "isobmff:src/isobmff/items.ts:parseInfe:StringLiteral",
+      "symbol": "infe item_type",
+      "symbolScope": "function"
     },
     {
       "id": "isobmff:src/isobmff/items.ts:parseIpco:ConditionalExpression",
