@@ -1777,4 +1777,46 @@ describe("items.ts bounds checks decline box-framing for a field cut short", () 
       );
     }
   });
+
+  it("infe: every proper prefix of a v2 and a v3 payload declines box-framing, the complete payload parses", async () => {
+    // Pins what the two removed parseInfe bounds checks (item_protection_index, item_type) used to
+    // guard: a payload that ends inside either field is still refused with the typed error, now by
+    // readCString; the complete payload keeps parsing.
+    const four = (text: string) => Buffer.from(text, "ascii");
+    const payloads: [2 | 3, Buffer][] = [
+      [
+        2,
+        Buffer.concat([
+          Buffer.from([0, 1, 0, 0]),
+          four("hvc1"),
+          Buffer.from("n\0", "ascii"),
+        ]),
+      ],
+      [
+        3,
+        Buffer.concat([
+          Buffer.from([0, 0, 0, 1, 0, 0]),
+          four("hvc1"),
+          Buffer.from("n\0", "ascii"),
+        ]),
+      ],
+    ];
+    for (const [version, payload] of payloads) {
+      for (let length = 0; length < payload.length; length += 1) {
+        await declineFraming(
+          buildMinimalFile({
+            iinfChild: iinfBox(0, [
+              fullBox("infe", version, 0, payload.subarray(0, length)),
+            ]),
+          }),
+        );
+      }
+      const model = await parseFixtureBytes(
+        buildMinimalFile({
+          iinfChild: iinfBox(0, [fullBox("infe", version, 0, payload)]),
+        }),
+      );
+      expect(model.itemsById.get(1)?.type).toBe("hvc1");
+    }
+  });
 });
