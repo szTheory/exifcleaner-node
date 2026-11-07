@@ -26,12 +26,6 @@ function refuseMalformed(message: string): never {
  * order (D-01 edge: out-of-order segments still reassemble correctly).
  */
 export function reassembleIccSegments(payloads: readonly Buffer[]): Buffer {
-  // Stryker disable next-line ConditionalExpression, BlockStatement: redundant-guard-after-typed-check — an empty payload list skips this branch, runs no loop iteration and reaches the refusal at the declaredCount check below, which throws the same typed malformed-container error with the same text, so skipping the branch changes nothing observable; the always-true sibling of the condition is a compile error and is suppressed only as collateral.
-  if (payloads.length === 0) {
-    // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
-    refuseMalformed("No ICC_PROFILE segments were provided to reassemble.");
-  }
-
   let declaredCount: number | undefined;
   const bySequence = new Map<number, Buffer>();
 
@@ -69,8 +63,10 @@ export function reassembleIccSegments(payloads: readonly Buffer[]): Buffer {
     bySequence.set(sequence, payload.subarray(ICC_IDENTIFIER_BYTES + 2));
   }
 
+  // declaredCount is still undefined only for an empty payload list: the loop above sets it on
+  // its first iteration, so this is the single refusal for "no segments at all".
   if (declaredCount === undefined) {
-    // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — declaredCount is still undefined here only for an empty payload list, which the first check in this function has already refused, so this refusal and its text cannot be reached through any public input; it exists to narrow the type for the loop below.
+    // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
     refuseMalformed("No ICC_PROFILE segments were provided to reassemble.");
   }
 

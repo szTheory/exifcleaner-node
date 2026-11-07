@@ -247,8 +247,8 @@ function collectMetadata(parsed, trailerTail) {
         }
         if (kind === "mpf") {
             namespaces.add("JPEG");
-            if (payload !== undefined)
-                mpfPayload = payload;
+            // classifyAppPayload returns "mpf" only for a buffered payload.
+            mpfPayload = payload;
             entries.push({
                 namespace: "JPEG",
                 name: markerLabel(marker, segment.identifier),
