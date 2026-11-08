@@ -60,10 +60,15 @@ export function checkLedger({
   groups,
   classes = loadClasses(),
   mode,
+  requireSnapshot = false,
 }) {
   const problems = [];
   const clusters = ledger?.clusters;
   if (!Array.isArray(clusters)) return ["ledger has no clusters array"];
+  // G10-WR-01: a final report with no files proves nothing; every final-mode check would pass
+  // vacuously over zero mutants.
+  if (mode === "final" && Object.keys(finalReport?.files ?? {}).length === 0)
+    problems.push("final report has no files");
 
   const ids = new Set();
   const membership = new Map(); // key -> cluster ids
@@ -112,8 +117,14 @@ export function checkLedger({
     );
     if (Array.isArray(snapshot.survivors))
       immutableSurvivors = snapshot.survivors;
-  } catch {
-    /* fixture callers may intentionally omit a snapshot */
+    else if (requireSnapshot)
+      problems.push("immutable pre-triage snapshot has no survivors array");
+  } catch (error) {
+    // Fixture callers of checkLedger may omit a snapshot; the CLI never does (G10-WR-02).
+    if (requireSnapshot)
+      problems.push(
+        `immutable pre-triage snapshot unreadable: ${error.message}`,
+      );
   }
   if (immutableSurvivors !== null) {
     const original = new Map();
@@ -373,6 +384,7 @@ export function main(argv) {
       root,
       groups,
       mode: finalPath === null ? "pre" : "final",
+      requireSnapshot: true,
     });
     for (const line of summary(ledger, groups))
       process.stdout.write(`${line}\n`);

@@ -2725,6 +2725,69 @@ describe("committed ledger", () => {
     expect(result.stderr).toMatch(/in no cluster/);
   });
 
+  it("fails closed on a null, empty or file-less --final report (G10-WR-01)", () => {
+    for (const [label, body] of [
+      ["null", "null"],
+      ["empty object", "{}"],
+      ["no files", JSON.stringify({ files: {} })],
+    ] as const) {
+      const dir = cliFixture({
+        "tools/mutation/ledger.json": JSON.stringify(ledgerOf([])),
+        "tools/mutation/pre-triage-survivors.json": JSON.stringify({
+          survivors: [],
+        }),
+        "mutation-floors.json": JSON.stringify({
+          groups: { g: { tier: "trust", globs: ["src/webp/**"] } },
+        }),
+        "final.json": body,
+      });
+      const result = runFixture(
+        dir,
+        "ledger-check.mjs",
+        "--final",
+        "final.json",
+      );
+      expect(result.status, label).toBe(1);
+      expect(result.stderr, label).toMatch(/final report has no files/);
+    }
+  });
+
+  it("fails closed when the immutable snapshot is missing or corrupt on the CLI path (G10-WR-02)", () => {
+    for (const [label, snapshot] of [
+      ["missing", null],
+      ["corrupt", "{not json"],
+      ["no survivors array", "{}"],
+    ] as const) {
+      const dir = cliFixture({
+        "tools/mutation/ledger.json": JSON.stringify(ledgerOf([])),
+        ...(snapshot === null
+          ? {}
+          : { "tools/mutation/pre-triage-survivors.json": snapshot }),
+        "mutation-floors.json": JSON.stringify({
+          groups: { g: { tier: "trust", globs: ["src/webp/**"] } },
+        }),
+        "pre.json": JSON.stringify({ files: {} }),
+      });
+      const result = runFixture(dir, "ledger-check.mjs", "--pre", "pre.json");
+      expect(result.status, label).toBe(1);
+      expect(result.stderr, label).toMatch(/immutable pre-triage snapshot/);
+    }
+    // Positive control: the same fixture with a readable snapshot passes.
+    const ok = cliFixture({
+      "tools/mutation/ledger.json": JSON.stringify(ledgerOf([])),
+      "tools/mutation/pre-triage-survivors.json": JSON.stringify({
+        survivors: [],
+      }),
+      "mutation-floors.json": JSON.stringify({
+        groups: { g: { tier: "trust", globs: ["src/webp/**"] } },
+      }),
+      "pre.json": JSON.stringify({ files: {} }),
+    });
+    expect(runFixture(ok, "ledger-check.mjs", "--pre", "pre.json").status).toBe(
+      0,
+    );
+  });
+
   it("keeps the real --pre integration read-only", () => {
     const result = runLiveReadOnly("--pre", prePath);
     expect(result.status).toBe(0);
