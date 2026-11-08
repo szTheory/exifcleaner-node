@@ -8,19 +8,19 @@
       "globs": ["src/webp/**", "src/admission/webp-handler.ts"],
       "floorTenths": 1000,
       "measured": {
-        "runId": 42393888540,
-        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "runId": 42513026210,
+        "sha": "02944dd0ab0ebf14d07b78964ab56f98bd911995",
         "scoresTenths": [1000, 1000, 1000],
         "counts": {
-          "Killed": 728,
-          "Timeout": 9,
+          "Killed": 727,
+          "Timeout": 10,
           "Survived": 0,
           "NoCoverage": 0,
           "CompileError": 310,
           "RuntimeError": 0,
           "Ignored": 118
         },
-        "timeout": 9,
+        "timeout": 10,
         "commentIgnored": 12,
         "pluginIgnored": 70,
         "staticIgnored": 36,
@@ -33,19 +33,19 @@
       "globs": ["src/png/**", "src/admission/png-handler.ts"],
       "floorTenths": 1000,
       "measured": {
-        "runId": 42393888540,
-        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "runId": 42513026210,
+        "sha": "02944dd0ab0ebf14d07b78964ab56f98bd911995",
         "scoresTenths": [1000, 1000, 1000],
         "counts": {
-          "Killed": 625,
-          "Timeout": 12,
+          "Killed": 626,
+          "Timeout": 11,
           "Survived": 0,
           "NoCoverage": 0,
           "CompileError": 375,
           "RuntimeError": 0,
           "Ignored": 284
         },
-        "timeout": 12,
+        "timeout": 11,
         "commentIgnored": 15,
         "pluginIgnored": 47,
         "staticIgnored": 222,
@@ -58,19 +58,19 @@
       "globs": ["src/jpeg/**", "src/admission/jpeg-handler.ts"],
       "floorTenths": 1000,
       "measured": {
-        "runId": 42393888540,
-        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "runId": 42513026210,
+        "sha": "02944dd0ab0ebf14d07b78964ab56f98bd911995",
         "scoresTenths": [1000, 1000, 1000],
         "counts": {
-          "Killed": 1043,
-          "Timeout": 16,
+          "Killed": 1047,
+          "Timeout": 17,
           "Survived": 0,
           "NoCoverage": 0,
           "CompileError": 651,
           "RuntimeError": 0,
           "Ignored": 155
         },
-        "timeout": 16,
+        "timeout": 17,
         "commentIgnored": 53,
         "pluginIgnored": 35,
         "staticIgnored": 67,
@@ -86,8 +86,8 @@
       ],
       "floorTenths": 1000,
       "measured": {
-        "runId": 42393888540,
-        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "runId": 42513026210,
+        "sha": "02944dd0ab0ebf14d07b78964ab56f98bd911995",
         "scoresTenths": [1000, 1000, 1000],
         "counts": {
           "Killed": 1921,
@@ -111,8 +111,8 @@
       "globs": ["src/metadata/**"],
       "floorTenths": 1000,
       "measured": {
-        "runId": 42393888540,
-        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "runId": 42513026210,
+        "sha": "02944dd0ab0ebf14d07b78964ab56f98bd911995",
         "scoresTenths": [1000, 1000, 1000],
         "counts": {
           "Killed": 927,
@@ -136,8 +136,8 @@
       "globs": ["src/{engine,fallback,result,errors,types,index}.ts"],
       "floorTenths": 340,
       "measured": {
-        "runId": 42393888540,
-        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "runId": 42513026210,
+        "sha": "02944dd0ab0ebf14d07b78964ab56f98bd911995",
         "scoresTenths": [340, 340, 340],
         "counts": {
           "Killed": 30,
@@ -161,8 +161,8 @@
       "globs": ["src/transaction/**"],
       "floorTenths": 410,
       "measured": {
-        "runId": 42393888540,
-        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "runId": 42513026210,
+        "sha": "02944dd0ab0ebf14d07b78964ab56f98bd911995",
         "scoresTenths": [410, 410, 410],
         "counts": {
           "Killed": 222,
@@ -186,8 +186,8 @@
       "globs": ["src/io/**"],
       "floorTenths": 933,
       "measured": {
-        "runId": 42393888540,
-        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "runId": 42513026210,
+        "sha": "02944dd0ab0ebf14d07b78964ab56f98bd911995",
         "scoresTenths": [933, 933, 933],
         "counts": {
           "Killed": 24,
@@ -211,8 +211,8 @@
       "globs": ["src/admission/{handler,registry}.ts"],
       "floorTenths": 333,
       "measured": {
-        "runId": 42393888540,
-        "sha": "1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc",
+        "runId": 42513026210,
+        "sha": "02944dd0ab0ebf14d07b78964ab56f98bd911995",
         "scoresTenths": [333, 333, 333],
         "counts": {
           "Killed": 2,

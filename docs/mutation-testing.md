@@ -124,10 +124,12 @@ Measured settings (2026-10-26, hosted ubuntu-24.04, webp group, runs 40329815032
 ## Current floors
 
 Measured on hosted ubuntu-24.04 by three attempts of one run on one head: run
-[42393888540](https://github.com/szTheory/exifcleaner-node/actions/runs/42393888540), head
-`1cb78a6413fcf3569b4b60e4b4e2b0f57e4203dc`, dispatched 2026-11-07 (`mode=baseline`, `group=all`,
-`attempts=3`; the aggregate reports zero flakes over 10221 mutants, four Killed/Timeout swaps that
-are not flakes). Each floor is `floor(min of the three attempts' recomputed scores)`, entered by a
+[42513026210](https://github.com/szTheory/exifcleaner-node/actions/runs/42513026210), head
+`02944dd0ab0ebf14d07b78964ab56f98bd911995`, dispatched 2026-11-08 (`mode=baseline`, `group=all`,
+`attempts=3`; the aggregate reports zero flakes over 10226 mutants, seven Killed/Timeout swaps that
+are not flakes). This run replaced the first measurement (run 42393888540 on `1cb78a6`) after the
+`readWindowed` lower-bound operand was restored in `src/jpeg/parser.ts` (review finding CR-01);
+every floor kept its value. Each floor is `floor(min of the three attempts' recomputed scores)`, entered by a
 manual edit of `mutation-floors.json`; there is no slack.
 
 | Group          | Tier          | Floor | Target (within six months) |
