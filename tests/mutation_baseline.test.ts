@@ -141,10 +141,14 @@ describe("aggregate", () => {
     return dir;
   }
   function run(dir: string) {
+    // G14-WR-01: the aggregate appends a summary block to $GITHUB_STEP_SUMMARY when it is set;
+    // the child must not inherit the real CI job summary and write fixture data into it.
+    const env = { ...process.env };
+    delete env.GITHUB_STEP_SUMMARY;
     return spawnSync(
       process.execPath,
       [join(root, "tools", "mutation", "baseline.mjs"), "aggregate", dir],
-      { cwd: root, encoding: "utf8" },
+      { cwd: root, encoding: "utf8", env },
     );
   }
 
@@ -159,6 +163,22 @@ describe("aggregate", () => {
       expect(out.attempts).toBe(3);
       expect(out.minima.io).toBe(750);
     } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not write fixture data into an inherited GITHUB_STEP_SUMMARY (G14-WR-01)", () => {
+    const dir = fixture(false);
+    const summary = join(dir, "step-summary.md");
+    writeFileSync(summary, "");
+    const before = process.env.GITHUB_STEP_SUMMARY;
+    process.env.GITHUB_STEP_SUMMARY = summary;
+    try {
+      expect(run(dir).status).toBe(0);
+      expect(readFileSync(summary, "utf8")).toBe("");
+    } finally {
+      if (before === undefined) delete process.env.GITHUB_STEP_SUMMARY;
+      else process.env.GITHUB_STEP_SUMMARY = before;
       rmSync(dir, { recursive: true, force: true });
     }
   });
