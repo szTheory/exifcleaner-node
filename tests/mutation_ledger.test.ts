@@ -403,6 +403,7 @@ const phaseVerifier = (
     source: string,
     name: string,
   ): "declared" | "absent" | "unsupported" | "ambiguous";
+  HISTORICAL_BASELINE_GIT_SHA: string;
   historicalTestAbsentFromBaseline(
     name: string,
     source: string,
@@ -687,6 +688,9 @@ const cstringApprovalReviewedPaths = [
 // Plan 67-59 Task 2: fixtures and in-process receipt checks take the receipt's own embedded
 // sources, never live test or items.ts bytes, so a legitimate later edit of a live file (Plan 18)
 // cannot fail the suite. Phase evaluate keeps its strict fresh-report check on those sources.
+// The one exception is the workspace-gated freeze guard of the measured-head suite, which pins the
+// live src/isobmff/items.ts digest on purpose (Plan 67-60, G18-WR-03); every other measured-head
+// test works on an embedded copy of the sealed candidate plus the Option A hunk.
 const CSTRING_CANDIDATE_ITEMS_SHA256 =
   "9a53dabcfe43d43311c17b17c2453dcc47e55b7cae2c193340c58d24cacc7c88";
 
@@ -5796,6 +5800,37 @@ describe("real isobmff-3 multi-source final report", () => {
         "tests/fixtures/mutation/added-registry-entry.json.gz";
       deletion.reportBindings.push(added);
     }
+    // G18-WR-01 (Plan 67-60): materialise every REAL registered fixture in the disposable root
+    // first, so the only missing bytes are the injected entry's, and prove with a positive
+    // control that the unmodified registry loads there.
+    for (const binding of bindings)
+      for (const variant of binding.variants)
+        for (const fixture of variant.fixtures)
+          writeFixtureFile(
+            disposableRoot,
+            fixture.path,
+            readFileSync(join(packageRoot, fixture.path)),
+          );
+    const clean = structuredClone(ledger);
+    for (const row of clean.clusters.filter(
+      (candidate) =>
+        (candidate.deletion?.edits as { operation?: string }[] | undefined)?.[0]
+          ?.operation === "iloc-header-integer-boundary",
+    )) {
+      (
+        row.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings = (
+        row.deletion as { reportBindings: Isobmff3ReportBinding[] }
+      ).reportBindings.slice(0, bindings.length);
+    }
+    writeFixtureFile(
+      disposableRoot,
+      "tools/mutation/ledger.json",
+      `${JSON.stringify(clean, null, 2)}\n`,
+    );
+    expect(
+      loadRegisteredIsobmff3Reports(disposableRoot).reports.length,
+    ).toBeGreaterThan(0);
     writeFixtureFile(
       disposableRoot,
       "tools/mutation/ledger.json",
@@ -5804,7 +5839,9 @@ describe("real isobmff-3 multi-source final report", () => {
     const discovered = loadIsobmff3ReportRegistry(disposableRoot);
     expect(discovered.rows).toHaveLength(rows.length);
     expect(discovered.bindings).toHaveLength(bindings.length + 1);
-    expect(() => loadRegisteredIsobmff3Reports(disposableRoot)).toThrow();
+    expect(() => loadRegisteredIsobmff3Reports(disposableRoot)).toThrow(
+      /added-registry-entry\.json\.gz/,
+    );
   });
 
   itWorkspace(
@@ -6576,8 +6613,32 @@ describe("suite", () => { it("present case", () => {}); });`;
     ).toBe(false);
   });
 
+  it("reads historical bytes at an ancestor of origin/main, not at the baseline commit a squash merge drops (G18-WR-02)", () => {
+    const gitSha = phaseVerifier.HISTORICAL_BASELINE_GIT_SHA;
+    expect(gitSha).toMatch(/^[0-9a-f]{40}$/);
+    expect(gitSha).not.toBe("b0158fcf775a29cfa61e4409495ae293d83b3a2f");
+    const main = spawnSync(
+      "git",
+      ["rev-parse", "--verify", "origin/main^{commit}"],
+      {
+        cwd: packageRoot,
+        encoding: "utf8",
+      },
+    );
+    expect(
+      main.status,
+      "origin/main must resolve in the product repository (fetch it; the historical read commit is checked against it)",
+    ).toBe(0);
+    const ancestor = spawnSync(
+      "git",
+      ["merge-base", "--is-ancestor", gitSha, "origin/main"],
+      { cwd: packageRoot, encoding: "utf8" },
+    );
+    expect(ancestor.status).toBe(0);
+  });
+
   it("checks pinned historical import source hashes and edge membership", () => {
-    const baselineSha = "b0158fcf775a29cfa61e4409495ae293d83b3a2f";
+    const baselineSha = phaseVerifier.HISTORICAL_BASELINE_GIT_SHA;
     const testFile = "tests/isobmff_admission.test.ts";
     const readBaselineFile = (file: string) =>
       execFileSync("git", ["show", `${baselineSha}:${file}`], {
@@ -10145,6 +10206,31 @@ describe(
       "live sourceOperation source/report differs from the exact measured candidate";
     const itemsRoot = (source: string) =>
       tempRoot({ [ITEMS]: source, ".git": `gitdir: ${gitDir}\n` });
+    // G18-WR-03 (Plan 67-60): every test except the one freeze guard below works on this embedded
+    // copy (the sealed candidate plus exactly the Option A parseInfe hunk), never on the live
+    // product bytes, so a later legitimate edit of src/isobmff/items.ts cannot fail these tests.
+    const optionASource = (sealed: Report) => {
+      const lines = sealed.files[ITEMS]!.source.split("\n");
+      const old = OPTION_A_OLD.split("\n");
+      const first = lines.indexOf(old[0]!);
+      expect(first).toBeGreaterThanOrEqual(0);
+      let matched = 0;
+      let last = first;
+      for (let at = first; matched < old.length; at += 1) {
+        if (lines[at] === old[matched]) {
+          matched += 1;
+          last = at;
+        } else {
+          // Only Stryker directives of the removed bounds checks may sit between the old lines.
+          expect(DIRECTIVE.test(lines[at] ?? "")).toBe(true);
+        }
+      }
+      return [
+        ...lines.slice(0, first),
+        ...OPTION_A_NEW.split("\n"),
+        ...lines.slice(last + 1),
+      ].join("\n");
+    };
     const site = (report: Report, mutator: string, replacement: string) =>
       report.files[ITEMS]!.mutants.find(
         (m) => m.mutatorName === mutator && m.replacement === replacement,
@@ -10156,9 +10242,14 @@ describe(
       expect(
         problemsFor(sealed, itemsRoot(sealedSource), row, survivors),
       ).toEqual([]);
-      const liveSource = readFileSync(join(packageRoot, ITEMS), "utf8");
+      const liveSource = optionASource(sealed);
       expect(
-        problemsFor(reshaped(sealed, liveSource), packageRoot, row, survivors),
+        problemsFor(
+          reshaped(sealed, liveSource),
+          itemsRoot(liveSource),
+          row,
+          survivors,
+        ),
       ).toEqual([]);
       const extra = `${sealedSource}// Stryker disable next-line StringLiteral: unobservable-message — a later directive elsewhere\n`;
       expect(
@@ -10167,26 +10258,28 @@ describe(
       const timeout = reshaped(sealed, liveSource);
       site(timeout, "EqualityOperator", "end > buffer.length - 1").status =
         "Timeout";
-      expect(problemsFor(timeout, packageRoot, row, survivors)).toEqual([]);
+      expect(
+        problemsFor(timeout, itemsRoot(liveSource), row, survivors),
+      ).toEqual([]);
     });
 
     it("rejects a report that is not the committed bytes or lacks the items.ts entry", () => {
       const { row, survivors, sealed } = load();
-      const liveSource = readFileSync(join(packageRoot, ITEMS), "utf8");
+      const liveSource = optionASource(sealed);
       const stale = reshaped(sealed, liveSource);
       stale.files[ITEMS]!.source += "\n";
-      expect(problemsFor(stale, packageRoot, row, survivors)).toEqual([
-        `${row.id}: ${LIVE}`,
-      ]);
+      expect(problemsFor(stale, itemsRoot(liveSource), row, survivors)).toEqual(
+        [`${row.id}: ${LIVE}`],
+      );
       const absent = reshaped(sealed, liveSource);
       delete absent.files[ITEMS];
-      expect(problemsFor(absent, packageRoot, row, survivors)).toEqual([
-        `${row.id}: ${LIVE}`,
-      ]);
+      expect(
+        problemsFor(absent, itemsRoot(liveSource), row, survivors),
+      ).toEqual([`${row.id}: ${LIVE}`]);
       const copied = reshaped(sealed, liveSource);
       const detached = deletionProof.validateReadCStringBoundary({
         row,
-        root: packageRoot,
+        root: itemsRoot(liveSource),
         finalEntry: structuredClone(copied.files[ITEMS]),
         finalReport: copied,
         readTest: (file: string) =>
@@ -10200,7 +10293,7 @@ describe(
 
     it("rejects an undetected, unignored, duplicated or missing site mutant", () => {
       const { row, survivors, sealed } = load();
-      const liveSource = readFileSync(join(packageRoot, ITEMS), "utf8");
+      const liveSource = optionASource(sealed);
       const variants: [string, (report: Report) => void][] = [
         [
           "loop opposite Survived",
@@ -10288,9 +10381,10 @@ describe(
       for (const [label, tamper] of variants) {
         const report = reshaped(sealed, liveSource);
         tamper(report);
-        expect(problemsFor(report, packageRoot, row, survivors), label).toEqual(
-          [`${row.id}: ${LIVE}`],
-        );
+        expect(
+          problemsFor(report, itemsRoot(liveSource), row, survivors),
+          label,
+        ).toEqual([`${row.id}: ${LIVE}`]);
       }
     });
 
@@ -10545,21 +10639,32 @@ describe(
       '  const itemType = payload.toString("ascii", position, position + 4);',
     ].join("\n");
 
-    it("pins the committed items.ts to the sealed candidate plus exactly the Option A parseInfe hunk", () => {
-      const live = readFileSync(join(packageRoot, ITEMS), "utf8");
-      expect(sha256(normalize(live))).toBe(NORMALIZED_OPTION_A);
-      expect(normalize(live).split(OPTION_A_NEW).length - 1).toBe(1);
-      const reversed = normalize(live).replace(OPTION_A_NEW, OPTION_A_OLD);
-      expect(sha256(reversed)).toBe(NORMALIZED_SEALED);
-      const { sealed } = load();
-      expect(sha256(normalize(sealed.files[ITEMS]!.source))).toBe(
-        NORMALIZED_SEALED,
-      );
-    });
+    // The ONE freeze guard on the live product bytes (G18-WR-03). It is workspace-gated: a
+    // node-only checkout skips it, so a legitimate later edit of the active ISOBMFF parser does
+    // not turn the node CI red. To change a non-directive byte of src/isobmff/items.ts on purpose,
+    // re-seal under a new packet (a new NORMALIZED_OPTION_A digest, the measured-head receipts and
+    // the deletion-proof digest pins) and update this guard in the same change.
+    itWorkspace(
+      "pins the committed items.ts to the sealed candidate plus exactly the Option A parseInfe hunk (freeze guard)",
+      () => {
+        const live = readFileSync(join(packageRoot, ITEMS), "utf8");
+        expect(sha256(normalize(optionASource(load().sealed)))).toBe(
+          NORMALIZED_OPTION_A,
+        );
+        expect(sha256(normalize(live))).toBe(NORMALIZED_OPTION_A);
+        expect(normalize(live).split(OPTION_A_NEW).length - 1).toBe(1);
+        const reversed = normalize(live).replace(OPTION_A_NEW, OPTION_A_OLD);
+        expect(sha256(reversed)).toBe(NORMALIZED_SEALED);
+        const { sealed } = load();
+        expect(sha256(normalize(sealed.files[ITEMS]!.source))).toBe(
+          NORMALIZED_SEALED,
+        );
+      },
+    );
 
     it("accepts the Option A items.ts through a re-shaped whole-run report and rejects any other code byte", () => {
       const { row, survivors, sealed } = load();
-      const live = readFileSync(join(packageRoot, ITEMS), "utf8");
+      const live = optionASource(sealed);
       expect(
         problemsFor(reshaped(sealed, live), itemsRoot(live), row, survivors),
       ).toEqual([]);
