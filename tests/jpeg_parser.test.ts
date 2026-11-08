@@ -828,9 +828,7 @@ function jpegWithTerminatorAt(
   ]);
 }
 
-async function parseWithReadPositions(
-  bytes: Buffer,
-): Promise<{
+async function parseWithReadPositions(bytes: Buffer): Promise<{
   parsed: Awaited<ReturnType<typeof parseJpeg>>;
   positions: number[];
 }> {
