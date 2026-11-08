@@ -65,11 +65,6 @@ export function checkLedger({
   const problems = [];
   const clusters = ledger?.clusters;
   if (!Array.isArray(clusters)) return ["ledger has no clusters array"];
-  // G10-WR-01: a final report with no files proves nothing; every final-mode check would pass
-  // vacuously over zero mutants.
-  if (mode === "final" && Object.keys(finalReport?.files ?? {}).length === 0)
-    problems.push("final report has no files");
-
   const ids = new Set();
   const membership = new Map(); // key -> cluster ids
   for (const c of clusters) {
@@ -377,15 +372,23 @@ export function main(argv) {
     ).groups;
     const read = (p) =>
       p === null ? null : asReport(JSON.parse(readFileSync(p, "utf8")));
+    const finalReport = read(finalPath);
     const problems = checkLedger({
       ledger,
       preReport: read(prePath),
-      finalReport: read(finalPath),
+      finalReport,
       root,
       groups,
       mode: finalPath === null ? "pre" : "final",
       requireSnapshot: true,
     });
+    // G10-WR-01: a final report with no files proves nothing; every final-mode check would pass
+    // vacuously over zero mutants. Programmatic callers keep their own report handling.
+    if (
+      finalPath !== null &&
+      Object.keys(finalReport?.files ?? {}).length === 0
+    )
+      problems.push("final report has no files");
     for (const line of summary(ledger, groups))
       process.stdout.write(`${line}\n`);
     for (const p of problems) process.stderr.write(`ledger: ${p}\n`);
