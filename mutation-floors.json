@@ -230,5 +230,35 @@
         "coveredScoreTenths": 333
       }
     }
+  },
+  "caps": {
+    "runId": 42451231920,
+    "sha": "c6ee56841c1047ef1578686798c9064c6baa20cc",
+    "date": "2026-11-08",
+    "files": [
+      "src/isobmff/caps.ts",
+      "src/isobmff/plan.ts",
+      "src/metadata/exif.ts",
+      "src/metadata/icc.ts",
+      "src/metadata/icc_admission.ts",
+      "src/png/chunks.ts",
+      "src/webp/riff.ts"
+    ],
+    "counts": {
+      "Killed": 1914,
+      "Timeout": 11,
+      "Survived": 87,
+      "NoCoverage": 0,
+      "CompileError": 790,
+      "RuntimeError": 0,
+      "Ignored": 155
+    },
+    "scoreTenths": 956,
+    "coveredScoreTenths": 956,
+    "timeout": 11,
+    "commentIgnored": 40,
+    "pluginIgnored": 115,
+    "staticIgnored": 0,
+    "note": "D-14 bounded-memory caps, ignoreStatic false, measured once per milestone close; not a floor"
   }
 }

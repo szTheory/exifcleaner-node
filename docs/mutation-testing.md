@@ -151,7 +151,11 @@ The D-14 caps measurement (`mode=caps`, `ignoreStatic` off) runs from
 `reports/mutation/stryker.caps.config.json`, which `tools/mutation/baseline.mjs` derives from the base
 config with `ignoreStatic` set to false (the Stryker CLI can switch the option on but not off, so the
 flag cannot be passed). It is recorded once per milestone close under `caps` in
-`mutation-floors.json` with its run id and date; it is not a floor.
+`mutation-floors.json` with its run id and date; it is not a floor. First measurement: run
+[42451231920](https://github.com/szTheory/exifcleaner-node/actions/runs/42451231920) on head
+`c6ee56841c1047ef1578686798c9064c6baa20cc` (2026-11-08, 7 files, 2957 mutants): 1914 Killed, 11
+Timeout, 87 Survived, 0 NoCoverage, score 95.6 percent. The 87 survivors are the static constant
+mutants that the regular baseline ignores.
 
 To raise a floor: download the artifacts of a hosted `mode=baseline attempts=3` run, run
 `node tools/mutation/floors.mjs scores <attempt-1> <attempt-2> <attempt-3>`, and edit
