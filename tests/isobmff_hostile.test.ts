@@ -5159,6 +5159,40 @@ describe("jpeg/parser.ts structure error, signature, read and DQT clusters (67-2
   });
 });
 
+// Plan 67-60 (CR-01): the readWindowed lower-bound refill operand, restored after Plan 67-27 Gate 3
+// removed it. The scan for the entropy-coded data peeks one byte past a 0xFF; when that peek is
+// the first byte of a refill window, the main loop re-reads the 0xFF at `window.start - 1`, which
+// lies before the window. The killers are static registrations in this pinned-closure file (the
+// phase verifier cannot prove absence from the baseline for tests/jpeg_parser.test.ts, whose
+// baseline source uses it.each); tests/jpeg_parser.test.ts keeps the offset-sweep regression.
+
+/** A minimal JPEG whose terminating EOI 0xFF sits at `ffOffset` (entropy padded with 0x11). */
+function jpJpegWithEoiAt(ffOffset: number): Buffer {
+  const base = minimalJpeg({ components: 3 });
+  const body = base.subarray(0, base.length - 2);
+  return Buffer.concat([
+    body,
+    Buffer.alloc(ffOffset - body.length, 0x11),
+    Buffer.from([0xff, 0xd9]),
+  ]);
+}
+
+describe("jpeg/parser.ts readWindowed refill clusters (67-60, CR-01)", () => {
+  it("readWindowed ConditionalExpression: an EOI whose 0xFF is the last byte of the first window parses (offset 65535)", async () => {
+    const outcome = await jpParse(jpJpegWithEoiAt(65_535));
+    expect(outcome.error).toBeUndefined();
+    expect(outcome.parsed?.primaryEoiEnd).toBe(65_537);
+  });
+
+  it("readWindowed EqualityOperator: no file position is read twice when the EOI 0xFF is the first byte of a refill window (offset 65536)", async () => {
+    const outcome = await jpParse(jpJpegWithEoiAt(65_536));
+    expect(outcome.error).toBeUndefined();
+    expect(outcome.parsed?.primaryEoiEnd).toBe(65_538);
+    const positions = outcome.reads.map((read) => read.position);
+    expect(new Set(positions).size).toBe(positions.length);
+  });
+});
+
 // Parser clusters for src/jpeg/parser.ts (67-28, jpeg-6): DHT table framing, SOS header framing,
 // the table requirements of each scan type and the entropy-data terminator. Every fixture is built
 // from the marker grammar (T.81: marker, length, payload), so each expected outcome comes from the
