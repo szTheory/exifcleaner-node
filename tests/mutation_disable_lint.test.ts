@@ -162,13 +162,16 @@ describe("scanSrcDisables", () => {
 
   it("reports a bad disable in a temp tree (negative control)", () => {
     const root = mkdtempSync(join(tmpdir(), "disable-lint-"));
-    execFileSync("git", ["init", "-q"], { cwd: root });
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+    );
+    execFileSync("git", ["init", "-q"], { cwd: root, env });
     mkdirSync(join(root, "src"));
     writeFileSync(
       join(root, "src", "x.ts"),
       "// Stryker disable all\nconst a = 1;\n",
     );
-    execFileSync("git", ["add", "src/x.ts"], { cwd: root });
+    execFileSync("git", ["add", "src/x.ts"], { cwd: root, env });
     const result = scanSrcDisables(root, classes);
     expect(result.scanned).toBe(1);
     expect(result.problems).toEqual([

@@ -43,6 +43,13 @@ const script = (await import(
   pathToFileURL(join(packageRoot, "tools", "mutation", "floors.mjs")).href
 )) as FloorsScript;
 
+/** The parent environment without any GIT_* variable, so git helpers act on the temp repository
+ * they are pointed at even when the suite is launched from a hook or `git bisect run` (G15-WR-03). */
+const cleanGitEnv = (): NodeJS.ProcessEnv =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+  );
+
 describe("floors tracer (MUT-03, D-16)", () => {
   it("the real-tree floors never lower the base revision's floors", () => {
     const base = script.readBaseFloors(
@@ -143,7 +150,11 @@ describe("floors main() exit codes in a temp git repo (D-16)", () => {
   });
 
   const git = (cwd: string, ...args: string[]): string =>
-    execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+    execFileSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      env: cleanGitEnv(),
+    }).trim();
 
   /** A repo holding a copy of the scripts and the given floors at HEAD. */
   function repo(headFloors: string, originFloors: string | null | "none") {
@@ -182,7 +193,7 @@ describe("floors main() exit codes in a temp git repo (D-16)", () => {
   }
 
   const run = (cwd: string, ...args: string[]) => {
-    const env = { ...process.env };
+    const env = cleanGitEnv();
     delete env.MUTATION_BASE_REV;
     delete env.GITHUB_BASE_REF;
     return spawnSync(

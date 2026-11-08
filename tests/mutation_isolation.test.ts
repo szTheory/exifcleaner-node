@@ -102,8 +102,19 @@ function buildTree(options: TreeOptions = {}): string {
   return root;
 }
 
+/** The parent environment without any GIT_* variable, so git helpers act on the temp repository
+ * they are pointed at even when the suite is launched from a hook or `git bisect run` (G15-WR-03). */
+const cleanGitEnv = (): NodeJS.ProcessEnv =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+  );
+
 function git(cwd: string, ...args: string[]): string {
-  return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+  return execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    env: cleanGitEnv(),
+  }).trim();
 }
 
 /** A repo with a fake origin/main at the first commit and a branch commit. */
