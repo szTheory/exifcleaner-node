@@ -10408,6 +10408,72 @@ describe(
       ).toBeGreaterThan(0);
     });
 
+    // Plan 67-46 amendment 4: the first real hosted whole-run report showed the iloc.ts:199
+    // `ensureBytes` counterpart (pinned Survived by the sealed report) Killed by a later test.
+    it("accepts an iloc counterpart pinned Survived that the hosted report shows detected, only in measured-head mode, and rejects every other status", () => {
+      const { bundle, finalReport } = loadIlocBoundaryBundle();
+      const root = materializeIlocBoundaryBundle(bundle, finalReport);
+      const ILOC = "src/isobmff/iloc.ts";
+      const counterpart = (report: typeof finalReport) =>
+        report.files[ILOC]!.mutants.find(
+          (m) =>
+            m.mutatorName === "CallExpression" &&
+            m.status === "Survived" &&
+            m.location.start.line === 199,
+        )!;
+      const withStatus = (status: string) => {
+        const report = structuredClone({
+          ...finalReport,
+          files: {
+            ...finalReport.files,
+            "src/isobmff/caps.ts": {
+              language: "typescript",
+              source: "export {};\n",
+              mutants: [],
+            },
+          },
+        });
+        const mutant = counterpart(report);
+        mutant.status = status;
+        if (status === "Killed" || status === "Timeout")
+          mutant.killedBy = ["1"];
+        return report;
+      };
+      const problems = (
+        report: typeof finalReport,
+        measuredHeadReport: boolean,
+      ) =>
+        bundle.candidateRows
+          .filter((candidate) => candidate.disposition === "dead")
+          .flatMap(
+            (row) =>
+              deletionProof.validateDeletion({
+                row,
+                root,
+                currentSource: report.files[ILOC]!.source,
+                finalEntry: report.files[ILOC]!,
+                finalReport: report,
+                readTest: (file: string) =>
+                  readFileSync(join(root, file), "utf8"),
+                survivors: bundle.selectedMembers,
+                requireFinal: true,
+                measuredHeadReport,
+              }).problems,
+          );
+      expect(problems(withStatus("Survived"), true)).toEqual([]);
+      for (const status of ["Killed", "Timeout"]) {
+        expect(problems(withStatus(status), true), status).toEqual([]);
+        expect(problems(withStatus(status), false).join("\n"), status).toMatch(
+          /complete measured isobmff-3 source inventory|exact counterpart status changed from Survived to/,
+        );
+      }
+      for (const status of ["NoCoverage", "Ignored", "CompileError"])
+        expect(
+          problems(withStatus(status), true).length,
+          status,
+        ).toBeGreaterThan(0);
+    });
+
     it("accepts a re-attributed first failing test for a deletion successor only in measured-head mode, and still needs the named test and a recorded killer", () => {
       const fixture = deletionFixture();
       const run = (

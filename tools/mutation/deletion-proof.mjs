@@ -1812,7 +1812,18 @@ export function validateDeletion({
             /^redundant-guard-after-typed-check — \S/.test(
               String(current.statusReason ?? ""),
             );
-          if (old.status !== current.status && !oneOwnedInnerTrue)
+          // Plan 67-46 amendment 4: in measured-head mode a counterpart that the sealed report
+          // pinned Survived and the hosted whole-run report shows detected (Killed or Timeout) is
+          // a stronger suite, never a weaker deletion proof. Every other change still fails.
+          const strengthened =
+            measuredHeadReport &&
+            old.status === "Survived" &&
+            (current.status === "Killed" || current.status === "Timeout");
+          if (
+            old.status !== current.status &&
+            !oneOwnedInnerTrue &&
+            !strengthened
+          )
             throw new Error(
               `iloc exact counterpart status changed from ${old.status} to ${current.status}`,
             );
