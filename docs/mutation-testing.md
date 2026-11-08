@@ -147,11 +147,11 @@ have no undetected mutant (every pre-triage survivor is killed, deleted or recor
 `tools/mutation/ledger.json`); the orchestration groups were not triaged in Phase 67 and keep their
 pre-triage scores, so engine, transaction and admission-core are the headroom to the 80.0 target.
 
-The D-14 caps measurement (`mode=caps`, `ignoreStatic` off) is recorded once per milestone close
-under `caps` in `mutation-floors.json`; it is not a floor. No caps measurement is recorded yet: the
-first dispatch (run 42401057745) failed before Stryker started because `baseline.mjs` passes
-`--ignoreStatic false`, which the Stryker CLI rejects (the flag only turns the option on; the base
-config already sets it, so caps mode needs a config without it).
+The D-14 caps measurement (`mode=caps`, `ignoreStatic` off) runs from
+`reports/mutation/stryker.caps.config.json`, which `tools/mutation/baseline.mjs` derives from the base
+config with `ignoreStatic` set to false (the Stryker CLI can switch the option on but not off, so the
+flag cannot be passed). It is recorded once per milestone close under `caps` in
+`mutation-floors.json` with its run id and date; it is not a floor.
 
 To raise a floor: download the artifacts of a hosted `mode=baseline attempts=3` run, run
 `node tools/mutation/floors.mjs scores <attempt-1> <attempt-2> <attempt-3>`, and edit
