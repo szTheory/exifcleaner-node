@@ -35,6 +35,9 @@ const ROOT = join(HERE, "..", "..");
 const REPORTS = join(ROOT, "reports", "mutation");
 const STRYKER_BIN = join(HERE, "node_modules", ".bin", "stryker");
 const CONFIG = "tools/mutation/stryker.config.json";
+// Plan 67-46 amendment 4: the Stryker CLI can switch `ignoreStatic` on but never off, and the base
+// config switches it on, so the caps run (D-14, ignoreStatic off) runs from a derived config.
+const CAPS_CONFIG = "reports/mutation/stryker.caps.config.json";
 const SAMPLE_MS = 5000;
 
 const tracked = (root = ROOT, pathspec = "src") =>
@@ -86,6 +89,24 @@ export function capFiles(root = ROOT) {
   const list = [...files].sort();
   if (list.length === 0) throw new Error("no cap files found");
   return list;
+}
+
+/** The base Stryker config text with `ignoreStatic` off, for the caps run. */
+export function capsConfigText(baseText) {
+  return `${JSON.stringify({ ...JSON.parse(baseText), ignoreStatic: false }, null, 2)}\n`;
+}
+
+/** Stryker argument list of a full run; `concurrency` is added only when given. */
+export function strykerRunArgs({ mutate, caps, concurrency }) {
+  const args = [
+    "run",
+    caps ? CAPS_CONFIG : CONFIG,
+    "--mutate",
+    mutate.join(","),
+  ];
+  if (concurrency !== undefined)
+    args.push("--concurrency", String(concurrency));
+  return args;
 }
 
 function readProc(path) {
@@ -221,13 +242,20 @@ async function full(env) {
   const mutate = caps
     ? capFiles()
     : mutateListForGroup(group, readFloors(), trackedSrc());
-  const args = ["run", CONFIG, "--mutate", mutate.join(",")];
-  if (caps) args.push("--ignoreStatic", "false");
   let concurrency = 4;
-  if (env.BASELINE_CONCURRENCY) {
-    concurrency = Number(env.BASELINE_CONCURRENCY);
-    args.push("--concurrency", String(concurrency));
+  if (env.BASELINE_CONCURRENCY) concurrency = Number(env.BASELINE_CONCURRENCY);
+  if (caps) {
+    mkdirSync(REPORTS, { recursive: true });
+    writeFileSync(
+      join(ROOT, CAPS_CONFIG),
+      capsConfigText(readFileSync(join(ROOT, CONFIG), "utf8")),
+    );
   }
+  const args = strykerRunArgs({
+    mutate,
+    caps,
+    concurrency: env.BASELINE_CONCURRENCY ? concurrency : undefined,
+  });
   rmSync(join(REPORTS, "mutation.json"), { force: true });
   const started = Date.now();
   const done = await runStryker(args);

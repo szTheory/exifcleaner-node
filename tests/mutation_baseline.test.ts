@@ -14,7 +14,9 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateScores,
   capFiles,
+  capsConfigText,
   mutateListForGroup,
+  strykerRunArgs,
   sampleMemory,
   trackedSrc,
   // @ts-expect-error plain ESM tooling script without types
@@ -180,5 +182,55 @@ describe("aggregate", () => {
       groups,
     );
     expect(r.minima.io).toBe(500);
+  });
+});
+
+// Plan 67-46 amendment 4: the first hosted caps dispatch (run 42401057745) died before Stryker
+// started because the driver passed `--ignoreStatic false`, which the Stryker CLI rejects (the flag
+// can only switch the option on). The caps run therefore uses a derived config.
+describe("caps run arguments", () => {
+  const baseText = readFileSync(
+    join(root, "tools", "mutation", "stryker.config.json"),
+    "utf8",
+  );
+
+  it("never passes ignoreStatic on the command line and runs from the derived config", () => {
+    const args: string[] = strykerRunArgs({
+      mutate: ["src/isobmff/caps.ts", "src/webp/riff.ts"],
+      caps: true,
+      concurrency: 4,
+    });
+    expect(args).toEqual([
+      "run",
+      "reports/mutation/stryker.caps.config.json",
+      "--mutate",
+      "src/isobmff/caps.ts,src/webp/riff.ts",
+      "--concurrency",
+      "4",
+    ]);
+    expect(args.join(" ")).not.toMatch(/ignoreStatic/u);
+  });
+
+  it("keeps the base config and the same argument shape for an ordinary run", () => {
+    expect(
+      strykerRunArgs({ mutate: ["src/io/copy-range.ts"], caps: false }),
+    ).toEqual([
+      "run",
+      "tools/mutation/stryker.config.json",
+      "--mutate",
+      "src/io/copy-range.ts",
+    ]);
+  });
+
+  it("derives a config that differs from the base config only in ignoreStatic", () => {
+    const base = JSON.parse(baseText) as Record<string, unknown>;
+    expect(base.ignoreStatic).toBe(true);
+    const derived = JSON.parse(capsConfigText(baseText)) as Record<
+      string,
+      unknown
+    >;
+    expect(derived.ignoreStatic).toBe(false);
+    expect({ ...derived, ignoreStatic: true }).toEqual(base);
+    expect(capsConfigText(baseText).endsWith("\n")).toBe(true);
   });
 });
