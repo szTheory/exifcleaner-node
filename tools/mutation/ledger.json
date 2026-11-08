@@ -188973,6 +188973,42 @@
       "symbolScope": "function"
     },
     {
+      "id": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression:gap-01",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "readWindowed",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000138\u00007\u0000138\u000030"
+      ],
+      "note": "Plan 67-60 (CR-01) restored the lower-bound operand removed by the Plan 67-27 Gate 3 edit, reversing that dead disposition (the member is observable). reports/triage/67-60/cr01-parser2.json (single-file Stryker run on src/jpeg/parser.ts, live line 130): Killed; the exact named test appears in killedBy. The always-false member leaves a refill-needing read inside the stale window, so a terminator 0xFF at offset 65535 throws a RangeError; the offset-65535 test kills it.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/parser.ts readWindowed refill clusters (67-60, CR-01) > readWindowed ConditionalExpression: an EOI whose 0xFF is the last byte of the first window parses (offset 65535)"
+      },
+      "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression"
+    },
+    {
+      "id": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression:gap-02",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "readWindowed",
+      "mutatorName": "ConditionalExpression",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000138\u00007\u0000138\u000064"
+      ],
+      "note": "Plan 67-60 (CR-01) restored the lower-bound operand removed by the Plan 67-27 Gate 3 edit, reversing that dead disposition (the member is observable). reports/triage/67-60/cr01-parser2.json (single-file Stryker run on src/jpeg/parser.ts, live line 130): Killed; the exact named test appears in killedBy. The always-true member refills on every read; the first killer Stryker records is the earlier test named here (alphabetical test-file order), and the new read-position test of tests/isobmff_hostile.test.ts (offset 65536) and the sweep in tests/jpeg_parser.test.ts also fails the same mutant (checked by applying it alone and reverting).",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg-handler.ts plan, I/O and verification clusters (67-24, jpeg-2) > segmentsEqual ArithmeticOperator and MethodExpression: a segment larger than one copy block compares block by block within the buffer bound"
+      },
+      "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression"
+    },
+    {
       "id": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
@@ -188986,23 +189022,6 @@
       ],
       "note": "Deleted by the Plan 67-27 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"length > READ_WINDOW_BYTES\" no longer appears in its enclosing function readWindowed (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
       "symbol": "length > READ_WINDOW_BYTES",
-      "symbolScope": "function",
-      "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression"
-    },
-    {
-      "id": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression:dead-02",
-      "group": "jpeg",
-      "file": "src/jpeg/parser.ts",
-      "function": "readWindowed",
-      "mutatorName": "ConditionalExpression",
-      "disposition": "dead",
-      "count": 2,
-      "keys": [
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000false\u0000138\u00007\u0000138\u000030",
-        "src/jpeg/parser.ts\u0000ConditionalExpression\u0000true\u0000138\u00007\u0000138\u000064"
-      ],
-      "note": "Deleted by the Plan 67-27 Gate 3 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"position < window.start\" no longer appears in its enclosing function readWindowed (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
-      "symbol": "position < window.start",
       "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:ConditionalExpression"
     },
@@ -189025,6 +189044,24 @@
       "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator"
     },
     {
+      "id": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator:gap-02",
+      "group": "jpeg",
+      "file": "src/jpeg/parser.ts",
+      "function": "readWindowed",
+      "mutatorName": "EqualityOperator",
+      "disposition": "gap",
+      "count": 1,
+      "keys": [
+        "src/jpeg/parser.ts\u0000EqualityOperator\u0000position <= window.start\u0000138\u00007\u0000138\u000030"
+      ],
+      "note": "Plan 67-60 (CR-01) restored the lower-bound operand removed by the Plan 67-27 Gate 3 edit, reversing that dead disposition (the member is observable). reports/triage/67-60/cr01-parser2.json (single-file Stryker run on src/jpeg/parser.ts, live line 130): Killed; the exact named test appears in killedBy. The <= member re-reads the window start when the terminator 0xFF is the first byte of a refill window; the duplicate-position test kills it.",
+      "test": {
+        "file": "tests/isobmff_hostile.test.ts",
+        "name": "jpeg/parser.ts readWindowed refill clusters (67-60, CR-01) > readWindowed EqualityOperator: no file position is read twice when the EOI 0xFF is the first byte of a refill window (offset 65536)"
+      },
+      "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator"
+    },
+    {
       "id": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator:dead-01",
       "group": "jpeg",
       "file": "src/jpeg/parser.ts",
@@ -189038,22 +189075,6 @@
       ],
       "note": "Deleted by the Plan 67-27 Gate 2 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"length > READ_WINDOW_BYTES\" no longer appears in its enclosing function readWindowed (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
       "symbol": "length > READ_WINDOW_BYTES",
-      "symbolScope": "function",
-      "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator"
-    },
-    {
-      "id": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator:dead-02",
-      "group": "jpeg",
-      "file": "src/jpeg/parser.ts",
-      "function": "readWindowed",
-      "mutatorName": "EqualityOperator",
-      "disposition": "dead",
-      "count": 1,
-      "keys": [
-        "src/jpeg/parser.ts\u0000EqualityOperator\u0000position <= window.start\u0000138\u00007\u0000138\u000030"
-      ],
-      "note": "Deleted by the Plan 67-27 Gate 3 behavior-preserving source edit approved by the maintainer (reply \"approve\", relayed by the coordinating agent, 67-27-HALTED.md, Option A): the symbol \"position < window.start\" no longer appears in its enclosing function readWindowed (scoped witness); the fresh unfiltered report reports/triage/67-27/batch-final.json shows no mutant at this anchor. Reachable behavior is unchanged (full suite, qualification and native differential).",
-      "symbol": "position < window.start",
       "symbolScope": "function",
       "originClusterId": "jpeg:src/jpeg/parser.ts:readWindowed:EqualityOperator"
     },
