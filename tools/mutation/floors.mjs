@@ -21,6 +21,10 @@ const ROOT = join(HERE, "..", "..");
 export function checkScores(scoredList, floors) {
   const problems = [];
   for (const [name, group] of Object.entries(floors)) {
+    if (!Number.isFinite(group.floorTenths)) {
+      problems.push(`${name}: floorTenths is not a finite number`);
+      continue;
+    }
     const m = minScore(scoredList, name);
     if (m < group.floorTenths)
       problems.push(`${name}: measured ${m} below floor ${group.floorTenths}`);
@@ -105,7 +109,7 @@ export function checkMonotonic(baseText, headText) {
   const problems = [];
   for (const [name, b] of Object.entries(base)) {
     const h = head[name];
-    if (h === undefined) {
+    if (h === undefined || h === null) {
       problems.push(`${name}: removed group`);
       continue;
     }
@@ -113,6 +117,8 @@ export function checkMonotonic(baseText, headText) {
       problems.push(
         `${name}: lowered floor ${b.floorTenths} -> ${h.floorTenths}`,
       );
+    if (b.tier === "trust" && h.tier !== "trust")
+      problems.push(`${name}: tier lowered trust -> ${h.tier}`);
     const globs = new Set(h.globs ?? []);
     for (const g of b.globs ?? [])
       if (!globs.has(g)) problems.push(`${name}: glob list shrank: ${g}`);

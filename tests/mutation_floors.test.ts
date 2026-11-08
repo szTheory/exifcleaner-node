@@ -102,6 +102,37 @@ describe("checkScores controls (D-16)", () => {
   });
 });
 
+describe("fail-closed controls (G09-WR-01, G09-WR-02)", () => {
+  it("a floor entry with a missing or non-numeric floorTenths fails checkScores", () => {
+    for (const floorTenths of [undefined, null, "905", Number.NaN]) {
+      const floors = {
+        webp: { tier: "trust", globs: ["src/a/**"], floorTenths },
+      } as unknown as Record<string, Group>;
+      expect(
+        script.checkScores([{ webp: { scoreTenths: 1000 } }], floors),
+        String(floorTenths),
+      ).toEqual(["webp: floorTenths is not a finite number"]);
+    }
+  });
+
+  it("lowering a group's tier from trust fails the monotonic gate and a null head group is a removed group", () => {
+    const base = text({ webp: grp(905) });
+    const lowered = text({
+      webp: { tier: "orchestration", globs: ["src/a/**"], floorTenths: 905 },
+    });
+    expect(script.checkMonotonic(base, lowered)).toEqual([
+      "webp: tier lowered trust -> orchestration",
+    ]);
+    expect(script.checkMonotonic(base, text({ webp: grp(905) }))).toEqual([]);
+    expect(
+      script.checkMonotonic(
+        base,
+        JSON.stringify({ schemaVersion: 1, groups: { webp: null } }),
+      ),
+    ).toEqual(["webp: removed group"]);
+  });
+});
+
 describe("checkMonotonic controls (D-16)", () => {
   const base = text({ webp: grp(500, ["src/a/**", "src/b/**"]) });
 
