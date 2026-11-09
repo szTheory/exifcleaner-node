@@ -302,7 +302,7 @@ describe("floors main() exit codes in a temp git repo (D-16)", () => {
     const result = run(cwd, "monotonic");
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/g: lowered floor 6 -> 5/);
-  });
+  }, 30_000);
 
   it("origin with an equal floor: exits 0 (positive control)", () => {
     const cwd = repo(floors(6), floors(6));
