@@ -413,7 +413,7 @@ describe.each(ISOBMFF_DECLINE_CLASSES)(
       const path = await freshPath();
       await fixture.write(path);
 
-      if (fixture.stage === "selection") {
+      if (fixture.stage === "selection" || fixture.stage === "post-selection") {
         const bytes = await readFile(path);
         expect(classifyIsobmffBrand(bytes.subarray(0, 256))).toBe("decline");
       }
