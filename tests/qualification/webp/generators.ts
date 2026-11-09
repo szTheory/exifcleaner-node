@@ -5,6 +5,7 @@ import {
   anim,
   animationFrame,
   exifWithOrientation,
+  exifWithResolution,
   iccCanaryProfile,
   iccProfile,
   metadataWebp,
@@ -13,6 +14,7 @@ import {
   vp8x,
   webp,
   xmpPacket,
+  type ExifResolutionFixtureOptions,
   type FixtureChunk,
 } from "../../fixtures.js";
 import {
@@ -122,6 +124,21 @@ const validAnimation = webp([
   { fourCc: "ANIM", data: anim() },
   { fourCc: "ANMF", data: animationFrame({ width: 2 }) },
 ]);
+
+/**
+ * An extended WebP (VP8X with the EXIF flag, one VP8 image, one EXIF chunk) whose EXIF
+ * carries the IFD0 tags named by `options` (constructed provenance, WEBP-07: nothing about a
+ * resolution-bearing source is read from the corpus, so no manifest row is needed).
+ */
+export function webpWithExifResolution(
+  options: ExifResolutionFixtureOptions = {},
+): Buffer {
+  return webp([
+    { fourCc: "VP8X", data: vp8x(0x08) },
+    { fourCc: "VP8 ", data: vp8() },
+    { fourCc: "EXIF", data: exifWithResolution(options) },
+  ]);
+}
 
 export const validGrammarCases: readonly ValidGrammarCase[] = Object.freeze([
   {

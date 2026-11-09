@@ -10,6 +10,7 @@ import {
   withInput,
   type DifferentialProfile,
   type MetadataEntry,
+  type MetadataProjection,
   type PermittedKind,
 } from "../kit/oracles.js";
 import type { PayloadDigest } from "../kit/corpus.js";
@@ -406,3 +407,134 @@ export const webpDifferentialProfile: DifferentialProfile = {
     },
   ],
 };
+
+/**
+ * What a WebP resolution differential row asked the native sanitizer to keep. WebP resolution
+ * lives in the EXIF chunk (IFD0), not in a container-level field, so the kit's generic
+ * `Resolution:Preserved` grant (fixed to the JFIF namespace) cannot express it (RESEARCH C3);
+ * these rows are checked by the local assertions of `compareWebpResolutionPreservation`, the
+ * JPEG D-06 precedent, and the kit stays unchanged.
+ */
+export interface WebpResolutionExpectation {
+  readonly orientation: boolean;
+  readonly resolution: boolean;
+}
+
+function projectionTags(
+  label: string,
+  entries: readonly MetadataEntry[] | undefined,
+): Map<string, unknown> {
+  const tags = new Map<string, unknown>();
+  for (const entry of entries ?? []) {
+    const keys = Object.keys(entry);
+    if (keys.length !== 1)
+      throw new Error(`Malformed ${label} metadata entry: ${canonical(entry)}`);
+    const tag = keys[0]!;
+    if (tags.has(tag)) throw new Error(`Duplicate ${label} tag: ${tag}`);
+    tags.set(tag, entry[tag]);
+  }
+  return tags;
+}
+
+/**
+ * The exact IFD0 tag set the native WebP output must carry (D-10, D-13): the source's own
+ * XResolution and YResolution values (only when the source has the complete pair and
+ * resolution was requested), its ResolutionUnit when it had one, and Orientation when it was
+ * requested and the source had one. Nothing else: in particular no YCbCrPositioning, which
+ * ExifTool adds when it rebuilds the block with `-tagsfromfile` (measured, 68-06).
+ */
+function expectedWebpExifTags(
+  source: MetadataProjection,
+  expectation: WebpResolutionExpectation,
+): Map<string, unknown> {
+  const sourceTags = projectionTags("source EXIF", source.namespaces.EXIF);
+  const expected = new Map<string, unknown>();
+  if (
+    expectation.resolution &&
+    sourceTags.has("XResolution") &&
+    sourceTags.has("YResolution")
+  ) {
+    expected.set("XResolution", sourceTags.get("XResolution"));
+    expected.set("YResolution", sourceTags.get("YResolution"));
+    if (sourceTags.has("ResolutionUnit"))
+      expected.set("ResolutionUnit", sourceTags.get("ResolutionUnit"));
+  }
+  if (expectation.orientation && sourceTags.has("Orientation"))
+    expected.set("Orientation", sourceTags.get("Orientation"));
+  return expected;
+}
+
+function withoutRiffFlags(
+  namespace: string,
+  entries: readonly MetadataEntry[] | undefined,
+): readonly MetadataEntry[] {
+  return (entries ?? []).filter(
+    (entry) => namespace !== "RIFF" || !(RIFF_FLAGS_TAG in entry),
+  );
+}
+
+/**
+ * Pure (no ExifTool invocation): the WebP-local assertion for a resolution differential row.
+ * `reference` is the kit's bare `-all=` reference projection, which keeps no IFD0 tag and no
+ * RIFF:WebP_Flags (measured, 68-06), so the only native-only differences allowed are the
+ * IFD0 tags named by `expectedWebpExifTags` and the RIFF:WebP_Flags value equal to the EXIF
+ * flag bit (set whenever an EXIF chunk is kept). Throws on any oracle warning, a missing or
+ * mismatched resolution tag (including swapped X and Y and a different unit), any extra IFD0
+ * tag, a wrong flags value, or any other namespace difference from the reference.
+ */
+export function compareWebpResolutionPreservation(
+  source: MetadataProjection,
+  output: MetadataProjection,
+  reference: MetadataProjection,
+  expectation: WebpResolutionExpectation,
+): void {
+  for (const [label, projection] of [
+    ["source", source],
+    ["output", output],
+    ["reference", reference],
+  ] as const)
+    if (projection.warnings.length > 0)
+      throw new Error(`Oracle warning: ${label}: ${projection.warnings[0]}`);
+
+  const referenceTags = [
+    ...projectionTags("reference EXIF", reference.namespaces.EXIF).keys(),
+  ];
+  if (referenceTags.length > 0)
+    throw new Error(`Reference kept IFD0 tags: ${referenceTags.join(",")}`);
+
+  const expected = expectedWebpExifTags(source, expectation);
+  const actual = projectionTags("output EXIF", output.namespaces.EXIF);
+  for (const tag of actual.keys())
+    if (!expected.has(tag)) throw new Error(`Unexpected IFD0 tag: ${tag}`);
+  for (const [tag, value] of expected) {
+    if (!actual.has(tag)) throw new Error(`Missing IFD0 tag: ${tag}`);
+    if (canonical(actual.get(tag)) !== canonical(value))
+      throw new Error(
+        `IFD0 ${tag} mismatch: expected ${canonical(value)}, got ${canonical(actual.get(tag))}`,
+      );
+  }
+
+  const names = new Set([
+    ...Object.keys(output.namespaces),
+    ...Object.keys(reference.namespaces),
+  ]);
+  names.delete("EXIF");
+  for (const name of [...names].sort())
+    if (
+      canonical(withoutRiffFlags(name, output.namespaces[name])) !==
+      canonical(withoutRiffFlags(name, reference.namespaces[name]))
+    )
+      throw new Error(`Unpermitted metadata difference: ${name}`);
+
+  const flags = (output.namespaces.RIFF ?? []).filter(
+    (entry) => RIFF_FLAGS_TAG in entry,
+  );
+  const expectedFlags =
+    expected.size === 0
+      ? []
+      : [{ [RIFF_FLAGS_TAG]: RIFF_ORIENTATION_FLAG_BIT }];
+  if (canonical(flags) !== canonical(expectedFlags))
+    throw new Error(
+      `RIFF:${RIFF_FLAGS_TAG} mismatch: expected ${canonical(expectedFlags)}, got ${canonical(flags)}`,
+    );
+}
