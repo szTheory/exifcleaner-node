@@ -159,6 +159,43 @@ export const validGrammarCases: readonly ValidGrammarCase[] = Object.freeze([
   },
   { id: "valid-lossy-still", bytes: validLossy },
   { id: "valid-metadata-orientation", bytes: metadataWebp() },
+  {
+    id: "valid-resolution-300x72-inch-orientation",
+    bytes: webpWithExifResolution({
+      make: "CameraCo",
+      artist: "Ann",
+      orientation: 6,
+      xResolution: [300, 1],
+      yResolution: [72, 1],
+      resolutionUnit: 2,
+    }),
+  },
+  {
+    id: "valid-resolution-no-unit",
+    bytes: webpWithExifResolution({
+      make: "CameraCo",
+      xResolution: [300, 1],
+      yResolution: [300, 1],
+    }),
+  },
+  {
+    id: "valid-resolution-only",
+    bytes: webpWithExifResolution({
+      xResolution: [144, 1],
+      yResolution: [144, 1],
+      resolutionUnit: 2,
+    }),
+  },
+  {
+    id: "valid-resolution-exif-prefix",
+    bytes: webpWithExifResolution({
+      exifPrefix: true,
+      orientation: 3,
+      xResolution: [96, 1],
+      yResolution: [96, 1],
+      resolutionUnit: 3,
+    }),
+  },
 ]);
 
 const cases: readonly HostileMutationCase[] = [
