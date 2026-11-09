@@ -10,3 +10,15 @@ native/phase-46-final-candidate.json
 # no extension prettier recognizes; this one is a real .md, so it needs an
 # explicit ignore entry to get the same treatment.
 tests/corpus/tools/licenses/libjpeg-turbo-LICENSE.md
+
+# Phase 67 (D-06): StrykerJS sandbox and reports
+reports/
+.stryker-tmp/
+
+# Phase 67 (D-17, D-18): generated audit data, written by tools/mutation/cluster.mjs
+tools/mutation/ledger.json
+tools/mutation/pre-triage-survivors.json
+# Plan 67-46 amendment 3: the sealed admission deletion receipts verify the exact ordered edit chain of
+# this file byte for byte (tests/fixtures/mutation/admission-deletion-reports.json.gz); a formatter
+# pass changes 14 lines and breaks them, so the file is exempt from formatting.
+src/isobmff/admission.ts

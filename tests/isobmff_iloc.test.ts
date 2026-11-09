@@ -14,6 +14,7 @@ import { open } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { IsobmffStructureError } from "../src/isobmff/errors.js";
 import {
   ILOC_FIELD_WIDTHS,
   ILOC_LAYOUTS,
@@ -68,6 +69,29 @@ function writeWidthValue(value: number, width: Width): Buffer {
   const buffer = Buffer.alloc(8);
   buffer.writeBigUInt64BE(BigInt(value), 0);
   return buffer;
+}
+
+function observeIlocReads(payload: Buffer): {
+  readonly payload: Buffer;
+  readonly reads: string[];
+} {
+  const reads: string[] = [];
+  const observed = new Proxy(payload, {
+    get(target, property) {
+      const value = Reflect.get(target, property, target);
+      if (
+        typeof value === "function" &&
+        ["readUInt8", "readUInt16BE", "readUInt32BE"].includes(String(property))
+      ) {
+        return (...args: number[]) => {
+          reads.push(String(property));
+          return Reflect.apply(value, target, args);
+        };
+      }
+      return value;
+    },
+  }) as Buffer;
+  return { payload: observed, reads };
 }
 
 /** The iloc payload *after* the FullBox version/flags (matches `parseIloc`'s own contract). */
@@ -140,6 +164,95 @@ function expectedIlocLength(config: EncodeIlocConfig): number {
   }
   return total;
 }
+
+function expectBoxFramingFailure(payload: Buffer, version: 0 | 1 | 2): void {
+  let actual: unknown;
+  try {
+    parseIloc(payload, version, 0);
+  } catch (error) {
+    actual = error;
+  }
+
+  expect(actual).toBeInstanceOf(IsobmffStructureError);
+  expect(actual).toMatchObject({
+    name: "IsobmffStructureError",
+    declineClass: "box-framing",
+    kind: "malformed-file",
+  });
+}
+
+describe("iloc boundary preservation", () => {
+  for (const version of [0, 1, 2] as const) {
+    for (const length of [0, 1, 2] as const) {
+      it(`v${version} payload length ${length} keeps the typed framing refusal`, () => {
+        const payload = Buffer.alloc(length);
+        expectBoxFramingFailure(payload, version);
+      });
+    }
+
+    it(`v${version} zero-item payload returns the exact empty table`, () => {
+      const indexSize = version === 0 ? 7 : 0;
+      const itemCount = Buffer.alloc(version === 2 ? 4 : 2);
+      const payload = Buffer.concat([
+        Buffer.from([0x00, indexSize]),
+        itemCount,
+      ]);
+
+      expect(payload.length).toBe(version === 2 ? 6 : 4);
+      expect(parseIloc(payload, version, 0)).toEqual({
+        version,
+        offsetSize: 0,
+        lengthSize: 0,
+        baseOffsetSize: 0,
+        indexSize,
+        items: [],
+      });
+    });
+  }
+
+  for (const version of [1, 2] as const) {
+    it(`v${version} zero-width extent indexes preserve exact nonempty tables`, () => {
+      const config: EncodeIlocConfig = {
+        version,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 0,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 9,
+            constructionMethod: 1,
+            dataReferenceIndex: 42,
+            extents: [
+              { offset: 0x01020304, length: 0x11121314 },
+              { offset: 0xa1a2a3a4, length: 0xb1b2b3b4 },
+            ],
+          },
+        ],
+      };
+
+      expect(parseIloc(encodeIlocForTest(config), version, 0)).toEqual({
+        version,
+        offsetSize: 4,
+        lengthSize: 4,
+        baseOffsetSize: 0,
+        indexSize: 0,
+        items: [
+          {
+            itemId: 9,
+            constructionMethod: 1,
+            dataReferenceIndex: 42,
+            baseOffset: 0,
+            extents: [
+              { index: 0, offset: 0x01020304, length: 0x11121314 },
+              { index: 0, offset: 0xa1a2a3a4, length: 0xb1b2b3b4 },
+            ],
+          },
+        ],
+      });
+    });
+  }
+});
 
 // --- Task 1: literal v1 payload, hand-written values ---
 
@@ -759,6 +872,127 @@ describe("iloc precision edge (BMF-05)", () => {
 // --- Malformed widths, unsupported version, truncation, and the item_count floor check ---
 
 describe("iloc malformed inputs and version gate", () => {
+  it("isobmff-3 parseIloc ensureBytes ConditionalExpression permits the exact zero-item payload boundary", () => {
+    const payload = Buffer.from([0x44, 0x00, 0x00, 0x00]);
+
+    expect(parseIloc(payload, 0, 0)).toEqual({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [],
+    });
+  });
+
+  it("isobmff-3 parseIloc ConditionalExpression and BlockStatement reject short widths and invalid nibbles", () => {
+    const malformed = [
+      { payload: Buffer.from([0x00]), version: 0 },
+      { payload: Buffer.from([0x02, 0x00, 0x00, 0x00]), version: 0 },
+      { payload: Buffer.from([0x00, 0x20, 0x00, 0x00]), version: 0 },
+      { payload: Buffer.from([0x00, 0x02, 0x00, 0x00]), version: 1 },
+    ];
+
+    for (const { payload, version } of malformed) {
+      expect(() => parseIloc(payload, version, 0)).toThrowError(
+        expect.objectContaining({
+          declineClass: "box-framing",
+          kind: "malformed-file",
+        }),
+      );
+    }
+  });
+
+  it("isobmff-3 parseIloc ensureBytes ArithmeticOperator, BlockStatement, and ConditionalExpression keep a truncated two-byte item_count typed", () => {
+    expect(() => parseIloc(Buffer.from([0x00, 0x00]), 0, 0)).toThrowError(
+      expect.objectContaining({
+        declineClass: "box-framing",
+        kind: "malformed-file",
+      }),
+    );
+  });
+
+  it("isobmff-3 parseIloc ConditionalExpression and LogicalOperator ignore v0 index_size bytes", () => {
+    const payload = encodeIlocForTest({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 4,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          extents: [{ offset: 1000, length: 50 }],
+        },
+      ],
+    });
+
+    expect(parseIloc(payload, 0, 0)).toEqual({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 4,
+      items: [
+        {
+          itemId: 1,
+          constructionMethod: 0,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ index: 0, offset: 1000, length: 50 }],
+        },
+      ],
+    });
+  });
+
+  it("isobmff-3 parseIloc ArithmeticOperator and ConditionalExpression check the item floor before reading item fields", () => {
+    const cases = [
+      {
+        version: 0,
+        bytes: [0x00, 0x40, 0x00, 0x01, ...Array(9).fill(0)],
+      },
+      {
+        version: 0,
+        bytes: [0x00, 0x00, 0x00, 0x01, ...Array(5).fill(0)],
+      },
+      {
+        version: 2,
+        bytes: [0x00, 0x00, 0x00, 0x00, 0x00, 0x01, ...Array(9).fill(0)],
+      },
+    ];
+
+    for (const { version, bytes } of cases) {
+      const { payload, reads } = observeIlocReads(Buffer.from(bytes));
+      expect(() => parseIloc(payload, version, 0)).toThrowError(
+        expect.objectContaining({
+          declineClass: "box-framing",
+          kind: "malformed-file",
+        }),
+      );
+      expect(reads).toEqual([
+        "readUInt8",
+        "readUInt8",
+        version === 2 ? "readUInt32BE" : "readUInt16BE",
+      ]);
+    }
+  });
+
+  it("isobmff-3 parseIloc ensureBytes ArithmeticOperator, BlockStatement, and ConditionalExpression reject a truncated extent", () => {
+    // Header + item_count + item_ID + data_reference_index + extent_count; the extent_offset
+    // itself is absent, while the lower-bound floor is exactly met.
+    const payload = Buffer.from([
+      0x44, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    ]);
+    expect(payload.length).toBe(10);
+    expect(() => parseIloc(payload, 0, 0)).toThrowError(
+      expect.objectContaining({
+        declineClass: "box-framing",
+        kind: "malformed-file",
+      }),
+    );
+  });
+
   it("a width nibble of 2 (outside {0,4,8}) declines box-framing", () => {
     expect(ILOC_FIELD_WIDTHS.has(2)).toBe(false);
     const payload = Buffer.from([0x24, 0x00, 0x00, 0x00]); // offset_size nibble = 2

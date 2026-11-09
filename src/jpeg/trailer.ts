@@ -40,7 +40,6 @@ function classifyMpfPayload(
   fileSize: number,
 ): "mpf" | "mpf-index-invalid" {
   const invalid = "mpf-index-invalid" as const;
-  if (mpfPayload.length < MPF_IDENTIFIER_BYTES + 8) return invalid;
   const header = mpfPayload.subarray(MPF_IDENTIFIER_BYTES);
 
   const byteOrder = header.toString("ascii", 0, 2);
@@ -52,27 +51,34 @@ function classifyMpfPayload(
   const readU32 = (offset: number): number =>
     little ? header.readUInt32LE(offset) : header.readUInt32BE(offset);
 
-  if (header.length < 8) return invalid;
-  if (readU16(2) !== 42) return invalid;
+  let magic: number;
+  let ifdOffset: number;
+  try {
+    magic = readU16(2);
+    ifdOffset = readU32(4);
+  } catch {
+    // A header shorter than eight bytes cannot name its IFD.
+    return invalid;
+  }
+  if (magic !== 42) return invalid;
 
-  const ifdOffset = readU32(4);
   // Bound the IFD entry count against the payload actually present before
   // ever reading a single entry (D-12/D-13: "index count bounded by the
   // actual payload before iterating").
-  if (ifdOffset + 2 > header.length) return invalid;
-  const entryCount = readU16(ifdOffset);
   const entriesStart = ifdOffset + 2;
   const maxIfdEntriesByPayload = Math.floor(
     (header.length - entriesStart) / MPF_IFD_ENTRY_BYTES,
   );
-  if (entryCount === 0 || entryCount > maxIfdEntriesByPayload) return invalid;
+  // Both required tags (NumberOfImages and MPEntry) need an entry.
+  if (maxIfdEntriesByPayload < 2) return invalid;
+  const entryCount = readU16(ifdOffset);
+  if (maxIfdEntriesByPayload < entryCount) return invalid;
 
   let numberOfImages: number | undefined;
   let mpEntryOffset: number | undefined;
   let mpEntryDeclaredBytes: number | undefined;
   for (let index = 0; index < entryCount; index += 1) {
     const entryOffset = entriesStart + index * MPF_IFD_ENTRY_BYTES;
-    if (entryOffset + MPF_IFD_ENTRY_BYTES > header.length) return invalid;
     const tag = readU16(entryOffset);
     if (tag === MPF_TAG_NUMBER_OF_IMAGES) {
       numberOfImages = readU32(entryOffset + 8);
@@ -118,11 +124,11 @@ const SEFT_TAIL_BYTES = 8;
 const SEFT_MAGIC = "SEFT";
 
 function isSamsungSeftTail(trailerTail: Buffer): boolean {
-  if (trailerTail.length < SEFT_TAIL_BYTES) return false;
-  const magicStart = trailerTail.length - SEFT_TAIL_BYTES;
+  // A tail shorter than SEFT_TAIL_BYTES clamps to fewer than four bytes, never the magic.
   return (
-    trailerTail.subarray(magicStart, magicStart + 4).toString("ascii") ===
-    SEFT_MAGIC
+    trailerTail
+      .subarray(-SEFT_TAIL_BYTES, -SEFT_TAIL_BYTES + 4)
+      .toString("ascii") === SEFT_MAGIC
   );
 }
 

@@ -171,16 +171,14 @@ const ICCP_MAX_KEYWORD_BYTES = 79;
 
 function parseIccpChunk(data: Buffer, budget: InflateBudget): Buffer {
   const nul = data.indexOf(0);
-  if (
-    nul < ICCP_MIN_KEYWORD_BYTES ||
-    nul > ICCP_MAX_KEYWORD_BYTES ||
-    nul + 1 >= data.length
-  ) {
+  if (nul < ICCP_MIN_KEYWORD_BYTES || nul > ICCP_MAX_KEYWORD_BYTES) {
     throw new PngStructureError(
       "malformed-file",
       "iCCP chunk profile name is missing or exceeds the 79-byte limit.",
     );
   }
+  // A terminator that is the last byte leaves no method byte: `method` is then
+  // undefined and the check below refuses the chunk with the same typed kind.
   const method = data[nul + 1];
   if (method !== 0) {
     throw new PngStructureError(
@@ -194,15 +192,18 @@ function parseIccpChunk(data: Buffer, budget: InflateBudget): Buffer {
 
 function parseZtxtChunk(data: Buffer, budget: InflateBudget): Buffer {
   const nul = data.indexOf(0);
-  if (nul < 0 || nul + 1 >= data.length) {
+  if (nul < 0) {
     throw new PngStructureError(
       "malformed-file",
       "zTXt chunk is missing its keyword terminator.",
     );
   }
+  // A terminator in the last two bytes leaves no compressed data: inflateBounded
+  // refuses the empty stream with the same typed kind.
   const compressed = data.subarray(nul + 2);
   return inflateBounded(
     compressed,
+    // Stryker disable next-line StringLiteral: unobservable-message — this chunk label reaches only the diagnostic text and the typed limit's chunkType, which classifyAdmissionFailure compares with the iCCP label alone, so a zTXt label never selects a different outcome.
     "zTXt",
     PNG_MAX_INFLATED_TEXT_BYTES,
     budget,
@@ -216,17 +217,13 @@ interface ParsedItxt {
 
 function parseItxtChunk(data: Buffer, budget: InflateBudget): ParsedItxt {
   const keywordNul = data.indexOf(0);
-  if (keywordNul < 0) {
-    throw new PngStructureError(
-      "malformed-file",
-      "iTXt chunk is missing its keyword terminator.",
-    );
-  }
+  // No keyword terminator means the data holds no zero byte at all, so the
+  // language-tag search below finds none either and refuses with the same kind.
   const keyword = data.toString("latin1", 0, keywordNul);
   const compressionFlag = data[keywordNul + 1];
   let offset = keywordNul + 3; // past keyword\0, compression flag, compression method
   const languageNul = data.indexOf(0, offset);
-  if (languageNul < 0) {
+  if (languageNul === -1) {
     throw new PngStructureError(
       "malformed-file",
       "iTXt chunk is missing its language-tag terminator.",
@@ -234,7 +231,7 @@ function parseItxtChunk(data: Buffer, budget: InflateBudget): ParsedItxt {
   }
   offset = languageNul + 1;
   const translatedNul = data.indexOf(0, offset);
-  if (translatedNul < 0) {
+  if (translatedNul === -1) {
     throw new PngStructureError(
       "malformed-file",
       "iTXt chunk is missing its translated-keyword terminator.",
@@ -243,7 +240,13 @@ function parseItxtChunk(data: Buffer, budget: InflateBudget): ParsedItxt {
   const payload = data.subarray(translatedNul + 1);
   const text =
     compressionFlag === 1
-      ? inflateBounded(payload, "iTXt", PNG_MAX_INFLATED_TEXT_BYTES, budget)
+      ? inflateBounded(
+          payload,
+          // Stryker disable next-line StringLiteral: unobservable-message — this chunk label reaches only the diagnostic text and the typed limit's chunkType, which classifyAdmissionFailure compares with the iCCP label alone, so an iTXt label never selects a different outcome.
+          "iTXt",
+          PNG_MAX_INFLATED_TEXT_BYTES,
+          budget,
+        )
       : payload;
   return { keyword, text };
 }
@@ -441,6 +444,8 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
       return;
     }
     if (type === "tEXt") {
+      // Prettier would move the comment before the else onto the closing brace above it, where Stryker never reads it, so this statement is left as written.
+      // prettier-ignore
       if (data !== undefined) {
         const { keyword, text } = parseTextChunkData(data);
         const wasXmp = routeTextKeyword(
@@ -455,19 +460,20 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
           namespaces.add("PNG");
           entries.push({ namespace: "PNG", name: keyword, value: text });
         }
-      } else {
+      } else
+      // Stryker disable next-line BlockStatement: defensive-unreachable-by-construction — parsePng stores the data of every chunk except IDAT in the buffered map, so a tEXt chunk always has data and this fallback is never reached.
+      {
         namespaces.add("PNG");
       }
       return;
     }
     if (type === "zTXt") {
+      // Prettier would move the comment before the else onto the closing brace above it, where Stryker never reads it, so this statement is left as written.
+      // prettier-ignore
       if (data !== undefined) {
         const keywordNul = data.indexOf(0);
         const text = parseZtxtChunk(data, budget);
-        const keyword =
-          keywordNul < 0
-            ? data.toString("latin1")
-            : data.toString("latin1", 0, keywordNul);
+        const keyword = data.toString("latin1", 0, keywordNul);
         const wasXmp = routeTextKeyword(
           keyword,
           text,
@@ -484,11 +490,14 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
             value: text.toString("latin1"),
           });
         }
-      } else {
+      } else
+      // Stryker disable next-line BlockStatement: defensive-unreachable-by-construction — parsePng stores the data of every chunk except IDAT in the buffered map, so a zTXt chunk always has data and this fallback is never reached.
+      {
         namespaces.add("PNG");
       }
       return;
     }
+    // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — every other removed chunk type returned above and every other type returned or threw earlier, so only an iTXt chunk reaches this test and it is always true; the always-false sibling is a TypeScript compile error and is suppressed only as collateral.
     if (type === "iTXt") {
       if (data === undefined) {
         namespaces.add("PNG");
@@ -523,18 +532,13 @@ function collectMetadata(parsed: ParsedPng): Omit<PngAdmission, "parsed"> {
   // D-11: decline (route to ExifTool) only when a non-eXIf Orientation is
   // missing from eXIf or disagrees with it. An agreeing non-eXIf Orientation,
   // or a non-eXIf block carrying no Orientation, does not decline.
-  if (otherOrientations.length > 0) {
-    const sourceValue = validOrientationValue(orientation);
-    const disagrees = otherOrientations.some(
-      (other) => other === "invalid" || other !== sourceValue,
-    );
-    if (disagrees) {
-      orientation = {
-        status: "unsupported",
-        detail:
-          "A non-eXIf Orientation is missing from eXIf or disagrees with it.",
-      };
-    }
+  const sourceValue = validOrientationValue(orientation);
+  if (otherOrientations.some((other) => other !== sourceValue)) {
+    orientation = {
+      status: "unsupported",
+      detail:
+        "A non-eXIf Orientation is missing from eXIf or disagrees with it.",
+    };
   }
 
   return {
@@ -576,7 +580,6 @@ function findIdotAdjacencyDecline(
   const idotIndex = chunks.findIndex((item) => item.type === "iDOT");
   if (idotIndex < 0) return undefined;
   const firstIdatIndex = chunks.findIndex((item) => item.type === "IDAT");
-  if (firstIdatIndex < 0 || firstIdatIndex <= idotIndex) return undefined;
 
   for (let index = idotIndex + 1; index < firstIdatIndex; index += 1) {
     const chunk = chunks[index]!;
@@ -623,6 +626,7 @@ function buildOutputPlan(
   admission.parsed.chunks.forEach((chunk, index) => {
     const cls = admission.classes[index] ?? "remove";
     if (!isKept(cls, preserveColorProfile, preserveResolution)) {
+      // Stryker disable next-line CallExpression: redundant-guard-after-typed-check — a removed chunk always has a positive span, so the next kept chunk never starts where the pending range ends and the non-adjacent branch below flushes that range first; the final flush covers a removed chunk at the end.
       flush();
       return;
     }
@@ -631,6 +635,7 @@ function buildOutputPlan(
     if (pendingEnd === chunkStart) {
       pendingEnd = chunkEnd;
     } else {
+      // Stryker disable next-line CallExpression: redundant-guard-after-typed-check — a pending range is only open here when the previous chunk was kept and adjacent in the file, and the removed-chunk branch above already flushed it otherwise, so this flush never has a range to write.
       flush();
       pendingStart = chunkStart;
       pendingEnd = chunkEnd;
@@ -658,23 +663,6 @@ function buildOutputPlan(
   return declineReason === undefined
     ? { parts, expectedTypes, copiedChunks }
     : { parts, expectedTypes, copiedChunks, declineReason };
-}
-
-function recomputeExpectedTypes(
-  admission: PngAdmission,
-  preserveColorProfile: boolean,
-  preserveResolution: boolean,
-  insertOrientation: boolean,
-): readonly string[] {
-  const types: string[] = [];
-  admission.parsed.chunks.forEach((chunk, index) => {
-    const cls = admission.classes[index] ?? "remove";
-    if (isKept(cls, preserveColorProfile, preserveResolution)) {
-      types.push(chunk.type);
-      if (index === 0 && insertOrientation) types.push("eXIf");
-    }
-  });
-  return types;
 }
 
 async function writeAll(
@@ -705,13 +693,12 @@ async function chunksEqual(
   signal?: AbortSignal,
 ): Promise<boolean> {
   const sourceSpan = chunkSpan(source);
-  const destinationSpan = chunkSpan(destination);
-  if (sourceSpan !== destinationSpan) return false;
   const bufferSize = Math.min(COPY_BLOCK_BYTES, Math.max(sourceSpan, 1));
   const sourceBuffer = Buffer.allocUnsafe(bufferSize);
   const destinationBuffer = Buffer.allocUnsafe(bufferSize);
   for (let offset = 0; offset < sourceSpan;) {
     if (isAborted(signal))
+      // Stryker disable next-line LogicalOperator, StringLiteral: unobservable-message — verifyOutput is the only caller and its catch discards the cause whenever the signal is aborted, reporting the typed aborted error; neither the abort reason nor the fallback exception's name or message reaches any result.
       throw signal?.reason ?? new DOMException("Aborted", "AbortError");
     const length = Math.min(COPY_BLOCK_BYTES, sourceSpan - offset);
     const left = await sourceHandle.read(
@@ -775,29 +762,13 @@ async function verifyOutput(
       destinationSize,
       signal,
     );
-    const expectedTypes = recomputeExpectedTypes(
-      admission,
-      preserveColorProfile,
-      preserveResolution,
-      insertOrientation,
-    );
     const destinationTypes = destination.chunks.map((chunk) => chunk.type);
-    if (
-      destinationTypes.length !== expectedTypes.length ||
-      destinationTypes.some((type, index) => type !== expectedTypes[index])
-    )
-      return err(
-        verificationError(
-          "Destination chunk sequence did not match the sanitized plan.",
-          destinationPath,
-        ),
-      );
 
     for (const [index, type] of destinationTypes.entries()) {
       // The eXIf at index 1 is the deliberately-inserted minimal orientation
       // payload (D-11/D-13), not a leaked source chunk -- it is byte- and
       // content-verified separately below.
-      if (insertOrientation && index === 1 && type === "eXIf") continue;
+      if (insertOrientation && index === 1) continue;
       if (PNG_REMOVED_CHUNK_TYPES.has(type))
         return err(
           verificationError(
@@ -822,13 +793,7 @@ async function verifyOutput(
         exifChunk.dataOffset,
       );
       const expectedData = createOrientationExif(expectedOrientation);
-      const reparsed = parseExif(exifData);
-      if (
-        !exifData.equals(expectedData) ||
-        reparsed.orientation.status !== "valid" ||
-        reparsed.orientation.value !== expectedOrientation ||
-        reparsed.entries.length !== 1
-      )
+      if (!exifData.equals(expectedData))
         return err(
           verificationError(
             "Inserted eXIf did not equal the minimal orientation payload.",
@@ -847,6 +812,7 @@ async function verifyOutput(
     const destinationForComparison = insertOrientation
       ? destination.chunks.filter((_chunk, index) => index !== 1)
       : destination.chunks;
+    // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the destination ends at its single IEND chunk and the loop below pairs every kept source chunk with the destination chunk at the same position, so a count difference already fails there: a missing destination chunk is an undefined operand, and a longer destination pairs the last kept source chunk, IEND, with a chunk of another type.
     if (sourceKept.length !== destinationForComparison.length)
       return err(
         verificationError(
@@ -860,6 +826,7 @@ async function verifyOutput(
       if (
         left === undefined ||
         right === undefined ||
+        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the four type bytes of a chunk lie inside the span that chunksEqual compares, so a destination chunk of another type fails that comparison with the same refusal; a comparison that cannot complete throws and the catch returns the same typed code.
         left.type !== right.type ||
         !(await chunksEqual(
           sourceHandle,

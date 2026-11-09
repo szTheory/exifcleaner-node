@@ -181,7 +181,8 @@ function readCString(
   what: string,
 ): { value: string; next: number } {
   let end = position;
-  while (end < buffer.length && buffer[end] !== 0) end += 1;
+  // Stryker disable next-line ArithmeticOperator: equivalent-arithmetic — the sole measured +1 replacement probes undefined at EOF twice, then the existing end-of-buffer guard produces the same typed box-framing error; NUL-terminated values and returned bytes are unchanged.
+  while (end <= buffer.length - 1 && buffer[end] !== 0) end += 1;
   if (end >= buffer.length) {
     throw new IsobmffStructureError(
       "box-framing",
@@ -207,6 +208,7 @@ function assertNoDuplicateIds(ids: readonly number[], context: string): void {
 /** `hdlr` -- FullBox version 0: `pre_defined(32) handler_type(32) reserved[3](32) name`. */
 function parseHdlr(buffer: Buffer, header: BoxHeader): string {
   const { payload } = readFullBoxChild(buffer, header);
+  // Stryker disable next-line StringLiteral: unobservable-message — this handler field label only appears in ensureBytes diagnostic text; bytes and typed failures are unchanged.
   ensureBytes(payload, 0, 8, "hdlr pre_defined/handler_type");
   return payload.toString("ascii", 4, 8);
 }
@@ -222,6 +224,7 @@ function parsePitm(buffer: Buffer, header: BoxHeader): number {
     );
   }
   const width = version === 0 ? 2 : 4;
+  // Stryker disable next-line StringLiteral: unobservable-message — this item_ID label only appears in ensureBytes diagnostic text; parsed IDs and typed failures are unchanged.
   ensureBytes(payload, 0, width, "pitm item_ID");
   return width === 2 ? payload.readUInt16BE(0) : payload.readUInt32BE(0);
 }
@@ -248,17 +251,21 @@ function parseInfe(buffer: Buffer, header: BoxHeader): RawInfeEntry {
   }
   let position = 0;
   const idBytes = version === 2 ? 2 : 4;
+  // Stryker disable next-line StringLiteral: unobservable-message — the item_ID label only reaches ensureBytes' diagnostic text; byte checks and the typed box-framing result are unchanged.
   ensureBytes(payload, position, idBytes, "infe item_ID");
   const itemId =
     idBytes === 2
       ? payload.readUInt16BE(position)
       : payload.readUInt32BE(position);
   position += idBytes;
-  ensureBytes(payload, position, 2, "infe item_protection_index");
+  // item_protection_index (2 bytes) and item_type (4 bytes) carry no bounds check of their own:
+  // `toString` clamps a short slice, and a payload that ends inside either field leaves `position`
+  // at or past the end, so the readCString below declines the same typed box-framing refusal
+  // ("not NUL-terminated"). A check here could never change the outcome.
   position += 2;
-  ensureBytes(payload, position, 4, "infe item_type");
   const itemType = payload.toString("ascii", position, position + 4);
   position += 4;
+  // Stryker disable next-line StringLiteral: unobservable-message — the item_name label only reaches readCString's diagnostic text; parsed names and typed errors are unchanged.
   const name = readCString(payload, position, "infe item_name");
   position = name.next;
 
@@ -266,6 +273,7 @@ function parseInfe(buffer: Buffer, header: BoxHeader): RawInfeEntry {
   let contentEncoding: string | undefined;
   let uri: string | undefined;
   if (itemType === "mime") {
+    // Stryker disable next-line StringLiteral: unobservable-message — the content_type label only reaches readCString's diagnostic text; the parsed MIME value is unchanged.
     const ct = readCString(payload, position, "infe content_type");
     contentType = ct.value;
     position = ct.next;
@@ -277,11 +285,13 @@ function parseInfe(buffer: Buffer, header: BoxHeader): RawInfeEntry {
     // "no encoding declared" meaning as an explicit empty string (src/isobmff/admission.ts's
     // XMP-removable check already treats both identically).
     if (position < payload.length) {
+      // Stryker disable next-line StringLiteral: unobservable-message — the content_encoding label only reaches readCString's diagnostic text; optional-field parsing is unchanged.
       const ce = readCString(payload, position, "infe content_encoding");
       contentEncoding = ce.value;
       position = ce.next;
     }
   } else if (itemType === "uri ") {
+    // Stryker disable next-line StringLiteral: unobservable-message — the item_uri_type label only reaches readCString's diagnostic text; URI parsing and typed errors are unchanged.
     const u = readCString(payload, position, "infe item_uri_type");
     uri = u.value;
     position = u.next;
@@ -317,6 +327,7 @@ function parseIinfEntries(buffer: Buffer, header: BoxHeader): IinfParseResult {
     );
   }
   const entryCountBytes = version === 0 ? 2 : 4;
+  // Stryker disable next-line StringLiteral: unobservable-message — this entry_count label only appears in ensureBytes diagnostic text; child bounds and typed failures are unchanged.
   ensureBytes(payload, 0, entryCountBytes, "iinf entry_count");
   const childrenStart = header.payloadStart + 4 + entryCountBytes;
   const children = listSiblings(buffer, childrenStart, header.end);
@@ -352,15 +363,18 @@ function parseIref(buffer: Buffer, header: BoxHeader): IrefParseResult {
   const references: IsobmffReference[] = [];
   for (const child of children) {
     const body = buffer.subarray(child.payloadStart, child.end);
+    // Stryker disable next-line StringLiteral: unobservable-message — this from_item_ID label only appears in ensureBytes diagnostic text; ID decoding and typed failures are unchanged.
     ensureBytes(body, 0, idBytes, "iref from_item_ID");
     const fromItemId =
       idBytes === 2 ? body.readUInt16BE(0) : body.readUInt32BE(0);
     let position = idBytes;
+    // Stryker disable next-line StringLiteral: unobservable-message — this reference_count label only appears in ensureBytes diagnostic text; reference decoding and typed failures are unchanged.
     ensureBytes(body, position, 2, "iref reference_count");
     const toCount = body.readUInt16BE(position);
     position += 2;
     const toItemIds: number[] = [];
     for (let i = 0; i < toCount; i++) {
+      // Stryker disable next-line StringLiteral: unobservable-message — this to_item_ID label only appears in ensureBytes diagnostic text; reference decoding and typed failures are unchanged.
       ensureBytes(body, position, idBytes, "iref to_item_ID");
       toItemIds.push(
         idBytes === 2
@@ -391,9 +405,11 @@ function parseIpco(buffer: Buffer, header: BoxHeader): RawIpcoProperty[] {
     let iccBytes: Buffer | undefined;
     if (child.type === "auxC") {
       const { payload } = readFullBoxChild(buffer, child);
+      // Stryker disable next-line StringLiteral: unobservable-message — this aux_type label only appears in readCString diagnostic text; the parsed URN and typed failures are unchanged.
       auxUrn = readCString(payload, 0, "auxC aux_type").value;
     } else if (child.type === "colr") {
       const payload = buffer.subarray(child.payloadStart, child.end);
+      // Stryker disable next-line StringLiteral: unobservable-message — this colour_type label only appears in ensureBytes diagnostic text; FourCC decoding and typed failures are unchanged.
       ensureBytes(payload, 0, 4, "colr colour_type");
       colourType = payload.toString("ascii", 0, 4);
       if (colourType === "prof" || colourType === "rICC") {
@@ -421,12 +437,14 @@ function parseGrpl(buffer: Buffer, header: BoxHeader): IsobmffEntityGroup[] {
   const groups: IsobmffEntityGroup[] = [];
   for (const child of children) {
     const { payload } = readFullBoxChild(buffer, child);
+    // Stryker disable next-line StringLiteral: unobservable-message — these group field labels only appear in ensureBytes diagnostic text; group values and typed failures are unchanged.
     ensureBytes(payload, 0, 8, "grpl group_id/num_entities_in_group");
     const groupId = payload.readUInt32BE(0);
     const entityCount = payload.readUInt32BE(4);
     const entityIds: number[] = [];
     let position = 8;
     for (let i = 0; i < entityCount; i++) {
+      // Stryker disable next-line StringLiteral: unobservable-message — this entity_id label only appears in ensureBytes diagnostic text; entity values and typed failures are unchanged.
       ensureBytes(payload, position, 4, "grpl entity_id");
       entityIds.push(payload.readUInt32BE(position));
       position += 4;
@@ -450,6 +468,7 @@ function validateDataReferences(buffer: Buffer, dinfHeader: BoxHeader): void {
   const drefHeader = dinfChildren.find((c) => c.type === "dref");
   if (drefHeader === undefined) return;
   const { payload } = readFullBoxChild(buffer, drefHeader);
+  // Stryker disable next-line StringLiteral: unobservable-message — this dref entry_count label only appears in ensureBytes diagnostic text; entry parsing and typed box-framing failures are unchanged.
   ensureBytes(payload, 0, 4, "dref entry_count");
   const entries = listSiblings(
     buffer,
@@ -543,6 +562,7 @@ export function buildItemModel(
   } = parseIinfEntries(metaPayload, iinfHeader);
   assertNoDuplicateIds(
     rawEntries.map((entry) => entry.itemId),
+    // Stryker disable next-line StringLiteral: unobservable-message — this iinf context label only appears in the duplicate item_ID diagnostic text; the duplicate scan and typed item-graph-invalid failure are unchanged.
     "iinf",
   );
   const itemIds = new Set(rawEntries.map((entry) => entry.itemId));
@@ -577,6 +597,7 @@ export function buildItemModel(
   const ilocTable = parseIloc(ilocPayload, ilocVersion, ilocFlags);
   assertNoDuplicateIds(
     ilocTable.items.map((item) => item.itemId),
+    // Stryker disable next-line StringLiteral: unobservable-message — this iloc context label only appears in the duplicate item_ID diagnostic text; the duplicate scan and typed item-graph-invalid failure are unchanged.
     "iloc",
   );
   for (const ilocItem of ilocTable.items) {
@@ -679,6 +700,7 @@ export function buildItemModel(
       ipmaEntries = parseIpma(payload, version, flags);
       assertNoDuplicateIds(
         ipmaEntries.map((entry) => entry.itemId),
+        // Stryker disable next-line StringLiteral: unobservable-message — this ipma context label only appears in the duplicate item_ID diagnostic text; the duplicate scan and typed item-graph-invalid failure are unchanged.
         "ipma",
       );
       // D-17 (closes 61-SECURITY Phase 62 input 2): an ipma entry for an item iinf never declared

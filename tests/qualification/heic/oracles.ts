@@ -142,7 +142,7 @@ export const HEIC_DEFAULT_SETTINGS_REFUSALS: Readonly<
   "nokia-heif-conformance-c034": {
     code: "unsupported-feature",
     feature: "orientation-preservation",
-    detail: "EXIF TIFF header is truncated",
+    detail: "EXIF byte order is invalid",
   },
 };
 

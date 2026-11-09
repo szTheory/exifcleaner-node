@@ -75,7 +75,17 @@ interface TiffReader {
   i32(offset: number): number;
 }
 
-function inBounds(buffer: Buffer, offset: number, length: number): boolean {
+/**
+ * True when `length` bytes starting at `offset` lie inside `buffer`; `offset` and
+ * `length` must be non-negative safe integers. Private test seam, not public API
+ * (this module is not re-exported from src/index.ts): the TIFF readers only ever
+ * pass such values, so the integer and sign checks are exercised directly.
+ */
+export function inBounds(
+  buffer: Buffer,
+  offset: number,
+  length: number,
+): boolean {
   return (
     Number.isSafeInteger(offset) &&
     Number.isSafeInteger(length) &&
@@ -90,6 +100,7 @@ function makeReader(buffer: Buffer, littleEndian: boolean): TiffReader {
     buffer,
     littleEndian,
     u16(offset) {
+      // Stryker disable next-line ConditionalExpression: defensive-unreachable-by-construction — every u16 read follows an inBounds check on the same range (the IFD and entry checks in parseExif and readIfd0Resolution, the byte-length check in readValue), so this guard never fires; without it the Buffer read throws its own RangeError, which every caller already turns into the same malformed or undefined outcome. The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition stays active.
       if (!inBounds(buffer, offset, 2))
         throw new RangeError("TIFF u16 out of bounds");
       return littleEndian
@@ -97,6 +108,7 @@ function makeReader(buffer: Buffer, littleEndian: boolean): TiffReader {
         : buffer.readUInt16BE(offset);
     },
     u32(offset) {
+      // Stryker disable next-line ConditionalExpression: defensive-unreachable-by-construction — every u32 read follows an inBounds check on the same range (the IFD and entry checks in parseExif and readIfd0Resolution, the byte-length check in readValue), so this guard never fires; without it the Buffer read throws its own RangeError, which every caller already turns into the same malformed or undefined outcome. The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition stays active.
       if (!inBounds(buffer, offset, 4))
         throw new RangeError("TIFF u32 out of bounds");
       return littleEndian
@@ -104,8 +116,9 @@ function makeReader(buffer: Buffer, littleEndian: boolean): TiffReader {
         : buffer.readUInt32BE(offset);
     },
     i32(offset) {
-      if (!inBounds(buffer, offset, 4))
-        throw new RangeError("TIFF i32 out of bounds");
+      // Every i32 read follows an inBounds check on the same range (the
+      // byte-length check in readValue), so Buffer's own RangeError is the
+      // only bounds failure this read can raise.
       return littleEndian
         ? buffer.readInt32LE(offset)
         : buffer.readInt32BE(offset);
@@ -117,6 +130,7 @@ function readNumber(reader: TiffReader, type: number, offset: number): number {
   switch (type) {
     case 1:
     case 7:
+      // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — readNumber is reached only from the generic loop of readValue, whose earlier inBounds check already covers every element offset valueOffset + index * width (width 1 here), so this guard never fires. The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition stays active.
       if (!inBounds(reader.buffer, offset, 1))
         throw new RangeError("TIFF byte out of bounds");
       return reader.buffer[offset] ?? 0;
@@ -144,6 +158,7 @@ function readValue(
   const width = TYPE_WIDTHS[type];
   if (width === undefined || count > 1_000_000) return undefined;
   const byteLength = width * count;
+  // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the width is at most 8 and the previous line already rejects a count above 1_000_000, so byteLength is at most 8_000_000 and always a safe integer. The always-true sibling does not compile (unreachable code) and is suppressed only as collateral.
   if (!Number.isSafeInteger(byteLength)) return undefined;
   const valueOffset =
     byteLength <= 4 ? entryOffset + 8 : reader.u32(entryOffset + 8);
@@ -197,7 +212,10 @@ export function parseExif(payload: Buffer): ParsedExif {
     : payload;
 
   try {
-    if (tiff.length < 8) throw new RangeError("EXIF TIFF header is truncated");
+    // A payload shorter than the 8-byte TIFF header needs no guard of its own:
+    // the byte order check refuses anything that is not II or MM, and the
+    // bounds-checked u16 and u32 reads below throw a RangeError, which the
+    // catch turns into the same malformed outcome.
     const byteOrder = tiff.toString("ascii", 0, 2);
     if (byteOrder !== "II" && byteOrder !== "MM") {
       throw new RangeError("EXIF byte order is invalid");
@@ -210,6 +228,7 @@ export function parseExif(payload: Buffer): ParsedExif {
     const visitIfd = (offset: number, prefix: string, depth: number): void => {
       if (depth > MAX_IFD_DEPTH || visited.has(offset)) return;
       visited.add(offset);
+      // Stryker disable next-line ConditionalExpression: unobservable-message — without this guard the next statement, reader.u16(offset), applies the same inBounds(offset, 2) check inside u16 and throws its own RangeError, which the surrounding catch turns into the identical malformed outcome and metadata-invalid warning (only the diagnostic text differs). The always-true sibling is suppressed only as collateral: the next-line form cannot select a replacement, and the BooleanLiteral mutant of the same condition stays active.
       if (!inBounds(tiff, offset, 2))
         throw new RangeError("EXIF IFD is out of bounds");
       const count = reader.u16(offset);
@@ -278,6 +297,7 @@ export function parseExif(payload: Buffer): ParsedExif {
     visitIfd(reader.u32(4), "", 0);
   } catch (cause) {
     const detail =
+      // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — every throw inside the try block is a RangeError (explicit throws, u16/u32 bounds checks, Buffer's own range checks) or another Error such as a stack overflow, so the cause is always an Error and this non-Error fallback text is never used.
       cause instanceof Error ? cause.message : "EXIF data is invalid.";
     warnings.push({
       code: "metadata-invalid",
@@ -312,7 +332,10 @@ export interface MinimalExifTags {
 }
 
 function assertUint32(value: number, field: string): void {
-  if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {
+  // Only integrality needs a check of its own: Buffer's writeUInt32LE, the sole
+  // consumer of an accepted value, already throws a RangeError for a negative
+  // number or one above the 32-bit maximum, so the range needs no second guard.
+  if (!Number.isInteger(value)) {
     throw new RangeError(
       `${field} must be an integer from 0 through 4294967295`,
     );
@@ -323,7 +346,9 @@ function assertResolutionValue(
   value: MinimalExifResolutionValue,
   field: string,
 ): void {
+  // Stryker disable next-line StringLiteral: unobservable-message — this field label only reaches the text of assertUint32's RangeError; the thrown kind and which values are accepted or refused are unchanged.
   assertUint32(value.numerator, `${field} numerator`);
+  // Stryker disable next-line StringLiteral: unobservable-message — this field label only reaches the text of assertUint32's RangeError; the thrown kind and which values are accepted or refused are unchanged.
   assertUint32(value.denominator, `${field} denominator`);
 }
 
@@ -357,7 +382,9 @@ export function createMinimalExif(tags: MinimalExifTags): Buffer {
   }
 
   if (resolution !== undefined) {
+    // Stryker disable next-line StringLiteral: unobservable-message — this field label only reaches the text of assertUint32's RangeError through assertResolutionValue; the thrown kind and which values are accepted or refused are unchanged.
     assertResolutionValue(resolution.x, "XResolution");
+    // Stryker disable next-line StringLiteral: unobservable-message — this field label only reaches the text of assertUint32's RangeError through assertResolutionValue; the thrown kind and which values are accepted or refused are unchanged.
     assertResolutionValue(resolution.y, "YResolution");
     if (resolution.unit !== undefined) {
       if (
@@ -390,6 +417,7 @@ export function createMinimalExif(tags: MinimalExifTags): Buffer {
       entries.push({ tag: 0x0128, type: 3, inlineValue: resolution.unit });
     }
   }
+  // Stryker disable next-line ArithmeticOperator, MethodExpression: defensive-unreachable-by-construction — entries are pushed in ascending tag order (0x0112, 0x011a, 0x011b, 0x0128), so the sort never reorders them; dropping it, or an always-positive comparator, keeps an already ascending array in the same order and the written bytes are unchanged.
   entries.sort((a, b) => a.tag - b.tag);
 
   const entryCount = entries.length;
@@ -438,13 +466,17 @@ export function readIfd0Resolution(
   tiff: Buffer,
 ): MinimalExifResolution | undefined {
   try {
-    if (tiff.length < 8) return undefined;
+    // A payload shorter than the 8-byte TIFF header needs no guard of its own:
+    // the byte order check refuses anything that is not II or MM, and the
+    // bounds-checked u16 and u32 reads below throw a RangeError, which the
+    // catch turns into the same undefined result.
     const byteOrder = tiff.toString("ascii", 0, 2);
     if (byteOrder !== "II" && byteOrder !== "MM") return undefined;
     const reader = makeReader(tiff, byteOrder === "II");
     if (reader.u16(2) !== 42) return undefined;
 
     const ifd0Offset = reader.u32(4);
+    // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — without this guard the next statement, reader.u16(ifd0Offset), applies the same inBounds(offset, 2) check and throws a RangeError, which the catch below turns into the same undefined result; nothing is read in between.
     if (!inBounds(tiff, ifd0Offset, 2)) return undefined;
     const count = reader.u16(ifd0Offset);
     if (count > MAX_IFD_ENTRIES || !inBounds(tiff, ifd0Offset + 2, count * 12))

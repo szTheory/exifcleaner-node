@@ -10,8 +10,6 @@ const MPF_TAG_NUMBER_OF_IMAGES = 0xb001;
 const MPF_TAG_MP_ENTRY = 0xb002;
 function classifyMpfPayload(mpfPayload, fileSize) {
     const invalid = "mpf-index-invalid";
-    if (mpfPayload.length < MPF_IDENTIFIER_BYTES + 8)
-        return invalid;
     const header = mpfPayload.subarray(MPF_IDENTIFIER_BYTES);
     const byteOrder = header.toString("ascii", 0, 2);
     const little = byteOrder === "II";
@@ -20,28 +18,34 @@ function classifyMpfPayload(mpfPayload, fileSize) {
         return invalid;
     const readU16 = (offset) => little ? header.readUInt16LE(offset) : header.readUInt16BE(offset);
     const readU32 = (offset) => little ? header.readUInt32LE(offset) : header.readUInt32BE(offset);
-    if (header.length < 8)
+    let magic;
+    let ifdOffset;
+    try {
+        magic = readU16(2);
+        ifdOffset = readU32(4);
+    }
+    catch {
+        // A header shorter than eight bytes cannot name its IFD.
         return invalid;
-    if (readU16(2) !== 42)
+    }
+    if (magic !== 42)
         return invalid;
-    const ifdOffset = readU32(4);
     // Bound the IFD entry count against the payload actually present before
     // ever reading a single entry (D-12/D-13: "index count bounded by the
     // actual payload before iterating").
-    if (ifdOffset + 2 > header.length)
-        return invalid;
-    const entryCount = readU16(ifdOffset);
     const entriesStart = ifdOffset + 2;
     const maxIfdEntriesByPayload = Math.floor((header.length - entriesStart) / MPF_IFD_ENTRY_BYTES);
-    if (entryCount === 0 || entryCount > maxIfdEntriesByPayload)
+    // Both required tags (NumberOfImages and MPEntry) need an entry.
+    if (maxIfdEntriesByPayload < 2)
+        return invalid;
+    const entryCount = readU16(ifdOffset);
+    if (maxIfdEntriesByPayload < entryCount)
         return invalid;
     let numberOfImages;
     let mpEntryOffset;
     let mpEntryDeclaredBytes;
     for (let index = 0; index < entryCount; index += 1) {
         const entryOffset = entriesStart + index * MPF_IFD_ENTRY_BYTES;
-        if (entryOffset + MPF_IFD_ENTRY_BYTES > header.length)
-            return invalid;
         const tag = readU16(entryOffset);
         if (tag === MPF_TAG_NUMBER_OF_IMAGES) {
             numberOfImages = readU32(entryOffset + 8);
@@ -83,11 +87,10 @@ function hasEntry(entries, name) {
 const SEFT_TAIL_BYTES = 8;
 const SEFT_MAGIC = "SEFT";
 function isSamsungSeftTail(trailerTail) {
-    if (trailerTail.length < SEFT_TAIL_BYTES)
-        return false;
-    const magicStart = trailerTail.length - SEFT_TAIL_BYTES;
-    return (trailerTail.subarray(magicStart, magicStart + 4).toString("ascii") ===
-        SEFT_MAGIC);
+    // A tail shorter than SEFT_TAIL_BYTES clamps to fewer than four bytes, never the magic.
+    return (trailerTail
+        .subarray(-SEFT_TAIL_BYTES, -SEFT_TAIL_BYTES + 4)
+        .toString("ascii") === SEFT_MAGIC);
 }
 /**
  * Classifies a JPEG's trailer/MPF/motion-photo shape into the closed

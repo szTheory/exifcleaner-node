@@ -15,6 +15,13 @@ export interface ParsedExif {
         readonly detail: string;
     };
 }
+/**
+ * True when `length` bytes starting at `offset` lie inside `buffer`; `offset` and
+ * `length` must be non-negative safe integers. Private test seam, not public API
+ * (this module is not re-exported from src/index.ts): the TIFF readers only ever
+ * pass such values, so the integer and sign checks are exercised directly.
+ */
+export declare function inBounds(buffer: Buffer, offset: number, length: number): boolean;
 export declare function parseExif(payload: Buffer): ParsedExif;
 /** A single IFD0 X or Y resolution rational, stored exactly as the source held it. */
 export interface MinimalExifResolutionValue {

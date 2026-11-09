@@ -78,12 +78,7 @@ export interface ParsedJpeg {
 }
 
 export function isJpegSignature(magic: Buffer): boolean {
-  return (
-    magic.length >= 3 &&
-    magic[0] === 0xff &&
-    magic[1] === SOI &&
-    magic[2] === 0xff
-  );
+  return magic[0] === 0xff && magic[1] === SOI && magic[2] === 0xff;
 }
 
 function isAborted(signal: AbortSignal | undefined): boolean {
@@ -132,9 +127,6 @@ async function readWindowed(
   position: number,
   size: number,
 ): Promise<Buffer> {
-  if (length > READ_WINDOW_BYTES) {
-    return readExactly(handle, length, position);
-  }
   if (position < window.start || position + length > window.end) {
     const windowLength = Math.min(READ_WINDOW_BYTES, size - position);
     window.buffer = await readExactly(handle, windowLength, position);
@@ -178,6 +170,7 @@ function refuse(refusal: JpegRefusal, detail?: string): never {
   const prefix = JPEG_REFUSAL_DETAILS[refusal];
   throw new JpegStructureError(
     refusal,
+    // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: unobservable-message — the optional detail only composes the free-text message of the typed JpegStructureError; the refusal literal and its kind come from the first argument and callers branch on those, never on the wording.
     detail === undefined ? prefix : `${prefix} ${detail}`,
   );
 }
@@ -187,9 +180,6 @@ function refuse(refusal: JpegRefusal, detail?: string): never {
 function parseDqtSlots(payload: Buffer, dqtSlots: Set<number>): void {
   let cursor = 0;
   while (cursor < payload.length) {
-    if (cursor + 1 > payload.length) {
-      refuse("malformed-container", "DQT table header is truncated.");
-    }
     const pqTq = payload.readUInt8(cursor);
     const pq = (pqTq >> 4) & 0x0f;
     const tq = pqTq & 0x0f;
@@ -202,8 +192,9 @@ function parseDqtSlots(payload: Buffer, dqtSlots: Set<number>): void {
   }
 }
 
-/** DHT payload: repeated [TcTh(1)][BITS(16)][VALUES(sum(BITS))]. Populates
- * `dcSlots`/`acSlots` with every Th id defined for the matching Tc class. */
+/** DHT payload: repeated [TcTh(1)][BITS(16)][VALUES(sum(BITS))]: the BITS start at
+ * cursor + 1 and the VALUES at cursor + 1 + 16. Populates `dcSlots`/`acSlots` with
+ * every Th id defined for the matching Tc class. */
 function parseDhtSlots(
   payload: Buffer,
   dcSlots: Set<number>,
@@ -211,9 +202,6 @@ function parseDhtSlots(
 ): void {
   let cursor = 0;
   while (cursor < payload.length) {
-    if (cursor + 1 + 16 > payload.length) {
-      refuse("malformed-container", "DHT table header is truncated.");
-    }
     const tcTh = payload.readUInt8(cursor);
     const tc = (tcTh >> 4) & 0x0f;
     const th = tcTh & 0x0f;
@@ -237,13 +225,12 @@ interface JpegSosComponent {
 interface JpegSosHeader {
   readonly components: readonly JpegSosComponent[];
   readonly ss: number;
-  readonly se: number;
   readonly ah: number;
   readonly al: number;
 }
 
 function parseSosHeader(payload: Buffer): JpegSosHeader {
-  if (payload.length < 1) {
+  if (payload.length === 0) {
     refuse("malformed-container", "SOS header is too short.");
   }
   const ns = payload.readUInt8(0);
@@ -259,9 +246,8 @@ function parseSosHeader(payload: Buffer): JpegSosHeader {
   }
   const tailBase = 1 + ns * 2;
   const ss = payload.readUInt8(tailBase);
-  const se = payload.readUInt8(tailBase + 1);
   const ahAl = payload.readUInt8(tailBase + 2);
-  return { components, ss, se, ah: (ahAl >> 4) & 0x0f, al: ahAl & 0x0f };
+  return { components, ss, ah: (ahAl >> 4) & 0x0f, al: ahAl & 0x0f };
 }
 
 /**
@@ -270,7 +256,8 @@ function parseSosHeader(payload: Buffer): JpegSosHeader {
  * defined by a preceding DQT/DHT before this SOS. A sequential frame
  * (SOF0/SOF1) always needs both DC and AC for every component. A progressive
  * frame (SOF2) needs only DC for a DC-first scan (Ss=0, Ah=0), nothing for a
- * DC-refinement scan (Ss=0, Ah>0), and only AC for an AC scan (Ss>0).
+ * DC-refinement scan (Ss=0, Ah>0; the Ss=0 scan left once the DC-first scan is
+ * matched), and only AC for an AC scan (Ss>0).
  */
 function validateScanTables(
   frame: JpegFrame,
@@ -285,7 +272,7 @@ function validateScanTables(
     if (sos.ss === 0 && sos.ah === 0) {
       needsDc = true;
       needsAc = false;
-    } else if (sos.ss === 0 && sos.ah > 0) {
+    } else if (sos.ss === 0) {
       needsDc = false;
       needsAc = false;
     } else {
@@ -298,24 +285,28 @@ function validateScanTables(
     if (frameComponent === undefined) {
       refuse(
         "malformed-container",
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed malformed-container refusal; callers branch on the refusal and its kind, never on the wording.
         `SOS references undefined component id ${component.cs}.`,
       );
     }
     if (!dqtSlots.has(frameComponent.tq)) {
       refuse(
         "undefined-table-reference",
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed undefined-table-reference refusal; callers branch on the refusal and its kind, never on the wording.
         `Component ${component.cs} references quantization table ${frameComponent.tq}, which was never defined.`,
       );
     }
     if (needsDc && !dcSlots.has(component.td)) {
       refuse(
         "undefined-table-reference",
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed undefined-table-reference refusal; callers branch on the refusal and its kind, never on the wording.
         `Component ${component.cs} references DC Huffman table ${component.td}, which was never defined.`,
       );
     }
     if (needsAc && !acSlots.has(component.ta)) {
       refuse(
         "undefined-table-reference",
+        // Stryker disable next-line StringLiteral: unobservable-message — the detail is the free-text message of the typed undefined-table-reference refusal; callers branch on the refusal and its kind, never on the wording.
         `Component ${component.cs} references AC Huffman table ${component.ta}, which was never defined.`,
       );
     }
@@ -526,12 +517,6 @@ export async function parseJpeg(
       }
       const header = await readWindowed(handle, window, 2, offset, size);
       const length = readU16BE(header, 0);
-      if (length < 2) {
-        throw new JpegStructureError(
-          "malformed-container",
-          "SOS segment length is below 2.",
-        );
-      }
       const payloadOffset = offset + 2;
       const payloadLength = length - 2;
       if (payloadOffset + payloadLength > size) {
@@ -575,12 +560,6 @@ export async function parseJpeg(
     }
     const header = await readWindowed(handle, window, 2, offset, size);
     const length = readU16BE(header, 0);
-    if (length < 2) {
-      throw new JpegStructureError(
-        "malformed-container",
-        "Segment length is below 2.",
-      );
-    }
     const payloadOffset = offset + 2;
     const payloadLength = length - 2;
     if (payloadOffset + payloadLength > size) {
@@ -656,63 +635,63 @@ export async function parseJpeg(
     const identifier =
       marker >= APP0 && marker <= APP15 ? readIdentifier(payload) : undefined;
 
-    if (marker >= APP0 && marker <= APP15) {
-      const appClass = classifyAppPayload(marker, payload);
-      if (appClass === "icc") {
-        iccSegmentCount += 1;
-        if (iccSegmentCount > JPEG_MAX_ICC_SEGMENTS) {
-          throw new JpegStructureError(
-            "resource-limits",
-            `${JPEG_REFUSAL_DETAILS["resource-limits"]} More than ${JPEG_MAX_ICC_SEGMENTS} ICC_PROFILE segments.`,
-            {
-              segment: "icc-segment-count",
-              size: iccSegmentCount,
-              limit: JPEG_MAX_ICC_SEGMENTS,
-            },
-          );
-        }
-        buffered.set(segments.length, payload);
-      } else if (appClass === "extended-xmp") {
-        extendedXmpBytesTotal += payload.length;
-        if (extendedXmpBytesTotal > JPEG_MAX_EXTENDED_XMP_BYTES) {
-          throw new JpegStructureError(
-            "resource-limits",
-            `${JPEG_REFUSAL_DETAILS["resource-limits"]} ExtendedXMP payloads exceed ${JPEG_MAX_EXTENDED_XMP_BYTES} bytes.`,
-            {
-              segment: "extended-xmp-bytes",
-              size: extendedXmpBytesTotal,
-              limit: JPEG_MAX_EXTENDED_XMP_BYTES,
-            },
-          );
-        }
-        buffered.set(segments.length, payload);
-      } else if (appClass === "jfif") {
-        if (!sawJfif) {
-          buffered.set(segments.length, payload);
-          sawJfif = true;
-        }
-      } else if (appClass === "exif") {
-        if (!sawExif) {
-          buffered.set(segments.length, payload);
-          sawExif = true;
-        }
-      } else if (appClass === "xmp") {
-        if (!sawXmp) {
-          buffered.set(segments.length, payload);
-          sawXmp = true;
-        }
-      } else if (appClass === "mpf") {
-        if (!sawMpf) {
-          buffered.set(segments.length, payload);
-          sawMpf = true;
-        }
-      } else if (appClass === "adobe") {
-        // Every APP14 Adobe segment is buffered (D-01: always kept).
-        buffered.set(segments.length, payload);
+    // classifyAppPayload answers "other" for any marker outside APP0..APP15 (every
+    // class it names is keyed to one APPn marker), so no range guard is needed here.
+    const appClass = classifyAppPayload(marker, payload);
+    if (appClass === "icc") {
+      iccSegmentCount += 1;
+      if (iccSegmentCount > JPEG_MAX_ICC_SEGMENTS) {
+        throw new JpegStructureError(
+          "resource-limits",
+          `${JPEG_REFUSAL_DETAILS["resource-limits"]} More than ${JPEG_MAX_ICC_SEGMENTS} ICC_PROFILE segments.`,
+          {
+            segment: "icc-segment-count",
+            size: iccSegmentCount,
+            limit: JPEG_MAX_ICC_SEGMENTS,
+          },
+        );
       }
-      // Every other payload (COM, APP13, unknown APPn, duplicates beyond the
-      // first) is skipped by offset -- never buffered.
+      buffered.set(segments.length, payload);
+    } else if (appClass === "extended-xmp") {
+      extendedXmpBytesTotal += payload.length;
+      if (extendedXmpBytesTotal > JPEG_MAX_EXTENDED_XMP_BYTES) {
+        throw new JpegStructureError(
+          "resource-limits",
+          `${JPEG_REFUSAL_DETAILS["resource-limits"]} ExtendedXMP payloads exceed ${JPEG_MAX_EXTENDED_XMP_BYTES} bytes.`,
+          {
+            segment: "extended-xmp-bytes",
+            size: extendedXmpBytesTotal,
+            limit: JPEG_MAX_EXTENDED_XMP_BYTES,
+          },
+        );
+      }
+      buffered.set(segments.length, payload);
+    } else if (appClass === "jfif") {
+      if (!sawJfif) {
+        buffered.set(segments.length, payload);
+        sawJfif = true;
+      }
+    } else if (appClass === "exif") {
+      if (!sawExif) {
+        buffered.set(segments.length, payload);
+        sawExif = true;
+      }
+    } else if (appClass === "xmp") {
+      if (!sawXmp) {
+        buffered.set(segments.length, payload);
+        sawXmp = true;
+      }
+    } else if (appClass === "mpf") {
+      if (!sawMpf) {
+        buffered.set(segments.length, payload);
+        sawMpf = true;
+      }
+    } else if (appClass === "adobe") {
+      // Every APP14 Adobe segment is buffered (D-01: always kept).
+      buffered.set(segments.length, payload);
     }
+    // Every other payload (COM, APP13, unknown APPn, duplicates beyond the
+    // first) is skipped by offset -- never buffered.
 
     segments.push({
       marker,

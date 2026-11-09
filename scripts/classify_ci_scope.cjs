@@ -86,6 +86,12 @@ const LINUX_SAFE_PATH_RULES = Object.freeze(
       pattern:
         /^tests\/isobmff-support\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.(?:ts|md|heic|avif)$/u,
     },
+    {
+      // D-24: the mutation tooling (tools/mutation/**) never ships and never touches native code;
+      // the mutation lane's smoke leg covers it, so a change here needs Linux only.
+      id: "mutation-tooling",
+      pattern: /^tools\/mutation\//u,
+    },
     { id: "docs", pattern: /^docs\/.+/u },
     { id: "root-markdown", pattern: /^[^/]+\.md$/u },
     { id: "planning-markdown", pattern: /^\.planning\/.+\.md$/u },
@@ -566,6 +572,79 @@ function validateCiScopeWiring(workflowText) {
     );
 }
 
+// MUTATION LANE SCOPING (Phase 67, D-24/D-25/D-07).
+//
+// `selectMutationLane` is deliberately independent of `classifyCiScope` and
+// `classifyQualificationFormats`: no mutation rule can widen the native matrix
+// or change a scope/formats result. It names which changed `src/**/*.ts` files
+// the mutation lane mutates and which leg to take. A null/non-array changed-path
+// list (git error) is mode `error` with files [] -- mutate nothing, never
+// everything; an empty list is mode `none`. Any malformed path, or one containing
+// a comma or newline (which would split the list or inject a GITHUB_OUTPUT
+// line), makes the whole result `error`.
+const MUTATION_SOURCE_PATTERN =
+  /^src\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.ts$/u;
+const MUTATION_SMOKE_ROOT_FILES = Object.freeze([
+  "package.json",
+  "package-lock.json",
+  "tsconfig.json",
+  "vitest.config.ts",
+]);
+
+function selectMutationLane(changedPaths) {
+  if (!Array.isArray(changedPaths))
+    return Object.freeze({
+      mode: "error",
+      files: Object.freeze([]),
+      reason: "changedPaths unavailable (git error or unfiltered event)",
+    });
+  for (const path of changedPaths) {
+    if (isMalformedPath(path) || path.includes(",") || path.includes("\n"))
+      return Object.freeze({
+        mode: "error",
+        files: Object.freeze([]),
+        reason: `unsafe or malformed changed path: ${JSON.stringify(path)}`,
+      });
+  }
+  const files = Object.freeze(
+    [
+      ...new Set(
+        changedPaths.filter(
+          (path) =>
+            MUTATION_SOURCE_PATTERN.test(path) && !path.endsWith(".d.ts"),
+        ),
+      ),
+    ].sort(),
+  );
+  const smoke = changedPaths.some(
+    (path) =>
+      path.startsWith("tools/mutation/") ||
+      MUTATION_SMOKE_ROOT_FILES.includes(path),
+  );
+  const testsOnly =
+    changedPaths.length > 0 &&
+    changedPaths.every((path) => path.startsWith("tests/"));
+  let mode;
+  let reason;
+  if (files.length > 0 && smoke) {
+    mode = "run+smoke";
+    reason = `${files.length} changed src file(s) plus mutation tooling or dependency change`;
+  } else if (files.length > 0) {
+    mode = "run";
+    reason = `${files.length} changed src file(s) to mutate`;
+  } else if (smoke) {
+    mode = "smoke";
+    reason = "mutation tooling or dependency change without src changes";
+  } else if (testsOnly) {
+    mode = "tests-only";
+    reason = "only tests changed";
+  } else {
+    mode = "none";
+    reason = "no mutation-relevant changed paths";
+  }
+  return Object.freeze({ mode, files, reason });
+}
+
 function main() {
   const eventName = process.env.CLASSIFY_EVENT_NAME ?? "";
   const workflowName = process.env.CLASSIFY_WORKFLOW ?? "";
@@ -590,9 +669,10 @@ function main() {
     ref,
     changedPaths,
   });
+  const mutation = selectMutationLane(changedPaths);
   const pathCount = Array.isArray(changedPaths) ? changedPaths.length : 0;
   process.stdout.write(
-    `scope=${result.scope} reason=${result.reason} paths=${pathCount} formats=${formats.join(",")}\n`,
+    `scope=${result.scope} reason=${result.reason} paths=${pathCount} formats=${formats.join(",")} mutate_mode=${mutation.mode} mutate_files=${mutation.files.length}\n`,
   );
 
   const outputPath = process.env.GITHUB_OUTPUT;
@@ -600,6 +680,8 @@ function main() {
     try {
       appendFileSync(outputPath, `scope=${result.scope}\n`);
       appendFileSync(outputPath, `formats=${formats.join(",")}\n`);
+      appendFileSync(outputPath, `mutate=${mutation.files.join(",")}\n`);
+      appendFileSync(outputPath, `mutate_mode=${mutation.mode}\n`);
     } catch (error) {
       process.stderr.write(
         `failed to write GITHUB_OUTPUT: ${String(error.message ?? error)}\n`,
@@ -621,6 +703,7 @@ module.exports = {
   isLinuxSafePath,
   classifyCiScope,
   classifyQualificationFormats,
+  selectMutationLane,
   changedPathsForEvent,
   validateCiScopeWiring,
   SKIP_GATED_JOBS,

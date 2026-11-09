@@ -16,6 +16,14 @@ updates:
     ignore:
       - dependency-name: "typescript"
         versions: [">=7.0.0"]
+  - package-ecosystem: npm
+    directory: /tools/mutation
+    schedule:
+      interval: weekly
+    groups:
+      stryker:
+        patterns:
+          - "@stryker-mutator/*"
   - package-ecosystem: github-actions
     directory: /
     schedule:

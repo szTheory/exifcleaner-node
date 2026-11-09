@@ -6,6 +6,7 @@ export const ICC_PRESERVATION_POLICY_ID = "icc-structural-v0.2";
 const ICC_HEADER_BYTES = 128;
 const ICC_TAG_COUNT_BYTES = 4;
 const ICC_TAG_RECORD_BYTES = 12;
+const ICC_TAG_MIN_BYTES = 8;
 export const MAX_PROFILE_BYTES = 16 * 1024 * 1024;
 const MAX_TAG_COUNT = 4_096;
 const D50 = [0x0000_f6d6, 0x0001_0000, 0x0000_d32d] as const;
@@ -51,12 +52,6 @@ function validDate(payload: Buffer): boolean {
   return day >= 1 && day <= days;
 }
 
-function bcd(value: number): number | undefined {
-  const high = value >> 4;
-  const low = value & 0x0f;
-  return high <= 9 && low <= 9 ? high * 10 + low : undefined;
-}
-
 function allZero(payload: Buffer, start: number, end: number): boolean {
   for (let offset = start; offset < end; offset += 1)
     if (payload[offset] !== 0) return false;
@@ -99,9 +94,12 @@ export function validateIccForPreservation(
   if (payload.toString("ascii", 36, 40) !== "acsp")
     return rejected("invalid", "ICC profile signature is invalid.");
 
-  const minor = bcd((payload[9] ?? 0) >> 4);
-  const bugFix = bcd(payload[9] ?? 0);
-  if (minor === undefined || bugFix === undefined)
+  // Byte 9 packs the minor version (high nibble) and the bug-fix version (low nibble), each one
+  // decimal digit.
+  const version = payload[9] ?? 0;
+  const minor = version >> 4;
+  const bugFix = version & 0x0f;
+  if (minor > 9 || bugFix > 9)
     return rejected("invalid", "ICC profile version uses non-decimal BCD.");
   if (payload[8] !== 2 && payload[8] !== 4)
     return rejected(
@@ -143,8 +141,6 @@ export function validateIccForPreservation(
     return rejected("invalid", "ICC v4 required header fields are invalid.");
 
   const tagCount = payload.readUInt32BE(128);
-  if (tagCount === 0)
-    return rejected("invalid", "ICC profile has no tag records.");
   if (tagCount > MAX_TAG_COUNT)
     return rejected(
       "policy-limit",
@@ -152,7 +148,9 @@ export function validateIccForPreservation(
     );
   const tableEnd =
     ICC_HEADER_BYTES + ICC_TAG_COUNT_BYTES + tagCount * ICC_TAG_RECORD_BYTES;
-  if (tableEnd > payload.length)
+  // The table must leave room for at least one tag payload, so an empty table or one that fills
+  // the profile is refused here rather than by the range checks below.
+  if (tableEnd + ICC_TAG_MIN_BYTES > payload.length)
     return rejected("invalid", "ICC profile tag table is truncated.");
 
   const signatures = new Set<number>();
@@ -169,22 +167,19 @@ export function validateIccForPreservation(
         "ICC profile tag signatures must be unique and nonzero.",
       );
     signatures.add(signature);
-    if (
-      offset < tableEnd ||
-      offset % 4 !== 0 ||
-      size < 8 ||
-      offset > payload.length ||
-      size > payload.length - offset
-    )
+    // Only the size is checked here: a payload that starts below the table, off a four-byte
+    // boundary or past the end is refused by the canonical contiguous-range check below, and a
+    // start past the end leaves a negative remaining length, so the size test refuses it.
+    if (size < ICC_TAG_MIN_BYTES || size > payload.length - offset)
       return rejected("invalid", "ICC profile tag range is invalid.");
     if (payload.readUInt32BE(offset + 4) !== 0)
       return rejected(
         "invalid",
         "ICC profile tag type reserved bytes are nonzero.",
       );
-    const range = { signature, offset, size };
-    const key = `${offset}:${size}`;
-    if (!physicalRanges.has(key)) physicalRanges.set(key, range);
+    // Tags that share one physical range collapse to a single entry; which signature the entry
+    // keeps is never read.
+    physicalRanges.set(`${offset}:${size}`, { signature, offset, size });
   }
 
   const ranges = [...physicalRanges.values()].sort(

@@ -1177,7 +1177,7 @@ Scope, enforced by `compareIsobmffMetadataNamespaces` and `isobmffAuxiliaryItemX
   admits exactly these three by key (the same `admittedUnknownTags` hook AVIF uses for
   `Meta:Unknown_idat`); each must carry an identical value in source, native and reference.
 - **c034.** Under default settings native refuses
-  `unsupported-feature` / `orientation-preservation` / "EXIF TIFF header is truncated" at
+  `unsupported-feature` / `orientation-preservation` / "EXIF byte order is invalid" at
   admission (a fail-safe refusal, pinned as the expected outcome). Under all flags false native
   writes an output, and ExifTool warns `Missing Exif header` reading the source only; that exact
   text is admitted for that record and setting only. Native and reference warnings are never

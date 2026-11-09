@@ -114,7 +114,9 @@ export function rebuildIloc(
   parts.push(itemCount);
 
   const hasConstructionMethod = version === 1 || version === 2;
-  const hasIndexField = (version === 1 || version === 2) && indexSize > 0;
+  // `writeSizedUint(_, 0)` emits no bytes, so a version 1/2 iloc with index_size 0 needs no
+  // separate "no index field" case.
+  const hasIndexField = hasConstructionMethod;
 
   for (const item of items) {
     const idBuffer = Buffer.alloc(version === 2 ? 4 : 2);

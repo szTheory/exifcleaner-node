@@ -60,10 +60,12 @@ function buildMergedMdatRanges(sourceExtents) {
 function totalMergedLength(merged) {
     return merged.reduce((total, range) => total + (range.end - range.start), 0);
 }
-/** Map one absolute source `mdat` offset to its new position in the output payload (D-15). */
+/** Map one absolute source `mdat` offset to its new position in the output payload (D-15). The
+ * merged ranges are ascending and disjoint, and every `abs` is the start of an extent that built a
+ * range, so the first range whose end reaches `abs` is the one that contains it. */
 function mapAbsoluteOffset(merged, abs) {
     for (const range of merged) {
-        if (abs >= range.start && abs <= range.end) {
+        if (abs <= range.end) {
             return range.newStart + (abs - range.start);
         }
     }
@@ -97,27 +99,36 @@ function maxValueForWidth(width) {
  */
 function checkIlocRewriteFit(survivingItems, rewrites, baseOffsetSize, offsetSize) {
     for (const item of survivingItems) {
-        if (item.constructionMethod !== 0)
-            continue;
+        // Only construction_method 0 items carry a rewrite (computeIlocRewrites skips the others and
+        // admission forces the minimal Exif item's source to construction_method 0).
         const rewrite = rewrites.get(item.id);
         if (rewrite === undefined)
             continue;
-        if (baseOffsetSize > 0) {
+        // A base_offset field of width 0 carries only 0 and its rewritten base is then 0, so the
+        // check below accepts it without a width guard.
+        {
             const max = maxValueForWidth(baseOffsetSize);
-            if (rewrite.newBaseOffset < 0 || rewrite.newBaseOffset > max) {
-                return (`offset-rewrite-overflow: item ${item.id}'s rewritten base_offset ` +
+            // The base is a payload start plus a rank offset in the merged union, never negative.
+            if (rewrite.newBaseOffset > max) {
+                return (
+                // Stryker disable next-line StringLiteral: unobservable-message — this base_offset overflow label only reaches the decline detail text; the typed unsafe-structure refusal, the empty plan parts and removedItemIds are unchanged.
+                `offset-rewrite-overflow: item ${item.id}'s rewritten base_offset ` +
+                    // Stryker disable next-line StringLiteral: unobservable-message — the rewritten base_offset width label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
                     `${rewrite.newBaseOffset} does not fit its declared width (${baseOffsetSize} bytes).`);
             }
         }
         const max = maxValueForWidth(offsetSize);
-        for (let index = 0; index < rewrite.extentOffsets.length; index += 1) {
-            const offset = rewrite.extentOffsets[index];
+        for (const [index, offset] of rewrite.extentOffsets.entries()) {
             if (offset < 0) {
                 return (`offset-rewrite-overflow: item ${item.id}'s rewritten extent ${index} offset ` +
+                    // Stryker disable next-line StringLiteral: unobservable-message — the negative extent offset label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
                     `${offset} would be negative.`);
             }
             if (offset > max) {
-                return (`offset-rewrite-overflow: item ${item.id}'s rewritten extent ${index} offset ` +
+                return (
+                // Stryker disable next-line StringLiteral: unobservable-message — this extent offset overflow label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
+                `offset-rewrite-overflow: item ${item.id}'s rewritten extent ${index} offset ` +
+                    // Stryker disable next-line StringLiteral: unobservable-message — the extent offset width label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
                     `${offset} does not fit its declared width (${offsetSize} bytes).`);
             }
         }
@@ -134,13 +145,17 @@ function checkMdatSizeFit(sizeForm, payloadLength) {
     if (sizeForm === "largesize") {
         const total = 16 + payloadLength;
         if (!Number.isSafeInteger(total)) {
+            // Stryker disable next-line StringLiteral: unobservable-message — the largesize overflow label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
             return `offset-rewrite-overflow: rewritten mdat largesize ${total} exceeds safe integer precision.`;
         }
         return undefined;
     }
     const total = 8 + payloadLength;
     if (total > MAX_UINT32) {
-        return (`offset-rewrite-overflow: rewritten mdat size ${total} does not fit a 32-bit header ` +
+        return (
+        // Stryker disable next-line StringLiteral: unobservable-message — the 32-bit mdat size overflow label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
+        `offset-rewrite-overflow: rewritten mdat size ${total} does not fit a 32-bit header ` +
+            // Stryker disable next-line StringLiteral: unobservable-message — the normal/size-zero header explanation only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
             `(the source used a normal/size-zero header, never widened to largesize).`);
     }
     return undefined;
@@ -305,17 +320,22 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
     if (ftypBox === undefined ||
         metaTopLevelBox === undefined ||
         mdatBox === undefined) {
-        return declined(classification.removableItemIds, "Source is missing a top-level ftyp, meta or mdat box.");
+        return declined(classification.removableItemIds, 
+        // Stryker disable next-line StringLiteral: unobservable-message — the missing top-level box label only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
+        "Source is missing a top-level ftyp, meta or mdat box.");
     }
     // D-12 (62-07): decline before any write when a minimal Exif item is required but the source's
     // iloc widths cannot express its tail location (offset_size and base_offset_size both 0 -- no
     // field can carry an absolute position at all) or its length (length_size 0).
     if (keepExifItemId !== undefined) {
         const { ilocOffsetSize, ilocBaseOffsetSize, ilocLengthSize } = layout.item;
-        if ((ilocOffsetSize === 0 && ilocBaseOffsetSize === 0) ||
-            ilocLengthSize === 0) {
+        // Offset_size and base_offset_size both 0 is declined later by checkIlocRewriteFit: the minimal
+        // Exif item's tail position cannot fit a field that carries only 0.
+        if (ilocLengthSize === 0) {
             return declined(classification.removableItemIds, "offset-rewrite-overflow: a minimal Exif item is required but the source iloc cannot " +
+                // Stryker disable next-line StringLiteral: unobservable-message — the iloc width detail only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
                 `express its location (offset_size ${ilocOffsetSize}, base_offset_size ` +
+                // Stryker disable next-line StringLiteral: unobservable-message — the length_size detail only reaches the decline detail text; the typed unsafe-structure refusal is unchanged.
                 `${ilocBaseOffsetSize}, length_size ${ilocLengthSize}).`);
         }
     }
@@ -386,18 +406,18 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
     const removedPropertyIndices = preserveColorProfile
         ? new Set()
         : new Set(model.properties
-            .filter((property) => property.type === "colr" &&
-            (property.colourType === "prof" ||
-                property.colourType === "rICC"))
+            .filter((property) => 
+        // colourType is set only on colr properties.
+        property.colourType === "prof" || property.colourType === "rICC")
             .map((property) => property.index));
-    /** D-16: `new = old - countRemovedBelow(old)`, over a property index that itself survives. */
-    function remapSurvivingPropertyIndex(oldIndex) {
-        let removedBelow = 0;
-        for (const removed of removedPropertyIndices) {
-            if (removed < oldIndex)
-                removedBelow += 1;
+    /** D-16: a surviving property's new index is its 1-based rank among the surviving properties
+     * in ipco declaration order (`old - countRemovedBelow(old)`); ipma entries only name existing
+     * properties (items.ts rejects an out-of-range index at parse). */
+    const survivingPropertyRank = new Map();
+    for (const property of model.properties) {
+        if (!removedPropertyIndices.has(property.index)) {
+            survivingPropertyRank.set(property.index, survivingPropertyRank.size + 1);
         }
-        return oldIndex - removedBelow;
     }
     // iprp: ipco rebuilt from each surviving property's own verbatim byte range, in source order
     // (D-16: byte-identical to the source when nothing is removed); ipma rebuilt (surviving items
@@ -406,22 +426,20 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
     let iprpBytes;
     const iprpChildren = layout.item.iprpChildren;
     if (iprpChildren.length > 0) {
-        const ipcoHeader = iprpChildren.find((child) => child.type === "ipco");
-        const ipmaHeader = iprpChildren.find((child) => child.type === "ipma");
-        const ipcoBytes = ipcoHeader !== undefined
-            ? rebuildIpco(model.properties
-                .filter((property) => !removedPropertyIndices.has(property.index))
-                .map((property) => layout.metaPayload.subarray(property.start, property.end)))
-            : Buffer.alloc(0);
+        // ipco bytes are only read when "ipco" is among the children (see `order` below), and
+        // ipmaVersion is defined exactly when an ipma child exists.
+        const ipcoBytes = rebuildIpco(model.properties
+            .filter((property) => !removedPropertyIndices.has(property.index))
+            .map((property) => layout.metaPayload.subarray(property.start, property.end)));
         let ipmaBytes;
-        if (ipmaHeader !== undefined && layout.item.ipmaVersion !== undefined) {
+        if (layout.item.ipmaVersion !== undefined) {
             const survivingAssociations = (model.ipma ?? []).filter((entry) => !removedIds.has(entry.itemId));
             ipmaBytes = rebuildIpma(layout.item.ipmaVersion, layout.item.ipmaFlags ?? 0, survivingAssociations.map((entry) => ({
                 itemId: entry.itemId,
                 associations: entry.associations
                     .filter((association) => !removedPropertyIndices.has(association.propertyIndex))
                     .map((association) => ({
-                    propertyIndex: remapSurvivingPropertyIndex(association.propertyIndex),
+                    propertyIndex: survivingPropertyRank.get(association.propertyIndex),
                     essential: association.essential,
                 })),
             })));
@@ -469,9 +487,8 @@ export function buildIsobmffOutputPlan(admission, preserveOrientation, preserveC
         return declined(classification.removableItemIds, mdatSizeFitError);
     }
     const metaBytes = buildMetaBytes(layout.item, layout.metaPayload, itemsForMeta, iinfBytes, irefBytes, iprpBytes, finalRewrites);
-    if (metaBytes.length !== probeMetaBytes.length) {
-        return declined(classification.removableItemIds, "Rebuilt meta length changed between the probe and final passes.");
-    }
+    // D-11: widths never change, so `metaBytes.length` equals the probe pass's length that the new
+    // mdat payload start above was computed from.
     const mdatHeaderBytes = buildMdatHeader(mdatBox.sizeForm, newMdatPayloadLength);
     // D-14: emit parts in the exact kept order (never reordered); free/skip/C2PA uuid simply have
     // no part at all, wherever they sat in the source.

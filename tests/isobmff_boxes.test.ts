@@ -14,8 +14,18 @@ import {
   IsobmffStructureError,
 } from "../src/isobmff/errors.js";
 import { parseIsobmff, type IsobmffModel } from "../src/isobmff/parse.js";
-import { DEFAULT_ISOBMFF_CAPS, type IsobmffCaps } from "../src/isobmff/caps.js";
-import { C2PA_UUID_USERTYPE } from "../src/isobmff/boxes.js";
+import {
+  DEFAULT_ISOBMFF_CAPS,
+  IsobmffBudget,
+  type IsobmffCaps,
+} from "../src/isobmff/caps.js";
+import {
+  C2PA_UUID_USERTYPE,
+  parseBoxHeader,
+  readExactly,
+  readTopLevelBoxes,
+  walkContainer,
+} from "../src/isobmff/boxes.js";
 import {
   box,
   type BoxSizeOverride,
@@ -209,6 +219,123 @@ describe("parseIsobmff tracer: a builder HEIF file reads end to end", () => {
 function minimalFtyp(): Buffer {
   return ftypBox("heic", 0, ["mif1", "heic"]);
 }
+
+function expectBoxFramingFailure(action: () => unknown): void {
+  let error: unknown;
+  try {
+    action();
+  } catch (caught) {
+    error = caught;
+  }
+  expect(error).toBeInstanceOf(IsobmffStructureError);
+  expect(error).toMatchObject({
+    declineClass: "box-framing",
+    kind: "malformed-file",
+  });
+}
+
+describe("isobmff-2 parseBoxHeader ConditionalExpression", () => {
+  it("rejects a truncated base header and a zero-sized in-memory box", () => {
+    const truncatedBaseHeader = Buffer.alloc(3);
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(truncatedBaseHeader, 0, truncatedBaseHeader.length),
+    );
+
+    const zeroSizedBox = Buffer.alloc(8);
+    zeroSizedBox.write("free", 4, "ascii");
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(zeroSizedBox, 0, zeroSizedBox.length),
+    );
+  });
+
+  it("accepts a largesize equal to its header and rejects one byte below", () => {
+    const equalToHeader = Buffer.alloc(16);
+    equalToHeader.writeUInt32BE(1, 0);
+    equalToHeader.write("free", 4, "ascii");
+    equalToHeader.writeBigUInt64BE(16n, 8);
+
+    expect(
+      parseBoxHeader(equalToHeader, 0, equalToHeader.length),
+    ).toMatchObject({
+      type: "free",
+      start: 0,
+      headerSize: 16,
+      size: 16,
+      payloadStart: 16,
+      end: 16,
+      sizeForm: "largesize",
+    });
+
+    const belowHeader = Buffer.alloc(16);
+    belowHeader.writeUInt32BE(1, 0);
+    belowHeader.write("free", 4, "ascii");
+    belowHeader.writeBigUInt64BE(15n, 8);
+
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(belowHeader, 0, belowHeader.length),
+    );
+  });
+
+  it("rejects an incomplete largesize field and unsafe largesize values", () => {
+    const incompleteLargesize = Buffer.alloc(15);
+    incompleteLargesize.writeUInt32BE(1, 0);
+    incompleteLargesize.write("free", 4, "ascii");
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(incompleteLargesize, 0, incompleteLargesize.length),
+    );
+
+    const unsafeLargesize = Buffer.alloc(16);
+    unsafeLargesize.writeUInt32BE(1, 0);
+    unsafeLargesize.write("free", 4, "ascii");
+    unsafeLargesize.writeBigUInt64BE(BigInt(Number.MAX_SAFE_INTEGER) + 1n, 8);
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(unsafeLargesize, 0, unsafeLargesize.length),
+    );
+  });
+
+  it("rejects undersized normal boxes with the typed framing failure", () => {
+    const undersizedBox = Buffer.alloc(8);
+    undersizedBox.writeUInt32BE(7, 0);
+    undersizedBox.write("free", 4, "ascii");
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(undersizedBox, 0, undersizedBox.length),
+    );
+  });
+
+  it("uses UUID header extents and rejects missing or undersized UUID payloads", () => {
+    const uuidType = Buffer.from("uuid", "ascii");
+    const usertype = Buffer.from("d8fec3d61b0e483c92975828877ec481", "hex");
+    const validUuid = Buffer.alloc(24);
+    validUuid.writeUInt32BE(24, 0);
+    uuidType.copy(validUuid, 4);
+    usertype.copy(validUuid, 8);
+
+    expect(parseBoxHeader(validUuid, 0, validUuid.length)).toMatchObject({
+      type: "uuid",
+      start: 0,
+      headerSize: 24,
+      size: 24,
+      payloadStart: 24,
+      end: 24,
+      usertype: "d8fec3d61b0e483c92975828877ec481",
+    });
+
+    const missingUsertype = Buffer.alloc(8);
+    missingUsertype.writeUInt32BE(8, 0);
+    uuidType.copy(missingUsertype, 4);
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(missingUsertype, 0, missingUsertype.length),
+    );
+
+    const undersizedUuid = Buffer.alloc(24);
+    undersizedUuid.writeUInt32BE(8, 0);
+    uuidType.copy(undersizedUuid, 4);
+    usertype.copy(undersizedUuid, 8);
+    expectBoxFramingFailure(() =>
+      parseBoxHeader(undersizedUuid, 0, undersizedUuid.length),
+    );
+  });
+});
 
 /**
  * A structurally-valid meta box, same content/size (214 bytes, see `META_SIZE`) as `minimalHeif`'s
@@ -614,6 +741,352 @@ function loggingHandle(real: FileHandle): {
   return { handle, log };
 }
 
+function memoryHandle(
+  bytes: Buffer,
+  options: { maxReadSize?: number; failAfterZeroReads?: number } = {},
+): {
+  handle: FileHandle;
+  log: ReadLogEntry[];
+} {
+  const log: ReadLogEntry[] = [];
+  let zeroReads = 0;
+  const handle = {
+    read: async (
+      target: Buffer,
+      offset: number,
+      length: number,
+      position: number,
+    ) => {
+      log.push({ position, length });
+      const available = Math.max(0, bytes.length - position);
+      const bytesRead = Math.max(
+        0,
+        Math.min(length, available, options.maxReadSize ?? length),
+      );
+      if (bytesRead === 0) {
+        zeroReads += 1;
+        if (
+          zeroReads > (options.failAfterZeroReads ?? Number.POSITIVE_INFINITY)
+        ) {
+          throw new Error("bounded fake handle stopped repeated EOF reads");
+        }
+      }
+      bytes.copy(target, offset, position, position + bytesRead);
+      return { bytesRead, buffer: target };
+    },
+  } as unknown as FileHandle;
+  return { handle, log };
+}
+
+describe("isobmff-2 top-level box header boundaries", () => {
+  it("readTopLevelBoxHeaderAt rejects an undersized UUID even when following bytes fill its usertype", async () => {
+    const ftyp = Buffer.alloc(8);
+    ftyp.writeUInt32BE(8, 0);
+    ftyp.write("ftyp", 4, "ascii");
+
+    const undersizedUuid = Buffer.alloc(20);
+    undersizedUuid.writeUInt32BE(20, 0);
+    undersizedUuid.write("uuid", 4, "ascii");
+
+    const nextBox = Buffer.alloc(8);
+    nextBox.writeUInt32BE(8, 0);
+    nextBox.write("free", 4, "ascii");
+
+    const bytes = Buffer.concat([ftyp, undersizedUuid, nextBox]);
+    const { handle, log } = memoryHandle(bytes);
+
+    await expect(
+      readTopLevelBoxes(handle, bytes.length, new IsobmffBudget()),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+
+    expect(log).toHaveLength(3);
+    expect(log).toEqual([
+      { position: 0, length: 8 },
+      { position: 8, length: 8 },
+      { position: 16, length: 16 },
+    ]);
+    expect(
+      log.every((entry) => entry.position + entry.length <= bytes.length),
+    ).toBe(true);
+  });
+
+  it("readTopLevelBoxHeaderAt reads only headers inside fileSize and accepts exact UUID and safe largesize ends", async () => {
+    const truncatedBase = Buffer.alloc(8);
+    truncatedBase.writeUInt32BE(8, 0);
+    truncatedBase.write("ftyp", 4, "ascii");
+    const shortBase = memoryHandle(truncatedBase);
+    await expect(
+      readTopLevelBoxes(shortBase.handle, 7, new IsobmffBudget()),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+    expect(shortBase.log).toEqual([]);
+
+    const incompleteLarge = Buffer.alloc(16);
+    incompleteLarge.writeUInt32BE(1, 0);
+    incompleteLarge.write("ftyp", 4, "ascii");
+    incompleteLarge.writeBigUInt64BE(16n, 8);
+    const shortLarge = memoryHandle(incompleteLarge);
+    await expect(
+      readTopLevelBoxes(shortLarge.handle, 15, new IsobmffBudget()),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+    expect(shortLarge.log).toEqual([{ position: 0, length: 8 }]);
+
+    const exactLarge = memoryHandle(incompleteLarge);
+    const exactLargeBoxes = await readTopLevelBoxes(
+      exactLarge.handle,
+      16,
+      new IsobmffBudget(),
+    );
+    expect(exactLargeBoxes[0]).toMatchObject({
+      type: "ftyp",
+      headerSize: 16,
+      size: 16,
+      end: 16,
+    });
+
+    const missingUuid = Buffer.alloc(40);
+    missingUuid.writeUInt32BE(8, 0);
+    missingUuid.write("ftyp", 4, "ascii");
+    missingUuid.writeUInt32BE(24, 8);
+    missingUuid.write("uuid", 12, "ascii");
+    missingUuid.writeUInt32BE(8, 24);
+    missingUuid.write("free", 28, "ascii");
+    const shortUuid = memoryHandle(missingUuid);
+    await expect(
+      readTopLevelBoxes(shortUuid.handle, 24, new IsobmffBudget()),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+    expect(shortUuid.log).toEqual([
+      { position: 0, length: 8 },
+      { position: 8, length: 8 },
+    ]);
+
+    const exactUuid = Buffer.alloc(32);
+    exactUuid.writeUInt32BE(8, 0);
+    exactUuid.write("ftyp", 4, "ascii");
+    exactUuid.writeUInt32BE(24, 8);
+    exactUuid.write("uuid", 12, "ascii");
+    Buffer.from(C2PA_UUID_USERTYPE, "hex").copy(exactUuid, 16);
+    const exactUuidHandle = memoryHandle(exactUuid);
+    const boxes = await readTopLevelBoxes(
+      exactUuidHandle.handle,
+      exactUuid.length,
+      new IsobmffBudget(),
+    );
+    expect(boxes[1]).toMatchObject({
+      type: "uuid",
+      start: 8,
+      headerSize: 24,
+      size: 24,
+      payloadStart: 32,
+      end: 32,
+      usertype: C2PA_UUID_USERTYPE,
+    });
+    expect(
+      exactUuidHandle.log.every(
+        (entry) => entry.position + entry.length <= exactUuid.length,
+      ),
+    ).toBe(true);
+
+    const safeLarge = Buffer.alloc(16);
+    safeLarge.writeUInt32BE(1, 0);
+    safeLarge.write("ftyp", 4, "ascii");
+    safeLarge.writeBigUInt64BE(BigInt(Number.MAX_SAFE_INTEGER), 8);
+    const safeHandle = memoryHandle(safeLarge);
+    const safeBoxes = await readTopLevelBoxes(
+      safeHandle.handle,
+      Number.MAX_SAFE_INTEGER,
+      new IsobmffBudget(),
+    );
+    expect(safeBoxes[0]).toMatchObject({
+      type: "ftyp",
+      size: Number.MAX_SAFE_INTEGER,
+      end: Number.MAX_SAFE_INTEGER,
+      headerSize: 16,
+    });
+
+    const roundedUnsafeLarge = Buffer.alloc(16);
+    roundedUnsafeLarge.writeUInt32BE(1, 0);
+    roundedUnsafeLarge.write("ftyp", 4, "ascii");
+    roundedUnsafeLarge.writeBigUInt64BE(2n ** 53n + 1n, 8);
+    await expect(
+      readTopLevelBoxes(
+        memoryHandle(roundedUnsafeLarge).handle,
+        2 ** 53,
+        new IsobmffBudget(),
+      ),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+  });
+
+  it("readTopLevelBoxHeaderAt rejects an undersized largesize UUID before a usertype read", async () => {
+    const bytes = Buffer.alloc(40);
+    bytes.writeUInt32BE(8, 0);
+    bytes.write("ftyp", 4, "ascii");
+    bytes.writeUInt32BE(1, 8);
+    bytes.write("uuid", 12, "ascii");
+    bytes.writeBigUInt64BE(15n, 16);
+    const { handle, log } = memoryHandle(bytes);
+
+    await expect(
+      readTopLevelBoxes(handle, bytes.length, new IsobmffBudget()),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+    expect(log).toEqual([
+      { position: 0, length: 8 },
+      { position: 8, length: 8 },
+      { position: 16, length: 8 },
+    ]);
+  });
+
+  it("readTopLevelBoxHeaderAt rejects an undersized normal UUID before a usertype read", async () => {
+    const bytes = Buffer.alloc(32);
+    bytes.writeUInt32BE(8, 0);
+    bytes.write("ftyp", 4, "ascii");
+    bytes.writeUInt32BE(7, 8);
+    bytes.write("uuid", 12, "ascii");
+    const { handle, log } = memoryHandle(bytes);
+
+    await expect(
+      readTopLevelBoxes(handle, bytes.length, new IsobmffBudget()),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+    expect(log).toEqual([
+      { position: 0, length: 8 },
+      { position: 8, length: 8 },
+    ]);
+  });
+
+  it("readTopLevelBoxes requires a first ftyp box and rejects a box extending beyond fileSize", async () => {
+    const empty = memoryHandle(Buffer.alloc(0));
+    await expect(
+      readTopLevelBoxes(empty.handle, 0, new IsobmffBudget()),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+
+    const wrongFirst = Buffer.alloc(8);
+    wrongFirst.writeUInt32BE(8, 0);
+    wrongFirst.write("free", 4, "ascii");
+    await expect(
+      readTopLevelBoxes(
+        memoryHandle(wrongFirst).handle,
+        wrongFirst.length,
+        new IsobmffBudget(),
+      ),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+
+    const beyondFile = Buffer.alloc(8);
+    beyondFile.writeUInt32BE(16, 0);
+    beyondFile.write("ftyp", 4, "ascii");
+    const bounded = memoryHandle(beyondFile);
+    await expect(
+      readTopLevelBoxes(bounded.handle, 8, new IsobmffBudget()),
+    ).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+    expect(bounded.log).toEqual([{ position: 0, length: 8 }]);
+  });
+});
+
+describe("isobmff-2 readExactly boundaries", () => {
+  it("readExactly assembles short reads and types EOF after a partial read", async () => {
+    const source = Buffer.from([0, 1, 2, 3, 4, 5, 6]);
+    const partial = memoryHandle(source, { maxReadSize: 2 });
+    await expect(readExactly(partial.handle, 5, 2)).resolves.toEqual(
+      Buffer.from([2, 3, 4, 5, 6]),
+    );
+    expect(partial.log).toEqual([
+      { position: 2, length: 5 },
+      { position: 4, length: 3 },
+      { position: 6, length: 1 },
+    ]);
+
+    const eof = memoryHandle(Buffer.from([1, 2]), {
+      maxReadSize: 1,
+      failAfterZeroReads: 1,
+    });
+    await expect(readExactly(eof.handle, 3, 0)).rejects.toMatchObject({
+      declineClass: "box-framing",
+      kind: "malformed-file",
+    });
+    expect(eof.log).toEqual([
+      { position: 0, length: 3 },
+      { position: 1, length: 2 },
+      { position: 2, length: 1 },
+    ]);
+  });
+});
+
+describe("isobmff-2 containerChildOffset and walkContainer", () => {
+  it("containerChildOffset skips FullBox and versioned iinf prefixes when walking children", () => {
+    const child = box("free", Buffer.alloc(0));
+    for (const type of ["meta", "iref"] as const) {
+      const parent = fullBox(type, 0, 0, child);
+      const budget = new IsobmffBudget();
+      expect(walkContainer(parent, 0, parent.length, 0, budget)).toHaveLength(
+        1,
+      );
+      expect(budget.boxCount()).toBe(2);
+    }
+
+    for (const version of [0, 1] as const) {
+      const parent = iinfBox(version, [
+        infeBox({ version: 2, itemId: 7, itemType: "hvc1" }),
+      ]);
+      const budget = new IsobmffBudget();
+      expect(walkContainer(parent, 0, parent.length, 0, budget)).toHaveLength(
+        1,
+      );
+      expect(budget.boxCount()).toBe(2);
+    }
+
+    const missingVersion = Buffer.alloc(8);
+    missingVersion.writeUInt32BE(8, 0);
+    missingVersion.write("iinf", 4, "ascii");
+    expectBoxFramingFailure(() =>
+      walkContainer(
+        missingVersion,
+        0,
+        missingVersion.length,
+        0,
+        new IsobmffBudget(),
+      ),
+    );
+  });
+
+  it("walkContainer CallExpression recurses through nested containers and counts each child", () => {
+    const leaf = box("free", Buffer.alloc(0));
+    const nested = fullBox("meta", 0, 0, leaf);
+    const outer = box("dinf", nested);
+    const budget = new IsobmffBudget();
+
+    expect(walkContainer(outer, 0, outer.length, 0, budget)).toHaveLength(1);
+    expect(budget.boxCount()).toBe(3);
+  });
+});
+
 describe("Task 3: caps checked before reads (BMF-05)", () => {
   it("maxMetaBytes boundary: the meta payload's exact size parses; one less declines before reading it", async () => {
     const meta = minimalMeta();
@@ -713,6 +1186,32 @@ describe("Task 3: caps checked before reads (BMF-05)", () => {
       kind: "unsafe-structure",
       limit: { cap: "maxBoxDepth", size: 4, limit: 3 },
     });
+  });
+
+  it("isobmff-3 consumeBuffered EqualityOperator and StringLiteral preserve exact cap metadata", () => {
+    const budget = new IsobmffBudget({
+      ...DEFAULT_ISOBMFF_CAPS,
+      maxBufferedBytesTotal: 4,
+    });
+
+    budget.consumeBuffered(3);
+    budget.consumeBuffered(1);
+    expect(budget.bufferedBytes()).toBe(4);
+
+    let error: unknown;
+    try {
+      budget.consumeBuffered(1);
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(IsobmffStructureError);
+    expect(error).toMatchObject({
+      declineClass: "cap-buffered-bytes",
+      kind: "unsafe-structure",
+      limit: { cap: "maxBufferedBytesTotal", size: 5, limit: 4 },
+    });
+    expect(budget.bufferedBytes()).toBe(4);
   });
 
   it("a read log on a 1 GiB sparse mdat fixture shows parseIsobmff never reads bytes inside the mdat payload", async () => {

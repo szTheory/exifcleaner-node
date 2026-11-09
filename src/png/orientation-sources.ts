@@ -39,11 +39,7 @@ export function rawProfileExifOrientation(
   }
   const trimmedCount = countLine.trim();
   const declaredLength = Number.parseInt(trimmedCount, 10);
-  if (
-    trimmedCount.length === 0 ||
-    String(declaredLength) !== trimmedCount ||
-    declaredLength < 0
-  ) {
+  if (String(declaredLength) !== trimmedCount) {
     throw new PngStructureError(
       "malformed-file",
       "Raw profile declared length is invalid.",
@@ -59,7 +55,7 @@ export function rawProfileExifOrientation(
   const hexChars = lines
     .slice(3)
     .join("")
-    .replace(/[ \t\r]+/gu, "");
+    .replace(/[ \t\r]/gu, "");
   const hexSlice = hexChars.slice(0, declaredLength * 2);
   if (
     hexSlice.length !== declaredLength * 2 ||

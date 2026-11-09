@@ -218,6 +218,10 @@ function buildMinimalFile(options: {
   }[];
   readonly extraMetaChildren?: readonly Buffer[];
   readonly hdlrType?: string;
+  readonly hdlrChild?: Buffer;
+  readonly iinfChild?: Buffer;
+  readonly itemName?: string;
+  readonly uriType?: string;
   readonly pitmVersion?: 0 | 1;
   readonly pitmItemId?: number;
   readonly infeVersion?: 0 | 1 | 2 | 3;
@@ -229,14 +233,16 @@ function buildMinimalFile(options: {
   readonly omitIloc?: boolean;
 }): Buffer {
   const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
-  const hdlr = hdlrBox(options.hdlrType ?? "pict");
+  const hdlr = options.hdlrChild ?? hdlrBox(options.hdlrType ?? "pict");
   const pitm = pitmBox(options.pitmVersion ?? 0, options.pitmItemId ?? 1);
   const infe = infeBox({
     version: options.infeVersion ?? 2,
     itemId: 1,
     itemType: options.itemType ?? "hvc1",
+    ...(options.itemName === undefined ? {} : { name: options.itemName }),
+    ...(options.uriType === undefined ? {} : { uriType: options.uriType }),
   });
-  const iinf = iinfBox(options.iinfVersion ?? 0, [infe]);
+  const iinf = options.iinfChild ?? iinfBox(options.iinfVersion ?? 0, [infe]);
   const ipco = ipcoBox(options.ipcoProperties ?? [ispe(32, 32), hvcC()]);
   const ipma = ipmaBox({
     version: 0,
@@ -283,6 +289,71 @@ function buildMinimalFile(options: {
   return Buffer.concat([ftyp, meta, mdat]);
 }
 
+const WIDE_PRIMARY_ITEM_ID = 0x01020304;
+const WIDE_SECONDARY_ITEM_ID = 0x05060708;
+
+function buildWideIdFile(extraMetaChildren: readonly Buffer[] = []): Buffer {
+  const hdlr = hdlrBox("pict");
+  const pitm = pitmBox(1, WIDE_PRIMARY_ITEM_ID);
+  const iinf = iinfBox(1, [
+    infeBox({ version: 3, itemId: WIDE_PRIMARY_ITEM_ID, itemType: "hvc1" }),
+    infeBox({ version: 3, itemId: WIDE_SECONDARY_ITEM_ID, itemType: "hvc1" }),
+  ]);
+  const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+  const ipma = ipmaBox({
+    version: 1,
+    flags: 0,
+    entries: [
+      {
+        itemId: WIDE_PRIMARY_ITEM_ID,
+        associations: [{ propertyIndex: 1, essential: false }],
+      },
+      { itemId: WIDE_SECONDARY_ITEM_ID, associations: [] },
+    ],
+  });
+  const iprp = iprpBox(ipco, ipma);
+  const iloc = ilocBox({
+    version: 2,
+    offsetSize: 4,
+    lengthSize: 4,
+    baseOffsetSize: 0,
+    indexSize: 0,
+    items: [
+      {
+        itemId: WIDE_PRIMARY_ITEM_ID,
+        dataReferenceIndex: 0,
+        baseOffset: 0,
+        extents: [{ offset: 0, length: 4 }],
+      },
+      {
+        itemId: WIDE_SECONDARY_ITEM_ID,
+        dataReferenceIndex: 0,
+        baseOffset: 0,
+        extents: [{ offset: 4, length: 4 }],
+      },
+    ],
+  });
+  const iref = irefBox(1, [
+    {
+      type: "dimg",
+      fromItemId: WIDE_PRIMARY_ITEM_ID,
+      toItemIds: [WIDE_SECONDARY_ITEM_ID],
+    },
+  ]);
+  const fileType = ftypBox("heic", 0, ["mif1", "heic"]);
+  const meta = metaBox([
+    hdlr,
+    pitm,
+    iinf,
+    iprp,
+    iloc,
+    iref,
+    ...extraMetaChildren,
+  ]);
+  const media = mdatBox(Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]));
+  return Buffer.concat([fileType, meta, media]);
+}
+
 async function expectDecline(
   file: Buffer,
   declineClass: string,
@@ -293,6 +364,48 @@ async function expectDecline(
     kind,
   });
 }
+
+describe("ensureBytes BlockStatement, ArithmeticOperator, and ConditionalExpression clusters", () => {
+  it("declines a short hdlr field as box-framing", async () => {
+    const file = buildMinimalFile({
+      hdlrChild: fullBox("hdlr", 0, 0, Buffer.from([0, 0, 0, 0])),
+    });
+    await expectDecline(file, "box-framing", "malformed-file");
+  });
+});
+
+describe("readFullBoxChild BlockStatement and ConditionalExpression clusters", () => {
+  it("declines an hdlr without its version and flags as box-framing", async () => {
+    const file = buildMinimalFile({ hdlrChild: box("hdlr", Buffer.alloc(3)) });
+    await expectDecline(file, "box-framing", "malformed-file");
+  });
+});
+
+describe("readCString ConditionalExpression, EqualityOperator, and BlockStatement clusters", () => {
+  it("reads a terminated URI and declines a missing terminator", async () => {
+    const value = "urn:example:exifcleaner:terminated";
+    const valid = await parseFixtureBytes(
+      buildMinimalFile({ itemType: "uri ", uriType: value }),
+    );
+    expect(valid.itemsById.get(1)?.uri).toBe(value);
+
+    const unterminatedInfe = fullBox(
+      "infe",
+      2,
+      0,
+      Buffer.concat([
+        Buffer.from([0, 1, 0, 0]),
+        Buffer.from("uri ", "ascii"),
+        Buffer.from([0]),
+        Buffer.from("urn:example:exifcleaner:unterminated", "ascii"),
+      ]),
+    );
+    const invalid = buildMinimalFile({
+      iinfChild: iinfBox(0, [unterminatedInfe]),
+    });
+    await expectDecline(invalid, "box-framing", "malformed-file");
+  });
+});
 
 describe("colr extraction (D-12)", () => {
   it("colr prof on the primary item sets colorProfile to the exact ICC bytes", async () => {
@@ -327,6 +440,110 @@ describe("colr extraction (D-12)", () => {
   });
 });
 
+describe("parseInfe StringLiteral cluster", () => {
+  it("preserves URI item ID and URI metadata", async () => {
+    const uriType = "urn:example:exifcleaner:item:42";
+    const ftyp = ftypBox("heic", 0, ["mif1", "heic"]);
+    const hdlr = hdlrBox("pict");
+    const pitm = pitmBox(0, 1);
+    const primary = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const uriItem = infeBox({
+      version: 2,
+      itemId: 2,
+      itemType: "uri ",
+      uriType,
+    });
+    const iinf = iinfBox(0, [primary, uriItem]);
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        {
+          itemId: 1,
+          associations: [{ propertyIndex: 1, essential: false }],
+        },
+      ],
+    });
+    const iprp = iprpBox(ipco, ipma);
+    const iloc = ilocBox({
+      version: 0,
+      offsetSize: 4,
+      lengthSize: 4,
+      baseOffsetSize: 0,
+      indexSize: 0,
+      items: [
+        {
+          itemId: 1,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [{ offset: 0, length: 4 }],
+        },
+        {
+          itemId: 2,
+          dataReferenceIndex: 0,
+          baseOffset: 0,
+          extents: [],
+        },
+      ],
+    });
+    const meta = metaBox([hdlr, pitm, iinf, iprp, iloc]);
+    const mdat = mdatBox(Buffer.from([1, 2, 3, 4]));
+
+    const model = await parseFixtureBytes(Buffer.concat([ftyp, meta, mdat]));
+    const uriItemModel = model.itemsById.get(2);
+    expect(uriItemModel).toBeDefined();
+    expect(uriItemModel?.id).toBe(2);
+    expect(uriItemModel?.type).toBe("uri ");
+    expect(uriItemModel?.uri).toBe(uriType);
+  });
+});
+
+describe("parsePitm ConditionalExpression cluster", () => {
+  it("preserves the complete version-1 primary item ID", async () => {
+    const model = await parseFixtureBytes(buildWideIdFile());
+    expect(model.primaryItemId).toBe(WIDE_PRIMARY_ITEM_ID);
+  });
+});
+
+describe("parseIref ConditionalExpression cluster", () => {
+  it("preserves version-1 from and to item IDs as complete 32-bit values", async () => {
+    const model = await parseFixtureBytes(buildWideIdFile());
+    expect(model.references).toEqual([
+      {
+        type: "dimg",
+        fromItemId: WIDE_PRIMARY_ITEM_ID,
+        toItemIds: [WIDE_SECONDARY_ITEM_ID],
+      },
+    ]);
+  });
+});
+
+describe("parseInfe BlockStatement, ConditionalExpression, and ObjectLiteral clusters", () => {
+  it("retains the URI item type and its empty URI metadata", async () => {
+    const model = await parseFixtureBytes(
+      buildMinimalFile({ itemType: "uri " }),
+    );
+    expect(model.itemsById.get(1)).toMatchObject({
+      id: 1,
+      type: "uri ",
+      uri: "",
+    });
+  });
+});
+
+describe("parseIinfEntries ConditionalExpression cluster", () => {
+  it("skips non-infe children while keeping declared items", async () => {
+    const validInfe = infeBox({ version: 2, itemId: 1, itemType: "hvc1" });
+    const model = await parseFixtureBytes(
+      buildMinimalFile({
+        iinfChild: iinfBox(0, [box("free", Buffer.alloc(0)), validInfe]),
+      }),
+    );
+    expect(model.items.map((item) => item.id)).toEqual([1]);
+  });
+});
+
 describe("auxC URN round-trip", () => {
   it("reads back urn:com:apple:photo:2020:aux:hdrgainmap exactly", async () => {
     const urn = "urn:com:apple:photo:2020:aux:hdrgainmap";
@@ -341,6 +558,29 @@ describe("auxC URN round-trip", () => {
   });
 });
 
+describe("parseIpco ConditionalExpression and StringLiteral clusters", () => {
+  it("returns the exact ICC bytes for an rICC color property", async () => {
+    const iccBytes = Buffer.from([0x12, 0x34, 0x56, 0x78]);
+    const rICC = box(
+      "colr",
+      Buffer.concat([Buffer.from("rICC", "ascii"), iccBytes]),
+    );
+    const model = await parseFixtureBytes(
+      buildMinimalFile({
+        ipcoProperties: [ispe(32, 32), hvcC(), rICC],
+        ipmaAssociations: [
+          { propertyIndex: 1, essential: false },
+          { propertyIndex: 3, essential: false },
+        ],
+      }),
+    );
+    expect(model.colorProfile).toEqual(iccBytes);
+    expect(
+      model.properties.find((property) => property.type === "colr")?.colourType,
+    ).toBe("rICC");
+  });
+});
+
 describe("grpl entity groups", () => {
   it("an altr group's members are recorded as { type, groupId, entityIds }", async () => {
     const file = buildMinimalFile({
@@ -352,6 +592,16 @@ describe("grpl entity groups", () => {
     expect(model.groups).toEqual([
       { type: "altr", groupId: 42, entityIds: [1] },
     ]);
+  });
+});
+
+describe("parseGrpl AssignmentOperator cluster", () => {
+  it("reads each 32-bit entity ID at its declared offset", async () => {
+    const entityIds = [WIDE_PRIMARY_ITEM_ID, WIDE_SECONDARY_ITEM_ID];
+    const model = await parseFixtureBytes(
+      buildWideIdFile([grplBox([{ type: "altr", groupId: 42, entityIds }])]),
+    );
+    expect(model.groups).toEqual([{ type: "altr", groupId: 42, entityIds }]);
   });
 });
 
@@ -1139,6 +1389,434 @@ describe("parseIsobmff never reads the mdat payload (BMF-05)", () => {
       expect(totalBytesRead).toBeLessThan(metaSizeBound);
     } finally {
       await handle.close();
+    }
+  });
+});
+
+// --- 67-18 (isobmff-5): dref validation, item model keys, ftyp/meta framing and abort ---
+
+describe("buildItemModel BlockStatement and ConditionalExpression clusters", () => {
+  it("refuses an iref whose from-item is undeclared although every to-item is declared", async () => {
+    const file = buildMinimalFile({
+      extraMetaChildren: [
+        irefBox(0, [{ type: "cdsc", fromItemId: 99, toItemIds: [1] }]),
+      ],
+    });
+    await expectDecline(file, "item-graph-invalid", "malformed-file");
+  });
+
+  it("locates ipco and ipma among iprp children when another box comes first", async () => {
+    const ipco = ipcoBox([ispe(32, 32), hvcC()]);
+    const ipma = ipmaBox({
+      version: 0,
+      flags: 0,
+      entries: [
+        {
+          itemId: 1,
+          associations: [
+            { propertyIndex: 1, essential: false },
+            { propertyIndex: 2, essential: true },
+          ],
+        },
+      ],
+    });
+    const file = Buffer.concat([
+      ftypBox("heic", 0, ["mif1", "heic"]),
+      metaBox([
+        hdlrBox("pict"),
+        pitmBox(0, 1),
+        iinfBox(0, [infeBox({ version: 2, itemId: 1, itemType: "hvc1" })]),
+        box("iprp", Buffer.concat([box("free", Buffer.alloc(0)), ipco, ipma])),
+        ilocBox({
+          version: 0,
+          offsetSize: 4,
+          lengthSize: 4,
+          baseOffsetSize: 0,
+          indexSize: 0,
+          items: [
+            {
+              itemId: 1,
+              dataReferenceIndex: 0,
+              baseOffset: 0,
+              extents: [{ offset: 0, length: 4 }],
+            },
+          ],
+        }),
+      ]),
+      mdatBox(Buffer.from([1, 2, 3, 4])),
+    ]);
+    const model = await parseFixtureBytes(file);
+    expect(model.properties.map((property) => property.type)).toEqual([
+      "ispe",
+      "hvcC",
+    ]);
+    expect(model.itemsById.get(1)?.properties).toEqual([
+      { index: 1, essential: false },
+      { index: 2, essential: true },
+    ]);
+  });
+});
+
+describe("buildItemModel ConditionalExpression, EqualityOperator, and ObjectLiteral clusters", () => {
+  it("omits the optional contentType, contentEncoding and uri keys from an item that carries none", async () => {
+    const model = await parseFixtureBytes(buildMinimalFile({}));
+    const item = model.itemsById.get(1);
+    expect(item).toBeDefined();
+    expect(Object.keys(item ?? {}).sort()).toEqual([
+      "baseOffset",
+      "constructionMethod",
+      "dataReferenceIndex",
+      "extents",
+      "hidden",
+      "id",
+      "name",
+      "properties",
+      "type",
+    ]);
+  });
+
+  it("carries the uri key exactly on a uri item and keeps contentType and contentEncoding keys when declared", async () => {
+    const uriModel = await parseFixtureBytes(
+      buildMinimalFile({
+        itemType: "uri ",
+        uriType: "urn:example:exifcleaner:item:uri-key",
+      }),
+    );
+    const uriItem = uriModel.itemsById.get(1);
+    expect(uriItem).toBeDefined();
+    expect(Object.hasOwn(uriItem ?? {}, "uri")).toBe(true);
+    expect(uriItem?.uri).toBe("urn:example:exifcleaner:item:uri-key");
+    expect(Object.hasOwn(uriItem ?? {}, "contentType")).toBe(false);
+    expect(Object.hasOwn(uriItem ?? {}, "contentEncoding")).toBe(false);
+
+    const hvcModel = await parseFixtureBytes(buildMinimalFile({}));
+    expect(Object.hasOwn(hvcModel.itemsById.get(1) ?? {}, "uri")).toBe(false);
+
+    const mimeInfe = fullBox(
+      "infe",
+      2,
+      0,
+      Buffer.concat([
+        Buffer.from([0, 1, 0, 0]),
+        Buffer.from("mime", "ascii"),
+        Buffer.from([0]),
+        Buffer.from("text/plain\0gzip\0", "ascii"),
+      ]),
+    );
+    const mimeModel = await parseFixtureBytes(
+      buildMinimalFile({ iinfChild: iinfBox(0, [mimeInfe]) }),
+    );
+    const mimeItem = mimeModel.itemsById.get(1);
+    expect(mimeItem?.contentType).toBe("text/plain");
+    expect(mimeItem?.contentEncoding).toBe("gzip");
+    expect(Object.hasOwn(mimeItem ?? {}, "uri")).toBe(false);
+  });
+});
+
+function drefWithEntries(entries: readonly Buffer[]): Buffer {
+  const count = Buffer.alloc(4);
+  count.writeUInt32BE(entries.length, 0);
+  return fullBox("dref", 0, 0, Buffer.concat([count, ...entries]));
+}
+
+describe("validateDataReferences ConditionalExpression and BlockStatement clusters", () => {
+  it("finds the dref behind a non-dref dinf sibling and refuses its non-self-contained url entry", async () => {
+    const notSelfContained = fullBox("url ", 0, 0, Buffer.alloc(0));
+    const file = buildMinimalFile({
+      extraMetaChildren: [
+        box(
+          "dinf",
+          Buffer.concat([
+            box("free", Buffer.alloc(4)),
+            drefWithEntries([notSelfContained]),
+          ]),
+        ),
+      ],
+    });
+    await expectDecline(file, "item-graph-invalid", "malformed-file");
+  });
+
+  it("refuses a urn entry that is flagged self-contained and carries no payload", async () => {
+    const file = buildMinimalFile({
+      extraMetaChildren: [
+        box("dinf", drefWithEntries([fullBox("urn ", 0, 1, Buffer.alloc(0))])),
+      ],
+    });
+    await expectDecline(file, "item-graph-invalid", "malformed-file");
+  });
+});
+
+/** Replace the leading `ftyp` box of an assembled file with one carrying `ftypPayload` verbatim. */
+function withFtypPayload(file: Buffer, ftypPayload: Buffer): Buffer {
+  const originalFtypSize = file.readUInt32BE(0);
+  return Buffer.concat([
+    box("ftyp", ftypPayload),
+    file.subarray(originalFtypSize),
+  ]);
+}
+
+describe("parseFtyp BlockStatement, ConditionalExpression, and EqualityOperator clusters", () => {
+  it("declines an ftyp payload shorter than major_brand plus minor_version as box-framing", async () => {
+    for (const length of [4, 7]) {
+      const file = withFtypPayload(
+        buildMinimalFile({}),
+        Buffer.alloc(length, 0x61),
+      );
+      await expectDecline(file, "box-framing", "malformed-file");
+    }
+  });
+
+  it("admits an ftyp payload of exactly eight bytes with no compatible brands", async () => {
+    const payload = Buffer.concat([
+      Buffer.from("heic", "ascii"),
+      Buffer.from([0, 0, 0, 7]),
+    ]);
+    const model = await parseFixtureBytes(
+      withFtypPayload(buildMinimalFile({}), payload),
+    );
+    expect(model.majorBrand).toBe("heic");
+    expect(model.minorVersion).toBe(7);
+    expect(model.compatibleBrands).toEqual([]);
+  });
+});
+
+describe("parseIsobmff BlockStatement, ConditionalExpression, and EqualityOperator clusters", () => {
+  it("declines with box-framing when the signal is already aborted and parses when it is not", async () => {
+    const file = buildMinimalFile({});
+    const { path, size } = await writeFixture(file);
+    const aborted = new AbortController();
+    aborted.abort();
+    const handle = await open(path, "r");
+    try {
+      await expect(
+        parseIsobmff(handle, size, undefined, aborted.signal),
+      ).rejects.toMatchObject({
+        declineClass: "box-framing",
+        kind: "malformed-file",
+      });
+      const live = await parseIsobmff(
+        handle,
+        size,
+        undefined,
+        new AbortController().signal,
+      );
+      expect(live.primaryItemId).toBe(1);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("declines a meta shorter than its FullBox version and flags as meta-not-fullbox", async () => {
+    for (const length of [0, 2, 3]) {
+      const file = Buffer.concat([
+        ftypBox("heic", 0, ["mif1", "heic"]),
+        box("meta", Buffer.alloc(length)),
+      ]);
+      await expectDecline(file, "meta-not-fullbox", "malformed-file");
+    }
+  });
+
+  it("treats a meta that is exactly a FullBox header as a well-formed container missing its hdlr", async () => {
+    const file = Buffer.concat([
+      ftypBox("heic", 0, ["mif1", "heic"]),
+      box("meta", Buffer.alloc(4)),
+    ]);
+    await expectDecline(file, "item-graph-invalid", "malformed-file");
+  });
+
+  it("leaves idatRange and colorProfile off the model when the file has neither", async () => {
+    const model = await parseFixtureBytes(buildMinimalFile({}));
+    expect(Object.hasOwn(model, "idatRange")).toBe(false);
+    expect(Object.hasOwn(model, "colorProfile")).toBe(false);
+  });
+});
+
+// --- Plan 67-46 Task 0b: a field truncated at exactly the read each `ensureBytes` guards -------
+//
+// Each case feeds `parseIsobmff` a structurally framed box whose payload ends exactly where (or
+// one byte before) the guarded field ends, and expects the typed `box-framing` refusal. Where the
+// guarded read is a Buffer accessor, removing the bounds check surfaces a raw RangeError instead;
+// where it is a lenient slice (`colr` colour_type, the `iinf`/`dref` entry counts) removing it
+// lets parsing continue and either admit the box or decline with a different class. Only the
+// refusal's class and kind are asserted, never its wording.
+describe("items.ts bounds checks decline box-framing for a field cut short", () => {
+  const declineFraming = (file: Buffer) =>
+    expectDecline(file, "box-framing", "malformed-file");
+  const withoutPitm = (child: Buffer) =>
+    buildMinimalFile({ omitPitm: true, extraMetaChildren: [child] });
+  const withIref = (version: 0 | 1, body: Buffer) =>
+    buildMinimalFile({
+      extraMetaChildren: [fullBox("iref", version, 0, box("dimg", body))],
+    });
+
+  it("parses the complete pitm, iref, grpl and dref boxes these cases truncate", async () => {
+    const model = await parseFixtureBytes(
+      buildMinimalFile({
+        extraMetaChildren: [
+          irefBox(0, [{ type: "dimg", fromItemId: 1, toItemIds: [1] }]),
+          grplBox([{ type: "altr", groupId: 9, entityIds: [1] }]),
+          box(
+            "dinf",
+            drefWithEntries([fullBox("url ", 0, 1, Buffer.alloc(0))]),
+          ),
+        ],
+      }),
+    );
+    expect(model.primaryItemId).toBe(1);
+    expect(model.references).toEqual([
+      { type: "dimg", fromItemId: 1, toItemIds: [1] },
+    ]);
+    expect(model.groups).toEqual([
+      { type: "altr", groupId: 9, entityIds: [1] },
+    ]);
+  });
+
+  it("pitm item_ID: version 0 with one byte and version 1 with three bytes", async () => {
+    await declineFraming(withoutPitm(fullBox("pitm", 0, 0, Buffer.alloc(1))));
+    await declineFraming(withoutPitm(fullBox("pitm", 1, 0, Buffer.alloc(3))));
+  });
+
+  it("infe item_ID: version 2 with one byte and version 3 with three bytes", async () => {
+    await declineFraming(
+      buildMinimalFile({
+        iinfChild: iinfBox(0, [fullBox("infe", 2, 0, Buffer.alloc(1))]),
+      }),
+    );
+    await declineFraming(
+      buildMinimalFile({
+        iinfChild: iinfBox(0, [fullBox("infe", 3, 0, Buffer.alloc(3))]),
+      }),
+    );
+  });
+
+  it("iinf entry_count: version 0 with one byte and version 1 with three bytes", async () => {
+    await declineFraming(
+      buildMinimalFile({ iinfChild: fullBox("iinf", 0, 0, Buffer.alloc(1)) }),
+    );
+    await declineFraming(
+      buildMinimalFile({
+        iinfChild: fullBox("iinf", 1, 0, Buffer.alloc(3)),
+        infeVersion: 3,
+      }),
+    );
+  });
+
+  it("iref from_item_ID: version 0 with one byte and version 1 with three bytes", async () => {
+    await declineFraming(withIref(0, Buffer.alloc(1)));
+    await declineFraming(withIref(1, Buffer.alloc(3)));
+  });
+
+  it("iref reference_count: absent or one byte short after a complete from_item_ID", async () => {
+    await declineFraming(withIref(0, Buffer.from([0x00, 0x01])));
+    await declineFraming(withIref(0, Buffer.from([0x00, 0x01, 0x00])));
+    await declineFraming(withIref(1, Buffer.from([0x00, 0x00, 0x00, 0x01])));
+  });
+
+  it("iref to_item_ID: a declared reference with no id bytes or one byte short", async () => {
+    await declineFraming(withIref(0, Buffer.from([0x00, 0x01, 0x00, 0x01])));
+    await declineFraming(
+      withIref(0, Buffer.from([0x00, 0x01, 0x00, 0x01, 0x00])),
+    );
+    await declineFraming(withIref(1, Buffer.from([0, 0, 0, 1, 0, 1, 0, 0, 0])));
+  });
+
+  it("colr colour_type: a payload shorter than four bytes", async () => {
+    for (const bytes of [0, 2, 3]) {
+      await declineFraming(
+        buildMinimalFile({
+          ipcoProperties: [
+            ispe(32, 32),
+            hvcC(),
+            box("colr", Buffer.from("prof", "ascii").subarray(0, bytes)),
+          ],
+          ipmaAssociations: [
+            { propertyIndex: 1, essential: false },
+            { propertyIndex: 3, essential: false },
+          ],
+        }),
+      );
+    }
+  });
+
+  it("grpl group_id and num_entities_in_group: fewer than eight payload bytes", async () => {
+    for (const bytes of [0, 3, 7]) {
+      await declineFraming(
+        buildMinimalFile({
+          extraMetaChildren: [
+            box("grpl", fullBox("altr", 0, 0, Buffer.alloc(bytes))),
+          ],
+        }),
+      );
+    }
+  });
+
+  it("grpl entity_id: a declared entity with no id bytes or one byte short", async () => {
+    const header = Buffer.from([0, 0, 0, 42, 0, 0, 0, 1]);
+    for (const tail of [[], [0, 0, 0]]) {
+      await declineFraming(
+        buildMinimalFile({
+          extraMetaChildren: [
+            box(
+              "grpl",
+              fullBox("altr", 0, 0, Buffer.concat([header, Buffer.from(tail)])),
+            ),
+          ],
+        }),
+      );
+    }
+  });
+
+  it("dref entry_count: fewer than four payload bytes after the FullBox header", async () => {
+    for (const bytes of [0, 3]) {
+      await declineFraming(
+        buildMinimalFile({
+          extraMetaChildren: [
+            box("dinf", fullBox("dref", 0, 0, Buffer.alloc(bytes))),
+          ],
+        }),
+      );
+    }
+  });
+
+  it("infe: every proper prefix of a v2 and a v3 payload declines box-framing, the complete payload parses", async () => {
+    // Pins what the two removed parseInfe bounds checks (item_protection_index, item_type) used to
+    // guard: a payload that ends inside either field is still refused with the typed error, now by
+    // readCString; the complete payload keeps parsing.
+    const four = (text: string) => Buffer.from(text, "ascii");
+    const payloads: [2 | 3, Buffer][] = [
+      [
+        2,
+        Buffer.concat([
+          Buffer.from([0, 1, 0, 0]),
+          four("hvc1"),
+          Buffer.from("n\0", "ascii"),
+        ]),
+      ],
+      [
+        3,
+        Buffer.concat([
+          Buffer.from([0, 0, 0, 1, 0, 0]),
+          four("hvc1"),
+          Buffer.from("n\0", "ascii"),
+        ]),
+      ],
+    ];
+    for (const [version, payload] of payloads) {
+      for (let length = 0; length < payload.length; length += 1) {
+        await declineFraming(
+          buildMinimalFile({
+            iinfChild: iinfBox(0, [
+              fullBox("infe", version, 0, payload.subarray(0, length)),
+            ]),
+          }),
+        );
+      }
+      const model = await parseFixtureBytes(
+        buildMinimalFile({
+          iinfChild: iinfBox(0, [fullBox("infe", version, 0, payload)]),
+        }),
+      );
+      expect(model.itemsById.get(1)?.type).toBe("hvc1");
     }
   });
 });

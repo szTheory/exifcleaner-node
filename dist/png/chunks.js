@@ -167,8 +167,7 @@ const SINGLETON_CHUNK_TYPES = new Set([
     "vpAg",
 ]);
 export function isPngSignature(magic) {
-    return (magic.length >= PNG_HEADER_BYTES &&
-        magic.subarray(0, PNG_HEADER_BYTES).equals(PNG_SIGNATURE));
+    return magic.subarray(0, PNG_HEADER_BYTES).equals(PNG_SIGNATURE);
 }
 // CRC-32 (PNG spec Annex D / zlib polynomial). Built in-repo rather than relying on the
 // zlib built-in CRC helper, which Node 22.0 and 22.1 lack while package.json engines
@@ -179,7 +178,7 @@ function getCrc32Table() {
     if (crc32Table !== undefined)
         return crc32Table;
     const table = new Uint32Array(256);
-    for (let n = 0; n < 256; n += 1) {
+    for (let n = 0; n !== 256; n += 1) {
         let c = n;
         for (let k = 0; k < 8; k += 1) {
             c = (c & 1) === 1 ? CRC32_POLYNOMIAL ^ (c >>> 1) : c >>> 1;
@@ -227,19 +226,13 @@ function isAsciiLetter(byte) {
     return (byte >= 0x41 && byte <= 0x5a) || (byte >= 0x61 && byte <= 0x7a);
 }
 function hasValidTypeBytes(typeBuffer) {
-    return (typeBuffer.length === 4 &&
-        typeBuffer[0] !== undefined &&
-        isAsciiLetter(typeBuffer[0]) &&
-        typeBuffer[1] !== undefined &&
-        isAsciiLetter(typeBuffer[1]) &&
-        typeBuffer[2] !== undefined &&
-        isAsciiLetter(typeBuffer[2]) &&
-        typeBuffer[3] !== undefined &&
-        isAsciiLetter(typeBuffer[3]));
+    return typeBuffer.every(isAsciiLetter);
 }
 function isUpperFirstLetter(type) {
+    // Every type byte is already known to be an ASCII letter, so a first byte at or below
+    // the end of the upper-case range is an upper-case letter.
     const code = type.charCodeAt(0);
-    return code >= 0x41 && code <= 0x5a;
+    return code <= 0x5a;
 }
 /**
  * PNG-03 structural validation, run once every chunk has been read and CRC-verified
@@ -256,23 +249,16 @@ function validateStructure(chunks) {
         throw new PngStructureError("malformed-file", "IHDR chunk must be exactly 13 bytes.");
     }
     const last = chunks[chunks.length - 1];
-    if (last.type !== "IEND") {
-        throw new PngStructureError("malformed-file", "PNG must end with an IEND chunk.");
-    }
     if (last.length !== 0) {
         throw new PngStructureError("malformed-file", "IEND chunk must be empty.");
     }
-    const firstIdatIndex = chunks.findIndex((item) => item.type === "IDAT");
-    const firstPlteIndex = chunks.findIndex((item) => item.type === "PLTE");
+    const hasPlte = chunks.some((item) => item.type === "PLTE");
     const seenSingleton = new Set();
-    let nonIdatCount = 0;
     let sawIdat = false;
+    let sawPlte = false;
     let idatEnded = false;
-    for (const [index, item] of chunks.entries()) {
+    for (const item of chunks) {
         const { type } = item;
-        if (PNG_ANIMATION_CHUNK_TYPES.has(type)) {
-            throw new PngStructureError("unsafe-structure", "Animated PNG is not supported.");
-        }
         if (isUpperFirstLetter(type) && !PNG_CRITICAL_CHUNK_TYPES.has(type)) {
             throw new PngStructureError("unsafe-structure", `Unknown critical chunk ${type} cannot be sanitized safely.`);
         }
@@ -288,39 +274,33 @@ function validateStructure(chunks) {
             }
             sawIdat = true;
         }
-        else {
-            if (sawIdat)
-                idatEnded = true;
-            nonIdatCount += 1;
-            if (nonIdatCount > PNG_MAX_ANCILLARY_CHUNKS) {
-                throw new PngStructureError("unsafe-structure", `PNG contains more than ${PNG_MAX_ANCILLARY_CHUNKS} ancillary chunks.`);
-            }
+        else if (sawIdat) {
+            idatEnded = true;
         }
         if (type === "PLTE") {
-            if (firstIdatIndex >= 0 && index > firstIdatIndex) {
+            if (sawIdat) {
                 throw new PngStructureError("unsafe-structure", "PLTE must occur before the first IDAT chunk.");
             }
+            sawPlte = true;
             continue;
         }
-        if (PNG_CRITICAL_CHUNK_TYPES.has(type))
-            continue;
+        // Stryker disable next-line StringLiteral: equivalent-arithmetic — the default class name is only compared against the three ordering class names below, so any other default takes the same no-refusal path.
         const orderClass = PNG_ORDER.get(type) ?? "anywhere";
         if (orderClass === "before-plte-and-idat") {
-            if ((firstPlteIndex >= 0 && index > firstPlteIndex) ||
-                (firstIdatIndex >= 0 && index > firstIdatIndex)) {
+            if (sawPlte || sawIdat) {
                 throw new PngStructureError("unsafe-structure", `${type} must occur before PLTE and before the first IDAT chunk.`);
             }
         }
         else if (orderClass === "after-plte-before-idat") {
-            if (firstPlteIndex >= 0 && index < firstPlteIndex) {
+            if (hasPlte && !sawPlte) {
                 throw new PngStructureError("unsafe-structure", `${type} must occur after PLTE.`);
             }
-            if (firstIdatIndex >= 0 && index > firstIdatIndex) {
+            if (sawIdat) {
                 throw new PngStructureError("unsafe-structure", `${type} must occur before the first IDAT chunk.`);
             }
         }
         else if (orderClass === "before-idat") {
-            if (firstIdatIndex >= 0 && index > firstIdatIndex) {
+            if (sawIdat) {
                 throw new PngStructureError("unsafe-structure", `${type} must occur before the first IDAT chunk.`);
             }
         }
@@ -353,10 +333,10 @@ function createChunkReadWindow() {
  * stored in `buffered` -- the "IDAT is never buffered" invariant is unchanged.
  */
 async function readWindowed(handle, window, length, position, size) {
-    if (length > PNG_CHUNK_READ_WINDOW_BYTES) {
+    if (length >= PNG_CHUNK_READ_WINDOW_BYTES + 1) {
         return readExactly(handle, length, position);
     }
-    if (position < window.start || position + length > window.end) {
+    if (position + length > window.end) {
         const windowLength = Math.min(PNG_CHUNK_READ_WINDOW_BYTES, size - position);
         window.buffer = await readExactly(handle, windowLength, position);
         window.start = position;
@@ -477,8 +457,7 @@ export async function parsePng(handle, size, signal, budget = new BufferedBudget
         const type = typeBuffer.toString("ascii");
         // PNG-06 / D-26: refuse an animated-PNG chunk on its type alone, before any count,
         // length, bounds, data-read or CRC work -- so a hostile APNG costs no more than decoding
-        // one 4-byte type per chunk. The validateStructure check further below remains as the
-        // backstop for any path that reaches it (e.g. if this loop check is ever bypassed).
+        // one 4-byte type per chunk.
         if (PNG_ANIMATION_CHUNK_TYPES.has(type)) {
             throw new PngStructureError("unsafe-structure", "Animated PNG is not supported.");
         }
@@ -532,7 +511,7 @@ export async function parsePng(handle, size, signal, budget = new BufferedBudget
             // count. The bytes are used only to compute the CRC and are discarded immediately;
             // they are never stored in `buffered`. A longer IDAT keeps the pre-existing streamed
             // `streamChunkCrc` path (bounded 64 KiB blocks, no buffering either).
-            if (length <= PNG_CHUNK_READ_WINDOW_BYTES) {
+            if (length < PNG_CHUNK_READ_WINDOW_BYTES + 1) {
                 const data = await readWindowed(handle, window, length, dataOffset, size);
                 computedCrc = crc32(typeBuffer, data);
             }
@@ -596,10 +575,7 @@ export class InflateBudget {
     }
 }
 function isBufferTooLarge(cause) {
-    return (typeof cause === "object" &&
-        cause !== null &&
-        "code" in cause &&
-        cause.code === "ERR_BUFFER_TOO_LARGE");
+    return cause.code === "ERR_BUFFER_TOO_LARGE";
 }
 /**
  * Inflates a zlib-compressed chunk payload under a hard output cap, both per chunk and

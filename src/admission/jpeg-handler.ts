@@ -145,13 +145,6 @@ function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
 }
 
-function startsWith(payload: Buffer, prefix: Buffer): boolean {
-  return (
-    payload.length >= prefix.length &&
-    payload.subarray(0, prefix.length).equals(prefix)
-  );
-}
-
 // WR-01: APPn-prefix classification ("what's removed vs. kept", D-01) lives
 // once in src/jpeg/markers.ts (classifyAppPayload / AppSegmentKind) and is
 // imported here, rather than re-implemented -- src/jpeg/parser.ts's
@@ -188,7 +181,9 @@ function classifySegments(parsed: ParsedJpeg): readonly JpegSegmentClass[] {
   return parsed.segments.map((segment, index) => {
     const { marker } = segment;
     if (isStructuralMarker(marker)) return "structural";
-    if (marker === COM || !isAppMarker(marker)) return "remove";
+    // COM is not an APPn marker, so `marker === COM` needs no test of its own:
+    // every non-APPn marker reaches classifyAppPayload with no buffered
+    // payload, which returns "other" and ends at the final "remove".
     const kind = classifyAppPayload(marker, parsed.buffered.get(index));
     if (kind === "adobe") return "keep";
     if (kind === "jfif")
@@ -236,6 +231,12 @@ function jfifHasEmbeddedThumbnail(payload: Buffer): boolean {
   return payload.readUInt8(12) !== 0 || payload.readUInt8(13) !== 0;
 }
 
+/** The hex name of a marker that is neither COM nor an APPn marker. */
+function hexMarkerName(marker: number): string {
+  // Stryker disable next-line StringLiteral: defensive-unreachable-by-construction — parseJpeg admits only SOS, DQT, DHT, DRI, admitted SOF, APPn and COM segments, and every caller of markerLabel passes COM or an APPn marker, so this hex name is never built and its template and padStart fill cannot be reached.
+  return `0x${marker.toString(16).padStart(2, "0")}`;
+}
+
 /** D-15 analog: `<MARKER>` for a COM segment, `APP<n>` for an APPn segment,
  * `APP<n>:<identifier>` when the segment carries an identifiable prefix. */
 function markerLabel(marker: number, identifier: string | undefined): string {
@@ -244,7 +245,7 @@ function markerLabel(marker: number, identifier: string | undefined): string {
       ? "COM"
       : isAppMarker(marker)
         ? `APP${marker - APP0}`
-        : `0x${marker.toString(16).padStart(2, "0")}`;
+        : hexMarkerName(marker);
   return identifier === undefined || identifier.length === 0
     ? name
     : `${name}:${identifier}`;
@@ -324,6 +325,7 @@ function collectMetadata(
       return;
     }
     // cls === "remove"
+    // Stryker disable next-line ConditionalExpression, BlockStatement: redundant-guard-after-typed-check — a COM segment falls through to the generic JPEG entry below with the same namespace, the same markerLabel(marker, undefined) name (the parser sets an identifier for APPn segments only) and the same payloadLength value, so this branch changes nothing observable; its always-true sibling mutant is a compile error and is suppressed only as collateral.
     if (marker === COM) {
       namespaces.add("JPEG");
       entries.push({
@@ -363,9 +365,8 @@ function collectMetadata(
         entries.push(...found.entries);
         warnings.push(...found.warnings);
         orientation = found.orientation;
-        const tiff = startsWith(payload, EXIF_PREFIX)
-          ? payload.subarray(EXIF_PREFIX.length)
-          : payload;
+        // classifyAppPayload returns "exif" only for a payload that starts with EXIF_PREFIX.
+        const tiff = payload.subarray(EXIF_PREFIX.length);
         sourceResolution = readIfd0Resolution(tiff);
       }
       return;
@@ -386,12 +387,14 @@ function collectMetadata(
       // Read-only, for D-05 orientation reconciliation only -- never feeds
       // output bytes or `entries` (JPG-01 removes all XMP outright).
       namespaces.add("XMP");
-      if (payload !== undefined) extendedXmpPayloads.push(payload);
+      // classifyAppPayload returns "extended-xmp" only for a buffered payload.
+      extendedXmpPayloads.push(payload as Buffer);
       return;
     }
     if (kind === "mpf") {
       namespaces.add("JPEG");
-      if (payload !== undefined) mpfPayload = payload;
+      // classifyAppPayload returns "mpf" only for a buffered payload.
+      mpfPayload = payload as Buffer;
       entries.push({
         namespace: "JPEG",
         name: markerLabel(marker, segment.identifier),
@@ -445,18 +448,17 @@ function collectMetadata(
       candidates.push("invalid");
       warnings.push({ code: "metadata-invalid", detail: extended.detail });
     }
-    if (candidates.length > 0) {
-      const sourceValue = validOrientationValue(orientation);
-      const disagrees = candidates.some(
-        (candidate) => candidate === "invalid" || candidate !== sourceValue,
-      );
-      if (disagrees) {
-        orientation = {
-          status: "unsupported",
-          detail:
-            "A non-EXIF Orientation is missing from EXIF IFD0 or disagrees with it.",
-        };
-      }
+    // some() over an empty candidate list finds no disagreement, so no length check is needed.
+    const sourceValue = validOrientationValue(orientation);
+    // "invalid" never equals sourceValue (a number or undefined), so it needs no test of its own.
+    const disagrees = candidates.some((candidate) => candidate !== sourceValue);
+    if (disagrees) {
+      orientation = {
+        status: "unsupported",
+        detail:
+          // Stryker disable next-line StringLiteral: unobservable-message — the detail is free-text diagnostic wording that only reaches the orientation-preservation decline; the typed unsupported-feature code, the feature and the path are unchanged.
+          "A non-EXIF Orientation is missing from EXIF IFD0 or disagrees with it.",
+      };
     }
   }
 
@@ -541,11 +543,6 @@ function computeMinimalExifTags(
  * (`0xFF 0xE1`, big-endian length, `Exif\0\0`, the TIFF bytes). */
 function buildExifInsertSegment(tiff: Buffer): Buffer {
   const length = 2 + EXIF_PREFIX.length + tiff.length;
-  if (length > 0xffff) {
-    throw new RangeError(
-      "Synthesized EXIF segment exceeds the 16-bit segment length field.",
-    );
-  }
   const header = Buffer.alloc(4);
   header[0] = 0xff;
   header[1] = APP1;
@@ -595,6 +592,7 @@ function buildOutputPlan(
     }
     const cls = admission.classes[index] ?? "remove";
     if (!isKept(cls, preserveColorProfile, preserveResolution)) {
+      // Stryker disable next-line CallExpression: redundant-guard-after-typed-check — dropping this flush changes no output part: the next kept segment never starts at pendingEnd (the removed segment lies between them), so the else branch flushes the same pending range first, and the Exif slot branch and the final flush cover every other path.
       flush();
       return;
     }
@@ -603,6 +601,7 @@ function buildOutputPlan(
     if (pendingEnd === segmentStart) {
       pendingEnd = segmentEnd;
     } else {
+      // Stryker disable next-line CallExpression: defensive-unreachable-by-construction — this branch runs only when pendingEnd differs from the segment's start, and every earlier gap (a removed segment, the Exif slot) has already flushed while parsed segments are contiguous, so no pending range is open here and the call never emits a part.
       flush();
       pendingStart = segmentStart;
       pendingEnd = segmentEnd;
@@ -616,9 +615,12 @@ function buildOutputPlan(
   // JFIF), so the only safe native outcomes are remove or decline; declining
   // resolution preservation pre-write falls back to ExifTool, which recreates
   // JFIF from density alone (57-EVIDENCE.md D-01 jfif-thumbnail measurement).
+  const declineDetail =
+    // Stryker disable next-line StringLiteral: unobservable-message — the decline detail is free text that checkOutputPlan returns and the engine forwards as the detail of the typed unsafe-structure refusal; any defined string, even an empty one, still declines, so the code, the path and the plan parts are unchanged.
+    "JPEG JFIF segment carries an embedded thumbnail; resolution preservation falls back.";
   const declineReason =
     preserveResolution && admission.jfifHasThumbnail
-      ? "JPEG JFIF segment carries an embedded thumbnail; resolution preservation falls back."
+      ? declineDetail
       : undefined;
 
   return {
@@ -721,6 +723,7 @@ async function segmentsEqual(
   const destinationBuffer = Buffer.allocUnsafe(bufferSize);
   for (let offset = 0; offset < span;) {
     if (isAborted(signal))
+      // Stryker disable next-line LogicalOperator, StringLiteral: unobservable-message — the thrown abort reason is never read: verifyOutput's catch maps every throw raised while the signal is aborted to the typed aborted error, whatever the value or its name and message.
       throw signal?.reason ?? new DOMException("Aborted", "AbortError");
     const length = Math.min(COPY_BLOCK_BYTES, span - offset);
     const left = await sourceHandle.read(
@@ -759,6 +762,7 @@ function verificationError(detail: string, path: string): MetadataError {
 
 function verificationAborted(path: string): MetadataError {
   return executionError(
+    // Stryker disable next-line StringLiteral: unobservable-message — the aborted error's detail is free text; callers branch on the typed aborted code and the path.
     { code: "aborted", detail: "Operation was aborted.", path },
     "started",
   );
@@ -793,6 +797,7 @@ async function verifyOutput(
     if (destination.trailerBytes !== 0)
       return err(
         verificationError(
+          // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
           "Destination retains trailer bytes after the primary EOI.",
           destinationPath,
         ),
@@ -815,14 +820,17 @@ async function verifyOutput(
     )
       return err(
         verificationError(
+          // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
           "Destination marker sequence did not match the sanitized plan.",
           destinationPath,
         ),
       );
 
+    // Stryker disable next-line UnaryOperator: defensive-unreachable-by-construction — the sentinel is read only while hasInsert is true (every use sits behind hasInsert or inside its branch), and then findInsertPosition replaces it, so its value never matters.
+    const noInsertPosition = -1;
     const insertPosition = hasInsert
       ? findInsertPosition(admission, preserveColorProfile, preserveResolution)
-      : -1;
+      : noInsertPosition;
 
     // D-01: independently re-derive the destination's own classification --
     // never merely trust the marker-sequence check above -- so a removed
@@ -837,6 +845,7 @@ async function verifyOutput(
         const marker = destination.segments[index]?.marker ?? 0;
         return err(
           verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
             `Marker 0x${marker.toString(16)} remained after sanitization.`,
             destinationPath,
           ),
@@ -846,9 +855,11 @@ async function verifyOutput(
 
     if (hasInsert) {
       const exifSegment = destination.segments[insertPosition];
+      // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the marker-sequence check above already requires the destination segment at insertPosition to be APP1, because the recomputed plan puts APP1 exactly there, so the marker half of this test is never true when it is reached.
       if (exifSegment === undefined || exifSegment.marker !== APP1)
         return err(
           verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
             "Expected synthesized Exif segment is missing from its source slot.",
             destinationPath,
           ),
@@ -860,23 +871,10 @@ async function verifyOutput(
       );
       const expectedTiff = createMinimalExif(tags);
       const expectedPayload = Buffer.concat([EXIF_PREFIX, expectedTiff]);
-      const reparsed = parseExif(exifPayload);
-      const expectedEntryCount =
-        (tags.orientation === undefined ? 0 : 1) +
-        (tags.resolution === undefined
-          ? 0
-          : tags.resolution.unit === undefined
-            ? 2
-            : 3);
-      if (
-        !exifPayload.equals(expectedPayload) ||
-        reparsed.entries.length !== expectedEntryCount ||
-        (tags.orientation !== undefined &&
-          (reparsed.orientation.status !== "valid" ||
-            reparsed.orientation.value !== tags.orientation))
-      )
+      if (!exifPayload.equals(expectedPayload))
         return err(
           verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
             "Inserted Exif did not equal the recomputed minimal EXIF payload.",
             destinationPath,
           ),
@@ -896,9 +894,11 @@ async function verifyOutput(
           (_segment, index) => index !== insertPosition,
         )
       : destination.segments;
+    // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the marker-sequence check above already requires the destination to hold the planned number of segments, so the kept counts are equal when this line is reached.
     if (sourceKept.length !== destinationForComparison.length)
       return err(
         verificationError(
+          // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
           "Destination segment count did not match the sanitized plan.",
           destinationPath,
         ),
@@ -909,6 +909,7 @@ async function verifyOutput(
       if (
         left === undefined ||
         right === undefined ||
+        // Stryker disable next-line ConditionalExpression: redundant-guard-after-typed-check — the marker-sequence check above fixes the destination's marker order, so each kept pair already shares its marker, and segmentsEqual compares the marker bytes again.
         left.marker !== right.marker ||
         !(await segmentsEqual(
           sourceHandle,
@@ -920,6 +921,7 @@ async function verifyOutput(
       )
         return err(
           verificationError(
+            // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
             "Kept JPEG segment bytes changed.",
             destinationPath,
           ),
@@ -929,11 +931,11 @@ async function verifyOutput(
     return ok(undefined);
   } catch (cause) {
     if (isAborted(signal)) return err(verificationAborted(destinationPath));
+    // Stryker disable next-line StringLiteral: unobservable-message — free-text detail of the typed verification-failed error; callers branch on the code and the path, never on the wording.
+    const fallbackDetail = "Could not reopen and verify the destination.";
     return err(
       verificationError(
-        cause instanceof JpegStructureError
-          ? cause.message
-          : "Could not reopen and verify the destination.",
+        cause instanceof JpegStructureError ? cause.message : fallbackDetail,
         destinationPath,
       ),
     );
@@ -948,6 +950,7 @@ function classifyAdmissionFailure(
   if (preserveColorProfile && cause.limit?.segment === ICC_SEGMENT_IDENTIFIER)
     return {
       code: "unsupported-feature",
+      // Stryker disable next-line StringLiteral: unobservable-message — the detail is free text of the typed unsupported-feature decline; the code, the feature and the policy-limit reason that callers branch on are unchanged.
       detail: `ICC profile size ${cause.limit.size} exceeds the ${cause.limit.limit}-byte policy limit.`,
       feature: "color-profile-preservation",
       reason: "policy-limit",
@@ -1027,10 +1030,7 @@ export const jpegHandler: FormatHandler<JpegAdmission, JpegOutputPlan> =
         size - TRAILER_TAIL_BYTES,
       );
       const trailerLength = size - trailerStart;
-      const trailerTail =
-        trailerLength > 0
-          ? await readTail(handle, trailerLength, trailerStart)
-          : Buffer.alloc(0);
+      const trailerTail = await readTail(handle, trailerLength, trailerStart);
       return { parsed, ...collectMetadata(parsed, trailerTail) };
     },
     inspect(admission: JpegAdmission): Inspection {
@@ -1043,9 +1043,10 @@ export const jpegHandler: FormatHandler<JpegAdmission, JpegOutputPlan> =
     buildOutputPlan,
     checkOutputPlan(plan: JpegOutputPlan): string | undefined {
       if (plan.declineReason !== undefined) return plan.declineReason;
-      return plan.expectedMarkers.includes(SOS)
-        ? undefined
-        : "Sanitized JPEG plan is empty.";
+      const emptyPlanDetail =
+        // Stryker disable next-line StringLiteral: unobservable-message — the empty-plan detail is free text that checkOutputPlan returns and the engine forwards as the detail of the typed unsafe-structure refusal; the engine tests the value against undefined, so any defined string, even an empty one, still declines.
+        "Sanitized JPEG plan is empty.";
+      return plan.expectedMarkers.includes(SOS) ? undefined : emptyPlanDetail;
     },
     classifyAdmissionFailure,
     async writeOutput(

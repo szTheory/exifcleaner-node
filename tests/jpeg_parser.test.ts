@@ -801,3 +801,120 @@ describe("parseJpeg: census caps (D-10, Task 3)", () => {
     }
   });
 });
+
+/**
+ * CR-01 regression (Plan 67-60). `readWindowed` must refill when a read starts
+ * before the current window, not only when it runs past its end. The scan for the
+ * entropy-coded data ends by peeking one byte past a 0xFF; when that peek is the
+ * first byte of a refill window, the main loop then re-reads the 0xFF at
+ * `window.start - 1`, which lies before the window. Without the lower-bound
+ * operand the slice start goes negative and Node throws a raw RangeError for a
+ * valid JPEG.
+ */
+function jpegWithTerminatorAt(
+  firstFfOffset: number,
+  tail: readonly number[] = [0xff, 0xd9],
+): Buffer {
+  const base = minimalJpeg();
+  const body = base.subarray(0, base.length - 2);
+  const fillerLength = firstFfOffset - body.length;
+  if (fillerLength < 0) {
+    throw new Error(`terminator offset ${firstFfOffset} is inside the header`);
+  }
+  return Buffer.concat([
+    body,
+    Buffer.alloc(fillerLength, 0x11),
+    Buffer.from(tail),
+  ]);
+}
+
+async function parseWithReadPositions(bytes: Buffer): Promise<{
+  parsed: Awaited<ReturnType<typeof parseJpeg>>;
+  positions: number[];
+}> {
+  const path = await writeTempFile(bytes);
+  const handle = await open(path, "r");
+  const positions: number[] = [];
+  const spy = new Proxy(handle, {
+    get(target, property) {
+      if (property === "read") {
+        return (
+          buffer: Buffer,
+          offset: number,
+          length: number,
+          position: number,
+        ) => {
+          positions.push(position);
+          return target.read(buffer, offset, length, position);
+        };
+      }
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  try {
+    return { parsed: await parseJpeg(spy, bytes.length), positions };
+  } finally {
+    await handle.close();
+  }
+}
+
+const FIRST_WINDOW_OFFSETS = [65534, 65535, 65536, 65537] as const;
+const SECOND_WINDOW_OFFSETS = Array.from(
+  { length: 13 },
+  (_, index) => 131066 + index,
+);
+
+describe("parseJpeg: read-window refill boundary (CR-01)", () => {
+  it("an EOI whose 0xFF is the last byte of the first window parses (offset 65535)", async () => {
+    const bytes = jpegWithTerminatorAt(65535);
+    const parsed = await parseFile(bytes);
+    expect(parsed.primaryEoiEnd).toBe(65537);
+    expect(parsed.trailerBytes).toBe(0);
+  });
+
+  it("no file position is read twice when the EOI 0xFF is the first byte of a refill window (offset 65536)", async () => {
+    const bytes = jpegWithTerminatorAt(65536);
+    const { parsed, positions } = await parseWithReadPositions(bytes);
+    expect(parsed.primaryEoiEnd).toBe(65538);
+    expect(new Set(positions).size).toBe(positions.length);
+  });
+
+  it.each(FIRST_WINDOW_OFFSETS)(
+    "EOI at offset %i parses with primaryEoiEnd = offset + 2",
+    async (offset) => {
+      const parsed = await parseFile(jpegWithTerminatorAt(offset));
+      expect(parsed.primaryEoiEnd).toBe(offset + 2);
+      expect(parsed.trailerBytes).toBe(0);
+    },
+  );
+
+  it.each([65533, 65534, 65535, 65536])(
+    "a fill-byte run FF FF D9 starting at offset %i parses with primaryEoiEnd = offset + 3",
+    async (offset) => {
+      const bytes = jpegWithTerminatorAt(offset, [0xff, 0xff, 0xd9]);
+      const parsed = await parseFile(bytes);
+      expect(parsed.primaryEoiEnd).toBe(offset + 3);
+      expect(parsed.trailerBytes).toBe(0);
+    },
+  );
+
+  it.each(SECOND_WINDOW_OFFSETS)(
+    "EOI at offset %i (around the second window end) parses with primaryEoiEnd = offset + 2",
+    async (offset) => {
+      const parsed = await parseFile(jpegWithTerminatorAt(offset));
+      expect(parsed.primaryEoiEnd).toBe(offset + 2);
+      expect(parsed.trailerBytes).toBe(0);
+    },
+  );
+
+  it.each(SECOND_WINDOW_OFFSETS)(
+    "no file position is read twice for an EOI at offset %i",
+    async (offset) => {
+      const { positions } = await parseWithReadPositions(
+        jpegWithTerminatorAt(offset),
+      );
+      expect(new Set(positions).size).toBe(positions.length);
+    },
+  );
+});
