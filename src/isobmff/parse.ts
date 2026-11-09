@@ -165,7 +165,7 @@ export async function parseIsobmff(
         );
       }
       sawFtyp = true;
-      budget.checkFtypSize(header.end - header.start);
+      budget.checkFtypSize(header.size);
       const payload = await readExactly(
         handle,
         header.end - header.payloadStart,

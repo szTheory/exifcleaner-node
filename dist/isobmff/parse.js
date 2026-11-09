@@ -63,7 +63,7 @@ export async function parseIsobmff(handle, size, caps = DEFAULT_ISOBMFF_CAPS, si
                 throw new IsobmffStructureError("box-framing", 'A second top-level "ftyp" box is not permitted.');
             }
             sawFtyp = true;
-            budget.checkFtypSize(header.end - header.start);
+            budget.checkFtypSize(header.size);
             const payload = await readExactly(handle, header.end - header.payloadStart, header.payloadStart);
             const parsed = parseFtyp(payload);
             majorBrand = parsed.majorBrand;
