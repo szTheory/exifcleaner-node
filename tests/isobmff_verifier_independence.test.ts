@@ -62,6 +62,27 @@ vi.mock("../src/isobmff/plan.js", async (importOriginal) => {
   };
 });
 
+type EncoderFault = (tags: MinimalExifTags) => MinimalExifTags;
+
+const encoderMock = vi.hoisted(() => ({
+  fault: undefined as EncoderFault | undefined,
+}));
+
+// SEC-06 expansion (68-04, D-09): the writer AND the verifier both call createMinimalExif, so a
+// fault injected here is the common-mode encoder defect only a parse-back can see. The mocked
+// module is shared by every importer; with no fault installed it is the real encoder.
+vi.mock("../src/metadata/exif.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../src/metadata/exif.js")>();
+  return {
+    ...actual,
+    createMinimalExif: (tags: MinimalExifTags) =>
+      actual.createMinimalExif(
+        encoderMock.fault === undefined ? tags : encoderMock.fault(tags),
+      ),
+  };
+});
+
 const SRC_ISOBMFF = join(
   dirname(dirname(fileURLToPath(import.meta.url))),
   "src",
@@ -114,6 +135,7 @@ function writerSideSpecifiers(sourceText: string, fileName: string): string[] {
 const directories: string[] = [];
 afterEach(async () => {
   planMock.fault = undefined;
+  encoderMock.fault = undefined;
   await Promise.all(
     directories
       .splice(0)
@@ -386,6 +408,192 @@ describe("SEC-06 control 3: a wrapped planner fault is caught by the independent
         if (entry === "source.heic") continue;
         expect(entry.startsWith(".exifcleaner-stage-")).toBe(true);
       }
+      expect((await readFile(sourcePath)).equals(bytes)).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("SEC-06 / D-09: a shared encoder defect is caught by the destination parse-back", () => {
+  const ORIENTATION_DETAIL =
+    "Minimal Exif orientation did not parse back to the expected orientation.";
+  const RESOLUTION_DETAIL =
+    "Minimal Exif resolution did not parse back to the source resolution.";
+
+  interface EncoderCase {
+    readonly name: string;
+    readonly flags:
+      | typeof FLAGS
+      | (Omit<typeof FLAGS, "preserveOrientation"> & {
+          preserveOrientation: false;
+        })
+      | (Omit<typeof FLAGS, "preserveResolution"> & {
+          preserveResolution: false;
+        });
+    readonly fault: EncoderFault;
+    readonly detail: string;
+  }
+
+  const withResolution = (
+    tags: MinimalExifTags,
+    change: (
+      r: NonNullable<MinimalExifTags["resolution"]>,
+    ) => NonNullable<MinimalExifTags["resolution"]>,
+  ): MinimalExifTags => ({ ...tags, resolution: change(tags.resolution!) });
+
+  const CASES: readonly EncoderCase[] = [
+    {
+      name: "swaps resolution x and y",
+      flags: FLAGS,
+      fault: (tags) =>
+        withResolution(tags, (r) => ({ x: r.y, y: r.x, unit: r.unit! })),
+      detail: RESOLUTION_DETAIL,
+    },
+    {
+      name: "drops the resolution unit",
+      flags: FLAGS,
+      fault: (tags) => withResolution(tags, (r) => ({ x: r.x, y: r.y })),
+      detail: RESOLUTION_DETAIL,
+    },
+    {
+      name: "changes only the resolution unit",
+      flags: FLAGS,
+      fault: (tags) =>
+        withResolution(tags, (r) => ({ x: r.x, y: r.y, unit: 3 })),
+      detail: RESOLUTION_DETAIL,
+    },
+    {
+      name: "changes only the x numerator",
+      flags: FLAGS,
+      fault: (tags) =>
+        withResolution(tags, (r) => ({
+          x: { numerator: 201, denominator: r.x.denominator },
+          y: r.y,
+          unit: r.unit!,
+        })),
+      detail: RESOLUTION_DETAIL,
+    },
+    {
+      name: "changes only the x denominator",
+      flags: FLAGS,
+      fault: (tags) =>
+        withResolution(tags, (r) => ({
+          x: { numerator: r.x.numerator, denominator: 2 },
+          y: r.y,
+          unit: r.unit!,
+        })),
+      detail: RESOLUTION_DETAIL,
+    },
+    {
+      name: "changes only the y numerator",
+      flags: FLAGS,
+      fault: (tags) =>
+        withResolution(tags, (r) => ({
+          x: r.x,
+          y: { numerator: 101, denominator: r.y.denominator },
+          unit: r.unit!,
+        })),
+      detail: RESOLUTION_DETAIL,
+    },
+    {
+      name: "changes only the y denominator",
+      flags: FLAGS,
+      fault: (tags) =>
+        withResolution(tags, (r) => ({
+          x: r.x,
+          y: { numerator: r.y.numerator, denominator: 2 },
+          unit: r.unit!,
+        })),
+      detail: RESOLUTION_DETAIL,
+    },
+    {
+      name: "omits the resolution although it was requested",
+      flags: FLAGS,
+      fault: (tags) => ({ orientation: tags.orientation! }),
+      detail: RESOLUTION_DETAIL,
+    },
+    {
+      name: "writes a resolution that was not requested",
+      flags: { ...FLAGS, preserveResolution: false },
+      fault: (tags) => ({ ...tags, resolution: resolutionOf(200, 100) }),
+      detail: RESOLUTION_DETAIL,
+    },
+    {
+      name: "replaces the orientation value 3 by 6",
+      flags: FLAGS,
+      fault: (tags) => ({ ...tags, orientation: 6 }),
+      detail: ORIENTATION_DETAIL,
+    },
+    {
+      name: "omits the orientation although it was requested",
+      flags: FLAGS,
+      fault: (tags) => ({ resolution: tags.resolution! }),
+      detail: ORIENTATION_DETAIL,
+    },
+    {
+      name: "writes an orientation that was not requested",
+      flags: { ...FLAGS, preserveOrientation: false },
+      fault: (tags) => ({ ...tags, orientation: 6 }),
+      detail: ORIENTATION_DETAIL,
+    },
+  ];
+
+  it.each(CASES)(
+    "an encoder that $name is refused: verification-failed, nothing published, source preserved",
+    async ({ flags, fault, detail }) => {
+      const bytes = buildExifFixture();
+      const { directory, sourcePath, destinationPath } =
+        await writeSource(bytes);
+      const restore = setRegisteredHandlersForTests([
+        createIsobmffWriterHandlerForTests("heic"),
+      ]);
+      encoderMock.fault = fault;
+      try {
+        const sanitized = await sanitizeFile({
+          sourcePath,
+          destinationPath,
+          ...flags,
+        });
+        expect(sanitized.ok).toBe(false);
+        if (sanitized.ok) throw new Error("unreachable");
+        expect(sanitized.error.code).toBe("verification-failed");
+        expect(sanitized.error.detail).toBe(detail);
+        const listing = await readdir(directory);
+        expect(listing).toContain("source.heic");
+        expect(listing).not.toContain("destination.heic");
+        for (const entry of listing) {
+          if (entry === "source.heic") continue;
+          expect(entry.startsWith(".exifcleaner-stage-")).toBe(true);
+        }
+        expect((await readFile(sourcePath)).equals(bytes)).toBe(true);
+      } finally {
+        encoderMock.fault = undefined;
+        restore();
+      }
+    },
+  );
+
+  it("control: the faithful encoder with orientation and resolution succeeds and reports both preserved", async () => {
+    const bytes = buildExifFixture();
+    const { directory, sourcePath, destinationPath } = await writeSource(bytes);
+    const restore = setRegisteredHandlersForTests([
+      createIsobmffWriterHandlerForTests("heic"),
+    ]);
+    try {
+      const sanitized = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        ...FLAGS,
+      });
+      expect(sanitized.ok).toBe(true);
+      if (!sanitized.ok) throw new Error("unreachable");
+      expect(sanitized.value.preserved.orientation).toBe(true);
+      expect(sanitized.value.preserved.resolution).toBe(true);
+      expect((await readdir(directory)).sort()).toEqual([
+        "destination.heic",
+        "source.heic",
+      ]);
       expect((await readFile(sourcePath)).equals(bytes)).toBe(true);
     } finally {
       restore();
