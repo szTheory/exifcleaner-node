@@ -1,4 +1,4 @@
-import { parseExif, createOrientationExif } from "../metadata/exif.js";
+import { createMinimalExif, parseExif, readIfd0Resolution, } from "../metadata/exif.js";
 import { parseIcc } from "../metadata/icc.js";
 import { parseXmp } from "../metadata/xmp.js";
 import { err, ok } from "../result.js";
@@ -13,6 +13,7 @@ function collectMetadata(parsed) {
     const warnings = [];
     let orientation = { status: "absent" };
     let colorProfile;
+    let sourceResolution;
     const namespaces = new Set();
     for (const chunk of parsed.chunks) {
         if (chunk.fourCc === "EXIF") {
@@ -22,6 +23,7 @@ function collectMetadata(parsed) {
                 entries.push(...found.entries);
                 warnings.push(...found.warnings);
                 orientation = found.orientation;
+                sourceResolution = readIfd0Resolution(chunk.metadata);
             }
         }
         else if (chunk.fourCc === "XMP ") {
@@ -48,15 +50,31 @@ function collectMetadata(parsed) {
         orientation,
         colorProfile,
         namespaces: [...namespaces],
-        // WebP cannot preserve resolution natively (capability.preserves.resolution
-        // is false); the engine declines any preserveResolution: true request
-        // before this admission is ever consulted for it (D-03).
-        resolutionNamespace: undefined,
+        // The resolution record lives in the EXIF IFD0 triple; it exists only when
+        // both X and Y were read (a one-sided pair is no resolution).
+        resolutionNamespace: sourceResolution === undefined ? undefined : "EXIF",
+        sourceResolution,
     };
 }
-function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, _preserveResolution, orientation) {
-    const parsed = admission.parsed;
+// The minimal IFD0 tags the output EXIF chunk may carry: the valid source
+// orientation when requested, the source resolution triple when requested;
+// undefined when neither applies (the EXIF chunk is then dropped).
+function webpExifTags(admission, preserveOrientation, preserveResolution, orientation) {
     const keepOrientation = preserveOrientation && orientation !== undefined;
+    const resolution = preserveResolution
+        ? admission.sourceResolution
+        : undefined;
+    if (keepOrientation && resolution !== undefined)
+        return { orientation, resolution };
+    if (keepOrientation)
+        return { orientation };
+    if (resolution !== undefined)
+        return { resolution };
+    return undefined;
+}
+function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, preserveResolution, orientation) {
+    const parsed = admission.parsed;
+    const exifTags = webpExifTags(admission, preserveOrientation, preserveResolution, orientation);
     const plan = [];
     for (const chunk of parsed.chunks) {
         if (chunk.fourCc === "XMP ")
@@ -64,8 +82,8 @@ function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, _
         if (chunk.fourCc === "ICCP" && !preserveColorProfile)
             continue;
         if (chunk.fourCc === "EXIF") {
-            if (keepOrientation) {
-                const data = createOrientationExif(orientation);
+            if (exifTags !== undefined) {
+                const data = createMinimalExif(exifTags);
                 plan.push({ fourCc: "EXIF", size: data.length, data });
             }
             continue;
@@ -76,7 +94,7 @@ function buildOutputPlan(admission, preserveOrientation, preserveColorProfile, _
             if (preserveColorProfile &&
                 parsed.chunks.some((item) => item.fourCc === "ICCP"))
                 flags |= 0x20;
-            if (keepOrientation)
+            if (exifTags !== undefined)
                 flags |= 0x08;
             data[0] = flags;
             plan.push({ fourCc: "VP8X", size: data.length, data });
@@ -168,7 +186,7 @@ function verificationError(detail, path) {
 function verificationAborted(path) {
     return executionError({ code: "aborted", detail: "Operation was aborted.", path }, "started");
 }
-async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, _preserveResolution, expectedOrientation, signal) {
+async function verifyOutput(sourceHandle, admission, destinationHandle, destinationSize, destinationPath, preserveOrientation, preserveColorProfile, preserveResolution, expectedOrientation, signal) {
     const source = admission.parsed;
     try {
         const destination = await parseWebp(destinationHandle, destinationSize, signal);
@@ -184,14 +202,22 @@ async function verifyOutput(sourceHandle, admission, destinationHandle, destinat
         else if (destinationIcc !== undefined)
             return err(verificationError("ICC metadata remained after sanitization.", destinationPath));
         const destinationExif = destination.chunks.find((chunk) => chunk.fourCc === "EXIF");
-        if (preserveOrientation && expectedOrientation !== undefined) {
-            const parsedExif = destinationExif?.metadata === undefined
-                ? undefined
-                : parseExif(destinationExif.metadata);
-            if (parsedExif?.orientation.status !== "valid" ||
-                parsedExif.orientation.value !== expectedOrientation ||
-                parsedExif.entries.length !== 1)
-                return err(verificationError("EXIF Orientation was not preserved.", destinationPath));
+        // The expected tag set is recomputed here from the request flags and the
+        // source admission, never read back from the output plan.
+        const wantsOrientation = preserveOrientation && expectedOrientation !== undefined;
+        const expectedResolution = preserveResolution
+            ? admission.sourceResolution
+            : undefined;
+        if (wantsOrientation || expectedResolution !== undefined) {
+            const exifData = destinationExif?.metadata;
+            if (exifData === undefined ||
+                !exifData.equals(createMinimalExif({
+                    ...(wantsOrientation ? { orientation: expectedOrientation } : {}),
+                    ...(expectedResolution !== undefined
+                        ? { resolution: expectedResolution }
+                        : {}),
+                })))
+                return err(verificationError("EXIF chunk did not match the requested minimal tags.", destinationPath));
         }
         else if (destinationExif !== undefined)
             return err(verificationError("EXIF metadata remained after sanitization.", destinationPath));
@@ -228,7 +254,7 @@ const capability = Object.freeze({
         orientation: true,
         colorProfile: true,
         timestamps: true,
-        resolution: false,
+        resolution: true,
         imagePayload: true,
         animationPayload: true,
     }),
