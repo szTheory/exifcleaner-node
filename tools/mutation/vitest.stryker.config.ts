@@ -54,6 +54,7 @@ export const STRYKER_TEST_ALLOWLIST: readonly string[] = Object.freeze([
   "tests/riff.test.ts",
   "tests/safe_transaction.test.ts",
   "tests/stage_cleanup.test.ts",
+  "tests/webp_resolution.test.ts",
   "tests/xmp_orientation.test.ts",
 ] as const);
 

@@ -143,6 +143,109 @@ export function exifWithOrientation(
   return result;
 }
 
+export interface ExifResolutionFixtureOptions {
+  readonly make?: string;
+  readonly artist?: string;
+  readonly orientation?: number;
+  /** [numerator, denominator], stored exactly as given (never reduced). */
+  readonly xResolution?: readonly [number, number];
+  readonly yResolution?: readonly [number, number];
+  readonly resolutionUnit?: number;
+  /** Prepends the six-byte `Exif\0\0` identifier some producers write in front of the TIFF. */
+  readonly exifPrefix?: boolean;
+}
+
+/**
+ * A little-endian TIFF/Exif payload whose IFD0 can carry Make, Artist, Orientation, the
+ * XResolution/YResolution rationals and ResolutionUnit. Every tag is optional; the entries are
+ * written in ascending tag order with the ASCII and RATIONAL values stored after the IFD.
+ */
+export function exifWithResolution({
+  make,
+  artist,
+  orientation,
+  xResolution,
+  yResolution,
+  resolutionUnit,
+  exifPrefix = false,
+}: ExifResolutionFixtureOptions = {}): Buffer {
+  interface Entry {
+    readonly tag: number;
+    readonly type: 2 | 3 | 5;
+    readonly count: number;
+    readonly inline?: number;
+    readonly data?: Buffer;
+  }
+  const rational = (pair: readonly [number, number]): Buffer => {
+    const data = Buffer.alloc(8);
+    data.writeUInt32LE(pair[0], 0);
+    data.writeUInt32LE(pair[1], 4);
+    return data;
+  };
+  const ascii = (text: string): Buffer => Buffer.from(`${text}\0`, "ascii");
+  const entries: Entry[] = [];
+  if (make !== undefined)
+    entries.push({
+      tag: 0x010f,
+      type: 2,
+      count: ascii(make).length,
+      data: ascii(make),
+    });
+  if (orientation !== undefined)
+    entries.push({ tag: 0x0112, type: 3, count: 1, inline: orientation });
+  if (xResolution !== undefined)
+    entries.push({
+      tag: 0x011a,
+      type: 5,
+      count: 1,
+      data: rational(xResolution),
+    });
+  if (yResolution !== undefined)
+    entries.push({
+      tag: 0x011b,
+      type: 5,
+      count: 1,
+      data: rational(yResolution),
+    });
+  if (resolutionUnit !== undefined)
+    entries.push({ tag: 0x0128, type: 3, count: 1, inline: resolutionUnit });
+  if (artist !== undefined)
+    entries.push({
+      tag: 0x013b,
+      type: 2,
+      count: ascii(artist).length,
+      data: ascii(artist),
+    });
+
+  const ifdBytes = 2 + entries.length * 12 + 4;
+  let dataOffset = 8 + ifdBytes;
+  const header = Buffer.alloc(8 + ifdBytes);
+  header.write("II", 0, 2, "ascii");
+  header.writeUInt16LE(42, 2);
+  header.writeUInt32LE(8, 4);
+  header.writeUInt16LE(entries.length, 8);
+  const values: Buffer[] = [];
+  entries.forEach((entry, index) => {
+    const at = 10 + index * 12;
+    header.writeUInt16LE(entry.tag, at);
+    header.writeUInt16LE(entry.type, at + 2);
+    header.writeUInt32LE(entry.count, at + 4);
+    if (entry.data === undefined) {
+      header.writeUInt16LE(entry.inline ?? 0, at + 8);
+    } else if (entry.data.length <= 4) {
+      entry.data.copy(header, at + 8);
+    } else {
+      header.writeUInt32LE(dataOffset, at + 8);
+      values.push(entry.data);
+      dataOffset += entry.data.length;
+    }
+  });
+  const tiff = Buffer.concat([header, ...values]);
+  return exifPrefix
+    ? Buffer.concat([Buffer.from("Exif\0\0", "binary"), tiff])
+    : tiff;
+}
+
 export function xmpPacket(value = "private workflow"): Buffer {
   return Buffer.from(
     `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" dc:format="image/webp"><dc:description>${value}</dc:description></rdf:Description></rdf:RDF></x:xmpmeta>`,
