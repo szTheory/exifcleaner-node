@@ -16,8 +16,19 @@ const {
 const SHA256 = /^[a-f0-9]{64}$/;
 
 async function digestFile(filePath) {
+  // One reused read buffer: no per-chunk ArrayBuffer backing stores whose release depends on GC pacing.
   const hash = crypto.createHash("sha256");
-  for await (const chunk of fs.createReadStream(filePath)) hash.update(chunk);
+  const handle = await fsPromises.open(filePath, "r");
+  try {
+    const buffer = Buffer.allocUnsafeSlow(1024 * 1024);
+    for (;;) {
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+      if (bytesRead === 0) break;
+      hash.update(buffer.subarray(0, bytesRead));
+    }
+  } finally {
+    await handle.close();
+  }
   return hash.digest("hex");
 }
 
