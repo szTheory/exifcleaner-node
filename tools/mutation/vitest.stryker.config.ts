@@ -26,6 +26,7 @@ export const STRYKER_TEST_ALLOWLIST: readonly string[] = Object.freeze([
   "tests/isobmff_negative_controls.test.ts",
   "tests/isobmff_proof_harness.test.ts",
   "tests/isobmff_spec_lists.test.ts",
+  "tests/isobmff_verifier_independence.test.ts",
   "tests/isobmff_verify.test.ts",
   "tests/isobmff_writer.test.ts",
   "tests/isobmff_writer_doc.test.ts",
