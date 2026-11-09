@@ -51,6 +51,14 @@ function validateEntities(xml: string): string | undefined {
     return "XMP contains a malformed or unsupported entity.";
   try {
     decodeXml(entitySurface);
+    // The element branch of parseXmp unwraps CDATA and decodes its contents, so those contents
+    // are decoded here too; comments and processing instructions come first in the alternation
+    // so that CDATA-looking text inside them is skipped, as it is everywhere else.
+    for (const section of xml.matchAll(
+      /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>/gu,
+    )) {
+      if (section[1] !== undefined) decodeXml(section[1]);
+    }
   } catch (cause) {
     // decodeXml throws only RangeError instances, so the message is always present.
     return (cause as RangeError).message;
