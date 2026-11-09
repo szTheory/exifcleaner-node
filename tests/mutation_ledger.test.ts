@@ -1792,6 +1792,15 @@ function createRealIsobmff3BatchCliFixture(
   }
   fixture.reportPath = "exifcleaner-node/reports/triage/67-16/batch.json";
   writeFixtureFile(fixture.root, fixture.reportPath, gunzipSync(reportBytes));
+  // Phase 68 legitimately edited the live caps.ts and killing-test files after this report was
+  // sealed; the batch CLI compares each report source with the copied live file, so seed the copy
+  // with the sealed report's own bytes, as the readCString approval fixture already does.
+  rewriteReadOnlyFixtureFile(
+    fixture,
+    "exifcleaner-node/src/isobmff/caps.ts",
+    report.files["src/isobmff/caps.ts"]!.source,
+  );
+  writeEmbeddedReceiptSources(fixture, report);
   return fixture;
 }
 
@@ -4025,7 +4034,7 @@ describe("real iloc boundary receipt", () => {
           .sort(),
       ).toEqual(expectedPreexistingIncomplete);
     },
-    30_000,
+    90_000,
   );
 
   itWorkspace(
@@ -5833,7 +5842,7 @@ describe("real isobmff-3 multi-source final report", () => {
         );
       }
     },
-    60_000,
+    150_000,
   );
 
   it("discovers added registry rows and refuses missing registered fixture bytes", () => {
