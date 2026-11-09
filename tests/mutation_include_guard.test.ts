@@ -574,6 +574,11 @@ export const EXCLUSIONS: Readonly<
     class: "repo-tooling",
     reason: "Scans the test tree for dist literals; tests no src.",
   },
+  "tests/docs_contract.test.ts": {
+    class: "repo-tooling",
+    reason:
+      "Reads README.md, docs/ and CHANGELOG.md and holds them against the exported types; tests no src behavior.",
+  },
   "tests/fc_seed_guard.test.ts": {
     class: "repo-tooling",
     reason:
