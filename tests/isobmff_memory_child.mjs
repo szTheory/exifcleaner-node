@@ -7,7 +7,7 @@
 // report per-process maxRSS. Not collected by vitest.config.ts's `tests/**/*.test.ts` include,
 // but is still formatted by `npm run lint` (prettier globs all of `tests/`).
 //
-// argv: <fixturePath|--idle> <capMode: default|no-meta|no-count|no-depth|no-buffered>
+// argv: <fixturePath|--idle> <capMode: default|no-ftyp|no-meta|no-count|no-depth|no-buffered>
 //
 // - fixturePath: an ISOBMFF file to admit. `--idle` skips admission entirely (the unit-sanity
 //   baseline: a child that does nothing but import dist/isobmff/{admission,caps}.js and report
@@ -16,6 +16,7 @@
 //   other mode injects a caps object equal to the default except for exactly one field set to
 //   `Number.POSITIVE_INFINITY` -- the D-23 negative control proving the matching cap
 //   discriminates when it alone is removed:
+//     no-ftyp     -> maxFtypBoxBytes: Infinity
 //     no-meta     -> maxMetaBytes: Infinity
 //     no-count    -> maxBoxCount: Infinity
 //     no-depth    -> maxBoxDepth: Infinity
@@ -54,6 +55,7 @@ const [fixtureArg, capModeArg] = process.argv.slice(2);
 
 const CAP_MODES = new Set([
   "default",
+  "no-ftyp",
   "no-meta",
   "no-count",
   "no-depth",
@@ -89,6 +91,11 @@ try {
 
 function capsFor(mode) {
   switch (mode) {
+    case "no-ftyp":
+      return {
+        ...DEFAULT_ISOBMFF_CAPS,
+        maxFtypBoxBytes: Number.POSITIVE_INFINITY,
+      };
     case "no-meta":
       return {
         ...DEFAULT_ISOBMFF_CAPS,
