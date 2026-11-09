@@ -1,13 +1,12 @@
 import type { FileHandle } from "node:fs/promises";
 import { COPY_BLOCK_BYTES } from "../io/copy-range.js";
 import { executionError } from "../errors.js";
-import { createMinimalExif } from "../metadata/exif.js";
+import { createMinimalExif, type MinimalExifTags } from "../metadata/exif.js";
 import { err, ok } from "../result.js";
 import type { MetadataError, Result } from "../types.js";
 import { classifyIsobmffModel, type IsobmffAdmission } from "./admission.js";
 import { IsobmffStructureError } from "./errors.js";
 import type { IsobmffItem, IsobmffProperty } from "./items.js";
-import { computeIsobmffMinimalExifTags } from "./plan.js";
 import { parseIsobmff, type IsobmffModel } from "./parse.js";
 
 // ISOBMFF output verifier (Phase 62, D-18 complete, 62-09): re-parses the destination through the
@@ -20,6 +19,29 @@ import { parseIsobmff, type IsobmffModel } from "./parse.js";
 // streamed in COPY_BLOCK_BYTES windows; 0 or 1 Exif items (D-13's minimal Exif content); 0 mime
 // items; the D-16 ICC colr rule both ways; D-11's iloc version/widths; mdat payload-length
 // coverage (the union of surviving cm=0 extents); and idat byte-identity.
+
+/** SEC-06 (D-06/D-07): the minimal Exif tag set this request must leave in the output, written
+ * here from the D-13 rule and deliberately NOT shared with `plan.ts` or `writer.ts`, so one
+ * planner mistake cannot also fool the verifier. Orientation is expected when it was requested and
+ * a valid value exists; resolution when it was requested and the source admission carries one;
+ * `undefined` when neither applies (no Exif item survives). */
+function expectedMinimalExifTags(
+  admission: IsobmffAdmission,
+  preserveOrientation: boolean,
+  preserveResolution: boolean,
+  orientation: number | undefined,
+): MinimalExifTags | undefined {
+  const keptOrientation = preserveOrientation ? orientation : undefined;
+  const keptResolution = preserveResolution
+    ? admission.sourceResolution
+    : undefined;
+  if (keptOrientation !== undefined && keptResolution !== undefined) {
+    return { orientation: keptOrientation, resolution: keptResolution };
+  }
+  if (keptOrientation !== undefined) return { orientation: keptOrientation };
+  if (keptResolution !== undefined) return { resolution: keptResolution };
+  return undefined;
+}
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
@@ -200,7 +222,7 @@ export async function verifyIsobmffOutput(
 ): Promise<Result<void>> {
   // D-13/D-18: recompute the minimal Exif item's expected shape from the source admission and
   // the request flags -- never from the plan -- so a planner bug cannot also fool the verifier.
-  const tags = computeIsobmffMinimalExifTags(
+  const tags = expectedMinimalExifTags(
     admission,
     preserveOrientation,
     preserveResolution,
