@@ -236,6 +236,32 @@ async function withWrappedWebp(
   }
 }
 
+/**
+ * WebP preserves resolution natively since 0.5.0 (WEBP-07), so no shipped format reaches the
+ * engine's capability gate. The `unsupported-feature/resolution-preservation` kind stays a
+ * declared public kind; this reaches it with a WebP handler whose capability declares
+ * `preserves.resolution` false, installed through the private registry seam.
+ */
+async function withHandlerThatCannotPreserveResolution(
+  directory: string,
+): Promise<Ran> {
+  const unable = {
+    ...webpHandler,
+    capability: {
+      ...webpHandler.capability,
+      preserves: { ...webpHandler.capability.preserves, resolution: false },
+    },
+  } as unknown as RegisteredHandler;
+  const restore = setRegisteredHandlersForTests([unable]);
+  try {
+    return await sanitizeWebp(directory, metadataWebp(), {
+      preserveResolution: true,
+    });
+  } finally {
+    restore();
+  }
+}
+
 function webpWithExif(exif: Buffer): Buffer {
   return webp([
     { fourCc: "VP8X", data: vp8x(0x08) },
@@ -421,8 +447,7 @@ const REACHING = {
     },
   },
   "unsupported-feature/resolution-preservation": {
-    run: (directory) =>
-      sanitizeWebp(directory, metadataWebp(), { preserveResolution: true }),
+    run: withHandlerThatCannotPreserveResolution,
     expect: {
       code: "unsupported-feature",
       feature: "resolution-preservation",
