@@ -72,7 +72,7 @@ function collectMetadata(parsed: ParsedWebp): Omit<WebpAdmission, "parsed"> {
         entries.push(...found.entries);
         warnings.push(...found.warnings);
         orientation = found.orientation;
-        sourceResolution = readIfd0Resolution(chunk.metadata);
+        sourceResolution = readIfd0Resolution(exifTiffBody(chunk.metadata));
       }
     } else if (chunk.fourCc === "XMP ") {
       namespaces.add("XMP");
@@ -296,6 +296,34 @@ async function chunksEqual(
 
 const PAYLOAD_CHUNKS = new Set(["VP8 ", "VP8L", "ALPH", "ANIM", "ANMF"]);
 
+const EXIF_IDENTIFIER = Buffer.from("Exif\0\0", "binary");
+
+// The TIFF body of an EXIF chunk payload. Producers may or may not put the
+// six-byte `Exif\0\0` identifier in front of it, and readIfd0Resolution expects
+// the bare TIFF header, so an unstripped prefix would silently lose the resolution.
+function exifTiffBody(payload: Buffer): Buffer {
+  return payload.subarray(0, EXIF_IDENTIFIER.length).equals(EXIF_IDENTIFIER)
+    ? payload.subarray(EXIF_IDENTIFIER.length)
+    : payload;
+}
+
+// True when the destination resolution differs from the source resolution in
+// presence, any raw rational part, or the unit.
+function resolutionsDiffer(
+  actual: MinimalExifResolution | undefined,
+  expected: MinimalExifResolution | undefined,
+): boolean {
+  if (actual === undefined || expected === undefined)
+    return actual !== expected;
+  return (
+    actual.x.numerator !== expected.x.numerator ||
+    actual.x.denominator !== expected.x.denominator ||
+    actual.y.numerator !== expected.y.numerator ||
+    actual.y.denominator !== expected.y.denominator ||
+    actual.unit !== expected.unit
+  );
+}
+
 function verificationError(detail: string, path: string): MetadataError {
   return executionError(
     { code: "verification-failed", detail, path },
@@ -387,6 +415,28 @@ async function verifyOutput(
         return err(
           verificationError(
             "EXIF chunk did not match the requested minimal tags.",
+            destinationPath,
+          ),
+        );
+      // Parse the destination back: an encoder shared by planner and verifier
+      // cannot vouch for itself, so the values are read as a consumer would
+      // and compared with the request and the raw source resolution.
+      const orientationBack = parseExif(exifData).orientation;
+      if (
+        (orientationBack.status === "valid"
+          ? orientationBack.value
+          : undefined) !== (wantsOrientation ? expectedOrientation : undefined)
+      )
+        return err(
+          verificationError(
+            "EXIF Orientation was not preserved.",
+            destinationPath,
+          ),
+        );
+      if (resolutionsDiffer(readIfd0Resolution(exifData), expectedResolution))
+        return err(
+          verificationError(
+            "EXIF resolution did not parse back to the source resolution.",
             destinationPath,
           ),
         );
