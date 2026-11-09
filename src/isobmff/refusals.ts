@@ -1,6 +1,6 @@
 import type { IsobmffDeclineClass } from "./errors.js";
 
-// Coarse public HEIF/AVIF refusal surface (D-06, 62-12). The 26-member internal
+// Coarse public HEIF/AVIF refusal surface (D-06, 62-12). The 27-member internal
 // `IsobmffDeclineClass` union is deliberately never exposed as-is: `HeifRefusal` is the seven
 // literals the eventual `HeicCapabilities`/`AvifCapabilities["refuses"]` array advertises
 // (62.1-07 wires the real capability literal; this module only builds the mapping table). The
@@ -40,6 +40,7 @@ export const HEIF_REFUSAL_BY_DECLINE_CLASS = {
   "extent-outside-mdat": "malformed-container",
   "item-graph-invalid": "malformed-container",
 
+  "cap-ftyp-bytes": "resource-limits",
   "cap-meta-bytes": "resource-limits",
   "cap-box-count": "resource-limits",
   "cap-box-depth": "resource-limits",

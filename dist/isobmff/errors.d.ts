@@ -1,5 +1,5 @@
 import type { AdmissionDeclineDetail } from "../admission/handler.js";
-export type IsobmffDeclineClass = "removable-item-in-idat" | "construction-method-2" | "external-data-reference" | "multiple-mdat" | "unknown-item-type" | "sequence-box" | "sequence-brand" | "unknown-meta-child" | "top-level-box-not-allowed" | "meta-handler-not-pict" | "unsupported-box-version" | "removable-extent-overlap" | "removable-item-referenced" | "surviving-zero-length-extent" | "surviving-offset-width-zero" | "cap-meta-bytes" | "cap-box-count" | "cap-box-depth" | "cap-buffered-bytes" | "extent-outside-mdat" | "meta-not-fullbox" | "duplicate-meta" | "box-framing" | "item-graph-invalid" | "offset-rewrite-overflow" | "brand-mismatch";
+export type IsobmffDeclineClass = "removable-item-in-idat" | "construction-method-2" | "external-data-reference" | "multiple-mdat" | "unknown-item-type" | "sequence-box" | "sequence-brand" | "unknown-meta-child" | "top-level-box-not-allowed" | "meta-handler-not-pict" | "unsupported-box-version" | "removable-extent-overlap" | "removable-item-referenced" | "surviving-zero-length-extent" | "surviving-offset-width-zero" | "cap-ftyp-bytes" | "cap-meta-bytes" | "cap-box-count" | "cap-box-depth" | "cap-buffered-bytes" | "extent-outside-mdat" | "meta-not-fullbox" | "duplicate-meta" | "box-framing" | "item-graph-invalid" | "offset-rewrite-overflow" | "brand-mismatch";
 export declare const ISOBMFF_DECLINE_CLASSES: readonly IsobmffDeclineClass[];
 /** The three public codes this engine can report (a subset of `MetadataErrorDetails["code"]`). */
 export type IsobmffPublicKind = "unsupported-format" | "unsafe-structure" | "malformed-file";
@@ -26,6 +26,7 @@ export declare const DECLINE_CLASS_TO_KIND: {
     "removable-item-referenced": "unsafe-structure";
     "surviving-zero-length-extent": "unsafe-structure";
     "surviving-offset-width-zero": "unsafe-structure";
+    "cap-ftyp-bytes": "unsafe-structure";
     "cap-meta-bytes": "unsafe-structure";
     "cap-box-count": "unsafe-structure";
     "cap-box-depth": "unsafe-structure";

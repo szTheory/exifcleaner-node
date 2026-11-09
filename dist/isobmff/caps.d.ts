@@ -1,8 +1,10 @@
+export declare const ISOBMFF_MAX_FTYP_BOX_BYTES = 256;
 export declare const ISOBMFF_MAX_META_BYTES: number;
 export declare const ISOBMFF_MAX_BOX_COUNT = 65536;
 export declare const ISOBMFF_MAX_BOX_DEPTH = 8;
 export declare const ISOBMFF_MAX_BUFFERED_BYTES_TOTAL: number;
 export interface IsobmffCaps {
+    readonly maxFtypBoxBytes: number;
     readonly maxMetaBytes: number;
     readonly maxBoxCount: number;
     readonly maxBoxDepth: number;
@@ -17,6 +19,8 @@ export declare const DEFAULT_ISOBMFF_CAPS: IsobmffCaps;
 export declare class IsobmffBudget {
     #private;
     constructor(caps?: IsobmffCaps);
+    /** Check a declared `ftyp` box size (header included) before its payload is read into memory. */
+    checkFtypSize(size: number): void;
     /** Check a declared `meta` payload size before that payload is read into memory. */
     checkMetaSize(size: number): void;
     /** Record one more box before it is recorded in a box list. */

@@ -12,6 +12,7 @@ export declare const HEIF_REFUSAL_BY_DECLINE_CLASS: {
     "duplicate-meta": "malformed-container";
     "extent-outside-mdat": "malformed-container";
     "item-graph-invalid": "malformed-container";
+    "cap-ftyp-bytes": "resource-limits";
     "cap-meta-bytes": "resource-limits";
     "cap-box-count": "resource-limits";
     "cap-box-depth": "resource-limits";
