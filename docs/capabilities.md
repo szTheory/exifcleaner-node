@@ -4,18 +4,18 @@
 
 ## Supported Surface
 
-| Area         | Contract                                                                                                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime      | Node.js 22+, ESM                                                                                                                                                         |
-| Formats      | WebP, PNG, JPEG, HEIC and AVIF, all detected by magic: WebP by `RIFF` + `WEBP`, PNG by its 8-byte signature, JPEG by `FF D8 FF`, HEIC and AVIF by their `ftyp` brand set |
-| Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                                                                                                     |
-| Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                                                                                             |
-| Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable                                                                       |
-| Resolution   | Capability-gated by `preserves.resolution`; a format reporting `false` (WebP) declines a `preserveResolution: true` request before any write                             |
-| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract; baseline/extended-sequential/progressive 8-bit JPEG frames                                 |
-| Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized                                                                              |
-| Cancellation | Optional `AbortSignal` on inspection and sanitization                                                                                                                    |
-| Failures     | Discriminated `MetadataError` returned through `Result`                                                                                                                  |
+| Area         | Contract                                                                                                                                                                                |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime      | Node.js 22+, ESM                                                                                                                                                                        |
+| Formats      | WebP, PNG, JPEG, HEIC and AVIF, all detected by magic: WebP by `RIFF` + `WEBP`, PNG by its 8-byte signature, JPEG by `FF D8 FF`, HEIC and AVIF by their `ftyp` brand set                |
+| Operations   | `getCapabilities`, `inspectFile`, `sanitizeFile`, `classifyFallback`                                                                                                                    |
+| Metadata     | Inspect EXIF, XMP, ICC; remove EXIF/XMP; remove or structurally preserve ICC                                                                                                            |
+| Preservation | Orientation, ICC profile, filesystem timestamps when explicitly requested and safely representable                                                                                      |
+| Resolution   | Capability-gated by `preserves.resolution`; every shipped format reports `true`, and a format that reported `false` would decline a `preserveResolution: true` request before any write |
+| Still images | Lossy/lossless and alpha structures that satisfy the supported WebP contract; baseline/extended-sequential/progressive 8-bit JPEG frames                                                |
+| Animation    | Recognized container/frame payloads copied byte-for-byte when structure is fully recognized                                                                                             |
+| Cancellation | Optional `AbortSignal` on inspection and sanitization                                                                                                                                   |
+| Failures     | Discriminated `MetadataError` returned through `Result`                                                                                                                                 |
 
 `NativeFormat` is the format-neutral discriminant (currently
 `"webp" | "png" | "jpeg" | "heic" | "avif"`). `FormatCapabilities` is the
@@ -67,10 +67,12 @@ verified `SanitizeResult` or one structured terminal/non-admission
 `phase: "admission"` with `nativeWrite: "not-started"` yields
 `"safe-to-fallback"`; every other error yields `"do-not-fallback"`. The safe
 disposition permits at most one ExifTool substitute, never another native write,
-a retry loop, or a second writer after uncertainty. A `preserveResolution: true`
-request against a format whose capability reports `preserves.resolution: false`
-declines with `unsupported-feature`/`resolution-preservation` before any
-destination exists, and is always `"safe-to-fallback"`.
+a retry loop, or a second writer after uncertainty. Every shipped format reports
+`preserves.resolution: true` today. The contract for a future format is unchanged: a
+`preserveResolution: true` request against a format whose capability reports
+`preserves.resolution: false` declines with
+`unsupported-feature`/`resolution-preservation` before any destination exists, and
+is always `"safe-to-fallback"`.
 
 The transaction completes admission before creating a randomly named,
 owner-private same-parent stage. It writes, syncs, reopens, verifies, rechecks the
@@ -194,9 +196,18 @@ The meaning of `preserves.resolution` is fixed and does not vary by format:
 
 There is no third state.
 
-WebP reports `resolution: false`. WebP has no dedicated resolution-bearing
-chunk in its supported surface, and native WebP resolution preservation is
-future work (FUT-01), not a capability of the current handler. PNG reports
+WebP reports `resolution: true`. WebP has no dedicated resolution chunk, so its
+resolution lives in the EXIF IFD0 triple `XResolution`, `YResolution` and
+`ResolutionUnit`. A `preserveResolution: true` request copies those three values raw
+from the source's own IFD0, never converting units or reducing rationals, into one
+minimal EXIF chunk that carries only the requested tags (the `VP8X` EXIF flag is set).
+`ResolutionUnit` is written only when the source had one. Resolution counts as present
+only when the source carries both an X and a Y value: a source with a one-sided pair or
+none at all succeeds with `preserved.resolution: false`, exactly like JPEG. The
+destination is reopened and the EXIF is parsed back against the raw source values
+before success is returned. Read `SanitizeResult.preserved.resolution` on every call
+instead of assuming it; the library only ever writes a new destination, so overwrite
+semantics stay an application concern. PNG reports
 `resolution: true`: its `pHYs` chunk is always kept byte-identical when
 `preserveResolution: true` (see "## PNG" below). JPEG also reports
 `resolution: true`: its JFIF density fields are kept byte-identical, and, when

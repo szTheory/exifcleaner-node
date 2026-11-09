@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+### Added
+
+WebP now honors `preserveResolution: true` natively instead of declining it. The handler copies
+the source's EXIF IFD0 `XResolution`, `YResolution` and `ResolutionUnit` raw into one minimal EXIF
+chunk that carries only the requested tags, and sets the `VP8X` EXIF flag. `ResolutionUnit` is
+written only when the source had one, and no unit conversion or rational reduction happens. A
+source without a complete X and Y pair succeeds with `preserved.resolution: false`, as JPEG does.
+The destination is reopened and its EXIF is parsed back against the raw source values before
+success is returned. Read `SanitizeResult.preserved.resolution` on every call: the library only
+writes a new destination, so overwrite semantics remain the application's concern.
+
+### Security
+
+The declared size of the leading `ftyp` box in HEIC and AVIF is now capped at 256 bytes, the same
+window the brand classifier reads at selection, and the check runs before the `ftyp` payload is
+read. This closes the selection-to-admission growth race recorded as AR-62-01: a source that grows
+a larger `ftyp` between the two steps can no longer make the parser allocate an attacker-chosen
+buffer. The new `cap-ftyp-bytes` class surfaces as `unsafe-structure` and the public
+`resource-limits` refusal, always `"safe-to-fallback"`. It is not an advertised limit, and no file
+the classifier admits is affected.
+
+### Changed
+
+`WebpCapabilities.preserves.resolution` changes from the literal `false` to the literal `true`.
+TypeScript consumers that narrowed on `false` for WebP need to follow it, and an application that
+routed WebP files with `preserveResolution: true` to ExifTool can now keep them native.
+
+The HEIC and AVIF output verifier no longer reuses the writer's own expected-tag computation: it
+recomputes the minimal Exif tag set independently and parses the written Exif back, so a defect
+shared by writer and verifier is refused rather than published. Output for valid files is
+unchanged.
+
+### Fixed
+
+An XMP packet whose CDATA section holds an invalid numeric character reference (for example
+`&#xD800;`) is now refused with the typed `metadata-invalid` warning, like the same reference in
+plain text. It previously escaped the parser as an untyped error, so `inspectFile` and
+`sanitizeFile` returned `read-failed` for the file in every format.
+
 ### Removed
 
 The `MetadataError` codes `destination-changed` and `cleanup-failed` were removed from the public

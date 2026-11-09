@@ -22,6 +22,11 @@ place with the same two obligations spelled out.
 Format supplies: the grammar, the identifying parts, and the preserved parts, written in its own
 words in this section when the format is admitted.
 
+**WebP:** a `RIFF` container with a `WEBP` form type. Identifying metadata lives in the `EXIF` and
+`XMP ` chunks; a sanitize removes both and, on request, keeps `ICCP` (`preserveColorProfile`) and a
+minimal synthesized `EXIF` chunk holding only the requested orientation and EXIF IFD0 resolution
+(`preserveOrientation`, `preserveResolution`).
+
 **PNG:** an 8-byte signature, then a sequence of length/type/data/CRC chunks: `IHDR` first, `IEND`
 last, `IDAT` contiguous. Identifying metadata lives in tEXt, zTXt, iTXt, eXIf, tIME, and
 caBX (C2PA), plus any unregistered private ancillary chunk. A sanitize must preserve the critical
@@ -206,10 +211,15 @@ Format supplies: an honest `capabilities.preserves` block, including `resolution
 format cannot honor a preserve-resolution request (the app must then route that request to
 ExifTool).
 
+**WebP:** `WebpCapabilities` in `src/types.ts` reports `preserves.orientation`, `.colorProfile`,
+`.timestamps` and `.resolution` all `true`, as does every other shipped format. Resolution is the
+EXIF IFD0 X resolution, Y resolution and resolution unit, copied raw into a minimal synthesized
+EXIF chunk; the unit is written only if the source had one, and a source without a complete X/Y
+pair reports `preserved.resolution: false` instead of declining.
+
 **PNG:** `PngCapabilities` in `src/types.ts` reports `preserves.orientation`, `.colorProfile`,
 `.timestamps` and `.resolution` all `true` — PNG can honor every preservation flag, including
-`preserveResolution` (unlike WebP, which reports `resolution: false` and declines the request
-pre-write). Orientation is written only from eXIf; a non-eXIf source that disagrees with (or is
+`preserveResolution`. Orientation is written only from eXIf; a non-eXIf source that disagrees with (or is
 missing from) eXIf declines rather than guessing.
 
 **JPEG:** `JpegCapabilities` in `src/types.ts` reports `preserves.orientation`, `.colorProfile`,

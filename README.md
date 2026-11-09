@@ -10,13 +10,13 @@ Every format is recognized from the file's leading bytes, never from its extensi
 namespaces are `getCapabilities()`'s `removes` list for the format. ICC is removed unless
 `preserveColorProfile` asks to keep it.
 
-| `format` | Detected by                                                                             | Media types                | Extensions       | Removes                              | Preserves on request                                                             |
-| -------- | --------------------------------------------------------------------------------------- | -------------------------- | ---------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
-| `webp`   | `RIFF` + `WEBP`                                                                         | `image/webp`               | `.webp`          | `EXIF`, `XMP`, `ICC`                 | orientation, ICC profile, timestamps; animation payload copied                   |
-| `png`    | the 8-byte PNG signature                                                                | `image/png`                | `.png`           | `EXIF`, `XMP`, `ICC`, `PNG`, `C2PA`  | orientation, ICC profile, timestamps, resolution (`pHYs`)                        |
-| `jpeg`   | `FF D8 FF`                                                                              | `image/jpeg`               | `.jpg`, `.jpeg`  | `EXIF`, `XMP`, `ICC`, `C2PA`, `JPEG` | orientation, ICC profile, timestamps, resolution                                 |
-| `heic`   | an `ftyp` brand set with `heic`, `heix`, `heim` or `heis`, no `avif`, no sequence brand | `image/heic`, `image/heif` | `.heic`, `.heif` | `EXIF`, `XMP`, `ICC`, `C2PA`         | orientation and resolution (minimal Exif item), ICC profile (`colr`), timestamps |
-| `avif`   | an `ftyp` brand set with `avif`, no HEIC brand, no sequence brand                       | `image/avif`               | `.avif`          | `EXIF`, `XMP`, `ICC`, `C2PA`         | orientation and resolution (minimal Exif item), ICC profile (`colr`), timestamps |
+| `format` | Detected by                                                                             | Media types                | Extensions       | Removes                              | Preserves on request                                                                                             |
+| -------- | --------------------------------------------------------------------------------------- | -------------------------- | ---------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `webp`   | `RIFF` + `WEBP`                                                                         | `image/webp`               | `.webp`          | `EXIF`, `XMP`, `ICC`                 | orientation, ICC profile, timestamps, resolution (`EXIF` IFD0 X/Y resolution and unit); animation payload copied |
+| `png`    | the 8-byte PNG signature                                                                | `image/png`                | `.png`           | `EXIF`, `XMP`, `ICC`, `PNG`, `C2PA`  | orientation, ICC profile, timestamps, resolution (`pHYs`)                                                        |
+| `jpeg`   | `FF D8 FF`                                                                              | `image/jpeg`               | `.jpg`, `.jpeg`  | `EXIF`, `XMP`, `ICC`, `C2PA`, `JPEG` | orientation, ICC profile, timestamps, resolution                                                                 |
+| `heic`   | an `ftyp` brand set with `heic`, `heix`, `heim` or `heis`, no `avif`, no sequence brand | `image/heic`, `image/heif` | `.heic`, `.heif` | `EXIF`, `XMP`, `ICC`, `C2PA`         | orientation and resolution (minimal Exif item), ICC profile (`colr`), timestamps                                 |
+| `avif`   | an `ftyp` brand set with `avif`, no HEIC brand, no sequence brand                       | `image/avif`               | `.avif`          | `EXIF`, `XMP`, `ICC`, `C2PA`         | orientation and resolution (minimal Exif item), ICC profile (`colr`), timestamps                                 |
 
 For HEIC and AVIF, sanitizing rebuilds the `meta` box. It removes the Exif and XMP items, the
 top-level C2PA `uuid` box and top-level `free`/`skip` boxes, and copies every image item's payload
@@ -60,6 +60,7 @@ const sanitized = await sanitizeFile({
   preserveOrientation: true,
   preserveColorProfile: true,
   preserveTimestamps: true,
+  preserveResolution: true,
 });
 
 if (sanitized.ok) {
@@ -76,7 +77,7 @@ The public contracts are:
 
 - `Inspection`: `{ format: NativeFormat, entries, warnings }`
 - `InspectOptions`: `{ signal? }`
-- `SanitizeOptions`: `{ sourcePath, destinationPath, preserveOrientation, preserveColorProfile, preserveTimestamps, signal? }`
+- `SanitizeOptions`: `{ sourcePath, destinationPath, preserveOrientation, preserveColorProfile, preserveTimestamps, preserveResolution, signal? }`
 - `SanitizeResult`: `{ format, destinationPath, removedNamespaces, preserved, warnings, postCommitResidue }`
 - `Result<T, MetadataError>`: a discriminated success/failure union
 - `MetadataError`: a discriminated expected-failure union
@@ -166,9 +167,9 @@ The engine fails closed on malformed or truncated containers, unknown chunks, tr
 Pre-publication cleanup never relies on pathname identity comparison: an observed
 stage replacement is retained untouched rather than removed.
 
-`getCapabilities()` reports the enforced limits: 16 MiB per metadata chunk, 10,000 aggregate RIFF chunks including nested animation chunks, and WebP's 4 GiB-minus-2-byte size ceiling. It also states that compressed codec validation is header-only: the engine preserves VP8/VP8L bytes but is not an image decoder. Animation support means structurally validated `ANIM`/`ANMF` containers whose nested image payloads can be preserved byte-for-byte; it is not an unlimited frame-count claim. PNG buffers at most 48 MiB of raw non-IDAT metadata plus at most 48 MiB inflated per parse, and `getCapabilities()` reports both limits. HEIC and AVIF read at most 16 MiB of `meta`, 65,536 boxes, a nesting depth of 8 and 32 MiB of buffered item payload per parse, and never buffer `mdat` in full; `getCapabilities()` reports all four limits.
+`getCapabilities()` reports the enforced limits: 16 MiB per metadata chunk, 10,000 aggregate RIFF chunks including nested animation chunks, and WebP's 4 GiB-minus-2-byte size ceiling. It also states that compressed codec validation is header-only: the engine preserves VP8/VP8L bytes but is not an image decoder. Animation support means structurally validated `ANIM`/`ANMF` containers whose nested image payloads can be preserved byte-for-byte; it is not an unlimited frame-count claim. PNG buffers at most 48 MiB of raw non-IDAT metadata plus at most 48 MiB inflated per parse, and `getCapabilities()` reports both limits. HEIC and AVIF read at most 16 MiB of `meta`, 65,536 boxes, a nesting depth of 8 and 32 MiB of buffered item payload per parse, and never buffer `mdat` in full; `getCapabilities()` reports all four limits. The leading `ftyp` box is capped at 256 bytes (the bound the brand classifier reads at selection) and is refused as `resource-limits` beyond it; that cap is not an advertised limit.
 
-HEIC and AVIF report these `refuses` classes, each returned before any destination is created:
+`refuses` in `getCapabilities()` advertises the coarse classes a format can decline with, shown here for HEIC and AVIF. An actual refusal is a typed `MetadataError` whose `code` is the consumer signal (`unsupported-format`, `unsafe-structure`, `malformed-file`, or a member of the `unsupported-feature` family); the class names are not carried per decline. Every ISOBMFF refusal happens before any destination is created and is `safe-to-fallback`.
 
 | Refusal                | Meaning                                                                                                                                                                                                         |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

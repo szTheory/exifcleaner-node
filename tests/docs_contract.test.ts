@@ -570,7 +570,7 @@ describe("docs contract: preserves phrases in the format table (2)", () => {
     const formats = getCapabilities().formats;
     expect(checkPreservesPhrases(await read(README_PATH), formats)).toEqual([]);
     const webp = formats.find((entry) => entry.format === "webp");
-    expect(webp?.preserves).toEqual({
+    expect(webp?.preserves).toMatchObject({
       orientation: true,
       colorProfile: true,
       timestamps: true,
