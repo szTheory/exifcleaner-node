@@ -73,6 +73,14 @@ const INTENDED_OUTPUT_CHANGES = Object.freeze({
   "metadata-still-16m": KIT_08_METADATA_STILL,
 });
 const CORRECTNESS_MISMATCH = "correctness mismatch";
+const PEAK_RSS_FAILURE = "peak RSS threshold exceeded";
+const RSS_SLOPE_FAILURE = "RSS slope threshold exceeded";
+// Memory failure classes (peak RSS and RSS slope) that report mode enforces. `evaluatePair`
+// pushes exactly these strings, so the two cannot drift.
+const MEMORY_FAILURE_SUFFIXES = Object.freeze([
+  `: ${PEAK_RSS_FAILURE}`,
+  `: ${RSS_SLOPE_FAILURE}`,
+]);
 
 const BENCHMARK_THRESHOLDS = Object.freeze({
   medianRatio: 1.2,
@@ -467,9 +475,9 @@ function evaluatePair({ fixtureId, baseline, candidate }) {
     candidate.medianMaxRSSKiB >
     baseline.medianMaxRSSKiB + BENCHMARK_THRESHOLDS.peakRssSlackKiB
   )
-    failures.push("peak RSS threshold exceeded");
+    failures.push(PEAK_RSS_FAILURE);
   if (candidate.rssSlope > baseline.rssSlope + BENCHMARK_THRESHOLDS.slopeSlack)
-    failures.push("RSS slope threshold exceeded");
+    failures.push(RSS_SLOPE_FAILURE);
   return { pass: failures.length === 0, failures };
 }
 
@@ -491,11 +499,19 @@ function evaluateCancellation(input) {
 }
 
 // Report mode tolerates timing noise from shared runners, but output bytes are deterministic, so a
-// correctness mismatch fails either mode instead of hiding behind a green report-mode job.
+// correctness mismatch fails either mode instead of hiding behind a green report-mode job. Memory
+// failure classes (peak RSS, RSS slope) also fail report mode so a memory regression is red on the
+// PR rather than only on main (D-28); timing failures stay informational in report mode.
 function exitCodeForMode(mode, pass, failures = []) {
   if (mode !== "report" && mode !== "admit")
     throw new Error("Benchmark mode must be report or admit");
   if (failures.some((failure) => failure.endsWith(`: ${CORRECTNESS_MISMATCH}`)))
+    return 1;
+  if (
+    failures.some((failure) =>
+      MEMORY_FAILURE_SUFFIXES.some((suffix) => failure.endsWith(suffix)),
+    )
+  )
     return 1;
   return mode === "admit" && !pass ? 1 : 0;
 }

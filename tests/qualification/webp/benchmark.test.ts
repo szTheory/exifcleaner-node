@@ -5348,7 +5348,7 @@ describe("paired benchmark admission", () => {
       ]),
     ).toBe(1);
     expect(benchmark.exitCodeForMode("report", true, [])).toBe(0);
-    expect(() => benchmark.exitCodeForMode("other", true)).toThrow(
+    expect(() => benchmark.exitCodeForMode("other" as "report", true)).toThrow(
       "Benchmark mode must be report or admit",
     );
     // The same failure list shape executeBenchmark assembles: each evaluatePair failure is
