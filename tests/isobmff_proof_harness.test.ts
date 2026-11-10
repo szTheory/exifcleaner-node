@@ -260,13 +260,21 @@ describe("Task 2: every ISOBMFF decline class declines once before any write (BM
         expect(sanitized.ok).toBe(false);
         if (sanitized.ok) throw new Error("unreachable");
         expect(sanitized.error).toMatchObject({
-          code: fixture.expectedCode,
+          // 68-01: a "post-selection" fixture is declined by the classifier at selection, so the
+          // engine reports the no-handler decline; its `expectedCode` is the direct-admit code.
+          code:
+            fixture.stage === "post-selection"
+              ? "unsupported-format"
+              : fixture.expectedCode,
           phase: "admission",
           nativeWrite: "not-started",
         });
         expect(classifyFallback(sanitized.error)).toBe("safe-to-fallback");
 
-        if (fixture.stage === "selection") {
+        if (
+          fixture.stage === "selection" ||
+          fixture.stage === "post-selection"
+        ) {
           // D-12: a non-matching brand never reaches our handler's `admit` at all -- it is the
           // existing no-handler decline (`src/engine.ts`), already safe to fall back.
           expect(counters.admit).toBe(0);

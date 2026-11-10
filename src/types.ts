@@ -101,7 +101,7 @@ export interface WebpCapabilities extends CommonFormatCapabilities {
     readonly orientation: true;
     readonly colorProfile: true;
     readonly timestamps: true;
-    readonly resolution: false;
+    readonly resolution: true;
     readonly imagePayload: true;
     readonly animationPayload: true;
   };

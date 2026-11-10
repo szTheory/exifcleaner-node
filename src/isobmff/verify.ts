@@ -1,13 +1,18 @@
 import type { FileHandle } from "node:fs/promises";
 import { COPY_BLOCK_BYTES } from "../io/copy-range.js";
 import { executionError } from "../errors.js";
-import { createMinimalExif } from "../metadata/exif.js";
+import {
+  createMinimalExif,
+  parseExif,
+  readIfd0Resolution,
+  type MinimalExifResolution,
+  type MinimalExifTags,
+} from "../metadata/exif.js";
 import { err, ok } from "../result.js";
 import type { MetadataError, Result } from "../types.js";
 import { classifyIsobmffModel, type IsobmffAdmission } from "./admission.js";
 import { IsobmffStructureError } from "./errors.js";
 import type { IsobmffItem, IsobmffProperty } from "./items.js";
-import { computeIsobmffMinimalExifTags } from "./plan.js";
 import { parseIsobmff, type IsobmffModel } from "./parse.js";
 
 // ISOBMFF output verifier (Phase 62, D-18 complete, 62-09): re-parses the destination through the
@@ -20,6 +25,45 @@ import { parseIsobmff, type IsobmffModel } from "./parse.js";
 // streamed in COPY_BLOCK_BYTES windows; 0 or 1 Exif items (D-13's minimal Exif content); 0 mime
 // items; the D-16 ICC colr rule both ways; D-11's iloc version/widths; mdat payload-length
 // coverage (the union of surviving cm=0 extents); and idat byte-identity.
+
+/** SEC-06 (D-06/D-07): the minimal Exif tag set this request must leave in the output, written
+ * here from the D-13 rule and deliberately NOT shared with `plan.ts` or `writer.ts`, so one
+ * planner mistake cannot also fool the verifier. Orientation is expected when it was requested and
+ * a valid value exists; resolution when it was requested and the source admission carries one;
+ * `undefined` when neither applies (no Exif item survives). */
+function expectedMinimalExifTags(
+  admission: IsobmffAdmission,
+  preserveOrientation: boolean,
+  preserveResolution: boolean,
+  orientation: number | undefined,
+): MinimalExifTags | undefined {
+  const keptOrientation = preserveOrientation ? orientation : undefined;
+  const keptResolution = preserveResolution
+    ? admission.sourceResolution
+    : undefined;
+  if (keptOrientation !== undefined && keptResolution !== undefined) {
+    return { orientation: keptOrientation, resolution: keptResolution };
+  }
+  if (keptOrientation !== undefined) return { orientation: keptOrientation };
+  if (keptResolution !== undefined) return { resolution: keptResolution };
+  return undefined;
+}
+
+/** SEC-06 (D-09): true when the resolution parsed back from the destination Exif differs from the
+ * source-admission resolution in presence, in any raw numerator or denominator, or in the unit. */
+function resolutionsDiffer(
+  parsed: MinimalExifResolution | undefined,
+  source: MinimalExifResolution | undefined,
+): boolean {
+  if (parsed === undefined || source === undefined) return parsed !== source;
+  return (
+    parsed.x.numerator !== source.x.numerator ||
+    parsed.x.denominator !== source.x.denominator ||
+    parsed.y.numerator !== source.y.numerator ||
+    parsed.y.denominator !== source.y.denominator ||
+    parsed.unit !== source.unit
+  );
+}
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
@@ -200,7 +244,7 @@ export async function verifyIsobmffOutput(
 ): Promise<Result<void>> {
   // D-13/D-18: recompute the minimal Exif item's expected shape from the source admission and
   // the request flags -- never from the plan -- so a planner bug cannot also fool the verifier.
-  const tags = computeIsobmffMinimalExifTags(
+  const tags = expectedMinimalExifTags(
     admission,
     preserveOrientation,
     preserveResolution,
@@ -438,6 +482,36 @@ export async function verifyIsobmffOutput(
               `Minimal Exif item ${destinationItem.id} payload bytes did not match the ` +
                 // Stryker disable next-line StringLiteral: unobservable-message — the expected minimal Exif payload. wording only reaches the verification-failed detail text; the typed verification-failed code, the path and the started phase are unchanged.
                 "expected minimal Exif payload.",
+              destinationPath,
+            ),
+          );
+        }
+        // SEC-06 (D-09): the byte comparison above shares createMinimalExif with the writer, so an
+        // encoder defect would agree with itself. Read the destination Exif back with the metadata
+        // readers and compare with the raw source-admission values and the expected orientation.
+        const destinationExif = actualPayload.subarray(4);
+        const parsedOrientation = parseExif(destinationExif).orientation;
+        if (
+          (parsedOrientation.status === "valid"
+            ? parsedOrientation.value
+            : undefined) !== tags!.orientation
+        ) {
+          return err(
+            verificationError(
+              "Minimal Exif orientation did not parse back to the expected orientation.",
+              destinationPath,
+            ),
+          );
+        }
+        if (
+          resolutionsDiffer(
+            readIfd0Resolution(destinationExif),
+            tags!.resolution,
+          )
+        ) {
+          return err(
+            verificationError(
+              "Minimal Exif resolution did not parse back to the source resolution.",
               destinationPath,
             ),
           );

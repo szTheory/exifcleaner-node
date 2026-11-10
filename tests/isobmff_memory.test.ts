@@ -87,6 +87,29 @@ async function writeOversizedMetaFixture(path: string): Promise<number> {
   return totalSize;
 }
 
+/** `cap-ftyp-bytes` (SEC-05, D-04d): the first box is an `ftyp` whose declared size is `declared`
+ * bytes -- far over the 256-byte `ftyp` cap. Sparse: `IsobmffBudget.checkFtypSize` throws from the
+ * declared size alone, before the payload is read, so only the 16-byte `ftyp` head is written for
+ * real; the rest is a `truncate`d hole. The file size equals the declared size so the top-level
+ * framing walk accepts the box and the decline can only come from the cap. */
+async function writeOversizedFtypFixture(
+  path: string,
+  declared: number,
+): Promise<number> {
+  const head = Buffer.alloc(16);
+  head.writeUInt32BE(declared, 0);
+  head.write("ftyp", 4, 4, "ascii");
+  head.write("heic", 8, 4, "ascii");
+  const handle = await open(path, "w");
+  try {
+    await handle.write(head, 0, head.length, 0);
+    await handle.truncate(declared);
+  } finally {
+    await handle.close();
+  }
+  return declared;
+}
+
 /** `cap-box-count`: `meta`'s only children are `count` empty `free` boxes (8 bytes each, real --
  * `checkMetaSize` passes comfortably under `CAP_META_BYTES`, so these bytes are actually read and
  * walked). `count` is chosen so the default-cap decline fires promptly (just over
@@ -228,7 +251,8 @@ const CHILD_PATH = fileURLToPath(
   new URL("./isobmff_memory_child.mjs", import.meta.url),
 );
 
-type CapMode = "default" | "no-meta" | "no-count" | "no-depth" | "no-buffered";
+type CapMode =
+  "default" | "no-ftyp" | "no-meta" | "no-count" | "no-depth" | "no-buffered";
 
 interface ChildResult {
   outcome: "admitted" | "error" | "crash";
@@ -332,6 +356,57 @@ describe("ISOBMFF memory caps (BMF-05, D-23): oversized meta end to end under de
     expect(result.kind).toBe("unsafe-structure");
   }, 60_000);
 });
+
+const MIB = 1024 * 1024;
+
+describe.skipIf(process.platform === "win32")(
+  "ISOBMFF memory caps (SEC-05, D-04d): sparse oversized ftyp under default caps",
+  () => {
+    it.each([512 * MIB, 1024 * MIB, 2048 * MIB])(
+      "declines a sparse %i-byte declared ftyp as unsafe-structure/cap-ftyp-bytes without RSS growth",
+      async (declared) => {
+        const directory = await freshDirectory();
+        const path = join(directory, "oversized-ftyp.heic");
+        await writeOversizedFtypFixture(path, declared);
+
+        await expect(admitFixturePath(path)).rejects.toMatchObject({
+          kind: "unsafe-structure",
+          declineClass: "cap-ftyp-bytes",
+          limit: { cap: "maxFtypBoxBytes", size: declared, limit: 256 },
+        });
+
+        const capped = runChild(path, "default");
+        expect(capped.outcome).toBe("error");
+        expect(capped.declineClass).toBe("cap-ftyp-bytes");
+        expect(capped.kind).toBe("unsafe-structure");
+        expect(
+          capped.maxRssBytes,
+          `measured ${(capped.maxRssBytes / MIB).toFixed(2)} MiB, ceiling ${(ISOBMFF_MEMORY_RSS_CEILING_BYTES / MIB).toFixed(2)} MiB`,
+        ).toBeLessThanOrEqual(ISOBMFF_MEMORY_RSS_CEILING_BYTES);
+      },
+      60_000,
+    );
+
+    it("negative control: with the ftyp cap alone removed a 64 MiB declared ftyp is read into memory and exceeds the ceiling", async () => {
+      const directory = await freshDirectory();
+      const path = join(directory, "oversized-ftyp-control.heic");
+      await writeOversizedFtypFixture(path, 64 * MIB);
+
+      const capped = runChild(path, "default");
+      expect(capped.declineClass).toBe("cap-ftyp-bytes");
+      expect(capped.maxRssBytes).toBeLessThanOrEqual(
+        ISOBMFF_MEMORY_RSS_CEILING_BYTES,
+      );
+
+      const uncapped = runChild(path, "no-ftyp");
+      expect(uncapped.declineClass).not.toBe("cap-ftyp-bytes");
+      expect(
+        uncapped.maxRssBytes,
+        `measured ${(uncapped.maxRssBytes / MIB).toFixed(2)} MiB, ceiling ${(ISOBMFF_MEMORY_RSS_CEILING_BYTES / MIB).toFixed(2)} MiB`,
+      ).toBeGreaterThan(ISOBMFF_MEMORY_RSS_CEILING_BYTES);
+    }, 120_000);
+  },
+);
 
 describe("ISOBMFF memory caps (BMF-05, D-23): every cap's own fixture and negative control", () => {
   let directory: string;

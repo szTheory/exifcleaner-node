@@ -67,13 +67,17 @@ export function readBaseFloors(baseRev, cwd = ROOT) {
     return { status: "error", error: `base ${baseRev} cannot be resolved` };
   }
   try {
-    execFileSync(
+    const listed = execFileSync(
       "git",
-      ["cat-file", "-e", `${baseRev}:mutation-floors.json`],
+      ["ls-tree", "--name-only", baseRev, "--", "mutation-floors.json"],
       opts,
     );
-  } catch {
-    return { status: "absent" };
+    if (listed.trim() === "") return { status: "absent" };
+  } catch (error) {
+    return {
+      status: "error",
+      error: `cannot read mutation-floors.json tree at ${baseRev}: ${error.message}`,
+    };
   }
   try {
     const text = execFileSync(

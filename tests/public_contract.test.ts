@@ -405,7 +405,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
           readonly orientation: true;
           readonly colorProfile: true;
           readonly timestamps: true;
-          readonly resolution: false;
+          readonly resolution: true;
           readonly imagePayload: true;
           readonly animationPayload: true;
         }
@@ -547,7 +547,7 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
     expect(omittedRealCaseDiagnostics).not.toEqual([]);
   });
 
-  it("rejects a preserves object missing resolution and a WebP resolution literal asserted true", async () => {
+  it("rejects a preserves object missing resolution and a WebP resolution literal asserted false; asserting it true compiles (WEBP-07)", async () => {
     const missingResolutionDiagnostics = await compileConsumer(`
       import type { CommonFormatCapabilities } ${rootImport};
       const preserves: CommonFormatCapabilities["preserves"] = {
@@ -565,8 +565,16 @@ describe("0.3.0 capability contract pins (KIT-03)", () => {
       void r;
     `);
 
+    const resolutionFalseDiagnostics = await compileConsumer(`
+      import type { WebpCapabilities } ${rootImport};
+      declare const webpCapability: WebpCapabilities;
+      const r: false = webpCapability.preserves.resolution;
+      void r;
+    `);
+
     expect(missingResolutionDiagnostics).not.toEqual([]);
-    expect(resolutionTrueDiagnostics).not.toEqual([]);
+    expect(resolutionTrueDiagnostics).toEqual([]);
+    expect(resolutionFalseDiagnostics).not.toEqual([]);
   });
 });
 

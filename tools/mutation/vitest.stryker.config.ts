@@ -14,6 +14,7 @@ export const STRYKER_TEST_ALLOWLIST: readonly string[] = Object.freeze([
   "tests/isobmff_admission.test.ts",
   "tests/isobmff_boxes.test.ts",
   "tests/isobmff_brand.test.ts",
+  "tests/isobmff_ftyp_cap.test.ts",
   "tests/isobmff_generator.test.ts",
   "tests/isobmff_handlers.test.ts",
   "tests/isobmff_hostile.test.ts",
@@ -25,6 +26,7 @@ export const STRYKER_TEST_ALLOWLIST: readonly string[] = Object.freeze([
   "tests/isobmff_negative_controls.test.ts",
   "tests/isobmff_proof_harness.test.ts",
   "tests/isobmff_spec_lists.test.ts",
+  "tests/isobmff_verifier_independence.test.ts",
   "tests/isobmff_verify.test.ts",
   "tests/isobmff_writer.test.ts",
   "tests/isobmff_writer_doc.test.ts",
@@ -52,6 +54,8 @@ export const STRYKER_TEST_ALLOWLIST: readonly string[] = Object.freeze([
   "tests/riff.test.ts",
   "tests/safe_transaction.test.ts",
   "tests/stage_cleanup.test.ts",
+  "tests/webp_resolution.test.ts",
+  "tests/xmp_cdata_entity.test.ts",
   "tests/xmp_orientation.test.ts",
 ] as const);
 

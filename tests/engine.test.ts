@@ -23,6 +23,12 @@ import {
   sanitizeFile,
 } from "../src/index.js";
 import {
+  registeredHandlersForTests,
+  setRegisteredHandlersForTests,
+} from "../src/admission/registry.js";
+import type { RegisteredHandler } from "../src/admission/registry.js";
+import { webpHandler } from "../src/admission/webp-handler.js";
+import {
   loadNativePublicationBindingForTests,
   setNativePublicationBindingForTests,
 } from "../src/transaction/native-publication.js";
@@ -144,7 +150,7 @@ describe("getCapabilities", () => {
         orientation: true,
         colorProfile: true,
         timestamps: true,
-        resolution: false,
+        resolution: true,
         imagePayload: true,
         animationPayload: true,
       },
@@ -1048,34 +1054,56 @@ describe("sanitizeFile", () => {
   );
 
   it("declines WebP resolution preservation before any write (D-03)", async () => {
-    const directory = await workspace();
-    const sourcePath = join(directory, "source.webp");
-    const destinationPath = join(directory, "clean.webp");
-    const sourceBytes = metadataWebp();
-    await writeFile(sourcePath, sourceBytes);
-
-    const result = await sanitizeFile({
-      sourcePath,
-      destinationPath,
-      preserveOrientation: false,
-      preserveColorProfile: false,
-      preserveTimestamps: false,
-      preserveResolution: true,
-    });
-
-    expect(result).toMatchObject({
-      ok: false,
-      error: {
-        code: "unsupported-feature",
-        feature: "resolution-preservation",
-        phase: "admission",
-        nativeWrite: "not-started",
+    // WebP preserves resolution natively since 0.5.0 (WEBP-07), so no shipped format reaches the
+    // engine's capability gate any more. The gate stays the floor for every future handler: a
+    // WebP handler whose capability declares preserves.resolution false is installed through the
+    // private registry seam and must be declined before any write, safe to fall back.
+    const unableHandler = {
+      ...webpHandler,
+      capability: {
+        ...webpHandler.capability,
+        preserves: {
+          ...webpHandler.capability.preserves,
+          resolution: false,
+        },
       },
-    });
-    if (!result.ok)
-      expect(classifyFallback(result.error)).toBe("safe-to-fallback");
-    await expect(readdir(directory)).resolves.toEqual(["source.webp"]);
-    await expect(readFile(sourcePath)).resolves.toEqual(sourceBytes);
+    } as unknown as RegisteredHandler;
+    const restore = setRegisteredHandlersForTests([
+      unableHandler,
+      ...registeredHandlersForTests(),
+    ]);
+    try {
+      const directory = await workspace();
+      const sourcePath = join(directory, "source.webp");
+      const destinationPath = join(directory, "clean.webp");
+      const sourceBytes = metadataWebp();
+      await writeFile(sourcePath, sourceBytes);
+
+      const result = await sanitizeFile({
+        sourcePath,
+        destinationPath,
+        preserveOrientation: false,
+        preserveColorProfile: false,
+        preserveTimestamps: false,
+        preserveResolution: true,
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: {
+          code: "unsupported-feature",
+          feature: "resolution-preservation",
+          phase: "admission",
+          nativeWrite: "not-started",
+        },
+      });
+      if (!result.ok)
+        expect(classifyFallback(result.error)).toBe("safe-to-fallback");
+      await expect(readdir(directory)).resolves.toEqual(["source.webp"]);
+      await expect(readFile(sourcePath)).resolves.toEqual(sourceBytes);
+    } finally {
+      restore();
+    }
   });
 
   it("rejects a non-boolean preserveResolution as invalid options", async () => {

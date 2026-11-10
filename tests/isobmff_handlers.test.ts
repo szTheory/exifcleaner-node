@@ -299,6 +299,7 @@ const EXPECTED_HEIF_REFUSAL_TABLE: Record<IsobmffDeclineClass, HeifRefusal> = {
   "extent-outside-mdat": "malformed-container",
   "item-graph-invalid": "malformed-container",
 
+  "cap-ftyp-bytes": "resource-limits",
   "cap-meta-bytes": "resource-limits",
   "cap-box-count": "resource-limits",
   "cap-box-depth": "resource-limits",

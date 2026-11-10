@@ -21,7 +21,8 @@ const GOLDEN_PATH = join(__dirname, "golden-sha256.json");
 const MANIFEST_PATH = join(__dirname, "../../corpus/manifest.json");
 const CAPTURE_SEED = 460_046;
 const CAPTURE_NUM_RUNS = 200;
-const CAPTURE_REASON = "pre-FormatHandler baseline (D-22)";
+const CAPTURE_REASON =
+  "pre-FormatHandler baseline (D-22), extended in Phase 68 (WEBP-07) with the preserveResolution option combinations and resolution-bearing grammar cases";
 
 interface ManifestRecordSummary {
   readonly id: string;
@@ -32,15 +33,18 @@ interface ManifestRecordSummary {
 const FLAG_COMBINATIONS: readonly PreservationOptions[] = [false, true].flatMap(
   (preserveOrientation) =>
     [false, true].flatMap((preserveColorProfile) =>
-      [false, true].map((preserveTimestamps): PreservationOptions => ({
-        preserveOrientation,
-        preserveColorProfile,
-        preserveTimestamps,
-        // Held constant (never randomized here): WebP declines
-        // preserveResolution: true before any write (D-03), so varying it
-        // would change golden keys and the byte-neutrality proof (D-03).
-        preserveResolution: false,
-      })),
+      [false, true].flatMap((preserveTimestamps) =>
+        [false, true].map((preserveResolution): PreservationOptions => ({
+          preserveOrientation,
+          preserveColorProfile,
+          preserveTimestamps,
+          // WebP preserves print resolution natively since WEBP-07 (Phase 68),
+          // so this flag is varied (16 combinations, like JPEG). The property
+          // arbitrary in generators.ts deliberately still holds it false so the
+          // fixed-seed sample stream and its 200 pinned digests do not change.
+          preserveResolution,
+        })),
+      ),
     ),
 );
 
@@ -165,6 +169,49 @@ describe("kit golden-digest harness (KIT-02)", () => {
     expect(golden.seed).toBe(CAPTURE_SEED);
     expect(golden.numRuns).toBe(CAPTURE_NUM_RUNS);
   }, 120_000);
+
+  describe("resolution preservation entries (WEBP-07)", () => {
+    // 3 corpus records + 9 grammar cases (5 original + 4 resolution-bearing) at 16
+    // option combinations, plus the 200 fixed-seed property samples (preserveResolution
+    // held false there). The 264 pre-WEBP-07 entries were merged in byte-unchanged.
+    const EXPECTED_ENTRY_COUNT = 392;
+    const RESOLUTION_CASES = [
+      "valid-resolution-300x72-inch-orientation",
+      "valid-resolution-exif-prefix",
+      "valid-resolution-no-unit",
+      "valid-resolution-only",
+    ];
+
+    it("pins exactly 16 option combinations and the merged entry count", async () => {
+      expect(FLAG_COMBINATIONS).toHaveLength(16);
+      expect(
+        new Set(FLAG_COMBINATIONS.map((options) => flagKey(options))).size,
+      ).toBe(16);
+      const golden = await readGolden(GOLDEN_PATH);
+      expect(Object.keys(golden.entries)).toHaveLength(EXPECTED_ENTRY_COUNT);
+      expect(validGrammarCases.map((grammarCase) => grammarCase.id)).toEqual(
+        expect.arrayContaining(RESOLUTION_CASES),
+      );
+    });
+
+    it("keeps r1 digests of the resolution-bearing cases different from their r0 digests", async () => {
+      const golden = await readGolden(GOLDEN_PATH);
+      for (const id of RESOLUTION_CASES)
+        for (const options of FLAG_COMBINATIONS.filter(
+          (item) => item.preserveResolution,
+        )) {
+          const withResolution =
+            golden.entries[`grammar:${id}|${flagKey(options)}`];
+          const withoutResolution =
+            golden.entries[
+              `grammar:${id}|${flagKey({ ...options, preserveResolution: false })}`
+            ];
+          expect(withResolution).toMatch(/^[a-f0-9]{64}$/);
+          expect(withoutResolution).toMatch(/^[a-f0-9]{64}$/);
+          expect(withResolution).not.toBe(withoutResolution);
+        }
+    });
+  });
 
   describe("golden negative controls (KIT-02)", () => {
     const FIRST_SUCCESS_CASE_ID = "exifcleaner-sample";

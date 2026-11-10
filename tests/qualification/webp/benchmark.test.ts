@@ -5304,7 +5304,7 @@ describe("paired benchmark admission", () => {
     });
   });
 
-  it("keeps report-mode timing informational and fails correctness in either mode", () => {
+  it("keeps report-mode timing informational and fails correctness and memory regressions in either mode", () => {
     expect(benchmark.exitCodeForMode("report", false)).toBe(0);
     expect(benchmark.exitCodeForMode("admit", false)).toBe(1);
     expect(benchmark.exitCodeForMode("admit", true)).toBe(0);
@@ -5325,6 +5325,69 @@ describe("paired benchmark admission", () => {
         "still-1m: correctness mismatch",
       ]),
     ).toBe(1);
+    // D-28: a memory regression must be red on the PR (report mode), not only on main (admit).
+    expect(
+      benchmark.exitCodeForMode("report", false, [
+        "still-64m: peak RSS threshold exceeded",
+      ]),
+    ).toBe(1);
+    expect(
+      benchmark.exitCodeForMode("report", false, [
+        "still-64m: RSS slope threshold exceeded",
+      ]),
+    ).toBe(1);
+    expect(
+      benchmark.exitCodeForMode("report", false, [
+        "still-1m: median threshold exceeded",
+        "still-64m: RSS slope threshold exceeded",
+      ]),
+    ).toBe(1);
+    expect(
+      benchmark.exitCodeForMode("admit", false, [
+        "still-64m: RSS slope threshold exceeded",
+      ]),
+    ).toBe(1);
+    expect(benchmark.exitCodeForMode("report", true, [])).toBe(0);
+    expect(() => benchmark.exitCodeForMode("other" as "report", true)).toThrow(
+      "Benchmark mode must be report or admit",
+    );
+    // The same failure list shape executeBenchmark assembles: each evaluatePair failure is
+    // prefixed with `<fixture.id>: `, so the suffix rule is proven against the real strings.
+    const baseline = {
+      correctnessKey: "same",
+      medianElapsedNs: 100_000_000,
+      p95ElapsedNs: 100_000_000,
+      medianMaxRSSKiB: 100_000,
+      rssSlope: 0.2,
+    };
+    const memoryRegression = benchmark.evaluatePair({
+      baseline,
+      candidate: {
+        ...baseline,
+        medianMaxRSSKiB: 100_000 + 16_384 + 1,
+        rssSlope: 0.2 + 0.1 + 0.001,
+      },
+    });
+    expect(memoryRegression.failures).toEqual([
+      "peak RSS threshold exceeded",
+      "RSS slope threshold exceeded",
+    ]);
+    const prefixed = memoryRegression.failures.map(
+      (failure) => `still-64m: ${failure}`,
+    );
+    expect(benchmark.exitCodeForMode("report", false, prefixed)).toBe(1);
+    const timingOnly = benchmark.evaluatePair({
+      baseline,
+      candidate: { ...baseline, medianElapsedNs: 200_000_000 },
+    });
+    expect(timingOnly.failures).toEqual(["median threshold exceeded"]);
+    expect(
+      benchmark.exitCodeForMode(
+        "report",
+        false,
+        timingOnly.failures.map((failure) => `still-64m: ${failure}`),
+      ),
+    ).toBe(0);
     const summary = benchmark.renderSummary({
       pass: false,
       baselineSha256: "a".repeat(64),

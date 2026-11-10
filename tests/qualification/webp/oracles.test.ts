@@ -19,14 +19,21 @@ import {
   comparePermittedDifferences,
   compareDifferential,
   digest,
+  projectMetadata,
+  runExiftoolReference,
   type MetadataProjection,
 } from "../kit/oracles.js";
 import { materializeCorpusRecord } from "../kit/corpus.js";
-import { materializeMutationCase } from "./generators.js";
 import {
+  materializeMutationCase,
+  webpWithExifResolution,
+} from "./generators.js";
+import {
+  compareWebpResolutionPreservation,
   normalizeWebpInfo,
   runLibwebpOracle,
   webpDifferentialProfile,
+  type WebpResolutionExpectation,
 } from "./oracles.js";
 import { runExiftoolDifferential } from "../kit/oracles.js";
 
@@ -35,6 +42,7 @@ const admittedHost = process.platform === "linux" && process.arch === "x64";
 interface SanitizeOptions {
   readonly preserveOrientation?: boolean;
   readonly preserveColorProfile?: boolean;
+  readonly preserveResolution?: boolean;
 }
 
 async function sanitize(
@@ -52,7 +60,7 @@ async function sanitize(
       preserveOrientation: options.preserveOrientation ?? false,
       preserveColorProfile: options.preserveColorProfile ?? false,
       preserveTimestamps: false,
-      preserveResolution: false,
+      preserveResolution: options.preserveResolution ?? false,
     });
     if (!result.ok) throw new Error(`sanitize failed: ${result.error.code}`);
     return await readFile(destinationPath);
@@ -596,5 +604,386 @@ No error detected.
       }
     },
     30_000,
+  );
+});
+
+/**
+ * WEBP-07 resolution differential. WebP keeps print resolution in the EXIF chunk's IFD0, so
+ * these rows use the WebP-local assertions of `compareWebpResolutionPreservation` (the JPEG
+ * D-06 precedent) instead of a kit grant, and the shared qualification kit is unchanged.
+ */
+describe("WebP resolution preservation against ExifTool (WEBP-07)", () => {
+  const RICH = {
+    make: "CameraCo",
+    artist: "Ann",
+    orientation: 6,
+    xResolution: [300, 1],
+    yResolution: [72, 1],
+    resolutionUnit: 2,
+  } as const;
+  const RIFF_BASE = [
+    { HorizontalScale: 0 },
+    { ImageHeight: 1 },
+    { ImageWidth: 1 },
+    { VP8Version: 0 },
+    { VerticalScale: 0 },
+  ];
+  const projection = (
+    exif: MetadataProjection["namespaces"][string],
+    riff: MetadataProjection["namespaces"][string] = RIFF_BASE,
+    warnings: readonly string[] = [],
+  ): MetadataProjection => ({
+    warnings,
+    namespaces: { EXIF: exif, XMP: [], ICC_Profile: [], RIFF: riff },
+  });
+  const SOURCE = projection(
+    [
+      { Artist: "Ann" },
+      { Make: "CameraCo" },
+      { Orientation: 6 },
+      { ResolutionUnit: 2 },
+      { XResolution: 300 },
+      { YResolution: 72 },
+    ],
+    [{ WebP_Flags: 8 }, ...RIFF_BASE],
+  );
+  const REFERENCE = projection([]);
+  const RESOLUTION = [
+    { ResolutionUnit: 2 },
+    { XResolution: 300 },
+    { YResolution: 72 },
+  ];
+  const WITH_FLAGS = [{ WebP_Flags: 8 }, ...RIFF_BASE];
+  const requested = (
+    orientation: boolean,
+    resolution: boolean,
+  ): WebpResolutionExpectation => ({ orientation, resolution });
+
+  describe("compareWebpResolutionPreservation (pure, every host)", () => {
+    it("accepts exactly the source resolution tags plus the EXIF flag bit", () => {
+      expect(() =>
+        compareWebpResolutionPreservation(
+          SOURCE,
+          projection(RESOLUTION, WITH_FLAGS),
+          REFERENCE,
+          requested(false, true),
+        ),
+      ).not.toThrow();
+    });
+
+    it("accepts resolution together with orientation", () => {
+      expect(() =>
+        compareWebpResolutionPreservation(
+          SOURCE,
+          projection([{ Orientation: 6 }, ...RESOLUTION], WITH_FLAGS),
+          REFERENCE,
+          requested(true, true),
+        ),
+      ).not.toThrow();
+    });
+
+    it("accepts orientation only and a missing unit that the source never had", () => {
+      expect(() =>
+        compareWebpResolutionPreservation(
+          SOURCE,
+          projection([{ Orientation: 6 }], WITH_FLAGS),
+          REFERENCE,
+          requested(true, false),
+        ),
+      ).not.toThrow();
+      const noUnit = projection(
+        [{ XResolution: 300 }, { YResolution: 300 }],
+        [{ WebP_Flags: 8 }, ...RIFF_BASE],
+      );
+      expect(() =>
+        compareWebpResolutionPreservation(
+          noUnit,
+          projection([{ XResolution: 300 }, { YResolution: 300 }], WITH_FLAGS),
+          REFERENCE,
+          requested(false, true),
+        ),
+      ).not.toThrow();
+    });
+
+    it("accepts no EXIF and no flags when nothing was requested or the source has no resolution", () => {
+      expect(() =>
+        compareWebpResolutionPreservation(
+          SOURCE,
+          projection([]),
+          REFERENCE,
+          requested(false, false),
+        ),
+      ).not.toThrow();
+      const noResolution = projection(
+        [{ Make: "CameraCo" }, { Orientation: 6 }],
+        [{ WebP_Flags: 8 }, ...RIFF_BASE],
+      );
+      expect(() =>
+        compareWebpResolutionPreservation(
+          noResolution,
+          projection([]),
+          REFERENCE,
+          requested(false, true),
+        ),
+      ).not.toThrow();
+    });
+
+    const rejected: readonly (readonly [
+      string,
+      MetadataProjection,
+      WebpResolutionExpectation,
+      string,
+    ])[] = [
+      [
+        "a missing resolution (nothing kept)",
+        projection([]),
+        requested(false, true),
+        "Missing IFD0 tag: XResolution",
+      ],
+      [
+        "a missing YResolution",
+        projection([{ ResolutionUnit: 2 }, { XResolution: 300 }], WITH_FLAGS),
+        requested(false, true),
+        "Missing IFD0 tag: YResolution",
+      ],
+      [
+        "swapped X and Y resolution",
+        projection(
+          [{ ResolutionUnit: 2 }, { XResolution: 72 }, { YResolution: 300 }],
+          WITH_FLAGS,
+        ),
+        requested(false, true),
+        "IFD0 XResolution mismatch: expected 300, got 72",
+      ],
+      [
+        "a mismatched unit",
+        projection(
+          [{ ResolutionUnit: 3 }, { XResolution: 300 }, { YResolution: 72 }],
+          WITH_FLAGS,
+        ),
+        requested(false, true),
+        "IFD0 ResolutionUnit mismatch: expected 2, got 3",
+      ],
+      [
+        "a dropped unit",
+        projection([{ XResolution: 300 }, { YResolution: 72 }], WITH_FLAGS),
+        requested(false, true),
+        "Missing IFD0 tag: ResolutionUnit",
+      ],
+      [
+        "an extra YCbCrPositioning (the -tagsfromfile reference shape)",
+        projection([...RESOLUTION, { YCbCrPositioning: 1 }], WITH_FLAGS),
+        requested(false, true),
+        "Unexpected IFD0 tag: YCbCrPositioning",
+      ],
+      [
+        "a leaked Make",
+        projection([{ Make: "CameraCo" }, ...RESOLUTION], WITH_FLAGS),
+        requested(false, true),
+        "Unexpected IFD0 tag: Make",
+      ],
+      [
+        "an orientation that was not requested",
+        projection([{ Orientation: 6 }, ...RESOLUTION], WITH_FLAGS),
+        requested(false, true),
+        "Unexpected IFD0 tag: Orientation",
+      ],
+      [
+        "a requested orientation that is missing",
+        projection(RESOLUTION, WITH_FLAGS),
+        requested(true, true),
+        "Missing IFD0 tag: Orientation",
+      ],
+      [
+        "a resolution that was not requested",
+        projection(RESOLUTION, WITH_FLAGS),
+        requested(true, false),
+        "Unexpected IFD0 tag: ResolutionUnit",
+      ],
+      [
+        "an EXIF flag bit missing from the container",
+        projection(RESOLUTION, RIFF_BASE),
+        requested(false, true),
+        "RIFF:WebP_Flags mismatch",
+      ],
+      [
+        "an extra flag bit in the container",
+        projection(RESOLUTION, [{ WebP_Flags: 0x28 }, ...RIFF_BASE]),
+        requested(false, true),
+        "RIFF:WebP_Flags mismatch",
+      ],
+      [
+        "a flags value with nothing kept",
+        projection([], WITH_FLAGS),
+        requested(false, false),
+        "RIFF:WebP_Flags mismatch",
+      ],
+      [
+        "a difference outside EXIF and the flags",
+        projection(RESOLUTION, [
+          ...WITH_FLAGS.filter((entry) => !("ImageWidth" in entry)),
+          { ImageWidth: 2 },
+        ]),
+        requested(false, true),
+        "Unpermitted metadata difference: RIFF",
+      ],
+      [
+        "an oracle warning on the output",
+        projection(RESOLUTION, WITH_FLAGS, ["Truncated EXIF"]),
+        requested(false, true),
+        "Oracle warning: output",
+      ],
+    ];
+    it.each(rejected)("rejects %s", (_name, output, expectation, message) => {
+      expect(() =>
+        compareWebpResolutionPreservation(
+          SOURCE,
+          output,
+          REFERENCE,
+          expectation,
+        ),
+      ).toThrow(message);
+    });
+
+    it("rejects a reference that kept IFD0 tags and a warning on the source", () => {
+      expect(() =>
+        compareWebpResolutionPreservation(
+          SOURCE,
+          projection(RESOLUTION, WITH_FLAGS),
+          projection([{ YCbCrPositioning: 1 }]),
+          requested(false, true),
+        ),
+      ).toThrow("Reference kept IFD0 tags: YCbCrPositioning");
+      expect(() =>
+        compareWebpResolutionPreservation(
+          { ...SOURCE, warnings: ["Prefix"] },
+          projection(RESOLUTION, WITH_FLAGS),
+          REFERENCE,
+          requested(false, true),
+        ),
+      ).toThrow("Oracle warning: source");
+    });
+  });
+
+  const sanitizeOptionsFor = (
+    expectation: WebpResolutionExpectation,
+  ): SanitizeOptions => ({
+    preserveOrientation: expectation.orientation,
+    preserveResolution: expectation.resolution,
+  });
+
+  it.runIf(admittedHost)(
+    "confirms the ExifTool reference facts the local assertions encode",
+    async () => {
+      const source = webpWithExifResolution(RICH);
+      const kitReference = projectMetadata(
+        runExiftoolReference(source, webpDifferentialProfile),
+        webpDifferentialProfile,
+      );
+      const tagsFromFile = projectMetadata(
+        runExiftoolReference(source, webpDifferentialProfile, [
+          "-TagsFromFile",
+          "@",
+          "-XResolution",
+          "-YResolution",
+          "-ResolutionUnit",
+        ]),
+        webpDifferentialProfile,
+      );
+      const native = projectMetadata(
+        await sanitize(source, {
+          preserveOrientation: false,
+          preserveResolution: true,
+        }),
+        webpDifferentialProfile,
+      );
+      // The kit reference (bare -all=) keeps no IFD0 tag and no container flags.
+      expect(kitReference.namespaces.EXIF).toEqual([]);
+      expect(JSON.stringify(kitReference.namespaces.RIFF)).not.toContain(
+        "WebP_Flags",
+      );
+      // The -tagsfromfile reference keeps the three values and adds YCbCrPositioning.
+      expect(tagsFromFile.namespaces.EXIF).toEqual([
+        { ResolutionUnit: 2 },
+        { XResolution: 300 },
+        { YCbCrPositioning: 1 },
+        { YResolution: 72 },
+      ]);
+      // Native carries the same three values and no YCbCrPositioning.
+      expect(native.namespaces.EXIF).toEqual([
+        { ResolutionUnit: 2 },
+        { XResolution: 300 },
+        { YResolution: 72 },
+      ]);
+      expect(native.namespaces.RIFF).toContainEqual({ WebP_Flags: 8 });
+    },
+    180_000,
+  );
+
+  const rows: readonly (readonly [
+    string,
+    Buffer,
+    WebpResolutionExpectation,
+  ])[] = [
+    ["resolution only", webpWithExifResolution(RICH), requested(false, true)],
+    [
+      "resolution plus orientation",
+      webpWithExifResolution(RICH),
+      requested(true, true),
+    ],
+    [
+      "resolution requested but the source has none",
+      webpWithExifResolution({ make: "CameraCo", orientation: 6 }),
+      requested(false, true),
+    ],
+    [
+      "resolution with an absent unit",
+      webpWithExifResolution({
+        make: "CameraCo",
+        xResolution: [300, 1],
+        yResolution: [300, 1],
+      }),
+      requested(false, true),
+    ],
+    ["orientation only", webpWithExifResolution(RICH), requested(true, false)],
+    [
+      "no preservation requested",
+      webpWithExifResolution(RICH),
+      requested(false, false),
+    ],
+  ];
+  it.runIf(admittedHost).each(rows)(
+    "matches ExifTool for %s",
+    async (_name, source, expectation) => {
+      const output = await sanitize(source, sanitizeOptionsFor(expectation));
+      const sourceProjection = projectMetadata(source, webpDifferentialProfile);
+      const outputProjection = projectMetadata(output, webpDifferentialProfile);
+      const reference = projectMetadata(
+        runExiftoolReference(source, webpDifferentialProfile),
+        webpDifferentialProfile,
+      );
+      compareWebpResolutionPreservation(
+        sourceProjection,
+        outputProjection,
+        reference,
+        expectation,
+      );
+      // The assertion is not vacuous: what the row asked for is really in the output.
+      const names = (outputProjection.namespaces.EXIF ?? []).flatMap((entry) =>
+        Object.keys(entry),
+      );
+      const sourceNames = new Set(
+        (sourceProjection.namespaces.EXIF ?? []).flatMap((entry) =>
+          Object.keys(entry),
+        ),
+      );
+      expect(names.includes("XResolution")).toBe(
+        expectation.resolution && sourceNames.has("XResolution"),
+      );
+      expect(names.includes("Orientation")).toBe(
+        expectation.orientation && sourceNames.has("Orientation"),
+      );
+    },
+    180_000,
   );
 });

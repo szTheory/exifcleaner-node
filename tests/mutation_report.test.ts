@@ -481,7 +481,7 @@ describe("dry-run comparator (D-11)", () => {
         "utf8",
       ),
     );
-    expect(list.length).toBe(46);
+    expect(list.length).toBe(50);
     expect(
       list.every(
         (p: string) => p.startsWith("tests/") && p.endsWith(".test.ts"),

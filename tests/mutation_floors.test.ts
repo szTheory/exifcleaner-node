@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -269,12 +270,39 @@ describe("floors main() exit codes in a temp git repo (D-16)", () => {
     expect(result.stdout).toMatch(/introduced/);
   });
 
+  it("origin commit resolves but its tree object is gone: exits 1 with an unreadable-base message, never introduced (G09-WR-04, D-27)", () => {
+    // Head floors differ from the base floors so the base root tree is a
+    // distinct object (an identical tree would be shared with HEAD).
+    const cwd = repo(floors(6), floors(5));
+    const baseTree = git(cwd, "rev-parse", "origin/main^{tree}");
+    const headTree = git(cwd, "rev-parse", "HEAD^{tree}");
+    expect(baseTree).not.toBe(headTree);
+    const objectFile = join(
+      cwd,
+      ".git",
+      "objects",
+      baseTree.slice(0, 2),
+      baseTree.slice(2),
+    );
+    expect(existsSync(objectFile)).toBe(true);
+    rmSync(objectFile, { force: true });
+    expect(existsSync(objectFile)).toBe(false);
+    // The commit object itself still resolves (the precondition of the bug).
+    expect(git(cwd, "cat-file", "-t", "origin/main")).toBe("commit");
+    const result = run(cwd, "monotonic");
+    expect(result.status).toBe(1);
+    expect(result.stdout).not.toMatch(/introduced/);
+    expect(result.stderr).toMatch(
+      /floors: cannot read mutation-floors\.json tree at origin\/main: /,
+    );
+  });
+
   it("origin with a higher floor than head: exits 1", () => {
     const cwd = repo(floors(5), floors(6));
     const result = run(cwd, "monotonic");
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/g: lowered floor 6 -> 5/);
-  });
+  }, 30_000);
 
   it("origin with an equal floor: exits 0 (positive control)", () => {
     const cwd = repo(floors(6), floors(6));

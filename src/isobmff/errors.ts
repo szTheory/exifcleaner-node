@@ -24,6 +24,7 @@ export type IsobmffDeclineClass =
   | "removable-item-referenced"
   | "surviving-zero-length-extent"
   | "surviving-offset-width-zero"
+  | "cap-ftyp-bytes"
   | "cap-meta-bytes"
   | "cap-box-count"
   | "cap-box-depth"
@@ -53,6 +54,7 @@ export const ISOBMFF_DECLINE_CLASSES: readonly IsobmffDeclineClass[] =
     "removable-item-referenced",
     "surviving-zero-length-extent",
     "surviving-offset-width-zero",
+    "cap-ftyp-bytes",
     "cap-meta-bytes",
     "cap-box-count",
     "cap-box-depth",
@@ -93,6 +95,7 @@ export const DECLINE_CLASS_TO_KIND = {
   "removable-item-referenced": "unsafe-structure",
   "surviving-zero-length-extent": "unsafe-structure",
   "surviving-offset-width-zero": "unsafe-structure",
+  "cap-ftyp-bytes": "unsafe-structure",
   "cap-meta-bytes": "unsafe-structure",
   "cap-box-count": "unsafe-structure",
   "cap-box-depth": "unsafe-structure",

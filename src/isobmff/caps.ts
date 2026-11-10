@@ -1,19 +1,22 @@
 import { IsobmffStructureError } from "./errors.js";
 
 // Injectable resource caps (BMF-05). Each cap guards a distinct resource so each one can be
-// removed alone in a negative control (61-CONTEXT.md): `maxMetaBytes` bounds the single `meta`
-// read; `maxBoxCount` and `maxBoxDepth` bound the box walk itself; `maxBufferedBytesTotal`
+// removed alone in a negative control (61-CONTEXT.md): `maxFtypBoxBytes` bounds the single `ftyp`
+// read (the same 256 bytes the brand classifier reads at selection, 68-01); `maxMetaBytes` bounds
+// the single `meta` read; `maxBoxCount` and `maxBoxDepth` bound the box walk itself; `maxBufferedBytesTotal`
 // bounds every byte buffered from outside `meta` (Exif/XMP item payload reads, wired in 61-08).
 // Mirrors `BufferedBudget`/`InflateBudget` (src/png/chunks.ts:548-571, 817-838): an injectable
 // object checked against the *declared* size before the corresponding read or descent, never
 // after.
 
+export const ISOBMFF_MAX_FTYP_BOX_BYTES = 256;
 export const ISOBMFF_MAX_META_BYTES = 16 * 1024 * 1024;
 export const ISOBMFF_MAX_BOX_COUNT = 65_536;
 export const ISOBMFF_MAX_BOX_DEPTH = 8;
 export const ISOBMFF_MAX_BUFFERED_BYTES_TOTAL = 32 * 1024 * 1024;
 
 export interface IsobmffCaps {
+  readonly maxFtypBoxBytes: number;
   readonly maxMetaBytes: number;
   readonly maxBoxCount: number;
   readonly maxBoxDepth: number;
@@ -21,6 +24,7 @@ export interface IsobmffCaps {
 }
 
 export const DEFAULT_ISOBMFF_CAPS: IsobmffCaps = Object.freeze({
+  maxFtypBoxBytes: ISOBMFF_MAX_FTYP_BOX_BYTES,
   maxMetaBytes: ISOBMFF_MAX_META_BYTES,
   maxBoxCount: ISOBMFF_MAX_BOX_COUNT,
   maxBoxDepth: ISOBMFF_MAX_BOX_DEPTH,
@@ -39,6 +43,17 @@ export class IsobmffBudget {
 
   constructor(caps: IsobmffCaps = DEFAULT_ISOBMFF_CAPS) {
     this.#caps = caps;
+  }
+
+  /** Check a declared `ftyp` box size (header included) before its payload is read into memory. */
+  checkFtypSize(size: number): void {
+    if (size > this.#caps.maxFtypBoxBytes) {
+      throw new IsobmffStructureError(
+        "cap-ftyp-bytes",
+        `ftyp box size ${size} exceeds the ${this.#caps.maxFtypBoxBytes}-byte cap.`,
+        { cap: "maxFtypBoxBytes", size, limit: this.#caps.maxFtypBoxBytes },
+      );
+    }
   }
 
   /** Check a declared `meta` payload size before that payload is read into memory. */

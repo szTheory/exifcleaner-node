@@ -40,6 +40,9 @@ import {
 // "## Memory caps" section -- if those defaults ever change, this file and that doc must be
 // updated together.
 const CAP_META_BYTES = 16 * 1024 * 1024;
+/** `cap-ftyp-bytes`: a 260-byte ftyp box (8 header + 8 brand/version + 61 four-byte compatible
+ * brands) is 4 bytes over the 256-byte cap; 59 fill brands plus `mif1`/`heic` make the 61. */
+const CAP_FTYP_BRAND_FILL = 59;
 const CAP_BOX_COUNT = 65_536;
 const CAP_BOX_DEPTH = 8;
 const CAP_BUFFERED_BYTES_TOTAL = 32 * 1024 * 1024;
@@ -68,8 +71,14 @@ export interface HostileFixture {
    * `sanitizeFile`/`selectHandler` run never even reaches this handler's `admit`). The decline is
    * observed only by calling the mismatched handler's own `admit` directly on the file, simulating
    * a file swapped between selection and admission.
+   * `"post-selection"` (`cap-ftyp-bytes` only, 68-01 SEC-05): the fixture is a valid HEIC whose
+   * 260-byte ftyp box is already declined at handler selection (the classifier reads 256 bytes), so
+   * the engine reports the no-handler `unsupported-format` decline without calling `admit`;
+   * `admitIsobmff` called directly on it (the swapped-after-selection case) rejects with this
+   * class and `expectedCode`, which therefore differ from the engine code for this stage.
    */
-  readonly stage: "selection" | "admission" | "plan" | "handler";
+  readonly stage:
+    "selection" | "admission" | "plan" | "handler" | "post-selection";
 }
 
 async function writeBytes(path: string, bytes: Buffer): Promise<void> {
@@ -685,6 +694,22 @@ export const HOSTILE_FIXTURES: Record<IsobmffDeclineClass, HostileFixture> = {
         path,
         assembleHeif({
           ilocWidths: { offsetSize: 0, lengthSize: 4, baseOffsetSize: 4 },
+        }),
+      ),
+  },
+
+  "cap-ftyp-bytes": {
+    expectedCode: "unsafe-structure",
+    stage: "post-selection",
+    write: (path) =>
+      writeBytes(
+        path,
+        assembleHeif({
+          compatibleBrands: [
+            "mif1",
+            "heic",
+            ...Array<string>(CAP_FTYP_BRAND_FILL).fill("mif1"),
+          ],
         }),
       ),
   },
